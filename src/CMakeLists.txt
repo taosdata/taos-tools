@@ -1,0 +1,75 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0...3.20)
+
+INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR}/build/include)
+
+FIND_PACKAGE(Git)
+IF(GIT_FOUND)
+    EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
+        )
+    IF ("${TAOSDUMP_COMMIT_SHA1}" STREQUAL "")
+        SET(TAOSDUMP_COMMIT_SHA1 "unknown")
+    ELSE ()
+        STRING(SUBSTRING "${TAOSDUMP_COMMIT_SHA1}" 0 7 TAOSDUMP_COMMIT_SHA1)
+        STRING(STRIP "${TAOSDUMP_COMMIT_SHA1}" TAOSDUMP_COMMIT_SHA1)
+    ENDIF ()
+    EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSDUMP_STATUS
+        )
+    IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        EXECUTE_PROCESS(
+            COMMAND bash "-c" "echo '${TAOSDUMP_STATUS}' | awk '{print $1}'"
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDUMP_STATUS
+            )
+    ENDIF ()
+ELSE()
+    MESSAGE("Git not found")
+    SET(TAOSDUMP_COMMIT_SHA1 "unknown")
+    SET(TAOSDUMP_STATUS "unknown")
+ENDIF (GIT_FOUND)
+
+MESSAGE("taosdump's latest commit in short is:" ${TAOSDUMP_COMMIT_SHA1})
+STRING(STRIP "${TAOSDUMP_STATUS}" TAOSDUMP_STATUS)
+
+IF (TAOSDUMP_STATUS MATCHES "M")
+  SET(TAOSDUMP_STATUS "modified")
+ELSE()
+  SET(TAOSDUMP_STATUS "")
+ENDIF ()
+
+MESSAGE("taosdump's status is:" ${TAOSDUMP_STATUS})
+
+ADD_DEFINITIONS(-DTAOSDUMP_COMMIT_SHA1="${TAOSDUMP_COMMIT_SHA1}")
+ADD_DEFINITIONS(-DTAOSDUMP_STATUS="${TAOSDUMP_STATUS}")
+
+MESSAGE("TD_VER_NUMBER is:" ${TD_VER_NUMBER})
+IF ("${TD_VER_NUMBER}" STREQUAL "")
+    SET(TD_VERSION_NUMBER "TDengine-version-unknown")
+ELSE()
+    SET(TD_VERSION_NUMBER ${TD_VER_NUMBER})
+ENDIF ()
+MESSAGE("TD_VERSION_NUMBER is:" ${TD_VERSION_NUMBER})
+ADD_DEFINITIONS(-DTD_VERNUMBER="${TD_VERSION_NUMBER}")
+
+LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/build/lib ${CMAKE_BINARY_DIR}/build/lib64)
+INCLUDE_DIRECTORIES(/usr/local/taos/include)
+
+IF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
+    MESSAGE("${Yellow} DEBUG mode ${ColourReSET}")
+    SET(CMAKE_C_FLAGS "-static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG")
+ELSE ()
+    MESSAGE("${Green} RELEASE mode ${ColourReSET}")
+    SET(CMAKE_C_FLAGS "-DRELEASE")
+ENDIF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
+
+IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    ADD_EXECUTABLE(taosdump taosdump.c)
+    TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+ENDIF ()
+

@@ -1,0 +1,3 @@
+[submodule "deps/avro"]
+	path = deps/avro
+	url = https://github.com/apache/avro
