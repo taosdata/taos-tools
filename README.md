@@ -7,7 +7,7 @@ taos-tools are some useful tool collections for TDengine.
 
 ### For Ubuntu/Debian system
 ```
-sudo apt install libsnappy-dev liblzma-dev libz-dev pkg-config
+sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 ```
 
 ### For CentOS
