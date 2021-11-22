@@ -17,6 +17,20 @@ IF(GIT_FOUND)
         STRING(STRIP "${TAOSDUMP_COMMIT_SHA1}" TAOSDUMP_COMMIT_SHA1)
     ENDIF ()
     EXECUTE_PROCESS(
+        COMMAND ${GIT_EXECUTABLE} describe --tags
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        RESULT_VARIABLE TAG_RESULT
+        OUTPUT_VARIABLE TAOSTOOLS_TAG
+        )
+    IF ("${TAOSTOOLS_TAG}" STREQUAL "")
+        SET(TAOSTOOLS_TAG "0.1.0")
+    ELSE ()
+        SET(TAOSTOOLS_TAG "1.0.0.0")
+        STRING(SUBSTRING "${TAOSTOOLS_TAG}" 4 20 TAOSTOOLS_TAG)
+        STRING(STRIP "${TAOSTOOLS_TAG}" TAOSTOOLS_TAG)
+    ENDIF ()
+
+    EXECUTE_PROCESS(
         COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
         RESULT_VARIABLE RESULT
         OUTPUT_VARIABLE TAOSDUMP_STATUS
@@ -31,9 +45,11 @@ IF(GIT_FOUND)
 ELSE()
     MESSAGE("Git not found")
     SET(TAOSDUMP_COMMIT_SHA1 "unknown")
+    SET(TAOSTOOLS_TAG "0.1.0")
     SET(TAOSDUMP_STATUS "unknown")
 ENDIF (GIT_FOUND)
 
+MESSAGE("taos-tools tag:" ${TAOSTOOLS_TAG})
 MESSAGE("taosdump's latest commit in short is:" ${TAOSDUMP_COMMIT_SHA1})
 STRING(STRIP "${TAOSDUMP_STATUS}" TAOSDUMP_STATUS)
 
@@ -45,17 +61,9 @@ ENDIF ()
 
 MESSAGE("taosdump's status is:" ${TAOSDUMP_STATUS})
 
+ADD_DEFINITIONS(-DTAOSTOOLS_TAG="${TAOSTOOLS_TAG}")
 ADD_DEFINITIONS(-DTAOSDUMP_COMMIT_SHA1="${TAOSDUMP_COMMIT_SHA1}")
 ADD_DEFINITIONS(-DTAOSDUMP_STATUS="${TAOSDUMP_STATUS}")
-
-MESSAGE("TD_VER_NUMBER is:" ${TD_VER_NUMBER})
-IF ("${TD_VER_NUMBER}" STREQUAL "")
-    SET(TD_VERSION_NUMBER "TDengine-version-unknown")
-ELSE()
-    SET(TD_VERSION_NUMBER ${TD_VER_NUMBER})
-ENDIF ()
-MESSAGE("TD_VERSION_NUMBER is:" ${TD_VERSION_NUMBER})
-ADD_DEFINITIONS(-DTD_VERNUMBER="${TD_VERSION_NUMBER}")
 
 LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/build/lib ${CMAKE_BINARY_DIR}/build/lib64)
 LINK_DIRECTORIES(/usr/lib /usr/lib64)
@@ -63,10 +71,10 @@ INCLUDE_DIRECTORIES(/usr/local/taos/include)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/avro/lang/c/src)
 
 IF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
-    MESSAGE("${Yellow} DEBUG mode ${ColourReSET}")
+    MESSAGE("${Yellow} DEBUG mode ${ColourReset}")
     SET(CMAKE_C_FLAGS "-static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG")
 ELSE ()
-    MESSAGE("${Green} RELEASE mode ${ColourReSET}")
+    MESSAGE("${Green} RELEASE mode ${ColourReset}")
     SET(CMAKE_C_FLAGS "-DRELEASE")
 ENDIF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
 

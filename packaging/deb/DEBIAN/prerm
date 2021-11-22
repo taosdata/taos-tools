@@ -1,0 +1,7 @@
+#!/bin/bash
+
+csudo=""
+if command -v sudo > /dev/null; then
+    csudo="sudo"
+fi
+
