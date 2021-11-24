@@ -74,19 +74,25 @@ fi
 ${csudo} mkdir -p /usr/local/bin || :
 ${csudo} ln -sf /usr/local/taos/bin/taosdump          /usr/local/bin/taosdump
 
-if [[ -d /usr/lib64 ]]; then
-    ${csudo} ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/lib64/libavro.so.23.0.0 || :
-    ${csudo} ln -sf /usr/lib64/libavro.so.23.0.0 /usr/lib64/libavro.so.23 || :
-    ${csudo} ln -sf /usr/lib64/libavro.so.23 /usr/lib64/libavro.so || :
-fi
+if [[ -d /usr/local/lib64 ]]; then
+    ${csudo} ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23.0.0 || :
+    ${csudo} ln -sf /usr/local/lib64/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23 || :
+    ${csudo} ln -sf /usr/local/lib64/libavro.so.23 /usr/local/lib64/libavro.so || :
 
-if [[ -d /usr/lib ]]; then
-    ${csudo} ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/lib/libavro.so.23.0.0 || :
-    ${csudo} ln -sf /usr/lib/libavro.so.23.0.0 /usr/lib/libavro.so.23 || :
-    ${csudo} ln -sf /usr/lib/libavro.so.23 /usr/lib/libavro.so || :
+    if [ -d /etc/ld.so.conf.d ]; then
+        ${csudo} echo "/usr/local/lib64" > /etc/ld.so.conf.d/libavro.conf
+        ${csudo} ldconfig
+    else
+        echo "/etc/ld.so.conf.d not found!"
+    fi
+else
+    if [ -d /etc/ld.so.conf.d ]; then
+        ${csudo} echo "/usr/local/lib" > /etc/ld.so.conf.d/libavro.conf
+        ${csudo} ldconfig
+    else
+        echo "/etc/ld.so.conf.d not found!"
+    fi
 fi
-
-${csudo} ldconfig
 
 # Scripts executed before uninstall
 %preun
