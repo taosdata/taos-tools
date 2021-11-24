@@ -12,8 +12,9 @@ sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 
 ### For CentOS
 ```
-sudo yum install xz-devel snappy-devel jansson-devel pkgconfig
+sudo yum install xz-devel snappy-devel jansson-devel pkgconfig libatomic
 ```
+Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)), it lead a cmake prompt libsnappy not found. But snappy will works well.
 
 ## install TDengine client
 Please download TDengine client package from [taosdata.com](https://www.taosdata.com/cn/all-downloads/) or compile TDengine source from [github](github.com/taosdata/TDengine) and install to your system.
