@@ -526,16 +526,16 @@ int setConsoleEcho(bool on)
 }
 
 static void printVersion() {
-    char taostools_tag[] = TAOSTOOLS_TAG;
-    char taosdump_ver[] = TAOSDUMP_COMMIT_SHA1;
+    char taostools_ver[] = TAOSTOOLS_TAG;
+    char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
     char taosdump_status[] = TAOSDUMP_STATUS;
 
     if (strlen(taosdump_status) == 0) {
-        printf("taosdump version %s-%s\n",
-                taostools_tag, taosdump_ver);
+        printf("taosdump version %s_%s\n",
+                taostools_ver, taosdump_commit);
     } else {
-        printf("taosdump version %s-%s, status:%s\n",
-                taostools_tag, taosdump_ver, taosdump_status);
+        printf("taosdump version %s_%s, status:%s\n",
+                taostools_ver, taosdump_commit, taosdump_status);
     }
 }
 
