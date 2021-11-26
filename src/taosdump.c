@@ -3111,7 +3111,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
 
     int64_t start_time, end_time;
     if (strlen(g_args.humanStartTime)) {
-        if (TSDB_CODE_SUCCESS != taosParseTime(
+        if (TSDB_CODE_SUCCESS != taos_parse_time(
                 g_args.humanStartTime, &start_time,
                 strlen(g_args.humanStartTime),
                 precision, 0)) {
@@ -3124,7 +3124,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
     }
 
     if (strlen(g_args.humanEndTime)) {
-        if (TSDB_CODE_SUCCESS != taosParseTime(
+        if (TSDB_CODE_SUCCESS != taos_parse_time(
                 g_args.humanEndTime, &end_time, strlen(g_args.humanEndTime),
                 precision, 0)) {
             errorPrint("Input %s, time format error!\n", g_args.humanEndTime);

@@ -81,6 +81,5 @@ ADD_SUBDIRECTORY(src)
 ADD_DEPENDENCIES(taosdump apache-avro)
 
 SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.sh")
-INSTALL(CODE "MESSAGE(\"make install script: ${MAKE_INSTALL_SH}\")")
 INSTALL(CODE "execute_process(COMMAND bash ${MAKE_INSTALL_SH} ${CMAKE_BINARY_DIR})")
 
