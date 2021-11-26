@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#set -x
+
 source_dir=$1
 
 csudo=""
@@ -15,7 +17,7 @@ ${csudo} cp -rf ${source_dir}/build/lib/libavro* /usr/local/lib || echo -e "fail
 ${csudo} cp -rf ${source_dir}/build/lib/pkgconfig /usr/local/lib || echo -e "failed to copy pkgconfig directory"
 
 if [ -d /etc/ld.so.conf.d ]; then
-    ${csudo} echo "/usr/local/lib" > /etc/ld.so.conf.d/libavro.conf
+    echo "/usr/local/lib" | ${csudo} tee /etc/ld.so.conf.d/libavro.conf > /dev/null || echo -e "failed to write /etc/ld.so.conf.d/libavro.conf"
     ${csudo} ldconfig || echo -e "failed to run ldconfig"
 else
     echo "/etc/ld.so.conf.d not found!"
