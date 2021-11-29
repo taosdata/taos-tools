@@ -12,7 +12,9 @@ fi
 
 [ ! -d /usr/local/taos/bin ] && mkdir -p /usr/local/taos/bin
 ${csudo} cp ${source_dir}/build/bin/taosdump /usr/local/taos/bin || echo -e "failed to copy taosdump"
+${csudo} cp ${source_dir}/build/bin/taosdemo /usr/local/taos/bin || echo -e "failed to copy taosdemo"
 ${csudo} ln -sf /usr/local/taos/bin/taosdump /usr/local/bin/taosdump || echo -e "failed to link taosdump"
+${csudo} ln -sf /usr/local/taos/bin/taosdemo /usr/local/bin/taosdemo || echo -e "failed to link taosdemo"
 ${csudo} cp -rf ${source_dir}/build/lib/libavro* /usr/local/lib || echo -e "failed to copy avro libraries"
 ${csudo} cp -rf ${source_dir}/build/lib/pkgconfig /usr/local/lib || echo -e "failed to copy pkgconfig directory"
 
