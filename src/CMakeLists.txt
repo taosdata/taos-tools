@@ -107,10 +107,10 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/avro/lang/c/src)
 
 IF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
     MESSAGE("${Yellow} DEBUG mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG")
+    SET(CMAKE_C_FLAGS "-std=c99 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0")
 ELSE ()
     MESSAGE("${Green} RELEASE mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-DRELEASE")
+    SET(CMAKE_C_FLAGS "-std=c99 -DRELEASE")
 ENDIF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
