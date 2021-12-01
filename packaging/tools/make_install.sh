@@ -16,12 +16,12 @@ ${csudo} cp ${source_dir}/build/bin/taosdemo /usr/local/taos/bin || echo -e "fai
 ${csudo} ln -sf /usr/local/taos/bin/taosdump /usr/local/bin/taosdump || echo -e "failed to link taosdump"
 ${csudo} ln -sf /usr/local/taos/bin/taosdemo /usr/local/bin/taosdemo || echo -e "failed to link taosdemo"
 
-if [ -f ${source_dir}/build/lib/libavro.so.23.0.0 ];
+if [ -f ${source_dir}/build/lib/libavro.so.23.0.0 ]; then
     ${csudo} cp -rf ${source_dir}/build/lib/libavro* /usr/local/lib > /dev/null || echo -e "failed to copy avro libraries"
     ${csudo} cp -rf ${source_dir}/build/lib/pkgconfig /usr/local/lib > /dev/null || echo -e "failed to copy pkgconfig directory"
 fi
 
-if [ -f ${source_dir}/build/lib64/libavro.so.23.0.0 ];
+if [ -f ${source_dir}/build/lib64/libavro.so.23.0.0 ]; then
     ${csudo} cp -rf ${source_dir}/build/lib64/libavro* /usr/local/lib > /dev/null || echo -e "failed to copy avro libraries"
     ${csudo} cp -rf ${source_dir}/build/lib64/pkgconfig /usr/local/lib > /dev/null || echo -e "failed to copy pkgconfig directory"
 fi
