@@ -16,7 +16,7 @@
 #ifndef __DEMO__
 #define __DEMO__
 
-#include <stdint.h>
+
 
 #define _GNU_SOURCE
 #define CURL_STATICLIB
@@ -42,6 +42,7 @@
 #include <stdio.h>
 #endif
 
+#include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -57,6 +58,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <wordexp.h>
+#include <bits/time.h>
 #include <cJSONDEMO.h>
 #include "taos.h"
 #include "taoserror.h"
