@@ -7,3 +7,5 @@ ExternalProject_Add(
     BUILD_IN_SOURCE     1
     CONFIGURE_COMMAND   cmake -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/build/
 )
+
+ADD_SUBDIRECTORY(cJsonDemo)

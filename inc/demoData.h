@@ -15,7 +15,7 @@
 
 #ifndef __DEMODATA__
 #define __DEMODATA__
-#include "cJSON.h"
+
 #include "demo.h"
 /***** Global variables ******/
 
@@ -64,11 +64,8 @@ int64_t             rand_ubigint();
 char *              rand_float_str();
 float               rand_float();
 char *              demo_current_float_str();
-float UNUSED_FUNC   demo_current_float();
 char *              demo_voltage_int_str();
-int32_t UNUSED_FUNC demo_voltage_int();
 char *              demo_phase_float_str();
-float UNUSED_FUNC   demo_phase_float();
 void                rand_string(char *str, int size);
 char *              rand_double_str();
 double              rand_double();

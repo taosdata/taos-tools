@@ -79,6 +79,7 @@ ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
 
 ADD_DEPENDENCIES(taosdump apache-avro)
+ADD_DEPENDENCIES(taosdemo cJsonDemo)
 
 SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.sh")
 INSTALL(CODE "execute_process(COMMAND bash ${MAKE_INSTALL_SH} ${CMAKE_BINARY_DIR})")

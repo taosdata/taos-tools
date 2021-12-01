@@ -266,11 +266,9 @@ int parse_args(int argc, char *argv[]) {
             if ((strlen(argv[i]) == 2) ||
                 (0 == strcmp(argv[i], "--password"))) {
                 printf("Enter password: ");
-                taosSetConsoleEcho(false);
                 if (scanf("%s", g_args.password) > 1) {
                     fprintf(stderr, "password read error!\n");
                 }
-                taosSetConsoleEcho(true);
             } else {
                 tstrncpy(g_args.password, (char *)(argv[i] + 2),
                          SHELL_MAX_PASSWORD_LEN);
@@ -1543,7 +1541,7 @@ void querySqlFile(TAOS *taos, char *sqlFile) {
 
     double t = (double)taosGetTimestampMs();
 
-    while ((read_len = tgetline(&line, &line_len, fp)) != -1) {
+    while ((read_len = getline(&line, &line_len, fp)) != -1) {
         if (read_len >= TSDB_MAX_BYTES_PER_ROW) continue;
         line[--read_len] = '\0';
 
@@ -1582,7 +1580,7 @@ void querySqlFile(TAOS *taos, char *sqlFile) {
 void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS *      taos = pThreadInfo->taos;
-    setThreadName("queryStableAggrFunc");
+    prctl(PR_SET_NAME, "queryStableAggrFunc");
     char *command = calloc(1, BUFFER_SIZE);
     if (NULL == command) {
         errorPrint("%s", "failed to allocate memory\n");
@@ -1692,7 +1690,7 @@ void *queryStableAggrFunc(void *sarg) {
 void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS *      taos = pThreadInfo->taos;
-    setThreadName("queryNtableAggrFunc");
+    prctl(PR_SET_NAME, "queryNtableAggrFunc");
     char *command = calloc(1, BUFFER_SIZE);
     if (NULL == command) {
         errorPrint("%s", "failed to allocate memory\n");

@@ -76,7 +76,7 @@ void *specifiedSubscribe(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     //  TAOS_SUB*  tsub = NULL;
 
-    setThreadName("specSub");
+    prctl(PR_SET_NAME, "specSub");
 
     if (pThreadInfo->taos == NULL) {
         pThreadInfo->taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
@@ -195,7 +195,7 @@ static void *superSubscribe(void *sarg) {
         goto free_of_super_subscribe;
     }
 
-    setThreadName("superSub");
+    prctl(PR_SET_NAME, "superSub");
 
     if (pThreadInfo->ntables > MAX_QUERY_SQL_COUNT) {
         errorPrint("The table number(%" PRId64
