@@ -46,8 +46,7 @@ void *specifiedTableQuery(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     int32_t *code = calloc(1, sizeof (int32_t));
     *code = -1;
-    setThreadName("specTableQuery");
-
+    prctl(PR_SET_NAME, "specTableQuery");
     if (pThreadInfo->taos == NULL) {
         TAOS *taos = NULL;
         taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
@@ -134,9 +133,7 @@ void *superTableQuery(void *sarg) {
     }
 
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-
-    setThreadName("superTableQuery");
-
+    prctl(PR_SET_NAME, "superTableQuery");
     if (pThreadInfo->taos == NULL) {
         TAOS *taos = NULL;
         taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
@@ -237,7 +234,7 @@ int queryTestProcess() {
 
     if (0 == strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
         if (convertHostToServAddr(g_queryInfo.host, g_queryInfo.port,
-                                  &g_queryInfo.serv_addr) != 0)
+                                  g_queryInfo.serv_addr) != 0)
             ERROR_EXIT("convert host to server address");
     }
 

@@ -56,7 +56,7 @@ static void print_json_aux(json_t *element, int indent);
 #define COMMAND_SIZE            65536
 #define MAX_RECORDS_PER_REQ     32766
 
-// for strncpy buffer overflow
+// for tstrncpy buffer overflow
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
 #define tstrncpy(dst, src, size) \
@@ -1716,10 +1716,10 @@ static void createDumpinList(char *ext, int64_t count)
                         if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                             continue;
                         }
-                        strncpy(g_tsDumpInSqlFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy(g_tsDumpInSqlFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
                     }
                     else {
-                        strncpy(g_tsDumpInAvroFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy(g_tsDumpInAvroFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
                     }
                 }
             }

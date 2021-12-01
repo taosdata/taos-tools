@@ -336,6 +336,45 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("3: %s\n", outSql);
 }
 
+ int64_t taosGetTimestampMs() {
+  struct timeval systemTime;
+  gettimeofday(&systemTime, NULL);
+  return (int64_t)systemTime.tv_sec * 1000L + (int64_t)systemTime.tv_usec / 1000;
+}
+
+int64_t taosGetTimestampUs() {
+  struct timeval systemTime;
+  gettimeofday(&systemTime, NULL);
+  return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+}
+
+int64_t taosGetTimestampNs() {
+  struct timespec systemTime = {0};
+  clock_gettime(CLOCK_REALTIME, &systemTime);
+  return (int64_t)systemTime.tv_sec * 1000000000L + (int64_t)systemTime.tv_nsec;
+}
+
+int64_t taosGetTimestamp(int32_t precision) {
+  if (precision == TSDB_TIME_PRECISION_MICRO) {
+    return taosGetTimestampUs();
+  } else if (precision == TSDB_TIME_PRECISION_NANO) {
+    return taosGetTimestampNs();
+  }else {
+    return taosGetTimestampMs();
+  }
+}
+
+void taosMsleep(int32_t mseconds) {
+  usleep(mseconds * 1000);
+}
+
+int64_t taosGetSelfPthreadId() {
+  static __thread int id = 0;
+  if (id != 0) return id;
+  id = syscall(SYS_gettid);
+  return id;
+}
+
 int isCommentLine(char *line) {
     if (line == NULL) return 1;
 
