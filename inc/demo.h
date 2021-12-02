@@ -409,6 +409,8 @@ typedef struct SSuperTable_S {
     // statistics
     uint64_t totalInsertRows;
     uint64_t totalAffectedRows;
+
+    char* buffer;
 } SSuperTable;
 
 typedef struct {

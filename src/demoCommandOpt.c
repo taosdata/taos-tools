@@ -260,7 +260,7 @@ int parse_args(int argc, char *argv[]) {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
-        } else if ((0 == strncmp(argv[i], "-p", strlen("-p"))) ||
+        } else if ((0 == strcmp(argv[i], "-p")) ||
                    (0 == strcmp(argv[i], "--password"))) {
             if ((strlen(argv[i]) == 2) ||
                 (0 == strcmp(argv[i], "--password"))) {
@@ -975,6 +975,8 @@ int parse_args(int argc, char *argv[]) {
                    (0 == strncmp(argv[i], "--escape-character",
                                  strlen("--escape-character")))) {
             g_args.escapeChar = true;
+        } else if (0 == strncmp(argv[i], "-pressure", strlen("-pressure"))) {
+            g_args.pressure_mode = true;
         } else if ((0 == strncmp(argv[i], "-C", strlen("-C"))) ||
         (0 == strncmp(argv[i], "--chinese",
                       strlen("--chinese")))) {

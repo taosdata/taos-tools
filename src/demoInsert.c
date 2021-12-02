@@ -1104,15 +1104,9 @@ void postFreeResource() {
     tmfree(g_dupstr);
     for (int i = 0; i < g_Dbs.dbCount; i++) {
         for (uint64_t j = 0; j < g_Dbs.db[i].superTblCount; j++) {
-            if (0 != g_Dbs.db[i].superTbls[j].colsOfCreateChildTable) {
-                tmfree(g_Dbs.db[i].superTbls[j].colsOfCreateChildTable);
-                g_Dbs.db[i].superTbls[j].colsOfCreateChildTable = NULL;
-            }
-            if (0 != g_Dbs.db[i].superTbls[j].sampleDataBuf) {
-                tmfree(g_Dbs.db[i].superTbls[j].sampleDataBuf);
-                g_Dbs.db[i].superTbls[j].sampleDataBuf = NULL;
-            }
-
+            tmfree(g_Dbs.db[i].superTbls[j].colsOfCreateChildTable);
+            tmfree(g_Dbs.db[i].superTbls[j].buffer);
+            tmfree(g_Dbs.db[i].superTbls[j].sampleDataBuf);
             for (int c = 0; c < g_Dbs.db[i].superTbls[j].columnCount; c++) {
                 if (g_Dbs.db[i].superTbls[j].sampleBindBatchArray) {
                     tmfree((char *)((uintptr_t) *
@@ -2531,10 +2525,9 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
                                        : g_args.reqPerReq),
                         insertRows, i, start_time, &(pThreadInfo->samplePos));
                 } else {
-                    generated = generateStbProgressiveData(
-                        stbInfo, tableName, tableSeq, pThreadInfo->db_name,
-                        pstr, insertRows, i, start_time,
-                        &(pThreadInfo->samplePos), &remainderBufLen);
+                  generated =
+                      generateStbProgressiveData(stbInfo, tableName, tableSeq, pThreadInfo->db_name, pstr, insertRows,
+                                                 i, start_time, &(pThreadInfo->samplePos), &remainderBufLen);
                 }
             } else {
                 if (g_args.iface == STMT_IFACE) {
@@ -2844,6 +2837,15 @@ void *syncWrite(void *sarg) {
 
 int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                                SSuperTable *stbInfo) {
+    if (stbInfo && g_args.pressure_mode) {
+      stbInfo->buffer = calloc(1, stbInfo->columnCount*2 + 2 );
+      int pos = 0;
+      for (int i = 0; i < stbInfo->columnCount; ++i) {
+        strncpy(stbInfo->buffer + pos,  ",1", 2);
+        pos += 2;
+      }
+      strncpy(stbInfo->buffer + pos, ")", 1);
+    }
     int32_t timePrec = TSDB_TIME_PRECISION_MILLI;
     if (stbInfo) {
         stbInfo->tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
@@ -3347,7 +3349,6 @@ int insertTestProcess() {
     g_fpOfInsertResult = fopen(g_Dbs.resultFile, "a");
     if (NULL == g_fpOfInsertResult) {
         errorPrint("failed to open %s for save result\n", g_Dbs.resultFile);
-        goto end_insert_process;
     }
 
     if (g_fpOfInsertResult) {

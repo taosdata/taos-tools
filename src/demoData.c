@@ -752,7 +752,10 @@ int64_t generateStbRowData(SSuperTable *stbInfo, char *recBuf,
     char *  pstr = recBuf;
     int64_t maxLen = MAX_DATA_SIZE;
     int     tmpLen;
-
+    if (g_args.pressure_mode) {
+      dataLen += snprintf(pstr, maxLen, "(%" PRId64 "%s", timestamp, stbInfo->buffer);
+      return strlen(recBuf);
+    }
     dataLen +=
         snprintf(pstr + dataLen, maxLen - dataLen, "(%" PRId64 "", timestamp);
 
