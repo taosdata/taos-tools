@@ -2528,7 +2528,7 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
             remainderBufLen -= len;
 
             // measure prepare + insert
-            startTs = taosGetTimestampUs();
+            //startTs = taosGetTimestampUs();
 
             if (stbInfo) {
               if (stbInfo->iface == STMT_IFACE) {
@@ -2565,7 +2565,7 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
           }
            pThreadInfo->totalInsertRows += generated;
             // only measure insert
-            // startTs = taosGetTimestampUs();
+            startTs = taosGetTimestampUs();
 
             int32_t affectedRows = execInsert(pThreadInfo, generated);
 
