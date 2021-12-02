@@ -1,17 +1,16 @@
 /*
- * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
- *
- * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
+* Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
+*
+* This program is free software: you can use, redistribute, and/or modify
+* it under the terms of the MIT license as published by the Free Software Foundation.
+*
+* This program is distributed in the hope that it will be useful, but WITHOUT
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+* FITNESS FOR A PARTICULAR PURPOSE.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #ifndef __DEMO__
 #define __DEMO__
@@ -159,6 +158,7 @@ extern char configDir[];
 #define DEFAULT_TOTAL_AFFECT 0
 #define DEFAULT_DEMO_MODE true
 #define DEFAULT_CHINESE_OPT false
+#define DEFAULT_PRESSURE_MODE false
 #define DEFAULT_CREATE_BATCH 10
 #define DEFAULT_SUB_INTERVAL 10000
 #define DEFAULT_QUERY_INTERVAL 10000
@@ -331,6 +331,7 @@ typedef struct SArguments_S {
     uint64_t totalAffectedRows;
     bool     demo_mode;  // use default column name and semi-random data
     bool     chinese;
+    bool     pressure_mode;
 } SArguments;
 
 typedef struct SColumn_S {
