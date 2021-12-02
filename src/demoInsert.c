@@ -2497,7 +2497,7 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
           if (g_args.pressure_mode) {
             len = snprintf(pstr + len, maxSqlLen - len,  "insert into %s.%s%" PRId64 " values ", pThreadInfo->db_name, stbInfo->childTblPrefix, tableSeq);
             for (generated = 0; generated < g_args.reqPerReq;) {
-              len += snprintf(pstr + len, maxSqlLen - len, "(%" PRId64 ",", start_time + stbInfo->timeStampStep * i);
+              len += snprintf(pstr + len, maxSqlLen - len, "(%" PRId64 "", start_time + stbInfo->timeStampStep * i);
               len += snprintf(pstr + len, maxSqlLen - len, "%s", stbInfo->buffer);
 
               generated++;
