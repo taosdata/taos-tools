@@ -893,7 +893,6 @@ static void *createTable(void *sarg) {
             errorPrint("queryDbExec() failed. buffer:\n%s\n",
                        pThreadInfo->buffer);
             goto create_table_end;
-            return NULL;
         }
         pThreadInfo->tables_created += batchNum;
         uint64_t currentPrintTime = taosGetTimestampMs();
