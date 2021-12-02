@@ -196,15 +196,6 @@ char *demo_current_float_str() {
            ((cursor % g_args.prepared_rand) * FLOAT_BUFF_LEN);
 }
 
-float UNUSED_FUNC demo_current_float() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return (float)(9.8 +
-                   0.04 * (g_randint[cursor % g_args.prepared_rand] % 10) +
-                   g_randfloat[cursor % g_args.prepared_rand] / 1000000000);
-}
-
 char *demo_voltage_int_str() {
     static int cursor;
     cursor++;
@@ -213,28 +204,12 @@ char *demo_voltage_int_str() {
            ((cursor % g_args.prepared_rand) * INT_BUFF_LEN);
 }
 
-int32_t UNUSED_FUNC demo_voltage_int() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return 215 + g_randint[cursor % g_args.prepared_rand] % 10;
-}
-
 char *demo_phase_float_str() {
     static int cursor;
     cursor++;
     if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_rand_phase_buff +
            ((cursor % g_args.prepared_rand) * FLOAT_BUFF_LEN);
-}
-
-float UNUSED_FUNC demo_phase_float() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return (float)((115 + g_randint[cursor % g_args.prepared_rand] % 10 +
-                    g_randfloat[cursor % g_args.prepared_rand] / 1000000000) /
-                   360);
 }
 
 static int usc2utf8(char* p, int unic) {
@@ -614,7 +589,7 @@ static int readTagFromCsvFileToMem(SSuperTable *stbInfo) {
         return -1;
     }
 
-    while ((readLen = tgetline(&line, &n, fp)) != -1) {
+    while ((readLen = getline(&line, &n, fp)) != -1) {
         if (('\r' == line[readLen - 1]) || ('\n' == line[readLen - 1])) {
             line[--readLen] = 0;
         }
@@ -691,7 +666,7 @@ static int generateSampleFromCsvForStb(SSuperTable *stbInfo) {
         return -1;
     }
     while (1) {
-        readLen = tgetline(&line, &n, fp);
+        readLen = getline(&line, &n, fp);
         if (-1 == readLen) {
             if (0 != fseek(fp, 0, SEEK_SET)) {
                 errorPrint("Failed to fseek file: %s, reason:%s\n",
@@ -1506,7 +1481,7 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
             bind->buffer_type = TSDB_DATA_TYPE_BINARY;
             if (value) {
                 bind_binary = calloc(1, strlen(value) + 1);
-                strncpy(bind_binary, value, strlen(value));
+                tstrncpy(bind_binary, value, strlen(value));
                 bind->buffer_length = strlen(bind_binary);
             } else {
                 bind_binary = calloc(1, dataLen + 1);
@@ -1530,7 +1505,7 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
             bind->buffer_type = TSDB_DATA_TYPE_NCHAR;
             if (value) {
                 bind_nchar = calloc(1, strlen(value) + 1);
-                strncpy(bind_nchar, value, strlen(value));
+                tstrncpy(bind_nchar, value, strlen(value));
             } else {
                 bind_nchar = calloc(1, dataLen + 1);
                 rand_string(bind_nchar, dataLen);
@@ -1724,7 +1699,7 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
                     }
                     int64_t tmpEpoch;
                     if (TSDB_CODE_SUCCESS !=
-                        taosParseTime(value, &tmpEpoch, (int32_t)strlen(value),
+                        taos_parse_time(value, &tmpEpoch, (int32_t)strlen(value),
                                       timePrec, 0)) {
                         free(bind_ts2);
                         errorPrint("Input %s, time format error!\n", value);
@@ -1963,7 +1938,7 @@ int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
                 return -1;
             }
 
-            strncpy(tmpStr, restStr, index);
+            tstrncpy(tmpStr, restStr, index);
             cursor += index + 1;  // skip ',' too
             char *tmpP;
 

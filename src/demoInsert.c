@@ -12,7 +12,6 @@
 * along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "cJSON.h"
 #include "demo.h"
 #include "demoData.h"
 
@@ -809,8 +808,7 @@ static void *createTable(void *sarg) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int32_t* code = calloc(1, sizeof(int32_t));
     *code = -1;
-    setThreadName("createTable");
-
+    prctl(PR_SET_NAME, "createTable");
     uint64_t lastPrintTime = taosGetTimestampMs();
 
     int buff_len = BUFFER_SIZE;
@@ -2806,9 +2804,7 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
 void *syncWrite(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
-
-    setThreadName("syncWrite");
-
+    prctl(PR_SET_NAME, "syncWrite");
     uint32_t interlaceRows = 0;
 
     if (stbInfo) {
@@ -2842,89 +2838,6 @@ void *syncWrite(void *sarg) {
             return syncWriteProgressive(pThreadInfo);
         }
     }
-
-    return NULL;
-}
-
-void callBack(void *param, TAOS_RES *res, int code) {
-    threadInfo * pThreadInfo = (threadInfo *)param;
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
-
-    int insert_interval =
-        (int)(stbInfo ? stbInfo->insertInterval : g_args.insert_interval);
-    if (insert_interval) {
-        pThreadInfo->et = taosGetTimestampMs();
-        if ((pThreadInfo->et - pThreadInfo->st) < insert_interval) {
-            taosMsleep(insert_interval -
-                       (int32_t)(pThreadInfo->et - pThreadInfo->st));  // ms
-        }
-    }
-
-    char *buffer = calloc(1, pThreadInfo->stbInfo->maxSqlLen);
-    char  data[MAX_DATA_SIZE];
-    char *pstr = buffer;
-    pstr += sprintf(pstr, "INSERT INTO %s.%s%" PRId64 " VALUES",
-                    pThreadInfo->db_name, pThreadInfo->tb_prefix,
-                    pThreadInfo->start_table_from);
-    //  if (pThreadInfo->counter >= pThreadInfo->stbInfo->insertRows) {
-    if (pThreadInfo->counter >= g_args.reqPerReq) {
-        pThreadInfo->start_table_from++;
-        pThreadInfo->counter = 0;
-    }
-    if (pThreadInfo->start_table_from > pThreadInfo->end_table_to) {
-        tsem_post(&pThreadInfo->lock_sem);
-        free(buffer);
-        taos_free_result(res);
-        return;
-    }
-
-    for (int i = 0; i < g_args.reqPerReq; i++) {
-        int rand_num = taosRandom() % 100;
-        if (0 != pThreadInfo->stbInfo->disorderRatio &&
-            rand_num < pThreadInfo->stbInfo->disorderRatio) {
-            int64_t d =
-                pThreadInfo->lastTs -
-                (taosRandom() % pThreadInfo->stbInfo->disorderRange + 1);
-            generateStbRowData(pThreadInfo->stbInfo, data, MAX_DATA_SIZE, d);
-        } else {
-            generateStbRowData(pThreadInfo->stbInfo, data, MAX_DATA_SIZE,
-                               pThreadInfo->lastTs += 1000);
-        }
-        pstr += sprintf(pstr, "%s", data);
-        pThreadInfo->counter++;
-
-        if (pThreadInfo->counter >= pThreadInfo->stbInfo->insertRows) {
-            break;
-        }
-    }
-
-    if (insert_interval) {
-        pThreadInfo->st = taosGetTimestampMs();
-    }
-    taos_query_a(pThreadInfo->taos, buffer, callBack, pThreadInfo);
-    free(buffer);
-
-    taos_free_result(res);
-}
-
-void *asyncWrite(void *sarg) {
-    threadInfo * pThreadInfo = (threadInfo *)sarg;
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
-
-    setThreadName("asyncWrite");
-
-    pThreadInfo->st = 0;
-    pThreadInfo->et = 0;
-    pThreadInfo->lastTs = pThreadInfo->start_time;
-
-    int insert_interval =
-        (int)(stbInfo ? stbInfo->insertInterval : g_args.insert_interval);
-    if (insert_interval) {
-        pThreadInfo->st = taosGetTimestampMs();
-    }
-    taos_query_a(pThreadInfo->taos, "show databases", callBack, pThreadInfo);
-
-    tsem_wait(&(pThreadInfo->lock_sem));
 
     return NULL;
 }
@@ -2982,7 +2895,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             startTime = taosGetTimestamp(timePrec);
         } else {
             if (TSDB_CODE_SUCCESS !=
-                taosParseTime(stbInfo->startTimestamp, &startTime,
+                taos_parse_time(stbInfo->startTimestamp, &startTime,
                               (int32_t)strlen(stbInfo->startTimestamp),
                               timePrec, 0)) {
                 errorPrint("failed to parse time %s\n",
@@ -3109,7 +3022,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
     if (g_args.iface == REST_IFACE ||
         ((stbInfo) && (stbInfo->iface == REST_IFACE))) {
-        if (convertHostToServAddr(g_Dbs.host, g_Dbs.port, &(g_Dbs.serv_addr)) !=
+        if (convertHostToServAddr(g_Dbs.host, g_Dbs.port, g_Dbs.serv_addr) !=
             0) {
             errorPrint("%s\n", "convert host to server address");
             return -1;
@@ -3285,13 +3198,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             }
             pThreadInfo->sockfd = sockfd;
         }
-
-        tsem_init(&(pThreadInfo->lock_sem), 0, 0);
-        if (ASYNC_MODE == g_Dbs.asyncMode) {
-            pthread_create(pids + i, NULL, asyncWrite, pThreadInfo);
-        } else {
-            pthread_create(pids + i, NULL, syncWrite, pThreadInfo);
-        }
+        pthread_create(pids + i, NULL, syncWrite, pThreadInfo);
     }
 
     free(stmtBuffer);
@@ -3315,8 +3222,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-
-        tsem_destroy(&(pThreadInfo->lock_sem));
         taos_close(pThreadInfo->taos);
 
         if (pThreadInfo->stmt) {

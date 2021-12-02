@@ -15,9 +15,8 @@
 #ifndef __DEMO__
 #define __DEMO__
 
-#include <stdint.h>
-#include <taos.h>
-#include <taoserror.h>
+
+
 #define _GNU_SOURCE
 #define CURL_STATICLIB
 
@@ -42,13 +41,27 @@
 #include <stdio.h>
 #endif
 
+#include <stdint.h>
 #include <assert.h>
 #include <stdlib.h>
-
-// #include "os.h"
+#include <sys/socket.h>
+#include <time.h>
+#include <sys/time.h>
+#include <syscall.h>
+#include <sys/prctl.h>
+#include <string.h>
+#include <ctype.h>
+#include <inttypes.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <pthread.h>
+#include <errno.h>
+#include <wordexp.h>
+#include <bits/time.h>
+#include <cJSONDEMO.h>
 #include "taos.h"
 #include "taoserror.h"
-#include "tutil.h"
+#include "taosdef.h"
 
 #define REQ_EXTRA_BUF_LEN 1024
 #define RESP_BUF_LEN 4096
@@ -449,7 +462,7 @@ typedef struct SDataBase_S {
 typedef struct SDbs_S {
     char               cfgDir[MAX_FILE_NAME_LEN];
     char               host[MAX_HOSTNAME_SIZE];
-    struct sockaddr_in serv_addr;
+    struct sockaddr_in *serv_addr;
 
     uint16_t port;
     char     user[MAX_USERNAME_SIZE];
@@ -514,7 +527,7 @@ typedef struct SQueryMetaInfo_S {
     char               cfgDir[MAX_FILE_NAME_LEN];
     char               host[MAX_HOSTNAME_SIZE];
     uint16_t           port;
-    struct sockaddr_in serv_addr;
+    struct sockaddr_in *serv_addr;
     char               user[MAX_USERNAME_SIZE];
     char               password[SHELL_MAX_PASSWORD_LEN];
     char               dbName[TSDB_DB_NAME_LEN];
@@ -548,8 +561,6 @@ typedef struct SThreadInfo_S {
     SSuperTable *stbInfo;
     char *       buffer;  // sql cmd buffer
 
-    // for async insert
-    tsem_t   lock_sem;
     int64_t  counter;
     uint64_t st;
     uint64_t et;
@@ -573,7 +584,7 @@ typedef struct SThreadInfo_S {
     TAOS_SUB *tsub;
 
     char **lines;
-    SOCKET sockfd;
+    int32_t sockfd;
 } threadInfo;
 
 /* ************ Global variables ************  */
@@ -589,7 +600,11 @@ extern FILE *         g_fpOfInsertResult;
 extern bool g_fail;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-
+#define tstrncpy(dst, src, size) \
+  do {                              \
+    strncpy((dst), (src), (size));  \
+    (dst)[(size)-1] = 0;            \
+  } while (0)
 /* ************ Function declares ************  */
 /* demoCommandOpt.c */
 int  parse_args(int argc, char *argv[]);
@@ -601,6 +616,12 @@ int getInfoFromJsonFile(char *file);
 int testMetaFile();
 /* demoUtil.c */
 int   isCommentLine(char *line);
+int64_t taosGetTimestampMs();
+int64_t taosGetTimestampUs();
+int64_t taosGetTimestampNs();
+int64_t taosGetTimestamp(int32_t precision);
+void taosMsleep(int32_t mseconds);
+int64_t taosGetSelfPthreadId();
 void  replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void  setupForAnsiEscape(void);
 void  resetAfterAnsiEscape(void);
