@@ -201,7 +201,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             errorPrint("%s", "failed to read json, column len not found\n");
             goto PARSE_OVER;
         } else {
-            columnCase.dataLen = 0;
+            columnCase.dataLen = SMALL_BUFF_LEN;
         }
 
         for (int n = 0; n < count; ++n) {
