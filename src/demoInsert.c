@@ -2938,13 +2938,14 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                startTime);
 
     // read sample data from file first
-    int ret;
-    if (stbInfo && stbInfo->iface != SML_IFACE) {
-        ret = prepareSampleForStb(stbInfo);
-    } else {
-        ret = prepareSampleForNtb();
+    int ret = 0;
+    if (stbInfo->iface != SML_IFACE) {
+        if (stbInfo && stbInfo->iface != SML_IFACE) {
+            ret = prepareSampleForStb(stbInfo);
+        } else {
+            ret = prepareSampleForNtb();
+        }
     }
-
     if (ret) {
         errorPrint("%s", "prepare sample data for stable failed!\n");
         return -1;
@@ -3394,8 +3395,10 @@ int insertTestProcess() {
     }
 
     // pretreatment
-    if (prepareSampleData()) {
-        goto end_insert_process;
+    if (g_args.iface != SML_IFACE) {
+        if (prepareSampleData()) {
+            goto end_insert_process;
+        }
     }
 
     if (g_args.iface != SML_IFACE && g_totalChildTables > 0) {
