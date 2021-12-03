@@ -2,8 +2,8 @@
  * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
  *
  * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -213,50 +213,39 @@ char *demo_phase_float_str() {
            ((cursor % g_args.prepared_rand) * FLOAT_BUFF_LEN);
 }
 
-static int usc2utf8(char* p, int unic) {
-    if ( unic <= 0x0000007F )
-    {
-        *p     = (unic & 0x7F);
+static int usc2utf8(char *p, int unic) {
+    if (unic <= 0x0000007F) {
+        *p = (unic & 0x7F);
         return 1;
-    }
-    else if ( unic >= 0x00000080 && unic <= 0x000007FF )
-    {
-        *(p+1) = (unic & 0x3F) | 0x80;
-        *p     = ((unic >> 6) & 0x1F) | 0xC0;
+    } else if (unic >= 0x00000080 && unic <= 0x000007FF) {
+        *(p + 1) = (unic & 0x3F) | 0x80;
+        *p = ((unic >> 6) & 0x1F) | 0xC0;
         return 2;
-    }
-    else if ( unic >= 0x00000800 && unic <= 0x0000FFFF )
-    {
-        *(p+2) = (unic & 0x3F) | 0x80;
-        *(p+1) = ((unic >>  6) & 0x3F) | 0x80;
-        *p     = ((unic >> 12) & 0x0F) | 0xE0;
+    } else if (unic >= 0x00000800 && unic <= 0x0000FFFF) {
+        *(p + 2) = (unic & 0x3F) | 0x80;
+        *(p + 1) = ((unic >> 6) & 0x3F) | 0x80;
+        *p = ((unic >> 12) & 0x0F) | 0xE0;
         return 3;
-    }
-    else if ( unic >= 0x00010000 && unic <= 0x001FFFFF )
-    {
-        *(p+3) = (unic & 0x3F) | 0x80;
-        *(p+2) = ((unic >>  6) & 0x3F) | 0x80;
-        *(p+1) = ((unic >> 12) & 0x3F) | 0x80;
-        *p     = ((unic >> 18) & 0x07) | 0xF0;
+    } else if (unic >= 0x00010000 && unic <= 0x001FFFFF) {
+        *(p + 3) = (unic & 0x3F) | 0x80;
+        *(p + 2) = ((unic >> 6) & 0x3F) | 0x80;
+        *(p + 1) = ((unic >> 12) & 0x3F) | 0x80;
+        *p = ((unic >> 18) & 0x07) | 0xF0;
         return 4;
-    }
-    else if ( unic >= 0x00200000 && unic <= 0x03FFFFFF )
-    {
-        *(p+4) = (unic & 0x3F) | 0x80;
-        *(p+3) = ((unic >>  6) & 0x3F) | 0x80;
-        *(p+2) = ((unic >> 12) & 0x3F) | 0x80;
-        *(p+1) = ((unic >> 18) & 0x3F) | 0x80;
-        *p     = ((unic >> 24) & 0x03) | 0xF8;
+    } else if (unic >= 0x00200000 && unic <= 0x03FFFFFF) {
+        *(p + 4) = (unic & 0x3F) | 0x80;
+        *(p + 3) = ((unic >> 6) & 0x3F) | 0x80;
+        *(p + 2) = ((unic >> 12) & 0x3F) | 0x80;
+        *(p + 1) = ((unic >> 18) & 0x3F) | 0x80;
+        *p = ((unic >> 24) & 0x03) | 0xF8;
         return 5;
-    }
-    else if ( unic >= 0x04000000 && unic <= 0x7FFFFFFF )
-    {
-        *(p+5) = (unic & 0x3F) | 0x80;
-        *(p+4) = ((unic >>  6) & 0x3F) | 0x80;
-        *(p+3) = ((unic >> 12) & 0x3F) | 0x80;
-        *(p+2) = ((unic >> 18) & 0x3F) | 0x80;
-        *(p+1) = ((unic >> 24) & 0x3F) | 0x80;
-        *p     = ((unic >> 30) & 0x01) | 0xFC;
+    } else if (unic >= 0x04000000 && unic <= 0x7FFFFFFF) {
+        *(p + 5) = (unic & 0x3F) | 0x80;
+        *(p + 4) = ((unic >> 6) & 0x3F) | 0x80;
+        *(p + 3) = ((unic >> 12) & 0x3F) | 0x80;
+        *(p + 2) = ((unic >> 18) & 0x3F) | 0x80;
+        *(p + 1) = ((unic >> 24) & 0x3F) | 0x80;
+        *p = ((unic >> 30) & 0x01) | 0xFC;
         return 6;
     }
     return 0;
@@ -264,8 +253,8 @@ static int usc2utf8(char* p, int unic) {
 
 void rand_string(char *str, int size) {
     if (g_args.chinese) {
-        char* pstr = str;
-        int move = 0;
+        char *pstr = str;
+        int   move = 0;
         while (size > 0) {
             // Chinese Character need 3 bytes space
             if (size < 3) {
@@ -753,7 +742,11 @@ int64_t generateStbRowData(SSuperTable *stbInfo, char *recBuf,
     char *  pstr = recBuf;
     int64_t maxLen = MAX_DATA_SIZE;
     int     tmpLen;
-
+    if (g_args.pressure_mode) {
+        dataLen += snprintf(pstr, maxLen, "(%" PRId64 "%s", timestamp,
+                            stbInfo->buffer);
+        return strlen(recBuf);
+    }
     dataLen +=
         snprintf(pstr + dataLen, maxLen - dataLen, "(%" PRId64 "", timestamp);
 
@@ -1700,8 +1693,8 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
                     }
                     int64_t tmpEpoch;
                     if (TSDB_CODE_SUCCESS !=
-                        taos_parse_time(value, &tmpEpoch, (int32_t)strlen(value),
-                                      timePrec, 0)) {
+                        taos_parse_time(value, &tmpEpoch,
+                                        (int32_t)strlen(value), timePrec, 0)) {
                         free(bind_ts2);
                         errorPrint("Input %s, time format error!\n", value);
                         return -1;

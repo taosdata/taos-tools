@@ -2,8 +2,8 @@
  * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
  *
  * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -201,7 +201,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             errorPrint("%s", "failed to read json, column len not found\n");
             goto PARSE_OVER;
         } else {
-            columnCase.dataLen = 0;
+            columnCase.dataLen = SMALL_BUFF_LEN;
         }
 
         for (int n = 0; n < count; ++n) {

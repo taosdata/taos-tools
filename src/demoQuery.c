@@ -2,8 +2,8 @@
  * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
  *
  * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -44,7 +44,7 @@ void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
 
 void *specifiedTableQuery(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    int32_t *code = calloc(1, sizeof (int32_t));
+    int32_t *   code = calloc(1, sizeof(int32_t));
     *code = -1;
     prctl(PR_SET_NAME, "specTableQuery");
     if (pThreadInfo->taos == NULL) {
@@ -119,12 +119,12 @@ void *specifiedTableQuery(void *sarg) {
         }
     }
     *code = 0;
-    end_of_specified_query:
+end_of_specified_query:
     return code;
 }
 
 void *superTableQuery(void *sarg) {
-    int32_t * code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     char *sqlstr = calloc(1, BUFFER_SIZE);
     if (NULL == sqlstr) {
@@ -202,7 +202,7 @@ void *superTableQuery(void *sarg) {
                pThreadInfo->end_table_to, (double)(et - st) / 1000.0);
     }
     *code = 0;
-    free_of_super_query:
+free_of_super_query:
     tmfree(sqlstr);
     return code;
 }
@@ -400,9 +400,9 @@ int queryTestProcess() {
     if ((nSqlCount > 0) && (nConcurrent > 0)) {
         for (int i = 0; i < nConcurrent; i++) {
             for (int j = 0; j < nSqlCount; j++) {
-                void* result;
+                void *result;
                 pthread_join(pids[i * nSqlCount + j], &result);
-                if (*(int32_t*)result) {
+                if (*(int32_t *)result) {
                     g_fail = true;
                 }
                 tmfree(result);
@@ -423,9 +423,9 @@ int queryTestProcess() {
     tmfree((char *)infos);
 
     for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
-        void* result;
+        void *result;
         pthread_join(pidsOfSub[i], &result);
-        if (*(int32_t*)result) {
+        if (*(int32_t *)result) {
             g_fail = true;
         }
         tmfree(result);

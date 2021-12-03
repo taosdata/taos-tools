@@ -2,8 +2,8 @@
  * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
  *
  * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -893,7 +893,6 @@ static void *createTable(void *sarg) {
             errorPrint("queryDbExec() failed. buffer:\n%s\n",
                        pThreadInfo->buffer);
             goto create_table_end;
-            return NULL;
         }
         pThreadInfo->tables_created += batchNum;
         uint64_t currentPrintTime = taosGetTimestampMs();
@@ -1105,15 +1104,9 @@ void postFreeResource() {
     tmfree(g_dupstr);
     for (int i = 0; i < g_Dbs.dbCount; i++) {
         for (uint64_t j = 0; j < g_Dbs.db[i].superTblCount; j++) {
-            if (0 != g_Dbs.db[i].superTbls[j].colsOfCreateChildTable) {
-                tmfree(g_Dbs.db[i].superTbls[j].colsOfCreateChildTable);
-                g_Dbs.db[i].superTbls[j].colsOfCreateChildTable = NULL;
-            }
-            if (0 != g_Dbs.db[i].superTbls[j].sampleDataBuf) {
-                tmfree(g_Dbs.db[i].superTbls[j].sampleDataBuf);
-                g_Dbs.db[i].superTbls[j].sampleDataBuf = NULL;
-            }
-
+            tmfree(g_Dbs.db[i].superTbls[j].colsOfCreateChildTable);
+            tmfree(g_Dbs.db[i].superTbls[j].buffer);
+            tmfree(g_Dbs.db[i].superTbls[j].sampleDataBuf);
             for (int c = 0; c < g_Dbs.db[i].superTbls[j].columnCount; c++) {
                 if (g_Dbs.db[i].superTbls[j].sampleBindBatchArray) {
                     tmfree((char *)((uintptr_t) *
@@ -2496,75 +2489,99 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
 
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
          tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
-        int64_t start_time = pThreadInfo->start_time;
-
+        int64_t  start_time = pThreadInfo->start_time;
+        char *   pstr = pThreadInfo->buffer;
+        uint64_t len = 0;
+        int32_t  generated;
         for (uint64_t i = 0; i < insertRows;) {
-            char tableName[TSDB_TABLE_NAME_LEN];
-            getTableName(tableName, pThreadInfo, tableSeq);
-            verbosePrint("%s() LN%d: tid=%d seq=%" PRId64 " tableName=%s\n",
-                         __func__, __LINE__, pThreadInfo->threadID, tableSeq,
-                         tableName);
-            if (0 == strlen(tableName)) {
-                errorPrint("[%d] %s() LN%d, getTableName return null\n",
-                           pThreadInfo->threadID, __func__, __LINE__);
-                goto free_of_progressive;
-            }
+            if (g_args.pressure_mode) {
+                len = snprintf(pstr + len, maxSqlLen - len,
+                               "insert into %s.%s%" PRId64 " values ",
+                               pThreadInfo->db_name, stbInfo->childTblPrefix,
+                               tableSeq);
+                for (generated = 0; generated < g_args.reqPerReq;) {
+                    len += snprintf(pstr + len, maxSqlLen - len, "(%" PRId64 "",
+                                    start_time + stbInfo->timeStampStep * i);
+                    len += snprintf(pstr + len, maxSqlLen - len, "%s",
+                                    stbInfo->buffer);
 
-            int64_t remainderBufLen = maxSqlLen - 2000;
-            char *  pstr = pThreadInfo->buffer;
+                    generated++;
+                    i++;
+                    if (i >= stbInfo->insertRows) {
+                        break;
+                    }
 
-            int len = snprintf(pstr, strlen(STR_INSERT_INTO) + 1, "%s",
-                               STR_INSERT_INTO);
-
-            pstr += len;
-            remainderBufLen -= len;
-
-            // measure prepare + insert
-            startTs = taosGetTimestampUs();
-
-            int32_t generated;
-            if (stbInfo) {
-                if (stbInfo->iface == STMT_IFACE) {
-                    generated = prepareStbStmt(
-                        pThreadInfo, tableName, tableSeq,
-                        (uint32_t)((g_args.reqPerReq > stbInfo->insertRows)
-                                       ? stbInfo->insertRows
-                                       : g_args.reqPerReq),
-                        insertRows, i, start_time, &(pThreadInfo->samplePos));
-                } else {
-                    generated = generateStbProgressiveData(
-                        stbInfo, tableName, tableSeq, pThreadInfo->db_name,
-                        pstr, insertRows, i, start_time,
-                        &(pThreadInfo->samplePos), &remainderBufLen);
+                    if (maxSqlLen - len < stbInfo->lenOfOneRow + 32) {
+                        break;
+                    }
                 }
             } else {
-                if (g_args.iface == STMT_IFACE) {
-                    generated = prepareStmtWithoutStb(
-                        pThreadInfo, tableName, g_args.reqPerReq, insertRows, i,
-                        start_time);
-                } else {
-                    generated = generateProgressiveDataWithoutStb(
-                        tableName,
-                        /*  tableSeq, */
-                        pThreadInfo, pstr, insertRows, i, start_time,
-                        /* &(pThreadInfo->samplePos), */
-                        &remainderBufLen);
+                char tableName[TSDB_TABLE_NAME_LEN];
+                getTableName(tableName, pThreadInfo, tableSeq);
+                verbosePrint("%s() LN%d: tid=%d seq=%" PRId64 " tableName=%s\n",
+                             __func__, __LINE__, pThreadInfo->threadID,
+                             tableSeq, tableName);
+                if (0 == strlen(tableName)) {
+                    errorPrint("[%d] %s() LN%d, getTableName return null\n",
+                               pThreadInfo->threadID, __func__, __LINE__);
+                    goto free_of_progressive;
                 }
+
+                int64_t remainderBufLen = maxSqlLen - 2000;
+
+                len = snprintf(pstr, strlen(STR_INSERT_INTO) + 1, "%s",
+                               STR_INSERT_INTO);
+
+                pstr += len;
+                remainderBufLen -= len;
+
+                // measure prepare + insert
+                // startTs = taosGetTimestampUs();
+
+                if (stbInfo) {
+                    if (stbInfo->iface == STMT_IFACE) {
+                        generated = prepareStbStmt(
+                            pThreadInfo, tableName, tableSeq,
+                            (uint32_t)((g_args.reqPerReq > stbInfo->insertRows)
+                                           ? stbInfo->insertRows
+                                           : g_args.reqPerReq),
+                            insertRows, i, start_time,
+                            &(pThreadInfo->samplePos));
+                    } else {
+                        generated = generateStbProgressiveData(
+                            stbInfo, tableName, tableSeq, pThreadInfo->db_name,
+                            pstr, insertRows, i, start_time,
+                            &(pThreadInfo->samplePos), &remainderBufLen);
+                    }
+                } else {
+                    if (g_args.iface == STMT_IFACE) {
+                        generated = prepareStmtWithoutStb(
+                            pThreadInfo, tableName, g_args.reqPerReq,
+                            insertRows, i, start_time);
+                    } else {
+                        generated = generateProgressiveDataWithoutStb(
+                            tableName,
+                            /*  tableSeq, */
+                            pThreadInfo, pstr, insertRows, i, start_time,
+                            /* &(pThreadInfo->samplePos), */
+                            &remainderBufLen);
+                    }
+                }
+
+                verbosePrint("[%d] %s() LN%d generated=%d\n",
+                             pThreadInfo->threadID, __func__, __LINE__,
+                             generated);
+
+                if (generated > 0)
+                    i += generated;
+                else
+                    goto free_of_progressive;
+
+                start_time += generated * timeStampStep;
             }
-
-            verbosePrint("[%d] %s() LN%d generated=%d\n", pThreadInfo->threadID,
-                         __func__, __LINE__, generated);
-
-            if (generated > 0)
-                i += generated;
-            else
-                goto free_of_progressive;
-
-            start_time += generated * timeStampStep;
             pThreadInfo->totalInsertRows += generated;
-
             // only measure insert
-            // startTs = taosGetTimestampUs();
+            startTs = taosGetTimestampUs();
 
             int32_t affectedRows = execInsert(pThreadInfo, generated);
 
@@ -2604,6 +2621,7 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
             }
 
             if (i >= insertRows) break;
+
         }  // insertRows
 
         if ((g_args.verbose_print) && (tableSeq == pThreadInfo->ntables - 1) &&
@@ -2844,6 +2862,15 @@ void *syncWrite(void *sarg) {
 
 int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                                SSuperTable *stbInfo) {
+    if (stbInfo && g_args.pressure_mode) {
+        stbInfo->buffer = calloc(1, stbInfo->columnCount * 2 + 2);
+        int pos = 0;
+        for (int i = 0; i < stbInfo->columnCount; ++i) {
+            strncpy(stbInfo->buffer + pos, ",1", 2);
+            pos += 2;
+        }
+        strncpy(stbInfo->buffer + pos, ")", 1);
+    }
     int32_t timePrec = TSDB_TIME_PRECISION_MILLI;
     if (stbInfo) {
         stbInfo->tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
@@ -2910,13 +2937,14 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                startTime);
 
     // read sample data from file first
-    int ret;
-    if (stbInfo && stbInfo->iface != SML_IFACE) {
-        ret = prepareSampleForStb(stbInfo);
-    } else {
-        ret = prepareSampleForNtb();
+    int ret = 0;
+    if (stbInfo->iface != SML_IFACE) {
+        if (stbInfo && stbInfo->iface != SML_IFACE) {
+            ret = prepareSampleForStb(stbInfo);
+        } else {
+            ret = prepareSampleForNtb();
+        }
     }
-
     if (ret) {
         errorPrint("%s", "prepare sample data for stable failed!\n");
         return -1;
@@ -3347,7 +3375,6 @@ int insertTestProcess() {
     g_fpOfInsertResult = fopen(g_Dbs.resultFile, "a");
     if (NULL == g_fpOfInsertResult) {
         errorPrint("failed to open %s for save result\n", g_Dbs.resultFile);
-        goto end_insert_process;
     }
 
     if (g_fpOfInsertResult) {
@@ -3367,8 +3394,10 @@ int insertTestProcess() {
     }
 
     // pretreatment
-    if (prepareSampleData()) {
-        goto end_insert_process;
+    if (g_args.iface != SML_IFACE) {
+        if (prepareSampleData()) {
+            goto end_insert_process;
+        }
     }
 
     if (g_args.iface != SML_IFACE && g_totalChildTables > 0) {
