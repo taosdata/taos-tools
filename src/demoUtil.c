@@ -1,16 +1,17 @@
 /*
-* Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
-*
-* This program is free software: you can use, redistribute, and/or modify
-* it under the terms of the MIT license as published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
+ *
+ * This program is free software: you can use, redistribute, and/or modify
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "demo.h"
 
@@ -335,43 +336,43 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("3: %s\n", outSql);
 }
 
- int64_t taosGetTimestampMs() {
-  struct timeval systemTime;
-  gettimeofday(&systemTime, NULL);
-  return (int64_t)systemTime.tv_sec * 1000L + (int64_t)systemTime.tv_usec / 1000;
+int64_t taosGetTimestampMs() {
+    struct timeval systemTime;
+    gettimeofday(&systemTime, NULL);
+    return (int64_t)systemTime.tv_sec * 1000L +
+           (int64_t)systemTime.tv_usec / 1000;
 }
 
 int64_t taosGetTimestampUs() {
-  struct timeval systemTime;
-  gettimeofday(&systemTime, NULL);
-  return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+    struct timeval systemTime;
+    gettimeofday(&systemTime, NULL);
+    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
 }
 
 int64_t taosGetTimestampNs() {
-  struct timespec systemTime = {0};
-  clock_gettime(CLOCK_REALTIME, &systemTime);
-  return (int64_t)systemTime.tv_sec * 1000000000L + (int64_t)systemTime.tv_nsec;
+    struct timespec systemTime = {0};
+    clock_gettime(CLOCK_REALTIME, &systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000000L +
+           (int64_t)systemTime.tv_nsec;
 }
 
 int64_t taosGetTimestamp(int32_t precision) {
-  if (precision == TSDB_TIME_PRECISION_MICRO) {
-    return taosGetTimestampUs();
-  } else if (precision == TSDB_TIME_PRECISION_NANO) {
-    return taosGetTimestampNs();
-  }else {
-    return taosGetTimestampMs();
-  }
+    if (precision == TSDB_TIME_PRECISION_MICRO) {
+        return taosGetTimestampUs();
+    } else if (precision == TSDB_TIME_PRECISION_NANO) {
+        return taosGetTimestampNs();
+    } else {
+        return taosGetTimestampMs();
+    }
 }
 
-void taosMsleep(int32_t mseconds) {
-  usleep(mseconds * 1000);
-}
+void taosMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
 int64_t taosGetSelfPthreadId() {
-  static __thread int id = 0;
-  if (id != 0) return id;
-  id = syscall(SYS_gettid);
-  return id;
+    static __thread int id = 0;
+    if (id != 0) return id;
+    id = syscall(SYS_gettid);
+    return id;
 }
 
 int isCommentLine(char *line) {

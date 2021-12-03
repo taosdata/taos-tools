@@ -1,21 +1,20 @@
 /*
-* Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
-*
-* This program is free software: you can use, redistribute, and/or modify
-* it under the terms of the MIT license as published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
+ *
+ * This program is free software: you can use, redistribute, and/or modify
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef __DEMO__
 #define __DEMO__
-
-
 
 #define _GNU_SOURCE
 #define CURL_STATICLIB
@@ -41,27 +40,27 @@
 #include <stdio.h>
 #endif
 
-#include <stdint.h>
 #include <assert.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <sys/time.h>
-#include <syscall.h>
-#include <sys/prctl.h>
-#include <string.h>
-#include <ctype.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <pthread.h>
-#include <errno.h>
-#include <wordexp.h>
 #include <bits/time.h>
 #include <cJSONDEMO.h>
+#include <ctype.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <netdb.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <syscall.h>
+#include <time.h>
+#include <unistd.h>
+#include <wordexp.h>
 #include "taos.h"
-#include "taoserror.h"
 #include "taosdef.h"
+#include "taoserror.h"
 
 #define REQ_EXTRA_BUF_LEN 1024
 #define RESP_BUF_LEN 4096
@@ -410,7 +409,7 @@ typedef struct SSuperTable_S {
     uint64_t totalInsertRows;
     uint64_t totalAffectedRows;
 
-    char* buffer;
+    char *buffer;
 } SSuperTable;
 
 typedef struct {
@@ -462,8 +461,8 @@ typedef struct SDataBase_S {
 } SDataBase;
 
 typedef struct SDbs_S {
-    char               cfgDir[MAX_FILE_NAME_LEN];
-    char               host[MAX_HOSTNAME_SIZE];
+    char                cfgDir[MAX_FILE_NAME_LEN];
+    char                host[MAX_HOSTNAME_SIZE];
     struct sockaddr_in *serv_addr;
 
     uint16_t port;
@@ -526,17 +525,17 @@ typedef struct SuperQueryInfo_S {
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
-    char               cfgDir[MAX_FILE_NAME_LEN];
-    char               host[MAX_HOSTNAME_SIZE];
-    uint16_t           port;
+    char                cfgDir[MAX_FILE_NAME_LEN];
+    char                host[MAX_HOSTNAME_SIZE];
+    uint16_t            port;
     struct sockaddr_in *serv_addr;
-    char               user[MAX_USERNAME_SIZE];
-    char               password[SHELL_MAX_PASSWORD_LEN];
-    char               dbName[TSDB_DB_NAME_LEN];
-    char               queryMode[SMALL_BUFF_LEN];  // taosc, rest
-    SpecifiedQueryInfo specifiedQueryInfo;
-    SuperQueryInfo     superQueryInfo;
-    uint64_t           totalQueried;
+    char                user[MAX_USERNAME_SIZE];
+    char                password[SHELL_MAX_PASSWORD_LEN];
+    char                dbName[TSDB_DB_NAME_LEN];
+    char                queryMode[SMALL_BUFF_LEN];  // taosc, rest
+    SpecifiedQueryInfo  specifiedQueryInfo;
+    SuperQueryInfo      superQueryInfo;
+    uint64_t            totalQueried;
 } SQueryMetaInfo;
 
 typedef struct SThreadInfo_S {
@@ -585,7 +584,7 @@ typedef struct SThreadInfo_S {
     uint64_t  querySeq;  // sequence number of sql command
     TAOS_SUB *tsub;
 
-    char **lines;
+    char ** lines;
     int32_t sockfd;
 } threadInfo;
 
@@ -599,14 +598,14 @@ extern int64_t        g_totalChildTables;
 extern int64_t        g_actualChildTables;
 extern SQueryMetaInfo g_queryInfo;
 extern FILE *         g_fpOfInsertResult;
-extern bool g_fail;
+extern bool           g_fail;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-#define tstrncpy(dst, src, size) \
-  do {                              \
-    strncpy((dst), (src), (size));  \
-    (dst)[(size)-1] = 0;            \
-  } while (0)
+#define tstrncpy(dst, src, size)       \
+    do {                               \
+        strncpy((dst), (src), (size)); \
+        (dst)[(size)-1] = 0;           \
+    } while (0)
 /* ************ Function declares ************  */
 /* demoCommandOpt.c */
 int  parse_args(int argc, char *argv[]);
@@ -617,44 +616,44 @@ void testCmdLine();
 int getInfoFromJsonFile(char *file);
 int testMetaFile();
 /* demoUtil.c */
-int   isCommentLine(char *line);
+int     isCommentLine(char *line);
 int64_t taosGetTimestampMs();
 int64_t taosGetTimestampUs();
 int64_t taosGetTimestampNs();
 int64_t taosGetTimestamp(int32_t precision);
-void taosMsleep(int32_t mseconds);
+void    taosMsleep(int32_t mseconds);
 int64_t taosGetSelfPthreadId();
-void  replaceChildTblName(char *inSql, char *outSql, int tblIndex);
-void  setupForAnsiEscape(void);
-void  resetAfterAnsiEscape(void);
-int   taosRandom();
-void  tmfree(void *buf);
-void  tmfclose(FILE *fp);
-void  fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
-void  prompt();
-void  ERROR_EXIT(const char *msg);
-int   postProceSql(char *host, uint16_t port, char *sqlstr,
-                   threadInfo *pThreadInfo);
-int   queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
-int   regexMatch(const char *s, const char *reg, int cflags);
-int   convertHostToServAddr(char *host, uint16_t port,
-                            struct sockaddr_in *serv_addr);
-char *formatTimestamp(char *buf, int64_t val, int precision);
-void  errorWrongValue(char *program, char *wrong_arg, char *wrong_value);
-void  errorUnrecognized(char *program, char *wrong_arg);
-void  errorPrintReqArg(char *program, char *wrong_arg);
-void  errorPrintReqArg2(char *program, char *wrong_arg);
-void  errorPrintReqArg3(char *program, char *wrong_arg);
-bool  isStringNumber(char *input);
-int   getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
-                                  char **  childTblNameOfSuperTbl,
-                                  int64_t *childTblCountOfSuperTbl);
-int   getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
-                                                 char *   stbName,
-                                                 char **  childTblNameOfSuperTbl,
-                                                 int64_t *childTblCountOfSuperTbl,
-                                                 int64_t limit, uint64_t offset,
-                                                 bool escapChar);
+void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
+void    setupForAnsiEscape(void);
+void    resetAfterAnsiEscape(void);
+int     taosRandom();
+void    tmfree(void *buf);
+void    tmfclose(FILE *fp);
+void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
+void    prompt();
+void    ERROR_EXIT(const char *msg);
+int     postProceSql(char *host, uint16_t port, char *sqlstr,
+                     threadInfo *pThreadInfo);
+int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
+int     regexMatch(const char *s, const char *reg, int cflags);
+int     convertHostToServAddr(char *host, uint16_t port,
+                              struct sockaddr_in *serv_addr);
+char *  formatTimestamp(char *buf, int64_t val, int precision);
+void    errorWrongValue(char *program, char *wrong_arg, char *wrong_value);
+void    errorUnrecognized(char *program, char *wrong_arg);
+void    errorPrintReqArg(char *program, char *wrong_arg);
+void    errorPrintReqArg2(char *program, char *wrong_arg);
+void    errorPrintReqArg3(char *program, char *wrong_arg);
+bool    isStringNumber(char *input);
+int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
+                                    char **  childTblNameOfSuperTbl,
+                                    int64_t *childTblCountOfSuperTbl);
+int     getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
+                                                   char *   stbName,
+                                                   char **  childTblNameOfSuperTbl,
+                                                   int64_t *childTblCountOfSuperTbl,
+                                                   int64_t limit, uint64_t offset,
+                                                   bool escapChar);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

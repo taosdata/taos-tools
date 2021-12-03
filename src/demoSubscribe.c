@@ -1,16 +1,17 @@
 /*
-* Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
-*
-* This program is free software: you can use, redistribute, and/or modify
-* it under the terms of the MIT license as published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
+ *
+ * This program is free software: you can use, redistribute, and/or modify
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "demo.h"
 
@@ -70,7 +71,7 @@ TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo, char *sql,
 }
 
 void *specifiedSubscribe(void *sarg) {
-    int32_t * code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     //  TAOS_SUB*  tsub = NULL;
@@ -177,17 +178,17 @@ void *specifiedSubscribe(void *sarg) {
     }
     *code = 0;
     taos_free_result(g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]);
-    free_of_specified_subscribe:
+free_of_specified_subscribe:
     taos_close(pThreadInfo->taos);
     return code;
 }
 
 static void *superSubscribe(void *sarg) {
-    int32_t * code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT] = {0};
-    uint64_t  tsubSeq;
+    TAOS_SUB *  tsub[MAX_QUERY_SQL_COUNT] = {0};
+    uint64_t    tsubSeq;
     char *      subSqlStr = calloc(1, BUFFER_SIZE);
     if (NULL == subSqlStr) {
         errorPrint("%s", "failed to allocate memory\n");
@@ -334,7 +335,7 @@ static void *superSubscribe(void *sarg) {
         taos_unsubscribe(tsub[tsubSeq], 0);
     }
     *code = 0;
-    free_of_super_subscribe:
+free_of_super_subscribe:
     taos_close(pThreadInfo->taos);
     tmfree(subSqlStr);
     return code;
@@ -476,9 +477,9 @@ int subscribeTestProcess() {
             for (int i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
                 for (int j = 0; j < threads; j++) {
                     uint64_t seq = i * threads + j;
-                    void* result;
+                    void *   result;
                     pthread_join(pidsOfStable[seq], &result);
-                    if (*(int32_t*)result) {
+                    if (*(int32_t *)result) {
                         g_fail = true;
                     }
                     tmfree(result);
@@ -490,9 +491,9 @@ int subscribeTestProcess() {
     for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
         for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent; j++) {
             uint64_t seq = i * g_queryInfo.specifiedQueryInfo.concurrent + j;
-            void* result;
+            void *   result;
             pthread_join(pids[seq], &result);
-            if (*(int32_t*)result) {
+            if (*(int32_t *)result) {
                 g_fail = true;
             }
             tmfree(result);

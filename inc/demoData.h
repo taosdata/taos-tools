@@ -1,16 +1,17 @@
 /*
-* Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
-*
-* This program is free software: you can use, redistribute, and/or modify
-* it under the terms of the MIT license as published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
+ *
+ * This program is free software: you can use, redistribute, and/or modify
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef __DEMODATA__
 #define __DEMODATA__
@@ -41,33 +42,33 @@ extern char *    g_rand_current_buff;
 extern char *    g_rand_phase_buff;
 extern char *    g_randdouble_buff;
 /***** Declare functions *****/
-int                 init_rand_data();
-char *              rand_bool_str();
-int32_t             rand_bool();
-char *              rand_tinyint_str();
-int32_t             rand_tinyint();
-char *              rand_utinyint_str();
-int32_t             rand_utinyint();
-char *              rand_smallint_str();
-int32_t             rand_smallint();
-char *              rand_usmallint_str();
-int32_t             rand_usmallint();
-char *              rand_int_str();
-int32_t             rand_int();
-char *              rand_uint_str();
-int32_t             rand_uint();
-char *              rand_bigint_str();
-int64_t             rand_bigint();
-char *              rand_ubigint_str();
-int64_t             rand_ubigint();
-char *              rand_float_str();
-float               rand_float();
-char *              demo_current_float_str();
-char *              demo_voltage_int_str();
-char *              demo_phase_float_str();
-void                rand_string(char *str, int size);
-char *              rand_double_str();
-double              rand_double();
+int     init_rand_data();
+char *  rand_bool_str();
+int32_t rand_bool();
+char *  rand_tinyint_str();
+int32_t rand_tinyint();
+char *  rand_utinyint_str();
+int32_t rand_utinyint();
+char *  rand_smallint_str();
+int32_t rand_smallint();
+char *  rand_usmallint_str();
+int32_t rand_usmallint();
+char *  rand_int_str();
+int32_t rand_int();
+char *  rand_uint_str();
+int32_t rand_uint();
+char *  rand_bigint_str();
+int64_t rand_bigint();
+char *  rand_ubigint_str();
+int64_t rand_ubigint();
+char *  rand_float_str();
+float   rand_float();
+char *  demo_current_float_str();
+char *  demo_voltage_int_str();
+char *  demo_phase_float_str();
+void    rand_string(char *str, int size);
+char *  rand_double_str();
+double  rand_double();
 
 int     generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
                                 char *tagsValBuf);

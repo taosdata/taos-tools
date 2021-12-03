@@ -1,16 +1,17 @@
 /*
-* Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
-*
-* This program is free software: you can use, redistribute, and/or modify
-* it under the terms of the MIT license as published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
+ *
+ * This program is free software: you can use, redistribute, and/or modify
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "demo.h"
 
@@ -398,10 +399,11 @@ void printfInsertMeta() {
     if (g_args.iface != INTERFACE_BUT) {
         // first time if no iface specified
         printf("interface:                  \033[33m%s\033[0m\n",
-               (g_args.iface == TAOSC_IFACE)  ? "taosc"
-               : (g_args.iface == REST_IFACE) ? "rest"
-               : (g_args.iface == STMT_IFACE) ? "stmt"
-                                              : "sml");
+               (g_args.iface == TAOSC_IFACE)
+                   ? "taosc"
+                   : (g_args.iface == REST_IFACE)
+                         ? "rest"
+                         : (g_args.iface == STMT_IFACE) ? "stmt" : "sml");
     }
 
     printf("host:                       \033[33m%s:%u\033[0m\n", g_Dbs.host,
@@ -419,8 +421,10 @@ void printfInsertMeta() {
     printf("number of records per req:  \033[33m%u\033[0m\n", g_args.reqPerReq);
     printf("max sql length:             \033[33m%" PRIu64 "\033[0m\n",
            g_args.max_sql_len);
-    printf("random prepare data:        \033[33m%" PRId64 "\033[0m\n", g_args.prepared_rand);
-    printf("chinese:                    \033[33m%s\033[0m\n", g_args.chinese?"yes":"no");
+    printf("random prepare data:        \033[33m%" PRId64 "\033[0m\n",
+           g_args.prepared_rand);
+    printf("chinese:                    \033[33m%s\033[0m\n",
+           g_args.chinese ? "yes" : "no");
 
     printf("database count:             \033[33m%d\033[0m\n", g_Dbs.dbCount);
 
@@ -534,21 +538,24 @@ void printfInsertMeta() {
                        g_Dbs.db[i].superTbls[j].childTblPrefix);
                 printf("      dataSource:        \033[33m%s\033[0m\n",
                        g_Dbs.db[i].superTbls[j].dataSource);
-                printf("      iface:             \033[33m%s\033[0m\n",
-                       (g_Dbs.db[i].superTbls[j].iface == TAOSC_IFACE) ? "taosc"
-                       : (g_Dbs.db[i].superTbls[j].iface == REST_IFACE) ? "rest"
-                       : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE)
-                           ? "stmt"
-                           : "sml");
+                printf(
+                    "      iface:             \033[33m%s\033[0m\n",
+                    (g_Dbs.db[i].superTbls[j].iface == TAOSC_IFACE)
+                        ? "taosc"
+                        : (g_Dbs.db[i].superTbls[j].iface == REST_IFACE)
+                              ? "rest"
+                              : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE)
+                                    ? "stmt"
+                                    : "sml");
                 if (g_Dbs.db[i].superTbls[j].iface == SML_IFACE) {
                     printf("      lineProtocol:      \033[33m%s\033[0m\n",
                            (g_Dbs.db[i].superTbls[j].lineProtocol ==
                             TSDB_SML_LINE_PROTOCOL)
                                ? "line"
-                           : (g_Dbs.db[i].superTbls[j].lineProtocol ==
-                              TSDB_SML_TELNET_PROTOCOL)
-                               ? "telnet"
-                               : "json");
+                               : (g_Dbs.db[i].superTbls[j].lineProtocol ==
+                                  TSDB_SML_TELNET_PROTOCOL)
+                                     ? "telnet"
+                                     : "json");
                 }
 
                 if (g_Dbs.db[i].superTbls[j].childTblLimit > 0) {
@@ -774,10 +781,13 @@ void printfInsertMetaToFile(FILE *fp) {
             fprintf(fp, "      dataSource:        %s\n",
                     g_Dbs.db[i].superTbls[j].dataSource);
             fprintf(fp, "      iface:             %s\n",
-                    (g_Dbs.db[i].superTbls[j].iface == TAOSC_IFACE)  ? "taosc"
-                    : (g_Dbs.db[i].superTbls[j].iface == REST_IFACE) ? "rest"
-                    : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE) ? "stmt"
-                                                                     : "sml");
+                    (g_Dbs.db[i].superTbls[j].iface == TAOSC_IFACE)
+                        ? "taosc"
+                        : (g_Dbs.db[i].superTbls[j].iface == REST_IFACE)
+                              ? "rest"
+                              : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE)
+                                    ? "stmt"
+                                    : "sml");
             fprintf(fp, "      insertRows:        %" PRId64 "\n",
                     g_Dbs.db[i].superTbls[j].insertRows);
             fprintf(fp, "      interlace rows:    %u\n",

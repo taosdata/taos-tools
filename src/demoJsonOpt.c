@@ -1,16 +1,17 @@
 /*
-* Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
-*
-* This program is free software: you can use, redistribute, and/or modify
-* it under the terms of the MIT license as published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
+ *
+ * This program is free software: you can use, redistribute, and/or modify
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "demo.h"
 
@@ -449,23 +450,21 @@ int getMetaFromInsertJsonFile(cJSON *root) {
     }
 
     cJSON *chineseOpt = cJSON_GetObjectItem(root, "chinese");  // yes, no,
-        if (chineseOpt && chineseOpt->type == cJSON_String &&
+    if (chineseOpt && chineseOpt->type == cJSON_String &&
         chineseOpt->valuestring != NULL) {
-            if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
-                g_args.chinese = true;
-            } else if (0 == strncasecmp(chineseOpt->valuestring, "no", 2)) {
-                g_args.chinese = false;
-            } else {
-                g_args.chinese = DEFAULT_CHINESE_OPT;
-            }
-        } else if (!chineseOpt) {
-            g_args.chinese = DEFAULT_CHINESE_OPT;
+        if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
+            g_args.chinese = true;
+        } else if (0 == strncasecmp(chineseOpt->valuestring, "no", 2)) {
+            g_args.chinese = false;
         } else {
-            errorPrint(
-                    "%s",
-                    "failed to read json, chinese input mistake\n");
-            goto PARSE_OVER;
+            g_args.chinese = DEFAULT_CHINESE_OPT;
         }
+    } else if (!chineseOpt) {
+        g_args.chinese = DEFAULT_CHINESE_OPT;
+    } else {
+        errorPrint("%s", "failed to read json, chinese input mistake\n");
+        goto PARSE_OVER;
+    }
 
     cJSON *answerPrompt =
         cJSON_GetObjectItem(root, "confirm_parameter_prompt");  // yes, no,
