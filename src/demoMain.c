@@ -2,8 +2,8 @@
  * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
  *
  * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -67,7 +67,8 @@ SArguments g_args = {
     DEFAULT_TOTAL_INSERT,      // totalInsertRows;
     DEFAULT_TOTAL_AFFECT,      // totalAffectedRows;
     DEFAULT_DEMO_MODE,         // demo_mode;
-    DEFAULT_CHINESE_OPT        // chinese
+    DEFAULT_CHINESE_OPT,       // chinese
+    DEFAULT_PRESSURE_MODE      // pressure_mode
 };
 
 int main(int argc, char *argv[]) {

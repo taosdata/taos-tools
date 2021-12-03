@@ -2,8 +2,8 @@
  * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
  *
  * This program is free software: you can use, redistribute, and/or modify
- * it under the terms of the GNU Affero General Public License, version 3
- * or later ("AGPL"), as published by the Free Software Foundation.
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
@@ -261,7 +261,7 @@ int parse_args(int argc, char *argv[]) {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
-        } else if ((0 == strncmp(argv[i], "-p", strlen("-p"))) ||
+        } else if ((0 == strcmp(argv[i], "-p")) ||
                    (0 == strcmp(argv[i], "--password"))) {
             if ((strlen(argv[i]) == 2) ||
                 (0 == strcmp(argv[i], "--password"))) {
@@ -734,8 +734,7 @@ int parse_args(int argc, char *argv[]) {
                 g_args.columnCount = MAX_NUM_COLUMNS;
             }
 
-            for (int col = 0; col < g_args.columnCount;
-                 col++) {
+            for (int col = 0; col < g_args.columnCount; col++) {
                 if (g_args.data_type[col] == TSDB_DATA_TYPE_NULL) {
                     g_args.dataType[col] = "INT";
                     g_args.data_type[col] = TSDB_DATA_TYPE_INT;
@@ -976,9 +975,10 @@ int parse_args(int argc, char *argv[]) {
                    (0 == strncmp(argv[i], "--escape-character",
                                  strlen("--escape-character")))) {
             g_args.escapeChar = true;
+        } else if (0 == strncmp(argv[i], "-pressure", strlen("-pressure"))) {
+            g_args.pressure_mode = true;
         } else if ((0 == strncmp(argv[i], "-C", strlen("-C"))) ||
-        (0 == strncmp(argv[i], "--chinese",
-                      strlen("--chinese")))) {
+                   (0 == strncmp(argv[i], "--chinese", strlen("--chinese")))) {
             g_args.chinese = true;
         } else if ((strcmp(argv[i], "-N") == 0) ||
                    (0 == strcmp(argv[i], "--normal-table"))) {
