@@ -2866,10 +2866,10 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         stbInfo->buffer = calloc(1, stbInfo->columnCount * 2 + 2);
         int pos = 0;
         for (int i = 0; i < stbInfo->columnCount; ++i) {
-            strncpy(stbInfo->buffer + pos, ",1", 2);
+            strncpy(stbInfo->buffer + pos, ",1", 3);
             pos += 2;
         }
-        strncpy(stbInfo->buffer + pos, ")", 1);
+        strncpy(stbInfo->buffer + pos, ")", 2);
     }
     int32_t timePrec = TSDB_TIME_PRECISION_MILLI;
     if (stbInfo) {
