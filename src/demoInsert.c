@@ -807,7 +807,7 @@ int createDatabasesAndStables(char *command) {
 static void *createTable(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
-    int32_t* code = calloc(1, sizeof(int32_t));
+    int32_t *    code = calloc(1, sizeof(int32_t));
     *code = -1;
     prctl(PR_SET_NAME, "createTable");
     uint64_t lastPrintTime = taosGetTimestampMs();
@@ -915,7 +915,7 @@ static void *createTable(void *sarg) {
         pThreadInfo->tables_created += batchNum;
     }
     *code = 0;
-    create_table_end:
+create_table_end:
     tmfree(pThreadInfo->buffer);
     return code;
 }
@@ -976,9 +976,9 @@ int startMultiThreadCreateChildTable(char *cols, int threads,
     }
 
     for (int i = 0; i < threads; i++) {
-        void* result;
+        void *result;
         pthread_join(pids[i], &result);
-        if (*(int32_t*)result) {
+        if (*(int32_t *)result) {
             g_fail = true;
         }
         tmfree(result);
@@ -1184,9 +1184,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     }
 
     debugPrint("[%d] %s() LN%d %s\n", pThreadInfo->threadID, __func__, __LINE__,
-               (iface == TAOSC_IFACE)  ? "taosc"
-               : (iface == REST_IFACE) ? "rest"
-                                       : "stmt");
+               (iface == TAOSC_IFACE)
+                   ? "taosc"
+                   : (iface == REST_IFACE) ? "rest" : "stmt");
 
     switch (iface) {
         case TAOSC_IFACE:
@@ -1587,7 +1587,7 @@ static void *syncWriteInterlaceStmtBatch(threadInfo *pThreadInfo,
                                          uint32_t    interlaceRows) {
     debugPrint("[%d] %s() LN%d: ### stmt interlace write\n",
                pThreadInfo->threadID, __func__, __LINE__);
-    int32_t* code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     int64_t  insertRows;
     int64_t  timeStampStep;
@@ -1795,7 +1795,7 @@ free_of_interlace_stmt:
 void *syncWriteInterlace(threadInfo *pThreadInfo, uint32_t interlaceRows) {
     debugPrint("[%d] %s() LN%d: ### interlace write\n", pThreadInfo->threadID,
                __func__, __LINE__);
-    int32_t* code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     int64_t  insertRows;
     uint64_t maxSqlLen;
@@ -2035,7 +2035,7 @@ free_of_interlace:
 
 static void *syncWriteInterlaceSml(threadInfo *pThreadInfo,
                                    uint32_t    interlaceRows) {
-    int32_t* code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     debugPrint("[%d] %s() LN%d: ### interlace schemaless write\n",
                pThreadInfo->threadID, __func__, __LINE__);
@@ -2310,7 +2310,7 @@ static void *syncWriteInterlaceSml(threadInfo *pThreadInfo,
 
     *code = 0;
     printStatPerThread(pThreadInfo);
-    free_of_interlace_sml:
+free_of_interlace_sml:
     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
         tmfree(pThreadInfo->lines);
     free_json_interlace_sml:
@@ -2337,7 +2337,7 @@ static void *syncWriteInterlaceSml(threadInfo *pThreadInfo,
 
 void *syncWriteProgressiveStmt(threadInfo *pThreadInfo) {
     debugPrint("%s() LN%d: ### stmt progressive write\n", __func__, __LINE__);
-    int32_t* code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int64_t      timeStampStep =
@@ -2466,7 +2466,7 @@ free_of_stmt_progressive:
 
 void *syncWriteProgressive(threadInfo *pThreadInfo) {
     debugPrint("%s() LN%d: ### progressive write\n", __func__, __LINE__);
-    int32_t* code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint64_t     maxSqlLen = stbInfo ? stbInfo->maxSqlLen : g_args.max_sql_len;
@@ -2627,7 +2627,7 @@ free_of_progressive:
 
 void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
     debugPrint("%s() LN%d: ### sml progressive write\n", __func__, __LINE__);
-    int32_t * code = calloc(1, sizeof (int32_t));
+    int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int64_t      timeStampStep = stbInfo->timeStampStep;
@@ -2713,8 +2713,8 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
                     }
                 } else {
                     if (generateSmlMutablePart(pThreadInfo->lines[k],
-                                               smlList[i], stbInfo,
-                                               pThreadInfo, timestamp)) {
+                                               smlList[i], stbInfo, pThreadInfo,
+                                               timestamp)) {
                         goto free_lines_progressive_sml;
                     }
                 }
@@ -2777,7 +2777,7 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
     }
 
     *code = 0;
-    free_of_progressive_sml:
+free_of_progressive_sml:
     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
         tmfree(pThreadInfo->lines);
     free_json_progressive_sml:
@@ -2897,8 +2897,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         } else {
             if (TSDB_CODE_SUCCESS !=
                 taos_parse_time(stbInfo->startTimestamp, &startTime,
-                              (int32_t)strlen(stbInfo->startTimestamp),
-                              timePrec, 0)) {
+                                (int32_t)strlen(stbInfo->startTimestamp),
+                                timePrec, 0)) {
                 errorPrint("failed to parse time %s\n",
                            stbInfo->startTimestamp);
                 return -1;
@@ -2913,11 +2913,11 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
     // read sample data from file first
     int ret = 0;
     if (stbInfo->iface != SML_IFACE) {
-      if (stbInfo && stbInfo->iface != SML_IFACE) {
-        ret = prepareSampleForStb(stbInfo);
-      } else {
-        ret = prepareSampleForNtb();
-      }
+        if (stbInfo && stbInfo->iface != SML_IFACE) {
+            ret = prepareSampleForStb(stbInfo);
+        } else {
+            ret = prepareSampleForNtb();
+        }
     }
     if (ret) {
         errorPrint("%s", "prepare sample data for stable failed!\n");
@@ -3208,9 +3208,9 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
     int64_t start = taosGetTimestampUs();
 
     for (int i = 0; i < threads; i++) {
-        void* result;
+        void *result;
         pthread_join(pids[i], &result);
-        if (*(int32_t*)result){
+        if (*(int32_t *)result) {
             g_fail = true;
         }
         tmfree(result);
@@ -3267,7 +3267,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
     free(pids);
     free(infos);
 
-    if (g_fail){
+    if (g_fail) {
         return -1;
     }
 
@@ -3369,10 +3369,10 @@ int insertTestProcess() {
     }
 
     // pretreatment
-    if(g_args.iface != SML_IFACE) {
-      if (prepareSampleData()) {
-        goto end_insert_process;
-      }
+    if (g_args.iface != SML_IFACE) {
+        if (prepareSampleData()) {
+            goto end_insert_process;
+        }
     }
 
     if (g_args.iface != SML_IFACE && g_totalChildTables > 0) {
