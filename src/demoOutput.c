@@ -398,12 +398,15 @@ void printfInsertMeta() {
 
     if (g_args.iface != INTERFACE_BUT) {
         // first time if no iface specified
-        printf("interface:                  \033[33m%s\033[0m\n",
-               (g_args.iface == TAOSC_IFACE)
-                   ? "taosc"
-                   : (g_args.iface == REST_IFACE)
-                         ? "rest"
-                         : (g_args.iface == STMT_IFACE) ? "stmt" : "sml");
+        printf(
+            "interface:                  \033[33m%s\033[0m\n",
+            (g_args.iface == TAOSC_IFACE)
+                ? "taosc"
+                : (g_args.iface == REST_IFACE)
+                      ? "rest"
+                      : (g_args.iface == STMT_IFACE)
+                            ? "stmt"
+                            : (g_args.iface == SML_IFACE) ? "sml" : "sml-rest");
     }
 
     printf("host:                       \033[33m%s:%u\033[0m\n", g_Dbs.host,
@@ -546,7 +549,10 @@ void printfInsertMeta() {
                               ? "rest"
                               : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE)
                                     ? "stmt"
-                                    : "sml");
+                                    : (g_Dbs.db[i].superTbls[j].iface ==
+                                       SML_IFACE)
+                                          ? "sml"
+                                          : "sml-rest");
                 if (g_Dbs.db[i].superTbls[j].iface == SML_IFACE) {
                     printf("      lineProtocol:      \033[33m%s\033[0m\n",
                            (g_Dbs.db[i].superTbls[j].lineProtocol ==
@@ -780,14 +786,17 @@ void printfInsertMetaToFile(FILE *fp) {
                     g_Dbs.db[i].superTbls[j].childTblPrefix);
             fprintf(fp, "      dataSource:        %s\n",
                     g_Dbs.db[i].superTbls[j].dataSource);
-            fprintf(fp, "      iface:             %s\n",
-                    (g_Dbs.db[i].superTbls[j].iface == TAOSC_IFACE)
-                        ? "taosc"
-                        : (g_Dbs.db[i].superTbls[j].iface == REST_IFACE)
-                              ? "rest"
-                              : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE)
-                                    ? "stmt"
-                                    : "sml");
+            fprintf(
+                fp, "      iface:             %s\n",
+                (g_Dbs.db[i].superTbls[j].iface == TAOSC_IFACE)
+                    ? "taosc"
+                    : (g_Dbs.db[i].superTbls[j].iface == REST_IFACE)
+                          ? "rest"
+                          : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE)
+                                ? "stmt"
+                                : (g_Dbs.db[i].superTbls[j].iface == SML_IFACE)
+                                      ? "sml"
+                                      : "sml-rest");
             fprintf(fp, "      insertRows:        %" PRId64 "\n",
                     g_Dbs.db[i].superTbls[j].insertRows);
             fprintf(fp, "      interlace rows:    %u\n",

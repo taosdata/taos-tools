@@ -435,13 +435,26 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
 
 int postProceSql(char *host, uint16_t port, char *sqlstr,
                  threadInfo *pThreadInfo) {
-    char *req_fmt =
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
-
-    char *url = "/rest/sql";
-
+    char url[50];
+    if (stbInfo->iface == SML_REST_IFACE) {
+        if (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
+            strncpy(url, "/influxdb/v1/write", 50);
+        } else if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
+            strncpy(url, "/opentsdb/v1/put/telnet", 50);
+        } else if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+            strncpy(url, "/opentsdb/v1/put/json", 50);
+        } else {
+            errorPrint("unsupport interface : %d\n", stbInfo->iface);
+            return -1;
+        }
+    } else {
+        strncpy(url, "/rest/sql", 50);
+    }
     int      bytes, sent, received, req_str_len, resp_len;
     char *   request_buf;
     char     response_buf[RESP_BUF_LEN];
@@ -502,8 +515,22 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
                __LINE__, base64_buf);
     char *auth = base64_buf;
 
-    int r = snprintf(request_buf, req_buf_len, req_fmt, url, host, rest_port,
+    int r;
+    if (stbInfo->iface == SML_REST_IFACE) {
+        if (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
+            r = snprintf(request_buf, req_buf_len,
+                         "POST %s?db=%s HTTP/1.1\r\nHost: %s:%d\r\nAccept: "
+                         "*/*\r\nAuthorization: "
+                         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
+                         "application/x-www-form-urlencoded\r\n\r\n%s",
+                         url, pThreadInfo->db_name, host, rest_port, auth,
+                         (int32_t)strlen(sqlstr), sqlstr);
+        }
+    } else {
+        r = snprintf(request_buf, req_buf_len, req_fmt, url, host, rest_port,
                      auth, strlen(sqlstr), sqlstr);
+    }
+
     if (r >= req_buf_len) {
         free(request_buf);
         ERROR_EXIT("too long request");

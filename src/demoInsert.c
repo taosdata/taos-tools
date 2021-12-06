@@ -72,7 +72,8 @@ static int calcRowLen(SSuperTable *superTbls) {
                 errorPrint("get error data type : %s\n", dataType);
                 exit(EXIT_FAILURE);
         }
-        if (superTbls->iface == SML_IFACE) {
+        if (superTbls->iface == SML_IFACE ||
+            superTbls->iface == SML_REST_IFACE) {
             lenOfOneRow += SML_LINE_SQL_SYNTAX_OFFSET;
         }
     }
@@ -126,12 +127,13 @@ static int calcRowLen(SSuperTable *superTbls) {
                 errorPrint("get error tag type : %s\n", dataType);
                 exit(EXIT_FAILURE);
         }
-        if (superTbls->iface == SML_IFACE) {
+        if (superTbls->iface == SML_IFACE ||
+            superTbls->iface == SML_REST_IFACE) {
             lenOfOneRow += SML_LINE_SQL_SYNTAX_OFFSET;
         }
     }
 
-    if (superTbls->iface == SML_IFACE) {
+    if (superTbls->iface == SML_IFACE || superTbls->iface == SML_REST_IFACE) {
         lenOfTagOfOneRow +=
             2 * TSDB_TABLE_NAME_LEN * 2 + SML_LINE_SQL_SYNTAX_OFFSET;
         superTbls->lenOfOneRow += lenOfTagOfOneRow;
@@ -760,7 +762,8 @@ int createDatabasesAndStables(char *command) {
         int validStbCount = 0;
 
         for (uint64_t j = 0; j < g_Dbs.db[i].superTblCount; j++) {
-            if (g_Dbs.db[i].superTbls[j].iface == SML_IFACE) {
+            if (g_Dbs.db[i].superTbls[j].iface == SML_IFACE ||
+                g_Dbs.db[i].superTbls[j].iface == SML_REST_IFACE) {
                 goto skip;
             }
 
@@ -1189,7 +1192,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             affectedRows = queryDbExec(pThreadInfo->taos, pThreadInfo->buffer,
                                        INSERT_TYPE, false);
             break;
-
+        case SML_REST_IFACE:
         case REST_IFACE:
             verbosePrint("[%d] %s() LN%d %s\n", pThreadInfo->threadID, __func__,
                          __LINE__, pThreadInfo->buffer);
@@ -2687,19 +2690,30 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
             smlList[t] = sml;
         }
 
-        pThreadInfo->lines = (char **)calloc(g_args.reqPerReq, sizeof(char *));
-        if (NULL == pThreadInfo->lines) {
-            errorPrint("%s", "failed to allocate memory\n");
-            goto free_smlheadlist_progressive_sml;
-        }
-
-        for (int i = 0; i < g_args.reqPerReq; i++) {
-            pThreadInfo->lines[i] = (char *)calloc(1, stbInfo->lenOfOneRow);
-            if (NULL == pThreadInfo->lines[i]) {
+        if (stbInfo->iface == SML_IFACE) {
+            pThreadInfo->lines =
+                (char **)calloc(g_args.reqPerReq, sizeof(char *));
+            if (NULL == pThreadInfo->lines) {
                 errorPrint("%s", "failed to allocate memory\n");
-                goto free_lines_progressive_sml;
+                goto free_smlheadlist_progressive_sml;
+            }
+
+            for (int i = 0; i < g_args.reqPerReq; i++) {
+                pThreadInfo->lines[i] = (char *)calloc(1, stbInfo->lenOfOneRow);
+                if (NULL == pThreadInfo->lines[i]) {
+                    errorPrint("%s", "failed to allocate memory\n");
+                    goto free_lines_progressive_sml;
+                }
+            }
+        } else if (stbInfo->iface == SML_REST_IFACE) {
+            pThreadInfo->buffer =
+                (char *)calloc(g_args.reqPerReq, stbInfo->lenOfOneRow + 1);
+            if (NULL == pThreadInfo->buffer) {
+                errorPrint("%s", "failed to allocate memory\n");
+                goto free_of_progressive_sml;
             }
         }
+
     } else {
         jsonArray = cJSON_CreateArray();
         tagsList = cJSON_CreateArray();
@@ -2730,10 +2744,18 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
                         goto free_json_progressive_sml;
                     }
                 } else {
-                    if (generateSmlMutablePart(pThreadInfo->lines[k],
-                                               smlList[i], stbInfo, pThreadInfo,
-                                               timestamp)) {
-                        goto free_lines_progressive_sml;
+                    if (stbInfo->iface == SML_IFACE) {
+                        if (generateSmlMutablePart(pThreadInfo->lines[k],
+                                                   smlList[i], stbInfo,
+                                                   pThreadInfo, timestamp)) {
+                            goto free_lines_progressive_sml;
+                        }
+                    } else if (stbInfo->iface == SML_REST_IFACE) {
+                        if (generateSmlMutablePart(
+                                pThreadInfo->buffer + k * stbInfo->lenOfOneRow,
+                                smlList[i], stbInfo, pThreadInfo, timestamp)) {
+                            goto free_of_progressive_sml;
+                        }
                     }
                 }
                 timestamp += timeStampStep;
@@ -2753,6 +2775,11 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
                 tmfree(pThreadInfo->lines[0]);
                 cJSON_Delete(jsonArray);
                 jsonArray = cJSON_CreateArray();
+            }
+            if (stbInfo->iface == SML_REST_IFACE &&
+                stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
+                memset(pThreadInfo->buffer, 0,
+                       g_args.reqPerReq * stbInfo->lenOfOneRow);
             }
 
             performancePrint("%s() LN%d, insert execution time is %10.f ms\n",
@@ -2796,6 +2823,7 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
 
     *code = 0;
 free_of_progressive_sml:
+    tmfree(stbInfo->buffer);
     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
         tmfree(pThreadInfo->lines);
     free_json_progressive_sml:
@@ -2850,8 +2878,10 @@ void *syncWrite(void *sarg) {
         if (((stbInfo) && (STMT_IFACE == stbInfo->iface)) ||
             (STMT_IFACE == g_args.iface)) {
             return syncWriteProgressiveStmt(pThreadInfo);
-        } else if (((stbInfo) && (SML_IFACE == stbInfo->iface)) ||
-                   (SML_IFACE == g_args.iface)) {
+        } else if ((SML_IFACE == stbInfo->iface) ||
+                   (SML_IFACE == g_args.iface) ||
+                   (SML_REST_IFACE == stbInfo->iface) ||
+                   (SML_REST_IFACE == g_args.iface)) {
             return syncWriteProgressiveSml(pThreadInfo);
         } else {
             return syncWriteProgressive(pThreadInfo);
@@ -2899,7 +2929,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         }
     }
     if (stbInfo) {
-        if (stbInfo->iface == SML_IFACE) {
+        if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
             if (stbInfo->lineProtocol != TSDB_SML_LINE_PROTOCOL) {
                 if (stbInfo->columnCount != 1) {
                     errorPrint(
@@ -2939,8 +2969,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
     // read sample data from file first
     int ret = 0;
-    if (stbInfo->iface != SML_IFACE) {
-        if (stbInfo && stbInfo->iface != SML_IFACE) {
+    if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
+        if (stbInfo) {
             ret = prepareSampleForStb(stbInfo);
         } else {
             ret = prepareSampleForNtb();
@@ -2962,7 +2992,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
     uint64_t tableFrom = 0;
 
     if (stbInfo) {
-        if (stbInfo->iface != SML_IFACE) {
+        if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
             int64_t  limit;
             uint64_t offset;
 
@@ -3395,13 +3425,14 @@ int insertTestProcess() {
     }
 
     // pretreatment
-    if (g_args.iface != SML_IFACE) {
+    if (g_args.iface != SML_IFACE && g_args.iface != SML_REST_IFACE) {
         if (prepareSampleData()) {
             goto end_insert_process;
         }
     }
 
-    if (g_args.iface != SML_IFACE && g_totalChildTables > 0) {
+    if (g_args.iface != SML_IFACE && g_args.iface != SML_REST_IFACE &&
+        g_totalChildTables > 0) {
         if (createChildTables()) {
             goto end_insert_process;
         }
@@ -3424,7 +3455,7 @@ int insertTestProcess() {
                 }
             }
         } else {
-            if (SML_IFACE == g_args.iface) {
+            if (SML_IFACE == g_args.iface || SML_REST_IFACE == g_args.iface) {
                 code = -1;
                 errorPrint("%s\n", "Schemaless insertion must include stable");
                 goto end_insert_process;

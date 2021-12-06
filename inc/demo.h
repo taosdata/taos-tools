@@ -232,6 +232,7 @@ enum enum_TAOS_INTERFACE {
     REST_IFACE,
     STMT_IFACE,
     SML_IFACE,
+    SML_REST_IFACE,
     INTERFACE_BUT
 };
 

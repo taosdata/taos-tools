@@ -871,6 +871,9 @@ int getMetaFromInsertJsonFile(cJSON *root) {
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                     g_Dbs.db[i].superTbls[j].iface = SML_IFACE;
                     g_args.iface = SML_IFACE;
+                } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
+                    g_Dbs.db[i].superTbls[j].iface = SML_REST_IFACE;
+                    g_args.iface = SML_REST_IFACE;
                 } else {
                     errorPrint(
                         "failed to read json, insert_mode %s not recognized\n",
