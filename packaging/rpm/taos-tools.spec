@@ -45,6 +45,8 @@ echo buildroot: %{buildroot}
 mkdir -p %{buildroot}%{homepath}/bin
 
 cp %{_compiledir}/build/bin/taosdump                %{buildroot}%{homepath}/bin
+cp %{_compiledir}/build/bin/taosBenchmark           %{buildroot}%{homepath}/bin
+ln -sf %{buildroot}%{homepath}/bin/taosBenchmark    %{buildroot}%{homepath}/bin/taosdemo
 
 if [ -f %{_compiledir}/build/lib/libavro.so.23.0.0 ]; then
     mkdir -p %{buildroot}%{userlocalpath}/lib
