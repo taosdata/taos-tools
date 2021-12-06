@@ -104,9 +104,9 @@ if command -v sudo > /dev/null; then
     csudo="sudo"
 fi
 # only remove package to call preun.sh, not but update(2)
-${csudo} rm -f ${bin_link_dir}/taosdump      || :
-${csudo} rm -f ${bin_link_dir}/taosBenchmark || :
-${csudo} rm -f ${bin_link_dir}/taosdemo      || :
+${csudo} rm -f /usr/local/bin/taosdump      || :
+${csudo} rm -f /usr/local/bin/taosBenchmark || :
+${csudo} rm -f /usr/local/bin/taosdemo      || :
 
 # Scripts executed after uninstall
 %postun
