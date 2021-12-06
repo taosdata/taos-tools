@@ -216,14 +216,16 @@ int queryTestProcess() {
     if (taos == NULL) {
         errorPrint("Failed to connect to TDengine, reason:%s\n",
                    taos_errstr(NULL));
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        getAllChildNameOfSuperTable(taos, g_queryInfo.dbName,
+        if(getAllChildNameOfSuperTable(taos, g_queryInfo.dbName,
                                     g_queryInfo.superQueryInfo.stbName,
                                     &g_queryInfo.superQueryInfo.childTblName,
-                                    &g_queryInfo.superQueryInfo.childTblCount);
+                                    &g_queryInfo.superQueryInfo.childTblCount)) {
+            return -1;
+        }
     }
 
     prompt();
@@ -234,8 +236,10 @@ int queryTestProcess() {
 
     if (0 == strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
         if (convertHostToServAddr(g_queryInfo.host, g_queryInfo.port,
-                                  g_queryInfo.serv_addr) != 0)
-            ERROR_EXIT("convert host to server address");
+                                  g_queryInfo.serv_addr) != 0){
+            errorPrint("%s", "convert host to server address\n");
+            return -1;
+        }
     }
 
     pthread_t * pids = NULL;
