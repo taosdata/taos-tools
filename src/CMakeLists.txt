@@ -116,8 +116,8 @@ ENDIF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     ADD_EXECUTABLE(taosdump taosdump.c)
-    ADD_EXECUTABLE(taosdemo demoUtil.c demoSubscribe.c demoQuery.c demoOutput.c demoMain.c demoJsonOpt.c demoInsert.c demoData.c demoCommandOpt.c)
+    ADD_EXECUTABLE(taosBenchmark demoUtil.c demoSubscribe.c demoQuery.c demoOutput.c demoMain.c demoJsonOpt.c demoInsert.c demoData.c demoCommandOpt.c)
     TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
-    TARGET_LINK_LIBRARIES(taosdemo taos pthread cJsonDemo)
+    TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo)
 ENDIF ()
 

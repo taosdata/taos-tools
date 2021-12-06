@@ -12,9 +12,10 @@ fi
 
 [ ! -d /usr/local/taos/bin ] && mkdir -p /usr/local/taos/bin
 ${csudo} cp ${source_dir}/build/bin/taosdump /usr/local/taos/bin || echo -e "failed to copy taosdump"
-${csudo} cp ${source_dir}/build/bin/taosdemo /usr/local/taos/bin || echo -e "failed to copy taosdemo"
+${csudo} cp ${source_dir}/build/bin/taosBenchmark /usr/local/taos/bin || echo -e "failed to copy taosBenchmark"
 ${csudo} ln -sf /usr/local/taos/bin/taosdump /usr/local/bin/taosdump || echo -e "failed to link taosdump"
-${csudo} ln -sf /usr/local/taos/bin/taosdemo /usr/local/bin/taosdemo || echo -e "failed to link taosdemo"
+${csudo} ln -sf /usr/local/taos/bin/taosBenchmark /usr/local/bin/taosBenchmark || echo -e "failed to link taosBenchmark"
+${csudo} ln -sf /usr/local/taos/bin/taosBenchmark /usr/local/bin/taosdemo || echo -e "failed to link taosBenchmark as taosdemo"
 
 if [ -f ${source_dir}/build/lib/libavro.so.23.0.0 ]; then
     ${csudo} cp -rf ${source_dir}/build/lib/libavro* /usr/local/lib > /dev/null || echo -e "failed to copy avro libraries"

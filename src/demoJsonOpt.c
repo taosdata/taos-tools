@@ -76,7 +76,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         if (dataLen && dataLen->type == cJSON_Number) {
             columnCase.dataLen = (uint32_t)dataLen->valueint;
         } else if (dataLen && dataLen->type != cJSON_Number) {
-            debugPrint("%s() LN%d: failed to read json, column len not found\n",
+            errorPrint("%s() LN%d: failed to read json, column len not found\n",
                        __func__, __LINE__);
             goto PARSE_OVER;
         } else {
