@@ -38,14 +38,15 @@
 #include "taoserror.h"
 
 
-static char    **g_tsDumpInSqlFiles   = NULL;
+static char    **g_tsDumpInSqlFiles     = NULL;
 static char      g_tsCharset[63] = {0};
 static char      *g_configDir = "/etc/taos";
 
 #include <avro.h>
 #include <jansson.h>
 
-static char    **g_tsDumpInAvroFiles   = NULL;
+static char    **g_tsDumpInAvroFiles    = NULL;
+static char    **g_tsDumpInAvroTables   = NULL;
 
 static void print_json_aux(json_t *element, int indent);
 
@@ -1167,7 +1168,8 @@ static int getDumpDbCount()
     return count;
 }
 
-static void dumpCreateMTableClause(
+#if 0
+static int dumpCreateMTableClause(
         char* dbName,
         char *stable,
         TableDef *tableDes,
@@ -1235,9 +1237,24 @@ static void dumpCreateMTableClause(
 
     pstr += sprintf(pstr, ");");
 
-    fprintf(fp, "%s\n", tmpBuf);
+    int ret = fprintf(fp, "%s\n", tmpBuf);
     free(tmpBuf);
+
+    return ret;
 }
+
+#else
+static int dumpCreateMTableClauseAvro(
+        char* dbName,
+        char *stable,
+        TableDef *tableDes,
+        int numOfCols,
+        FILE *fp
+        ) {
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+    return 0;
+}
+#endif
 
 static int64_t getNtbCountOfStb(char *dbName, char *stbName)
 {
@@ -1425,7 +1442,7 @@ static int getTableDes(
                             length[0], tbuf, COL_VALUEBUF_LEN-2);
                     sprintf(tableDes->cols[i].value, "%s", tbuf);
                 } else {
-                    tableDes->cols[i].var_value = calloc(1, nlen * 4);
+                    tableDes->cols[i].var_value = calloc(1, nlen * 5);
                     if (tableDes->cols[i].var_value == NULL) {
                         errorPrint("%s() LN%d, memory alalocation failed!\n",
                                 __func__, __LINE__);
@@ -1506,7 +1523,8 @@ static int dumpCreateTableClause(TableDef *tableDes, int numOfCols,
     pstr += sprintf(pstr, ");");
 
     debugPrint("%s() LN%d, write string: %s\n", __func__, __LINE__, sqlstr);
-    return fprintf(fp, "%s\n\n", sqlstr);
+    int ret = fprintf(fp, "%s\n\n", sqlstr);
+    return ret;
 }
 
 static int dumpStableClasuse(TAOS *taos, SDbInfo *dbInfo, char *stbName, FILE *fp)
@@ -1532,6 +1550,7 @@ static int dumpStableClasuse(TAOS *taos, SDbInfo *dbInfo, char *stbName, FILE *f
     }
 
     dumpCreateTableClause(tableDes, colCount, fp, dbInfo->name);
+
     free(tableDes);
 
     return 0;
@@ -1676,6 +1695,7 @@ static void freeFileList(char **fileList, int64_t count)
 static void createDumpinList(char *ext, int64_t count)
 {
     bool isSql = (0 == strcmp(ext, "sql"));
+    bool isAvroTb = (0 == strcmp(ext, "avro-tb"));
 
     if (isSql) {
         g_tsDumpInSqlFiles = (char **)calloc(count, sizeof(char *));
@@ -1685,8 +1705,7 @@ static void createDumpinList(char *ext, int64_t count)
             g_tsDumpInSqlFiles[i] = calloc(1, MAX_FILE_NAME_LEN);
             assert(g_tsDumpInSqlFiles[i]);
         }
-    }
-    else {
+    } else {
         g_tsDumpInAvroFiles = (char **)calloc(count, sizeof(char *));
         assert(g_tsDumpInAvroFiles);
 
@@ -1694,7 +1713,6 @@ static void createDumpinList(char *ext, int64_t count)
             g_tsDumpInAvroFiles[i] = calloc(1, MAX_FILE_NAME_LEN);
             assert(g_tsDumpInAvroFiles[i]);
         }
-
     }
 
     int namelen, extlen;
@@ -1716,10 +1734,16 @@ static void createDumpinList(char *ext, int64_t count)
                         if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                             continue;
                         }
-                        tstrncpy(g_tsDumpInSqlFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy((char*)(*(g_tsDumpInSqlFiles
+                                        + count*sizeof(char*))),
+                                pDirent->d_name,
+                                min(namelen + 1, MAX_FILE_NAME_LEN));
                     }
                     else {
-                        tstrncpy(g_tsDumpInAvroFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy((char*)(*(g_tsDumpInSqlFiles
+                                        + count*sizeof(char*))),
+                                (char*)pDirent->d_name,
+                                min(namelen + 1, MAX_FILE_NAME_LEN));
                     }
                 }
             }
@@ -1736,7 +1760,8 @@ static int convertTbDesToJson(
 {
     // {
     // "type": "record",
-    // "name": "dbname.tbname",
+    // "name": "tbname",
+    // "namespace": "dbname",
     // "fields": [
     //      {
     //      "name": "col0 name",
@@ -3206,7 +3231,11 @@ static int64_t dumpNormalTable(
         }
 
         // create child-table using super-table
+#if 0
         dumpCreateMTableClause(dbName, stable, tableDes, colCount, fp);
+#else
+        dumpCreateMTableClauseAvro(dbName, stable, tableDes, colCount, fp);
+#endif
     } else {  // dump table definition
         colCount = getTableDes(taos, dbName, tbName, tableDes, false);
 
@@ -3292,10 +3321,10 @@ static int64_t dumpNormalTableBelongStb(
     FILE *fp = NULL;
 
     if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/%s.%s.sql",
+        sprintf(tmpBuf, "%s/%s.%s.avro-tb",
                 g_args.outpath, dbInfo->name, ntbName);
     } else {
-        sprintf(tmpBuf, "%s.%s.sql",
+        sprintf(tmpBuf, "%s.%s.avro-tb",
                 dbInfo->name, ntbName);
     }
 
@@ -3332,10 +3361,10 @@ static void *dumpNtbOfDb(void *arg) {
     char tmpBuf[MAX_PATH_LEN] = {0};
 
     if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/%s.%d.sql",
+        sprintf(tmpBuf, "%s/%s.%d.avro-tb",
                 g_args.outpath, pThreadInfo->dbName, pThreadInfo->threadIndex);
     } else {
-        sprintf(tmpBuf, "%s.%d.sql",
+        sprintf(tmpBuf, "%s.%d.avro-tb",
                 pThreadInfo->dbName, pThreadInfo->threadIndex);
     }
 
@@ -3675,6 +3704,12 @@ static void* dumpInSqlWorkThreadFp(void *arg)
     return NULL;
 }
 
+static int dumpInTablesAvro()
+{
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+    return 0;
+}
+
 static int dumpInSqlWorkThreads()
 {
     int32_t threads = g_args.thread_num;
@@ -3804,7 +3839,11 @@ static int dumpIn() {
         exit(EXIT_FAILURE);
     }
 
+#if 0
     ret = dumpInSqlWorkThreads();
+#else
+    ret = dumpInTablesAvro();
+#endif
 
     if ((0 == ret) && g_args.avro) {
         ret = dumpInAvroWorkThreads();
@@ -3838,13 +3877,13 @@ static void *dumpNormalTablesOfStb(void *arg) {
     char tmpBuf[MAX_PATH_LEN] = {0};
 
     if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/%s.%s.%d.sql",
+        sprintf(tmpBuf, "%s/%s.%s.%d.avro-tb",
                 g_args.outpath,
                 pThreadInfo->dbName,
                 pThreadInfo->stbName,
                 pThreadInfo->threadIndex);
     } else {
-        sprintf(tmpBuf, "%s.%s.%d.sql",
+        sprintf(tmpBuf, "%s.%s.%d.avro-tb",
                 pThreadInfo->dbName,
                 pThreadInfo->stbName,
                 pThreadInfo->threadIndex);
