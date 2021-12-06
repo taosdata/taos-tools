@@ -209,6 +209,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
         childTblName = (char *)calloc(1, childTblCount * TSDB_TABLE_NAME_LEN);
         if (childTblName == NULL) {
             errorPrint("%s", "failed to allocate memory\n");
+            return -1;
         }
     }
     char *pTblName = childTblName;
@@ -229,7 +230,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
         taos_close(taos);
         errorPrint("failed to run command %s, reason: %s\n", command,
                    taos_errstr(res));
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     while ((row = taos_fetch_row(res)) != NULL) {
@@ -237,7 +238,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
 
         if (0 == strlen((char *)row[0])) {
             errorPrint("No.%" PRId64 " table return empty name\n", count);
-            exit(EXIT_FAILURE);
+            return -1;
         }
 
         tstrncpy(pTblName, (char *)row[0], len[0] + 1);
@@ -258,10 +259,9 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                 taos_free_result(res);
                 taos_close(taos);
                 errorPrint(
-                    "%s() LN%d, realloc fail for save child table name of "
-                    "%s.%s\n",
-                    __func__, __LINE__, dbName, stbName);
-                exit(EXIT_FAILURE);
+                    "realloc fail for save child table name of "
+                    "%s.%s\n", dbName, stbName);
+                return -1;
             }
         }
         pTblName = childTblName + count * TSDB_TABLE_NAME_LEN;
