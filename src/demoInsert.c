@@ -3022,11 +3022,16 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 return -1;
             }
 
-            int64_t childTblCount;
-            getChildNameOfSuperTableWithLimitAndOffset(
-                taos0, db_name, stbInfo->stbName, &stbInfo->childTblName,
-                &childTblCount, limit, offset, stbInfo->escapeChar);
-            ntables = childTblCount;
+            if (stbInfo->childTblExists == TBL_ALREADY_EXISTS) {
+                int64_t childTblCount;
+                if (getChildNameOfSuperTableWithLimitAndOffset(
+                        taos0, db_name, stbInfo->stbName,
+                        &stbInfo->childTblName, &childTblCount, limit, offset,
+                        stbInfo->escapeChar)) {
+                    return -1;
+                }
+                ntables = childTblCount;
+            }
         } else {
             ntables = stbInfo->childTblCount;
         }
