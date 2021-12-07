@@ -85,9 +85,12 @@ function install_bin() {
     ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosBenchmark
     ${csudo} ln -sf ${install_main_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosdemo
     #Make link
-    [[ -x ${install_main_dir}/bin/taosdemo ]] && ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo           || :
-    [[ -x ${install_main_dir}/bin/taosdump ]] && ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark || :
-    [[ -x ${install_main_dir}/bin/taosdump ]] && ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump           || :
+    [[ -x ${install_main_dir}/bin/taosBenchmark ]] && \
+        ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark  || :
+    [[ -x ${install_main_dir}/bin/taosdemo ]] && \
+        ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo            || :
+    [[ -x ${install_main_dir}/bin/taosdump ]] && \
+        ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump            || :
 }
 
 function install_avro() {
