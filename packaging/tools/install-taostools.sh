@@ -13,7 +13,7 @@ script_dir=$(dirname $(readlink -f "$0"))
 bin_link_dir="/usr/bin"
 
 #install main path
-install_main_dir="/usr/local/taos"
+install_main_dir="/usr/local"
 
 # Color setting
 RED='\033[0;31m'
@@ -72,17 +72,22 @@ function kill_process() {
 
 function install_main_path() {
     #create install main dir and all sub dir
-    [ ! -d ${install_main_dir}/bin ] && ${csudo} mkdir -p ${install_main_dir}/bin
+    [[ ! -d ${install_main_dir}/bin ]] && ${csudo} mkdir -p ${install_main_dir}/bin || :
 }
 
 function install_bin() {
     # Remove links
-    ${csudo} rm -f ${bin_link_dir}/taosdemo || :
-    ${csudo} rm -f ${bin_link_dir}/taosdump || :
+    ${csudo} rm -f ${bin_link_dir}/taosdemo         || :
+    ${csudo} rm -f ${bin_link_dir}/taosBenchmark    || :
+    ${csudo} rm -f ${bin_link_dir}/taosdump         || :
 
+    ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosdump ${install_main_dir}/bin/taosdump
+    ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosBenchmark
+    ${csudo} ln -sf ${install_main_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosdemo
     #Make link
-    [ -x ${install_main_dir}/bin/taosdemo ] && ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo          || :
-    [ -x ${install_main_dir}/bin/taosdump ] && ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump          || :
+    [[ -x ${install_main_dir}/bin/taosdemo ]] && ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo           || :
+    [[ -x ${install_main_dir}/bin/taosdump ]] && ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark || :
+    [[ -x ${install_main_dir}/bin/taosdump ]] && ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump           || :
 }
 
 function install_avro() {
@@ -119,14 +124,12 @@ function install_taostools() {
     install_avro lib64
 
 
-    if [ -z $1 ]; then # install service and client
-        # For installing new
-        install_bin
+    # For installing new
+    install_bin
 
-        echo
-        echo -e "\033[44;32;1mtaos tools is installed successfully!${NC}"
-    fi
+    echo
+    echo -e "\033[44;32;1mtaos tools is installed successfully!${NC}"
 }
 
 ## ==============================Main program starts from here============================
- install_taostools
+install_taostools
