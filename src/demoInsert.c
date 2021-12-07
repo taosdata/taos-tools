@@ -2490,10 +2490,10 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
          tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
         int64_t  start_time = pThreadInfo->start_time;
-        char *   pstr = pThreadInfo->buffer;
         uint64_t len = 0;
         int32_t  generated;
         for (uint64_t i = 0; i < insertRows;) {
+            char *   pstr = pThreadInfo->buffer;
             if (g_args.pressure_mode) {
                 len = snprintf(pstr + len, maxSqlLen - len,
                                "insert into %s.%s%" PRId64 " values ",
@@ -2528,7 +2528,6 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
                 }
 
                 int64_t remainderBufLen = maxSqlLen - 2000;
-
                 len = snprintf(pstr, strlen(STR_INSERT_INTO) + 1, "%s",
                                STR_INSERT_INTO);
 
