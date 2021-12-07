@@ -220,10 +220,10 @@ int queryTestProcess() {
     }
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        if(getAllChildNameOfSuperTable(taos, g_queryInfo.dbName,
-                                    g_queryInfo.superQueryInfo.stbName,
-                                    &g_queryInfo.superQueryInfo.childTblName,
-                                    &g_queryInfo.superQueryInfo.childTblCount)) {
+        if (getAllChildNameOfSuperTable(
+                taos, g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName,
+                &g_queryInfo.superQueryInfo.childTblName,
+                &g_queryInfo.superQueryInfo.childTblCount)) {
             return -1;
         }
     }
@@ -236,7 +236,7 @@ int queryTestProcess() {
 
     if (0 == strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
         if (convertHostToServAddr(g_queryInfo.host, g_queryInfo.port,
-                                  g_queryInfo.serv_addr) != 0){
+                                  &(g_queryInfo.serv_addr)) != 0) {
             errorPrint("%s", "convert host to server address\n");
             return -1;
         }

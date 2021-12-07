@@ -34,7 +34,9 @@ install_home_path="/usr/local/taos"
 mkdir -p ${pkg_dir}${install_home_path}
 mkdir -p ${pkg_dir}${install_home_path}/bin || :
 
-cp ${compile_dir}/build/bin/taosdump                ${pkg_dir}${install_home_path}/bin
+cp ${compile_dir}/build/bin/taosdump                     ${pkg_dir}${install_home_path}/bin
+cp ${compile_dir}/build/bin/taosBenchmark                ${pkg_dir}${install_home_path}/bin
+ln -sf ${pkg_dir}${install_home_path}/bin/taosBenchmark  ${pkg_dir}${install_home_path}/bin/taosdemo
 
 install_user_local_path="/usr/local"
 

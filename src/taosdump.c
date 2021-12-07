@@ -613,7 +613,7 @@ static char *typeToStr(int type) {
         case TSDB_DATA_TYPE_UBIGINT:
             return "bigint unsigned";
         default:
-            return "unknown";
+            break;
     }
 
     return "unknown";
@@ -1168,7 +1168,6 @@ static int getDumpDbCount()
     return count;
 }
 
-#if 0
 static int dumpCreateMTableClause(
         char* dbName,
         char *stable,
@@ -1183,7 +1182,7 @@ static int dumpCreateMTableClause(
     if (tmpBuf == NULL) {
         errorPrint("%s() LN%d, failed to allocate %d memory\n",
                __func__, __LINE__, COMMAND_SIZE);
-        return;
+        return -1;
     }
 
     char *pstr = NULL;
@@ -1243,7 +1242,6 @@ static int dumpCreateMTableClause(
     return ret;
 }
 
-#else
 static int dumpCreateMTableClauseAvro(
         char* dbName,
         char *stable,
@@ -1254,7 +1252,6 @@ static int dumpCreateMTableClauseAvro(
     errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
     return 0;
 }
-#endif
 
 static int64_t getNtbCountOfStb(char *dbName, char *stbName)
 {
@@ -1469,6 +1466,12 @@ static int getTableDes(
     }
 
     return colCount;
+}
+
+static int dumpCreateTableClauseAvro(TableDef *tableDes, int numOfCols,
+        FILE *fp, char* dbName) {
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+    return 0;
 }
 
 static int dumpCreateTableClause(TableDef *tableDes, int numOfCols,
@@ -1721,7 +1724,7 @@ static void createDumpinList(char *ext, int64_t count)
 
     extlen = strlen(ext);
 
-    count = 0;
+    int64_t nCount = 0;
     pDir = opendir(g_args.inpath);
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
@@ -1734,77 +1737,28 @@ static void createDumpinList(char *ext, int64_t count)
                         if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                             continue;
                         }
-                        tstrncpy((char*)(*(g_tsDumpInSqlFiles
-                                        + count*sizeof(char*))),
+                        tstrncpy(g_tsDumpInSqlFiles[nCount],
                                 pDirent->d_name,
-                                min(namelen + 1, MAX_FILE_NAME_LEN));
+                                min(namelen+1, MAX_FILE_NAME_LEN));
+                    } else {
+                        tstrncpy(g_tsDumpInAvroFiles[nCount],
+                                pDirent->d_name,
+                                min(namelen+1, MAX_FILE_NAME_LEN));
                     }
-                    else {
-                        tstrncpy((char*)(*(g_tsDumpInSqlFiles
-                                        + count*sizeof(char*))),
-                                (char*)pDirent->d_name,
-                                min(namelen + 1, MAX_FILE_NAME_LEN));
-                    }
+                    nCount++;
                 }
             }
         }
         closedir (pDir);
     }
 
-    debugPrint("%"PRId64" .%s files filled to list!\n", count, ext);
+    debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
 }
 
-static int convertTbDesToJson(
+static int convertTbDesToJsonImpl(
         char *dbName, char *tbName, TableDef *tableDes, int colCount,
         char **jsonSchema)
 {
-    // {
-    // "type": "record",
-    // "name": "tbname",
-    // "namespace": "dbname",
-    // "fields": [
-    //      {
-    //      "name": "col0 name",
-    //      "type": "long"
-    //      },
-    //      {
-    //      "name": "col1 name",
-    //      "type": "int"
-    //      },
-    //      {
-    //      "name": "col2 name",
-    //      "type": "float"
-    //      },
-    //      {
-    //      "name": "col3 name",
-    //      "type": "boolean"
-    //      },
-    //      ...
-    //      {
-    //      "name": "coll name",
-    //      "type": {"type": "array", "items":"int"}
-    //      },
-    //      {
-    //      "name": "colm name",
-    //      "type": ["null", "string"]
-    //      },
-    //      {
-    //      "name": "coln name",
-    //      "type": ["null", "bytes"]}
-    //      }
-    // ]
-    // }
-    *jsonSchema = (char *)calloc(1,
-            17 + TSDB_DB_NAME_LEN               /* dbname section */
-            + 17                                /* type: record */
-            + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
-            + 10                                /* fields section */
-            + (TSDB_COL_NAME_LEN + 40) * colCount + 4);    /* fields section */
-    if (*jsonSchema == NULL) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
-        return -1;
-    }
-
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
@@ -1881,6 +1835,60 @@ static int convertTbDesToJson(
             __func__, __LINE__, *jsonSchema);
 
     return 0;
+}
+
+static int convertTbDesToJson(
+        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        char **jsonSchema)
+{
+    // {
+    // "type": "record",
+    // "name": "tbname",
+    // "namespace": "dbname",
+    // "fields": [
+    //      {
+    //      "name": "col0 name",
+    //      "type": "long"
+    //      },
+    //      {
+    //      "name": "col1 name",
+    //      "type": "int"
+    //      },
+    //      {
+    //      "name": "col2 name",
+    //      "type": "float"
+    //      },
+    //      {
+    //      "name": "col3 name",
+    //      "type": "boolean"
+    //      },
+    //      ...
+    //      {
+    //      "name": "coll name",
+    //      "type": {"type": "array", "items":"int"}
+    //      },
+    //      {
+    //      "name": "colm name",
+    //      "type": ["null", "string"]
+    //      },
+    //      {
+    //      "name": "coln name",
+    //      "type": ["null", "bytes"]}
+    //      }
+    // ]
+    // }
+    *jsonSchema = (char *)calloc(1,
+            17 + TSDB_DB_NAME_LEN               /* dbname section */
+            + 17                                /* type: record */
+            + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
+            + 10                                /* fields section */
+            + (TSDB_COL_NAME_LEN + 40) * colCount + 4);    /* fields section */
+    if (*jsonSchema == NULL) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
+
+    return convertTbDesToJsonImpl(dbName, tbName, tableDes, colCount, jsonSchema);
 }
 
 static void print_json_indent(int indent) {
@@ -1988,7 +1996,7 @@ static void print_json_aux(json_t *element, int indent)
             break;
 
         default:
-            fprintf(stderr, "unrecongnized JSON type %d\n", json_typeof(element));
+            errorPrint("Unrecongnized JSON type %d\n", json_typeof(element));
     }
 }
 
@@ -2004,8 +2012,18 @@ static json_t *load_json(char *jsonbuf)
     if (root) {
         return root;
     } else {
-        fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+        errorPrint("JSON error on line %d: %s\n", error.line, error.text);
         return NULL;
+    }
+}
+
+static void freeRecordSchema(RecordSchema *recordSchema)
+{
+    if (recordSchema) {
+        if (recordSchema->fields) {
+            free(recordSchema->fields);
+        }
+        free(recordSchema);
     }
 }
 
@@ -2015,7 +2033,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
     assert(recordSchema);
 
     if (JSON_OBJECT != json_typeof(element)) {
-        fprintf(stderr, "%s() LN%d, json passed is not an object\n",
+        errorPrint("%s() LN%d, json passed is not an object\n",
                 __func__, __LINE__);
         return NULL;
     }
@@ -2156,8 +2174,9 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                     }
                 }
             } else {
-                fprintf(stderr, "%s() LN%d, fields have no array\n",
+                errorPrint("%s() LN%d, fields have no array\n",
                         __func__, __LINE__);
+                freeRecordSchema(recordSchema);
                 return NULL;
             }
 
@@ -2166,16 +2185,6 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
     }
 
     return recordSchema;
-}
-
-static void freeRecordSchema(RecordSchema *recordSchema)
-{
-    if (recordSchema) {
-        if (recordSchema->fields) {
-            free(recordSchema->fields);
-        }
-        free(recordSchema);
-    }
 }
 
 static int64_t writeResultToAvro(
@@ -2201,7 +2210,7 @@ static int64_t writeResultToAvro(
 
         recordSchema = parse_json_to_recordschema(json_root);
         if (NULL == recordSchema) {
-            fprintf(stderr, "Failed to parse json to recordschema\n");
+            errorPrint("%s", "Failed to parse json to recordschema\n");
             exit(EXIT_FAILURE);
         }
 
@@ -2456,7 +2465,7 @@ static int64_t dumpInOneAvroFile(char* fcharset,
     avro_file_reader_t reader;
 
     if(avro_file_reader(avroFilepath, &reader)) {
-        fprintf(stderr, "Unable to open avro file %s: %s\n",
+        errorPrint("Unable to open avro file %s: %s\n",
                 avroFilepath, avro_strerror());
         return -1;
     }
@@ -2568,6 +2577,7 @@ static int64_t dumpInOneAvroFile(char* fcharset,
 
         free(stmtBuffer);
         free(tableDes);
+        freeRecordSchema(recordSchema);
         avro_schema_decref(schema);
         avro_file_reader_close(reader);
         avro_writer_free(jsonwriter);
@@ -3132,10 +3142,24 @@ static int64_t writeResultToSql(TAOS_RES *res, FILE *fp, char *dbName, char *tbN
 
 static int64_t dumpTableData(FILE *fp, char *tbName,
         char* dbName, int precision,
-        char *jsonSchema) {
+        int colCount,
+        TableDef *tableDes
+        ) {
+    char *jsonSchema = NULL;
+    if (g_args.avro) {
+        if (0 != convertTbDesToJson(
+                    dbName, tbName, tableDes, colCount, &jsonSchema)) {
+            errorPrint("%s() LN%d, convertTbDesToJson failed\n",
+                    __func__,
+                    __LINE__);
+            freeTbDes(tableDes);
+            return -1;
+        }
+    }
+
     int64_t    totalRows     = 0;
 
-    char sqlstr[1024] = {0};
+    char sqlstr[COMMAND_SIZE] = {0};
 
     int64_t start_time, end_time;
     if (strlen(g_args.humanStartTime)) {
@@ -3145,6 +3169,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
                 precision, 0)) {
             errorPrint("Input %s, time format error!\n",
                     g_args.humanStartTime);
+            tfree(jsonSchema);
             return -1;
         }
     } else {
@@ -3156,6 +3181,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
                 g_args.humanEndTime, &end_time, strlen(g_args.humanEndTime),
                 precision, 0)) {
             errorPrint("Input %s, time format error!\n", g_args.humanEndTime);
+            tfree(jsonSchema);
             return -1;
         }
     } else {
@@ -3172,6 +3198,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
         errorPrint(
                 "Failed to connect to TDengine server %s by specified database %s\n",
                 g_args.host, dbName);
+        tfree(jsonSchema);
         return -1;
     }
 
@@ -3182,6 +3209,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
                 sqlstr, taos_errstr(res));
         taos_free_result(res);
         taos_close(taos);
+        tfree(jsonSchema);
         return -1;
     }
 
@@ -3202,6 +3230,8 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
 
     taos_free_result(res);
     taos_close(taos);
+    tfree(jsonSchema);
+
     return totalRows;
 }
 
@@ -3231,11 +3261,11 @@ static int64_t dumpNormalTable(
         }
 
         // create child-table using super-table
-#if 0
-        dumpCreateMTableClause(dbName, stable, tableDes, colCount, fp);
-#else
-        dumpCreateMTableClauseAvro(dbName, stable, tableDes, colCount, fp);
-#endif
+        if (g_args.avro) {
+            dumpCreateMTableClauseAvro(dbName, stable, tableDes, colCount, fp);
+        } else {
+            dumpCreateMTableClause(dbName, stable, tableDes, colCount, fp);
+        }
     } else {  // dump table definition
         colCount = getTableDes(taos, dbName, tbName, tableDes, false);
 
@@ -3249,28 +3279,19 @@ static int64_t dumpNormalTable(
         }
 
         // create normal-table or super-table
-        dumpCreateTableClause(tableDes, colCount, fp, dbName);
-    }
-
-    char *jsonSchema = NULL;
-    if (g_args.avro) {
-        if (0 != convertTbDesToJson(
-                    dbName, tbName, tableDes, colCount, &jsonSchema)) {
-            errorPrint("%s() LN%d, convertTbDesToJson failed\n",
-                    __func__,
-                    __LINE__);
-            freeTbDes(tableDes);
-            return -1;
+        if (g_args.avro) {
+            dumpCreateTableClauseAvro(tableDes, colCount, fp, dbName);
+        } else {
+            dumpCreateTableClause(tableDes, colCount, fp, dbName);
         }
     }
 
     int64_t totalRows = 0;
     if (!g_args.schemaonly) {
         totalRows = dumpTableData(fp, tbName, dbName, precision,
-            jsonSchema);
+            colCount, tableDes);
     }
 
-    tfree(jsonSchema);
     freeTbDes(tableDes);
     return totalRows;
 }
@@ -3432,12 +3453,12 @@ static int checkParam() {
     }
 
     if (!g_args.isDumpIn && g_args.encode != NULL) {
-        fprintf(stderr, "invalid option in dump out\n");
+        errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
 
     if (g_args.table_batch <= 0) {
-        fprintf(stderr, "invalid option in dump out\n");
+        errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
 
@@ -3673,7 +3694,7 @@ static void* dumpInSqlWorkThreadFp(void *arg)
 {
     threadInfo *pThread = (threadInfo*)arg;
     SET_THREAD_NAME("dumpInSqlWorkThrd");
-    fprintf(stderr, "[%d] Start to process %"PRId64" files from %"PRId64"\n",
+    errorPrint("[%d] Start to process %"PRId64" files from %"PRId64"\n",
                     pThread->threadIndex, pThread->count, pThread->from);
 
     for (int64_t i = 0; i < pThread->count; i++) {
@@ -3839,11 +3860,11 @@ static int dumpIn() {
         exit(EXIT_FAILURE);
     }
 
-#if 0
-    ret = dumpInSqlWorkThreads();
-#else
-    ret = dumpInTablesAvro();
-#endif
+    if (g_args.avro) {
+        ret = dumpInTablesAvro();
+    } else {
+        ret = dumpInSqlWorkThreads();
+    }
 
     if ((0 == ret) && g_args.avro) {
         ret = dumpInAvroWorkThreads();
