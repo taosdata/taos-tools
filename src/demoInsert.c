@@ -3022,7 +3022,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 return -1;
             }
 
-            if (stbInfo->childTblExists == TBL_ALREADY_EXISTS) {
+            if (stbInfo->autoCreateTable != AUTO_CREATE_SUBTBL) {
                 int64_t childTblCount;
                 if (getChildNameOfSuperTableWithLimitAndOffset(
                         taos0, db_name, stbInfo->stbName,
