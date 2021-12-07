@@ -612,7 +612,7 @@ static char *typeToStr(int type) {
         case TSDB_DATA_TYPE_UBIGINT:
             return "bigint unsigned";
         default:
-            return "unknown";
+            break;
     }
 
     return "unknown";
@@ -1703,7 +1703,7 @@ static void createDumpinList(char *ext, int64_t count)
 
     extlen = strlen(ext);
 
-    count = 0;
+    int64_t nCount = 0;
     pDir = opendir(g_args.inpath);
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
@@ -1716,18 +1716,23 @@ static void createDumpinList(char *ext, int64_t count)
                         if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                             continue;
                         }
-                        tstrncpy(g_tsDumpInSqlFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy(g_tsDumpInSqlFiles[nCount],
+                                pDirent->d_name,
+                                min(namelen+1, MAX_FILE_NAME_LEN));
                     }
                     else {
-                        tstrncpy(g_tsDumpInAvroFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy(g_tsDumpInAvroFiles[nCount],
+                                pDirent->d_name,
+                                min(namelen+1, MAX_FILE_NAME_LEN));
                     }
+                    nCount++;
                 }
             }
         }
         closedir (pDir);
     }
 
-    debugPrint("%"PRId64" .%s files filled to list!\n", count, ext);
+    debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
 }
 
 static int convertTbDesToJson(
@@ -1963,7 +1968,7 @@ static void print_json_aux(json_t *element, int indent)
             break;
 
         default:
-            fprintf(stderr, "unrecongnized JSON type %d\n", json_typeof(element));
+            errorPrint("Unrecongnized JSON type %d\n", json_typeof(element));
     }
 }
 
@@ -1979,8 +1984,18 @@ static json_t *load_json(char *jsonbuf)
     if (root) {
         return root;
     } else {
-        fprintf(stderr, "json error on line %d: %s\n", error.line, error.text);
+        errorPrint("JSON error on line %d: %s\n", error.line, error.text);
         return NULL;
+    }
+}
+
+static void freeRecordSchema(RecordSchema *recordSchema)
+{
+    if (recordSchema) {
+        if (recordSchema->fields) {
+            free(recordSchema->fields);
+        }
+        free(recordSchema);
     }
 }
 
@@ -1990,7 +2005,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
     assert(recordSchema);
 
     if (JSON_OBJECT != json_typeof(element)) {
-        fprintf(stderr, "%s() LN%d, json passed is not an object\n",
+        errorPrint("%s() LN%d, json passed is not an object\n",
                 __func__, __LINE__);
         return NULL;
     }
@@ -2131,8 +2146,9 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                     }
                 }
             } else {
-                fprintf(stderr, "%s() LN%d, fields have no array\n",
+                errorPrint("%s() LN%d, fields have no array\n",
                         __func__, __LINE__);
+                freeRecordSchema(recordSchema);
                 return NULL;
             }
 
@@ -2141,16 +2157,6 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
     }
 
     return recordSchema;
-}
-
-static void freeRecordSchema(RecordSchema *recordSchema)
-{
-    if (recordSchema) {
-        if (recordSchema->fields) {
-            free(recordSchema->fields);
-        }
-        free(recordSchema);
-    }
 }
 
 static int64_t writeResultToAvro(
@@ -2176,7 +2182,7 @@ static int64_t writeResultToAvro(
 
         recordSchema = parse_json_to_recordschema(json_root);
         if (NULL == recordSchema) {
-            fprintf(stderr, "Failed to parse json to recordschema\n");
+            errorPrint("%s", "Failed to parse json to recordschema\n");
             exit(EXIT_FAILURE);
         }
 
@@ -2431,7 +2437,7 @@ static int64_t dumpInOneAvroFile(char* fcharset,
     avro_file_reader_t reader;
 
     if(avro_file_reader(avroFilepath, &reader)) {
-        fprintf(stderr, "Unable to open avro file %s: %s\n",
+        errorPrint("Unable to open avro file %s: %s\n",
                 avroFilepath, avro_strerror());
         return -1;
     }
@@ -2543,6 +2549,7 @@ static int64_t dumpInOneAvroFile(char* fcharset,
 
         free(stmtBuffer);
         free(tableDes);
+        freeRecordSchema(recordSchema);
         avro_schema_decref(schema);
         avro_file_reader_close(reader);
         avro_writer_free(jsonwriter);
@@ -3403,12 +3410,12 @@ static int checkParam() {
     }
 
     if (!g_args.isDumpIn && g_args.encode != NULL) {
-        fprintf(stderr, "invalid option in dump out\n");
+        errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
 
     if (g_args.table_batch <= 0) {
-        fprintf(stderr, "invalid option in dump out\n");
+        errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
 
@@ -3644,7 +3651,7 @@ static void* dumpInSqlWorkThreadFp(void *arg)
 {
     threadInfo *pThread = (threadInfo*)arg;
     SET_THREAD_NAME("dumpInSqlWorkThrd");
-    fprintf(stderr, "[%d] Start to process %"PRId64" files from %"PRId64"\n",
+    errorPrint("[%d] Start to process %"PRId64" files from %"PRId64"\n",
                     pThread->threadIndex, pThread->count, pThread->from);
 
     for (int64_t i = 0; i < pThread->count; i++) {
