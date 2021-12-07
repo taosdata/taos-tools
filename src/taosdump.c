@@ -1703,7 +1703,7 @@ static void createDumpinList(char *ext, int64_t count)
 
     extlen = strlen(ext);
 
-    count = 0;
+    int64_t nCount = 0;
     pDir = opendir(g_args.inpath);
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
@@ -1716,18 +1716,23 @@ static void createDumpinList(char *ext, int64_t count)
                         if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                             continue;
                         }
-                        tstrncpy(g_tsDumpInSqlFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy(g_tsDumpInSqlFiles[nCount],
+                                pDirent->d_name,
+                                min(namelen+1, MAX_FILE_NAME_LEN));
                     }
                     else {
-                        tstrncpy(g_tsDumpInAvroFiles[count++], pDirent->d_name, MAX_FILE_NAME_LEN);
+                        tstrncpy(g_tsDumpInAvroFiles[nCount],
+                                pDirent->d_name,
+                                min(namelen+1, MAX_FILE_NAME_LEN));
                     }
+                    nCount++;
                 }
             }
         }
         closedir (pDir);
     }
 
-    debugPrint("%"PRId64" .%s files filled to list!\n", count, ext);
+    debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
 }
 
 static int convertTbDesToJson(
