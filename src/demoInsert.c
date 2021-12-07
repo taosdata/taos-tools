@@ -2938,12 +2938,12 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
     // read sample data from file first
     int ret = 0;
-    if (stbInfo->iface != SML_IFACE) {
-        if (stbInfo && stbInfo->iface != SML_IFACE) {
-            ret = prepareSampleForStb(stbInfo);
-        } else {
-            ret = prepareSampleForNtb();
-        }
+    if (stbInfo) {
+      if (stbInfo->iface != SML_IFACE) {
+        ret = prepareSampleForStb(stbInfo);
+      }
+    } else {
+      ret = prepareSampleForNtb();
     }
     if (ret) {
         errorPrint("%s", "prepare sample data for stable failed!\n");
