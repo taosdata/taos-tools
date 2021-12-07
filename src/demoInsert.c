@@ -2493,7 +2493,7 @@ void *syncWriteProgressive(threadInfo *pThreadInfo) {
         uint64_t len = 0;
         int32_t  generated;
         for (uint64_t i = 0; i < insertRows;) {
-            char *   pstr = pThreadInfo->buffer;
+            char *pstr = pThreadInfo->buffer;
             if (g_args.pressure_mode) {
                 len = snprintf(pstr + len, maxSqlLen - len,
                                "insert into %s.%s%" PRId64 " values ",
@@ -2938,11 +2938,11 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
     // read sample data from file first
     int ret = 0;
     if (stbInfo) {
-      if (stbInfo->iface != SML_IFACE) {
-        ret = prepareSampleForStb(stbInfo);
-      }
+        if (stbInfo->iface != SML_IFACE) {
+            ret = prepareSampleForStb(stbInfo);
+        }
     } else {
-      ret = prepareSampleForNtb();
+        ret = prepareSampleForNtb();
     }
     if (ret) {
         errorPrint("%s", "prepare sample data for stable failed!\n");
@@ -3054,7 +3054,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
     if (g_args.iface == REST_IFACE ||
         ((stbInfo) && (stbInfo->iface == REST_IFACE))) {
-        if (convertHostToServAddr(g_Dbs.host, g_Dbs.port, g_Dbs.serv_addr) !=
+        if (convertHostToServAddr(g_Dbs.host, g_Dbs.port, &(g_Dbs.serv_addr)) !=
             0) {
             errorPrint("%s\n", "convert host to server address");
             return -1;

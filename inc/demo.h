@@ -461,9 +461,9 @@ typedef struct SDataBase_S {
 } SDataBase;
 
 typedef struct SDbs_S {
-    char                cfgDir[MAX_FILE_NAME_LEN];
-    char                host[MAX_HOSTNAME_SIZE];
-    struct sockaddr_in *serv_addr;
+    char               cfgDir[MAX_FILE_NAME_LEN];
+    char               host[MAX_HOSTNAME_SIZE];
+    struct sockaddr_in serv_addr;
 
     uint16_t port;
     char     user[MAX_USERNAME_SIZE];
@@ -525,17 +525,17 @@ typedef struct SuperQueryInfo_S {
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
-    char                cfgDir[MAX_FILE_NAME_LEN];
-    char                host[MAX_HOSTNAME_SIZE];
-    uint16_t            port;
-    struct sockaddr_in *serv_addr;
-    char                user[MAX_USERNAME_SIZE];
-    char                password[SHELL_MAX_PASSWORD_LEN];
-    char                dbName[TSDB_DB_NAME_LEN];
-    char                queryMode[SMALL_BUFF_LEN];  // taosc, rest
-    SpecifiedQueryInfo  specifiedQueryInfo;
-    SuperQueryInfo      superQueryInfo;
-    uint64_t            totalQueried;
+    char               cfgDir[MAX_FILE_NAME_LEN];
+    char               host[MAX_HOSTNAME_SIZE];
+    uint16_t           port;
+    struct sockaddr_in serv_addr;
+    char               user[MAX_USERNAME_SIZE];
+    char               password[SHELL_MAX_PASSWORD_LEN];
+    char               dbName[TSDB_DB_NAME_LEN];
+    char               queryMode[SMALL_BUFF_LEN];  // taosc, rest
+    SpecifiedQueryInfo specifiedQueryInfo;
+    SuperQueryInfo     superQueryInfo;
+    uint64_t           totalQueried;
 } SQueryMetaInfo;
 
 typedef struct SThreadInfo_S {
