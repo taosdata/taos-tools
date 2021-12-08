@@ -27,29 +27,29 @@ char *g_aggreFuncDemo[] = {"*",
 char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
                        "max(C0)", "min(C0)",  "first(C0)", "last(C0)"};
 
-int parse_args(int argc, char *argv[]) {
+int parse_args(int argc, char *argv[], SArguments *pg_args) {
     int32_t code = -1;
     for (int i = 1; i < argc; i++) {
         if ((0 == strncmp(argv[i], "-f", strlen("-f"))) ||
             (0 == strncmp(argv[i], "--file", strlen("--file")))) {
-            g_args.demo_mode = false;
+            pg_args->demo_mode = false;
 
             if (2 == strlen(argv[i])) {
                 if (i + 1 == argc) {
                     errorPrintReqArg(argv[0], "f");
                     goto end_parse_command;
                 }
-                g_args.metaFile = argv[++i];
+                pg_args->metaFile = argv[++i];
             } else if (0 == strncmp(argv[i], "-f", strlen("-f"))) {
-                g_args.metaFile = (char *)(argv[i] + strlen("-f"));
+                pg_args->metaFile = (char *)(argv[i] + strlen("-f"));
             } else if (strlen("--file") == strlen(argv[i])) {
                 if (i + 1 == argc) {
                     errorPrintReqArg3(argv[0], "--file");
                     goto end_parse_command;
                 }
-                g_args.metaFile = argv[++i];
+                pg_args->metaFile = argv[++i];
             } else if (0 == strncmp(argv[i], "--file=", strlen("--file="))) {
-                g_args.metaFile = (char *)(argv[i] + strlen("--file="));
+                pg_args->metaFile = (char *)(argv[i] + strlen("--file="));
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -87,23 +87,23 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg(argv[0], "h");
                     goto end_parse_command;
                 }
-                g_args.host = argv[++i];
+                pg_args->host = argv[++i];
             } else if (0 == strncmp(argv[i], "-h", strlen("-h"))) {
-                g_args.host = (char *)(argv[i] + strlen("-h"));
+                pg_args->host = (char *)(argv[i] + strlen("-h"));
             } else if (strlen("--host") == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg3(argv[0], "--host");
                     goto end_parse_command;
                 }
-                g_args.host = argv[++i];
+                pg_args->host = argv[++i];
             } else if (0 == strncmp(argv[i], "--host=", strlen("--host="))) {
-                g_args.host = (char *)(argv[i] + strlen("--host="));
+                pg_args->host = (char *)(argv[i] + strlen("--host="));
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
         } else if (strcmp(argv[i], "-PP") == 0) {
-            g_args.performance_print = true;
+            pg_args->performance_print = true;
         } else if ((0 == strncmp(argv[i], "-P", strlen("-P"))) ||
                    (0 == strncmp(argv[i], "--port", strlen("--port")))) {
             uint64_t port;
@@ -155,7 +155,7 @@ int parse_args(int argc, char *argv[]) {
                 errorWrongValue("taosdump", "-P or --port", strPort);
                 goto end_parse_command;
             }
-            g_args.port = (uint16_t)port;
+            pg_args->port = (uint16_t)port;
 
         } else if ((0 == strncmp(argv[i], "-I", strlen("-I"))) ||
                    (0 ==
@@ -166,13 +166,13 @@ int parse_args(int argc, char *argv[]) {
                     goto end_parse_command;
                 }
                 if (0 == strcasecmp(argv[i + 1], "taosc")) {
-                    g_args.iface = TAOSC_IFACE;
+                    pg_args->iface = TAOSC_IFACE;
                 } else if (0 == strcasecmp(argv[i + 1], "rest")) {
-                    g_args.iface = REST_IFACE;
+                    pg_args->iface = REST_IFACE;
                 } else if (0 == strcasecmp(argv[i + 1], "stmt")) {
-                    g_args.iface = STMT_IFACE;
+                    pg_args->iface = STMT_IFACE;
                 } else if (0 == strcasecmp(argv[i + 1], "sml")) {
-                    g_args.iface = SML_IFACE;
+                    pg_args->iface = SML_IFACE;
                 } else {
                     errorWrongValue(argv[0], "-I", argv[i + 1]);
                     goto end_parse_command;
@@ -182,19 +182,19 @@ int parse_args(int argc, char *argv[]) {
                                     "--interface=", strlen("--interface="))) {
                 if (0 == strcasecmp((char *)(argv[i] + strlen("--interface=")),
                                     "taosc")) {
-                    g_args.iface = TAOSC_IFACE;
+                    pg_args->iface = TAOSC_IFACE;
                 } else if (0 == strcasecmp(
                                     (char *)(argv[i] + strlen("--interface=")),
                                     "rest")) {
-                    g_args.iface = REST_IFACE;
+                    pg_args->iface = REST_IFACE;
                 } else if (0 == strcasecmp(
                                     (char *)(argv[i] + strlen("--interface=")),
                                     "stmt")) {
-                    g_args.iface = STMT_IFACE;
+                    pg_args->iface = STMT_IFACE;
                 } else if (0 == strcasecmp(
                                     (char *)(argv[i] + strlen("--interface=")),
                                     "sml")) {
-                    g_args.iface = SML_IFACE;
+                    pg_args->iface = SML_IFACE;
                 } else {
                     errorPrintReqArg3(argv[0], "--interface");
                     goto end_parse_command;
@@ -202,16 +202,16 @@ int parse_args(int argc, char *argv[]) {
             } else if (0 == strncmp(argv[i], "-I", strlen("-I"))) {
                 if (0 ==
                     strcasecmp((char *)(argv[i] + strlen("-I")), "taosc")) {
-                    g_args.iface = TAOSC_IFACE;
+                    pg_args->iface = TAOSC_IFACE;
                 } else if (0 == strcasecmp((char *)(argv[i] + strlen("-I")),
                                            "rest")) {
-                    g_args.iface = REST_IFACE;
+                    pg_args->iface = REST_IFACE;
                 } else if (0 == strcasecmp((char *)(argv[i] + strlen("-I")),
                                            "stmt")) {
-                    g_args.iface = STMT_IFACE;
+                    pg_args->iface = STMT_IFACE;
                 } else if (0 == strcasecmp((char *)(argv[i] + strlen("-I")),
                                            "sml")) {
-                    g_args.iface = SML_IFACE;
+                    pg_args->iface = SML_IFACE;
                 } else {
                     errorWrongValue(argv[0], "-I",
                                     (char *)(argv[i] + strlen("-I")));
@@ -223,13 +223,13 @@ int parse_args(int argc, char *argv[]) {
                     goto end_parse_command;
                 }
                 if (0 == strcasecmp(argv[i + 1], "taosc")) {
-                    g_args.iface = TAOSC_IFACE;
+                    pg_args->iface = TAOSC_IFACE;
                 } else if (0 == strcasecmp(argv[i + 1], "rest")) {
-                    g_args.iface = REST_IFACE;
+                    pg_args->iface = REST_IFACE;
                 } else if (0 == strcasecmp(argv[i + 1], "stmt")) {
-                    g_args.iface = STMT_IFACE;
+                    pg_args->iface = STMT_IFACE;
                 } else if (0 == strcasecmp(argv[i + 1], "sml")) {
-                    g_args.iface = SML_IFACE;
+                    pg_args->iface = SML_IFACE;
                 } else {
                     errorWrongValue(argv[0], "--interface", argv[i + 1]);
                     goto end_parse_command;
@@ -246,17 +246,17 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg(argv[0], "u");
                     goto end_parse_command;
                 }
-                g_args.user = argv[++i];
+                pg_args->user = argv[++i];
             } else if (0 == strncmp(argv[i], "-u", strlen("-u"))) {
-                g_args.user = (char *)(argv[i++] + strlen("-u"));
+                pg_args->user = (char *)(argv[i++] + strlen("-u"));
             } else if (0 == strncmp(argv[i], "--user=", strlen("--user="))) {
-                g_args.user = (char *)(argv[i++] + strlen("--user="));
+                pg_args->user = (char *)(argv[i++] + strlen("--user="));
             } else if (strlen("--user") == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg3(argv[0], "--user");
                     goto end_parse_command;
                 }
-                g_args.user = argv[++i];
+                pg_args->user = argv[++i];
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -266,11 +266,11 @@ int parse_args(int argc, char *argv[]) {
             if ((strlen(argv[i]) == 2) ||
                 (0 == strcmp(argv[i], "--password"))) {
                 printf("Enter password: ");
-                if (scanf("%s", g_args.password) > 1) {
+                if (scanf("%s", pg_args->password) > 1) {
                     fprintf(stderr, "password read error!\n");
                 }
             } else {
-                tstrncpy(g_args.password, (char *)(argv[i] + 2),
+                tstrncpy(pg_args->password, (char *)(argv[i] + 2),
                          SHELL_MAX_PASSWORD_LEN);
             }
         } else if ((0 == strncmp(argv[i], "-o", strlen("-o"))) ||
@@ -280,18 +280,19 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg3(argv[0], "--output");
                     goto end_parse_command;
                 }
-                g_args.output_file = argv[++i];
+                pg_args->output_file = argv[++i];
             } else if (0 ==
                        strncmp(argv[i], "--output=", strlen("--output="))) {
-                g_args.output_file = (char *)(argv[i++] + strlen("--output="));
+                pg_args->output_file =
+                    (char *)(argv[i++] + strlen("--output="));
             } else if (0 == strncmp(argv[i], "-o", strlen("-o"))) {
-                g_args.output_file = (char *)(argv[i++] + strlen("-o"));
+                pg_args->output_file = (char *)(argv[i++] + strlen("-o"));
             } else if (strlen("--output") == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg3(argv[0], "--output");
                     goto end_parse_command;
                 }
-                g_args.output_file = argv[++i];
+                pg_args->output_file = argv[++i];
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -304,18 +305,18 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg(argv[0], "s");
                     goto end_parse_command;
                 }
-                g_args.sqlFile = argv[++i];
+                pg_args->sqlFile = argv[++i];
             } else if (0 ==
                        strncmp(argv[i], "--sql-file=", strlen("--sql-file="))) {
-                g_args.sqlFile = (char *)(argv[i++] + strlen("--sql-file="));
+                pg_args->sqlFile = (char *)(argv[i++] + strlen("--sql-file="));
             } else if (0 == strncmp(argv[i], "-s", strlen("-s"))) {
-                g_args.sqlFile = (char *)(argv[i++] + strlen("-s"));
+                pg_args->sqlFile = (char *)(argv[i++] + strlen("-s"));
             } else if (strlen("--sql-file") == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg3(argv[0], "--sql-file");
                     goto end_parse_command;
                 }
-                g_args.sqlFile = argv[++i];
+                pg_args->sqlFile = argv[++i];
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -331,12 +332,12 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "q");
                     goto end_parse_command;
                 }
-                g_args.async_mode = atoi(argv[++i]);
+                pg_args->async_mode = atoi(argv[++i]);
             } else if (0 == strncmp(argv[i],
                                     "--query-mode=", strlen("--query-mode="))) {
                 if (isStringNumber(
                         (char *)(argv[i] + strlen("--query-mode=")))) {
-                    g_args.async_mode =
+                    pg_args->async_mode =
                         atoi((char *)(argv[i] + strlen("--query-mode=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--query-mode");
@@ -344,7 +345,8 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-q", strlen("-q"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-q")))) {
-                    g_args.async_mode = atoi((char *)(argv[i] + strlen("-q")));
+                    pg_args->async_mode =
+                        atoi((char *)(argv[i] + strlen("-q")));
                 } else {
                     errorPrintReqArg2(argv[0], "-q");
                     goto end_parse_command;
@@ -357,7 +359,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--query-mode");
                     goto end_parse_command;
                 }
-                g_args.async_mode = atoi(argv[++i]);
+                pg_args->async_mode = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -372,11 +374,11 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "T");
                     goto end_parse_command;
                 }
-                g_args.nthreads = atoi(argv[++i]);
+                pg_args->nthreads = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--threads=", strlen("--threads="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--threads=")))) {
-                    g_args.nthreads =
+                    pg_args->nthreads =
                         atoi((char *)(argv[i] + strlen("--threads=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--threads");
@@ -384,7 +386,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-T", strlen("-T"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-T")))) {
-                    g_args.nthreads = atoi((char *)(argv[i] + strlen("-T")));
+                    pg_args->nthreads = atoi((char *)(argv[i] + strlen("-T")));
                 } else {
                     errorPrintReqArg2(argv[0], "-T");
                     goto end_parse_command;
@@ -397,7 +399,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--threads");
                     goto end_parse_command;
                 }
-                g_args.nthreads = atoi(argv[++i]);
+                pg_args->nthreads = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -413,12 +415,12 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "i");
                     goto end_parse_command;
                 }
-                g_args.insert_interval = atoi(argv[++i]);
+                pg_args->insert_interval = atoi(argv[++i]);
             } else if (0 == strncmp(argv[i], "--insert-interval=",
                                     strlen("--insert-interval="))) {
                 if (isStringNumber(
                         (char *)(argv[i] + strlen("--insert-interval=")))) {
-                    g_args.insert_interval =
+                    pg_args->insert_interval =
                         atoi((char *)(argv[i] + strlen("--insert-interval=")));
                 } else {
                     errorPrintReqArg3(argv[0], "--insert-innterval");
@@ -426,7 +428,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-i", strlen("-i"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-i")))) {
-                    g_args.insert_interval =
+                    pg_args->insert_interval =
                         atoi((char *)(argv[i] + strlen("-i")));
                 } else {
                     errorPrintReqArg3(argv[0], "-i");
@@ -440,7 +442,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--insert-interval");
                     goto end_parse_command;
                 }
-                g_args.insert_interval = atoi(argv[++i]);
+                pg_args->insert_interval = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -456,12 +458,12 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "S");
                     goto end_parse_command;
                 }
-                g_args.timestamp_step = atoi(argv[++i]);
+                pg_args->timestamp_step = atoi(argv[++i]);
             } else if (0 == strncmp(argv[i],
                                     "--time-step=", strlen("--time-step="))) {
                 if (isStringNumber(
                         (char *)(argv[i] + strlen("--time-step=")))) {
-                    g_args.timestamp_step =
+                    pg_args->timestamp_step =
                         atoi((char *)(argv[i] + strlen("--time-step=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--time-step");
@@ -469,7 +471,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-S", strlen("-S"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-S")))) {
-                    g_args.timestamp_step =
+                    pg_args->timestamp_step =
                         atoi((char *)(argv[i] + strlen("-S")));
                 } else {
                     errorPrintReqArg2(argv[0], "-S");
@@ -483,7 +485,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--time-step");
                     goto end_parse_command;
                 }
-                g_args.timestamp_step = atoi(argv[++i]);
+                pg_args->timestamp_step = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -494,7 +496,7 @@ int parse_args(int argc, char *argv[]) {
                 errorPrint("%s", "\n\t-qt need a number following!\n");
                 goto end_parse_command;
             }
-            g_args.query_times = atoi(argv[++i]);
+            pg_args->query_times = atoi(argv[++i]);
         } else if ((0 == strncmp(argv[i], "-B", strlen("-B"))) ||
                    (0 == strncmp(argv[i], "--interlace-rows",
                                  strlen("--interlace-rows")))) {
@@ -506,12 +508,12 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "B");
                     goto end_parse_command;
                 }
-                g_args.interlaceRows = atoi(argv[++i]);
+                pg_args->interlaceRows = atoi(argv[++i]);
             } else if (0 == strncmp(argv[i], "--interlace-rows=",
                                     strlen("--interlace-rows="))) {
                 if (isStringNumber(
                         (char *)(argv[i] + strlen("--interlace-rows=")))) {
-                    g_args.interlaceRows =
+                    pg_args->interlaceRows =
                         atoi((char *)(argv[i] + strlen("--interlace-rows=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--interlace-rows");
@@ -519,7 +521,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-B", strlen("-B"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-B")))) {
-                    g_args.interlaceRows =
+                    pg_args->interlaceRows =
                         atoi((char *)(argv[i] + strlen("-B")));
                 } else {
                     errorPrintReqArg2(argv[0], "-B");
@@ -533,7 +535,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--interlace-rows");
                     goto end_parse_command;
                 }
-                g_args.interlaceRows = atoi(argv[++i]);
+                pg_args->interlaceRows = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -548,12 +550,12 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "r");
                     goto end_parse_command;
                 }
-                g_args.reqPerReq = atoi(argv[++i]);
+                pg_args->reqPerReq = atoi(argv[++i]);
             } else if (0 == strncmp(argv[i], "--rec-per-req=",
                                     strlen("--rec-per-req="))) {
                 if (isStringNumber(
                         (char *)(argv[i] + strlen("--rec-per-req=")))) {
-                    g_args.reqPerReq =
+                    pg_args->reqPerReq =
                         atoi((char *)(argv[i] + strlen("--rec-per-req=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--rec-per-req");
@@ -561,7 +563,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-r", strlen("-r"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-r")))) {
-                    g_args.reqPerReq = atoi((char *)(argv[i] + strlen("-r")));
+                    pg_args->reqPerReq = atoi((char *)(argv[i] + strlen("-r")));
                 } else {
                     errorPrintReqArg2(argv[0], "-r");
                     goto end_parse_command;
@@ -574,7 +576,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--rec-per-req");
                     goto end_parse_command;
                 }
-                g_args.reqPerReq = atoi(argv[++i]);
+                pg_args->reqPerReq = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -589,11 +591,11 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "t");
                     goto end_parse_command;
                 }
-                g_args.ntables = atoi(argv[++i]);
+                pg_args->ntables = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--tables=", strlen("--tables="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--tables=")))) {
-                    g_args.ntables =
+                    pg_args->ntables =
                         atoi((char *)(argv[i] + strlen("--tables=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--tables");
@@ -601,7 +603,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-t", strlen("-t"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-t")))) {
-                    g_args.ntables = atoi((char *)(argv[i] + strlen("-t")));
+                    pg_args->ntables = atoi((char *)(argv[i] + strlen("-t")));
                 } else {
                     errorPrintReqArg2(argv[0], "-t");
                     goto end_parse_command;
@@ -614,13 +616,13 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--tables");
                     goto end_parse_command;
                 }
-                g_args.ntables = atoi(argv[++i]);
+                pg_args->ntables = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
 
-            g_totalChildTables = g_args.ntables;
+            g_totalChildTables = pg_args->ntables;
         } else if ((0 == strncmp(argv[i], "-n", strlen("-n"))) ||
                    (0 == strncmp(argv[i], "--records", strlen("--records")))) {
             if (2 == strlen(argv[i])) {
@@ -631,11 +633,11 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "n");
                     goto end_parse_command;
                 }
-                g_args.insertRows = atoi(argv[++i]);
+                pg_args->insertRows = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--records=", strlen("--records="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--records=")))) {
-                    g_args.insertRows =
+                    pg_args->insertRows =
                         atoi((char *)(argv[i] + strlen("--records=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--records");
@@ -643,7 +645,8 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-n", strlen("-n"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-n")))) {
-                    g_args.insertRows = atoi((char *)(argv[i] + strlen("-n")));
+                    pg_args->insertRows =
+                        atoi((char *)(argv[i] + strlen("-n")));
                 } else {
                     errorPrintReqArg2(argv[0], "-n");
                     goto end_parse_command;
@@ -656,7 +659,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--records");
                     goto end_parse_command;
                 }
-                g_args.insertRows = atoi(argv[++i]);
+                pg_args->insertRows = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -669,25 +672,26 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg(argv[0], "d");
                     goto end_parse_command;
                 }
-                g_args.database = argv[++i];
+                pg_args->database = argv[++i];
             } else if (0 ==
                        strncmp(argv[i], "--database=", strlen("--database="))) {
-                g_args.output_file = (char *)(argv[i] + strlen("--database="));
+                pg_args->output_file =
+                    (char *)(argv[i] + strlen("--database="));
             } else if (0 == strncmp(argv[i], "-d", strlen("-d"))) {
-                g_args.output_file = (char *)(argv[i] + strlen("-d"));
+                pg_args->output_file = (char *)(argv[i] + strlen("-d"));
             } else if (strlen("--database") == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg3(argv[0], "--database");
                     goto end_parse_command;
                 }
-                g_args.database = argv[++i];
+                pg_args->database = argv[++i];
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
         } else if ((0 == strncmp(argv[i], "-l", strlen("-l"))) ||
                    (0 == strncmp(argv[i], "--columns", strlen("--columns")))) {
-            g_args.demo_mode = false;
+            pg_args->demo_mode = false;
             if (2 == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg(argv[0], "l");
@@ -696,11 +700,11 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "l");
                     goto end_parse_command;
                 }
-                g_args.columnCount = atoi(argv[++i]);
+                pg_args->columnCount = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--columns=", strlen("--columns="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--columns=")))) {
-                    g_args.columnCount =
+                    pg_args->columnCount =
                         atoi((char *)(argv[i] + strlen("--columns=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--columns");
@@ -708,7 +712,8 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-l", strlen("-l"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-l")))) {
-                    g_args.columnCount = atoi((char *)(argv[i] + strlen("-l")));
+                    pg_args->columnCount =
+                        atoi((char *)(argv[i] + strlen("-l")));
                 } else {
                     errorPrintReqArg2(argv[0], "-l");
                     goto end_parse_command;
@@ -721,33 +726,33 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--columns");
                     goto end_parse_command;
                 }
-                g_args.columnCount = atoi(argv[++i]);
+                pg_args->columnCount = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
 
-            if (g_args.columnCount > MAX_NUM_COLUMNS) {
+            if (pg_args->columnCount > MAX_NUM_COLUMNS) {
                 printf("WARNING: max acceptable columns count is %d\n",
                        MAX_NUM_COLUMNS);
                 prompt();
-                g_args.columnCount = MAX_NUM_COLUMNS;
+                pg_args->columnCount = MAX_NUM_COLUMNS;
             }
 
-            for (int col = 0; col < g_args.columnCount; col++) {
-                if (g_args.data_type[col] == TSDB_DATA_TYPE_NULL) {
-                    g_args.dataType[col] = "INT";
-                    g_args.data_type[col] = TSDB_DATA_TYPE_INT;
+            for (int col = 0; col < pg_args->columnCount; col++) {
+                if (pg_args->data_type[col] == TSDB_DATA_TYPE_NULL) {
+                    pg_args->dataType[col] = "INT";
+                    pg_args->data_type[col] = TSDB_DATA_TYPE_INT;
                 }
             }
-            for (int col = g_args.columnCount; col < MAX_NUM_COLUMNS; col++) {
-                g_args.dataType[col] = NULL;
-                g_args.data_type[col] = TSDB_DATA_TYPE_NULL;
+            for (int col = pg_args->columnCount; col < MAX_NUM_COLUMNS; col++) {
+                pg_args->dataType[col] = NULL;
+                pg_args->data_type[col] = TSDB_DATA_TYPE_NULL;
             }
         } else if ((0 == strncmp(argv[i], "-b", strlen("-b"))) ||
                    (0 ==
                     strncmp(argv[i], "--data-type", strlen("--data-type")))) {
-            g_args.demo_mode = false;
+            pg_args->demo_mode = false;
 
             char *dataType;
             if (2 == strlen(argv[i])) {
@@ -794,44 +799,44 @@ int parse_args(int argc, char *argv[]) {
                     goto end_parse_command;
                 }
                 if (0 == strcasecmp(dataType, "INT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_INT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_INT;
                 } else if (0 == strcasecmp(dataType, "TINYINT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_TINYINT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_TINYINT;
                 } else if (0 == strcasecmp(dataType, "SMALLINT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_SMALLINT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_SMALLINT;
                 } else if (0 == strcasecmp(dataType, "BIGINT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_BIGINT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_BIGINT;
                 } else if (0 == strcasecmp(dataType, "FLOAT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_FLOAT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_FLOAT;
                 } else if (0 == strcasecmp(dataType, "DOUBLE")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_DOUBLE;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_DOUBLE;
                 } else if (1 == regexMatch(dataType,
                                            "^BINARY(\\([1-9][0-9]*\\))?$",
                                            REG_ICASE | REG_EXTENDED)) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_BINARY;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_BINARY;
                 } else if (1 == regexMatch(dataType,
                                            "^NCHAR(\\([1-9][0-9]*\\))?$",
                                            REG_ICASE | REG_EXTENDED)) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_NCHAR;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_NCHAR;
                 } else if (0 == strcasecmp(dataType, "BOOL")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_BOOL;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_BOOL;
                 } else if (0 == strcasecmp(dataType, "TIMESTAMP")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_TIMESTAMP;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_TIMESTAMP;
                 } else if (0 == strcasecmp(dataType, "UTINYINT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_UTINYINT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_UTINYINT;
                 } else if (0 == strcasecmp(dataType, "USMALLINT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_USMALLINT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_USMALLINT;
                 } else if (0 == strcasecmp(dataType, "UINT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_UINT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_UINT;
                 } else if (0 == strcasecmp(dataType, "UBIGINT")) {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_UBIGINT;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_UBIGINT;
                 } else {
-                    g_args.data_type[0] = TSDB_DATA_TYPE_NULL;
+                    pg_args->data_type[0] = TSDB_DATA_TYPE_NULL;
                 }
-                g_args.dataType[0] = dataType;
-                if (g_args.data_type[1] != TSDB_DATA_TYPE_INT) {
-                    g_args.dataType[1] = NULL;
-                    g_args.data_type[1] = TSDB_DATA_TYPE_NULL;
+                pg_args->dataType[0] = dataType;
+                if (pg_args->data_type[1] != TSDB_DATA_TYPE_INT) {
+                    pg_args->dataType[1] = NULL;
+                    pg_args->data_type[1] = TSDB_DATA_TYPE_NULL;
                 }
             } else {
                 // more than one col
@@ -861,48 +866,48 @@ int parse_args(int argc, char *argv[]) {
                     }
 
                     if (0 == strcasecmp(token, "INT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_INT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_INT;
                     } else if (0 == strcasecmp(token, "FLOAT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_FLOAT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_FLOAT;
                     } else if (0 == strcasecmp(token, "SMALLINT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_SMALLINT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_SMALLINT;
                     } else if (0 == strcasecmp(token, "BIGINT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_BIGINT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_BIGINT;
                     } else if (0 == strcasecmp(token, "DOUBLE")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_DOUBLE;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_DOUBLE;
                     } else if (0 == strcasecmp(token, "TINYINT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_TINYINT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_TINYINT;
                     } else if (1 == regexMatch(token,
                                                "^BINARY(\\([1-9][0-9]*\\))?$",
                                                REG_ICASE | REG_EXTENDED)) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_BINARY;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_BINARY;
                     } else if (1 == regexMatch(token,
                                                "^NCHAR(\\([1-9][0-9]*\\))?$",
                                                REG_ICASE | REG_EXTENDED)) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_NCHAR;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_NCHAR;
                     } else if (0 == strcasecmp(token, "BOOL")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_BOOL;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_BOOL;
                     } else if (0 == strcasecmp(token, "TIMESTAMP")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_TIMESTAMP;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_TIMESTAMP;
                     } else if (0 == strcasecmp(token, "UTINYINT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_UTINYINT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_UTINYINT;
                     } else if (0 == strcasecmp(token, "USMALLINT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_USMALLINT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_USMALLINT;
                     } else if (0 == strcasecmp(token, "UINT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_UINT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_UINT;
                     } else if (0 == strcasecmp(token, "UBIGINT")) {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_UBIGINT;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_UBIGINT;
                     } else {
-                        g_args.data_type[index] = TSDB_DATA_TYPE_NULL;
+                        pg_args->data_type[index] = TSDB_DATA_TYPE_NULL;
                     }
-                    g_args.dataType[index] = token;
+                    pg_args->dataType[index] = token;
                     index++;
                     token = strsep(&running, ",");
                     if (index >= MAX_NUM_COLUMNS) break;
                 }
-                if (g_args.data_type[index] != TSDB_DATA_TYPE_INT) {
-                    g_args.dataType[index] = NULL;
-                    g_args.data_type[index] = TSDB_DATA_TYPE_NULL;
+                if (pg_args->data_type[index] != TSDB_DATA_TYPE_INT) {
+                    pg_args->dataType[index] = NULL;
+                    pg_args->data_type[index] = TSDB_DATA_TYPE_NULL;
                 }
             }
         } else if ((0 == strncmp(argv[i], "-w", strlen("-w"))) ||
@@ -916,11 +921,11 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "w");
                     goto end_parse_command;
                 }
-                g_args.binwidth = atoi(argv[++i]);
+                pg_args->binwidth = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--binwidth=", strlen("--binwidth="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--binwidth=")))) {
-                    g_args.binwidth =
+                    pg_args->binwidth =
                         atoi((char *)(argv[i] + strlen("--binwidth=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--binwidth");
@@ -928,7 +933,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-w", strlen("-w"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-w")))) {
-                    g_args.binwidth = atoi((char *)(argv[i] + strlen("-w")));
+                    pg_args->binwidth = atoi((char *)(argv[i] + strlen("-w")));
                 } else {
                     errorPrintReqArg2(argv[0], "-w");
                     goto end_parse_command;
@@ -941,7 +946,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--binwidth");
                     goto end_parse_command;
                 }
-                g_args.binwidth = atoi(argv[++i]);
+                pg_args->binwidth = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -954,19 +959,19 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg(argv[0], "m");
                     goto end_parse_command;
                 }
-                g_args.tb_prefix = argv[++i];
+                pg_args->tb_prefix = argv[++i];
             } else if (0 == strncmp(argv[i], "--table-prefix=",
                                     strlen("--table-prefix="))) {
-                g_args.tb_prefix =
+                pg_args->tb_prefix =
                     (char *)(argv[i] + strlen("--table-prefix="));
             } else if (0 == strncmp(argv[i], "-m", strlen("-m"))) {
-                g_args.tb_prefix = (char *)(argv[i] + strlen("-m"));
+                pg_args->tb_prefix = (char *)(argv[i] + strlen("-m"));
             } else if (strlen("--table-prefix") == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg3(argv[0], "--table-prefix");
                     goto end_parse_command;
                 }
-                g_args.tb_prefix = argv[++i];
+                pg_args->tb_prefix = argv[++i];
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -974,30 +979,30 @@ int parse_args(int argc, char *argv[]) {
         } else if ((0 == strncmp(argv[i], "-E", strlen("-E"))) ||
                    (0 == strncmp(argv[i], "--escape-character",
                                  strlen("--escape-character")))) {
-            g_args.escapeChar = true;
+            pg_args->escapeChar = true;
         } else if (0 == strncmp(argv[i], "-pressure", strlen("-pressure"))) {
-            g_args.pressure_mode = true;
+            pg_args->pressure_mode = true;
         } else if ((0 == strncmp(argv[i], "-C", strlen("-C"))) ||
                    (0 == strncmp(argv[i], "--chinese", strlen("--chinese")))) {
-            g_args.chinese = true;
+            pg_args->chinese = true;
         } else if ((strcmp(argv[i], "-N") == 0) ||
                    (0 == strcmp(argv[i], "--normal-table"))) {
-            g_args.demo_mode = false;
-            g_args.use_metric = false;
+            pg_args->demo_mode = false;
+            pg_args->use_metric = false;
         } else if ((strcmp(argv[i], "-M") == 0) ||
                    (0 == strcmp(argv[i], "--random"))) {
-            g_args.demo_mode = false;
+            pg_args->demo_mode = false;
         } else if ((strcmp(argv[i], "-x") == 0) ||
                    (0 == strcmp(argv[i], "--aggr-func"))) {
-            g_args.aggr_func = true;
+            pg_args->aggr_func = true;
         } else if ((strcmp(argv[i], "-y") == 0) ||
                    (0 == strcmp(argv[i], "--answer-yes"))) {
-            g_args.answer_yes = true;
+            pg_args->answer_yes = true;
         } else if ((strcmp(argv[i], "-g") == 0) ||
                    (0 == strcmp(argv[i], "--debug"))) {
-            g_args.debug_print = true;
+            pg_args->debug_print = true;
         } else if (strcmp(argv[i], "-gg") == 0) {
-            g_args.verbose_print = true;
+            pg_args->verbose_print = true;
         } else if ((0 == strncmp(argv[i], "-R", strlen("-R"))) ||
                    (0 == strncmp(argv[i], "--disorder-range",
                                  strlen("--disorder-range")))) {
@@ -1009,12 +1014,12 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "R");
                     goto end_parse_command;
                 }
-                g_args.disorderRange = atoi(argv[++i]);
+                pg_args->disorderRange = atoi(argv[++i]);
             } else if (0 == strncmp(argv[i], "--disorder-range=",
                                     strlen("--disorder-range="))) {
                 if (isStringNumber(
                         (char *)(argv[i] + strlen("--disorder-range=")))) {
-                    g_args.disorderRange =
+                    pg_args->disorderRange =
                         atoi((char *)(argv[i] + strlen("--disorder-range=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--disorder-range");
@@ -1022,17 +1027,17 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-R", strlen("-R"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-R")))) {
-                    g_args.disorderRange =
+                    pg_args->disorderRange =
                         atoi((char *)(argv[i] + strlen("-R")));
                 } else {
                     errorPrintReqArg2(argv[0], "-R");
                     goto end_parse_command;
                 }
 
-                if (g_args.disorderRange < 0) {
+                if (pg_args->disorderRange < 0) {
                     errorPrint("Invalid disorder range %d, will be set to %d\n",
-                               g_args.disorderRange, 1000);
-                    g_args.disorderRange = 1000;
+                               pg_args->disorderRange, 1000);
+                    pg_args->disorderRange = 1000;
                 }
             } else if (strlen("--disorder-range") == strlen(argv[i])) {
                 if (argc == i + 1) {
@@ -1042,7 +1047,7 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--disorder-range");
                     goto end_parse_command;
                 }
-                g_args.disorderRange = atoi(argv[++i]);
+                pg_args->disorderRange = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -1058,11 +1063,11 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "O");
                     goto end_parse_command;
                 }
-                g_args.disorderRatio = atoi(argv[++i]);
+                pg_args->disorderRatio = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--disorder=", strlen("--disorder="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--disorder=")))) {
-                    g_args.disorderRatio =
+                    pg_args->disorderRatio =
                         atoi((char *)(argv[i] + strlen("--disorder=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--disorder");
@@ -1070,7 +1075,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-O", strlen("-O"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-O")))) {
-                    g_args.disorderRatio =
+                    pg_args->disorderRatio =
                         atoi((char *)(argv[i] + strlen("-O")));
                 } else {
                     errorPrintReqArg2(argv[0], "-O");
@@ -1084,16 +1089,16 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--disorder");
                     goto end_parse_command;
                 }
-                g_args.disorderRatio = atoi(argv[++i]);
+                pg_args->disorderRatio = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
 
-            if (g_args.disorderRatio > 50) {
+            if (pg_args->disorderRatio > 50) {
                 errorPrint("Invalid disorder ratio %d, will be set to %d\n",
-                           g_args.disorderRatio, 50);
-                g_args.disorderRatio = 50;
+                           pg_args->disorderRatio, 50);
+                pg_args->disorderRatio = 50;
             }
         } else if ((0 == strncmp(argv[i], "-a", strlen("-a"))) ||
                    (0 == strncmp(argv[i], "--replica", strlen("--replica")))) {
@@ -1105,11 +1110,11 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "a");
                     goto end_parse_command;
                 }
-                g_args.replica = atoi(argv[++i]);
+                pg_args->replica = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--replica=", strlen("--replica="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--replica=")))) {
-                    g_args.replica =
+                    pg_args->replica =
                         atoi((char *)(argv[i] + strlen("--replica=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--replica");
@@ -1117,7 +1122,7 @@ int parse_args(int argc, char *argv[]) {
                 }
             } else if (0 == strncmp(argv[i], "-a", strlen("-a"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-a")))) {
-                    g_args.replica = atoi((char *)(argv[i] + strlen("-a")));
+                    pg_args->replica = atoi((char *)(argv[i] + strlen("-a")));
                 } else {
                     errorPrintReqArg2(argv[0], "-a");
                     goto end_parse_command;
@@ -1130,20 +1135,20 @@ int parse_args(int argc, char *argv[]) {
                     errorPrintReqArg2(argv[0], "--replica");
                     goto end_parse_command;
                 }
-                g_args.replica = atoi(argv[++i]);
+                pg_args->replica = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
 
-            if (g_args.replica > 3 || g_args.replica < 1) {
+            if (pg_args->replica > 3 || pg_args->replica < 1) {
                 errorPrint("Invalid replica value %d, will be set to %d\n",
-                           g_args.replica, 1);
-                g_args.replica = 1;
+                           pg_args->replica, 1);
+                pg_args->replica = 1;
             }
         } else if (strcmp(argv[i], "-D") == 0) {
-            g_args.method_of_delete = atoi(argv[++i]);
-            if (g_args.method_of_delete > 3) {
+            pg_args->method_of_delete = atoi(argv[++i]);
+            if (pg_args->method_of_delete > 3) {
                 errorPrint("%s",
                            "\n\t-D need a value (0~3) number following!\n");
                 goto end_parse_command;
@@ -1191,7 +1196,7 @@ int parse_args(int argc, char *argv[]) {
 
     int columnCount;
     for (columnCount = 0; columnCount < MAX_NUM_COLUMNS; columnCount++) {
-        if (g_args.dataType[columnCount] == NULL) {
+        if (pg_args->dataType[columnCount] == NULL) {
             break;
         }
     }
@@ -1200,107 +1205,110 @@ int parse_args(int argc, char *argv[]) {
         errorPrint("%s", "data type error!\n");
         goto end_parse_command;
     }
-    g_args.columnCount = columnCount;
+    pg_args->columnCount = columnCount;
 
-    g_args.lenOfOneRow = TIMESTAMP_BUFF_LEN;  // timestamp
-    for (int c = 0; c < g_args.columnCount; c++) {
-        switch (g_args.data_type[c]) {
+    pg_args->lenOfOneRow = TIMESTAMP_BUFF_LEN;  // timestamp
+    for (int c = 0; c < pg_args->columnCount; c++) {
+        switch (pg_args->data_type[c]) {
             case TSDB_DATA_TYPE_BINARY:
-                g_args.lenOfOneRow += g_args.binwidth + 3;
+                pg_args->lenOfOneRow += pg_args->binwidth + 3;
                 break;
 
             case TSDB_DATA_TYPE_NCHAR:
-                g_args.lenOfOneRow += g_args.binwidth + 3;
+                pg_args->lenOfOneRow += pg_args->binwidth + 3;
                 break;
 
             case TSDB_DATA_TYPE_INT:
             case TSDB_DATA_TYPE_UINT:
-                g_args.lenOfOneRow += INT_BUFF_LEN;
+                pg_args->lenOfOneRow += INT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_BIGINT:
             case TSDB_DATA_TYPE_UBIGINT:
-                g_args.lenOfOneRow += BIGINT_BUFF_LEN;
+                pg_args->lenOfOneRow += BIGINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_SMALLINT:
             case TSDB_DATA_TYPE_USMALLINT:
-                g_args.lenOfOneRow += SMALLINT_BUFF_LEN;
+                pg_args->lenOfOneRow += SMALLINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_TINYINT:
             case TSDB_DATA_TYPE_UTINYINT:
-                g_args.lenOfOneRow += TINYINT_BUFF_LEN;
+                pg_args->lenOfOneRow += TINYINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_BOOL:
-                g_args.lenOfOneRow += BOOL_BUFF_LEN;
+                pg_args->lenOfOneRow += BOOL_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_FLOAT:
-                g_args.lenOfOneRow += FLOAT_BUFF_LEN;
+                pg_args->lenOfOneRow += FLOAT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_DOUBLE:
-                g_args.lenOfOneRow += DOUBLE_BUFF_LEN;
+                pg_args->lenOfOneRow += DOUBLE_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_TIMESTAMP:
-                g_args.lenOfOneRow += TIMESTAMP_BUFF_LEN;
+                pg_args->lenOfOneRow += TIMESTAMP_BUFF_LEN;
                 break;
 
             default:
-                errorPrint("get error data type : %s\n", g_args.dataType[c]);
+                errorPrint("get error data type : %s\n", pg_args->dataType[c]);
                 goto end_parse_command;
         }
     }
 
-    if (((g_args.debug_print) && (NULL != g_args.metaFile)) ||
-        g_args.verbose_print) {
+    if (((pg_args->debug_print) && (NULL != pg_args->metaFile)) ||
+        pg_args->verbose_print) {
         printf(
             "##################################################################"
             "#\n");
-        printf("# meta file:                         %s\n", g_args.metaFile);
+        printf("# meta file:                         %s\n", pg_args->metaFile);
         printf("# Server IP:                         %s:%hu\n",
-               g_args.host == NULL ? "localhost" : g_args.host, g_args.port);
-        printf("# User:                              %s\n", g_args.user);
-        printf("# Password:                          %s\n", g_args.password);
+               pg_args->host == NULL ? "localhost" : pg_args->host,
+               pg_args->port);
+        printf("# User:                              %s\n", pg_args->user);
+        printf("# Password:                          %s\n", pg_args->password);
         printf("# Use metric:                        %s\n",
-               g_args.use_metric ? "true" : "false");
-        if (*(g_args.dataType)) {
+               pg_args->use_metric ? "true" : "false");
+        if (*(pg_args->dataType)) {
             printf("# Specified data type:               ");
             for (int c = 0; c < MAX_NUM_COLUMNS; c++)
-                if (g_args.dataType[c])
-                    printf("%s,", g_args.dataType[c]);
+                if (pg_args->dataType[c])
+                    printf("%s,", pg_args->dataType[c]);
                 else
                     break;
             printf("\n");
         }
         printf("# Insertion interval:                %" PRIu64 "\n",
-               g_args.insert_interval);
-        printf("# Number of records per req:         %u\n", g_args.reqPerReq);
+               pg_args->insert_interval);
+        printf("# Number of records per req:         %u\n", pg_args->reqPerReq);
         printf("# Max SQL length:                    %" PRIu64 "\n",
-               g_args.max_sql_len);
-        printf("# Length of Binary:                  %d\n", g_args.binwidth);
-        printf("# Number of Threads:                 %d\n", g_args.nthreads);
+               pg_args->max_sql_len);
+        printf("# Length of Binary:                  %d\n", pg_args->binwidth);
+        printf("# Number of Threads:                 %d\n", pg_args->nthreads);
         printf("# Number of Tables:                  %" PRId64 "\n",
-               g_args.ntables);
+               pg_args->ntables);
         printf("# Number of Data per Table:          %" PRId64 "\n",
-               g_args.insertRows);
-        printf("# Database name:                     %s\n", g_args.database);
-        printf("# Table prefix:                      %s\n", g_args.tb_prefix);
-        if (g_args.disorderRatio) {
+               pg_args->insertRows);
+        printf("# Database name:                     %s\n", pg_args->database);
+        printf("# Table prefix:                      %s\n", pg_args->tb_prefix);
+        if (pg_args->disorderRatio) {
             printf("# Data order:                        %d\n",
-                   g_args.disorderRatio);
+                   pg_args->disorderRatio);
             printf("# Data out of order rate:            %d\n",
-                   g_args.disorderRange);
+                   pg_args->disorderRange);
         }
         printf("# Delete method:                     %d\n",
-               g_args.method_of_delete);
-        printf("# Answer yes when prompt:            %d\n", g_args.answer_yes);
-        printf("# Print debug info:                  %d\n", g_args.debug_print);
+               pg_args->method_of_delete);
+        printf("# Answer yes when prompt:            %d\n",
+               pg_args->answer_yes);
+        printf("# Print debug info:                  %d\n",
+               pg_args->debug_print);
         printf("# Print verbose info:                %d\n",
-               g_args.verbose_print);
+               pg_args->verbose_print);
         printf(
             "##################################################################"
             "#\n");
@@ -1311,45 +1319,45 @@ int parse_args(int argc, char *argv[]) {
 end_parse_command:
     return code;
 }
-void setParaFromArg() {
+void setParaFromArg(SArguments *pg_args) {
     char type[20];
     char length[20];
-    if (g_args.host) {
-        tstrncpy(g_Dbs.host, g_args.host, MAX_HOSTNAME_SIZE);
+    if (pg_args->host) {
+        tstrncpy(g_Dbs.host, pg_args->host, MAX_HOSTNAME_SIZE);
     } else {
         tstrncpy(g_Dbs.host, "127.0.0.1", MAX_HOSTNAME_SIZE);
     }
 
-    if (g_args.user) {
-        tstrncpy(g_Dbs.user, g_args.user, MAX_USERNAME_SIZE);
+    if (pg_args->user) {
+        tstrncpy(g_Dbs.user, pg_args->user, MAX_USERNAME_SIZE);
     }
 
-    tstrncpy(g_Dbs.password, g_args.password, SHELL_MAX_PASSWORD_LEN);
+    tstrncpy(g_Dbs.password, pg_args->password, SHELL_MAX_PASSWORD_LEN);
 
-    if (g_args.port) {
-        g_Dbs.port = g_args.port;
+    if (pg_args->port) {
+        g_Dbs.port = pg_args->port;
     }
 
-    g_Dbs.threadCount = g_args.nthreads;
-    g_Dbs.threadCountForCreateTbl = g_args.nthreads;
+    g_Dbs.threadCount = pg_args->nthreads;
+    g_Dbs.threadCountForCreateTbl = pg_args->nthreads;
 
     g_Dbs.dbCount = 1;
     g_Dbs.db[0].drop = true;
 
-    tstrncpy(g_Dbs.db[0].dbName, g_args.database, TSDB_DB_NAME_LEN);
-    g_Dbs.db[0].dbCfg.replica = g_args.replica;
+    tstrncpy(g_Dbs.db[0].dbName, pg_args->database, TSDB_DB_NAME_LEN);
+    g_Dbs.db[0].dbCfg.replica = pg_args->replica;
     tstrncpy(g_Dbs.db[0].dbCfg.precision, "ms", SMALL_BUFF_LEN);
 
-    tstrncpy(g_Dbs.resultFile, g_args.output_file, MAX_FILE_NAME_LEN);
+    tstrncpy(g_Dbs.resultFile, pg_args->output_file, MAX_FILE_NAME_LEN);
 
-    g_Dbs.use_metric = g_args.use_metric;
-    g_args.prepared_rand = min(g_args.insertRows, MAX_PREPARED_RAND);
-    g_Dbs.aggr_func = g_args.aggr_func;
+    g_Dbs.use_metric = pg_args->use_metric;
+    pg_args->prepared_rand = min(pg_args->insertRows, MAX_PREPARED_RAND);
+    g_Dbs.aggr_func = pg_args->aggr_func;
 
     char     dataString[TSDB_MAX_BYTES_PER_ROW];
-    char *   data_type = g_args.data_type;
-    char **  dataType = g_args.dataType;
-    int32_t *data_length = g_args.data_length;
+    char *   data_type = pg_args->data_type;
+    char **  dataType = pg_args->dataType;
+    int32_t *data_length = pg_args->data_length;
 
     memset(dataString, 0, TSDB_MAX_BYTES_PER_ROW);
 
@@ -1359,37 +1367,37 @@ void setParaFromArg() {
         g_Dbs.aggr_func = false;
     }
 
-    if (g_args.use_metric) {
+    if (pg_args->use_metric) {
         g_Dbs.db[0].superTblCount = 1;
         tstrncpy(g_Dbs.db[0].superTbls[0].stbName, "meters",
                  TSDB_TABLE_NAME_LEN);
-        g_Dbs.db[0].superTbls[0].childTblCount = g_args.ntables;
-        g_Dbs.db[0].superTbls[0].escapeChar = g_args.escapeChar;
-        g_Dbs.threadCount = g_args.nthreads;
-        g_Dbs.threadCountForCreateTbl = g_args.nthreads;
-        g_Dbs.asyncMode = g_args.async_mode;
+        g_Dbs.db[0].superTbls[0].childTblCount = pg_args->ntables;
+        g_Dbs.db[0].superTbls[0].escapeChar = pg_args->escapeChar;
+        g_Dbs.threadCount = pg_args->nthreads;
+        g_Dbs.threadCountForCreateTbl = pg_args->nthreads;
+        g_Dbs.asyncMode = pg_args->async_mode;
 
         g_Dbs.db[0].superTbls[0].autoCreateTable = PRE_CREATE_SUBTBL;
         g_Dbs.db[0].superTbls[0].childTblExists = TBL_NO_EXISTS;
-        g_Dbs.db[0].superTbls[0].disorderRange = g_args.disorderRange;
-        g_Dbs.db[0].superTbls[0].disorderRatio = g_args.disorderRatio;
-        tstrncpy(g_Dbs.db[0].superTbls[0].childTblPrefix, g_args.tb_prefix,
+        g_Dbs.db[0].superTbls[0].disorderRange = pg_args->disorderRange;
+        g_Dbs.db[0].superTbls[0].disorderRatio = pg_args->disorderRatio;
+        tstrncpy(g_Dbs.db[0].superTbls[0].childTblPrefix, pg_args->tb_prefix,
                  TBNAME_PREFIX_LEN);
         tstrncpy(g_Dbs.db[0].superTbls[0].dataSource, "rand", SMALL_BUFF_LEN);
 
-        if (g_args.iface == INTERFACE_BUT) {
+        if (pg_args->iface == INTERFACE_BUT) {
             g_Dbs.db[0].superTbls[0].iface = TAOSC_IFACE;
         } else {
-            g_Dbs.db[0].superTbls[0].iface = g_args.iface;
+            g_Dbs.db[0].superTbls[0].iface = pg_args->iface;
         }
         g_Dbs.db[0].superTbls[0].lineProtocol = TSDB_SML_LINE_PROTOCOL;
         g_Dbs.db[0].superTbls[0].tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
         tstrncpy(g_Dbs.db[0].superTbls[0].startTimestamp,
                  "2017-07-14 10:40:00.000", MAX_TB_NAME_SIZE);
-        g_Dbs.db[0].superTbls[0].timeStampStep = g_args.timestamp_step;
+        g_Dbs.db[0].superTbls[0].timeStampStep = pg_args->timestamp_step;
 
-        g_Dbs.db[0].superTbls[0].insertRows = g_args.insertRows;
-        g_Dbs.db[0].superTbls[0].maxSqlLen = g_args.max_sql_len;
+        g_Dbs.db[0].superTbls[0].insertRows = pg_args->insertRows;
+        g_Dbs.db[0].superTbls[0].maxSqlLen = pg_args->max_sql_len;
 
         g_Dbs.db[0].superTbls[0].columnCount = 0;
         for (int i = 0; i < MAX_NUM_COLUMNS; i++) {
@@ -1441,7 +1449,7 @@ void setParaFromArg() {
                         break;
                     default:
                         g_Dbs.db[0].superTbls[0].columns[i].dataLen =
-                            g_args.binwidth;
+                            pg_args->binwidth;
                         break;
                 }
                 tstrncpy(g_Dbs.db[0].superTbls[0].columns[i].dataType,
@@ -1451,11 +1459,11 @@ void setParaFromArg() {
             g_Dbs.db[0].superTbls[0].columnCount++;
         }
 
-        if (g_Dbs.db[0].superTbls[0].columnCount > g_args.columnCount) {
-            g_Dbs.db[0].superTbls[0].columnCount = g_args.columnCount;
+        if (g_Dbs.db[0].superTbls[0].columnCount > pg_args->columnCount) {
+            g_Dbs.db[0].superTbls[0].columnCount = pg_args->columnCount;
         } else {
             for (int i = g_Dbs.db[0].superTbls[0].columnCount;
-                 i < g_args.columnCount; i++) {
+                 i < pg_args->columnCount; i++) {
                 g_Dbs.db[0].superTbls[0].columns[i].data_type =
                     TSDB_DATA_TYPE_INT;
                 tstrncpy(g_Dbs.db[0].superTbls[0].columns[i].dataType, "INT",
@@ -1473,10 +1481,10 @@ void setParaFromArg() {
         tstrncpy(g_Dbs.db[0].superTbls[0].tags[1].dataType, "BINARY",
                  min(DATATYPE_BUFF_LEN, strlen("BINARY") + 1));
         g_Dbs.db[0].superTbls[0].tags[1].data_type = TSDB_DATA_TYPE_BINARY;
-        g_Dbs.db[0].superTbls[0].tags[1].dataLen = g_args.binwidth;
+        g_Dbs.db[0].superTbls[0].tags[1].dataLen = pg_args->binwidth;
         g_Dbs.db[0].superTbls[0].tagCount = 2;
     } else {
-        g_Dbs.threadCountForCreateTbl = g_args.nthreads;
+        g_Dbs.threadCountForCreateTbl = pg_args->nthreads;
         g_Dbs.db[0].superTbls[0].tagCount = 0;
         for (int i = 0; i < MAX_NUM_COLUMNS; i++) {
             if (data_type[i] == TSDB_DATA_TYPE_NULL) {
@@ -1514,7 +1522,7 @@ void setParaFromArg() {
                         data_length[i] = sizeof(double);
                         break;
                     default:
-                        data_length[i] = g_args.binwidth;
+                        data_length[i] = pg_args->binwidth;
                         break;
                 }
             }
@@ -1794,7 +1802,7 @@ void *queryNtableAggrFunc(void *sarg) {
     return NULL;
 }
 
-void queryAggrFunc() {
+void queryAggrFunc(SArguments *pg_args) {
     // query data
 
     pthread_t   read_id;
@@ -1807,16 +1815,17 @@ void queryAggrFunc() {
     pThreadInfo->start_time = DEFAULT_START_TIME;  // 2017-07-14 10:40:00.000
     pThreadInfo->start_table_from = 0;
 
-    if (g_args.use_metric) {
+    if (pg_args->use_metric) {
         pThreadInfo->ntables = g_Dbs.db[0].superTbls[0].childTblCount;
         pThreadInfo->end_table_to = g_Dbs.db[0].superTbls[0].childTblCount - 1;
         pThreadInfo->stbInfo = &g_Dbs.db[0].superTbls[0];
         tstrncpy(pThreadInfo->tb_prefix,
                  g_Dbs.db[0].superTbls[0].childTblPrefix, TBNAME_PREFIX_LEN);
     } else {
-        pThreadInfo->ntables = g_args.ntables;
-        pThreadInfo->end_table_to = g_args.ntables - 1;
-        tstrncpy(pThreadInfo->tb_prefix, g_args.tb_prefix, TSDB_TABLE_NAME_LEN);
+        pThreadInfo->ntables = pg_args->ntables;
+        pThreadInfo->end_table_to = pg_args->ntables - 1;
+        tstrncpy(pThreadInfo->tb_prefix, pg_args->tb_prefix,
+                 TSDB_TABLE_NAME_LEN);
     }
 
     pThreadInfo->taos = taos_connect(g_Dbs.host, g_Dbs.user, g_Dbs.password,
@@ -1840,7 +1849,7 @@ void queryAggrFunc() {
     free(pThreadInfo);
 }
 
-void testCmdLine() {
+void testCmdLine(SArguments *pg_args) {
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
@@ -1851,10 +1860,10 @@ void testCmdLine() {
         wordfree(&full_path);
     }
 
-    g_args.test_mode = INSERT_TEST;
+    pg_args->test_mode = INSERT_TEST;
     insertTestProcess();
 
     if (g_Dbs.aggr_func) {
-        queryAggrFunc();
+        queryAggrFunc(pg_args);
     }
 }
