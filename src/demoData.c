@@ -1927,7 +1927,7 @@ int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
                 return -1;
             }
 
-            tstrncpy(tmpStr, restStr, index);
+            strncpy(tmpStr, restStr, index);
             cursor += index + 1;  // skip ',' too
             char *tmpP;
 
