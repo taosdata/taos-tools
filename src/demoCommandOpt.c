@@ -261,7 +261,7 @@ int parse_args(int argc, char *argv[]) {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
-        } else if ((0 == strcmp(argv[i], "-p")) ||
+        } else if ((0 == strncmp(argv[i], "-p", strlen("-p"))) ||
                    (0 == strcmp(argv[i], "--password"))) {
             if ((strlen(argv[i]) == 2) ||
                 (0 == strcmp(argv[i], "--password"))) {
