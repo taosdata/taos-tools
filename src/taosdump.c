@@ -45,8 +45,9 @@ static char      *g_configDir = "/etc/taos";
 #include <avro.h>
 #include <jansson.h>
 
-static char    **g_tsDumpInAvroFiles    = NULL;
-static char    **g_tsDumpInAvroTables   = NULL;
+static char    **g_tsDumpInAvroTagsTbs = NULL;
+static char    **g_tsDumpInAvroNtbs = NULL;
+static char    **g_tsDumpInAvroFiles = NULL;
 
 static void print_json_aux(json_t *element, int indent);
 
@@ -187,6 +188,8 @@ typedef struct {
 
 typedef struct {
     char name[TSDB_TABLE_NAME_LEN];
+    int columns;
+    int tags;
     ColDes cols[];
 } TableDef;
 
@@ -440,7 +443,7 @@ struct arguments g_args = {
     // dump format option
     false,      // schemaonly
     true,       // with_property
-    true,      // avro
+    true,       // avro
     AVRO_CODEC_SNAPPY,  // avro_codec
     -INT64_MAX + 1, // start_time
     {0},        // humanStartTime
@@ -659,6 +662,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     /* Get the input argument from argp_parse, which we
        know is a pointer to our arguments structure. */
     wordexp_t full_path;
+    int avroCodec = AVRO_CODEC_START;
 
     switch (key) {
         // connection option
@@ -694,8 +698,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             if (full_path.we_wordv[0]) {
-                tstrncpy(g_args.outpath, full_path.we_wordv[0],
-                        MAX_FILE_NAME_LEN);
+                snprintf(g_args.outpath, MAX_FILE_NAME_LEN, "%s/",
+                        full_path.we_wordv[0]);
                 wordfree(&full_path);
             } else {
                 errorPrintReqArg3("taosdump", "-o or --outpath");
@@ -725,17 +729,23 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
 
         case 'd':
-            for (int i = AVRO_CODEC_START; i < AVRO_CODEC_UNKNOWN; i ++) {
-                if (0 == strcmp(arg, g_avro_codec[i])) {
-                    g_args.avro_codec = i;
+            for (; avroCodec < AVRO_CODEC_UNKNOWN; avroCodec ++) {
+                if (0 == strcmp(arg, g_avro_codec[avroCodec])) {
+                    g_args.avro_codec = avroCodec;
                     break;
                 }
+            }
+
+            if (AVRO_CODEC_UNKNOWN == avroCodec) {
+                errorPrint("%s", "Unkown AVRO codec inputed\n");
+                g_args.avro = false;
             }
             break;
 
         case 'r':
             g_args.resultFile = arg;
             break;
+
         case 'c':
             if (0 == strlen(arg)) {
                 errorPrintReqArg3("taosdump", "-c or --config-dir");
@@ -1242,17 +1252,6 @@ static int dumpCreateMTableClause(
     return ret;
 }
 
-static int dumpCreateMTableClauseAvro(
-        char* dbName,
-        char *stable,
-        TableDef *tableDes,
-        int numOfCols,
-        FILE *fp
-        ) {
-    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
-    return 0;
-}
-
 static int64_t getNtbCountOfStb(char *dbName, char *stbName)
 {
     TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
@@ -1324,6 +1323,11 @@ static int getTableDes(
                 (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
                 min(COL_NOTE_LEN,
                     fields[TSDB_DESCRIBE_METRIC_NOTE_INDEX].bytes + 1));
+        if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
+            tableDes->columns ++;
+        } else {
+            tableDes->tags ++;
+        }
         colCount++;
     }
 
@@ -1698,7 +1702,11 @@ static void freeFileList(char **fileList, int64_t count)
 static void createDumpinList(char *ext, int64_t count)
 {
     bool isSql = (0 == strcmp(ext, "sql"));
-    bool isAvroTb = (0 == strcmp(ext, "avro-tb"));
+    bool isAvroNtb = (0 == strncmp(ext, "avro-ntb",
+                strlen("avro-ntb")));
+    bool isAvroTagsTb = (0 == strncmp(ext, "avro-tbtags",
+                strlen("avro-tbtags")));
+    bool isAvro = (0 == strncmp(ext, "avro", strlen("avro")));
 
     if (isSql) {
         g_tsDumpInSqlFiles = (char **)calloc(count, sizeof(char *));
@@ -1707,6 +1715,22 @@ static void createDumpinList(char *ext, int64_t count)
         for (int64_t i = 0; i < count; i++) {
             g_tsDumpInSqlFiles[i] = calloc(1, MAX_FILE_NAME_LEN);
             assert(g_tsDumpInSqlFiles[i]);
+        }
+    } else if (isAvroNtb){
+        g_tsDumpInAvroNtbs = (char **)calloc(count, sizeof(char *));
+        assert(g_tsDumpInAvroNtbs);
+
+        for (int64_t i = 0; i < count; i++) {
+            g_tsDumpInAvroNtbs[i] = calloc(1, MAX_FILE_NAME_LEN);
+            assert(g_tsDumpInAvroNtbs[i]);
+        }
+    } else if (isAvroTagsTb){
+        g_tsDumpInAvroTagsTbs = (char **)calloc(count, sizeof(char *));
+        assert(g_tsDumpInAvroNtbs);
+
+        for (int64_t i = 0; i < count; i++) {
+            g_tsDumpInAvroTagsTbs[i] = calloc(1, MAX_FILE_NAME_LEN);
+            assert(g_tsDumpInAvroTagsTbs[i]);
         }
     } else {
         g_tsDumpInAvroFiles = (char **)calloc(count, sizeof(char *));
@@ -1740,6 +1764,14 @@ static void createDumpinList(char *ext, int64_t count)
                         tstrncpy(g_tsDumpInSqlFiles[nCount],
                                 pDirent->d_name,
                                 min(namelen+1, MAX_FILE_NAME_LEN));
+                    } else if (isAvroNtb){
+                        tstrncpy(g_tsDumpInAvroNtbs[nCount],
+                                pDirent->d_name,
+                                min(namelen+1, MAX_FILE_NAME_LEN));
+                    } else if (isAvroTagsTb) {
+                        tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
+                                pDirent->d_name,
+                                min(namelen+1, MAX_FILE_NAME_LEN));
                     } else {
                         tstrncpy(g_tsDumpInAvroFiles[nCount],
                                 pDirent->d_name,
@@ -1756,72 +1788,78 @@ static void createDumpinList(char *ext, int64_t count)
 }
 
 static int convertTbDesToJsonImpl(
-        char *dbName, char *tbName, TableDef *tableDes, int colCount,
-        char **jsonSchema)
+        char *namespace, char *name, TableDef *tableDes,
+        char **jsonSchema, bool isColumn)
 {
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
-            dbName, tbName);
-    for (int i = 0; i < colCount; i ++) {
+            namespace, name);
+
+    int iterate = (isColumn)?tableDes->columns:(tableDes->tags+1);
+
+    for (int i = 0; i < iterate; i ++) {
         if (0 == i) {
             pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":\"%s\"",
-                    tableDes->cols[i].field, "long");
+                    isColumn?(tableDes->cols[0].field):(tableDes->name),
+                    isColumn?"long":"string");
         } else {
-            if (TSDB_DATA_TYPE_BINARY == tableDes->cols[i].type) {
+            int pos = i + ((isColumn)?0:(tableDes->columns-1));
+
+            if (TSDB_DATA_TYPE_BINARY == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":[\"null\",\"%s\"]",
-                    tableDes->cols[i].field, "string");
-            } else if (TSDB_DATA_TYPE_NCHAR == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "string");
+            } else if (TSDB_DATA_TYPE_NCHAR == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":[\"null\",\"%s\"]",
-                    tableDes->cols[i].field, "bytes");
-            } else if (TSDB_DATA_TYPE_BOOL == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "bytes");
+            } else if (TSDB_DATA_TYPE_BOOL == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":\"%s\"",
-                    tableDes->cols[i].field, "boolean");
-            } else if (TSDB_DATA_TYPE_TINYINT == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "boolean");
+            } else if (TSDB_DATA_TYPE_TINYINT == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":\"%s\"",
-                    tableDes->cols[i].field, "int");
-            } else if (TSDB_DATA_TYPE_SMALLINT == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "int");
+            } else if (TSDB_DATA_TYPE_SMALLINT == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\", \"type\":\"%s\"",
-                    tableDes->cols[i].field, "int");
-            } else if (TSDB_DATA_TYPE_BIGINT == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "int");
+            } else if (TSDB_DATA_TYPE_BIGINT == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":\"%s\"",
-                    tableDes->cols[i].field, "long");
-            } else if (TSDB_DATA_TYPE_TIMESTAMP == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "long");
+            } else if (TSDB_DATA_TYPE_TIMESTAMP == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":\"%s\"",
-                    tableDes->cols[i].field, "long");
-            } else if (TSDB_DATA_TYPE_UTINYINT == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "long");
+            } else if (TSDB_DATA_TYPE_UTINYINT == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    tableDes->cols[i].field, "int");
-            } else if (TSDB_DATA_TYPE_USMALLINT == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "int");
+            } else if (TSDB_DATA_TYPE_USMALLINT == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    tableDes->cols[i].field, "int");
-            } else if (TSDB_DATA_TYPE_UINT == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "int");
+            } else if (TSDB_DATA_TYPE_UINT == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    tableDes->cols[i].field, "int");
-            } else if (TSDB_DATA_TYPE_UBIGINT == tableDes->cols[i].type) {
+                    tableDes->cols[pos].field, "int");
+            } else if (TSDB_DATA_TYPE_UBIGINT == tableDes->cols[pos].type) {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    tableDes->cols[i].field, "long");
+                    tableDes->cols[pos].field, "long");
             } else {
                 pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":\"%s\"",
-                    tableDes->cols[i].field,
-                    typeToStr(tableDes->cols[i].type));
+                    tableDes->cols[pos].field,
+                    typeToStr(tableDes->cols[pos].type));
             }
         }
-        if ((i != (colCount -1))
-                && (strcmp(tableDes->cols[i + 1].note, "TAG") != 0)) {
+
+        if ((i != (iterate-1))) {
             pstr += sprintf(pstr, "},");
         } else {
             pstr += sprintf(pstr, "}");
@@ -1835,6 +1873,65 @@ static int convertTbDesToJsonImpl(
             __func__, __LINE__, *jsonSchema);
 
     return 0;
+}
+
+static int convertTbTagsDesToJson(
+        char *dbName, char *stbName, TableDef *tableDes,
+        char **jsonSchema)
+{
+    // {
+    // "type": "record",
+    // "name": "stbname",
+    // "namespace": "dbname",
+    // "fields": [
+    //      {
+    //      "name": "tbname",
+    //      "type": "string"
+    //      },
+    //      {
+    //      "name": "tag0 name",
+    //      "type": "long"
+    //      },
+    //      {
+    //      "name": "tag1 name",
+    //      "type": "int"
+    //      },
+    //      {
+    //      "name": "tag2 name",
+    //      "type": "float"
+    //      },
+    //      {
+    //      "name": "tag3 name",
+    //      "type": "boolean"
+    //      },
+    //      ...
+    //      {
+    //      "name": "tagl name",
+    //      "type": {"type": "array", "items":"int"}
+    //      },
+    //      {
+    //      "name": "tagm name",
+    //      "type": ["null", "string"]
+    //      },
+    //      {
+    //      "name": "tagn name",
+    //      "type": ["null", "bytes"]}
+    //      }
+    // ]
+    // }
+    *jsonSchema = (char *)calloc(1,
+            17 + TSDB_DB_NAME_LEN               /* dbname section */
+            + 17                                /* type: record */
+            + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+            + 10                                /* fields section */
+            + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+            + (TSDB_COL_NAME_LEN + 40) * tableDes->tags + 4);    /* fields section */
+    if (*jsonSchema == NULL) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
+
+    return convertTbDesToJsonImpl(dbName, stbName, tableDes, jsonSchema, false);
 }
 
 static int convertTbDesToJson(
@@ -1888,7 +1985,7 @@ static int convertTbDesToJson(
         return -1;
     }
 
-    return convertTbDesToJsonImpl(dbName, tbName, tableDes, colCount, jsonSchema);
+    return convertTbDesToJsonImpl(dbName, tbName, tableDes, jsonSchema, true);
 }
 
 static void print_json_indent(int indent) {
@@ -2942,6 +3039,18 @@ static void* dumpInAvroWorkThreadFp(void *arg)
     return NULL;
 }
 
+static int dumpInAvroTbTagsWorkThreads()
+{
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+    return 0;
+}
+
+static int dumpInAvroNtbWorkThreads()
+{
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+    return 0;
+}
+
 static int dumpInAvroWorkThreads()
 {
     int32_t threads = g_args.thread_num;
@@ -3006,7 +3115,8 @@ static int dumpInAvroWorkThreads()
     return 0;
 }
 
-static int64_t writeResultToSql(TAOS_RES *res, FILE *fp, char *dbName, char *tbName)
+static int64_t writeResultToSql(TAOS_RES *res, FILE *fp,
+        char *dbName, char *tbName)
 {
     int64_t    totalRows     = 0;
 
@@ -3140,6 +3250,62 @@ static int64_t writeResultToSql(TAOS_RES *res, FILE *fp, char *dbName, char *tbN
     return totalRows;
 }
 
+static int dumpAppendMTableClauseAvro(
+        char* dbName,
+        char *stable,
+        TableDef *tableDes,
+        FILE *fp
+        ) {
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+    return 0;
+}
+
+TAOS_RES *queryDbForDumpOut(TAOS *taos,
+        char *dbName, char *tbName, int precision)
+{
+    char sqlstr[COMMAND_SIZE] = {0};
+
+    int64_t start_time, end_time;
+    if (strlen(g_args.humanStartTime)) {
+        if (TSDB_CODE_SUCCESS != taos_parse_time(
+                g_args.humanStartTime, &start_time,
+                strlen(g_args.humanStartTime),
+                precision, 0)) {
+            errorPrint("Input %s, time format error!\n",
+                    g_args.humanStartTime);
+            return NULL;
+        }
+    } else {
+        start_time = g_args.start_time;
+    }
+
+    if (strlen(g_args.humanEndTime)) {
+        if (TSDB_CODE_SUCCESS != taos_parse_time(
+                g_args.humanEndTime, &end_time, strlen(g_args.humanEndTime),
+                precision, 0)) {
+            errorPrint("Input %s, time format error!\n", g_args.humanEndTime);
+            return NULL;
+        }
+    } else {
+        end_time = g_args.end_time;
+    }
+
+    sprintf(sqlstr,
+            "select * from %s.%s where _c0 >= %" PRId64 " and _c0 <= %" PRId64 " order by _c0 asc;",
+            dbName, tbName, start_time, end_time);
+
+    TAOS_RES* res = taos_query(taos, sqlstr);
+    int32_t code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("failed to run command %s, reason: %s\n",
+                sqlstr, taos_errstr(res));
+        taos_free_result(res);
+        return NULL;
+    }
+
+    return res;
+}
+
 static int64_t dumpTableData(FILE *fp, char *tbName,
         char* dbName, int precision,
         int colCount,
@@ -3157,41 +3323,6 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
         }
     }
 
-    int64_t    totalRows     = 0;
-
-    char sqlstr[COMMAND_SIZE] = {0};
-
-    int64_t start_time, end_time;
-    if (strlen(g_args.humanStartTime)) {
-        if (TSDB_CODE_SUCCESS != taos_parse_time(
-                g_args.humanStartTime, &start_time,
-                strlen(g_args.humanStartTime),
-                precision, 0)) {
-            errorPrint("Input %s, time format error!\n",
-                    g_args.humanStartTime);
-            tfree(jsonSchema);
-            return -1;
-        }
-    } else {
-        start_time = g_args.start_time;
-    }
-
-    if (strlen(g_args.humanEndTime)) {
-        if (TSDB_CODE_SUCCESS != taos_parse_time(
-                g_args.humanEndTime, &end_time, strlen(g_args.humanEndTime),
-                precision, 0)) {
-            errorPrint("Input %s, time format error!\n", g_args.humanEndTime);
-            tfree(jsonSchema);
-            return -1;
-        }
-    } else {
-        end_time = g_args.end_time;
-    }
-
-    sprintf(sqlstr,
-            "select * from %s.%s where _c0 >= %" PRId64 " and _c0 <= %" PRId64 " order by _c0 asc;",
-            dbName, tbName, start_time, end_time);
-
     TAOS *taos = taos_connect(g_args.host,
             g_args.user, g_args.password, dbName, g_args.port);
     if (NULL == taos) {
@@ -3202,31 +3333,24 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
         return -1;
     }
 
-    TAOS_RES* res = taos_query(taos, sqlstr);
-    int32_t code = taos_errno(res);
-    if (code != 0) {
-        errorPrint("failed to run command %s, reason: %s\n",
-                sqlstr, taos_errstr(res));
-        taos_free_result(res);
-        taos_close(taos);
+    TAOS_RES *res = queryDbForDumpOut(taos, dbName, tbName, precision);
+    if (NULL == res) {
         tfree(jsonSchema);
         return -1;
     }
 
+    int64_t    totalRows     = 0;
+
     if (g_args.avro) {
         char avroFilename[MAX_PATH_LEN] = {0};
 
-        if (g_args.outpath[0] != 0) {
-            sprintf(avroFilename, "%s/%s.%s.avro",
-                    g_args.outpath, dbName, tbName);
-        } else {
-            sprintf(avroFilename, "%s.%s.avro",
-                    dbName, tbName);
-        }
+        sprintf(avroFilename, "%s%s.%s.avro",
+                g_args.outpath, dbName, tbName);
 
         totalRows = writeResultToAvro(avroFilename, jsonSchema, res);
-    } else
+    } else {
         totalRows = writeResultToSql(res, fp, dbName, tbName);
+    }
 
     taos_free_result(res);
     taos_close(taos);
@@ -3243,13 +3367,11 @@ static int64_t dumpNormalTable(
         int precision,
         FILE *fp
         ) {
-    int colCount = 0;
-
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+    int colCount = getTableDes(taos, dbName, tbName, tableDes, false);
 
     if (stable != NULL && stable[0] != '\0') {  // dump table schema which is created by using super table
-        colCount = getTableDes(taos, dbName, tbName, tableDes, false);
 
         if (colCount < 0) {
             errorPrint("%s() LN%d, failed to get table[%s] schema\n",
@@ -3262,12 +3384,11 @@ static int64_t dumpNormalTable(
 
         // create child-table using super-table
         if (g_args.avro) {
-            dumpCreateMTableClauseAvro(dbName, stable, tableDes, colCount, fp);
+            dumpAppendMTableClauseAvro(dbName, stable, tableDes, fp);
         } else {
             dumpCreateMTableClause(dbName, stable, tableDes, colCount, fp);
         }
     } else {  // dump table definition
-        colCount = getTableDes(taos, dbName, tbName, tableDes, false);
 
         if (colCount < 0) {
             errorPrint("%s() LN%d, failed to get table[%s] schema\n",
@@ -3300,21 +3421,21 @@ static int64_t dumpNormalTableWithoutStb(TAOS *taos, SDbInfo *dbInfo, char *ntbN
 {
     int64_t count = 0;
 
-    char tmpBuf[MAX_PATH_LEN] = {0};
+    char dumpFilename[MAX_PATH_LEN] = {0};
     FILE *fp = NULL;
 
-    if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/%s.%s.sql",
+    if (g_args.avro) {
+        sprintf(dumpFilename, "%s%s.%s.avro-ntb",
                 g_args.outpath, dbInfo->name, ntbName);
     } else {
-        sprintf(tmpBuf, "%s.%s.sql",
-                dbInfo->name, ntbName);
+        sprintf(dumpFilename, "%s%s.%s.sql",
+                g_args.outpath, dbInfo->name, ntbName);
     }
 
-    fp = fopen(tmpBuf, "w");
+    fp = fopen(dumpFilename, "w");
     if (fp == NULL) {
         errorPrint("%s() LN%d, failed to open file %s\n",
-                __func__, __LINE__, tmpBuf);
+                __func__, __LINE__, dumpFilename);
         return -1;
     }
 
@@ -3328,8 +3449,49 @@ static int64_t dumpNormalTableWithoutStb(TAOS *taos, SDbInfo *dbInfo, char *ntbN
     if (count > 0) {
         atomic_add_fetch_64(&g_totalDumpOutRows, count);
     }
+
     fclose(fp);
     return count;
+}
+
+static FILE *createMTableAvroHead(
+        TAOS *taos,
+        char *dumpFilename,
+        char *dbName, char *stable)
+{
+    errorPrint("TODO: %s() LN%d", __func__, __LINE__);
+
+    FILE *fp = fopen(dumpFilename, "w");
+
+    if (fp == NULL) {
+        errorPrint("%s() LN%d, failed to open file %s\n",
+                __func__, __LINE__, dumpFilename);
+        return NULL;
+    }
+
+    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+    int colCount = getTableDes(taos, dbName, stable, tableDes, false);
+
+    char *jsonTagsSchema = NULL;
+    if (g_args.avro) {
+        if (0 != convertTbTagsDesToJson(
+                    dbName, stable, tableDes, &jsonTagsSchema)) {
+            errorPrint("%s() LN%d, convertTbTagsDesToJson failed\n",
+                    __func__,
+                    __LINE__);
+            tfree(jsonTagsSchema);
+            freeTbDes(tableDes);
+            return NULL;
+        }
+
+        debugPrint("tagsJson:\n%s\n", jsonTagsSchema);
+    }
+
+    tfree(jsonTagsSchema);
+    freeTbDes(tableDes);
+
+    return fp;
 }
 
 static int64_t dumpNormalTableBelongStb(
@@ -3338,21 +3500,30 @@ static int64_t dumpNormalTableBelongStb(
 {
     int64_t count = 0;
 
-    char tmpBuf[MAX_PATH_LEN] = {0};
+    char dumpFilename[MAX_PATH_LEN] = {0};
     FILE *fp = NULL;
 
-    if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/%s.%s.avro-tb",
+    if (g_args.avro) {
+        sprintf(dumpFilename, "%s%s.%s.avro-tagstb",
                 g_args.outpath, dbInfo->name, ntbName);
     } else {
-        sprintf(tmpBuf, "%s.%s.avro-tb",
-                dbInfo->name, ntbName);
+        sprintf(dumpFilename, "%s%s.%s.sql",
+                g_args.outpath, dbInfo->name, ntbName);
     }
 
-    fp = fopen(tmpBuf, "w");
+    if (g_args.avro) {
+        fp = createMTableAvroHead(
+                taos,
+                dumpFilename,
+                dbInfo->name,
+                stbName);
+    } else {
+        fp = fopen(dumpFilename, "w");
+    }
+
     if (fp == NULL) {
         errorPrint("%s() LN%d, failed to open file %s\n",
-                __func__, __LINE__, tmpBuf);
+                __func__, __LINE__, dumpFilename);
         return -1;
     }
 
@@ -3379,22 +3550,19 @@ static void *dumpNtbOfDb(void *arg) {
             pThreadInfo->count);
 
     FILE *fp = NULL;
-    char tmpBuf[MAX_PATH_LEN] = {0};
+    char dumpFilename[MAX_PATH_LEN] = {0};
 
-    if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/%s.%d.avro-tb",
-                g_args.outpath, pThreadInfo->dbName, pThreadInfo->threadIndex);
-    } else {
-        sprintf(tmpBuf, "%s.%d.avro-tb",
-                pThreadInfo->dbName, pThreadInfo->threadIndex);
-    }
+    if (!g_args.avro) {
+        sprintf(dumpFilename, "%s%s.%d.sql",
+                g_args.outpath, pThreadInfo->dbName,
+                pThreadInfo->threadIndex);
 
-    fp = fopen(tmpBuf, "w");
-
-    if (fp == NULL) {
-        errorPrint("%s() LN%d, failed to open file %s\n",
-                __func__, __LINE__, tmpBuf);
-        return NULL;
+        fp = fopen(dumpFilename, "w");
+        if (fp == NULL) {
+            errorPrint("%s() LN%d, failed to open file %s\n",
+                    __func__, __LINE__, dumpFilename);
+            return NULL;
+        }
     }
 
     int64_t count;
@@ -3410,6 +3578,37 @@ static void *dumpNtbOfDb(void *arg) {
         if (currentPercent > percentComplete) {
             printf("[%d]:%d%%\n", pThreadInfo->threadIndex, currentPercent);
             percentComplete = currentPercent;
+        }
+
+        if (g_args.avro) {
+            if (((TableInfo *)(g_tablesList + pThreadInfo->from + i))->belongStb) {
+                sprintf(dumpFilename, "%s%s.%s.%d.avro-tbtags",
+                        g_args.outpath, pThreadInfo->dbName,
+                        ((TableInfo *)(g_tablesList + pThreadInfo->from + i))->stable,
+                        pThreadInfo->threadIndex);
+                fp = createMTableAvroHead(
+                        pThreadInfo->taos,
+                        dumpFilename,
+                        pThreadInfo->dbName,
+                        ((TableInfo *)(g_tablesList + pThreadInfo->from + i))->stable);
+            } else {
+                sprintf(dumpFilename, "%s%s.%s.%d.avro-ntb",
+                        g_args.outpath, pThreadInfo->dbName,
+                        ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
+                        pThreadInfo->threadIndex);
+                fp = fopen(dumpFilename, "w");
+                if (fp == NULL) {
+                    errorPrint("%s() LN%d, failed to open file %s\n",
+                            __func__, __LINE__, dumpFilename);
+                    return NULL;
+                }
+            }
+
+            if (fp == NULL) {
+                errorPrint("%s() LN%d, failed to open file %s\n",
+                        __func__, __LINE__, dumpFilename);
+                return NULL;
+            }
         }
 
         count = dumpNormalTable(
@@ -3861,7 +4060,10 @@ static int dumpIn() {
     }
 
     if (g_args.avro) {
-        ret = dumpInTablesAvro();
+        ret = dumpInAvroTbTagsWorkThreads();
+        if (0 == ret) {
+            ret = dumpInAvroNtbWorkThreads();
+        }
     } else {
         ret = dumpInSqlWorkThreads();
     }
@@ -3895,26 +4097,35 @@ static void *dumpNormalTablesOfStb(void *arg) {
     }
 
     FILE *fp = NULL;
-    char tmpBuf[MAX_PATH_LEN] = {0};
+    char dumpFilename[MAX_PATH_LEN] = {0};
 
-    if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/%s.%s.%d.avro-tb",
+    if (g_args.avro) {
+        sprintf(dumpFilename, "%s%s.%s.%d.avro-tbtags",
                 g_args.outpath,
                 pThreadInfo->dbName,
                 pThreadInfo->stbName,
                 pThreadInfo->threadIndex);
     } else {
-        sprintf(tmpBuf, "%s.%s.%d.avro-tb",
+        sprintf(dumpFilename, "%s%s.%s.%d.sql",
+                g_args.outpath,
                 pThreadInfo->dbName,
                 pThreadInfo->stbName,
                 pThreadInfo->threadIndex);
     }
 
-    fp = fopen(tmpBuf, "w");
+    if (g_args.avro) {
+        fp = createMTableAvroHead(
+                pThreadInfo->taos,
+                dumpFilename,
+                pThreadInfo->dbName,
+                pThreadInfo->stbName);
+    } else {
+        fp = fopen(dumpFilename, "w");
+    }
 
     if (fp == NULL) {
         errorPrint("%s() LN%d, failed to open file %s\n",
-                __func__, __LINE__, tmpBuf);
+                __func__, __LINE__, dumpFilename);
         return NULL;
     }
 
@@ -4060,10 +4271,12 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
         tstrncpy(((TableInfo *)(g_tablesList + count))->name,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], TSDB_TABLE_NAME_LEN);
         char *stbName = (char *) row[TSDB_SHOW_TABLES_METRIC_INDEX];
-        if (stbName) {
+        if (strlen(stbName)) {
             tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
                 (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX], TSDB_TABLE_NAME_LEN);
             ((TableInfo *)(g_tablesList + count))->belongStb = true;
+        } else {
+            ((TableInfo *)(g_tablesList + count))->belongStb = false;
         }
         count ++;
     }
@@ -4174,17 +4387,13 @@ static int dumpOut() {
     FILE *fp = NULL;
     int32_t count = 0;
 
-    char tmpBuf[MAX_PATH_LEN] = {0};
-    if (g_args.outpath[0] != 0) {
-        sprintf(tmpBuf, "%s/dbs.sql", g_args.outpath);
-    } else {
-        sprintf(tmpBuf, "dbs.sql");
-    }
+    char dumpFilename[MAX_PATH_LEN] = {0};
+    sprintf(dumpFilename, "%sdbs.sql", g_args.outpath);
 
-    fp = fopen(tmpBuf, "w");
+    fp = fopen(dumpFilename, "w");
     if (fp == NULL) {
         errorPrint("%s() LN%d, failed to open file %s\n",
-                __func__, __LINE__, tmpBuf);
+                __func__, __LINE__, dumpFilename);
         return -1;
     }
 
