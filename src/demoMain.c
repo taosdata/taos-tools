@@ -72,7 +72,7 @@ SArguments g_args = {
 };
 
 int main(int argc, char *argv[]) {
-    if (parse_args(argc, argv)) {
+    if (parse_args(argc, argv, &g_args)) {
         exit(EXIT_FAILURE);
     }
     debugPrint("meta file: %s\n", g_args.metaFile);
@@ -90,14 +90,16 @@ int main(int argc, char *argv[]) {
         g_Dbs.db = calloc(1, sizeof(SDataBase));
         if (NULL == g_Dbs.db) {
             errorPrint("%s", "failed to allocate memory\n");
+            exit(EXIT_FAILURE);
         }
 
         g_Dbs.db[0].superTbls = calloc(1, sizeof(SSuperTable));
         if (NULL == g_Dbs.db[0].superTbls) {
             errorPrint("%s", "failed to allocate memory\n");
+            exit(EXIT_FAILURE);
         }
 
-        setParaFromArg();
+        setParaFromArg(&g_args);
 
         if (NULL != g_args.sqlFile) {
             TAOS *qtaos = taos_connect(g_Dbs.host, g_Dbs.user, g_Dbs.password,
@@ -105,7 +107,7 @@ int main(int argc, char *argv[]) {
             querySqlFile(qtaos, g_args.sqlFile);
             taos_close(qtaos);
         } else {
-            testCmdLine();
+            testCmdLine(&g_args);
         }
     }
     postFreeResource();
