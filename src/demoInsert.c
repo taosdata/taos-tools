@@ -780,9 +780,8 @@ int createDatabasesAndStables(char *command) {
                 tmfree(cmd);
 
                 if (0 != ret) {
-                    tmfree(g_Dbs.db[i].superTbls[j].colsOfCreateChildTable);
                     errorPrint("create super table %" PRIu64 " failed!\n\n", j);
-                    continue;
+                    return -1;
                 }
             } else {
                 ret = getSuperTableFromServer(taos, g_Dbs.db[i].dbName,
@@ -791,7 +790,7 @@ int createDatabasesAndStables(char *command) {
                     errorPrint("\nget super table %s.%s info failed!\n\n",
                                g_Dbs.db[i].dbName,
                                g_Dbs.db[i].superTbls[j].stbName);
-                    continue;
+                    return -1;
                 }
             }
         skip:

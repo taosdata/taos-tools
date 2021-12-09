@@ -1927,7 +1927,7 @@ int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
                 return -1;
             }
 
-            tstrncpy(tmpStr, restStr, index);
+            strncpy(tmpStr, restStr, index);
             cursor += index + 1;  // skip ',' too
             char *tmpP;
 
@@ -2213,7 +2213,7 @@ int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
             }
             switch (stbInfo->columns[c].data_type) {
                 case TSDB_DATA_TYPE_TIMESTAMP:
-                    errorPrint("Does not support data type %s as tag\n",
+                    errorPrint("Does not support data type %s as column\n",
                                stbInfo->columns[c].dataType);
                     return -1;
                 case TSDB_DATA_TYPE_BOOL:

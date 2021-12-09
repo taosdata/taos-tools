@@ -608,10 +608,10 @@ extern bool           g_fail;
     } while (0)
 /* ************ Function declares ************  */
 /* demoCommandOpt.c */
-int  parse_args(int argc, char *argv[]);
-void setParaFromArg();
+int  parse_args(int argc, char *argv[], SArguments *pg_args);
+void setParaFromArg(SArguments *pg_args);
 void querySqlFile(TAOS *taos, char *sqlFile);
-void testCmdLine();
+void testCmdLine(SArguments *pg_args);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file);
 int testMetaFile();
