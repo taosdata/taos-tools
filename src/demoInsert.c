@@ -2686,7 +2686,7 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
             }
             if (generateSmlConstPart(sml, stbInfo, pThreadInfo, t)) {
                 tmfree(sml);
-                free_smlheadlist_progressive_sml;
+                goto free_smlheadlist_progressive_sml;
             }
             smlList[t] = sml;
         }
