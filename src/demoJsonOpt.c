@@ -869,6 +869,10 @@ int getMetaFromInsertJsonFile(cJSON *root) {
                 } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                     g_Dbs.db[i].superTbls[j].iface = STMT_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
+                    if (strcasecmp(g_Dbs.db[i].superTbls[j].dataSource, "sample") == 0) {
+                        errorPrint("%s", "sml insert mode currently does not support sample as data source\n");
+                        goto PARSE_OVER;
+                    }
                     g_Dbs.db[i].superTbls[j].iface = SML_IFACE;
                     g_args.iface = SML_IFACE;
                 } else {
