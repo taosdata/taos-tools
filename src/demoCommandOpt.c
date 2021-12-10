@@ -266,7 +266,7 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
             if ((strlen(argv[i]) == 2) ||
                 (0 == strcmp(argv[i], "--password"))) {
                 printf("Enter password: ");
-                if (scanf("%s", pg_args->password) > 1) {
+                if (scanf("%26s", pg_args->password) > 1) {
                     fprintf(stderr, "password read error!\n");
                 }
             } else {
@@ -1530,25 +1530,25 @@ void setParaFromArg(SArguments *pg_args) {
     }
 }
 
-void querySqlFile(TAOS *taos, char *sqlFile) {
-    FILE *fp = fopen(sqlFile, "r");
+int querySqlFile(TAOS *taos, char *sqlFile) {
+    int32_t code = -1;
+    FILE *  fp = fopen(sqlFile, "r");
+    char *  cmd;
+    int     read_len = 0;
+    size_t  cmd_len = 0;
+    char *  line = NULL;
+    size_t  line_len = 0;
     if (fp == NULL) {
-        printf("failed to open file %s, reason:%s\n", sqlFile, strerror(errno));
-        return;
+        errorPrint("failed to open file %s, reason:%s\n", sqlFile,
+                   strerror(errno));
+        goto free_of_query_sql_file;
     }
-
-    int   read_len = 0;
-    char *cmd = calloc(1, TSDB_MAX_BYTES_PER_ROW);
+    cmd = calloc(1, TSDB_MAX_BYTES_PER_ROW);
     if (cmd == NULL) {
         errorPrint("%s", "failde to allocate memory\n");
-        return;
+        goto free_of_query_sql_file;
     }
-    size_t cmd_len = 0;
-    char * line = NULL;
-    size_t line_len = 0;
-
     double t = (double)taosGetTimestampMs();
-
     while ((read_len = getline(&line, &line_len, fp)) != -1) {
         if (read_len >= TSDB_MAX_BYTES_PER_ROW) continue;
         line[--read_len] = '\0';
@@ -1567,10 +1567,7 @@ void querySqlFile(TAOS *taos, char *sqlFile) {
         memcpy(cmd + cmd_len, line, read_len);
         if (0 != queryDbExec(taos, cmd, NO_INSERT_TYPE, false)) {
             errorPrint("queryDbExec %s failed!\n", cmd);
-            tmfree(cmd);
-            tmfree(line);
-            tmfclose(fp);
-            return;
+            goto free_of_query_sql_file;
         }
         memset(cmd, 0, TSDB_MAX_BYTES_PER_ROW);
         cmd_len = 0;
@@ -1578,11 +1575,12 @@ void querySqlFile(TAOS *taos, char *sqlFile) {
 
     t = taosGetTimestampMs() - t;
     printf("run %s took %.6f second(s)\n\n", sqlFile, t / 1000000);
-
+    code = 0;
+free_of_query_sql_file:
     tmfree(cmd);
     tmfree(line);
     tmfclose(fp);
-    return;
+    return code;
 }
 
 void *queryStableAggrFunc(void *sarg) {

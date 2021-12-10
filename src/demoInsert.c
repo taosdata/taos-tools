@@ -1538,6 +1538,7 @@ int32_t prepareStbStmt(threadInfo *pThreadInfo, char *tableName,
         if (0 == stbInfo->tagSource) {
             if (generateTagValuesForStb(stbInfo, tableSeq, tagsValBuf)) {
                 tmfree(tagsValBuf);
+                tmfree(tagsArray);
                 return -1;
             }
         } else {
@@ -1558,6 +1559,8 @@ int32_t prepareStbStmt(threadInfo *pThreadInfo, char *tableName,
                                       (TAOS_BIND *)tagsArray)) {
             errorPrint("taos_stmt_set_tbname_tags() failed! reason: %s\n",
                        taos_stmt_errstr(stmt));
+            tmfree(tagsValBuf);
+            tmfree(tagsArray);
             return -1;
         }
 
@@ -1565,6 +1568,8 @@ int32_t prepareStbStmt(threadInfo *pThreadInfo, char *tableName,
         if (taos_stmt_set_tbname(stmt, tableName)) {
             errorPrint("taos_stmt_set_tbname() failed! reason: %s\n",
                        taos_stmt_errstr(stmt));
+            tmfree(tagsValBuf);
+            tmfree(tagsArray);
             return -1;
         }
     }
@@ -2680,6 +2685,7 @@ void *syncWriteProgressiveSml(threadInfo *pThreadInfo) {
                 goto free_smlheadlist_progressive_sml;
             }
             if (generateSmlConstPart(sml, stbInfo, pThreadInfo, t)) {
+                tmfree(sml);
                 goto free_smlheadlist_progressive_sml;
             }
             smlList[t] = sml;
@@ -3225,6 +3231,12 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                        retConn);
             if (retConn < 0) {
                 errorPrint("%s\n", "failed to connect");
+#ifdef WINDOWS
+                closesocket(pThreadInfo->sockfd);
+                WSACleanup();
+#else
+                close(pThreadInfo->sockfd);
+#endif
                 return -1;
             }
             pThreadInfo->sockfd = sockfd;

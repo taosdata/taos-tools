@@ -239,7 +239,7 @@ static int usc2utf8(char *p, int unic) {
         *(p + 1) = ((unic >> 18) & 0x3F) | 0x80;
         *p = ((unic >> 24) & 0x03) | 0xF8;
         return 5;
-    } else if (unic >= 0x04000000 && unic <= 0x7FFFFFFF) {
+    } else if (unic >= 0x04000000) {
         *(p + 5) = (unic & 0x3F) | 0x80;
         *(p + 4) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 3) = ((unic >> 12) & 0x3F) | 0x80;
@@ -261,7 +261,7 @@ void rand_string(char *str, int size) {
                 break;
             }
             // Basic Chinese Character's Unicode is from 0x4e00 to 0x9fa5
-            int unic = 0x4e00 + rand() % (0x9fa5 - 0x4e00);
+            int unic = 0x4e00 + taosRandom() % (0x9fa5 - 0x4e00);
             move = usc2utf8(pstr, unic);
             pstr += move;
             size -= move;
@@ -621,26 +621,31 @@ static int readTagFromCsvFileToMem(SSuperTable *stbInfo) {
     return 0;
 }
 
-static void getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
-    FILE *fp = fopen(stbInfo->sampleFile, "r");
-    int   line_count = 0;
+static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
+    int32_t code = -1;
+    FILE *  fp = fopen(stbInfo->sampleFile, "r");
+    int     line_count = 0;
+    char *  buf;
     if (fp == NULL) {
         errorPrint("Failed to open sample file: %s, reason:%s\n",
                    stbInfo->sampleFile, strerror(errno));
-        return;
+        goto free_of_get_set_rows_from_csv;
     }
-    char *buf = calloc(1, stbInfo->maxSqlLen);
+    buf = calloc(1, stbInfo->maxSqlLen);
     if (buf == NULL) {
         errorPrint("%s", "failed to allocate memory\n");
-        return;
+        goto free_of_get_set_rows_from_csv;
     }
 
     while (fgets(buf, (int)stbInfo->maxSqlLen, fp)) {
         line_count++;
     }
+    stbInfo->insertRows = line_count;
+    code = 0;
+free_of_get_set_rows_from_csv:
     fclose(fp);
     tmfree(buf);
-    stbInfo->insertRows = line_count;
+    return code;
 }
 
 static int generateSampleFromCsvForStb(SSuperTable *stbInfo) {
@@ -1137,7 +1142,10 @@ int prepareSampleForStb(SSuperTable *stbInfo) {
     int ret;
     if (0 == strncasecmp(stbInfo->dataSource, "sample", strlen("sample"))) {
         if (stbInfo->useSampleTs) {
-            getAndSetRowsFromCsvFile(stbInfo);
+            if (getAndSetRowsFromCsvFile(stbInfo)) {
+                tmfree(stbInfo->sampleDataBuf);
+                return -1;
+            }
         }
         ret = generateSampleFromCsvForStb(stbInfo);
     } else {
@@ -1147,7 +1155,6 @@ int prepareSampleForStb(SSuperTable *stbInfo) {
     if (0 != ret) {
         errorPrint("read sample from %s file failed.\n", stbInfo->sampleFile);
         tmfree(stbInfo->sampleDataBuf);
-        stbInfo->sampleDataBuf = NULL;
         return -1;
     }
 
@@ -2378,8 +2385,9 @@ int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
 
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                             threadInfo *pThreadInfo, int tbSeq) {
-    cJSON *tags = cJSON_CreateObject();
-    char * tbName = calloc(1, TSDB_TABLE_NAME_LEN);
+    int32_t code = -1;
+    cJSON * tags = cJSON_CreateObject();
+    char *  tbName = calloc(1, TSDB_TABLE_NAME_LEN);
     assert(tbName);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
              stbInfo->childTblPrefix, tbSeq + pThreadInfo->start_table_from);
@@ -2423,12 +2431,12 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                 if (stbInfo->tags[i].dataLen > TSDB_MAX_BINARY_LEN) {
                     errorPrint("binary or nchar length overflow, maxsize:%u\n",
                                (uint32_t)TSDB_MAX_BINARY_LEN);
-                    return -1;
+                    goto free_of_generate_sml_json_tag;
                 }
                 char *buf = (char *)calloc(stbInfo->tags[i].dataLen + 1, 1);
                 if (NULL == buf) {
                     errorPrint("%s", "failed to allocate memory\n");
-                    return -1;
+                    goto free_of_generate_sml_json_tag;
                 }
                 rand_string(buf, stbInfo->tags[i].dataLen);
                 if (stbInfo->tags[i].data_type == TSDB_DATA_TYPE_BINARY) {
@@ -2444,14 +2452,16 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                 errorPrint(
                     "unsupport data type (%s) for schemaless json protocol\n",
                     stbInfo->tags[i].dataType);
-                return -1;
+                goto free_of_generate_sml_json_tag;
         }
         cJSON_AddItemToObject(tags, tagName, tag);
     }
     cJSON_AddItemToArray(tagsList, tags);
+    code = 0;
+free_of_generate_sml_json_tag:
     tmfree(tagName);
     tmfree(tbName);
-    return 0;
+    return code;
 }
 
 int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
@@ -2520,6 +2530,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
                 cJSON_AddStringToObject(value, "value", buf);
                 cJSON_AddStringToObject(value, "type", "nchar");
             }
+            tmfree(buf);
             break;
         default:
             errorPrint(

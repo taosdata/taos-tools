@@ -104,7 +104,10 @@ int main(int argc, char *argv[]) {
         if (NULL != g_args.sqlFile) {
             TAOS *qtaos = taos_connect(g_Dbs.host, g_Dbs.user, g_Dbs.password,
                                        g_Dbs.db[0].dbName, g_Dbs.port);
-            querySqlFile(qtaos, g_args.sqlFile);
+            if (querySqlFile(qtaos, g_args.sqlFile)) {
+                taos_close(qtaos);
+                exit(EXIT_FAILURE);
+            }
             taos_close(qtaos);
         } else {
             testCmdLine(&g_args);

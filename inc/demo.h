@@ -610,7 +610,7 @@ extern bool           g_fail;
 /* demoCommandOpt.c */
 int  parse_args(int argc, char *argv[], SArguments *pg_args);
 void setParaFromArg(SArguments *pg_args);
-void querySqlFile(TAOS *taos, char *sqlFile);
+int  querySqlFile(TAOS *taos, char *sqlFile);
 void testCmdLine(SArguments *pg_args);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file);

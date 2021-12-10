@@ -260,7 +260,8 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                 taos_close(taos);
                 errorPrint(
                     "realloc fail for save child table name of "
-                    "%s.%s\n", dbName, stbName);
+                    "%s.%s\n",
+                    dbName, stbName);
                 return -1;
             }
         }
@@ -435,7 +436,8 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
 
 int postProceSql(char *host, uint16_t port, char *sqlstr,
                  threadInfo *pThreadInfo) {
-    char *req_fmt =
+    int32_t code = -1;
+    char *  req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
@@ -444,17 +446,21 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
 
     int      bytes, sent, received, req_str_len, resp_len;
     char *   request_buf;
-    char     response_buf[RESP_BUF_LEN];
+    char *   response_buf;
     uint16_t rest_port = port + TSDB_PORT_HTTP;
 
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
-    request_buf = malloc(req_buf_len);
+    request_buf = calloc(1, req_buf_len);
     if (NULL == request_buf) {
-        errorPrint("%s", "cannot allocate memory.\n");
-        exit(EXIT_FAILURE);
+        errorPrint("%s", "cannot allocate memory\n");
+        goto free_of_post;
     }
-
+    response_buf = calloc(1, RESP_BUF_LEN);
+    if (NULL == response_buf) {
+        errorPrint("%s", "cannot allocate memory\n");
+        goto free_of_post;
+    }
     char userpass_buf[INPUT_BUF_LEN];
     int  mod_table[] = {0, 2, 1};
 
@@ -520,12 +526,14 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes =
             write(pThreadInfo->sockfd, request_buf + sent, req_str_len - sent);
 #endif
-        if (bytes < 0) ERROR_EXIT("writing message to socket");
+        if (bytes < 0) {
+            errorPrint("%s", "writing no message to socket\n");
+            goto free_of_post;
+        }
         if (bytes == 0) break;
         sent += bytes;
     } while (sent < req_str_len);
 
-    memset(response_buf, 0, RESP_BUF_LEN);
     resp_len = sizeof(response_buf) - 1;
     received = 0;
 
@@ -543,8 +551,8 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
 #endif
         verbosePrint("%s() LN%d: bytes:%d\n", __func__, __LINE__, bytes);
         if (bytes < 0) {
-            free(request_buf);
-            ERROR_EXIT("reading response from socket");
+            errorPrint("%s", "reading no response from socket\n");
+            goto free_of_post;
         }
         if (bytes == 0) break;
         received += bytes;
@@ -552,7 +560,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         verbosePrint("%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
                      __func__, __LINE__, received, resp_len, response_buf);
 
-        response_buf[RESP_BUF_LEN - 1] = '\0';
         if (strlen(response_buf)) {
             verbosePrint(
                 "%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
@@ -571,21 +578,23 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     } while (received < resp_len);
 
     if (received == resp_len) {
-        free(request_buf);
-        ERROR_EXIT("storing complete response from socket");
+        errorPrint("%s", "storing complete response from socket\n");
+        goto free_of_post;
     }
 
     if (strlen(pThreadInfo->filePath) > 0) {
         appendResultBufToFile(response_buf, pThreadInfo);
     }
 
-    free(request_buf);
-
     if (NULL == strstr(response_buf, resHttpOk)) {
         errorPrint("Response:\n%s\n", response_buf);
-        return -1;
+        goto free_of_post;
     }
-    return 0;
+    code = 0;
+free_of_post:
+    tmfree(request_buf);
+    tmfree(response_buf);
+    return code;
 }
 
 void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
