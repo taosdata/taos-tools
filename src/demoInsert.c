@@ -629,6 +629,9 @@ static int createSuperTable(TAOS *taos, char *dbName, SSuperTable *superTbl,
                             tagIndex, "TIMESTAMP");
             lenOfTagOfOneRow +=
                 superTbl->tags[tagIndex].dataLen + TIMESTAMP_BUFF_LEN;
+        } else if (strcasecmp(dataType, "JSON") == 0) {
+            len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "jtag json ");
+            break;
         } else {
             taos_close(taos);
             errorPrint("config error tag type : %s\n", dataType);
