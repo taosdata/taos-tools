@@ -542,8 +542,25 @@ int generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
             dataLen +=
                 snprintf(tagsValBuf + dataLen, TSDB_MAX_SQL_LEN - dataLen,
                          "%" PRId64 ",", rand_ubigint());
+        } else if (0 == strncasecmp(stbInfo->tags[i].dataType, "json",
+                                    strlen("json"))) {
+            dataLen += snprintf(tagsValBuf + dataLen,
+                                TSDB_MAX_SQL_LEN - dataLen, "'{");
+            for (int n = 0; n < stbInfo->tagCount; ++n) {
+                char *tmp_buf = calloc(1, stbInfo->tags[i].dataLen + 1);
+                rand_string(tmp_buf, stbInfo->tags[i].dataLen);
+                dataLen +=
+                    snprintf(tagsValBuf + dataLen, TSDB_MAX_SQL_LEN - dataLen,
+                             "\"tag%d\":\"%s\",", n, tmp_buf);
+                tmfree(tmp_buf);
+            }
+            dataLen -= 1;
+            dataLen += snprintf(tagsValBuf + dataLen,
+                                TSDB_MAX_SQL_LEN - dataLen, "}')");
+            return 0;
         } else {
-            errorPrint("unsupport data type: %s\n", stbInfo->tags[i].dataType);
+            errorPrint("unsupported data type: %s\n",
+                       stbInfo->tags[i].dataType);
             return -1;
         }
     }
