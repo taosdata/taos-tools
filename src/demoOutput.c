@@ -645,6 +645,15 @@ void printfInsertMeta() {
                         printf("tag[%d]:\033[33m%s(%d)\033[0m ", k,
                                g_Dbs.db[i].superTbls[j].tags[k].dataType,
                                g_Dbs.db[i].superTbls[j].tags[k].dataLen);
+                    } else if (0 ==
+                               strncasecmp(
+                                   g_Dbs.db[i].superTbls[j].tags[k].dataType,
+                                   "json", strlen("json"))) {
+                        printf("tag[%d]:\033[33m%s{key(%d):value(%d)}\033[0m ",
+                               k, g_Dbs.db[i].superTbls[j].tags[k].dataType,
+                               g_Dbs.db[i].superTbls[j].tagCount,
+                               g_Dbs.db[i].superTbls[j].tags[k].dataLen);
+                        break;
                     } else {
                         printf("tag[%d]:\033[33m%s\033[0m ", k,
                                g_Dbs.db[i].superTbls[j].tags[k].dataType);
