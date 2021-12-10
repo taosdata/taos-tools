@@ -476,7 +476,7 @@ int subscribeTestProcess() {
 
             for (int i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
                 for (int j = 0; j < threads; j++) {
-                    uint64_t seq = i * threads + j;
+                    uint64_t seq = (uint64_t)i * threads + j;
                     void *   result;
                     pthread_join(pidsOfStable[seq], &result);
                     if (*(int32_t *)result) {
