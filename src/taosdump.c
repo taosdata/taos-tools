@@ -2733,73 +2733,74 @@ void freeBindArray(char *bindArray, int onlyCol)
     }
 }
 
-static int64_t dumpInOneAvroFile(char* fcharset,
-        char* encode, char *avroFilepath)
+static int dumpAvroTbTagsImpl(TAOS *taos,
+        TAOS_STMT *stmt,
+        char *namespace,
+        avro_schema_t schema,
+        avro_file_reader_t reader,
+        RecordSchema *recordSchema)
 {
-    debugPrint("avroFilepath: %s\n", avroFilepath);
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+    return 0;
+}
 
-    avro_file_reader_t reader;
+static int dumpAvroNtbImpl(TAOS *taos,
+        TAOS_STMT *stmt,
+        char *namespace,
+        avro_schema_t schema,
+        avro_file_reader_t reader,
+        RecordSchema *recordSchema)
+{
+    int64_t success = 0;
+    int64_t failed = 0;
 
-    if(avro_file_reader(avroFilepath, &reader)) {
-        errorPrint("Unable to open avro file %s: %s\n",
-                avroFilepath, avro_strerror());
-        return -1;
+    avro_value_iface_t *value_class = avro_generic_class_from_schema(schema);
+    avro_value_t value;
+    avro_generic_value_new(value_class, &value);
+
+    while(!avro_file_reader_read_value(reader, &value)) {
+        for (int i = 0; i < recordSchema->num_fields; i++) {
+            avro_value_t field_value;
+            avro_value_get_by_name(&value, "sql", &field_value, NULL);
+
+            size_t size;
+            char *buf = NULL;
+            avro_value_get_string(&field_value, (const char **)&buf, &size);
+
+            if (0 != taos_stmt_prepare(stmt, buf, 0)) {
+                errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
+                        taos_stmt_errstr(stmt));
+                failed ++;
+            } else if (0 != taos_stmt_execute(stmt)) {
+                errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+                failed ++;
+            }
+
+            success ++;
+        }
     }
 
-    int buf_len = TSDB_MAX_COLUMNS * (TSDB_COL_NAME_LEN + 11 + 16) + 4;
-    char *jsonbuf = calloc(1, buf_len);
-    assert(jsonbuf);
+    avro_value_decref(&value);
+    avro_value_iface_decref(value_class);
 
-    avro_writer_t jsonwriter = avro_writer_memory(jsonbuf, buf_len);
+    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
 
-    avro_schema_t schema;
-    schema = avro_file_reader_get_writer_schema(reader);
-    avro_schema_to_json(schema, jsonwriter);
+    if (failed)
+        return failed;
+    return success;
+}
 
-    if (0 == strlen(jsonbuf)) {
-        errorPrint("Failed to parse avro file: %s schema. reason: %s\n",
-                avroFilepath, avro_strerror());
-        avro_schema_decref(schema);
-        avro_file_reader_close(reader);
-        avro_writer_free(jsonwriter);
-        return -1;
-    }
-    debugPrint("Schema:\n  %s\n", jsonbuf);
+static int dumpAvroDataImpl(TAOS *taos,
+        TAOS_STMT *stmt,
+        char *namespace,
+        avro_schema_t schema,
+        avro_file_reader_t reader,
+        RecordSchema *recordSchema)
+{
 
-    json_t *json_root = load_json(jsonbuf);
-    debugPrint("\n%s() LN%d\n === Schema parsed:\n", __func__, __LINE__);
-    if (g_args.debug_print) {
-        print_json(json_root);
-    }
-
-    const char *namespace = avro_schema_namespace((const avro_schema_t)schema);
-    debugPrint("Namespace: %s\n", namespace);
-
-    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            namespace, g_args.port);
-    if (taos == NULL) {
-        errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
-        return -1;
-    }
-
-    TAOS_STMT *stmt = taos_stmt_init(taos);
-    if (NULL == stmt) {
-        taos_close(taos);
-        errorPrint("%s() LN%d, stmt init failed! reason: %s\n",
-                __func__, __LINE__, taos_errstr(NULL));
-        return -1;
-    }
-
-    RecordSchema *recordSchema = parse_json_to_recordschema(json_root);
-    if (NULL == recordSchema) {
-        errorPrint("Failed to parse json to recordschema. reason: %s\n",
-                avro_strerror());
-        avro_schema_decref(schema);
-        avro_file_reader_close(reader);
-        avro_writer_free(jsonwriter);
-        return -1;
-    }
-    json_decref(json_root);
+    char *stmtBuffer = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    assert(stmtBuffer);
 
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
@@ -2812,15 +2813,9 @@ static int64_t dumpInOneAvroFile(char* fcharset,
                 __LINE__,
                 recordSchema->name);
         free(tableDes);
-        freeRecordSchema(recordSchema);
-        avro_schema_decref(schema);
-        avro_file_reader_close(reader);
-        avro_writer_free(jsonwriter);
         return -1;
     }
 
-    char *stmtBuffer = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
-    assert(stmtBuffer);
     char *pstr = stmtBuffer;
     pstr += sprintf(pstr, "INSERT INTO ? VALUES(?");
 
@@ -2840,10 +2835,6 @@ static int64_t dumpInOneAvroFile(char* fcharset,
 
         free(stmtBuffer);
         free(tableDes);
-        freeRecordSchema(recordSchema);
-        avro_schema_decref(schema);
-        avro_file_reader_close(reader);
-        avro_writer_free(jsonwriter);
         return -1;
     }
 
@@ -2853,10 +2844,6 @@ static int64_t dumpInOneAvroFile(char* fcharset,
 
         free(stmtBuffer);
         free(tableDes);
-        freeRecordSchema(recordSchema);
-        avro_schema_decref(schema);
-        avro_file_reader_close(reader);
-        avro_writer_free(jsonwriter);
         return -1;
     }
 
@@ -3161,19 +3148,147 @@ static int64_t dumpInOneAvroFile(char* fcharset,
     tfree(stmtBuffer);
     tfree(tableDes);
 
-    freeRecordSchema(recordSchema);
-    avro_schema_decref(schema);
-    avro_file_reader_close(reader);
-    avro_writer_free(jsonwriter);
+    if (failed)
+        return failed;
+    return success;
+}
 
+static RecordSchema *getSchemaAndReaderFromFile(
+        enum enWHICH which, char *avroFile,
+        avro_schema_t *schema,
+        avro_file_reader_t *reader)
+{
+    if(avro_file_reader(avroFile, reader)) {
+        errorPrint("%s() LN%d, Unable to open avro file %s: %s\n",
+                __func__, __LINE__,
+                avroFile, avro_strerror());
+        return NULL;
+    }
+
+    int buf_len = 0;
+    switch (which) {
+        case WHICH_AVRO_TBTAGS:
+
+        case WHICH_AVRO_DATA:
+            buf_len = TSDB_MAX_COLUMNS * (TSDB_COL_NAME_LEN + 11 + 16) + 4;
+            break;
+
+        case WHICH_AVRO_NTB:
+            buf_len = 17 + TSDB_DB_NAME_LEN               /* dbname section */
+                + 17                                /* type: record */
+                + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+                + 50;                              /* fields section */
+            break;
+    }
+
+    char *jsonbuf = calloc(1, buf_len);
+    assert(jsonbuf);
+
+    avro_writer_t jsonwriter = avro_writer_memory(jsonbuf, buf_len);
+
+    *schema = avro_file_reader_get_writer_schema(*reader);
+    avro_schema_to_json(*schema, jsonwriter);
+
+    if (0 == strlen(jsonbuf)) {
+        errorPrint("Failed to parse avro file: %s schema. reason: %s\n",
+                avroFile, avro_strerror());
+        avro_writer_free(jsonwriter);
+        return NULL;
+    }
+    debugPrint("Schema:\n  %s\n", jsonbuf);
+
+    json_t *json_root = load_json(jsonbuf);
+    debugPrint("\n%s() LN%d\n === Schema parsed:\n", __func__, __LINE__);
+    if (g_args.debug_print) {
+        print_json(json_root);
+    }
+
+    avro_writer_free(jsonwriter);
     tfree(jsonbuf);
+
+    if (NULL == json_root) {
+        errorPrint("%s() LN%d, cannot read valid schema from %s\n",
+                __func__, __LINE__, avroFile);
+        return NULL;
+    }
+
+    RecordSchema *recordSchema = parse_json_to_recordschema(json_root);
+    if (NULL == recordSchema) {
+        errorPrint("Failed to parse json to recordschema. reason: %s\n",
+                avro_strerror());
+        return NULL;
+    }
+    json_decref(json_root);
+
+    return recordSchema;
+}
+
+static int64_t dumpInOneAvroFile(
+        enum enWHICH which,
+        char* fcharset,
+        char* encode, char *avroFilepath)
+{
+    debugPrint("avroFilepath: %s\n", avroFilepath);
+
+    avro_file_reader_t reader;
+    avro_schema_t schema;
+
+    RecordSchema *recordSchema = getSchemaAndReaderFromFile(
+            which, avroFilepath, &schema, &reader);
+    if (NULL == recordSchema) {
+        if (schema)
+            avro_schema_decref(schema);
+        if (reader)
+            avro_file_reader_close(reader);
+        return -1;
+    }
+
+    const char *namespace = avro_schema_namespace((const avro_schema_t)schema);
+    debugPrint("Namespace: %s\n", namespace);
+
+    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
+            namespace, g_args.port);
+    if (taos == NULL) {
+        errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+        return -1;
+    }
+
+    TAOS_STMT *stmt = taos_stmt_init(taos);
+    if (NULL == stmt) {
+        taos_close(taos);
+        errorPrint("%s() LN%d, stmt init failed! reason: %s\n",
+                __func__, __LINE__, taos_errstr(NULL));
+        return -1;
+    }
+
+    int retExec = 0;
+    switch (which) {
+        case WHICH_AVRO_DATA:
+            retExec = dumpAvroDataImpl(taos, stmt,
+                    (char *)namespace,
+                    schema, reader, recordSchema);
+            break;
+        case WHICH_AVRO_TBTAGS:
+            retExec = dumpAvroTbTagsImpl(taos, stmt,
+                    (char *)namespace,
+                    schema, reader, recordSchema);
+            break;
+
+            retExec = dumpAvroNtbImpl(taos, stmt,
+                    (char *)namespace,
+                    schema, reader, recordSchema);
+            break;
+
+    }
 
     taos_stmt_close(stmt);
     taos_close(taos);
 
-    if (failed < 0)
-        return failed;
-    return success;
+    freeRecordSchema(recordSchema);
+    avro_schema_decref(schema);
+    avro_file_reader_close(reader);
+
+    return retExec;
 }
 
 static void* dumpInAvroWorkThreadFp(void *arg)
@@ -3212,7 +3327,9 @@ static void* dumpInAvroWorkThreadFp(void *arg)
             percentComplete = currentPercent;
         }
 
-        int64_t rows = dumpInOneAvroFile(g_tsCharset,
+        int64_t rows = dumpInOneAvroFile(
+                pThreadInfo->which,
+                g_tsCharset,
                 g_args.encode,
                 avroFile);
         switch (pThreadInfo->which) {
