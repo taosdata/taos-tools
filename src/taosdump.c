@@ -2760,12 +2760,155 @@ void freeBindArray(char *bindArray, int onlyCol)
 static int dumpAvroTbTagsImpl(TAOS *taos,
         TAOS_STMT *stmt,
         char *namespace,
+        char *name,
         avro_schema_t schema,
         avro_file_reader_t reader,
         RecordSchema *recordSchema)
 {
-    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
-    return 0;
+    int64_t success = 0;
+    int64_t failed = 0;
+
+    char tbuf[COMMAND_SIZE] = {0};
+
+    avro_value_iface_t *value_class = avro_generic_class_from_schema(schema);
+    avro_value_t value;
+    avro_generic_value_new(value_class, &value);
+
+    while(!avro_file_reader_read_value(reader, &value)) {
+        char *bindArray =
+            malloc(sizeof(TAOS_BIND) * (recordSchema->num_fields - 1));
+        assert(bindArray);
+
+        TAOS_BIND *bind;
+        int is_null = 1;
+
+        for (int i = 0; i < recordSchema->num_fields; i++) {
+            avro_value_t field_value;
+
+            FieldStruct *field = (FieldStruct *)(recordSchema->fields + sizeof(FieldStruct) * i);
+
+            size_t size;
+            char *tbname = NULL;
+
+            int32_t  curr_sqlstr_len = 0;
+            if (0 == i) {
+                avro_value_get_by_name(&value, "tbname", &field_value, NULL);
+                avro_value_get_string(&field_value, (const char **)&tbname, &size);
+
+                curr_sqlstr_len = sprintf(tbuf,
+                        "CREATE TABLE %s.%s USING %s.%s TAGS(",
+                        namespace, tbname, namespace, name);
+                for (int j = 0; j < recordSchema->num_fields-1; j ++) {
+                    curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, "?,");
+                }
+
+                curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len - 1, ")");
+
+                debugPrint("command buffer: %s\n", tbuf);
+
+                if (0 != taos_stmt_prepare(stmt, tbuf, 0)) {
+                    errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
+                            taos_stmt_errstr(stmt));
+                    failed ++;
+                    continue;
+                }
+            } else {
+                if (0 == avro_value_get_by_name(
+                            &value, field->name, &field_value, NULL)) {
+                    bind = (TAOS_BIND *)((char *)bindArray
+                            + (sizeof(TAOS_BIND)*(i-1)));
+                    bind->is_null = NULL;
+                    switch (field->type) {
+                        case TSDB_DATA_TYPE_BOOL:
+                            break;
+
+                        case TSDB_DATA_TYPE_TINYINT:
+                            break;
+
+                        case TSDB_DATA_TYPE_SMALLINT:
+                            break;
+
+                        case TSDB_DATA_TYPE_INT:
+                            {
+                            int32_t *n32 = malloc(sizeof(int32_t));
+                            assert(n32);
+
+                            avro_value_get_int(&field_value, n32);
+                            debugPrint("%d | ", *n32);
+                            bind->buffer_length = sizeof(int32_t);
+                            bind->buffer = n32;
+                            }
+                            break;
+
+                        case TSDB_DATA_TYPE_BIGINT:
+                            break;
+
+                        case TSDB_DATA_TYPE_FLOAT:
+                            break;
+
+                        case TSDB_DATA_TYPE_DOUBLE:
+                            break;
+
+                        case TSDB_DATA_TYPE_BINARY:
+                            {
+                            size_t size;
+
+                            avro_value_t branch;
+                            avro_value_get_current_branch(&field_value, &branch);
+
+                            char *buf = NULL;
+                            avro_value_get_string(&branch, (const char **)&buf, &size);
+
+                            if (NULL == buf) {
+                                debugPrint("%s | ", "NULL");
+                                bind->is_null = &is_null;
+                                bind->buffer_length = 0;
+                            } else {
+                                debugPrint("%s | ", (char *)buf);
+                                bind->buffer_length = strlen(buf);
+                            }
+                            bind->buffer = buf;
+                            }
+                            break;
+
+                        case TSDB_DATA_TYPE_NCHAR:
+                            break;
+
+                        case TSDB_DATA_TYPE_TIMESTAMP:
+                            break;
+
+                        default:
+                            break;
+                    }
+
+                    bind->buffer_type = field->type;
+                    bind->length = &bind->buffer_length;
+                } else {
+                    errorPrint("Failed to get value by name: %s\n",
+                            field->name);
+                }
+
+            }
+
+            errorPrint("TODO: %s() LN%d, tbname: %s\n", __func__, __LINE__, tbname);
+        }
+
+        if (0 != taos_stmt_execute(stmt)) {
+            errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
+                    __func__, __LINE__, taos_stmt_errstr(stmt));
+            failed ++;
+        } else {
+            success ++;
+        }
+    }
+
+    avro_value_decref(&value);
+    avro_value_iface_decref(value_class);
+
+    if (failed)
+        return failed;
+    return success;
+
 }
 
 static int dumpAvroNtbImpl(TAOS *taos,
@@ -2807,8 +2950,6 @@ static int dumpAvroNtbImpl(TAOS *taos,
 
     avro_value_decref(&value);
     avro_value_iface_decref(value_class);
-
-    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
 
     if (failed)
         return failed;
@@ -3192,6 +3333,13 @@ static RecordSchema *getSchemaAndReaderFromFile(
     int buf_len = 0;
     switch (which) {
         case WHICH_AVRO_TBTAGS:
+            buf_len = 17 + TSDB_DB_NAME_LEN               /* dbname section */
+                    + 17                                /* type: record */
+                    + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+                    + 10                                /* fields section */
+                    + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+                    + (TSDB_COL_NAME_LEN + 40) * TSDB_MAX_TAGS + 4;    /* fields section */
+            break;
 
         case WHICH_AVRO_DATA:
             buf_len = TSDB_MAX_COLUMNS * (TSDB_COL_NAME_LEN + 11 + 16) + 4;
@@ -3219,11 +3367,11 @@ static RecordSchema *getSchemaAndReaderFromFile(
         avro_writer_free(jsonwriter);
         return NULL;
     }
-    debugPrint("Schema:\n  %s\n", jsonbuf);
+    verbosePrint("Schema:\n  %s\n", jsonbuf);
 
     json_t *json_root = load_json(jsonbuf);
-    debugPrint("\n%s() LN%d\n === Schema parsed:\n", __func__, __LINE__);
-    if (g_args.debug_print) {
+    verbosePrint("\n%s() LN%d\n === Schema parsed:\n", __func__, __LINE__);
+    if (g_args.verbose_print) {
         print_json(json_root);
     }
 
@@ -3268,7 +3416,8 @@ static int64_t dumpInOneAvroFile(
     }
 
     const char *namespace = avro_schema_namespace((const avro_schema_t)schema);
-    debugPrint("Namespace: %s\n", namespace);
+    const char *name = avro_schema_name((const avro_schema_t)schema);
+    debugPrint("Namespace: %s, name: %s\n", namespace, name);
 
     TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
             namespace, g_args.port);
@@ -3292,12 +3441,15 @@ static int64_t dumpInOneAvroFile(
                     (char *)namespace,
                     schema, reader, recordSchema);
             break;
+
         case WHICH_AVRO_TBTAGS:
             retExec = dumpAvroTbTagsImpl(taos, stmt,
                     (char *)namespace,
+                    (char *)name,
                     schema, reader, recordSchema);
             break;
 
+        case WHICH_AVRO_NTB:
             retExec = dumpAvroNtbImpl(taos, stmt,
                     (char *)namespace,
                     schema, reader, recordSchema);
@@ -3488,11 +3640,10 @@ static int64_t writeResultToSql(TAOS_RES *res, FILE *fp,
     assert(numFields > 0);
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
-    int32_t  curr_sqlstr_len = 0;
     int32_t  total_sqlstr_len = 0;
 
     while ((row = taos_fetch_row(res)) != NULL) {
-        curr_sqlstr_len = 0;
+        int32_t curr_sqlstr_len = 0;
 
         int32_t* length = taos_fetch_lengths(res);   // act len
 
