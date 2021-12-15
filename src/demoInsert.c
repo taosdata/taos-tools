@@ -904,8 +904,6 @@ static void *createTable(void *sarg) {
                    pThreadInfo->threadID, pThreadInfo->start_table_from, i);
             lastPrintTime = currentPrintTime;
         }
-        printf("thread[%d] already create %" PRIu64 " - %" PRIu64 " tables\n",
-               pThreadInfo->threadID, pThreadInfo->start_table_from, i);
     }
 
     if (0 != len) {
@@ -990,6 +988,7 @@ int startMultiThreadCreateChildTable(char *cols, int threads,
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
         taos_close(pThreadInfo->taos);
+
         g_actualChildTables += pThreadInfo->tables_created;
     }
 
@@ -1232,11 +1231,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             affectedRows = taos_affected_rows(res);
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
-                    "%s() LN%d, failed to execute schemaless insert. content: "
-                    "%s, reason: "
+                    "%s() LN%d, failed to execute schemaless insert. reason: "
                     "%s\n",
-                    __func__, __LINE__, pThreadInfo->lines[0],
-                    taos_errstr(res));
+                    __func__, __LINE__, taos_errstr(res));
                 exit(EXIT_FAILURE);
             }
             break;
