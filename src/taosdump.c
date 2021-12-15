@@ -655,11 +655,13 @@ static int typeStrToType(const char *type_str) {
         return TSDB_DATA_TYPE_FLOAT;
     } else if (0 == strcasecmp(type_str, "double")) {
         return TSDB_DATA_TYPE_DOUBLE;
-    } else if (0 == strcasecmp(type_str, "binary")) {
+    } else if ((0 == strcasecmp(type_str, "binary"))
+            || (0 == strcasecmp(type_str, "string"))) {
         return TSDB_DATA_TYPE_BINARY;
     } else if (0 == strcasecmp(type_str, "timestamp")) {
         return TSDB_DATA_TYPE_TIMESTAMP;
-    } else if (0 == strcasecmp(type_str, "nchar")) {
+    } else if ((0 == strcasecmp(type_str, "nchar"))
+            || (0 == strcasecmp(type_str, "bytes"))) {
         return TSDB_DATA_TYPE_NCHAR;
     } else if (0 == strcasecmp(type_str, "tinyint unsigned")) {
         return TSDB_DATA_TYPE_UTINYINT;
@@ -1429,23 +1431,41 @@ static int getTableDes(
                         sizeof(tableDes->cols[i].value));
                 int len = strlen((char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
                 // FIXME for long value
-                if (len < (COL_VALUEBUF_LEN - 2)) {
-                    converStringToReadable(
-                            (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                            length[0],
-                            tableDes->cols[i].value,
-                            len);
-                } else {
-                    tableDes->cols[i].var_value = calloc(1, len * 2);
-                    if (tableDes->cols[i].var_value == NULL) {
-                        errorPrint("%s() LN%d, memory alalocation failed!\n",
-                                __func__, __LINE__);
-                        taos_free_result(res);
-                        return -1;
+                if (g_args.avro) {
+                    if (len < (COL_VALUEBUF_LEN - 1)) {
+                        strcpy(tableDes->cols[i].value,
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                    } else {
+                        tableDes->cols[i].var_value = calloc(1, len + 1);
+                        if (NULL == tableDes->cols[i].var_value) {
+                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                    __func__, __LINE__);
+                            taos_free_result(res);
+                            return -1;
+                        }
+                        strcpy(
+                                (char *)(tableDes->cols[i].var_value),
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
                     }
-                    converStringToReadable((char *)row[0],
-                            length[0],
-                            (char *)(tableDes->cols[i].var_value), len);
+                } else {
+                    if (len < (COL_VALUEBUF_LEN - 2)) {
+                        converStringToReadable(
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                                length[0],
+                                tableDes->cols[i].value,
+                                len);
+                    } else {
+                        tableDes->cols[i].var_value = calloc(1, len * 2);
+                        if (NULL == tableDes->cols[i].var_value) {
+                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                    __func__, __LINE__);
+                            taos_free_result(res);
+                            return -1;
+                        }
+                        converStringToReadable((char *)row[0],
+                                length[0],
+                                (char *)(tableDes->cols[i].var_value), len);
+                    }
                 }
                 break;
 
@@ -1453,24 +1473,43 @@ static int getTableDes(
                 memset(tableDes->cols[i].value, 0,
                         sizeof(tableDes->cols[i].note));
                 int nlen = strlen((char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
-                if (nlen < (COL_VALUEBUF_LEN-2)) {
-                    char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
-                    convertNCharToReadable(
-                            (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                            length[0], tbuf, COL_VALUEBUF_LEN-2);
-                    sprintf(tableDes->cols[i].value, "%s", tbuf);
-                } else {
-                    tableDes->cols[i].var_value = calloc(1, nlen * 5);
-                    if (tableDes->cols[i].var_value == NULL) {
-                        errorPrint("%s() LN%d, memory alalocation failed!\n",
-                                __func__, __LINE__);
-                        taos_free_result(res);
-                        return -1;
+
+                if (g_args.avro) {
+                    if (len < (COL_VALUEBUF_LEN - 1)) {
+                        strcpy(tableDes->cols[i].value,
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                    } else {
+                        tableDes->cols[i].var_value = calloc(1, len + 1);
+                        if (NULL == tableDes->cols[i].var_value) {
+                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                    __func__, __LINE__);
+                            taos_free_result(res);
+                            return -1;
+                        }
+                        strcpy(
+                                (char *)(tableDes->cols[i].var_value),
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
                     }
-                    converStringToReadable(
-                            (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                            length[0],
-                            (char *)(tableDes->cols[i].var_value), nlen);
+                } else {
+                    if (nlen < (COL_VALUEBUF_LEN-2)) {
+                        char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
+                        convertNCharToReadable(
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                                length[0], tbuf, COL_VALUEBUF_LEN-2);
+                        sprintf(tableDes->cols[i].value, "%s", tbuf);
+                    } else {
+                        tableDes->cols[i].var_value = calloc(1, nlen * 5);
+                        if (tableDes->cols[i].var_value == NULL) {
+                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                    __func__, __LINE__);
+                            taos_free_result(res);
+                            return -1;
+                        }
+                        converStringToReadable(
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                                length[0],
+                                (char *)(tableDes->cols[i].var_value), nlen);
+                    }
                 }
                 break;
 
@@ -1676,6 +1715,12 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                                             if (0 == strcmp(obj_value_str, "array")) {
                                                 field->type = TSDB_DATA_TYPE_NULL;
                                                 field->is_array = true;
+                                            } else if (0 == strcmp(obj_value_str, "string")) {
+                                                field->type = TSDB_DATA_TYPE_BINARY;
+                                                field->is_array = false;
+                                            } else if (0 == strcmp(obj_value_str, "int")) {
+                                                field->type = TSDB_DATA_TYPE_INT;
+                                                field->is_array = false;
                                             }
                                         } else if (JSON_OBJECT == obj_value_type) {
                                             const char *field_key;
@@ -2744,11 +2789,11 @@ static int64_t writeResultToAvro(
     return count;
 }
 
-void freeBindArray(char *bindArray, int onlyCol)
+void freeBindArray(char *bindArray, int elements)
 {
     TAOS_BIND *bind;
 
-    for (int j = 0; j < onlyCol; j++) {
+    for (int j = 0; j < elements; j++) {
         bind = (TAOS_BIND *)((char *)bindArray + (sizeof(TAOS_BIND) * j));
         if ((TSDB_DATA_TYPE_BINARY != bind->buffer_type)
                 && (TSDB_DATA_TYPE_NCHAR != bind->buffer_type)) {
@@ -2776,19 +2821,19 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
 
     while(!avro_file_reader_read_value(reader, &value)) {
         char *bindArray =
-            malloc(sizeof(TAOS_BIND) * (recordSchema->num_fields - 1));
+            calloc(1, sizeof(TAOS_BIND) * (recordSchema->num_fields - 1));
         assert(bindArray);
 
         TAOS_BIND *bind;
         int is_null = 1;
 
+        char *tbname = NULL;
         for (int i = 0; i < recordSchema->num_fields; i++) {
             avro_value_t field_value;
 
             FieldStruct *field = (FieldStruct *)(recordSchema->fields + sizeof(FieldStruct) * i);
 
             size_t size;
-            char *tbname = NULL;
 
             int32_t  curr_sqlstr_len = 0;
             if (0 == i) {
@@ -2796,13 +2841,13 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
                 avro_value_get_string(&field_value, (const char **)&tbname, &size);
 
                 curr_sqlstr_len = sprintf(tbuf,
-                        "CREATE TABLE %s.%s USING %s.%s TAGS(",
+                        "CREATE TABLE %s.%s USING %s.%s TAGS(?",
                         namespace, tbname, namespace, name);
-                for (int j = 0; j < recordSchema->num_fields-1; j ++) {
-                    curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, "?,");
+                for (int j = 0; j < recordSchema->num_fields-2; j ++) {
+                    curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ",?");
                 }
 
-                curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len - 1, ")");
+                curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ")");
 
                 debugPrint("command buffer: %s\n", tbuf);
 
@@ -2851,27 +2896,49 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
 
                         case TSDB_DATA_TYPE_BINARY:
                             {
-                            size_t size;
+                                size_t size;
 
-                            avro_value_t branch;
-                            avro_value_get_current_branch(&field_value, &branch);
+                                avro_value_t branch;
+                                avro_value_get_current_branch(
+                                        &field_value, &branch);
 
-                            char *buf = NULL;
-                            avro_value_get_string(&branch, (const char **)&buf, &size);
+                                char *buf = NULL;
+                                avro_value_get_string(&branch,
+                                        (const char **)&buf, &size);
 
-                            if (NULL == buf) {
-                                debugPrint("%s | ", "NULL");
-                                bind->is_null = &is_null;
-                                bind->buffer_length = 0;
-                            } else {
-                                debugPrint("%s | ", (char *)buf);
-                                bind->buffer_length = strlen(buf);
-                            }
-                            bind->buffer = buf;
+                                if (NULL == buf) {
+                                    debugPrint("%s | ", "NULL");
+                                    bind->is_null = &is_null;
+                                    bind->buffer_length = 0;
+                                } else {
+                                    debugPrint("%s | ", (char *)buf);
+                                    bind->buffer_length = strlen(buf);
+                                }
+                                bind->buffer = buf;
                             }
                             break;
 
                         case TSDB_DATA_TYPE_NCHAR:
+                            {
+                                size_t bytessize;
+                                void *bytesbuf= NULL;
+
+                                avro_value_t nchar_branch;
+                                avro_value_get_current_branch(
+                                        &field_value, &nchar_branch);
+
+                                avro_value_get_bytes(&nchar_branch,
+                                        (const void **)&bytesbuf, &bytessize);
+
+                                if (NULL == bytesbuf) {
+                                    debugPrint("%s | ", "NULL");
+                                    bind->is_null = &is_null;
+                                } else {
+                                    debugPrint("%s | ", (char *)bytesbuf);
+                                }
+                                bind->buffer_length = strlen((char*)bytesbuf);
+                                bind->buffer = bytesbuf;
+                            }
                             break;
 
                         case TSDB_DATA_TYPE_TIMESTAMP:
@@ -2890,7 +2957,14 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
 
             }
 
-            errorPrint("TODO: %s() LN%d, tbname: %s\n", __func__, __LINE__, tbname);
+        }
+
+        if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
+            errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
+                    __func__, __LINE__, taos_stmt_errstr(stmt));
+            freeBindArray(bindArray, recordSchema->num_fields-1);
+            failed++;
+            continue;
         }
 
         if (0 != taos_stmt_execute(stmt)) {
@@ -2900,6 +2974,9 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
         } else {
             success ++;
         }
+
+        freeBindArray(bindArray, recordSchema->num_fields-1);
+        tfree(bindArray);
     }
 
     avro_value_decref(&value);
@@ -2985,8 +3062,7 @@ static int dumpAvroDataImpl(TAOS *taos,
     pstr += sprintf(pstr, "INSERT INTO ? VALUES(?");
 
     int onlyCol = 1; // at least timestamp
-    for (int col = 1; col < allColCount; col++) {
-        if (strcmp(tableDes->cols[col].note, "TAG") == 0) continue;
+    for (int col = 1; col < tableDes->columns; col++) {
         pstr += sprintf(pstr, ",?");
         onlyCol ++;
     }
@@ -3048,227 +3124,284 @@ static int dumpAvroDataImpl(TAOS *taos,
                 bind->length = &bind->buffer_length;
             } else if (0 == avro_value_get_by_name(
                         &value, field->name, &field_value, NULL)) {
+                switch(tableDes->cols[i].type) {
+                    case TSDB_DATA_TYPE_INT:
+                        {
+                            int32_t *n32 = malloc(sizeof(int32_t));
+                            assert(n32);
 
-                if (TSDB_DATA_TYPE_INT == tableDes->cols[i].type) {
-                    int32_t *n32 = malloc(sizeof(int32_t));
-                    assert(n32);
-
-                    avro_value_get_int(&field_value, n32);
-                    debugPrint("%d | ", *n32);
-                    bind->buffer_length = sizeof(int32_t);
-                    bind->buffer = n32;
-                } else if (TSDB_DATA_TYPE_TINYINT == tableDes->cols[i].type) {
-                    int32_t *n8 = malloc(sizeof(int32_t));
-                    assert(n8);
-
-                    avro_value_get_int(&field_value, n8);
-                    debugPrint("%d | ", *n8);
-                    bind->buffer_length = sizeof(int8_t);
-                    bind->buffer = (int8_t *)n8;
-                } else if (TSDB_DATA_TYPE_SMALLINT == tableDes->cols[i].type) {
-                    int32_t *n16 = malloc(sizeof(int32_t));
-                    assert(n16);
-
-                    avro_value_get_int(&field_value, n16);
-                    debugPrint("%d | ", *n16);
-                    bind->buffer_length = sizeof(int16_t);
-                    bind->buffer = (int32_t*)n16;
-                } else if (TSDB_DATA_TYPE_BIGINT == tableDes->cols[i].type) {
-                    int64_t *n64 = malloc(sizeof(int64_t));
-                    assert(n64);
-
-                    avro_value_get_long(&field_value, n64);
-                    debugPrint("%"PRId64" | ", *n64);
-                    bind->buffer_length = sizeof(int64_t);
-                    bind->buffer = n64;
-                } else if (TSDB_DATA_TYPE_TIMESTAMP == tableDes->cols[i].type) {
-                    int64_t *n64 = malloc(sizeof(int64_t));
-                    assert(n64);
-
-                    avro_value_get_long(&field_value, n64);
-                    debugPrint("%"PRId64" | ", *n64);
-                    bind->buffer_length = sizeof(int64_t);
-                    bind->buffer = n64;
-                } else if (TSDB_DATA_TYPE_FLOAT == tableDes->cols[i].type) {
-                    float *f = malloc(sizeof(float));
-                    assert(f);
-
-                    avro_value_get_float(&field_value, f);
-                    if (TSDB_DATA_FLOAT_NULL == *f) {
-                        debugPrint("%s | ", "NULL");
-                        bind->is_null = &is_null;
-                    } else {
-                        debugPrint("%f | ", *f);
-                    }
-                    bind->buffer = f;
-                    bind->buffer_length = sizeof(float);
-                } else if (TSDB_DATA_TYPE_DOUBLE == tableDes->cols[i].type) {
-                    double *dbl = malloc(sizeof(double));
-                    assert(dbl);
-
-                    avro_value_get_double(&field_value, dbl);
-                    if (TSDB_DATA_DOUBLE_NULL == *dbl) {
-                        debugPrint("%s | ", "NULL");
-                        bind->is_null = &is_null;
-                    } else {
-                        debugPrint("%f | ", *dbl);
-                    }
-                    bind->buffer = dbl;
-                    bind->buffer_length = sizeof(double);
-                } else if (TSDB_DATA_TYPE_BINARY == tableDes->cols[i].type) {
-                    size_t size;
-
-                    avro_value_t branch;
-                    avro_value_get_current_branch(&field_value, &branch);
-
-                    char *buf = NULL;
-                    avro_value_get_string(&branch, (const char **)&buf, &size);
-
-                    if (NULL == buf) {
-                        debugPrint("%s | ", "NULL");
-                        bind->is_null = &is_null;
-                    } else {
-                        debugPrint("%s | ", (char *)buf);
-                    }
-                    bind->buffer_length = tableDes->cols[i].length;
-                    bind->buffer = buf;
-                } else if (TSDB_DATA_TYPE_NCHAR == tableDes->cols[i].type) {
-                    size_t bytessize;
-                    void *bytesbuf = NULL;
-
-                    avro_value_t nchar_branch;
-                    avro_value_get_current_branch(&field_value, &nchar_branch);
-
-                    avro_value_get_bytes(&nchar_branch,
-                            (const void **)&bytesbuf, &bytessize);
-                    if (NULL == bytesbuf) {
-                        debugPrint("%s | ", "NULL");
-                        bind->is_null = &is_null;
-                    } else {
-                        debugPrint("%s | ", (char*)bytesbuf);
-                    }
-                    bind->buffer_length = strlen((char*)bytesbuf);
-                    bind->buffer = bytesbuf;
-                } else if (TSDB_DATA_TYPE_BOOL == tableDes->cols[i].type) {
-                    int32_t *bl = malloc(sizeof(int32_t));
-                    assert(bl);
-
-                    avro_value_get_boolean(&field_value, bl);
-                    debugPrint("%s | ", (*bl)?"true":"false");
-                    bind->buffer_length = sizeof(int8_t);
-                    bind->buffer = (int8_t*)bl;
-                } else if (TSDB_DATA_TYPE_UINT == tableDes->cols[i].type) {
-                    if (TSDB_DATA_TYPE_INT == field->array_type) {
-                        uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                        assert(array_u32);
-                        *array_u32 = 0;
-
-                        size_t array_size;
-                        int32_t n32tmp;
-                        avro_value_get_size(&field_value, &array_size);
-
-                        debugPrint("%s() LN%d, array_size: %d\n",
-                                __func__, __LINE__, (int)array_size);
-                        for (size_t item = 0; item < array_size; item ++) {
-                            avro_value_t item_value;
-                            avro_value_get_by_index(&field_value, item,
-                                    &item_value, NULL);
-                            avro_value_get_int(&item_value, &n32tmp);
-                            *array_u32 += n32tmp;
+                            avro_value_get_int(&field_value, n32);
+                            debugPrint("%d | ", *n32);
+                            bind->buffer_length = sizeof(int32_t);
+                            bind->buffer = n32;
                         }
-                        debugPrint("%u | ", (uint32_t)*array_u32);
-                        bind->buffer_length = sizeof(uint32_t);
-                        bind->buffer = array_u32;
-                    } else {
-                        errorPrint("%s() LN%d mix type %s with int array",
-                                __func__, __LINE__,
-                                typeToStr(field->array_type));
-                    }
-                } else if (TSDB_DATA_TYPE_UTINYINT == tableDes->cols[i].type) {
-                    if (TSDB_DATA_TYPE_INT == field->array_type) {
-                        uint8_t *array_u8 = malloc(sizeof(uint8_t));
-                        assert(array_u8);
-                        *array_u8 = 0;
+                        break;
 
-                        size_t array_size;
-                        int32_t n32tmp;
-                        avro_value_get_size(&field_value, &array_size);
+                    case TSDB_DATA_TYPE_TINYINT:
+                        {
+                            int32_t *n8 = malloc(sizeof(int32_t));
+                            assert(n8);
 
-                        debugPrint("%s() LN%d, array_size: %d\n",
-                                __func__, __LINE__, (int)array_size);
-                        for (size_t item = 0; item < array_size; item ++) {
-                            avro_value_t item_value;
-                            avro_value_get_by_index(&field_value, item,
-                                    &item_value, NULL);
-                            avro_value_get_int(&item_value, &n32tmp);
-                            *array_u8 += (int8_t)n32tmp;
+                            avro_value_get_int(&field_value, n8);
+                            debugPrint("%d | ", *n8);
+                            bind->buffer_length = sizeof(int8_t);
+                            bind->buffer = (int8_t *)n8;
                         }
-                        debugPrint("%u | ", (uint32_t)*array_u8);
-                        bind->buffer_length = sizeof(uint8_t);
-                        bind->buffer = array_u8;
-                    } else {
-                        errorPrint("%s() LN%d mix type %s with int array",
-                                __func__, __LINE__,
-                                typeToStr(field->array_type));
-                    }
-                } else if (TSDB_DATA_TYPE_USMALLINT == tableDes->cols[i].type) {
-                    if (TSDB_DATA_TYPE_INT == field->array_type) {
-                        uint16_t *array_u16 = malloc(sizeof(uint16_t));
-                        assert(array_u16);
-                        *array_u16 = 0;
+                        break;
 
-                        size_t array_size;
-                        int32_t n32tmp;
-                        avro_value_get_size(&field_value, &array_size);
+                    case TSDB_DATA_TYPE_SMALLINT:
+                        {
+                            int32_t *n16 = malloc(sizeof(int32_t));
+                            assert(n16);
 
-                        debugPrint("%s() LN%d, array_size: %d\n",
-                                __func__, __LINE__, (int)array_size);
-                        for (size_t item = 0; item < array_size; item ++) {
-                            avro_value_t item_value;
-                            avro_value_get_by_index(&field_value, item,
-                                    &item_value, NULL);
-                            avro_value_get_int(&item_value, &n32tmp);
-                            *array_u16 += (int16_t)n32tmp;
+                            avro_value_get_int(&field_value, n16);
+                            debugPrint("%d | ", *n16);
+                            bind->buffer_length = sizeof(int16_t);
+                            bind->buffer = (int32_t*)n16;
                         }
-                        debugPrint("%u | ", (uint32_t)*array_u16);
-                        bind->buffer_length = sizeof(uint16_t);
-                        bind->buffer = array_u16;
-                    } else {
-                        errorPrint("%s() LN%d mix type %s with int array",
-                                __func__, __LINE__,
-                                typeToStr(field->array_type));
-                    }
-                } else if (TSDB_DATA_TYPE_UBIGINT == tableDes->cols[i].type) {
-                    if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
-                        uint64_t *array_u64 = malloc(sizeof(uint64_t));
-                        assert(array_u64);
-                        *array_u64 = 0;
+                        break;
 
-                        size_t array_size;
-                        int64_t n64tmp;
-                        avro_value_get_size(&field_value, &array_size);
+                    case TSDB_DATA_TYPE_BIGINT:
+                        {
+                            int64_t *n64 = malloc(sizeof(int64_t));
+                            assert(n64);
 
-                        debugPrint("%s() LN%d, array_size: %d\n",
-                                __func__, __LINE__, (int)array_size);
-                        for (size_t item = 0; item < array_size; item ++) {
-                            avro_value_t item_value;
-                            avro_value_get_by_index(&field_value, item,
-                                    &item_value, NULL);
-                            avro_value_get_long(&item_value, &n64tmp);
-                            *array_u64 += n64tmp;
+                            avro_value_get_long(&field_value, n64);
+                            debugPrint("%"PRId64" | ", *n64);
+                            bind->buffer_length = sizeof(int64_t);
+                            bind->buffer = n64;
                         }
-                        debugPrint("%"PRIu64" | ", *array_u64);
-                        bind->buffer_length = sizeof(uint64_t);
-                        bind->buffer = array_u64;
-                    } else {
-                        errorPrint("%s() LN%d mix type %s with int array",
+                        break;
+
+                    case TSDB_DATA_TYPE_TIMESTAMP:
+                        {
+                            int64_t *n64 = malloc(sizeof(int64_t));
+                            assert(n64);
+
+                            avro_value_get_long(&field_value, n64);
+                            debugPrint("%"PRId64" | ", *n64);
+                            bind->buffer_length = sizeof(int64_t);
+                            bind->buffer = n64;
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_FLOAT:
+                        {
+                            float *f = malloc(sizeof(float));
+                            assert(f);
+
+                            avro_value_get_float(&field_value, f);
+                            if (TSDB_DATA_FLOAT_NULL == *f) {
+                                debugPrint("%s | ", "NULL");
+                                bind->is_null = &is_null;
+                            } else {
+                                debugPrint("%f | ", *f);
+                            }
+                            bind->buffer = f;
+                            bind->buffer_length = sizeof(float);
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_DOUBLE:
+                        {
+                            double *dbl = malloc(sizeof(double));
+                            assert(dbl);
+
+                            avro_value_get_double(&field_value, dbl);
+                            if (TSDB_DATA_DOUBLE_NULL == *dbl) {
+                                debugPrint("%s | ", "NULL");
+                                bind->is_null = &is_null;
+                            } else {
+                                debugPrint("%f | ", *dbl);
+                            }
+                            bind->buffer = dbl;
+                            bind->buffer_length = sizeof(double);
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_BINARY:
+                        {
+                            size_t size;
+
+                            avro_value_t branch;
+                            avro_value_get_current_branch(&field_value, &branch);
+
+                            char *buf = NULL;
+                            avro_value_get_string(&branch, (const char **)&buf, &size);
+
+                            if (NULL == buf) {
+                                debugPrint("%s | ", "NULL");
+                                bind->is_null = &is_null;
+                            } else {
+                                debugPrint("%s | ", (char *)buf);
+                            }
+                            bind->buffer_length = tableDes->cols[i].length;
+                            bind->buffer = buf;
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_NCHAR:
+                        {
+                            size_t bytessize;
+                            void *bytesbuf = NULL;
+
+                            avro_value_t nchar_branch;
+                            avro_value_get_current_branch(&field_value, &nchar_branch);
+
+                            avro_value_get_bytes(&nchar_branch,
+                                    (const void **)&bytesbuf, &bytessize);
+                            if (NULL == bytesbuf) {
+                                debugPrint("%s | ", "NULL");
+                                bind->is_null = &is_null;
+                            } else {
+                                debugPrint("%s | ", (char*)bytesbuf);
+                            }
+                            bind->buffer_length = strlen((char*)bytesbuf);
+                            bind->buffer = bytesbuf;
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_BOOL:
+                        {
+                            int32_t *bl = malloc(sizeof(int32_t));
+                            assert(bl);
+
+                            avro_value_get_boolean(&field_value, bl);
+                            debugPrint("%s | ", (*bl)?"true":"false");
+                            bind->buffer_length = sizeof(int8_t);
+                            bind->buffer = (int8_t*)bl;
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_UINT:
+                        {
+                            if (TSDB_DATA_TYPE_INT == field->array_type) {
+                                uint32_t *array_u32 = malloc(sizeof(uint32_t));
+                                assert(array_u32);
+                                *array_u32 = 0;
+
+                                size_t array_size;
+                                int32_t n32tmp;
+                                avro_value_get_size(&field_value, &array_size);
+
+                                debugPrint("%s() LN%d, array_size: %d\n",
+                                        __func__, __LINE__, (int)array_size);
+                                for (size_t item = 0; item < array_size; item ++) {
+                                    avro_value_t item_value;
+                                    avro_value_get_by_index(&field_value, item,
+                                            &item_value, NULL);
+                                    avro_value_get_int(&item_value, &n32tmp);
+                                    *array_u32 += n32tmp;
+                                }
+                                debugPrint("%u | ", (uint32_t)*array_u32);
+                                bind->buffer_length = sizeof(uint32_t);
+                                bind->buffer = array_u32;
+                            } else {
+                                errorPrint("%s() LN%d mix type %s with int array",
+                                        __func__, __LINE__,
+                                        typeToStr(field->array_type));
+                            }
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_UTINYINT:
+                        {
+                            if (TSDB_DATA_TYPE_INT == field->array_type) {
+                                uint8_t *array_u8 = malloc(sizeof(uint8_t));
+                                assert(array_u8);
+                                *array_u8 = 0;
+
+                                size_t array_size;
+                                int32_t n32tmp;
+                                avro_value_get_size(&field_value, &array_size);
+
+                                debugPrint("%s() LN%d, array_size: %d\n",
+                                        __func__, __LINE__, (int)array_size);
+                                for (size_t item = 0; item < array_size; item ++) {
+                                    avro_value_t item_value;
+                                    avro_value_get_by_index(&field_value, item,
+                                            &item_value, NULL);
+                                    avro_value_get_int(&item_value, &n32tmp);
+                                    *array_u8 += (int8_t)n32tmp;
+                                }
+                                debugPrint("%u | ", (uint32_t)*array_u8);
+                                bind->buffer_length = sizeof(uint8_t);
+                                bind->buffer = array_u8;
+                            } else {
+                                errorPrint("%s() LN%d mix type %s with int array",
+                                        __func__, __LINE__,
+                                        typeToStr(field->array_type));
+                            }
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_USMALLINT:
+                        {
+                            if (TSDB_DATA_TYPE_INT == field->array_type) {
+                                uint16_t *array_u16 = malloc(sizeof(uint16_t));
+                                assert(array_u16);
+                                *array_u16 = 0;
+
+                                size_t array_size;
+                                int32_t n32tmp;
+                                avro_value_get_size(&field_value, &array_size);
+
+                                debugPrint("%s() LN%d, array_size: %d\n",
+                                        __func__, __LINE__, (int)array_size);
+                                for (size_t item = 0; item < array_size; item ++) {
+                                    avro_value_t item_value;
+                                    avro_value_get_by_index(&field_value, item,
+                                            &item_value, NULL);
+                                    avro_value_get_int(&item_value, &n32tmp);
+                                    *array_u16 += (int16_t)n32tmp;
+                                }
+                                debugPrint("%u | ", (uint32_t)*array_u16);
+                                bind->buffer_length = sizeof(uint16_t);
+                                bind->buffer = array_u16;
+                            } else {
+                                errorPrint("%s() LN%d mix type %s with int array",
+                                        __func__, __LINE__,
+                                        typeToStr(field->array_type));
+                            }
+                        }
+                        break;
+
+                    case TSDB_DATA_TYPE_UBIGINT:
+                        {
+                            if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
+                                uint64_t *array_u64 = malloc(sizeof(uint64_t));
+                                assert(array_u64);
+                                *array_u64 = 0;
+
+                                size_t array_size;
+                                int64_t n64tmp;
+                                avro_value_get_size(&field_value, &array_size);
+
+                                debugPrint("%s() LN%d, array_size: %d\n",
+                                        __func__, __LINE__, (int)array_size);
+                                for (size_t item = 0; item < array_size; item ++) {
+                                    avro_value_t item_value;
+                                    avro_value_get_by_index(&field_value, item,
+                                            &item_value, NULL);
+                                    avro_value_get_long(&item_value, &n64tmp);
+                                    *array_u64 += n64tmp;
+                                }
+                                debugPrint("%"PRIu64" | ", *array_u64);
+                                bind->buffer_length = sizeof(uint64_t);
+                                bind->buffer = array_u64;
+                            } else {
+                                errorPrint("%s() LN%d mix type %s with int array",
+                                        __func__, __LINE__,
+                                        typeToStr(field->array_type));
+                            }
+                        }
+                        break;
+
+                    default:
+                        errorPrint("%s() LN%d, %s is not supported!\n",
                                 __func__, __LINE__,
-                                typeToStr(field->array_type));
-                    }
-                } else {
-                    errorPrint("%s() LN%d, %s is not supported!\n",
-                            __func__, __LINE__,
-                            typeToStr(tableDes->cols[i].type));
+                                typeToStr(tableDes->cols[i].type));
+                        break;
                 }
 
                 bind->buffer_type = tableDes->cols[i].type;
@@ -3282,14 +3415,14 @@ static int dumpAvroDataImpl(TAOS *taos,
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             freeBindArray(bindArray, onlyCol);
-            failed --;
+            failed++;
             continue;
         }
         if (0 != taos_stmt_add_batch(stmt)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             freeBindArray(bindArray, onlyCol);
-            failed --;
+            failed++;
             continue;
         }
 
@@ -3566,16 +3699,6 @@ static int dumpInAvroWorkThreads(char *whichExt)
 
     int32_t threads = g_args.thread_num;
 
-    enum enWHICH which = createDumpinList(whichExt, fileCount);
-
-    threadInfo *pThread;
-
-    pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
-    threadInfo *infos = (threadInfo *)calloc(
-            threads, sizeof(threadInfo));
-    assert(pids);
-    assert(infos);
-
     int64_t a = fileCount / threads;
     if (a < 1) {
         threads = fileCount;
@@ -3586,6 +3709,16 @@ static int dumpInAvroWorkThreads(char *whichExt)
     if (threads != 0) {
         b = fileCount % threads;
     }
+
+    enum enWHICH which = createDumpinList(whichExt, fileCount);
+
+    threadInfo *pThread;
+
+    pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
+    threadInfo *infos = (threadInfo *)calloc(
+            threads, sizeof(threadInfo));
+    assert(pids);
+    assert(infos);
 
     int64_t from = 0;
 
@@ -3961,19 +4094,17 @@ static int createMTableAvroHead(
     int colCount = getTableDes(taos, dbName, stable, tableDes, false);
 
     char *jsonTagsSchema = NULL;
-    if (g_args.avro) {
-        if (0 != convertTbTagsDesToJson(
-                    dbName, stable, tableDes, &jsonTagsSchema)) {
-            errorPrint("%s() LN%d, convertTbTagsDesToJson failed\n",
-                    __func__,
-                    __LINE__);
-            tfree(jsonTagsSchema);
-            freeTbDes(tableDes);
-            return -1;
-        }
-
-        debugPrint("tagsJson:\n%s\n", jsonTagsSchema);
+    if (0 != convertTbTagsDesToJson(
+                dbName, stable, tableDes, &jsonTagsSchema)) {
+        errorPrint("%s() LN%d, convertTbTagsDesToJson failed\n",
+                __func__,
+                __LINE__);
+        tfree(jsonTagsSchema);
+        freeTbDes(tableDes);
+        return -1;
     }
+
+    debugPrint("tagsJson:\n%s\n", jsonTagsSchema);
 
     avro_schema_t schema;
     RecordSchema *recordSchema;
