@@ -90,6 +90,10 @@ typedef struct {
     do { if (g_args.debug_print || g_args.verbose_print) \
       fprintf(stderr, "DEBG: "fmt, __VA_ARGS__); } while(0)
 
+#define debugPrint2(fmt, ...) \
+    do { if (g_args.debug_print || g_args.verbose_print) \
+      fprintf(stderr, ""fmt, __VA_ARGS__); } while(0)
+
 #define verbosePrint(fmt, ...) \
     do { if (g_args.verbose_print) \
         fprintf(stderr, "VERB: "fmt, __VA_ARGS__); } while(0)
@@ -1715,12 +1719,9 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                                             if (0 == strcmp(obj_value_str, "array")) {
                                                 field->type = TSDB_DATA_TYPE_NULL;
                                                 field->is_array = true;
-                                            } else if (0 == strcmp(obj_value_str, "string")) {
-                                                field->type = TSDB_DATA_TYPE_BINARY;
-                                                field->is_array = false;
-                                            } else if (0 == strcmp(obj_value_str, "int")) {
-                                                field->type = TSDB_DATA_TYPE_INT;
-                                                field->is_array = false;
+                                            } else {
+                                                field->type =
+                                                    typeStrToType(obj_value_str);
                                             }
                                         } else if (JSON_OBJECT == obj_value_type) {
                                             const char *field_key;
@@ -2547,24 +2548,6 @@ static void print_json_aux(json_t *element, int indent)
     }
 }
 
-static int64_t writeTbSqlToAvro(
-        char *avroFilename,
-        char *jsonSchema,
-        TableDef *tableDes)
-{
-    errorPrint("TODO: %s() LN%d need implementation\n", __func__, __LINE__);
-    return 0;
-}
-
-static int64_t writeTbTagsToAvro(
-        char *avroFilename,
-        char *jsonSchema,
-        TableDef *tableDes)
-{
-    errorPrint("TODO: %s() LN%d need implementation\n", __func__, __LINE__);
-    return 0;
-}
-
 static int64_t writeResultToAvro(
         char *avroFilename,
         char *jsonSchema,
@@ -2802,7 +2785,7 @@ void freeBindArray(char *bindArray, int elements)
     }
 }
 
-static int dumpAvroTbTagsImpl(TAOS *taos,
+static int dumpInAvroTbTagsImpl(TAOS *taos,
         TAOS_STMT *stmt,
         char *namespace,
         char *name,
@@ -2821,7 +2804,7 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
 
     while(!avro_file_reader_read_value(reader, &value)) {
         char *bindArray =
-            calloc(1, sizeof(TAOS_BIND) * (recordSchema->num_fields - 1));
+            calloc(1, sizeof(TAOS_BIND)*(recordSchema->num_fields-1));
         assert(bindArray);
 
         TAOS_BIND *bind;
@@ -2831,7 +2814,6 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
         for (int i = 0; i < recordSchema->num_fields; i++) {
             avro_value_t field_value;
 
-            FieldStruct *field = (FieldStruct *)(recordSchema->fields + sizeof(FieldStruct) * i);
 
             size_t size;
 
@@ -2849,7 +2831,8 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
 
                 curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ")");
 
-                debugPrint("command buffer: %s\n", tbuf);
+                debugPrint("%s() LN%d, command buffer: %s\n",
+                        __func__, __LINE__, tbuf);
 
                 if (0 != taos_stmt_prepare(stmt, tbuf, 0)) {
                     errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
@@ -2858,6 +2841,8 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
                     continue;
                 }
             } else {
+                FieldStruct *field = (FieldStruct *)
+                    (recordSchema->fields + sizeof(FieldStruct)*i);
                 if (0 == avro_value_get_by_name(
                             &value, field->name, &field_value, NULL)) {
                     bind = (TAOS_BIND *)((char *)bindArray
@@ -2865,33 +2850,97 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
                     bind->is_null = NULL;
                     switch (field->type) {
                         case TSDB_DATA_TYPE_BOOL:
+                            {
+                                int32_t *bl = malloc(sizeof(int32_t));
+                                assert(bl);
+
+                                avro_value_get_boolean(&field_value, bl);
+                                debugPrint2("%s | ", (*bl)?"true":"false");
+                                bind->buffer_length = sizeof(int8_t);
+                                bind->buffer = (int8_t*)bl;
+                            }
                             break;
 
                         case TSDB_DATA_TYPE_TINYINT:
+                            {
+                                int32_t *n8 = malloc(sizeof(int32_t));
+                                assert(n8);
+
+                                avro_value_get_int(&field_value, n8);
+                                debugPrint2("%d | ", *n8);
+                                bind->buffer_length = sizeof(int8_t);
+                                bind->buffer = (int8_t *)n8;
+                            }
                             break;
 
                         case TSDB_DATA_TYPE_SMALLINT:
+                            {
+                                int32_t *n16 = malloc(sizeof(int32_t));
+                                assert(n16);
+
+                                avro_value_get_int(&field_value, n16);
+                                debugPrint2("%d | ", *n16);
+                                bind->buffer_length = sizeof(int16_t);
+                                bind->buffer = (int32_t*)n16;
+                            }
                             break;
 
                         case TSDB_DATA_TYPE_INT:
                             {
-                            int32_t *n32 = malloc(sizeof(int32_t));
-                            assert(n32);
+                                int32_t *n32 = malloc(sizeof(int32_t));
+                                assert(n32);
 
-                            avro_value_get_int(&field_value, n32);
-                            debugPrint("%d | ", *n32);
-                            bind->buffer_length = sizeof(int32_t);
-                            bind->buffer = n32;
+                                avro_value_get_int(&field_value, n32);
+                                debugPrint2("%d | ", *n32);
+                                bind->buffer_length = sizeof(int32_t);
+                                bind->buffer = n32;
                             }
                             break;
 
                         case TSDB_DATA_TYPE_BIGINT:
+                            {
+                                int64_t *n64 = malloc(sizeof(int64_t));
+                                assert(n64);
+
+                                avro_value_get_long(&field_value, n64);
+                                debugPrint2("%"PRId64" | ", *n64);
+                                bind->buffer_length = sizeof(int64_t);
+                                bind->buffer = n64;
+                            }
                             break;
 
                         case TSDB_DATA_TYPE_FLOAT:
+                            {
+                                float *f = malloc(sizeof(float));
+                                assert(f);
+
+                                avro_value_get_float(&field_value, f);
+                                if (TSDB_DATA_FLOAT_NULL == *f) {
+                                    debugPrint2("%s | ", "NULL");
+                                    bind->is_null = &is_null;
+                                } else {
+                                    debugPrint2("%f | ", *f);
+                                }
+                                bind->buffer = f;
+                                bind->buffer_length = sizeof(float);
+                            }
                             break;
 
                         case TSDB_DATA_TYPE_DOUBLE:
+                            {
+                                double *dbl = malloc(sizeof(double));
+                                assert(dbl);
+
+                                avro_value_get_double(&field_value, dbl);
+                                if (TSDB_DATA_DOUBLE_NULL == *dbl) {
+                                    debugPrint2("%s | ", "NULL");
+                                    bind->is_null = &is_null;
+                                } else {
+                                    debugPrint2("%f | ", *dbl);
+                                }
+                                bind->buffer = dbl;
+                                bind->buffer_length = sizeof(double);
+                            }
                             break;
 
                         case TSDB_DATA_TYPE_BINARY:
@@ -2907,11 +2956,11 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
                                         (const char **)&buf, &size);
 
                                 if (NULL == buf) {
-                                    debugPrint("%s | ", "NULL");
+                                    debugPrint2("%s | ", "NULL");
                                     bind->is_null = &is_null;
                                     bind->buffer_length = 0;
                                 } else {
-                                    debugPrint("%s | ", (char *)buf);
+                                    debugPrint2("%s | ", (char *)buf);
                                     bind->buffer_length = strlen(buf);
                                 }
                                 bind->buffer = buf;
@@ -2931,10 +2980,10 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
                                         (const void **)&bytesbuf, &bytessize);
 
                                 if (NULL == bytesbuf) {
-                                    debugPrint("%s | ", "NULL");
+                                    debugPrint2("%s | ", "NULL");
                                     bind->is_null = &is_null;
                                 } else {
-                                    debugPrint("%s | ", (char *)bytesbuf);
+                                    debugPrint2("%s | ", (char *)bytesbuf);
                                 }
                                 bind->buffer_length = strlen((char*)bytesbuf);
                                 bind->buffer = bytesbuf;
@@ -2942,6 +2991,15 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
                             break;
 
                         case TSDB_DATA_TYPE_TIMESTAMP:
+                            {
+                                int64_t *n64 = malloc(sizeof(int64_t));
+                                assert(n64);
+
+                                avro_value_get_long(&field_value, n64);
+                                debugPrint2("%"PRId64" | ", *n64);
+                                bind->buffer_length = sizeof(int64_t);
+                                bind->buffer = n64;
+                            }
                             break;
 
                         default:
@@ -2954,10 +3012,9 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
                     errorPrint("Failed to get value by name: %s\n",
                             field->name);
                 }
-
             }
-
         }
+        debugPrint2("%s", "\n");
 
         if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
@@ -2988,7 +3045,7 @@ static int dumpAvroTbTagsImpl(TAOS *taos,
 
 }
 
-static int dumpAvroNtbImpl(TAOS *taos,
+static int dumpInAvroNtbImpl(TAOS *taos,
         TAOS_STMT *stmt,
         char *namespace,
         avro_schema_t schema,
@@ -3033,7 +3090,7 @@ static int dumpAvroNtbImpl(TAOS *taos,
     return success;
 }
 
-static int dumpAvroDataImpl(TAOS *taos,
+static int dumpInAvroDataImpl(TAOS *taos,
         TAOS_STMT *stmt,
         char *namespace,
         avro_schema_t schema,
@@ -3118,6 +3175,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                 avro_value_get_by_name(&value, field->name, &field_value, NULL);
                 avro_value_get_long(&field_value, ts);
 
+                debugPrint2("%"PRId64" | ", *ts);
                 bind->buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
                 bind->buffer_length = sizeof(int64_t);
                 bind->buffer = ts;
@@ -3131,7 +3189,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                             assert(n32);
 
                             avro_value_get_int(&field_value, n32);
-                            debugPrint("%d | ", *n32);
+                            debugPrint2("%d | ", *n32);
                             bind->buffer_length = sizeof(int32_t);
                             bind->buffer = n32;
                         }
@@ -3143,7 +3201,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                             assert(n8);
 
                             avro_value_get_int(&field_value, n8);
-                            debugPrint("%d | ", *n8);
+                            debugPrint2("%d | ", *n8);
                             bind->buffer_length = sizeof(int8_t);
                             bind->buffer = (int8_t *)n8;
                         }
@@ -3155,7 +3213,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                             assert(n16);
 
                             avro_value_get_int(&field_value, n16);
-                            debugPrint("%d | ", *n16);
+                            debugPrint2("%d | ", *n16);
                             bind->buffer_length = sizeof(int16_t);
                             bind->buffer = (int32_t*)n16;
                         }
@@ -3167,7 +3225,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                             assert(n64);
 
                             avro_value_get_long(&field_value, n64);
-                            debugPrint("%"PRId64" | ", *n64);
+                            debugPrint2("%"PRId64" | ", *n64);
                             bind->buffer_length = sizeof(int64_t);
                             bind->buffer = n64;
                         }
@@ -3179,7 +3237,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                             assert(n64);
 
                             avro_value_get_long(&field_value, n64);
-                            debugPrint("%"PRId64" | ", *n64);
+                            debugPrint2("%"PRId64" | ", *n64);
                             bind->buffer_length = sizeof(int64_t);
                             bind->buffer = n64;
                         }
@@ -3192,10 +3250,10 @@ static int dumpAvroDataImpl(TAOS *taos,
 
                             avro_value_get_float(&field_value, f);
                             if (TSDB_DATA_FLOAT_NULL == *f) {
-                                debugPrint("%s | ", "NULL");
+                                debugPrint2("%s | ", "NULL");
                                 bind->is_null = &is_null;
                             } else {
-                                debugPrint("%f | ", *f);
+                                debugPrint2("%f | ", *f);
                             }
                             bind->buffer = f;
                             bind->buffer_length = sizeof(float);
@@ -3209,10 +3267,10 @@ static int dumpAvroDataImpl(TAOS *taos,
 
                             avro_value_get_double(&field_value, dbl);
                             if (TSDB_DATA_DOUBLE_NULL == *dbl) {
-                                debugPrint("%s | ", "NULL");
+                                debugPrint2("%s | ", "NULL");
                                 bind->is_null = &is_null;
                             } else {
-                                debugPrint("%f | ", *dbl);
+                                debugPrint2("%f | ", *dbl);
                             }
                             bind->buffer = dbl;
                             bind->buffer_length = sizeof(double);
@@ -3230,12 +3288,12 @@ static int dumpAvroDataImpl(TAOS *taos,
                             avro_value_get_string(&branch, (const char **)&buf, &size);
 
                             if (NULL == buf) {
-                                debugPrint("%s | ", "NULL");
+                                debugPrint2("%s | ", "NULL");
                                 bind->is_null = &is_null;
                             } else {
-                                debugPrint("%s | ", (char *)buf);
+                                debugPrint2("%s | ", (char *)buf);
                             }
-                            bind->buffer_length = tableDes->cols[i].length;
+                            bind->buffer_length = strlen(buf);
                             bind->buffer = buf;
                         }
                         break;
@@ -3251,10 +3309,10 @@ static int dumpAvroDataImpl(TAOS *taos,
                             avro_value_get_bytes(&nchar_branch,
                                     (const void **)&bytesbuf, &bytessize);
                             if (NULL == bytesbuf) {
-                                debugPrint("%s | ", "NULL");
+                                debugPrint2("%s | ", "NULL");
                                 bind->is_null = &is_null;
                             } else {
-                                debugPrint("%s | ", (char*)bytesbuf);
+                                debugPrint2("%s | ", (char*)bytesbuf);
                             }
                             bind->buffer_length = strlen((char*)bytesbuf);
                             bind->buffer = bytesbuf;
@@ -3267,7 +3325,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                             assert(bl);
 
                             avro_value_get_boolean(&field_value, bl);
-                            debugPrint("%s | ", (*bl)?"true":"false");
+                            debugPrint2("%s | ", (*bl)?"true":"false");
                             bind->buffer_length = sizeof(int8_t);
                             bind->buffer = (int8_t*)bl;
                         }
@@ -3293,7 +3351,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                                     avro_value_get_int(&item_value, &n32tmp);
                                     *array_u32 += n32tmp;
                                 }
-                                debugPrint("%u | ", (uint32_t)*array_u32);
+                                debugPrint2("%u | ", (uint32_t)*array_u32);
                                 bind->buffer_length = sizeof(uint32_t);
                                 bind->buffer = array_u32;
                             } else {
@@ -3324,7 +3382,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                                     avro_value_get_int(&item_value, &n32tmp);
                                     *array_u8 += (int8_t)n32tmp;
                                 }
-                                debugPrint("%u | ", (uint32_t)*array_u8);
+                                debugPrint2("%u | ", (uint32_t)*array_u8);
                                 bind->buffer_length = sizeof(uint8_t);
                                 bind->buffer = array_u8;
                             } else {
@@ -3355,7 +3413,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                                     avro_value_get_int(&item_value, &n32tmp);
                                     *array_u16 += (int16_t)n32tmp;
                                 }
-                                debugPrint("%u | ", (uint32_t)*array_u16);
+                                debugPrint2("%u | ", (uint32_t)*array_u16);
                                 bind->buffer_length = sizeof(uint16_t);
                                 bind->buffer = array_u16;
                             } else {
@@ -3386,7 +3444,7 @@ static int dumpAvroDataImpl(TAOS *taos,
                                     avro_value_get_long(&item_value, &n64tmp);
                                     *array_u64 += n64tmp;
                                 }
-                                debugPrint("%"PRIu64" | ", *array_u64);
+                                debugPrint2("%"PRIu64" | ", *array_u64);
                                 bind->buffer_length = sizeof(uint64_t);
                                 bind->buffer = array_u64;
                             } else {
@@ -3409,7 +3467,7 @@ static int dumpAvroDataImpl(TAOS *taos,
             }
 
         }
-        debugPrint("%s", "\n");
+        debugPrint2("%s", "\n");
 
         if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
@@ -3570,20 +3628,20 @@ static int64_t dumpInOneAvroFile(
     int retExec = 0;
     switch (which) {
         case WHICH_AVRO_DATA:
-            retExec = dumpAvroDataImpl(taos, stmt,
+            retExec = dumpInAvroDataImpl(taos, stmt,
                     (char *)namespace,
                     schema, reader, recordSchema);
             break;
 
         case WHICH_AVRO_TBTAGS:
-            retExec = dumpAvroTbTagsImpl(taos, stmt,
+            retExec = dumpInAvroTbTagsImpl(taos, stmt,
                     (char *)namespace,
                     (char *)name,
                     schema, reader, recordSchema);
             break;
 
         case WHICH_AVRO_NTB:
-            retExec = dumpAvroNtbImpl(taos, stmt,
+            retExec = dumpInAvroNtbImpl(taos, stmt,
                     (char *)namespace,
                     schema, reader, recordSchema);
             break;
@@ -4309,6 +4367,7 @@ static int createMTableAvroHead(
                     break;
 
                 default:
+                    errorPrint("Unknown type: %d\n", type);
                     break;
             }
         }
@@ -4775,12 +4834,6 @@ static void* dumpInSqlWorkThreadFp(void *arg)
     }
 
     return NULL;
-}
-
-static int dumpInTablesAvro()
-{
-    errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
-    return 0;
 }
 
 static int dumpInSqlWorkThreads()
