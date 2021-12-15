@@ -2754,6 +2754,7 @@ static int64_t writeResultToAvro(
 
                 case TSDB_DATA_TYPE_BINARY:
                     if (NULL != row[col]) {
+                        *((char*)row[col] + fields[col].bytes) = '\0';
                         avro_value_set_branch(&value, 1, &branch);
                         avro_value_set_string(&branch, (char *)row[col]);
                     } else {
@@ -3534,7 +3535,6 @@ static int dumpInAvroDataImpl(TAOS *taos,
             }
             stmt_count = 0;
         }
-        freeBindArray(bindArray, onlyCol);
         success ++;
     }
 
@@ -3549,6 +3549,7 @@ static int dumpInAvroDataImpl(TAOS *taos,
     avro_value_decref(&value);
     avro_value_iface_decref(value_class);
 
+    freeBindArray(bindArray, onlyCol);
     tfree(bindArray);
 
     tfree(stmtBuffer);
