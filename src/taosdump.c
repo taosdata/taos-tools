@@ -2189,21 +2189,30 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
+
                         case WHICH_AVRO_NTB:
                             tstrncpy(g_tsDumpInAvroNtbs[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
+
                         case WHICH_AVRO_TBTAGS:
                             tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
+
                         case WHICH_AVRO_DATA:
                             tstrncpy(g_tsDumpInAvroFiles[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
+
+                        case WHICH_UNKNOWN:
+                            errorPrint("%s() LN%d, unknown\n",
+                                    __func__, __LINE__);
+                            break;
+
                     }
                     nCount++;
                 }
@@ -2967,7 +2976,7 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_BINARY:
                             {
-                                size_t size;
+                                size_t bin_size;
 
                                 avro_value_t branch;
                                 avro_value_get_current_branch(
@@ -2975,7 +2984,7 @@ static int dumpInAvroTbTagsImpl(
 
                                 char *buf = NULL;
                                 avro_value_get_string(&branch,
-                                        (const char **)&buf, &size);
+                                        (const char **)&buf, &bin_size);
 
                                 if (NULL == buf) {
                                     debugPrint2("%s | ", "NULL");
@@ -3582,6 +3591,11 @@ static RecordSchema *getSchemaAndReaderFromFile(
                 + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
                 + 50;                              /* fields section */
             break;
+
+        case WHICH_SQL:
+        case WHICH_UNKNOWN:
+            errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+            return NULL;
     }
 
     char *jsonbuf = calloc(1, buf_len);
@@ -3687,6 +3701,10 @@ static int64_t dumpInOneAvroFile(
                     schema, reader, recordSchema);
             break;
 
+        case WHICH_SQL:
+        case WHICH_UNKNOWN:
+            errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+            retExec = -1;
     }
 
     taos_stmt_close(stmt);
@@ -3720,6 +3738,11 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         case WHICH_AVRO_NTB:
             fileList = g_tsDumpInAvroNtbs;
             break;
+
+        case WHICH_SQL:
+        case WHICH_UNKNOWN:
+            errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+            return NULL;
     }
 
     int currentPercent = 0;
@@ -3775,6 +3798,11 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                             pThreadInfo->threadIndex, rows, avroFile);
                 }
                 break;
+
+            case WHICH_SQL:
+            case WHICH_UNKNOWN:
+                errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+                return NULL;
         }
 
         currentPercent = ((i+1) * 100 / pThreadInfo->count);
