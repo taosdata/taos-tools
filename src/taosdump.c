@@ -2160,8 +2160,9 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
             }
             break;
 
-        case WHICH_UNKNOWN:
-            errorPrint("%s() LN%d input unknown file\n", __func__, __LINE__);
+        default:
+            errorPrint("%s() LN%d input mistake list: %d\n",
+                    __func__, __LINE__, which);
             return which;
     }
 
@@ -2208,9 +2209,9 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
-                        case WHICH_UNKNOWN:
-                            errorPrint("%s() LN%d, unknown\n",
-                                    __func__, __LINE__);
+                        default:
+                            errorPrint("%s() LN%d input mistake list: %d\n",
+                                    __func__, __LINE__, which);
                             break;
 
                     }
@@ -3592,9 +3593,9 @@ static RecordSchema *getSchemaAndReaderFromFile(
                 + 50;                              /* fields section */
             break;
 
-        case WHICH_SQL:
-        case WHICH_UNKNOWN:
-            errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+        default:
+            errorPrint("%s() LN%d input mistake list: %d\n",
+                    __func__, __LINE__, which);
             return NULL;
     }
 
@@ -3701,9 +3702,9 @@ static int64_t dumpInOneAvroFile(
                     schema, reader, recordSchema);
             break;
 
-        case WHICH_SQL:
-        case WHICH_UNKNOWN:
-            errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+        default:
+            errorPrint("%s() LN%d input mistake list: %d\n",
+                    __func__, __LINE__, which);
             retExec = -1;
     }
 
@@ -3739,9 +3740,9 @@ static void* dumpInAvroWorkThreadFp(void *arg)
             fileList = g_tsDumpInAvroNtbs;
             break;
 
-        case WHICH_SQL:
-        case WHICH_UNKNOWN:
-            errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+        default:
+            errorPrint("%s() LN%d input mistake list: %d\n",
+                    __func__, __LINE__, pThreadInfo->which);
             return NULL;
     }
 
@@ -3799,9 +3800,9 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                 }
                 break;
 
-            case WHICH_SQL:
-            case WHICH_UNKNOWN:
-                errorPrint("%s() LN%d, unknown\n", __func__, __LINE__);
+            default:
+                errorPrint("%s() LN%d input mistake list: %d\n",
+                        __func__, __LINE__, pThreadInfo->which);
                 return NULL;
         }
 
@@ -4265,7 +4266,6 @@ static int createMTableAvroHead(
 
     TAOS_ROW row = NULL;
     int64_t i = 0;
-    int64_t count;
     while((row = taos_fetch_row(res)) != NULL) {
         debugPrint("sub table %"PRId64": name: %s\n",
                 i++, (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
@@ -4917,6 +4917,7 @@ static void* dumpInSqlWorkThreadFp(void *arg)
 
 static int dumpInSqlWorkThreads()
 {
+    int ret = 0;
     int32_t threads = g_args.thread_num;
 
     uint64_t sqlFileCount = getFilesNum("sql");
@@ -5005,6 +5006,10 @@ static int dumpInSqlWorkThreads()
                 g_totalDumpInNtbFailed += infos[t].ntbFailed;
                 break;
 
+            default:
+                errorPrint("%s() LN%d input mistake list: %d\n",
+                        __func__, __LINE__, infos[t].which);
+                ret = -1;
         }
         taos_close(infos[t].taos);
     }
@@ -5014,7 +5019,7 @@ static int dumpInSqlWorkThreads()
 
     freeFileList(which, sqlFileCount);
 
-    return 0;
+    return ret;
 }
 
 static int dumpInDbs()
