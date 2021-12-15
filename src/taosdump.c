@@ -471,7 +471,7 @@ struct arguments g_args = {
     INT64_MAX,  // end_time
     {0},        // humanEndTime
     "ms",       // precision
-    1,          // data_batch
+    MAX_RECORDS_PER_REQ / 2,    // data_batch
     TSDB_MAX_SQL_LEN,   // max_sql_len
     1,          // table_batch
     false,      // allow_sys
@@ -2548,6 +2548,21 @@ static void print_json_aux(json_t *element, int indent)
     }
 }
 
+static void printDotOrX(int64_t count, bool *printDot)
+{
+    if (0 == (count % g_args.data_batch)) {
+        if (*printDot) {
+            putchar('.');
+            *printDot = false;
+        } else {
+            putchar('x');
+            *printDot = true;
+        }
+    }
+
+    fflush(stdout);
+}
+
 static int64_t writeResultToAvro(
         char *avroFilename,
         char *jsonSchema,
@@ -2567,8 +2582,15 @@ static int64_t writeResultToAvro(
     assert(numFields > 0);
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
+    int64_t success = 0;
+    int64_t failed = 0;
     int64_t count = 0;
+
+    bool printDot = true;
     while ((row = taos_fetch_row(res)) != NULL) {
+        printDotOrX(count, &printDot);
+        count++;
+
         avro_value_t record;
         avro_generic_value_new(wface, &record);
 
@@ -2758,8 +2780,9 @@ static int64_t writeResultToAvro(
             errorPrint("%s() LN%d, Unable to write record to file. Message: %s\n",
                     __func__, __LINE__,
                     avro_strerror());
+            failed --;
         } else {
-            count ++;
+            success ++;
         }
         avro_value_decref(&record);
     }
@@ -2769,7 +2792,7 @@ static int64_t writeResultToAvro(
     avro_file_writer_close(db);
     avro_schema_decref(schema);
 
-    return count;
+    return success;
 }
 
 void freeBindArray(char *bindArray, int elements)
@@ -2785,8 +2808,8 @@ void freeBindArray(char *bindArray, int elements)
     }
 }
 
-static int dumpInAvroTbTagsImpl(TAOS *taos,
-        TAOS_STMT *stmt,
+static int dumpInAvroTbTagsImpl(
+        TAOS *taos,
         char *namespace,
         char *name,
         avro_schema_t schema,
@@ -2803,6 +2826,7 @@ static int dumpInAvroTbTagsImpl(TAOS *taos,
     avro_generic_value_new(value_class, &value);
 
     while(!avro_file_reader_read_value(reader, &value)) {
+        TAOS_STMT *stmt = taos_stmt_init(taos);
         char *bindArray =
             calloc(1, sizeof(TAOS_BIND)*(recordSchema->num_fields-1));
         assert(bindArray);
@@ -2813,8 +2837,6 @@ static int dumpInAvroTbTagsImpl(TAOS *taos,
         char *tbname = NULL;
         for (int i = 0; i < recordSchema->num_fields; i++) {
             avro_value_t field_value;
-
-
             size_t size;
 
             int32_t  curr_sqlstr_len = 0;
@@ -3020,7 +3042,9 @@ static int dumpInAvroTbTagsImpl(TAOS *taos,
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             freeBindArray(bindArray, recordSchema->num_fields-1);
+            tfree(bindArray);
             failed++;
+            taos_stmt_close(stmt);
             continue;
         }
 
@@ -3034,6 +3058,7 @@ static int dumpInAvroTbTagsImpl(TAOS *taos,
 
         freeBindArray(bindArray, recordSchema->num_fields-1);
         tfree(bindArray);
+        taos_stmt_close(stmt);
     }
 
     avro_value_decref(&value);
@@ -3136,15 +3161,6 @@ static int dumpInAvroDataImpl(TAOS *taos,
         return -1;
     }
 
-    if (0 != taos_stmt_set_tbname(stmt, recordSchema->name)) {
-        errorPrint("Failed to execute taos_stmt_set_tbname(%s). reason: %s\n",
-                recordSchema->name, taos_stmt_errstr(stmt));
-
-        free(stmtBuffer);
-        free(tableDes);
-        return -1;
-    }
-
     avro_value_iface_t *value_class = avro_generic_class_from_schema(schema);
     avro_value_t value;
     avro_generic_value_new(value_class, &value);
@@ -3155,7 +3171,22 @@ static int dumpInAvroDataImpl(TAOS *taos,
 
     int64_t success = 0;
     int64_t failed = 0;
+    int64_t count = 0;
+
+    int stmt_count = 0;
+    bool printDot = true;
     while(!avro_file_reader_read_value(reader, &value)) {
+        if (0 == stmt_count) {
+            if (0 != taos_stmt_set_tbname(stmt, recordSchema->name)) {
+                errorPrint("Failed to execute taos_stmt_set_tbname(%s). reason: %s\n",
+                        recordSchema->name, taos_stmt_errstr(stmt));
+                break;
+            }
+        }
+
+        printDotOrX(count, &printDot);
+        count++;
+
         memset(bindArray, 0, sizeof(TAOS_BIND) * onlyCol);
         TAOS_BIND *bind;
 
@@ -3465,7 +3496,6 @@ static int dumpInAvroDataImpl(TAOS *taos,
                 bind->buffer_type = tableDes->cols[i].type;
                 bind->length = &bind->buffer_length;
             }
-
         }
         debugPrint2("%s", "\n");
 
@@ -3476,6 +3506,7 @@ static int dumpInAvroDataImpl(TAOS *taos,
             failed++;
             continue;
         }
+
         if (0 != taos_stmt_add_batch(stmt)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
@@ -3484,16 +3515,25 @@ static int dumpInAvroDataImpl(TAOS *taos,
             continue;
         }
 
+        stmt_count ++;
+        if (stmt_count == g_args.data_batch) {
+            if (0 != taos_stmt_execute(stmt)) {
+                errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+                failed -= stmt_count;
+            }
+            stmt_count = 0;
+        }
         freeBindArray(bindArray, onlyCol);
-
         success ++;
-        continue;
     }
 
-    if (0 != taos_stmt_execute(stmt)) {
-        errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
-                __func__, __LINE__, taos_stmt_errstr(stmt));
-        failed = success;
+    if (stmt_count) {
+        if (0 != taos_stmt_execute(stmt)) {
+            errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
+                    __func__, __LINE__, taos_stmt_errstr(stmt));
+            failed -= stmt_count;
+        }
     }
 
     avro_value_decref(&value);
@@ -3634,7 +3674,8 @@ static int64_t dumpInOneAvroFile(
             break;
 
         case WHICH_AVRO_TBTAGS:
-            retExec = dumpInAvroTbTagsImpl(taos, stmt,
+            retExec = dumpInAvroTbTagsImpl(
+                    taos,
                     (char *)namespace,
                     (char *)name,
                     schema, reader, recordSchema);
@@ -3688,10 +3729,9 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         sprintf(avroFile, "%s/%s", g_args.inpath,
                 fileList[pThreadInfo->from + i]);
 
-        currentPercent = (int)((i+1) * 100 / pThreadInfo->count);
-        if (currentPercent > percentComplete) {
-            printf("[%d]:%d%%\n", pThreadInfo->threadIndex, currentPercent);
-            percentComplete = currentPercent;
+        if (0 == currentPercent) {
+            printf("[%d]: Restoring from %s \n",
+                    pThreadInfo->threadIndex, avroFile);
         }
 
         int64_t rows = dumpInOneAvroFile(
@@ -3735,8 +3775,14 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                             pThreadInfo->threadIndex, rows, avroFile);
                 }
                 break;
-
         }
+
+        currentPercent = ((i+1) * 100 / pThreadInfo->count);
+        if (currentPercent > percentComplete) {
+            printf("[%d]:%d%%\n", pThreadInfo->threadIndex, currentPercent);
+            percentComplete = currentPercent;
+        }
+
     }
 
     if (percentComplete < 100) {
@@ -4482,12 +4528,6 @@ static void *dumpNtbOfDb(void *arg) {
                 pThreadInfo->threadIndex, i,
                 ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name);
 
-        currentPercent = (int)((i+1) * 100 / pThreadInfo->count);
-        if (currentPercent > percentComplete) {
-            printf("[%d]:%d%%\n", pThreadInfo->threadIndex, currentPercent);
-            percentComplete = currentPercent;
-        }
-
         if (g_args.avro) {
             if (((TableInfo *)(g_tablesList + pThreadInfo->from + i))->belongStb) {
                 sprintf(dumpFilename, "%s%s.%s.%d.avro-tbtags",
@@ -4519,6 +4559,11 @@ static void *dumpNtbOfDb(void *arg) {
             }
         }
 
+        if (0 == currentPercent) {
+            printf("[%d]: Dumping to %s \n",
+                    pThreadInfo->threadIndex, dumpFilename);
+        }
+
         count = dumpNormalTable(
                 pThreadInfo->taos,
                 pThreadInfo->dbName,
@@ -4531,6 +4576,12 @@ static void *dumpNtbOfDb(void *arg) {
             break;
         } else {
             atomic_add_fetch_64(&g_totalDumpOutRows, count);
+        }
+
+        currentPercent = (int)((i+1) * 100 / pThreadInfo->count);
+        if (currentPercent > percentComplete) {
+            printf("[%d]:%d%%\n", pThreadInfo->threadIndex, currentPercent);
+            percentComplete = currentPercent;
         }
     }
 
@@ -5306,7 +5357,7 @@ static int64_t dumpNtbOfStbByThreads(
 
 static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
 {
-    printf("Start to dump out database: %s", dbInfo->name);
+    printf("Start to dump out database: %s\n", dbInfo->name);
 
     dumpCreateDbClause(dbInfo, g_args.with_property, fp);
 
