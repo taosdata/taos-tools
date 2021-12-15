@@ -534,7 +534,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         sent += bytes;
     } while (sent < req_str_len);
 
-    resp_len = sizeof(response_buf) - 1;
+    resp_len = RESP_BUF_LEN - 1;
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
