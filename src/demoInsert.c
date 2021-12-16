@@ -904,6 +904,8 @@ static void *createTable(void *sarg) {
                    pThreadInfo->threadID, pThreadInfo->start_table_from, i);
             lastPrintTime = currentPrintTime;
         }
+        printf("thread[%d] already create %" PRIu64 " - %" PRIu64 " tables\n",
+               pThreadInfo->threadID, pThreadInfo->start_table_from, i);
     }
 
     if (0 != len) {
@@ -988,7 +990,6 @@ int startMultiThreadCreateChildTable(char *cols, int threads,
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
         taos_close(pThreadInfo->taos);
-
         g_actualChildTables += pThreadInfo->tables_created;
     }
 
@@ -1019,10 +1020,17 @@ int createChildTables() {
             if (g_Dbs.db[i].superTblCount > 0) {
                 // with super table
                 for (int j = 0; j < g_Dbs.db[i].superTblCount; j++) {
-                    if ((AUTO_CREATE_SUBTBL ==
-                         g_Dbs.db[i].superTbls[j].autoCreateTable) ||
-                        (TBL_ALREADY_EXISTS ==
-                         g_Dbs.db[i].superTbls[j].childTblExists)) {
+                    if (AUTO_CREATE_SUBTBL ==
+                        g_Dbs.db[i].superTbls[j].autoCreateTable) {
+                        g_autoCreatedChildTables +=
+                            g_Dbs.db[i].superTbls[j].childTblCount;
+                        continue;
+                    }
+
+                    if (TBL_ALREADY_EXISTS ==
+                        g_Dbs.db[i].superTbls[j].childTblExists) {
+                        g_existedChildTables +=
+                            g_Dbs.db[i].superTbls[j].childTblCount;
                         continue;
                     }
                     verbosePrint(
@@ -1086,17 +1094,21 @@ int createChildTables() {
     double end = (double)taosGetTimestampMs();
     fprintf(stderr,
             "\nSpent %.4f seconds to create %" PRId64
-            " table(s) with %d thread(s), actual %" PRId64
-            " table(s) created\n\n",
+            " table(s) with %d thread(s), already exist %" PRId64
+            " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
+            " table(s) will be auto created\n\n",
             (end - start) / 1000.0, g_totalChildTables,
-            g_Dbs.threadCountForCreateTbl, g_actualChildTables);
+            g_Dbs.threadCountForCreateTbl, g_existedChildTables,
+            g_actualChildTables, g_autoCreatedChildTables);
     if (g_fpOfInsertResult) {
         fprintf(g_fpOfInsertResult,
                 "\nSpent %.4f seconds to create %" PRId64
-                " table(s) with %d thread(s), actual %" PRId64
-                " table(s) created\n\n",
+                " table(s) with %d thread(s), already exist %" PRId64
+                " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
+                " table(s) will be auto created\n\n",
                 (end - start) / 1000.0, g_totalChildTables,
-                g_Dbs.threadCountForCreateTbl, g_actualChildTables);
+                g_Dbs.threadCountForCreateTbl, g_existedChildTables,
+                g_actualChildTables, g_autoCreatedChildTables);
     }
     return code;
 }
@@ -1231,9 +1243,11 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             affectedRows = taos_affected_rows(res);
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
-                    "%s() LN%d, failed to execute schemaless insert. reason: "
+                    "%s() LN%d, failed to execute schemaless insert. content: "
+                    "%s, reason: "
                     "%s\n",
-                    __func__, __LINE__, taos_errstr(res));
+                    __func__, __LINE__, pThreadInfo->lines[0],
+                    taos_errstr(res));
                 exit(EXIT_FAILURE);
             }
             break;
