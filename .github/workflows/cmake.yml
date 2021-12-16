@@ -33,14 +33,15 @@ jobs:
         run: nohup sudo taosd &
 
       - name: Install dependencies
-        run: sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+        run: |
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+          cd taos-tools && git submodule update --init --recursive
 
       - name: Configure CMake
-        run: cmake -B ./build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        run: cd taos-tools && cmake -B ./build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
-        run: cmake --build ./build
+        run: cd taos-tools && cmake --build ./build
 
       - name: Test
-        working-directory: ./build
-        run: ctest --verbose
+        run: cd taos-tools/build && ctest --verbose
