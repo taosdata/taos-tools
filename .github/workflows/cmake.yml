@@ -29,18 +29,18 @@ jobs:
       - name: Install tdengine
         run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false && make && sudo make install
 
-      - name: Start tdengin
+      - name: Start tdengine
         run: nohup sudo taosd &
 
       - name: Install dependencies
         run: sudo apt install gcc build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        run: cmake -B ./taos-tools/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
-        run: cmake --build ${{github.workspace}}/build
+        run: cmake --build ./taos-tools/build
 
       - name: Test
-        working-directory: ${{github.workspace}}/build
+        working-directory: ./taos-tools/build
         run: ctest --verbose
