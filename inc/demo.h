@@ -596,6 +596,8 @@ extern SDbs           g_Dbs;
 extern char *         g_dupstr;
 extern int64_t        g_totalChildTables;
 extern int64_t        g_actualChildTables;
+extern int64_t        g_autoCreatedChildTables;
+extern int64_t        g_existedChildTables;
 extern SQueryMetaInfo g_queryInfo;
 extern FILE *         g_fpOfInsertResult;
 extern bool           g_fail;
