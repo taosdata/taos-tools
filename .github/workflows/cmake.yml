@@ -14,7 +14,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout taos-tools
+        uses: actions/checkout@v2
+        with:
+          path: 'taos-tools'
+
+      - name: Checkout tdengine
+        uses: actions/checkout@v2
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: 'develop'
+
+      - name: Install tdengine
+        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false && make && sudo make install
+
+      - name: Start tdengin
+        run: nohup sudo taosd &
+
+      - name: Install dependencies
+        run: sudo apt install gcc build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
