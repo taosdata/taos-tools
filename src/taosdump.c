@@ -1447,9 +1447,9 @@ static int getTableDes(
                             taos_free_result(res);
                             return -1;
                         }
-                        strcpy(
+                        strncpy(
                                 (char *)(tableDes->cols[i].var_value),
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], len);
                     }
                 } else {
                     if (len < (COL_VALUEBUF_LEN - 2)) {
@@ -1479,20 +1479,20 @@ static int getTableDes(
                 int nlen = strlen((char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
 
                 if (g_args.avro) {
-                    if (len < (COL_VALUEBUF_LEN - 1)) {
+                    if (nlen < (COL_VALUEBUF_LEN - 1)) {
                         strcpy(tableDes->cols[i].value,
                                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
                     } else {
-                        tableDes->cols[i].var_value = calloc(1, len + 1);
+                        tableDes->cols[i].var_value = calloc(1, nlen + 1);
                         if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
                                     __func__, __LINE__);
                             taos_free_result(res);
                             return -1;
                         }
-                        strcpy(
+                        strncpy(
                                 (char *)(tableDes->cols[i].var_value),
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], nlen);
                     }
                 } else {
                     if (nlen < (COL_VALUEBUF_LEN-2)) {
@@ -2238,6 +2238,18 @@ static int convertTbDesToJsonImpl(
                             tableDes->cols[pos].field, "long");
                     break;
 
+                case TSDB_DATA_TYPE_FLOAT:
+                    pstr += sprintf(pstr,
+                            "{\"name\":\"%s\",\"type\":\"%s\"",
+                            tableDes->cols[pos].field, "float");
+                    break;
+
+                case TSDB_DATA_TYPE_DOUBLE:
+                    pstr += sprintf(pstr,
+                            "{\"name\":\"%s\",\"type\":\"%s\"",
+                            tableDes->cols[pos].field, "double");
+                    break;
+
                 case TSDB_DATA_TYPE_TIMESTAMP:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s\",\"type\":\"%s\"",
@@ -2269,10 +2281,6 @@ static int convertTbDesToJsonImpl(
                     break;
 
                 default:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":\"%s\"",
-                            tableDes->cols[pos].field,
-                            typeToStr(tableDes->cols[pos].type));
                     break;
             }
         }
