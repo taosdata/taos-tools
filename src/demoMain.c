@@ -16,6 +16,8 @@
 #include "demo.h"
 int64_t        g_totalChildTables = DEFAULT_CHILDTABLES;
 int64_t        g_actualChildTables = 0;
+int64_t        g_autoCreatedChildTables = 0;
+int64_t        g_existedChildTables = 0;
 FILE *         g_fpOfInsertResult = NULL;
 char *         g_dupstr = NULL;
 SDbs           g_Dbs;
