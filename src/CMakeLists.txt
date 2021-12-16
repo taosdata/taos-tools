@@ -6,16 +6,16 @@ INCLUDE_DIRECTORIES(../inc)
 FIND_PACKAGE(Git)
 IF(GIT_FOUND)
     EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
-        )
+            COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
+    )
     EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSDEMO_COMMIT_SHA1
+            COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDEMO_COMMIT_SHA1
     )
     IF ("${TAOSDUMP_COMMIT_SHA1}" STREQUAL "")
         SET(TAOSDUMP_COMMIT_SHA1 "unknown")
@@ -30,11 +30,11 @@ IF(GIT_FOUND)
         STRING(STRIP "${TAOSDEMO_COMMIT_SHA1}" TAOSDEMO_COMMIT_SHA1)
     ENDIF ()
     EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} describe --tags
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        RESULT_VARIABLE TAG_RESULT
-        OUTPUT_VARIABLE TAOSTOOLS_TAG
-        )
+            COMMAND ${GIT_EXECUTABLE} describe --tags
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            RESULT_VARIABLE TAG_RESULT
+            OUTPUT_VARIABLE TAOSTOOLS_TAG
+    )
     MESSAGE("Taos tools tag: ${TAOSTOOLS_TAG}")
     IF ("${TAOSTOOLS_TAG}" STREQUAL "")
         SET(TAOSTOOLS_TAG "0.1.0")
@@ -43,10 +43,10 @@ IF(GIT_FOUND)
     ENDIF ()
 
     EXECUTE_PROCESS(
-        COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSDUMP_STATUS
-        )
+            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDUMP_STATUS
+    )
     EXECUTE_PROCESS(
             COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/demo*.c
             RESULT_VARIABLE RESULT
@@ -54,14 +54,14 @@ IF(GIT_FOUND)
     )
     IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         EXECUTE_PROCESS(
-            COMMAND bash "-c" "echo '${TAOSDUMP_STATUS}' | awk '{print $1}'"
-            RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSDUMP_STATUS
-            )
+                COMMAND bash "-c" "echo '${TAOSDUMP_STATUS}' | awk '{print $1}'"
+                RESULT_VARIABLE RESULT
+                OUTPUT_VARIABLE TAOSDUMP_STATUS
+        )
         EXECUTE_PROCESS(
-            COMMAND bash "-c" "echo '${TAOSDEMO_STATUS}' | awk '{print $1}'"
-            RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSDEMO_STATUS
+                COMMAND bash "-c" "echo '${TAOSDEMO_STATUS}' | awk '{print $1}'"
+                RESULT_VARIABLE RESULT
+                OUTPUT_VARIABLE TAOSDEMO_STATUS
         )
     ENDIF ()
 ELSE()
@@ -80,9 +80,9 @@ STRING(STRIP "${TAOSDUMP_STATUS}" TAOSDUMP_STATUS)
 STRING(STRIP "${TAOSDEMO_STATUS}" TAOSDEMO_STATUS)
 
 IF (TAOSDUMP_STATUS MATCHES "M")
-  SET(TAOSDUMP_STATUS "modified")
+    SET(TAOSDUMP_STATUS "modified")
 ELSE()
-  SET(TAOSDUMP_STATUS "")
+    SET(TAOSDUMP_STATUS "")
 ENDIF ()
 
 IF (TAOSDEMO_STATUS MATCHES "M")
@@ -106,18 +106,20 @@ INCLUDE_DIRECTORIES(/usr/local/taos/include)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/avro/lang/c/src)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/cJsonDemo/src)
 
-IF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
+IF (${CMAKE_BUILD_TYPE} MATCHES "Debug")
     MESSAGE("${Yellow} DEBUG mode ${ColourReset}")
     SET(CMAKE_C_FLAGS "-std=c99 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0")
 ELSE ()
     MESSAGE("${Green} RELEASE mode ${ColourReset}")
     SET(CMAKE_C_FLAGS "-std=c99 -DRELEASE")
-ENDIF (${CMAKE_BUILD_TYPE} MATCHES "DEBUG")
+ENDIF ()
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     ADD_EXECUTABLE(taosdump taosdump.c)
-    ADD_EXECUTABLE(taosBenchmark demoUtil.c demoSubscribe.c demoQuery.c demoOutput.c demoMain.c demoJsonOpt.c demoInsert.c demoData.c demoCommandOpt.c)
+    ADD_LIBRARY(taosdemo SHARED demoMain.c demoSubscribe.c demoQuery.c demoOutput.c demoJsonOpt.c demoInsert.c demoData.c demoCommandOpt.c demoUtil.c)
+    ADD_EXECUTABLE(taosBenchmark demoMain.c)
     TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
-    TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo)
+    target_link_libraries(taosdemo taos pthread cJsonDemo -fsanitize=address)
+    TARGET_LINK_LIBRARIES(taosBenchmark taosdemo)
 ENDIF ()
 

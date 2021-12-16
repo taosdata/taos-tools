@@ -1,28 +1,28 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 
 PROJECT(taos-tool
-    LANGUAGES C
-    VERSION 0.1.0
-)
+        LANGUAGES C
+        VERSION 0.1.0
+        )
 
 if(NOT WIN32)
-  string(ASCII 27 Esc)
-  set(ColourReset "${Esc}[m")
-  set(ColourBold  "${Esc}[1m")
-  set(Red         "${Esc}[31m")
-  set(Green       "${Esc}[32m")
-  set(Yellow      "${Esc}[33m")
-  set(Blue        "${Esc}[34m")
-  set(Magenta     "${Esc}[35m")
-  set(Cyan        "${Esc}[36m")
-  set(White       "${Esc}[37m")
-  set(BoldRed     "${Esc}[1;31m")
-  set(BoldGreen   "${Esc}[1;32m")
-  set(BoldYellow  "${Esc}[1;33m")
-  set(BoldBlue    "${Esc}[1;34m")
-  set(BoldMagenta "${Esc}[1;35m")
-  set(BoldCyan    "${Esc}[1;36m")
-  set(BoldWhite   "${Esc}[1;37m")
+    string(ASCII 27 Esc)
+    set(ColourReset "${Esc}[m")
+    set(ColourBold  "${Esc}[1m")
+    set(Red         "${Esc}[31m")
+    set(Green       "${Esc}[32m")
+    set(Yellow      "${Esc}[33m")
+    set(Blue        "${Esc}[34m")
+    set(Magenta     "${Esc}[35m")
+    set(Cyan        "${Esc}[36m")
+    set(White       "${Esc}[37m")
+    set(BoldRed     "${Esc}[1;31m")
+    set(BoldGreen   "${Esc}[1;32m")
+    set(BoldYellow  "${Esc}[1;33m")
+    set(BoldBlue    "${Esc}[1;34m")
+    set(BoldMagenta "${Esc}[1;35m")
+    set(BoldCyan    "${Esc}[1;36m")
+    set(BoldWhite   "${Esc}[1;37m")
 endif()
 
 find_package(PkgConfig REQUIRED)
@@ -96,6 +96,16 @@ SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/build/bin)
 
 ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
+
+if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
+    MESSAGE("${Yellow} CUnit on ${ColourReset}")
+    enable_testing()
+    ADD_SUBDIRECTORY(test)
+    add_test(NAME taosdemoTest COMMAND taosdemoTest)
+else()
+    MESSAGE("${Green} Cunit off ${ColourReset}")
+endif ()
+
 
 ADD_DEPENDENCIES(taosdump apache-avro)
 ADD_DEPENDENCIES(taosBenchmark cJsonDemo)

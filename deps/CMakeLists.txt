@@ -9,3 +9,4 @@ ExternalProject_Add(
 )
 
 ADD_SUBDIRECTORY(cJsonDemo)
+ADD_SUBDIRECTORY(CUnit)
