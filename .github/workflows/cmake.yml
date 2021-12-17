@@ -38,7 +38,7 @@ jobs:
           cd taos-tools && git submodule update --init --recursive
 
       - name: Configure CMake
-        run: cd taos-tools && cmake -B ./build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        run: cd taos-tools && cmake -B ./build -DBUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
         run: cd taos-tools && cmake --build ./build
