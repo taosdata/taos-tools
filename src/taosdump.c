@@ -1222,7 +1222,7 @@ static int dumpCreateMTableClause(
     pstr = tmpBuf;
 
     pstr += sprintf(tmpBuf,
-            "CREATE TABLE IF NOT EXISTS %s.%s USING %s.%s TAGS (",
+            "CREATE TABLE IF NOT EXISTS %s.`%s` USING %s.`%s` TAGS (",
             dbName, tableDes->name, dbName, stable);
 
     for (; counter < numOfCols; counter++) {
@@ -1288,7 +1288,7 @@ static int64_t getNtbCountOfStb(char *dbName, char *stbName)
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s", dbName, stbName);
+    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.`%s`", dbName, stbName);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
@@ -1319,7 +1319,7 @@ static int getTableDes(
     int colCount = 0;
 
     char sqlstr[COMMAND_SIZE];
-    sprintf(sqlstr, "describe %s.%s;", dbName, table);
+    sprintf(sqlstr, "DESCRIBE %s.`%s`", dbName, table);
 
     res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
@@ -1365,7 +1365,7 @@ static int getTableDes(
     for (int i = 0 ; i < colCount; i++) {
         if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
 
-        sprintf(sqlstr, "select %s from %s.%s",
+        sprintf(sqlstr, "SELECT %s FROM %s.`%s`",
                 tableDes->cols[i].field, dbName, table);
 
         res = taos_query(taos, sqlstr);
@@ -1540,7 +1540,7 @@ static int convertTableDesToSql(char *dbName,
 
     char* pstr = *buffer;
 
-    pstr += sprintf(pstr, "CREATE TABLE IF NOT EXISTS %s.%s",
+    pstr += sprintf(pstr, "CREATE TABLE IF NOT EXISTS %s.`%s`",
             dbName, tableDes->name);
 
     for (; counter < tableDes->columns; counter++) {
@@ -1834,9 +1834,13 @@ static int dumpCreateTableClauseAvro(
     assert(dumpFilename);
     // {
     // "type": "record",
-    // "name": "stbname",
+    // "name": "_ntb",
     // "namespace": "dbname",
     // "fields": [
+    //      {
+    //      "name": "tbname",
+    //      "type": "string"
+    //      },
     //      {
     //      "name": "sql",
     //      "type": "string"
@@ -1846,15 +1850,15 @@ static int dumpCreateTableClauseAvro(
             17 + TSDB_DB_NAME_LEN               /* dbname section */
             + 17                                /* type: record */
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
-            + 50);                              /* fields section */
+            + 80);                              /* fields section */
     if (jsonSchema == NULL) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
 
     sprintf(jsonSchema,
-            "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[{\"name\":\"sql\",\"type\":\"string\"}]}",
-            dbName, tableDes->name);
+            "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[{\"name\":\"tbname\",\"type\":\"string\"},{\"name\":\"sql\",\"type\":\"string\"}]}",
+            dbName, "_ntb");
 
     char *sqlstr = calloc(1, COMMAND_SIZE);
     assert(sqlstr);
@@ -1875,6 +1879,14 @@ static int dumpCreateTableClauseAvro(
     avro_generic_value_new(wface, &record);
 
     avro_value_t value;
+    if (0 != avro_value_get_by_name(
+                &record, "tbname", &value, NULL)) {
+        errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
+                __func__, __LINE__, "sql");
+    }
+
+    avro_value_set_string(&value, tableDes->name);
+
     if (0 != avro_value_get_by_name(
                 &record, "sql", &value, NULL)) {
         errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
@@ -2182,24 +2194,32 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
 }
 
 static int convertTbDesToJsonImpl(
-        char *namespace, char *name, TableDef *tableDes,
+        char *namespace, TableDef *tableDes,
         char **jsonSchema, bool isColumn)
 {
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
-            namespace, name);
+            namespace, (isColumn)?"_record":"_stb");
 
-    int iterate = (isColumn)?tableDes->columns:(tableDes->tags+1);
+    // isCol: add one iterates for tbnmae
+    // isTag: add two iterates for stbname and tbnmae
+    int iterate = tableDes->columns+2;
 
     for (int i = 0; i < iterate; i ++) {
         if (0 == i) {
             pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":\"%s\"",
-                    isColumn?(tableDes->cols[0].field):"tbname",
+                    isColumn?"tbname":"stbname",
+                    "string");
+        } else if (1 == i) {
+            pstr += sprintf(pstr,
+                    "{\"name\":\"%s\",\"type\":\"%s\"",
+                    isColumn?"ts":"tbname",
                     isColumn?"long":"string");
         } else {
-            int pos = i + ((isColumn)?0:(tableDes->columns-1));
+            // isTag: pos is i-2 for stbname and tbnmae
+            int pos = i + ((isColumn)?(-2):(tableDes->columns-2));
 
             switch(tableDes->cols[pos].type) {
                 case TSDB_DATA_TYPE_BINARY:
@@ -2227,6 +2247,12 @@ static int convertTbDesToJsonImpl(
                     break;
 
                 case TSDB_DATA_TYPE_SMALLINT:
+                    pstr += sprintf(pstr,
+                            "{\"name\":\"%s\", \"type\":\"%s\"",
+                            tableDes->cols[pos].field, "int");
+                    break;
+
+                case TSDB_DATA_TYPE_INT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s\", \"type\":\"%s\"",
                             tableDes->cols[pos].field, "int");
@@ -2281,11 +2307,13 @@ static int convertTbDesToJsonImpl(
                     break;
 
                 default:
+                    errorPrint("%s() LN%d unknown type: %d\n",
+                            __func__, __LINE__, tableDes->cols[pos].type);
                     break;
             }
         }
 
-        if ((i != (iterate-1))) {
+        if (i != (iterate-2)) {
             pstr += sprintf(pstr, "},");
         } else {
             pstr += sprintf(pstr, "}");
@@ -2307,9 +2335,13 @@ static int convertTbTagsDesToJson(
 {
     // {
     // "type": "record",
-    // "name": "stbname",
+    // "name": "_stb",
     // "namespace": "dbname",
     // "fields": [
+    //      {
+    //      "name": "stbname",
+    //      "type": "string"
+    //      },
     //      {
     //      "name": "tbname",
     //      "type": "string"
@@ -2351,13 +2383,14 @@ static int convertTbTagsDesToJson(
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
             + 10                                /* fields section */
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+            + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
             + (TSDB_COL_NAME_LEN + 40) * tableDes->tags + 4);    /* fields section */
     if (*jsonSchema == NULL) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
 
-    return convertTbDesToJsonImpl(dbName, stbName, tableDes, jsonSchema, false);
+    return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, false);
 }
 
 static int convertTbDesToJson(
@@ -2411,7 +2444,7 @@ static int convertTbDesToJson(
         return -1;
     }
 
-    return convertTbDesToJsonImpl(dbName, tbName, tableDes, jsonSchema, true);
+    return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, true);
 }
 
 static void print_json_indent(int indent) {
@@ -2538,6 +2571,7 @@ static void printDotOrX(int64_t count, bool *printDot)
 
 static int64_t writeResultToAvro(
         char *avroFilename,
+        char *tbName,
         char *jsonSchema,
         TAOS_RES *res)
 {
@@ -2570,11 +2604,19 @@ static int64_t writeResultToAvro(
 
         avro_value_t value, branch;
 
+        if (0 != avro_value_get_by_name(
+                    &record, "tbname", &value, NULL)) {
+            errorPrint("%s() LN%d, avro_value_get_by_name(tbname) failed",
+                    __func__, __LINE__);
+            continue;
+        }
+        avro_value_set_string(&value, tbName);
+
         for (int col = 0; col < numFields; col++) {
 
             if (0 != avro_value_get_by_name(
                         &record, fields[col].name, &value, NULL)) {
-                errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
+                errorPrint("%s() LN%d, avro_value_get_by_name(%s) failed",
                         __func__, __LINE__, fields[col].name);
                 continue;
             }
@@ -2809,6 +2851,7 @@ static int dumpInAvroTbTagsImpl(
         TAOS_BIND *bind;
         int is_null = 1;
 
+        char *stbname = NULL;
         char *tbname = NULL;
         for (int i = 0; i < recordSchema->num_fields; i++) {
             avro_value_t field_value;
@@ -2816,12 +2859,15 @@ static int dumpInAvroTbTagsImpl(
 
             int32_t  curr_sqlstr_len = 0;
             if (0 == i) {
+                avro_value_get_by_name(&value, "stbname", &field_value, NULL);
+                avro_value_get_string(&field_value, (const char **)&stbname, &size);
+
                 avro_value_get_by_name(&value, "tbname", &field_value, NULL);
                 avro_value_get_string(&field_value, (const char **)&tbname, &size);
 
                 curr_sqlstr_len = sprintf(tbuf,
-                        "CREATE TABLE %s.%s USING %s.%s TAGS(?",
-                        namespace, tbname, namespace, name);
+                        "CREATE TABLE %s.`%s` USING %s.`%s` TAGS(?",
+                        namespace, tbname, namespace, stbname);
                 for (int j = 0; j < recordSchema->num_fields-2; j ++) {
                     curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ",?");
                 }
@@ -2942,13 +2988,13 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_BINARY:
                             {
-                                size_t bin_size;
-
                                 avro_value_t branch;
                                 avro_value_get_current_branch(
                                         &field_value, &branch);
 
                                 char *buf = NULL;
+                                size_t bin_size;
+
                                 avro_value_get_string(&branch,
                                         (const char **)&buf, &bin_size);
 
@@ -4017,7 +4063,7 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
     }
 
     sprintf(sqlstr,
-            "select * from %s.%s where _c0 >= %" PRId64 " and _c0 <= %" PRId64 " order by _c0 asc;",
+            "SELECT * FROM %s.`%s` WHERE _c0 >= %" PRId64 " AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
             dbName, tbName, start_time, end_time);
 
     TAOS_RES* res = taos_query(taos, sqlstr);
@@ -4073,7 +4119,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
         sprintf(avroFilename, "%s%s.%s.avro",
                 g_args.outpath, dbName, tbName);
 
-        totalRows = writeResultToAvro(avroFilename, jsonSchema, res);
+        totalRows = writeResultToAvro(avroFilename, tbName, jsonSchema, res);
     } else {
         totalRows = writeResultToSql(res, fp, dbName, tbName);
     }
@@ -4224,7 +4270,7 @@ static int createMTableAvroHead(
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT TBNAME FROM %s.%s LIMIT %"PRId64" OFFSET %"PRId64"",
+    sprintf(command, "SELECT TBNAME FROM %s.`%s` LIMIT %"PRId64" OFFSET %"PRId64"",
             dbName, stable,
             limit, offset);
 
@@ -4260,9 +4306,19 @@ static int createMTableAvroHead(
         avro_value_t value, branch;
 
         if (0 != avro_value_get_by_name(
+                    &record, "stbname", &value, NULL)) {
+            errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
+                    __func__, __LINE__, "stbname");
+            continue;
+        }
+
+        avro_value_set_string(&value, stable);
+
+        if (0 != avro_value_get_by_name(
                     &record, "tbname", &value, NULL)) {
             errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
                     __func__, __LINE__, "tbname");
+            continue;
         }
 
         avro_value_set_string(&value,
@@ -5116,7 +5172,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT TBNAME FROM %s.%s LIMIT %"PRId64" OFFSET %"PRId64"",
+    sprintf(command, "SELECT TBNAME FROM %s.`%s` LIMIT %"PRId64" OFFSET %"PRId64"",
             pThreadInfo->dbName, pThreadInfo->stbName,
             pThreadInfo->count, pThreadInfo->from);
 
