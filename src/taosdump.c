@@ -2232,6 +2232,12 @@ static int convertTbDesToJsonImpl(
                             tableDes->cols[pos].field, "int");
                     break;
 
+                case TSDB_DATA_TYPE_INT:
+                    pstr += sprintf(pstr,
+                            "{\"name\":\"%s\", \"type\":\"%s\"",
+                            tableDes->cols[pos].field, "int");
+                    break;
+
                 case TSDB_DATA_TYPE_BIGINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s\",\"type\":\"%s\"",
@@ -2281,6 +2287,8 @@ static int convertTbDesToJsonImpl(
                     break;
 
                 default:
+                    errorPrint("%s() LN%d, wrong type: %d",
+                            __func__, __LINE__, tableDes->cols[pos].type);
                     break;
             }
         }
