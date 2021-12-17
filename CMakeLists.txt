@@ -97,7 +97,7 @@ SET(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/build/bin)
 ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
 
-if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
+if (${BUILD_TYPE} MATCHES "Debug")
     MESSAGE("${Yellow} CUnit on ${ColourReset}")
     enable_testing()
     ADD_SUBDIRECTORY(test)
