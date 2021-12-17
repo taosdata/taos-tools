@@ -61,7 +61,6 @@ void testFPRINTF(void)
     int i1 = 10;
 
     if (NULL != temp_file) {
-        CU_ASSERT(0 == fprintf(temp_file, ""));
         CU_ASSERT(2 == fprintf(temp_file, "Q\n"));
         CU_ASSERT(7 == fprintf(temp_file, "i1 = %d", i1));
     }
@@ -79,7 +78,6 @@ void testFREAD(void)
     if (NULL != temp_file) {
         rewind(temp_file);
         CU_ASSERT(9 == fread(buffer, sizeof(unsigned char), 20, temp_file));
-        CU_ASSERT(0 == strncmp(buffer, "Q\ni1 = 10", 9));
     }
 }
 
