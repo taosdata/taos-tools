@@ -76,6 +76,7 @@ SArguments g_args = {
 
 int main(int argc, char *argv[]) {
     if (parse_args(argc, argv, &g_args)) {
+        tmfree(g_dupstr);
         exit(EXIT_FAILURE);
     }
     debugPrint("meta file: %s\n", g_args.metaFile);
@@ -113,7 +114,9 @@ int main(int argc, char *argv[]) {
             }
             taos_close(qtaos);
         } else {
-            testCmdLine(&g_args);
+            if (testCmdLine(&g_args)) {
+                exit(EXIT_FAILURE);
+            }
         }
     }
     postFreeResource();

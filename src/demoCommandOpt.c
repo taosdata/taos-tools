@@ -1899,21 +1899,24 @@ void queryAggrFunc(SArguments *pg_args) {
     free(pThreadInfo);
 }
 
-void testCmdLine(SArguments *pg_args) {
+int testCmdLine(SArguments *pg_args) {
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
             errorPrint("Invalid path %s\n", configDir);
-            return;
+            return -1;
         }
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
         wordfree(&full_path);
     }
 
     pg_args->test_mode = INSERT_TEST;
-    insertTestProcess();
+    if (insertTestProcess()) {
+        return -1;
+    }
 
     if (g_Dbs.aggr_func) {
         queryAggrFunc(pg_args);
     }
+    return 0;
 }
