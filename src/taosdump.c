@@ -644,7 +644,8 @@ static char *typeToStr(int type) {
 }
 
 static int typeStrToType(const char *type_str) {
-    if (0 == strcasecmp(type_str, "bool")) {
+    if ((0 == strcasecmp(type_str, "bool"))
+            || (0 == strcasecmp(type_str, "boolean"))) {
         return TSDB_DATA_TYPE_BOOL;
     } else if (0 == strcasecmp(type_str, "tinyint")) {
         return TSDB_DATA_TYPE_TINYINT;
@@ -2209,7 +2210,7 @@ static int convertTbDesToJsonImpl(
 
     // isCol: add one iterates for tbnmae
     // isTag: add two iterates for stbname and tbnmae
-    int iterate = tableDes->columns+2;
+    int iterate = (isColumn)?(tableDes->columns+1):(tableDes->tags+2);
 
     for (int i = 0; i < iterate; i ++) {
         if (0 == i) {
@@ -2224,7 +2225,9 @@ static int convertTbDesToJsonImpl(
                     isColumn?"\"long\"":"[\"null\",\"string\"]");
         } else {
             // isTag: pos is i-2 for stbname and tbnmae
-            int pos = i + ((isColumn)?(-1):(tableDes->columns-2));
+            int pos = i +
+                ((isColumn)?(-1):
+                 (tableDes->columns-2));
 
             switch(tableDes->cols[pos].type) {
                 case TSDB_DATA_TYPE_BINARY:
@@ -2312,13 +2315,13 @@ static int convertTbDesToJsonImpl(
                     break;
 
                 default:
-                    errorPrint("%s() LN%d, wrong type: %d",
+                    errorPrint("%s() LN%d, wrong type: %d\n",
                             __func__, __LINE__, tableDes->cols[pos].type);
                     break;
             }
         }
 
-        if (i != (iterate-2)) {
+        if (i != (iterate-1)) {
             pstr += sprintf(pstr, "},");
         } else {
             pstr += sprintf(pstr, "}");
@@ -3525,8 +3528,9 @@ static int dumpInAvroDataImpl(TAOS *taos,
                         break;
 
                     default:
-                        errorPrint("%s() LN%d, %s is not supported!\n",
+                        errorPrint("%s() LN%d, %s's %s is not supported!\n",
                                 __func__, __LINE__,
+                                tbName,
                                 typeToStr(field->type));
                         break;
                 }
@@ -3538,8 +3542,8 @@ static int dumpInAvroDataImpl(TAOS *taos,
         debugPrint2("%s", "\n");
 
         if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
-            errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt));
+            errorPrint("%s() LN%d stmt_bind_param() to %s failed! reason: %s\n",
+                    __func__, __LINE__, tbName, taos_stmt_errstr(stmt));
             freeBindArray(bindArray, onlyCol);
             failed++;
             continue;
