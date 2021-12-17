@@ -3198,14 +3198,14 @@ static int dumpInAvroDataImpl(TAOS *taos,
     int stmt_count = 0;
     bool printDot = true;
     while(!avro_file_reader_read_value(reader, &value)) {
-        avro_value_t field_value, field_branch;
+        avro_value_t tbname_value, tbname_branch;
 
-        avro_value_get_by_name(&value, "tbname", &field_value, NULL);
-        avro_value_get_current_branch(&field_value, &field_branch);
+        avro_value_get_by_name(&value, "tbname", &tbname_value, NULL);
+        avro_value_get_current_branch(&tbname_value, &tbname_branch);
 
         char *tbName= NULL;
         size_t tbname_size;
-        avro_value_get_string(&field_branch,
+        avro_value_get_string(&tbname_branch,
                 (const char **)&tbName, &tbname_size);
 
         char *escapedTbName = calloc(1, strlen(tbName) + 3);
