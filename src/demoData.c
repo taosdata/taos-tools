@@ -1033,7 +1033,7 @@ static int generateSampleFromRand(char *sampleDataBuf, uint64_t lenOfOneRow,
 
             uint32_t dataLen;
             char     data_type =
-                (columns) ? (columns[c].data_type) : g_args.data_type[c];
+                (columns) ? (columns[c].data_type) : g_args.col_type[c];
 
             switch (data_type) {
                 case TSDB_DATA_TYPE_BINARY:
@@ -1116,7 +1116,7 @@ static int generateSampleFromRand(char *sampleDataBuf, uint64_t lenOfOneRow,
                 default:
                     errorPrint(
                         "%s() LN%d, Unknown data type %s\n", __func__, __LINE__,
-                        (columns) ? (columns[c].dataType) : g_args.dataType[c]);
+                        (columns) ? (columns[c].dataType) : g_args.colType[c]);
                     exit(EXIT_FAILURE);
             }
         }
@@ -1208,8 +1208,8 @@ static int32_t generateDataTailWithoutStb(
 
         int64_t retLen = 0;
 
-        char *   data_type = g_args.data_type;
-        int32_t *data_length = g_args.data_length;
+        char *   data_type = g_args.col_type;
+        int32_t data_length[3] = DEFAULT_DATALENGTH;
 
         if (g_args.disorderRatio) {
             retLen =
@@ -1756,7 +1756,7 @@ int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
         return ret;
     }
 
-    char *data_type = g_args.data_type;
+    char *data_type = g_args.col_type;
 
     char *bindArray = malloc(sizeof(TAOS_BIND) * (g_args.columnCount + 1));
     if (bindArray == NULL) {
@@ -1851,7 +1851,7 @@ int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
 
     for (int c = 0; c < columnCount; c++) {
         char data_type =
-            (stbInfo) ? stbInfo->columns[c].data_type : g_args.data_type[c];
+            (stbInfo) ? stbInfo->columns[c].data_type : g_args.col_type[c];
 
         char *tmpP = NULL;
 
@@ -1921,7 +1921,7 @@ int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
             default:
                 errorPrint("Unknown data type: %s\n",
                            (stbInfo) ? stbInfo->columns[c].dataType
-                                     : g_args.dataType[c]);
+                                     : g_args.colType[c]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -1934,7 +1934,7 @@ int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
 
         for (int c = 0; c < columnCount; c++) {
             char data_type =
-                (stbInfo) ? stbInfo->columns[c].data_type : g_args.data_type[c];
+                (stbInfo) ? stbInfo->columns[c].data_type : g_args.col_type[c];
             char *restStr = sampleDataBuf + lenOfOneRow * i + cursor;
             int   lengthOfRest = (int)strlen(restStr);
 

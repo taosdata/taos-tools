@@ -326,10 +326,10 @@ void printHelp() {
     printf("%s%s%s%s\n", indent, "-q, --query-mode=MODE", "\t\t",
            "Query mode -- 0: SYNC, 1: ASYNC. By default use SYNC.");
     printf("%s%s%s%s\n", indent, "-b, --data-type=DATATYPE", "\t",
-           "The data_type of columns, By default use: FLOAT,INT,FLOAT. NCHAR "
+           "The col_type of columns, By default use: FLOAT,INT,FLOAT. NCHAR "
            "and BINARY can also use custom length. Eg: NCHAR(16),BINARY(8)");
     printf("%s%s%s%s%d\n", indent, "-w, --binwidth=WIDTH", "\t\t",
-           "The width of data_type 'BINARY' or 'NCHAR'. By default use ",
+           "The width of col_type 'BINARY' or 'NCHAR'. By default use ",
            g_args.binwidth);
     printf("%s%s%s%s%d%s%d\n", indent, "-l, --columns=COLUMNS", "\t\t",
            "The number of columns per record. Demo mode by default is ",
@@ -611,8 +611,8 @@ void printfInsertMeta() {
                 printf("      columnCount:       \033[33m%d\033[0m\n        ",
                        g_Dbs.db[i].superTbls[j].columnCount);
                 for (int k = 0; k < g_Dbs.db[i].superTbls[j].columnCount; k++) {
-                    // printf("dataType:%s, dataLen:%d\t",
-                    // g_Dbs.db[i].superTbls[j].columns[k].dataType,
+                    // printf("colType:%s, dataLen:%d\t",
+                    // g_Dbs.db[i].superTbls[j].columns[k].colType,
                     // g_Dbs.db[i].superTbls[j].columns[k].dataLen);
                     if ((0 == strncasecmp(
                                   g_Dbs.db[i].superTbls[j].columns[k].dataType,
@@ -633,8 +633,8 @@ void printfInsertMeta() {
                 printf("      tagCount:            \033[33m%d\033[0m\n        ",
                        g_Dbs.db[i].superTbls[j].tagCount);
                 for (int k = 0; k < g_Dbs.db[i].superTbls[j].tagCount; k++) {
-                    // printf("dataType:%s, dataLen:%d\t",
-                    // g_Dbs.db[i].superTbls[j].tags[k].dataType,
+                    // printf("colType:%s, dataLen:%d\t",
+                    // g_Dbs.db[i].superTbls[j].tags[k].colType,
                     // g_Dbs.db[i].superTbls[j].tags[k].dataLen);
                     if ((0 ==
                          strncasecmp(g_Dbs.db[i].superTbls[j].tags[k].dataType,
@@ -836,8 +836,8 @@ void printfInsertMetaToFile(FILE *fp) {
             fprintf(fp, "      columnCount:       %d\n        ",
                     g_Dbs.db[i].superTbls[j].columnCount);
             for (int k = 0; k < g_Dbs.db[i].superTbls[j].columnCount; k++) {
-                // printf("dataType:%s, dataLen:%d\t",
-                // g_Dbs.db[i].superTbls[j].columns[k].dataType,
+                // printf("colType:%s, dataLen:%d\t",
+                // g_Dbs.db[i].superTbls[j].columns[k].colType,
                 // g_Dbs.db[i].superTbls[j].columns[k].dataLen);
                 if ((0 ==
                      strncasecmp(g_Dbs.db[i].superTbls[j].columns[k].dataType,
@@ -858,8 +858,8 @@ void printfInsertMetaToFile(FILE *fp) {
             fprintf(fp, "      tagCount:            %d\n        ",
                     g_Dbs.db[i].superTbls[j].tagCount);
             for (int k = 0; k < g_Dbs.db[i].superTbls[j].tagCount; k++) {
-                // printf("dataType:%s, dataLen:%d\t",
-                // g_Dbs.db[i].superTbls[j].tags[k].dataType,
+                // printf("colType:%s, dataLen:%d\t",
+                // g_Dbs.db[i].superTbls[j].tags[k].colType,
                 // g_Dbs.db[i].superTbls[j].tags[k].dataLen);
                 if ((0 == strncasecmp(g_Dbs.db[i].superTbls[j].tags[k].dataType,
                                       "binary", strlen("binary"))) ||

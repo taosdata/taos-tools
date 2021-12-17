@@ -67,7 +67,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             errorPrint("%s", "failed to read json, column type not found\n");
             goto PARSE_OVER;
         }
-        // tstrncpy(superTbls->columns[k].dataType, dataType->valuestring,
+        // tstrncpy(superTbls->columns[k].colType, colType->valuestring,
         // DATATYPE_BUFF_LEN);
         tstrncpy(columnCase.dataType, dataType->valuestring,
                  min(DATATYPE_BUFF_LEN, strlen(dataType->valuestring) + 1));

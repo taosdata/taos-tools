@@ -1061,14 +1061,14 @@ int createChildTables() {
             // normal table
             len = snprintf(tblColsBuf, TSDB_MAX_BYTES_PER_ROW, "(TS TIMESTAMP");
             for (int j = 0; j < g_args.columnCount; j++) {
-                if ((strcasecmp(g_args.dataType[j], "BINARY") == 0) ||
-                    (strcasecmp(g_args.dataType[j], "NCHAR") == 0)) {
+                if ((strcasecmp(g_args.colType[j], "BINARY") == 0) ||
+                    (strcasecmp(g_args.colType[j], "NCHAR") == 0)) {
                     snprintf(tblColsBuf + len, TSDB_MAX_BYTES_PER_ROW - len,
-                             ",C%d %s(%d)", j, g_args.dataType[j],
+                             ",C%d %s(%d)", j, g_args.colType[j],
                              g_args.binwidth);
                 } else {
                     snprintf(tblColsBuf + len, TSDB_MAX_BYTES_PER_ROW - len,
-                             ",C%d %s", j, g_args.dataType[j]);
+                             ",C%d %s", j, g_args.colType[j]);
                 }
                 len = (int)strlen(tblColsBuf);
             }

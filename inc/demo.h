@@ -148,12 +148,16 @@ extern char configDir[];
 #define DEFAULT_ANS_YES false
 #define DEFAULT_OUTPUT "./output.txt"
 #define DEFAULT_SYNC_MODE 0
-#define DEFAULT_DATA_TYPE \
+#define DEFAULT_COL_TYPE \
     { TSDB_DATA_TYPE_FLOAT, TSDB_DATA_TYPE_INT, TSDB_DATA_TYPE_FLOAT }
-#define DEFAULT_DATATYPE \
+#define DEFAULT_COLTYPE \
     { "FLOAT", "INT", "FLOAT" }
 #define DEFAULT_DATALENGTH \
     { 4, 4, 4 }
+#define DEFAULT_TAG_TYPE \
+    { TSDB_DATA_TYPE_INT, TSDB_DATA_TYPE_BINARY }
+#define DEFAULT_TAGTYPE \
+    { "INT", "BINARY"}
 #define DEFAULT_BINWIDTH 64
 #define DEFAULT_COL_COUNT 4
 #define DEFAULT_LEN_ONE_ROW 76
@@ -319,9 +323,10 @@ typedef struct SArguments_S {
     bool     performance_print;
     char *   output_file;
     bool     async_mode;
-    char     data_type[MAX_NUM_COLUMNS + 1];
-    char *   dataType[MAX_NUM_COLUMNS + 1];
-    int32_t  data_length[MAX_NUM_COLUMNS + 1];
+    char     col_type[MAX_NUM_COLUMNS];
+    char *colType[MAX_NUM_COLUMNS];
+    char     tag_type[TSDB_MAX_TAGS];
+    char *tagType[TSDB_MAX_TAGS];
     uint32_t binwidth;
     uint32_t columnCount;
     uint64_t lenOfOneRow;

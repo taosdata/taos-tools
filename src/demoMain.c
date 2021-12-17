@@ -46,9 +46,10 @@ SArguments g_args = {
     DEFAULT_ANS_YES,           // answer_yes;
     DEFAULT_OUTPUT,            // output_file
     DEFAULT_SYNC_MODE,         // mode : sync or async
-    DEFAULT_DATA_TYPE,         // data_type
-    DEFAULT_DATATYPE,          // dataType
-    DEFAULT_DATALENGTH,        // data_length
+    DEFAULT_COL_TYPE,         // col_type
+    DEFAULT_COLTYPE,          // colType
+    DEFAULT_TAG_TYPE,         // tag_type
+    DEFAULT_TAGTYPE,          // tagType
     DEFAULT_BINWIDTH,          // binwidth
     DEFAULT_COL_COUNT,         // columnCount, timestamp + float + int + float
     DEFAULT_LEN_ONE_ROW,       // lenOfOneRow
