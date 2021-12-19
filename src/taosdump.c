@@ -849,7 +849,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static void freeTbDes(TableDef *tableDes)
 {
-    for (int i = 0; i < TSDB_MAX_COLUMNS; i ++) {
+    for (int i = 0; i < (tableDes->columns+tableDes->tags); i ++) {
         if (tableDes->cols[i].var_value) {
             free(tableDes->cols[i].var_value);
         }
@@ -1444,7 +1444,12 @@ static int getTableDes(
                         strcpy(tableDes->cols[i].value,
                                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
                     } else {
+                        if (tableDes->cols[i].var_value) {
+                            free(tableDes->cols[i].var_value);
+                            tableDes->cols[i].var_value = NULL;
+                        }
                         tableDes->cols[i].var_value = calloc(1, len + 1);
+
                         if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
                                     __func__, __LINE__);
@@ -1463,7 +1468,12 @@ static int getTableDes(
                                 tableDes->cols[i].value,
                                 len);
                     } else {
+                        if (tableDes->cols[i].var_value) {
+                            free(tableDes->cols[i].var_value);
+                            tableDes->cols[i].var_value = NULL;
+                        }
                         tableDes->cols[i].var_value = calloc(1, len * 2);
+
                         if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
                                     __func__, __LINE__);
@@ -1488,6 +1498,7 @@ static int getTableDes(
                                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
                     } else {
                         tableDes->cols[i].var_value = calloc(1, nlen + 1);
+
                         if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
                                     __func__, __LINE__);
@@ -1506,8 +1517,13 @@ static int getTableDes(
                                 length[0], tbuf, COL_VALUEBUF_LEN-2);
                         sprintf(tableDes->cols[i].value, "%s", tbuf);
                     } else {
+                        if (tableDes->cols[i].var_value) {
+                            free(tableDes->cols[i].var_value);
+                            tableDes->cols[i].var_value = NULL;
+                        }
                         tableDes->cols[i].var_value = calloc(1, nlen * 5);
-                        if (tableDes->cols[i].var_value == NULL) {
+
+                        if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
                                     __func__, __LINE__);
                             taos_free_result(res);
@@ -3155,13 +3171,17 @@ static int dumpInAvroNtbImpl(TAOS *taos,
     return success;
 }
 
-static int dumpInAvroDataImpl(TAOS *taos,
+static int dumpInAvroDataImpl(
+        TAOS *taos,
         TAOS_STMT *stmt,
         char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
         RecordSchema *recordSchema)
 {
+    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+    assert(tableDes);
 
     char *stmtBuffer = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     assert(stmtBuffer);
@@ -3223,6 +3243,12 @@ static int dumpInAvroDataImpl(TAOS *taos,
         }
         free(escapedTbName);
 
+        if ((NULL == tableDes->name)
+                || (0 != strcmp(tableDes->name, tbName))) {
+            getTableDes(taos, namespace,
+                tbName, tableDes, true);
+        }
+
         printDotOrX(count, &printDot);
         count++;
 
@@ -3255,7 +3281,7 @@ static int dumpInAvroDataImpl(TAOS *taos,
                 bind->length = &bind->buffer_length;
             } else if (0 == avro_value_get_by_name(
                         &value, field->name, &field_value, NULL)) {
-                switch(field->type) {
+                switch(tableDes->cols[i].type) {
                     case TSDB_DATA_TYPE_INT:
                         {
                             int32_t *n32 = malloc(sizeof(int32_t));
@@ -3535,7 +3561,7 @@ static int dumpInAvroDataImpl(TAOS *taos,
                         break;
                 }
 
-                bind->buffer_type = field->type;
+                bind->buffer_type = tableDes->cols[i].type;
                 bind->length = &bind->buffer_length;
             }
         }
@@ -3584,6 +3610,7 @@ static int dumpInAvroDataImpl(TAOS *taos,
     tfree(bindArray);
 
     tfree(stmtBuffer);
+    freeTbDes(tableDes);
 
     if (failed)
         return failed;
@@ -4307,11 +4334,14 @@ static int createMTableAvroHead(
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
+        tfree(jsonTagsSchema);
+        freeTbDes(tableDes);
         return -1;
     }
 
     TAOS_ROW row = NULL;
     int64_t ntbCount = 0;
+
     while((row = taos_fetch_row(res)) != NULL) {
         if (specifiedTb) {
             if(0 != strcmp(specifiedTb,
@@ -4321,10 +4351,6 @@ static int createMTableAvroHead(
         }
         debugPrint("sub table %"PRId64": name: %s\n",
                 ++ntbCount, (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
-        TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
-            + sizeof(ColDes) * colCount);
-        assert(subTableDes);
-
         avro_value_t record;
         avro_generic_value_new(wface, &record);
 
@@ -4351,9 +4377,13 @@ static int createMTableAvroHead(
         avro_value_set_string(&branch,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
 
+        TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
+                + sizeof(ColDes) * colCount);
+        assert(subTableDes);
+
         getTableDes(taos, dbName,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                subTableDes, false);
+                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                    subTableDes, false);
 
         for (int tag = 0; tag < subTableDes->tags; tag ++) {
             debugPrint("sub table %s no. %d tags is %s, type is %d, value is %s\n",
@@ -4480,10 +4510,15 @@ static int createMTableAvroHead(
                     } else {
                         avro_value_set_branch(&value, 1, &branch);
                         if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                            avro_value_set_bytes(&branch,
+                            size_t nlen = strlen(subTableDes->cols[subTableDes->columns + tag].var_value);
+                            char *bytes = malloc(nlen+1);
+                            assert(bytes);
+
+                            strncpy(bytes,
                                     subTableDes->cols[subTableDes->columns + tag].var_value,
-                                    strlen(subTableDes->cols[subTableDes->columns + tag].var_value)
-                                    );
+                                    nlen);
+                            avro_value_set_bytes(&branch, bytes, nlen);
+                            free(bytes);
                         } else {
                             avro_value_set_bytes(&branch,
                                     subTableDes->cols[subTableDes->columns + tag].value,
@@ -4517,7 +4552,7 @@ static int createMTableAvroHead(
         }
         avro_value_decref(&record);
 
-        free(subTableDes);
+        freeTbDes(subTableDes);
 
         if (specifiedTb) {
             break;
