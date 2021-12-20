@@ -1209,7 +1209,7 @@ static int32_t generateDataTailWithoutStb(
         int64_t retLen = 0;
 
         char *   data_type = g_args.col_type;
-        int32_t data_length[3] = DEFAULT_DATALENGTH;
+        int32_t *data_length = g_args.col_length;
 
         if (g_args.disorderRatio) {
             retLen =

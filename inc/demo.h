@@ -152,12 +152,14 @@ extern char configDir[];
     { TSDB_DATA_TYPE_FLOAT, TSDB_DATA_TYPE_INT, TSDB_DATA_TYPE_FLOAT }
 #define DEFAULT_COLTYPE \
     { "FLOAT", "INT", "FLOAT" }
-#define DEFAULT_DATALENGTH \
+#define DEFAULT_COLLENGTH \
     { 4, 4, 4 }
+#define DEFAULT_TAGLENGTH \
+    { 4, 16 }
 #define DEFAULT_TAG_TYPE \
     { TSDB_DATA_TYPE_INT, TSDB_DATA_TYPE_BINARY }
 #define DEFAULT_TAGTYPE \
-    { "INT", "BINARY"}
+    { "INT", "BINARY" }
 #define DEFAULT_BINWIDTH 64
 #define DEFAULT_COL_COUNT 4
 #define DEFAULT_LEN_ONE_ROW 76
@@ -324,9 +326,11 @@ typedef struct SArguments_S {
     char *   output_file;
     bool     async_mode;
     char     col_type[MAX_NUM_COLUMNS];
-    char *colType[MAX_NUM_COLUMNS];
+    char *   colType[MAX_NUM_COLUMNS];
+    int32_t  col_length[MAX_NUM_COLUMNS];
     char     tag_type[TSDB_MAX_TAGS];
-    char *tagType[TSDB_MAX_TAGS];
+    char *   tagType[TSDB_MAX_TAGS];
+    int32_t  tag_length[TSDB_MAX_TAGS];
     uint32_t binwidth;
     uint32_t columnCount;
     uint64_t lenOfOneRow;
@@ -616,6 +620,9 @@ extern bool           g_fail;
 /* ************ Function declares ************  */
 /* demoCommandOpt.c */
 int  parse_args(int argc, char *argv[], SArguments *pg_args);
+int  count_datatype(char *dataType, int32_t *number);
+int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
+                    bool is_tag);
 void setParaFromArg(SArguments *pg_args);
 int  querySqlFile(TAOS *taos, char *sqlFile);
 int  testCmdLine(SArguments *pg_args);

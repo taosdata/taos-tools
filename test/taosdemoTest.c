@@ -20,91 +20,75 @@
 #include "demo.h"
 #include "demoData.h"
 
-/* Pointer to the file used by the tests. */
-static FILE* temp_file = NULL;
+int init_suite1(void) { return 0; }
 
-/* The suite initialization function.
- * Opens the temporary file used by the tests.
- * Returns zero on success, non-zero otherwise.
- */
-int init_suite1(void)
-{
-    if (NULL == (temp_file = fopen("temp.txt", "w+"))) {
-        return -1;
-    }
-    else {
-        return 0;
-    }
-}
+int clean_suite1(void) { return 0; }
 
-/* The suite cleanup function.
- * Closes the temporary file used by the tests.
- * Returns zero on success, non-zero otherwise.
- */
-int clean_suite1(void)
-{
-    if (0 != fclose(temp_file)) {
-        return -1;
-    }
-    else {
-        temp_file = NULL;
-        return 0;
-    }
-}
-
-/* Simple test of fprintf().
- * Writes test data to the temporary file and checks
- * whether the expected number of bytes were written.
- */
-void testFPRINTF(void)
-{
-    int i1 = 10;
-
-    if (NULL != temp_file) {
-        CU_ASSERT(2 == fprintf(temp_file, "Q\n"));
-        CU_ASSERT(7 == fprintf(temp_file, "i1 = %d", i1));
-    }
-}
-
-/* Simple test of fread().
- * Reads the data previously written by testFPRINTF()
- * and checks whether the expected characters are present.
- * Must be run after testFPRINTF().
- */
-void testFREAD(void)
-{
-    unsigned char buffer[20];
-
-    if (NULL != temp_file) {
-        rewind(temp_file);
-        CU_ASSERT(9 == fread(buffer, sizeof(unsigned char), 20, temp_file));
-    }
+void testPARSEDATATYPE(void) {
+    int32_t* data_length;
+    int32_t  number = 0;
+    char*    data_type;
+    char*    dataType = "json";
+    CU_ASSERT_EQUAL(count_datatype(dataType, &number), 0);
+    CU_ASSERT_EQUAL(number, 1);
+    data_length = calloc(number, sizeof(int32_t));
+    data_type = calloc(number, sizeof(char));
+    CU_ASSERT_EQUAL(parse_datatype(dataType, data_type, data_length, true), 0);
+    CU_ASSERT_EQUAL(data_type[0], TSDB_DATA_TYPE_JSON);
+    CU_ASSERT_EQUAL(data_length[0], DEFAULT_BINWIDTH);
+    tmfree(data_length);
+    tmfree(data_type);
+    data_length = calloc(number, sizeof(int32_t));
+    data_type = calloc(number, sizeof(char));
+    CU_ASSERT_EQUAL(parse_datatype(dataType, data_type, data_length, false),
+                    -1);
+    tmfree(data_length);
+    tmfree(data_type);
+    dataType = "int,nchar(16),BINARY";
+    CU_ASSERT_EQUAL(count_datatype(dataType, &number), 0);
+    CU_ASSERT_EQUAL(number, 3);
+    data_length = calloc(number, sizeof(int32_t));
+    data_type = calloc(number, sizeof(char));
+    CU_ASSERT_EQUAL(parse_datatype(dataType, data_type, data_length, true), 0);
+    CU_ASSERT_EQUAL(data_type[0], TSDB_DATA_TYPE_INT);
+    CU_ASSERT_EQUAL(data_length[0], sizeof(int32_t));
+    CU_ASSERT_EQUAL(data_type[1], TSDB_DATA_TYPE_NCHAR);
+    CU_ASSERT_EQUAL(data_length[1], 16);
+    CU_ASSERT_EQUAL(data_type[2], TSDB_DATA_TYPE_BINARY);
+    CU_ASSERT_EQUAL(data_length[2], DEFAULT_BINWIDTH);
+    tmfree(data_length);
+    tmfree(data_type);
+    dataType = "int,nchar(16),BINARY,json";
+    CU_ASSERT_EQUAL(count_datatype(dataType, &number), 0);
+    CU_ASSERT_EQUAL(number, 4);
+    data_length = calloc(number, sizeof(int32_t));
+    data_type = calloc(number, sizeof(char));
+    CU_ASSERT_EQUAL(parse_datatype(dataType, data_type, data_length, true), -1);
+    tmfree(data_length);
+    tmfree(data_type);
 }
 
 /* The main() function for setting up and running the tests.
  * Returns a CUE_SUCCESS on successful running, another
  * CUnit error code on failure.
  */
-int main()
-{
-    CU_pSuite pSuite = NULL;
+int main() {
+    CU_pSuite demoCommandSuite = NULL;
 
     /* initialize the CUnit test registry */
-    if (CUE_SUCCESS != CU_initialize_registry())
-        return CU_get_error();
+    if (CUE_SUCCESS != CU_initialize_registry()) return CU_get_error();
 
     /* add a suite to the registry */
-    pSuite = CU_add_suite("Suite_1", init_suite1, clean_suite1);
-    if (NULL == pSuite) {
+    demoCommandSuite =
+        CU_add_suite("demoCommandOpt.c", init_suite1, clean_suite1);
+    if (NULL == demoCommandSuite) {
         CU_cleanup_registry();
         return CU_get_error();
     }
 
     /* add the tests to the suite */
-    /* NOTE - ORDER IS IMPORTANT - MUST TEST fread() AFTER fprintf() */
-    if ((NULL == CU_add_test(pSuite, "test of fprintf()", testFPRINTF)) ||
-        (NULL == CU_add_test(pSuite, "test of fread()", testFREAD)))
-    {
+    if ((NULL == CU_add_test(demoCommandSuite, "parse_datatype()",
+                             testPARSEDATATYPE))) {
         CU_cleanup_registry();
         return CU_get_error();
     }
@@ -115,4 +99,3 @@ int main()
     CU_cleanup_registry();
     return CU_get_error();
 }
-
