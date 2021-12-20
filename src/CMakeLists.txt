@@ -108,10 +108,10 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/cJsonDemo/src)
 
 IF (${BUILD_TYPE} MATCHES "Debug")
     MESSAGE("${Yellow} DEBUG mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-std=c99 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0")
+    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0")
 ELSE ()
     MESSAGE("${Green} RELEASE mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-std=c99 -DRELEASE")
+    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -DRELEASE")
 ENDIF ()
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
