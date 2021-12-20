@@ -1330,7 +1330,7 @@ static int getTableDes(
         taos_free_result(res);
         return -1;
     } else {
-        okPrint("%s() LN%d, run command <%s> success, taos: %p\n",
+        debugPrint("%s() LN%d, run command <%s> success, taos: %p\n",
                 __func__, __LINE__, sqlstr, taos);
     }
 
