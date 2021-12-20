@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Debug
+  PR_NUMBER: ${{ github.event.number }}
 
 jobs:
   build:
@@ -26,8 +27,14 @@ jobs:
           path: 'TDengine'
           ref: 'develop'
 
+      - name: Checkout taos-tools
+        run: |
+          cd TDengine/src/kit/taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
       - name: Install tdengine
-        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false && make && sudo make install
+        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true && make && sudo make install
 
       - name: Start tdengine
         run: nohup sudo taosd &
@@ -43,5 +50,10 @@ jobs:
       - name: Build
         run: cd taos-tools && cmake --build ./build
 
-      - name: Test
+      - name: Unit Test
         run: cd taos-tools/build && ctest --verbose
+
+      - name: Func Test
+        run: |
+          cd TDengine/tests/pytest
+          python3 ./test.py -f tools/taosdumpTest.py
