@@ -23,6 +23,7 @@ jobs:
       - name: Checkout tdengine
         uses: actions/checkout@v2
         with:
+          submodules: 'true'
           repository: 'taosdata/TDengine'
           path: 'TDengine'
           ref: 'develop'
