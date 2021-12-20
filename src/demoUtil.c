@@ -640,3 +640,77 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     }
     free(databuf);
 }
+
+char *taos_convert_datatype_to_string(int type) {
+    switch (type) {
+        case TSDB_DATA_TYPE_BINARY:
+            return "binary";
+        case TSDB_DATA_TYPE_NCHAR:
+            return "nchar";
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            return "timestamp";
+        case TSDB_DATA_TYPE_TINYINT:
+            return "tinyiny";
+        case TSDB_DATA_TYPE_UTINYINT:
+            return "unsigned tinyint";
+        case TSDB_DATA_TYPE_SMALLINT:
+            return "smallint";
+        case TSDB_DATA_TYPE_USMALLINT:
+            return "unsigned smallint";
+        case TSDB_DATA_TYPE_INT:
+            return "int";
+        case TSDB_DATA_TYPE_UINT:
+            return "unsigned int";
+        case TSDB_DATA_TYPE_BIGINT:
+            return "bigint";
+        case TSDB_DATA_TYPE_UBIGINT:
+            return "unsigned bigint";
+        case TSDB_DATA_TYPE_BOOL:
+            return "bool";
+        case TSDB_DATA_TYPE_FLOAT:
+            return "float";
+        case TSDB_DATA_TYPE_DOUBLE:
+            return "double";
+        case TSDB_DATA_TYPE_JSON:
+            return "json";
+        default:
+            break;
+    }
+    return "unknown type";
+}
+
+int taos_convert_string_to_datatype(char *type) {
+    if (strcasecmp(type, "binary")) {
+        return TSDB_DATA_TYPE_BINARY;
+    } else if (strcasecmp(type, "nchar")) {
+        return TSDB_DATA_TYPE_NCHAR;
+    } else if (strcasecmp(type, "timestamp")) {
+        return TSDB_DATA_TYPE_TIMESTAMP;
+    } else if (strcasecmp(type, "bool")) {
+        return TSDB_DATA_TYPE_BOOL;
+    } else if (strcasecmp(type, "tinyint")) {
+        return TSDB_DATA_TYPE_TINYINT;
+    } else if (strcasecmp(type, "utinyint")) {
+        return TSDB_DATA_TYPE_UTINYINT;
+    } else if (strcasecmp(type, "smallint")) {
+        return TSDB_DATA_TYPE_SMALLINT;
+    } else if (strcasecmp(type, "usmallint")) {
+        return TSDB_DATA_TYPE_USMALLINT;
+    } else if (strcasecmp(type, "int")) {
+        return TSDB_DATA_TYPE_INT;
+    } else if (strcasecmp(type, "uint")) {
+        return TSDB_DATA_TYPE_UINT;
+    } else if (strcasecmp(type, "bigint")) {
+        return TSDB_DATA_TYPE_BIGINT;
+    } else if (strcasecmp(type, "ubigint")) {
+        return TSDB_DATA_TYPE_UBIGINT;
+    } else if (strcasecmp(type, "float")) {
+        return TSDB_DATA_TYPE_FLOAT;
+    } else if (strcasecmp(type, "double")) {
+        return TSDB_DATA_TYPE_DOUBLE;
+    } else if (strcasecmp(type, "json")) {
+        return TSDB_DATA_TYPE_JSON;
+    } else {
+        return TSDB_DATA_TYPE_NULL;
+    }
+}

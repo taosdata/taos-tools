@@ -130,11 +130,9 @@ extern char configDir[];
 #define DEFAULT_DATATYPE_NUM 1
 #define DEFAULT_CHILDTABLES 10000
 #define DEFAULT_TEST_MODE 0
-#define DEFAULT_METAFILE NULL
-#define DEFAULT_SQLFILE NULL
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 6030
-#define DEFAULT_IFACE INTERFACE_BUT
+#define DEFAULT_IFACE 0
 #define DEFAULT_DATABASE "test"
 #define DEFAULT_REPLICA 1
 #define DEFAULT_TB_PREFIX "d"
@@ -147,33 +145,14 @@ extern char configDir[];
 #define DEFAULT_PERF_STAT false
 #define DEFAULT_ANS_YES false
 #define DEFAULT_OUTPUT "./output.txt"
-#define DEFAULT_SYNC_MODE 0
-#define DEFAULT_COL_TYPE \
-    { TSDB_DATA_TYPE_FLOAT, TSDB_DATA_TYPE_INT, TSDB_DATA_TYPE_FLOAT }
-#define DEFAULT_COLTYPE \
-    { "FLOAT", "INT", "FLOAT" }
-#define DEFAULT_COLLENGTH \
-    { 4, 4, 4 }
-#define DEFAULT_TAGLENGTH \
-    { 4, 16 }
-#define DEFAULT_TAG_TYPE \
-    { TSDB_DATA_TYPE_INT, TSDB_DATA_TYPE_BINARY }
-#define DEFAULT_TAGTYPE \
-    { "INT", "BINARY" }
 #define DEFAULT_BINWIDTH 64
-#define DEFAULT_COL_COUNT 4
-#define DEFAULT_LEN_ONE_ROW 76
 #define DEFAULT_INSERT_INTERVAL 0
 #define DEFAULT_QUERY_TIME 1
 #define DEFAULT_PREPARED_RAND 10000
 #define DEFAULT_REQ_PER_REQ 30000
 #define DEFAULT_INSERT_ROWS 10000
-#define DEFAULT_ABORT 0
 #define DEFAULT_RATIO 0
 #define DEFAULT_DISORDER_RANGE 1000
-#define DEFAULT_METHOD_DEL 1
-#define DEFAULT_TOTAL_INSERT 0
-#define DEFAULT_TOTAL_AFFECT 0
 #define DEFAULT_DEMO_MODE true
 #define DEFAULT_CHINESE_OPT false
 #define DEFAULT_PRESSURE_MODE false
@@ -310,7 +289,7 @@ typedef struct SArguments_S {
     uint16_t port;
     uint16_t iface;
     char *   user;
-    char     password[SHELL_MAX_PASSWORD_LEN];
+    char *   password;
     char *   database;
     int      replica;
     char *   tb_prefix;
@@ -324,15 +303,13 @@ typedef struct SArguments_S {
     bool     verbose_print;
     bool     performance_print;
     char *   output_file;
-    bool     async_mode;
-    char     col_type[MAX_NUM_COLUMNS];
-    char *   colType[MAX_NUM_COLUMNS];
-    int32_t  col_length[MAX_NUM_COLUMNS];
-    char     tag_type[TSDB_MAX_TAGS];
-    char *   tagType[TSDB_MAX_TAGS];
-    int32_t  tag_length[TSDB_MAX_TAGS];
+    char *   col_type;
+    int32_t *col_length;
+    char *   tag_type;
+    int32_t *tag_length;
     uint32_t binwidth;
     uint32_t columnCount;
+    uint32_t tagCount;
     uint64_t lenOfOneRow;
     uint32_t nthreads;
     uint64_t insert_interval;
@@ -341,27 +318,16 @@ typedef struct SArguments_S {
     int64_t  prepared_rand;
     uint32_t interlaceRows;
     uint32_t reqPerReq;  // num_of_records_per_req
-    uint64_t max_sql_len;
     int64_t  ntables;
     int64_t  insertRows;
-    int      abort;
     uint32_t disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
-    uint32_t method_of_delete;
     uint64_t totalInsertRows;
     uint64_t totalAffectedRows;
     bool     demo_mode;  // use default column name and semi-random data
     bool     chinese;
     bool     pressure_mode;
 } SArguments;
-
-typedef struct SColumn_S {
-    char     field[TSDB_COL_NAME_LEN];
-    char     data_type;
-    char     dataType[DATATYPE_BUFF_LEN];
-    uint32_t dataLen;
-    char     note[NOTE_BUFF_LEN];
-} StrColumn;
 
 typedef struct SSuperTable_S {
     char     stbName[TSDB_TABLE_NAME_LEN];
@@ -381,7 +347,6 @@ typedef struct SSuperTable_S {
     uint32_t interlaceRows;  //
     int      disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
-    uint64_t maxSqlLen;      //
 
     uint64_t insertInterval;  // insert interval, will override global insert
                               // interval
@@ -393,11 +358,12 @@ typedef struct SSuperTable_S {
     char    sampleFile[MAX_FILE_NAME_LEN];
     char    tagsFile[MAX_FILE_NAME_LEN];
 
-    uint32_t  columnCount;
-    StrColumn columns[TSDB_MAX_COLUMNS];
-    uint32_t  tagCount;
-    StrColumn tags[TSDB_MAX_TAGS];
-
+    uint32_t columnCount;
+    char *   col_type;
+    int32_t *col_length;
+    uint32_t tagCount;
+    char *   tag_type;
+    int32_t *tag_length;
     char *   childTblName;
     bool     escapeChar;
     char *   colsOfCreateChildTable;
@@ -626,6 +592,7 @@ int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
 void setParaFromArg(SArguments *pg_args);
 int  querySqlFile(TAOS *taos, char *sqlFile);
 int  testCmdLine(SArguments *pg_args);
+void init_g_args(SArguments *pg_args);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file);
 int testMetaFile();
@@ -640,6 +607,8 @@ int64_t taosGetSelfPthreadId();
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
+char *  taos_convert_datatype_to_string(int type);
+int     taos_convert_string_to_datatype(char *type);
 int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
@@ -673,8 +642,7 @@ int  insertTestProcess();
 void postFreeResource();
 /* demoOutput.c */
 void printVersion();
-void printfInsertMeta();
-void printfInsertMetaToFile(FILE *fp);
+void printfInsertMetaToFileStream(FILE *fp);
 void printStatPerThread(threadInfo *pThreadInfo);
 void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo);
 void printfQueryMeta();

@@ -21,29 +21,29 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
     // columns
     cJSON *columns = cJSON_GetObjectItem(stbInfo, "columns");
-    if (columns && columns->type != cJSON_Array) {
+    if (!columns || columns->type != cJSON_Array) {
         errorPrint("%s", "failed to read json, columns not found\n");
         goto PARSE_OVER;
-    } else if (NULL == columns) {
-        superTbls->columnCount = 0;
-        superTbls->tagCount = 0;
-        return 0;
     }
 
     int columnSize = cJSON_GetArraySize(columns);
-    if ((columnSize + 1 /* ts */) > TSDB_MAX_COLUMNS) {
-        errorPrint(
-            "failed to read json, column size overflow, max column size is "
-            "%d\n",
-            TSDB_MAX_COLUMNS);
-        goto PARSE_OVER;
+
+    int count = 1;
+    int index = 0;
+    int col_count = 0;
+    for (int k = 0; k < columnSize; ++k) {
+        cJSON *column = cJSON_GetArrayItem(columns, k);
+        if (column == NULL) continue;
+        cJSON *countObj = cJSON_GetObjectItem(column, "count");
+        if (countObj && countObj->type == cJSON_Number &&
+            (int)countObj->valueint != 0) {
+            col_count += (int)countObj->valueint;
+        } else {
+            col_count++;
+        }
     }
-
-    int       count = 1;
-    int       index = 0;
-    StrColumn columnCase;
-
-    // superTbls->columnCount = columnSize;
+    superTbls->col_type = (char *)calloc(col_count, sizeof(char));
+    superTbls->col_length = (int32_t *)calloc(col_count, sizeof(int32_t));
     for (int k = 0; k < columnSize; ++k) {
         cJSON *column = cJSON_GetArrayItem(columns, k);
         if (column == NULL) continue;
@@ -60,34 +60,29 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
 
         // column info
-        memset(&columnCase, 0, sizeof(StrColumn));
         cJSON *dataType = cJSON_GetObjectItem(column, "type");
         if (!dataType || dataType->type != cJSON_String ||
             dataType->valuestring == NULL) {
             errorPrint("%s", "failed to read json, column type not found\n");
             goto PARSE_OVER;
         }
-        // tstrncpy(superTbls->columns[k].colType, colType->valuestring,
-        // DATATYPE_BUFF_LEN);
-        tstrncpy(columnCase.dataType, dataType->valuestring,
-                 min(DATATYPE_BUFF_LEN, strlen(dataType->valuestring) + 1));
 
-        cJSON *dataLen = cJSON_GetObjectItem(column, "len");
+        cJSON * dataLen = cJSON_GetObjectItem(column, "len");
+        int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
-            columnCase.dataLen = (uint32_t)dataLen->valueint;
+            length = (int32_t)dataLen->valueint;
         } else if (dataLen && dataLen->type != cJSON_Number) {
             errorPrint("%s() LN%d: failed to read json, column len not found\n",
                        __func__, __LINE__);
             goto PARSE_OVER;
         } else {
-            columnCase.dataLen = SMALL_BUFF_LEN;
+            length = SMALL_BUFF_LEN;
         }
 
         for (int n = 0; n < count; ++n) {
-            tstrncpy(superTbls->columns[index].dataType, columnCase.dataType,
-                     min(DATATYPE_BUFF_LEN, strlen(columnCase.dataType) + 1));
-
-            superTbls->columns[index].dataLen = columnCase.dataLen;
+            superTbls->col_type[index] =
+                taos_convert_string_to_datatype(dataType->valuestring);
+            superTbls->col_length[index] = length;
             index++;
         }
     }
@@ -102,54 +97,6 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
     superTbls->columnCount = index;
 
-    for (int c = 0; c < superTbls->columnCount; c++) {
-        if (0 ==
-            strncasecmp(superTbls->columns[c].dataType, "INT", strlen("INT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_INT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "TINYINT",
-                                    strlen("TINYINT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_TINYINT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "SMALLINT",
-                                    strlen("SMALLINT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_SMALLINT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "BIGINT",
-                                    strlen("BIGINT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_BIGINT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "FLOAT",
-                                    strlen("FLOAT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_FLOAT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "DOUBLE",
-                                    strlen("DOUBLE"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_DOUBLE;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "BINARY",
-                                    strlen("BINARY"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "NCHAR",
-                                    strlen("NCHAR"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_NCHAR;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "BOOL",
-                                    strlen("BOOL"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_BOOL;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "TIMESTAMP",
-                                    strlen("TIMESTAMP"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_TIMESTAMP;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "UTINYINT",
-                                    strlen("UTINYINT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_UTINYINT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "USMALLINT",
-                                    strlen("USMALLINT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_USMALLINT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "UINT",
-                                    strlen("UINT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_UINT;
-        } else if (0 == strncasecmp(superTbls->columns[c].dataType, "UBIGINT",
-                                    strlen("UBIGINT"))) {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_UBIGINT;
-        } else {
-            superTbls->columns[c].data_type = TSDB_DATA_TYPE_NULL;
-        }
-    }
-
     count = 1;
     index = 0;
     // tags
@@ -158,14 +105,25 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         errorPrint("%s", "failed to read json, tags not found\n");
         goto PARSE_OVER;
     }
-
+    int tag_count = 0;
     int tagSize = cJSON_GetArraySize(tags);
-    if (tagSize > TSDB_MAX_TAGS) {
-        errorPrint(
-            "failed to read json, tags size overflow, max tag size is %d\n",
-            TSDB_MAX_TAGS);
-        goto PARSE_OVER;
+
+    for (int k = 0; k < tagSize; ++k) {
+        cJSON *tag = cJSON_GetArrayItem(tags, k);
+        cJSON *countObj = cJSON_GetObjectItem(tag, "count");
+        if (countObj && countObj->type == cJSON_Number &&
+            (int)countObj->valueint != 0) {
+            tag_count += (int)countObj->valueint;
+        } else if (countObj && countObj->type != cJSON_Number) {
+            errorPrint("%s", "failed to read json, column count not found\n");
+            goto PARSE_OVER;
+        } else {
+            tag_count += 1;
+        }
     }
+
+    superTbls->tag_type = calloc(tag_count, sizeof(char));
+    superTbls->tag_length = calloc(tag_count, sizeof(int32_t));
 
     // superTbls->tagCount = tagSize;
     for (int k = 0; k < tagSize; ++k) {
@@ -199,69 +157,17 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         if ((tagSize == 1) &&
             (0 == strcasecmp(dataType->valuestring, "JSON"))) {
-            tstrncpy(superTbls->tags[0].dataType, dataType->valuestring,
-                     min(DATATYPE_BUFF_LEN, strlen(dataType->valuestring) + 1));
-            superTbls->tags[0].dataLen = data_length;
+            superTbls->tag_type[0] = TSDB_DATA_TYPE_JSON;
+            superTbls->tag_length[0] = data_length;
             superTbls->tagCount = count;
             code = 0;
             goto PARSE_OVER;
         }
 
         for (int n = 0; n < count; ++n) {
-            tstrncpy(superTbls->tags[index].dataType, dataType->valuestring,
-                     min(DATATYPE_BUFF_LEN, strlen(dataType->valuestring) + 1));
-            superTbls->tags[index].dataLen = data_length;
-            if (0 == strncasecmp(superTbls->tags[index].dataType, "INT",
-                                 strlen("INT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_INT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "TINYINT", strlen("TINYINT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_TINYINT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "SMALLINT", strlen("SMALLINT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_SMALLINT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "BIGINT", strlen("BIGINT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_BIGINT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "FLOAT", strlen("FLOAT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_FLOAT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "DOUBLE", strlen("DOUBLE"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_DOUBLE;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "BINARY", strlen("BINARY"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_BINARY;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "NCHAR", strlen("NCHAR"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_NCHAR;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType, "BOOL",
-                                        strlen("BOOL"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_BOOL;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "TIMESTAMP", strlen("TIMESTAMP"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_TIMESTAMP;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "UTINYINT", strlen("UTINYINT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_UTINYINT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "USMALLINT", strlen("USMALLINT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_USMALLINT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType, "UINT",
-                                        strlen("UINT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_UINT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType,
-                                        "UBIGINT", strlen("UBIGINT"))) {
-                superTbls->tags[index].data_type = TSDB_DATA_TYPE_UBIGINT;
-            } else if (0 == strncasecmp(superTbls->tags[index].dataType, "JSON",
-                                        strlen("JSON"))) {
-                errorPrint("%s", "Json tag type only support one tag\n");
-                goto PARSE_OVER;
-            } else {
-                errorPrint("Unsupported data type (%s)\n",
-                           superTbls->tags[index].dataType);
-                goto PARSE_OVER;
-            }
+            superTbls->tag_type[index] =
+                taos_convert_string_to_datatype(dataType->valuestring);
+            superTbls->tag_length[index] = data_length;
             index++;
         }
     }
@@ -388,24 +294,6 @@ int getMetaFromInsertJsonFile(cJSON *root) {
                                      // num_of_records_per_req
     } else {
         errorPrint("%s", "failed to read json, interlaceRows input mistake\n");
-        goto PARSE_OVER;
-    }
-
-    cJSON *maxSqlLen = cJSON_GetObjectItem(root, "max_sql_len");
-    if (maxSqlLen && maxSqlLen->type == cJSON_Number) {
-        if (maxSqlLen->valueint < 0) {
-            errorPrint(
-                "%s() LN%d, failed to read json, max_sql_len input mistake\n",
-                __func__, __LINE__);
-            goto PARSE_OVER;
-        }
-        g_args.max_sql_len = maxSqlLen->valueint;
-    } else if (!maxSqlLen) {
-        g_args.max_sql_len = TSDB_MAX_ALLOWED_SQL_LEN;
-    } else {
-        errorPrint(
-            "%s() LN%d, failed to read json, max_sql_len input mistake\n",
-            __func__, __LINE__);
         goto PARSE_OVER;
     }
 
@@ -1058,39 +946,6 @@ int getMetaFromInsertJsonFile(cJSON *root) {
                 goto PARSE_OVER;
             }
 
-            cJSON *stbMaxSqlLen = cJSON_GetObjectItem(stbInfo, "max_sql_len");
-            if (stbMaxSqlLen && stbMaxSqlLen->type == cJSON_Number) {
-                int32_t len = (int32_t)stbMaxSqlLen->valueint;
-                if (len > TSDB_MAX_ALLOWED_SQL_LEN) {
-                    len = TSDB_MAX_ALLOWED_SQL_LEN;
-                } else if (len < 5) {
-                    len = 5;
-                }
-                g_Dbs.db[i].superTbls[j].maxSqlLen = len;
-            } else if (!maxSqlLen) {
-                g_Dbs.db[i].superTbls[j].maxSqlLen = g_args.max_sql_len;
-            } else {
-                errorPrint("%s",
-                           "failed to read json, stbMaxSqlLen input mistake\n");
-                goto PARSE_OVER;
-            }
-            /*
-               cJSON *multiThreadWriteOneTbl =
-               cJSON_GetObjectItem(stbInfo, "multi_thread_write_one_tbl"); // no
-               , yes if (multiThreadWriteOneTbl
-               && multiThreadWriteOneTbl->type == cJSON_String
-               && multiThreadWriteOneTbl->valuestring != NULL) {
-               if (0 == strncasecmp(multiThreadWriteOneTbl->valuestring, "yes",
-               3)) { g_Dbs.db[i].superTbls[j].multiThreadWriteOneTbl = 1; } else
-               { g_Dbs.db[i].superTbls[j].multiThreadWriteOneTbl = 0;
-               }
-               } else if (!multiThreadWriteOneTbl) {
-               g_Dbs.db[i].superTbls[j].multiThreadWriteOneTbl = 0;
-               } else {
-               errorPrint("%s", "failed to read json, multiThreadWriteOneTbl not
-               found\n"); goto PARSE_OVER;
-               }
-               */
             cJSON *insertRows = cJSON_GetObjectItem(stbInfo, "insert_rows");
             if (insertRows && insertRows->type == cJSON_Number) {
                 if (insertRows->valueint < 0) {
