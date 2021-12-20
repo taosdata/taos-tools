@@ -29,7 +29,8 @@ jobs:
           path: 'TDengine'
           ref: 'develop'
 
-      - name: Checkout TDengine's taos-tools to PR number 
+      - name: Checkout TDengine's taos-tools to PR number
+        if: github.event_name == 'pull_request'
         run: |
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
