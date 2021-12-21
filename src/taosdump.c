@@ -636,6 +636,8 @@ static char *typeToStr(int type) {
             return "int unsigned";
         case TSDB_DATA_TYPE_UBIGINT:
             return "bigint unsigned";
+        case TSDB_DATA_TYPE_JSON:
+            return "JSON";
         default:
             break;
     }
@@ -676,6 +678,11 @@ static int typeStrToType(const char *type_str) {
         return TSDB_DATA_TYPE_UINT;
     } else if (0 == strcasecmp(type_str, "bigint unsigned")) {
         return TSDB_DATA_TYPE_UBIGINT;
+    } else if (0 == strcasecmp(type_str, "JSON")) {
+        return TSDB_DATA_TYPE_JSON;
+    } else {
+        errorPrint("%s() LN%d Unknown type: %s\n",
+                __func__, __LINE__, type_str);
     }
 
     return TSDB_DATA_TYPE_NULL;
@@ -1206,7 +1213,7 @@ static int dumpCreateMTableClause(
         char* dbName,
         char *stable,
         TableDef *tableDes,
-        int numOfCols,
+        int numColsAndTags,
         FILE *fp
         ) {
     int counter = 0;
@@ -1223,38 +1230,38 @@ static int dumpCreateMTableClause(
     pstr = tmpBuf;
 
     pstr += sprintf(tmpBuf,
-            "CREATE TABLE IF NOT EXISTS %s.`%s` USING %s.`%s` TAGS (",
+            "CREATE TABLE IF NOT EXISTS %s.`%s` USING %s.`%s` TAGS(",
             dbName, tableDes->name, dbName, stable);
 
-    for (; counter < numOfCols; counter++) {
+    for (; counter < numColsAndTags; counter++) {
         if (tableDes->cols[counter].note[0] != '\0') break;
     }
 
-    assert(counter < numOfCols);
+    assert(counter < numColsAndTags);
     count_temp = counter;
 
-    for (; counter < numOfCols; counter++) {
+    for (; counter < numColsAndTags; counter++) {
         if (counter != count_temp) {
             if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                     || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
                 //pstr += sprintf(pstr, ", \'%s\'", tableDes->cols[counter].note);
                 if (tableDes->cols[counter].var_value) {
-                    pstr += sprintf(pstr, ", \'%s\'",
+                    pstr += sprintf(pstr, ",\'%s\'",
                             tableDes->cols[counter].var_value);
                 } else {
-                    pstr += sprintf(pstr, ", \'%s\'", tableDes->cols[counter].value);
+                    pstr += sprintf(pstr, ",\'%s\'", tableDes->cols[counter].value);
                 }
             } else {
-                pstr += sprintf(pstr, ", \'%s\'", tableDes->cols[counter].value);
+                pstr += sprintf(pstr, ",\'%s\'", tableDes->cols[counter].value);
             }
         } else {
             if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                     || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
                 //pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].note);
                 if (tableDes->cols[counter].var_value) {
-                    pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].var_value);
+                    pstr += sprintf(pstr,"\'%s\'", tableDes->cols[counter].var_value);
                 } else {
-                    pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].value);
+                    pstr += sprintf(pstr,"\'%s\'", tableDes->cols[counter].value);
                 }
             } else {
                 pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].value);
@@ -1488,51 +1495,53 @@ static int getTableDes(
                 break;
 
             case TSDB_DATA_TYPE_NCHAR:
-                memset(tableDes->cols[i].value, 0,
-                        sizeof(tableDes->cols[i].note));
-                int nlen = strlen((char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+            case TSDB_DATA_TYPE_JSON:
+                {
+                    int nlen = strlen((char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
 
-                if (g_args.avro) {
-                    if (nlen < (COL_VALUEBUF_LEN - 1)) {
-                        strcpy(tableDes->cols[i].value,
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                    if (g_args.avro) {
+                        if (nlen < (COL_VALUEBUF_LEN - 1)) {
+                            strncpy(tableDes->cols[i].value,
+                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                                    nlen);
+                        } else {
+                            tableDes->cols[i].var_value = calloc(1, nlen + 1);
+
+                            if (NULL == tableDes->cols[i].var_value) {
+                                errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                        __func__, __LINE__);
+                                taos_free_result(res);
+                                return -1;
+                            }
+                            strncpy(
+                                    (char *)(tableDes->cols[i].var_value),
+                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], nlen);
+                        }
                     } else {
-                        tableDes->cols[i].var_value = calloc(1, nlen + 1);
+                        if (nlen < (COL_VALUEBUF_LEN-2)) {
+                            char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
+                            convertNCharToReadable(
+                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                                    length[0], tbuf, COL_VALUEBUF_LEN-2);
+                            sprintf(tableDes->cols[i].value, "%s", tbuf);
+                        } else {
+                            if (tableDes->cols[i].var_value) {
+                                free(tableDes->cols[i].var_value);
+                                tableDes->cols[i].var_value = NULL;
+                            }
+                            tableDes->cols[i].var_value = calloc(1, nlen * 5);
 
-                        if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory alalocation failed!\n",
-                                    __func__, __LINE__);
-                            taos_free_result(res);
-                            return -1;
+                            if (NULL == tableDes->cols[i].var_value) {
+                                errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                        __func__, __LINE__);
+                                taos_free_result(res);
+                                return -1;
+                            }
+                            converStringToReadable(
+                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                                    length[0],
+                                    (char *)(tableDes->cols[i].var_value), nlen);
                         }
-                        strncpy(
-                                (char *)(tableDes->cols[i].var_value),
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], nlen);
-                    }
-                } else {
-                    if (nlen < (COL_VALUEBUF_LEN-2)) {
-                        char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
-                        convertNCharToReadable(
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                length[0], tbuf, COL_VALUEBUF_LEN-2);
-                        sprintf(tableDes->cols[i].value, "%s", tbuf);
-                    } else {
-                        if (tableDes->cols[i].var_value) {
-                            free(tableDes->cols[i].var_value);
-                            tableDes->cols[i].var_value = NULL;
-                        }
-                        tableDes->cols[i].var_value = calloc(1, nlen * 5);
-
-                        if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory alalocation failed!\n",
-                                    __func__, __LINE__);
-                            taos_free_result(res);
-                            return -1;
-                        }
-                        converStringToReadable(
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                length[0],
-                                (char *)(tableDes->cols[i].var_value), nlen);
                     }
                 }
                 break;
@@ -1543,6 +1552,8 @@ static int getTableDes(
                 break;
 
             default:
+                errorPrint("%s() LN%d, unknown type: %d\n",
+                        __func__, __LINE__, fields[0].type);
                 break;
         }
 
@@ -1578,6 +1589,7 @@ static int convertTableDesToSql(char *dbName,
 
         if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                 || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
+            // Note no JSON allowed in column
             pstr += sprintf(pstr, "(%d)", tableDes->cols[counter].length);
         }
     }
@@ -1586,7 +1598,7 @@ static int convertTableDesToSql(char *dbName,
 
     for (; counter < (tableDes->columns + tableDes->tags); counter++) {
         if (counter == count_temp) {
-            pstr += sprintf(pstr, ") TAGS (%s %s",
+            pstr += sprintf(pstr, ") TAGS(%s %s",
                     tableDes->cols[counter].field,
                     typeToStr(tableDes->cols[counter].type));
         } else {
@@ -1597,6 +1609,7 @@ static int convertTableDesToSql(char *dbName,
 
         if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                 || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
+            // JSON tag don't need to specify length
             pstr += sprintf(pstr, "(%d)", tableDes->cols[counter].length);
         }
     }
@@ -2253,6 +2266,7 @@ static int convertTbDesToJsonImpl(
                     break;
 
                 case TSDB_DATA_TYPE_NCHAR:
+                case TSDB_DATA_TYPE_JSON:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s\",\"type\":[\"null\",\"%s\"]",
                             tableDes->cols[pos].field, "bytes");
@@ -2795,6 +2809,7 @@ static int64_t writeResultToAvro(
                     break;
 
                 case TSDB_DATA_TYPE_NCHAR:
+                case TSDB_DATA_TYPE_JSON:
                     if (NULL == row[col]) {
                         avro_value_set_branch(&value, 0, &branch);
                         avro_value_set_null(&branch);
@@ -2844,7 +2859,8 @@ void freeBindArray(char *bindArray, int elements)
     for (int j = 0; j < elements; j++) {
         bind = (TAOS_BIND *)((char *)bindArray + (sizeof(TAOS_BIND) * j));
         if ((TSDB_DATA_TYPE_BINARY != bind->buffer_type)
-                && (TSDB_DATA_TYPE_NCHAR != bind->buffer_type)) {
+                && (TSDB_DATA_TYPE_NCHAR != bind->buffer_type)
+                && (TSDB_DATA_TYPE_JSON != bind->buffer_type)) {
             tfree(bind->buffer);
         }
     }
@@ -3042,6 +3058,7 @@ static int dumpInAvroTbTagsImpl(
                             break;
 
                         case TSDB_DATA_TYPE_NCHAR:
+                        case TSDB_DATA_TYPE_JSON:
                             {
                                 size_t bytessize;
                                 void *bytesbuf= NULL;
@@ -3077,6 +3094,8 @@ static int dumpInAvroTbTagsImpl(
                             break;
 
                         default:
+                            errorPrint("%s() LN%d Unknown type: %d\n",
+                                    __func__, __LINE__, field->type);
                             break;
                     }
 
@@ -3396,6 +3415,7 @@ static int dumpInAvroDataImpl(
                         }
                         break;
 
+                    case TSDB_DATA_TYPE_JSON:
                     case TSDB_DATA_TYPE_NCHAR:
                         {
                             size_t bytessize;
@@ -4194,11 +4214,11 @@ static int64_t dumpNormalTable(
         ) {
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    int colCount = getTableDes(taos, dbName, tbName, tableDes, false);
+    int numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
 
     if (stable != NULL && stable[0] != '\0') {  // dump table schema which is created by using super table
 
-        if (colCount < 0) {
+        if (numColsAndTags < 0) {
             errorPrint("%s() LN%d, failed to get table[%s] schema\n",
                     __func__,
                     __LINE__,
@@ -4209,10 +4229,10 @@ static int64_t dumpNormalTable(
 
         // create child-table using super-table
         if (!g_args.avro) {
-            dumpCreateMTableClause(dbName, stable, tableDes, colCount, fp);
+            dumpCreateMTableClause(dbName, stable, tableDes, numColsAndTags, fp);
         }
     } else {  // dump table definition
-        if (colCount < 0) {
+        if (numColsAndTags < 0) {
             errorPrint("%s() LN%d, failed to get table[%s] schema\n",
                     __func__,
                     __LINE__,
@@ -4224,16 +4244,16 @@ static int64_t dumpNormalTable(
         // create normal-table
         if (g_args.avro) {
             assert(dumpFilename);
-            dumpCreateTableClauseAvro(dumpFilename, tableDes, colCount, dbName);
+            dumpCreateTableClauseAvro(dumpFilename, tableDes, numColsAndTags, dbName);
         } else {
-            dumpCreateTableClause(tableDes, colCount, fp, dbName);
+            dumpCreateTableClause(tableDes, numColsAndTags, fp, dbName);
         }
     }
 
     int64_t totalRows = 0;
     if (!g_args.schemaonly) {
         totalRows = dumpTableData(fp, tbName, dbName, precision,
-            colCount, tableDes);
+            numColsAndTags, tableDes);
     }
 
     freeTbDes(tableDes);
@@ -4502,6 +4522,7 @@ static int createMTableAvroHead(
                     break;
 
                 case TSDB_DATA_TYPE_NCHAR:
+                case TSDB_DATA_TYPE_JSON:
                     if (0 == strncmp(
                                 subTableDes->cols[subTableDes->columns+tag].note,
                                 "NUL", 3)) {
