@@ -391,16 +391,16 @@ void printfInsertMetaToFileStream(FILE *fp) {
 
     fprintf(fp, "host:                       \033[33m%s:%u\033[0m\n",
             g_args.host, g_args.port);
-    fprintf(fp, "user:                       \033[33m%s\033[0m\n", g_Dbs.user);
+    fprintf(fp, "user:                       \033[33m%s\033[0m\n", g_args.user);
     fprintf(fp, "password:                   \033[33m%s\033[0m\n",
             g_args.password);
     fprintf(fp, "configDir:                  \033[33m%s\033[0m\n", configDir);
     fprintf(fp, "resultFile:                 \033[33m%s\033[0m\n",
             g_args.output_file);
     fprintf(fp, "thread num of insert data:  \033[33m%d\033[0m\n",
-            g_Dbs.threadCount);
+            g_args.nthreads);
     fprintf(fp, "thread num of create table: \033[33m%d\033[0m\n",
-            g_Dbs.threadCountForCreateTbl);
+            g_args.nthreads);
     fprintf(fp, "top insert interval:        \033[33m%" PRIu64 "\033[0m\n",
             g_args.insert_interval);
     fprintf(fp, "number of records per req:  \033[33m%u\033[0m\n",
@@ -411,95 +411,94 @@ void printfInsertMetaToFileStream(FILE *fp) {
             g_args.chinese ? "yes" : "no");
 
     fprintf(fp, "database count:             \033[33m%d\033[0m\n",
-            g_Dbs.dbCount);
+            g_args.dbCount);
 
-    for (int i = 0; i < g_Dbs.dbCount; i++) {
+    for (int i = 0; i < g_args.dbCount; i++) {
         fprintf(fp, "database[\033[33m%d\033[0m]:\n", i);
         fprintf(fp, "  database[%d] name:      \033[33m%s\033[0m\n", i,
-                g_Dbs.db[i].dbName);
-        if (0 == g_Dbs.db[i].drop) {
+                db[i].dbName);
+        if (0 == db[i].drop) {
             fprintf(fp, "  drop:                 \033[33m no\033[0m\n");
         } else {
             fprintf(fp, "  drop:                 \033[33m yes\033[0m\n");
         }
 
-        if (g_Dbs.db[i].dbCfg.blocks > 0) {
+        if (db[i].dbCfg.blocks > 0) {
             fprintf(fp, "  blocks:                \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.blocks);
+                    db[i].dbCfg.blocks);
         }
-        if (g_Dbs.db[i].dbCfg.cache > 0) {
+        if (db[i].dbCfg.cache > 0) {
             fprintf(fp, "  cache:                 \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.cache);
+                    db[i].dbCfg.cache);
         }
-        if (g_Dbs.db[i].dbCfg.days > 0) {
+        if (db[i].dbCfg.days > 0) {
             fprintf(fp, "  days:                  \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.days);
+                    db[i].dbCfg.days);
         }
-        if (g_Dbs.db[i].dbCfg.keep > 0) {
+        if (db[i].dbCfg.keep > 0) {
             fprintf(fp, "  keep:                  \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.keep);
+                    db[i].dbCfg.keep);
         }
-        if (g_Dbs.db[i].dbCfg.replica > 0) {
+        if (db[i].dbCfg.replica > 0) {
             fprintf(fp, "  replica:               \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.replica);
+                    db[i].dbCfg.replica);
         }
-        if (g_Dbs.db[i].dbCfg.update > 0) {
+        if (db[i].dbCfg.update > 0) {
             fprintf(fp, "  update:                \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.update);
+                    db[i].dbCfg.update);
         }
-        if (g_Dbs.db[i].dbCfg.minRows > 0) {
+        if (db[i].dbCfg.minRows > 0) {
             fprintf(fp, "  minRows:               \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.minRows);
+                    db[i].dbCfg.minRows);
         }
-        if (g_Dbs.db[i].dbCfg.maxRows > 0) {
+        if (db[i].dbCfg.maxRows > 0) {
             fprintf(fp, "  maxRows:               \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.maxRows);
+                    db[i].dbCfg.maxRows);
         }
-        if (g_Dbs.db[i].dbCfg.comp > 0) {
+        if (db[i].dbCfg.comp > 0) {
             fprintf(fp, "  comp:                  \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.comp);
+                    db[i].dbCfg.comp);
         }
-        if (g_Dbs.db[i].dbCfg.walLevel > 0) {
+        if (db[i].dbCfg.walLevel > 0) {
             fprintf(fp, "  walLevel:              \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.walLevel);
+                    db[i].dbCfg.walLevel);
         }
-        if (g_Dbs.db[i].dbCfg.fsync > 0) {
+        if (db[i].dbCfg.fsync > 0) {
             fprintf(fp, "  fsync:                 \033[33m%d\033[0m\n",
-                    g_Dbs.db[i].dbCfg.fsync);
+                    db[i].dbCfg.fsync);
         }
-        if (g_Dbs.db[i].dbCfg.quorum > 0) {
+        if (db[i].dbCfg.quorum > 0) {
             printf("  quorum:                \033[33m%d\033[0m\n",
-                   g_Dbs.db[i].dbCfg.quorum);
+                   db[i].dbCfg.quorum);
         }
-        if (g_Dbs.db[i].dbCfg.precision[0] != 0) {
-            if ((0 == strncasecmp(g_Dbs.db[i].dbCfg.precision, "ms", 2)) ||
-                (0 == strncasecmp(g_Dbs.db[i].dbCfg.precision, "us", 2)) ||
-                (0 == strncasecmp(g_Dbs.db[i].dbCfg.precision, "ns", 2))) {
+        if (db[i].dbCfg.precision[0] != 0) {
+            if ((0 == strncasecmp(db[i].dbCfg.precision, "ms", 2)) ||
+                (0 == strncasecmp(db[i].dbCfg.precision, "us", 2)) ||
+                (0 == strncasecmp(db[i].dbCfg.precision, "ns", 2))) {
                 fprintf(fp, "  precision:             \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].dbCfg.precision);
+                        db[i].dbCfg.precision);
             } else {
                 fprintf(
                     fp,
                     "\033[1m\033[40;31m  precision error:       %s\033[0m\n",
-                    g_Dbs.db[i].dbCfg.precision);
+                    db[i].dbCfg.precision);
             }
         }
 
         if (g_args.use_metric) {
             fprintf(fp, "  super table count:     \033[33m%" PRIu64 "\033[0m\n",
-                    g_Dbs.db[i].superTblCount);
-            for (uint64_t j = 0; j < g_Dbs.db[i].superTblCount; j++) {
+                    db[i].superTblCount);
+            for (uint64_t j = 0; j < db[i].superTblCount; j++) {
                 fprintf(fp, "  super table[\033[33m%" PRIu64 "\033[0m]:\n", j);
 
                 fprintf(fp, "      stbName:           \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].stbName);
+                        db[i].superTbls[j].stbName);
 
-                if (PRE_CREATE_SUBTBL ==
-                    g_Dbs.db[i].superTbls[j].autoCreateTable) {
+                if (PRE_CREATE_SUBTBL == db[i].superTbls[j].autoCreateTable) {
                     fprintf(fp, "      autoCreateTable:   \033[33m%s\033[0m\n",
                             "no");
                 } else if (AUTO_CREATE_SUBTBL ==
-                           g_Dbs.db[i].superTbls[j].autoCreateTable) {
+                           db[i].superTbls[j].autoCreateTable) {
                     fprintf(fp, "      autoCreateTable:   \033[33m%s\033[0m\n",
                             "yes");
                 } else {
@@ -507,11 +506,11 @@ void printfInsertMetaToFileStream(FILE *fp) {
                             "error");
                 }
 
-                if (TBL_NO_EXISTS == g_Dbs.db[i].superTbls[j].childTblExists) {
+                if (TBL_NO_EXISTS == db[i].superTbls[j].childTblExists) {
                     fprintf(fp, "      childTblExists:    \033[33m%s\033[0m\n",
                             "no");
                 } else if (TBL_ALREADY_EXISTS ==
-                           g_Dbs.db[i].superTbls[j].childTblExists) {
+                           db[i].superTbls[j].childTblExists) {
                     fprintf(fp, "      childTblExists:    \033[33m%s\033[0m\n",
                             "yes");
                 } else {
@@ -521,92 +520,91 @@ void printfInsertMetaToFileStream(FILE *fp) {
 
                 fprintf(fp,
                         "      childTblCount:     \033[33m%" PRId64 "\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].childTblCount);
+                        db[i].superTbls[j].childTblCount);
                 fprintf(fp, "      childTblPrefix:    \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].childTblPrefix);
+                        db[i].superTbls[j].childTblPrefix);
                 fprintf(fp, "      dataSource:        \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].dataSource);
-                fprintf(
-                    fp, "      iface:             \033[33m%s\033[0m\n",
-                    (g_Dbs.db[i].superTbls[j].iface == TAOSC_IFACE)
-                        ? "taosc"
-                        : (g_Dbs.db[i].superTbls[j].iface == REST_IFACE)
-                              ? "rest"
-                              : (g_Dbs.db[i].superTbls[j].iface == STMT_IFACE)
-                                    ? "stmt"
-                                    : "sml");
-                if (g_Dbs.db[i].superTbls[j].iface == SML_IFACE) {
+                        db[i].superTbls[j].dataSource);
+                fprintf(fp, "      iface:             \033[33m%s\033[0m\n",
+                        (db[i].superTbls[j].iface == TAOSC_IFACE)
+                            ? "taosc"
+                            : (db[i].superTbls[j].iface == REST_IFACE)
+                                  ? "rest"
+                                  : (db[i].superTbls[j].iface == STMT_IFACE)
+                                        ? "stmt"
+                                        : "sml");
+                if (db[i].superTbls[j].iface == SML_IFACE) {
                     fprintf(fp, "      lineProtocol:      \033[33m%s\033[0m\n",
-                            (g_Dbs.db[i].superTbls[j].lineProtocol ==
+                            (db[i].superTbls[j].lineProtocol ==
                              TSDB_SML_LINE_PROTOCOL)
                                 ? "line"
-                                : (g_Dbs.db[i].superTbls[j].lineProtocol ==
+                                : (db[i].superTbls[j].lineProtocol ==
                                    TSDB_SML_TELNET_PROTOCOL)
                                       ? "telnet"
                                       : "json");
                 }
 
-                if (g_Dbs.db[i].superTbls[j].childTblLimit > 0) {
+                if (db[i].superTbls[j].childTblLimit > 0) {
                     fprintf(fp,
                             "      childTblLimit:     \033[33m%" PRId64
                             "\033[0m\n",
-                            g_Dbs.db[i].superTbls[j].childTblLimit);
+                            db[i].superTbls[j].childTblLimit);
                 }
-                if (g_Dbs.db[i].superTbls[j].childTblOffset > 0) {
+                if (db[i].superTbls[j].childTblOffset > 0) {
                     fprintf(fp,
                             "      childTblOffset:    \033[33m%" PRIu64
                             "\033[0m\n",
-                            g_Dbs.db[i].superTbls[j].childTblOffset);
+                            db[i].superTbls[j].childTblOffset);
                 }
                 fprintf(fp,
                         "      insertRows:        \033[33m%" PRId64 "\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].insertRows);
+                        db[i].superTbls[j].insertRows);
                 fprintf(fp, "      interlaceRows:     \033[33m%u\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].interlaceRows);
+                        db[i].superTbls[j].interlaceRows);
 
-                if (g_Dbs.db[i].superTbls[j].interlaceRows > 0) {
+                if (db[i].superTbls[j].interlaceRows > 0) {
                     fprintf(fp,
                             "      stable insert interval:   \033[33m%" PRIu64
                             "\033[0m\n",
-                            g_Dbs.db[i].superTbls[j].insertInterval);
+                            db[i].superTbls[j].insertInterval);
                 }
 
                 fprintf(fp, "      disorderRange:     \033[33m%d\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].disorderRange);
+                        db[i].superTbls[j].disorderRange);
                 fprintf(fp, "      disorderRatio:     \033[33m%d\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].disorderRatio);
+                        db[i].superTbls[j].disorderRatio);
                 fprintf(fp,
                         "      timeStampStep:     \033[33m%" PRId64 "\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].timeStampStep);
+                        db[i].superTbls[j].timeStampStep);
                 fprintf(fp, "      startTimestamp:    \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].startTimestamp);
+                        db[i].superTbls[j].startTimestamp);
                 fprintf(fp, "      sampleFormat:      \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].sampleFormat);
+                        db[i].superTbls[j].sampleFormat);
                 fprintf(fp, "      sampleFile:        \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].sampleFile);
+                        db[i].superTbls[j].sampleFile);
                 fprintf(fp, "      useSampleTs:       \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].useSampleTs
+                        db[i].superTbls[j].useSampleTs
                             ? "yes (warning: disorderRange/disorderRatio is "
                               "disabled)"
                             : "no");
                 fprintf(fp, "      tagsFile:          \033[33m%s\033[0m\n",
-                        g_Dbs.db[i].superTbls[j].tagsFile);
+                        db[i].superTbls[j].tagsFile);
                 fprintf(fp,
                         "      columnCount:       \033[33m%d\033[0m\n        ",
-                        g_Dbs.db[i].superTbls[j].columnCount);
-                for (int k = 0; k < g_Dbs.db[i].superTbls[j].columnCount; k++) {
-                    if ((g_Dbs.db[i].superTbls[j].col_type[k] ==
+                        db[i].superTbls[j].columnCount);
+                for (int k = 0; k < db[i].superTbls[j].columnCount; k++) {
+                    if ((db[i].superTbls[j].col_type[k] ==
                          TSDB_DATA_TYPE_NCHAR) ||
-                        (g_Dbs.db[i].superTbls[j].col_type[k] ==
+                        (db[i].superTbls[j].col_type[k] ==
                          TSDB_DATA_TYPE_BINARY)) {
                         fprintf(fp, "column[%d]:\033[33m%s(%d)\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    g_Dbs.db[i].superTbls[j].col_type[k]),
-                                g_Dbs.db[i].superTbls[j].col_length[k]);
+                                    db[i].superTbls[j].col_type[k]),
+                                db[i].superTbls[j].col_length[k]);
                     } else {
                         fprintf(fp, "column[%d]:\033[33m%s\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    g_Dbs.db[i].superTbls[j].col_type[k]));
+                                    db[i].superTbls[j].col_type[k]));
                     }
                 }
                 fprintf(fp, "\n");
@@ -614,28 +612,28 @@ void printfInsertMetaToFileStream(FILE *fp) {
                 fprintf(
                     fp,
                     "      tagCount:            \033[33m%d\033[0m\n        ",
-                    g_Dbs.db[i].superTbls[j].tagCount);
-                for (int k = 0; k < g_Dbs.db[i].superTbls[j].tagCount; k++) {
-                    if ((g_Dbs.db[i].superTbls[j].tag_type[k] ==
+                    db[i].superTbls[j].tagCount);
+                for (int k = 0; k < db[i].superTbls[j].tagCount; k++) {
+                    if ((db[i].superTbls[j].tag_type[k] ==
                          TSDB_DATA_TYPE_BINARY) ||
-                        (g_Dbs.db[i].superTbls[j].tag_type[k] ==
+                        (db[i].superTbls[j].tag_type[k] ==
                          TSDB_DATA_TYPE_NCHAR)) {
                         fprintf(fp, "tag[%d]:\033[33m%s(%d)\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    g_Dbs.db[i].superTbls[j].tag_type[k]),
-                                g_Dbs.db[i].superTbls[j].tag_length[k]);
-                    } else if (g_Dbs.db[i].superTbls[j].tag_type[k] ==
+                                    db[i].superTbls[j].tag_type[k]),
+                                db[i].superTbls[j].tag_length[k]);
+                    } else if (db[i].superTbls[j].tag_type[k] ==
                                TSDB_DATA_TYPE_JSON) {
                         fprintf(
                             fp,
                             "tag[%d]:\033[33mjson{key(%d):value(%d)}\033[0m ",
-                            k, g_Dbs.db[i].superTbls[j].tagCount,
-                            g_Dbs.db[i].superTbls[j].tag_length[k]);
+                            k, db[i].superTbls[j].tagCount,
+                            db[i].superTbls[j].tag_length[k]);
                         break;
                     } else {
                         fprintf(fp, "tag[%d]:\033[33m%s\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    g_Dbs.db[i].superTbls[j].tag_type[k]));
+                                    db[i].superTbls[j].tag_type[k]));
                     }
                 }
                 fprintf(fp, "\n");
@@ -825,13 +823,12 @@ void printfQuerySystemInfo(TAOS *taos) {
 void printStatPerThread(threadInfo *pThreadInfo) {
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
 
-    fprintf(stderr,
-            "====thread[%d] completed total inserted rows: %" PRIu64
-            ", total affected rows: %" PRIu64 ". %.2f records/second====\n",
-            pThreadInfo->threadID, pThreadInfo->totalInsertRows,
-            pThreadInfo->totalAffectedRows,
-            (double)(pThreadInfo->totalAffectedRows /
-                     ((double)pThreadInfo->totalDelay / 1000000.0)));
+    infoPrint("thread[%d] completed total inserted rows: %" PRIu64
+              ", total affected rows: %" PRIu64 ". %.2f records/second\n",
+              pThreadInfo->threadID, pThreadInfo->totalInsertRows,
+              pThreadInfo->totalAffectedRows,
+              (double)(pThreadInfo->totalAffectedRows /
+                       ((double)pThreadInfo->totalDelay / 1000000.0)));
 }
 
 void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {

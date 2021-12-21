@@ -20,10 +20,12 @@ int64_t        g_autoCreatedChildTables = 0;
 int64_t        g_existedChildTables = 0;
 FILE *         g_fpOfInsertResult = NULL;
 char *         g_dupstr = NULL;
-SDbs           g_Dbs;
+SDataBase *    db;
 SArguments     g_args;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
+bool           custom_col_num = false;
+cJSON *        root;
 
 int main(int argc, char *argv[]) {
     init_g_args(&g_args);
@@ -31,47 +33,29 @@ int main(int argc, char *argv[]) {
         tmfree(g_dupstr);
         exit(EXIT_FAILURE);
     }
-    debugPrint("meta file: %s\n", g_args.metaFile);
 
     if (g_args.metaFile) {
         g_totalChildTables = 0;
         if (getInfoFromJsonFile(g_args.metaFile)) {
             exit(EXIT_FAILURE);
         }
-        if (testMetaFile()) {
-            exit(EXIT_FAILURE);
-        }
     } else {
-        memset(&g_Dbs, 0, sizeof(SDbs));
-        g_Dbs.db = calloc(1, sizeof(SDataBase));
-        if (NULL == g_Dbs.db) {
-            errorPrint("%s", "failed to allocate memory\n");
-            exit(EXIT_FAILURE);
-        }
-
-        g_Dbs.db[0].superTbls = calloc(1, sizeof(SSuperTable));
-        if (NULL == g_Dbs.db[0].superTbls) {
-            errorPrint("%s", "failed to allocate memory\n");
-            exit(EXIT_FAILURE);
-        }
-
+        db = calloc(1, sizeof(SDataBase));
+        db[0].superTbls = calloc(1, sizeof(SSuperTable));
         setParaFromArg(&g_args);
-
         if (NULL != g_args.sqlFile) {
-            TAOS *qtaos = taos_connect(g_Dbs.host, g_Dbs.user, g_Dbs.password,
-                                       g_Dbs.db[0].dbName, g_Dbs.port);
+            TAOS *qtaos = taos_connect(g_args.host, g_args.user,
+                                       g_args.password, NULL, g_args.port);
             if (querySqlFile(qtaos, g_args.sqlFile)) {
                 taos_close(qtaos);
                 exit(EXIT_FAILURE);
             }
             taos_close(qtaos);
-        } else {
-            if (testCmdLine(&g_args)) {
-                exit(EXIT_FAILURE);
-            }
         }
     }
+    if (test(&g_args)) {
+        exit(EXIT_FAILURE);
+    }
     postFreeResource();
-
     return 0;
 }

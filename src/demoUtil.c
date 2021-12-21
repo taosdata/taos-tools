@@ -310,7 +310,8 @@ int convertHostToServAddr(char *host, uint16_t port,
 
 void prompt() {
     if (!g_args.answer_yes) {
-        printf("         Press enter key to continue or Ctrl-C to stop\n\n");
+        printf(
+            "\n\n         Press enter key to continue or Ctrl-C to stop\n\n");
         (void)getchar();
     }
 }
@@ -409,8 +410,6 @@ int regexMatch(const char *s, const char *reg, int cflags) {
 }
 
 int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
-    verbosePrint("%s() LN%d - command: %s\n", __func__, __LINE__, command);
-
     TAOS_RES *res = taos_query(taos, command);
     int32_t   code = taos_errno(res);
 
@@ -420,7 +419,6 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
                        taos_errstr(res));
         }
         taos_free_result(res);
-        // taos_close(taos);
         return -1;
     }
 
@@ -472,8 +470,8 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
     if (g_args.test_mode == INSERT_TEST) {
-        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_Dbs.user,
-                 g_Dbs.password);
+        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_args.user,
+                 g_args.password);
     } else {
         snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_queryInfo.user,
                  g_queryInfo.password);

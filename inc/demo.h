@@ -66,8 +66,6 @@
 #define RESP_BUF_LEN 4096
 #define SQL_BUFF_LEN 1024
 
-extern char configDir[];
-
 #define STR_INSERT_INTO "INSERT INTO "
 
 #define MAX_RECORDS_PER_REQ 32766
@@ -166,10 +164,34 @@ extern char configDir[];
 #define __func__ __FUNCTION__
 #endif
 
-#define debugPrint(fmt, ...)                            \
-    do {                                                \
-        if (g_args.debug_print || g_args.verbose_print) \
-            fprintf(stderr, "DEBG: " fmt, __VA_ARGS__); \
+#define debugPrint(fmt, ...)                                                  \
+    do {                                                                      \
+        if (g_args.debug_print) {                                             \
+            struct tm      Tm, *ptm;                                          \
+            struct timeval timeSecs;                                          \
+            time_t         curTime;                                           \
+            gettimeofday(&timeSecs, NULL);                                    \
+            curTime = timeSecs.tv_sec;                                        \
+            ptm = localtime_r(&curTime, &Tm);                                 \
+            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",               \
+                    ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
+                    ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
+            fprintf(stderr, "DEBG: " fmt, __VA_ARGS__);                       \
+        }                                                                     \
+    } while (0)
+
+#define infoPrint(fmt, ...)                                                  \
+    do {                                                                     \
+        struct tm      Tm, *ptm;                                             \
+        struct timeval timeSecs;                                             \
+        time_t         curTime;                                              \
+        gettimeofday(&timeSecs, NULL);                                       \
+        curTime = timeSecs.tv_sec;                                           \
+        ptm = localtime_r(&curTime, &Tm);                                    \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
+                (int32_t)timeSecs.tv_usec);                                  \
+        fprintf(stderr, "INFO: " fmt, __VA_ARGS__);                          \
     } while (0)
 
 #define verbosePrint(fmt, ...)                                                \
@@ -183,12 +205,23 @@ extern char configDir[];
             fprintf(stderr, "PERF: " fmt, __VA_ARGS__); \
     } while (0)
 
-#define errorPrint(fmt, ...)                            \
-    do {                                                \
-        fprintf(stderr, "\033[31m");                    \
-        fprintf(stderr, "%s(%d) ", __FILE__, __LINE__); \
-        fprintf(stderr, "ERROR: " fmt, __VA_ARGS__);    \
-        fprintf(stderr, "\033[0m");                     \
+#define errorPrint(fmt, ...)                                                 \
+    do {                                                                     \
+        struct tm      Tm, *ptm;                                             \
+        struct timeval timeSecs;                                             \
+        time_t         curTime;                                              \
+        gettimeofday(&timeSecs, NULL);                                       \
+        curTime = timeSecs.tv_sec;                                           \
+        ptm = localtime_r(&curTime, &Tm);                                    \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
+                (int32_t)timeSecs.tv_usec);                                  \
+        fprintf(stderr, "\033[31m");                                         \
+        if (g_args.debug_print) {                                            \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                  \
+        }                                                                    \
+        fprintf(stderr, "ERROR: " fmt, __VA_ARGS__);                         \
+        fprintf(stderr, "\033[0m");                                          \
     } while (0)
 
 enum TEST_MODE {
@@ -308,9 +341,10 @@ typedef struct SArguments_S {
     char *   tag_type;
     int32_t *tag_length;
     uint32_t binwidth;
-    uint32_t columnCount;
-    uint32_t tagCount;
-    uint64_t lenOfOneRow;
+    int32_t  columnCount;
+    int32_t  tagCount;
+    int32_t  lenOfTags;
+    int32_t  lenOfCols;
     uint32_t nthreads;
     uint64_t insert_interval;
     uint64_t timestamp_step;
@@ -327,6 +361,8 @@ typedef struct SArguments_S {
     bool     demo_mode;  // use default column name and semi-random data
     bool     chinese;
     bool     pressure_mode;
+    int32_t  dbCount;
+    struct sockaddr_in serv_addr;
 } SArguments;
 
 typedef struct SSuperTable_S {
@@ -367,8 +403,8 @@ typedef struct SSuperTable_S {
     char *   childTblName;
     bool     escapeChar;
     char *   colsOfCreateChildTable;
-    uint64_t lenOfOneRow;
-    uint64_t lenOfTagOfOneRow;
+    int32_t  lenOfTags;
+    int32_t  lenOfCols;
 
     char *sampleDataBuf;
     bool  useSampleTs;
@@ -376,8 +412,6 @@ typedef struct SSuperTable_S {
     uint32_t tagSource;  // 0: rand, 1: tag sample
     char *   tagDataBuf;
     uint32_t tagSampleCount;
-    uint32_t tagUsePos;
-
     // bind param batch
     char *sampleBindBatchArray;
     // statistics
@@ -434,29 +468,6 @@ typedef struct SDataBase_S {
     uint64_t     superTblCount;
     SSuperTable *superTbls;
 } SDataBase;
-
-typedef struct SDbs_S {
-    char               cfgDir[MAX_FILE_NAME_LEN];
-    char               host[MAX_HOSTNAME_SIZE];
-    struct sockaddr_in serv_addr;
-
-    uint16_t port;
-    char     user[MAX_USERNAME_SIZE];
-    char     password[SHELL_MAX_PASSWORD_LEN];
-    char     resultFile[MAX_FILE_NAME_LEN];
-    bool     use_metric;
-    bool     aggr_func;
-    bool     asyncMode;
-
-    uint32_t threadCount;
-    uint32_t threadCountForCreateTbl;
-    uint32_t dbCount;
-    // statistics
-    uint64_t totalInsertRows;
-    uint64_t totalAffectedRows;
-
-    SDataBase *db;
-} SDbs;
 
 typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
@@ -567,7 +578,7 @@ typedef struct SThreadInfo_S {
 extern char *         g_aggreFuncDemo[];
 extern char *         g_aggreFunc[];
 extern SArguments     g_args;
-extern SDbs           g_Dbs;
+extern SDataBase *    db;
 extern char *         g_dupstr;
 extern int64_t        g_totalChildTables;
 extern int64_t        g_actualChildTables;
@@ -576,6 +587,9 @@ extern int64_t        g_existedChildTables;
 extern SQueryMetaInfo g_queryInfo;
 extern FILE *         g_fpOfInsertResult;
 extern bool           g_fail;
+extern bool           custom_col_num;
+extern char           configDir[];
+extern cJSON *        root;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
@@ -591,11 +605,10 @@ int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                     bool is_tag);
 void setParaFromArg(SArguments *pg_args);
 int  querySqlFile(TAOS *taos, char *sqlFile);
-int  testCmdLine(SArguments *pg_args);
+int  test(SArguments *pg_args);
 void init_g_args(SArguments *pg_args);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file);
-int testMetaFile();
 /* demoUtil.c */
 int     isCommentLine(char *line);
 int64_t taosGetTimestampMs();
@@ -640,6 +653,9 @@ int     getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
+int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
+                int32_t *col_length, int32_t tagCount, int32_t colCount,
+                int32_t *plenOfTags, int32_t *plenOfCols, int iface);
 /* demoOutput.c */
 void printVersion();
 void printfInsertMetaToFileStream(FILE *fp);

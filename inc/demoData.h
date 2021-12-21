@@ -79,28 +79,10 @@ int32_t prepareStbStmtBindTag(char *bindArray, SSuperTable *stbInfo,
 int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
                               uint32_t batch, int64_t insertRows,
                               int64_t recordFrom, int64_t startTime);
-int32_t generateStbInterlaceData(threadInfo *pThreadInfo, char *tableName,
-                                 uint32_t batchPerTbl, uint64_t i,
-                                 uint32_t batchPerTblTimes, uint64_t tableSeq,
-                                 char *buffer, int64_t insertRows,
-                                 int64_t startTime, uint64_t *pRemainderBufLen);
-int64_t generateInterlaceDataWithoutStb(char *tableName, uint32_t batch,
-                                        uint64_t tableSeq, char *dbName,
-                                        char *buffer, int64_t insertRows,
-                                        int64_t   startTime,
-                                        uint64_t *pRemainderBufLen);
-int32_t generateStbProgressiveData(SSuperTable *stbInfo, char *tableName,
-                                   int64_t tableSeq, char *dbName, char *buffer,
-                                   int64_t insertRows, uint64_t recordFrom,
-                                   int64_t startTime, int64_t *pSamplePos,
-                                   int64_t *pRemainderBufLen);
-int32_t generateProgressiveDataWithoutStb(
-    char *tableName, threadInfo *pThreadInfo, char *buffer, int64_t insertRows,
-    uint64_t recordFrom, int64_t startTime, int64_t *pRemainderBufLen);
-int64_t generateStbRowData(SSuperTable *stbInfo, char *recBuf,
-                           int64_t remainderBufLen, int64_t timestamp);
-int     prepareSampleForStb(SSuperTable *stbInfo);
-int     prepareSampleForNtb();
+
+int     generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
+                               int columnCount, char *data_type,
+                               int32_t *data_length);
 int     parseSamplefileToStmtBatch(SSuperTable *stbInfo);
 int     parseStbSampleToStmtBatchForThread(threadInfo * pThreadInfo,
                                            SSuperTable *stbInfo, uint32_t timePrec,
