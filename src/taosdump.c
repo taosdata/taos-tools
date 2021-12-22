@@ -117,6 +117,11 @@ typedef struct {
         fprintf(stderr, "OK: "fmt, __VA_ARGS__); \
         fprintf(stderr, "\033[0m"); } while(0)
 
+void prompt() {
+    printf("         Press enter key to continue or Ctrl-C to stop\n\n");
+    (void)getchar();
+}
+
 static bool isStringNumber(char *input)
 {
     int len = strlen(input);
@@ -5621,6 +5626,74 @@ static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
     return dumpNTablesOfDb(dbInfo);
 }
 
+static bool checkFileExists(char *path, char *filename)
+{
+    char filePath[MAX_PATH_LEN] = {0};
+    if (strlen(path)) {
+        sprintf(filePath, "%s/%s", path, filename);
+    } else {
+        sprintf(filePath, "%s/%s", ".", filename);
+    }
+
+    if( access(filePath, F_OK ) == 0 ) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool checkFileExistsExt(char *path, char *ext)
+{
+    bool bRet;
+
+    int namelen, extlen;
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    extlen = strlen(ext);
+    pDir = opendir(path);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            namelen = strlen (pDirent->d_name);
+            if (namelen > extlen) {
+                if (strcmp (ext, &(pDirent->d_name[namelen - extlen])) == 0) {
+                    bRet = true;
+                }
+            }
+        }
+        closedir (pDir);
+    }
+
+    return bRet;
+}
+
+static void checkOutDirAndWarn(char *outpath)
+{
+    if (strlen(outpath)) {
+        if (NULL == opendir(outpath)) {
+            errorPrint("%s is not exist!\n", outpath);
+            return;
+        }
+    } else {
+        outpath = ".";
+    }
+
+    if ((true == checkFileExists(outpath, "dbs.sql"))
+                || (0 != checkFileExistsExt(outpath, "avro-tbstb"))
+                || (0 != checkFileExistsExt(outpath, "avro-ntb"))
+                || (0 != checkFileExistsExt(outpath, "avro"))) {
+        if (strlen(outpath)) {
+            warnPrint("Found data file(s) exists in %s! Continue to dump out will overwrite exist file(s)!\n", outpath);
+        } else {
+            warnPrint("Found data file(s) exists in %s! Continue to dump out will overwrite exist file(s)!\n", "current path");
+        }
+        prompt();
+    }
+
+    return;
+}
+
 static int dumpOut() {
     TAOS     *taos       = NULL;
     TAOS_RES *result     = NULL;
@@ -5628,6 +5701,8 @@ static int dumpOut() {
     TAOS_ROW row;
     FILE *fp = NULL;
     int32_t count = 0;
+
+    checkOutDirAndWarn(g_args.outpath);
 
     char dumpFilename[MAX_PATH_LEN] = {0};
     sprintf(dumpFilename, "%sdbs.sql", g_args.outpath);
