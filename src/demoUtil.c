@@ -291,12 +291,6 @@ int convertHostToServAddr(char *host, uint16_t port,
         errorPrint("%s", "no such host");
         return -1;
     }
-
-    debugPrint("h_name: %s\nh_addr=%p\nh_addretype: %s\nh_length: %d\n",
-               server->h_name, server->h_addr,
-               (server->h_addrtype == AF_INET) ? "ipv4" : "ipv6",
-               server->h_length);
-
     memset(serv_addr, 0, sizeof(struct sockaddr_in));
     serv_addr->sin_family = AF_INET;
     serv_addr->sin_port = htons(rest_port);
@@ -502,8 +496,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     for (int l = 0; l < mod_table[userpass_buf_len % 3]; l++)
         base64_buf[encoded_len - 1 - l] = '=';
 
-    debugPrint("%s() LN%d: auth string base64 encoded: %s\n", __func__,
-               __LINE__, base64_buf);
     char *auth = base64_buf;
 
     int r = snprintf(request_buf, req_buf_len, req_fmt, url, host, rest_port,
@@ -547,7 +539,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes = read(pThreadInfo->sockfd, response_buf + received,
                      resp_len - received);
 #endif
-        verbosePrint("%s() LN%d: bytes:%d\n", __func__, __LINE__, bytes);
         if (bytes < 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
@@ -555,21 +546,11 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         if (bytes == 0) break;
         received += bytes;
 
-        verbosePrint("%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
-                     __func__, __LINE__, received, resp_len, response_buf);
-
         if (strlen(response_buf)) {
-            verbosePrint(
-                "%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
-                __func__, __LINE__, received, resp_len, response_buf);
-
             if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                  (NULL != strstr(response_buf, resHttp))) ||
                 ((NULL != strstr(response_buf, resHttpOk)) &&
                  (NULL != strstr(response_buf, "\"status\":")))) {
-                debugPrint(
-                    "%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
-                    __func__, __LINE__, received, resp_len, response_buf);
                 break;
             }
         }

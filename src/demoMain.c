@@ -19,7 +19,6 @@ int64_t        g_actualChildTables = 0;
 int64_t        g_autoCreatedChildTables = 0;
 int64_t        g_existedChildTables = 0;
 FILE *         g_fpOfInsertResult = NULL;
-char *         g_dupstr = NULL;
 SDataBase *    db;
 SArguments     g_args;
 SQueryMetaInfo g_queryInfo;
@@ -30,7 +29,6 @@ cJSON *        root;
 int main(int argc, char *argv[]) {
     init_g_args(&g_args);
     if (parse_args(argc, argv, &g_args)) {
-        tmfree(g_dupstr);
         exit(EXIT_FAILURE);
     }
 

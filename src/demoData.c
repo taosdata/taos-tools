@@ -677,11 +677,28 @@ int prepareSampleData() {
                            db[i].superTbls[j].lenOfCols);
                 db[i].superTbls[j].sampleDataBuf = calloc(
                     1, db[i].superTbls[j].lenOfCols * g_args.prepared_rand);
-                generateSampleFromRand(db[i].superTbls[j].sampleDataBuf,
-                                       db[i].superTbls[j].lenOfCols,
-                                       db[i].superTbls[j].columnCount,
-                                       db[i].superTbls[j].col_type,
-                                       db[i].superTbls[j].col_length);
+                int ret;
+                if (0 == strncasecmp(db[i].superTbls[j].dataSource, "sample",
+                                     strlen("sample"))) {
+                    if (db[i].superTbls[j].useSampleTs) {
+                        if (getAndSetRowsFromCsvFile(&(db[i].superTbls[j]))) {
+                            tmfree(db[i].superTbls[j].sampleDataBuf);
+                            return -1;
+                        }
+                    }
+                    ret = generateSampleFromCsvForStb(&(db[i].superTbls[j]));
+                } else {
+                    ret =
+                        generateSampleFromRand(db[i].superTbls[j].sampleDataBuf,
+                                               db[i].superTbls[j].lenOfCols,
+                                               db[i].superTbls[j].columnCount,
+                                               db[i].superTbls[j].col_type,
+                                               db[i].superTbls[j].col_length);
+                }
+                if (ret) {
+                    tmfree(db[i].superTbls[j].sampleDataBuf);
+                    return -1;
+                }
                 debugPrint("sampleDataBuf: %s\n",
                            db[i].superTbls[j].sampleDataBuf);
             }
@@ -799,27 +816,6 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
 
         *(sampleDataBuf + pos - 1) = 0;
     }
-    return 0;
-}
-
-int prepareSampleForStb(SSuperTable *stbInfo) {
-    int ret;
-    if (0 == strncasecmp(stbInfo->dataSource, "sample", strlen("sample"))) {
-        if (stbInfo->useSampleTs) {
-            if (getAndSetRowsFromCsvFile(stbInfo)) {
-                tmfree(stbInfo->sampleDataBuf);
-                return -1;
-            }
-        }
-        ret = generateSampleFromCsvForStb(stbInfo);
-    }
-
-    if (0 != ret) {
-        errorPrint("read sample from %s file failed.\n", stbInfo->sampleFile);
-        tmfree(stbInfo->sampleDataBuf);
-        return -1;
-    }
-
     return 0;
 }
 
@@ -1391,46 +1387,6 @@ int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
     }
 
     return 0;
-}
-
-static int parseSampleToStmtBatchForThread(threadInfo * pThreadInfo,
-                                           SSuperTable *stbInfo,
-                                           uint32_t timePrec, uint32_t batch) {
-    uint32_t columnCount =
-        (stbInfo) ? stbInfo->columnCount : g_args.columnCount;
-
-    pThreadInfo->bind_ts_array = calloc(1, sizeof(int64_t) * batch);
-    if (NULL == pThreadInfo->bind_ts_array) {
-        errorPrint("%s", "failed to allocate memory\n");
-        return -1;
-    }
-
-    pThreadInfo->bindParams =
-        calloc(1, sizeof(TAOS_MULTI_BIND) * (columnCount + 1));
-    if (NULL == pThreadInfo->bindParams) {
-        errorPrint("%s", "failed to allocate memory\n");
-        return -1;
-    }
-
-    pThreadInfo->is_null = calloc(1, batch);
-    if (NULL == pThreadInfo->is_null) {
-        errorPrint("%s", "failed to allocate memory\n");
-        return -1;
-    }
-
-    return 0;
-}
-
-int parseStbSampleToStmtBatchForThread(threadInfo * pThreadInfo,
-                                       SSuperTable *stbInfo, uint32_t timePrec,
-                                       uint32_t batch) {
-    return parseSampleToStmtBatchForThread(pThreadInfo, stbInfo, timePrec,
-                                           batch);
-}
-
-int parseNtbSampleToStmtBatchForThread(threadInfo *pThreadInfo,
-                                       uint32_t timePrec, uint32_t batch) {
-    return parseSampleToStmtBatchForThread(pThreadInfo, NULL, timePrec, batch);
 }
 
 int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,

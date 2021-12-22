@@ -350,7 +350,7 @@ typedef struct SArguments_S {
     uint64_t timestamp_step;
     int64_t  query_times;
     int64_t  prepared_rand;
-    uint32_t interlaceRows;
+    int32_t  interlaceRows;
     uint32_t reqPerReq;  // num_of_records_per_req
     int64_t  ntables;
     int64_t  insertRows;
@@ -380,9 +380,9 @@ typedef struct SSuperTable_S {
     uint64_t childTblOffset;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
-    uint32_t interlaceRows;  //
-    int      disorderRatio;  // 0: no disorder, >0: x%
-    int      disorderRange;  // ms, us or ns. according to database precision
+    int32_t interlaceRows;  //
+    int     disorderRatio;  // 0: no disorder, >0: x%
+    int     disorderRange;  // ms, us or ns. according to database precision
 
     uint64_t insertInterval;  // insert interval, will override global insert
                               // interval
@@ -546,6 +546,7 @@ typedef struct SThreadInfo_S {
     char *       cols;
     bool         use_metric;
     SSuperTable *stbInfo;
+    int64_t      max_sql_len;
     char *       buffer;  // sql cmd buffer
 
     int64_t  counter;
@@ -572,6 +573,14 @@ typedef struct SThreadInfo_S {
 
     char ** lines;
     int32_t sockfd;
+    int64_t insertRows;
+    int64_t time_step;
+    char ** sml_tags;
+    cJSON * sml_json_tags;
+    cJSON * json_array;
+    int32_t iface;
+    int32_t line_protocol;
+    int32_t smlTimePrec;
 } threadInfo;
 
 /* ************ Global variables ************  */
@@ -579,7 +588,6 @@ extern char *         g_aggreFuncDemo[];
 extern char *         g_aggreFunc[];
 extern SArguments     g_args;
 extern SDataBase *    db;
-extern char *         g_dupstr;
 extern int64_t        g_totalChildTables;
 extern int64_t        g_actualChildTables;
 extern int64_t        g_autoCreatedChildTables;
