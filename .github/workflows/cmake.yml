@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Debug
+  PR_NUMBER: ${{ github.event.number }}
 
 jobs:
   build:
@@ -17,25 +18,31 @@ jobs:
       - name: Checkout taos-tools
         uses: actions/checkout@v2
         with:
+          submodules: recursive
           path: 'taos-tools'
 
       - name: Checkout tdengine
         uses: actions/checkout@v2
         with:
+          submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
           ref: 'develop'
 
+      - name: Checkout TDengine's taos-tools to PR number
+        if: github.event_name == 'pull_request'
+        run: |
+          cd TDengine/src/kit/taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
       - name: Install tdengine
-        run: cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=false && make && sudo make install
+        run: |
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true && make && sudo make install
 
       - name: Start tdengine
         run: nohup sudo taosd &
-
-      - name: Install dependencies
-        run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd taos-tools && git submodule update --init --recursive
 
       - name: Configure CMake
         run: cd taos-tools && cmake -B ./build -DBUILD_TYPE=${{env.BUILD_TYPE}}
@@ -43,5 +50,18 @@ jobs:
       - name: Build
         run: cd taos-tools && cmake --build ./build
 
-      - name: Test
+      - name: Unit Test
         run: cd taos-tools/build && ctest --verbose
+
+      - name: Func Test
+        run: |
+          cd TDengine/tests/pytest
+          pip3 install taospy numpy fabric2 psutil pandas
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+
+          python3 ./test.py -f tools/taosdumpTest.py
+          python3 ./test.py -f tools/taosdumpTest2.py
+          python3 ./test.py -f tools/taosdumpTest3.py
+          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+
