@@ -50,7 +50,7 @@ jobs:
           ./build/bin/taosdump --help
           cd src/kit/taos-tools/
           ctest --verbose
-          cd ../../../tests/pytest
+          cd ../../../../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
