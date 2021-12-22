@@ -64,7 +64,7 @@ jobs:
 
       - name: Generate report
         run: |
-          cd build
+          cd taos-tools/build
           ./build/bin/taosBenchmark --help
           ./build/bin/taosdump --help
           gcov -abcfu ../src/taosdump.c -o src/CMakeFiles/taosdump.dir/taosdump.c.gcno
