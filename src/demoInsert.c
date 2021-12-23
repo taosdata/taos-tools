@@ -1851,9 +1851,11 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             minDelay = pThreadInfo->minDelay;
         }
     }
-    for (int i = 0; i < (stbInfo ? stbInfo->columnCount : g_args.columnCount);
-         ++i) {
-        tmfree(g_string_grid[i]);
+    if (iface == STMT_IFACE) {
+        for (int i = 0; i < (stbInfo ? stbInfo->columnCount : g_args.columnCount);
+             ++i) {
+            tmfree(g_string_grid[i]);
+        }
     }
     tmfree(g_string_grid);
 
