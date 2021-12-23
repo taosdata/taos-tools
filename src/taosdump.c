@@ -117,11 +117,6 @@ typedef struct {
         fprintf(stderr, "OK: "fmt, __VA_ARGS__); \
         fprintf(stderr, "\033[0m"); } while(0)
 
-void prompt() {
-    printf("         Press enter key to continue or Ctrl-C to stop\n\n");
-    (void)getchar();
-}
-
 static bool isStringNumber(char *input)
 {
     int len = strlen(input);
@@ -381,6 +376,7 @@ static struct argp_option options[] = {
     // dump format options
     {"schemaonly", 's', 0, 0,  "Only dump schema.", 2},
     {"without-property", 'N', 0, 0,  "Dump schema without properties.", 2},
+    {"answer-yes", 'y', 0, 0,  "Input yes for prompt. It will skip data file checking!", 3},
     {"avro-codec", 'd', "snappy", 0,  "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
     {"start-time",    'S', "START_TIME",  0,  "Start time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",  8},
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
@@ -414,6 +410,7 @@ typedef struct arguments {
     // dump format option
     bool     schemaonly;
     bool     with_property;
+    bool     answer_yes;
     bool     avro;
     int      avro_codec;
     int64_t  start_time;
@@ -469,6 +466,7 @@ struct arguments g_args = {
     // dump format option
     false,      // schemaonly
     true,       // with_property
+    false,      // answer_yes
     true,       // avro
     AVRO_CODEC_SNAPPY,  // avro_codec
     -INT64_MAX + 1, // start_time
@@ -505,6 +503,13 @@ struct arguments g_args = {
 #define TAOSDUMP_STATUS "unknown"
 #endif
 
+
+void prompt() {
+    if (!g_args.answer_yes) {
+        printf("         Press enter key to continue or Ctrl-C to stop\n\n");
+        (void)getchar();
+    }
+}
 
 char* strToLower(char *dst, const char *src) {
   int esc = 0;
@@ -809,6 +814,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'N':
             g_args.with_property = false;
+            break;
+        case 'y':
+            g_args.answer_yes = true;
             break;
         case 'S':
             // parse time here.
@@ -5975,6 +5983,7 @@ int main(int argc, char *argv[]) {
     printf("databasesSeq: %s\n", g_args.databasesSeq);
     printf("schemaonly: %s\n", g_args.schemaonly?"true":"false");
     printf("with_property: %s\n", g_args.with_property?"true":"false");
+    printf("answer_yes: %s\n", g_args.answer_yes?"true":"false");
     printf("avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
     printf("start_time: %" PRId64 "\n", g_args.start_time);
     printf("human readable start time: %s \n", g_args.humanStartTime);
@@ -6029,6 +6038,7 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "databasesSeq: %s\n", g_args.databasesSeq);
     fprintf(g_fpOfResult, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
     fprintf(g_fpOfResult, "with_property: %s\n", g_args.with_property?"true":"false");
+    fprintf(g_fpOfResult, "answer_yes: %s\n", g_args.answer_yes?"true":"false");
     fprintf(g_fpOfResult, "avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
     fprintf(g_fpOfResult, "start_time: %" PRId64 "\n", g_args.start_time);
     fprintf(g_fpOfResult, "human readable start time: %s \n", g_args.humanStartTime);
