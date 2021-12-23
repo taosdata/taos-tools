@@ -2279,86 +2279,86 @@ static int convertTbDesToJsonImpl(
                 case TSDB_DATA_TYPE_BINARY:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                            colOrTag, i, "string");
+                            colOrTag, i-2, "string");
                     break;
 
                 case TSDB_DATA_TYPE_NCHAR:
                 case TSDB_DATA_TYPE_JSON:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                            colOrTag, i, "bytes");
+                            colOrTag, i-2, "bytes");
                     break;
 
                 case TSDB_DATA_TYPE_BOOL:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i, "boolean");
+                            colOrTag, i-2, "boolean");
                     break;
 
                 case TSDB_DATA_TYPE_TINYINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i, "int");
+                            colOrTag, i-2, "int");
                     break;
 
                 case TSDB_DATA_TYPE_SMALLINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\", \"type\":\"%s\"",
-                            colOrTag, i, "int");
+                            colOrTag, i-2, "int");
                     break;
 
                 case TSDB_DATA_TYPE_INT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\", \"type\":\"%s\"",
-                            colOrTag, i, "int");
+                            colOrTag, i-2, "int");
                     break;
 
                 case TSDB_DATA_TYPE_BIGINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i, "long");
+                            colOrTag, i-2, "long");
                     break;
 
                 case TSDB_DATA_TYPE_FLOAT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i, "float");
+                            colOrTag, i-2, "float");
                     break;
 
                 case TSDB_DATA_TYPE_DOUBLE:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i, "double");
+                            colOrTag, i-2, "double");
                     break;
 
                 case TSDB_DATA_TYPE_TIMESTAMP:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i, "long");
+                            colOrTag, i-2, "long");
                     break;
 
                 case TSDB_DATA_TYPE_UTINYINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i, "int");
+                            colOrTag, i-2, "int");
                     break;
 
                 case TSDB_DATA_TYPE_USMALLINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i, "int");
+                            colOrTag, i-2, "int");
                     break;
 
                 case TSDB_DATA_TYPE_UINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i, "int");
+                            colOrTag, i-2, "int");
                     break;
 
                 case TSDB_DATA_TYPE_UBIGINT:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i, "long");
+                            colOrTag, i-2, "long");
                     break;
 
                 default:
@@ -2661,7 +2661,7 @@ static int64_t writeResultToAvro(
 
         if (0 != avro_value_get_by_name(
                     &record, "tbname", &value, NULL)) {
-            errorPrint("%s() LN%d, avro_value_get_by_name(tbname) failed",
+            errorPrint("%s() LN%d, avro_value_get_by_name(tbname) failed\n",
                     __func__, __LINE__);
             continue;
         }
@@ -2669,10 +2669,19 @@ static int64_t writeResultToAvro(
         avro_value_set_string(&branch, tbName);
 
         for (int col = 0; col < numFields; col++) {
+            char tmpBuf[65] = {0};
+
+            if (0 == col) {
+                sprintf(tmpBuf, "%s", fields[col].name);
+            } else {
+                sprintf(tmpBuf, "col%d", col-1);
+            }
 
             if (0 != avro_value_get_by_name(
-                        &record, fields[col].name, &value, NULL)) {
-                errorPrint("%s() LN%d, avro_value_get_by_name(%s) failed",
+                        &record,
+                        tmpBuf,
+                        &value, NULL)) {
+                errorPrint("%s() LN%d, avro_value_get_by_name(%s) failed\n",
                         __func__, __LINE__, fields[col].name);
                 continue;
             }
@@ -4440,11 +4449,14 @@ static int createMTableAvroHead(
                 subTableDes->cols[subTableDes->columns + tag].value
                 );
 
+            char tmpBuf[20] = {0};
+            sprintf(tmpBuf, "tag%d", tag);
+
             if (0 != avro_value_get_by_name(
                         &record,
-                        subTableDes->cols[subTableDes->columns + tag].field,
+                        tmpBuf,
                         &value, NULL)) {
-                errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
+                errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed\n",
                         __func__, __LINE__,
                         subTableDes->cols[subTableDes->columns + tag].field);
             }
@@ -5553,7 +5565,9 @@ static int64_t dumpNtbOfStbByThreads(
     return records;
 }
 
-static int dumpTbTagsToAvro(TAOS *taos, SDbInfo *dbInfo, char *stable,
+static int dumpTbTagsToAvro(
+        int64_t index,
+        TAOS *taos, SDbInfo *dbInfo, char *stable,
         char *specifiedTb)
 {
     debugPrint("%s() LN%d dbName: %s, stable: %s\n",
@@ -5562,9 +5576,9 @@ static int dumpTbTagsToAvro(TAOS *taos, SDbInfo *dbInfo, char *stable,
             stable);
 
     char dumpFilename[MAX_PATH_LEN] = {0};
-    sprintf(dumpFilename, "%s%s.%s.avro-tbtags",
+    sprintf(dumpFilename, "%s%s.%"PRId64".avro-tbtags",
             g_args.outpath, dbInfo->name,
-            stable);
+            index);
     int ret = createMTableAvroHead(
             taos,
             dumpFilename,
@@ -5617,6 +5631,7 @@ static int64_t dumpCreateSTableClauseOfDb(
 
         if (g_args.avro) {
             dumpTbTagsToAvro(
+                    superTblCnt,
                     taos,
                     dbInfo,
                     row[TSDB_SHOW_TABLES_NAME_INDEX],
@@ -5925,6 +5940,7 @@ static int dumpOut() {
 
                 if (g_args.avro) {
                     dumpTbTagsToAvro(
+                            i,
                             taos,
                             g_dbInfos[0],
                             tableRecordInfo.tableRecord.stable,
