@@ -1,4 +1,5 @@
 # taos-tools
+[![codecov](https://codecov.io/gh/taosdata/taos-tools/branch/develop/graph/badge.svg?token=W7Z6XKIKV9)](https://codecov.io/gh/taosdata/taos-tools)
 taos-tools are some useful tool collections for TDengine.
 
 # How to build from source?
