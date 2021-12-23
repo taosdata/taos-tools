@@ -1010,21 +1010,10 @@ void postFreeResource() {
             tmfree(db[i].superTbls[j].colsOfCreateChildTable);
             tmfree(db[i].superTbls[j].buffer);
             tmfree(db[i].superTbls[j].sampleDataBuf);
-            for (int c = 0; c < db[i].superTbls[j].columnCount; c++) {
-                if (db[i].superTbls[j].sampleBindBatchArray) {
-                    tmfree((char *)((uintptr_t) *
-                                    (uintptr_t *)(db[i]
-                                                      .superTbls[j]
-                                                      .sampleBindBatchArray +
-                                                  sizeof(char *) * c)));
-                }
-            }
             tmfree(db[i].superTbls[j].col_type);
             tmfree(db[i].superTbls[j].col_length);
             tmfree(db[i].superTbls[j].tag_type);
             tmfree(db[i].superTbls[j].tag_length);
-            tmfree(db[i].superTbls[j].sampleBindBatchArray);
-
             tmfree(db[i].superTbls[j].tagDataBuf);
             tmfree(db[i].superTbls[j].childTblName);
         }
@@ -1053,13 +1042,6 @@ void postFreeResource() {
     tmfree(g_randdouble);
     tmfree(g_sampleDataBuf);
 
-    for (int l = 0; l < g_args.columnCount; l++) {
-        if (g_sampleBindBatchArray) {
-            tmfree((char *)((uintptr_t) * (uintptr_t *)(g_sampleBindBatchArray +
-                                                        sizeof(char *) * l)));
-        }
-    }
-    tmfree(g_sampleBindBatchArray);
     cJSON_Delete(root);
 }
 
@@ -1230,12 +1212,13 @@ void *syncWriteInterlace(void *sarg) {
                         goto free_of_interlace;
                     }
                     if (stbInfo) {
-                        generated += bindParamBatch(
-                            pThreadInfo, interlaceRows, timestamp, &pos);
+                        generated = bindParamBatch(
+                            pThreadInfo, interlaceRows, timestamp);
                     } else {
-                        generated += prepareStmtWithoutStb(
+                        generated = prepareStmtWithoutStb(
                             pThreadInfo, tableName, interlaceRows, timestamp);
                     }
+                    tmfree(tableName);
                     break;
                 }
                 case SML_IFACE: {
@@ -1284,6 +1267,7 @@ void *syncWriteInterlace(void *sarg) {
             case REST_IFACE:
                 debugPrint("pThreadInfo->buffer: %s\n", pThreadInfo->buffer);
                 memset(pThreadInfo->buffer, 0, pThreadInfo->max_sql_len);
+                pThreadInfo->totalAffectedRows += affectedRows;
                 break;
             case SML_IFACE:
                 if (pThreadInfo->line_protocol == TSDB_SML_JSON_PROTOCOL) {
@@ -1298,6 +1282,10 @@ void *syncWriteInterlace(void *sarg) {
                                pThreadInfo->max_sql_len);
                     }
                 }
+                pThreadInfo->totalAffectedRows += affectedRows;
+                break;
+            case STMT_IFACE:
+                pThreadInfo->totalAffectedRows = affectedRows;
                 break;
         }
         uint64_t delay = endTs - startTs;
@@ -1309,16 +1297,18 @@ void *syncWriteInterlace(void *sarg) {
         pThreadInfo->cntDelay++;
         pThreadInfo->totalDelay += delay;
 
-        pThreadInfo->totalAffectedRows += affectedRows;
-
         int64_t currentPrintTime = taosGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
-            printf("thread[%d] has currently inserted rows: %" PRIu64
+            infoPrint("thread[%d] has currently inserted rows: %" PRIu64
                    ", affected rows: %" PRIu64 "\n",
                    pThreadInfo->threadID, pThreadInfo->totalInsertRows,
                    pThreadInfo->totalAffectedRows);
             lastPrintTime = currentPrintTime;
         }
+        debugPrint("thread[%d] has currently inserted rows: %" PRIu64
+                  ", affected rows: %" PRIu64 "\n",
+                  pThreadInfo->threadID, pThreadInfo->totalInsertRows,
+                  pThreadInfo->totalAffectedRows);
     }
 
     *code = 0;
@@ -1392,8 +1382,7 @@ void *syncWriteProgressive(void *sarg) {
                     if (stbInfo) {
                         generated = bindParamBatch(
                             pThreadInfo, (g_args.reqPerReq > (pThreadInfo->insertRows-i))?(pThreadInfo->insertRows-i):g_args.reqPerReq,
-                            timestamp,
-                            &(pThreadInfo->samplePos));
+                            timestamp);
                     } else {
                         generated = prepareStmtWithoutStb(
                             pThreadInfo, tableName, (g_args.reqPerReq > (pThreadInfo->insertRows-i))?(pThreadInfo->insertRows-i):g_args.reqPerReq, timestamp);
@@ -1442,10 +1431,15 @@ void *syncWriteProgressive(void *sarg) {
             int32_t affectedRows = execInsert(pThreadInfo, generated);
 
             endTs = taosGetTimestampUs();
+            if (affectedRows < 0) {
+                errorPrint("affected rows: %d\n", affectedRows);
+                goto free_of_progressive;
+            }
             switch (pThreadInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE:
                     memset(pThreadInfo->buffer, 0, pThreadInfo->max_sql_len);
+                    pThreadInfo->totalAffectedRows += affectedRows;
                     break;
                 case SML_IFACE:
                     if (pThreadInfo->line_protocol == TSDB_SML_JSON_PROTOCOL) {
@@ -1459,6 +1453,10 @@ void *syncWriteProgressive(void *sarg) {
                                    pThreadInfo->max_sql_len);
                         }
                     }
+                    pThreadInfo->totalAffectedRows += affectedRows;
+                    break;
+                case STMT_IFACE:
+                    pThreadInfo->totalAffectedRows = affectedRows;
                     break;
             }
 
@@ -1470,13 +1468,6 @@ void *syncWriteProgressive(void *sarg) {
             if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
             pThreadInfo->cntDelay++;
             pThreadInfo->totalDelay += delay;
-
-            if (affectedRows < 0) {
-                errorPrint("affected rows: %d\n", affectedRows);
-                goto free_of_progressive;
-            }
-
-            pThreadInfo->totalAffectedRows += affectedRows;
 
             int64_t currentPrintTime = taosGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -1590,7 +1581,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             len += sprintf(stmtBuffer + len, ",?");
         }
         len += sprintf(stmtBuffer + len, ")");
-        parseSamplefileToStmtBatch(stbInfo);
         debugPrint("stmtBuffer: %s\n", stmtBuffer);
     }
 

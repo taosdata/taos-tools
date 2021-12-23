@@ -94,7 +94,7 @@
 #define MAX_PREPARED_RAND 1000000
 #define INT_BUFF_LEN 12
 #define BIGINT_BUFF_LEN 21
-#define SMALLINT_BUFF_LEN 7
+#define SMALLINT_BUFF_LEN 8
 #define TINYINT_BUFF_LEN 5
 #define BOOL_BUFF_LEN 6
 #define FLOAT_BUFF_LEN 22
@@ -102,7 +102,6 @@
 #define TIMESTAMP_BUFF_LEN 21
 #define PRINT_STAT_INTERVAL 30 * 1000
 
-#define MAX_SAMPLES 10000
 #define MAX_NUM_COLUMNS \
     (TSDB_MAX_COLUMNS - 1)  // exclude first column timestamp
 
@@ -411,7 +410,6 @@ typedef struct SSuperTable_S {
     char *   tagDataBuf;
     uint32_t tagSampleCount;
     // bind param batch
-    char *sampleBindBatchArray;
 
     char *buffer;
 } SSuperTable;

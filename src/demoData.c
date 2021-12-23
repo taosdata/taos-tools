@@ -18,6 +18,11 @@
 
 char *    g_sampleDataBuf = NULL;
 char *    g_sampleBindBatchArray = NULL;
+int8_t * g_randbool = NULL;
+int8_t * g_randtinyint = NULL;
+uint8_t * g_randutinyint = NULL;
+int16_t * g_randsmallint = NULL;
+uint16_t * g_randusmallint = NULL;
 int32_t * g_randint = NULL;
 uint32_t *g_randuint = NULL;
 int64_t * g_randbigint = NULL;
@@ -45,172 +50,195 @@ const char charset[] =
 char *rand_bool_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randbool_buff + ((cursor % g_args.prepared_rand) * BOOL_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randbool_buff + ((cursor) * BOOL_BUFF_LEN);
 }
 
 int32_t rand_bool() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randint[cursor % g_args.prepared_rand] % TSDB_DATA_BOOL_NULL;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randbool[cursor];
 }
 
 char *rand_tinyint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randtinyint_buff +
-           ((cursor % g_args.prepared_rand) * TINYINT_BUFF_LEN);
+           ((cursor) * TINYINT_BUFF_LEN);
 }
 
 int32_t rand_tinyint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randint[cursor % g_args.prepared_rand] % TSDB_DATA_TINYINT_NULL;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randtinyint[cursor];
 }
 
 char *rand_utinyint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randutinyint_buff +
-           ((cursor % g_args.prepared_rand) * TINYINT_BUFF_LEN);
+           ((cursor) * TINYINT_BUFF_LEN);
 }
 
 int32_t rand_utinyint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randuint[cursor % g_args.prepared_rand] % TSDB_DATA_UTINYINT_NULL;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randutinyint[cursor];
 }
 
 char *rand_smallint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randsmallint_buff +
-           ((cursor % g_args.prepared_rand) * SMALLINT_BUFF_LEN);
+           ((cursor) * SMALLINT_BUFF_LEN);
 }
 
 int32_t rand_smallint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randint[cursor % g_args.prepared_rand] % TSDB_DATA_SMALLINT_NULL;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randsmallint[cursor];
 }
 
 char *rand_usmallint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randusmallint_buff +
-           ((cursor % g_args.prepared_rand) * SMALLINT_BUFF_LEN);
+           ((cursor) * SMALLINT_BUFF_LEN);
 }
 
 int32_t rand_usmallint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randuint[cursor % g_args.prepared_rand] % TSDB_DATA_USMALLINT_NULL;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randusmallint[cursor];
 }
 
 char *rand_int_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randint_buff + ((cursor % g_args.prepared_rand) * INT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randint_buff + ((cursor) * INT_BUFF_LEN);
 }
 
 int32_t rand_int() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randint[cursor % g_args.prepared_rand];
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randint[cursor];
 }
 
 char *rand_uint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randuint_buff + ((cursor % g_args.prepared_rand) * INT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randuint_buff + ((cursor) * INT_BUFF_LEN);
 }
 
 int32_t rand_uint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randuint[cursor % g_args.prepared_rand];
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randuint[cursor];
 }
 
 char *rand_bigint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randbigint_buff +
-           ((cursor % g_args.prepared_rand) * BIGINT_BUFF_LEN);
+           ((cursor) * BIGINT_BUFF_LEN);
 }
 
 int64_t rand_bigint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randbigint[cursor % g_args.prepared_rand];
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randbigint[cursor];
 }
 
 char *rand_ubigint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randubigint_buff +
-           ((cursor % g_args.prepared_rand) * BIGINT_BUFF_LEN);
+           ((cursor) * BIGINT_BUFF_LEN);
 }
 
 int64_t rand_ubigint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randubigint[cursor % g_args.prepared_rand];
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randubigint[cursor];
 }
 
 char *rand_float_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randfloat_buff +
-           ((cursor % g_args.prepared_rand) * FLOAT_BUFF_LEN);
+           ((cursor) * FLOAT_BUFF_LEN);
 }
 
 float rand_float() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
-    return g_randfloat[cursor % g_args.prepared_rand];
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
+    return g_randfloat[cursor];
 }
 
 char *demo_current_float_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_rand_current_buff +
-           ((cursor % g_args.prepared_rand) * FLOAT_BUFF_LEN);
+           ((cursor) * FLOAT_BUFF_LEN);
 }
 
 char *demo_voltage_int_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_rand_voltage_buff +
-           ((cursor % g_args.prepared_rand) * INT_BUFF_LEN);
+           ((cursor) * INT_BUFF_LEN);
 }
 
 char *demo_phase_float_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_rand_phase_buff +
-           ((cursor % g_args.prepared_rand) * FLOAT_BUFF_LEN);
+           ((cursor) * FLOAT_BUFF_LEN);
 }
 
 static int usc2utf8(char *p, int unic) {
@@ -283,14 +311,16 @@ void rand_string(char *str, int size) {
 char *rand_double_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randdouble_buff + (cursor * DOUBLE_BUFF_LEN);
 }
 
 double rand_double() {
     static int cursor;
     cursor++;
-    cursor = cursor % g_args.prepared_rand;
+    if (cursor > (g_args.prepared_rand - 1))
+        cursor = 0;
     return g_randdouble[cursor];
 }
 
@@ -315,6 +345,11 @@ int init_rand_data() {
     g_randutinyint_buff = calloc(1, TINYINT_BUFF_LEN * g_args.prepared_rand);
     g_randusmallint_buff = calloc(1, SMALLINT_BUFF_LEN * g_args.prepared_rand);
     g_randubigint_buff = calloc(1, BIGINT_BUFF_LEN * g_args.prepared_rand);
+    g_randbool = calloc(1, sizeof(int8_t) * g_args.prepared_rand);
+    g_randtinyint = calloc(1, sizeof(int8_t) * g_args.prepared_rand);
+    g_randutinyint = calloc(1, sizeof(uint8_t) * g_args.prepared_rand);
+    g_randsmallint = calloc(1, sizeof(int16_t) * g_args.prepared_rand);
+    g_randusmallint = calloc(1, sizeof(uint16_t) * g_args.prepared_rand);
     g_randint = calloc(1, sizeof(int32_t) * g_args.prepared_rand);
     g_randuint = calloc(1, sizeof(uint32_t) * g_args.prepared_rand);
     g_randbigint = calloc(1, sizeof(int64_t) * g_args.prepared_rand);
@@ -325,27 +360,32 @@ int init_rand_data() {
     for (int i = 0; i < g_args.prepared_rand; i++) {
         g_randint[i] = (int)(taosRandom() % RAND_MAX - (RAND_MAX >> 1));
         g_randuint[i] = (int)(taosRandom());
+        g_randbool[i] = (g_randint[i] % 2) & 1;
+        g_randtinyint[i] = g_randint[i] % 128;
+        g_randutinyint[i] = g_randuint[i] % 255;
+        g_randsmallint[i] = g_randint[i] % 32768;
+        g_randusmallint[i] = g_randuint[i] % 65535;
         sprintf(g_randint_buff + i * INT_BUFF_LEN, "%d", g_randint[i]);
         sprintf(g_rand_voltage_buff + i * INT_BUFF_LEN, "%d",
                 215 + g_randint[i] % 10);
 
         sprintf(g_randbool_buff + i * BOOL_BUFF_LEN, "%s",
-                ((g_randint[i] % 2) & 1) ? "true" : "false");
+                (g_randbool[i]) ? "true" : "false");
         sprintf(g_randsmallint_buff + i * SMALLINT_BUFF_LEN, "%d",
-                g_randint[i] % 32768);
+                g_randsmallint[i]);
         sprintf(g_randtinyint_buff + i * TINYINT_BUFF_LEN, "%d",
-                g_randint[i] % 128);
-        sprintf(g_randuint_buff + i * INT_BUFF_LEN, "%d", g_randuint[i]);
-        sprintf(g_randusmallint_buff + i * SMALLINT_BUFF_LEN, "%d",
-                g_randuint[i] % 65535);
-        sprintf(g_randutinyint_buff + i * TINYINT_BUFF_LEN, "%d",
-                g_randuint[i] % 255);
+                g_randtinyint[i]);
+        sprintf(g_randuint_buff + i * INT_BUFF_LEN, "%u", g_randuint[i]);
+        sprintf(g_randusmallint_buff + i * SMALLINT_BUFF_LEN, "%u",
+                g_randusmallint[i]);
+        sprintf(g_randutinyint_buff + i * TINYINT_BUFF_LEN, "%u",
+                g_randutinyint[i]);
 
         g_randbigint[i] = (int64_t)(taosRandom() % RAND_MAX - (RAND_MAX >> 1));
         g_randubigint[i] = (uint64_t)(taosRandom());
         sprintf(g_randbigint_buff + i * BIGINT_BUFF_LEN, "%" PRId64 "",
                 g_randbigint[i]);
-        sprintf(g_randubigint_buff + i * BIGINT_BUFF_LEN, "%" PRId64 "",
+        sprintf(g_randubigint_buff + i * BIGINT_BUFF_LEN, "%" PRIu64 "",
                 g_randubigint[i]);
 
         g_randfloat[i] =
@@ -1110,22 +1150,16 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
 }
 
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
-                   int64_t startTime, int64_t *pSamplePos) {
+                   int64_t startTime) {
     TAOS_STMT *stmt = pThreadInfo->stmt;
 
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
 
-    uint32_t columnCount = pThreadInfo->stbInfo->columnCount;
-
-    uint32_t thisBatch = (uint32_t)(g_args.prepared_rand - (*pSamplePos));
-
-    if (thisBatch > batch) {
-        thisBatch = batch;
-    }
+    uint32_t columnCount = stbInfo->columnCount;
 
     memset(pThreadInfo->bindParams, 0,
            (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
-    memset(pThreadInfo->is_null, 0, thisBatch);
+    memset(pThreadInfo->is_null, 0, batch);
 
     for (int c = 0; c < columnCount + 1; c++) {
         TAOS_MULTI_BIND *param =
@@ -1141,116 +1175,55 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
 
         } else {
             data_type = stbInfo->col_type[c - 1];
-
-            char *tmpP;
+            param->buffer_length = stbInfo->col_length[c -1];
 
             switch (data_type) {
-                case TSDB_DATA_TYPE_BINARY:
-                    param->buffer_length = stbInfo->col_length[c - 1];
-
-                    tmpP =
-                        (char *)((uintptr_t) *
-                                 (uintptr_t *)(stbInfo->sampleBindBatchArray +
-                                               sizeof(char *) * (c - 1)));
-
-                    param->buffer =
-                        (void *)(tmpP + *pSamplePos * param->buffer_length);
-                    break;
-
                 case TSDB_DATA_TYPE_NCHAR:
-                    param->buffer_length = stbInfo->col_length[c - 1];
-
-                    tmpP =
-                        (char *)((uintptr_t) *
-                                 (uintptr_t *)(stbInfo->sampleBindBatchArray +
-                                               sizeof(char *) * (c - 1)));
-
-                    param->buffer =
-                        (void *)(tmpP + *pSamplePos * param->buffer_length);
+                case TSDB_DATA_TYPE_BINARY:
+                    param->buffer = calloc(batch, param->buffer_length + 1);
+                    for (int i = 0; i < batch; ++i) {
+                        rand_string(param->buffer + i, param->buffer_length);
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_INT:
+                    param->buffer = g_randint;
+                    break;
                 case TSDB_DATA_TYPE_UINT:
-                    param->buffer_length = sizeof(int32_t);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randuint;
                     break;
-
                 case TSDB_DATA_TYPE_TINYINT:
+                    param->buffer = g_randtinyint;
+                    break;
                 case TSDB_DATA_TYPE_UTINYINT:
-                    param->buffer_length = sizeof(int8_t);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randutinyint;
                     break;
-
                 case TSDB_DATA_TYPE_SMALLINT:
+                    param->buffer = g_randsmallint;
+                    break;
                 case TSDB_DATA_TYPE_USMALLINT:
-                    param->buffer_length = sizeof(int16_t);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randusmallint;
                     break;
-
                 case TSDB_DATA_TYPE_BIGINT:
-                case TSDB_DATA_TYPE_UBIGINT:
-                    param->buffer_length = sizeof(int64_t);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randbigint;
                     break;
-
+                case TSDB_DATA_TYPE_UBIGINT:
+                    param->buffer = g_randubigint;
+                    break;
                 case TSDB_DATA_TYPE_BOOL:
-                    param->buffer_length = sizeof(int8_t);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randbool;
                     break;
 
                 case TSDB_DATA_TYPE_FLOAT:
-                    param->buffer_length = sizeof(float);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randfloat;
                     break;
 
                 case TSDB_DATA_TYPE_DOUBLE:
-                    param->buffer_length = sizeof(double);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randdouble;
                     break;
 
                 case TSDB_DATA_TYPE_TIMESTAMP:
-                    param->buffer_length = sizeof(int64_t);
-                    param->buffer =
-                        (void *)((uintptr_t) *
-                                     (uintptr_t *)(stbInfo
-                                                       ->sampleBindBatchArray +
-                                                   sizeof(char *) * (c - 1)) +
-                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    param->buffer = g_randubigint;
                     break;
 
                 default:
@@ -1260,24 +1233,16 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
         }
 
         param->buffer_type = data_type;
-        param->length = calloc(thisBatch, sizeof(int32_t));
+        param->length = calloc(batch, sizeof(int32_t));
 
-        for (int b = 0; b < thisBatch; b++) {
-            /*
-            if (param->buffer_type == TSDB_DATA_TYPE_NCHAR) {
-                param->length[b] = (int32_t)strlen((char *)param->buffer +
-                                                   b * sizeof(int32_t));
-            } else {
-                param->length[b] = (int32_t)param->buffer_length;
-            }
-            */
+        for (int b = 0; b < batch; b++) {
             param->length[b] = (int32_t)param->buffer_length;
         }
         param->is_null = pThreadInfo->is_null;
-        param->num = thisBatch;
+        param->num = batch;
     }
 
-    for (uint32_t k = 0; k < thisBatch; k++) {
+    for (uint32_t k = 0; k < batch; k++) {
         /* columnCount + 1 (ts) */
         if (stbInfo->disorderRatio) {
             *(pThreadInfo->bind_ts_array + k) =
@@ -1287,11 +1252,6 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
         } else {
             *(pThreadInfo->bind_ts_array + k) =
                 startTime + stbInfo->timeStampStep * k;
-        }
-
-        (*pSamplePos)++;
-        if ((*pSamplePos) == g_args.prepared_rand) {
-            *pSamplePos = 0;
         }
     }
 
@@ -1395,191 +1355,6 @@ int32_t prepareStbStmtBindTag(char *bindArray, SSuperTable *stbInfo,
     return 0;
 }
 
-int parseSamplefileToStmtBatch(SSuperTable *stbInfo) {
-    int32_t columnCount = (stbInfo) ? stbInfo->columnCount : g_args.columnCount;
-    char *  sampleBindBatchArray = NULL;
-
-    if (stbInfo) {
-        stbInfo->sampleBindBatchArray =
-            calloc(1, sizeof(uintptr_t *) * columnCount);
-        sampleBindBatchArray = stbInfo->sampleBindBatchArray;
-    } else {
-        g_sampleBindBatchArray = calloc(1, sizeof(uintptr_t *) * columnCount);
-        sampleBindBatchArray = g_sampleBindBatchArray;
-    }
-
-    char *   data_type = (stbInfo) ? stbInfo->col_type : g_args.col_type;
-    int32_t *data_length = (stbInfo) ? stbInfo->col_length : g_args.col_length;
-    for (int c = 0; c < columnCount; c++) {
-        char *tmpP = NULL;
-
-        switch (data_type[c]) {
-            case TSDB_DATA_TYPE_INT:
-            case TSDB_DATA_TYPE_UINT:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_TINYINT:
-            case TSDB_DATA_TYPE_UTINYINT:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_SMALLINT:
-            case TSDB_DATA_TYPE_USMALLINT:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_BIGINT:
-            case TSDB_DATA_TYPE_UBIGINT:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_BOOL:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_FLOAT:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_DOUBLE:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR:
-                tmpP = calloc(1, g_args.prepared_rand * (data_length[c] + 1));
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_TIMESTAMP:
-                tmpP = calloc(1, data_length[c] * g_args.prepared_rand);
-                *(uintptr_t *)(sampleBindBatchArray + sizeof(uintptr_t *) * c) =
-                    (uintptr_t)tmpP;
-                break;
-
-            default:
-                errorPrint("Unknown data type: %d\n", data_type[c]);
-                return -1;
-        }
-    }
-
-    char *sampleDataBuf = (stbInfo) ? stbInfo->sampleDataBuf : g_sampleDataBuf;
-    int64_t lenOfOneRow = (stbInfo) ? stbInfo->lenOfCols : g_args.lenOfCols;
-
-    for (int i = 0; i < g_args.prepared_rand; i++) {
-        int cursor = 0;
-
-        for (int c = 0; c < columnCount; c++) {
-            char *restStr = sampleDataBuf + lenOfOneRow * i + cursor;
-            int   lengthOfRest = (int)strlen(restStr);
-
-            int index = 0;
-            for (index = 0; index < lengthOfRest; index++) {
-                if (restStr[index] == ',') {
-                    break;
-                }
-            }
-
-            char *tmpStr = calloc(1, index + 1);
-
-            strncpy(tmpStr, restStr, index);
-            cursor += index + 1;  // skip ',' too
-            char *tmpP;
-
-            switch (data_type[c]) {
-                case TSDB_DATA_TYPE_INT:
-                case TSDB_DATA_TYPE_UINT:
-                    *((int32_t *)((uintptr_t) *
-                                      (uintptr_t *)(sampleBindBatchArray +
-                                                    sizeof(char *) * c) +
-                                  data_length[c] * i)) = atoi(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_FLOAT:
-                    *(float *)(((uintptr_t) *
-                                    (uintptr_t *)(sampleBindBatchArray +
-                                                  sizeof(char *) * c) +
-                                data_length[c] * i)) = (float)atof(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_DOUBLE:
-                    *(double *)(((uintptr_t) *
-                                     (uintptr_t *)(sampleBindBatchArray +
-                                                   sizeof(char *) * c) +
-                                 data_length[c] * i)) = atof(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_TINYINT:
-                case TSDB_DATA_TYPE_UTINYINT:
-                    *((int8_t *)((uintptr_t) *
-                                     (uintptr_t *)(sampleBindBatchArray +
-                                                   sizeof(char *) * c) +
-                                 data_length[c] * i)) = (int8_t)atoi(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_SMALLINT:
-                case TSDB_DATA_TYPE_USMALLINT:
-                    *((int16_t *)((uintptr_t) *
-                                      (uintptr_t *)(sampleBindBatchArray +
-                                                    sizeof(char *) * c) +
-                                  data_length[c] * i)) = (int16_t)atoi(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_BIGINT:
-                case TSDB_DATA_TYPE_UBIGINT:
-                    *((int64_t *)((uintptr_t) *
-                                      (uintptr_t *)(sampleBindBatchArray +
-                                                    sizeof(char *) * c) +
-                                  data_length[c] * i)) = (int64_t)atol(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_BOOL:
-                    *((int8_t *)((uintptr_t) *
-                                     (uintptr_t *)(sampleBindBatchArray +
-                                                   sizeof(char *) * c) +
-                                 data_length[c] * i)) = (int8_t)atoi(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    *((int64_t *)((uintptr_t) *
-                                      (uintptr_t *)(sampleBindBatchArray +
-                                                    sizeof(char *) * c) +
-                                  data_length[c] * i)) = (int64_t)atol(tmpStr);
-                    break;
-
-                case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR:
-                    tmpP = (char *)(*(uintptr_t *)(sampleBindBatchArray +
-                                                   sizeof(char *) * c));
-                    strcpy(tmpP + i * ((data_length[c])), tmpStr);
-                    break;
-
-                default:
-                    break;
-            }
-
-            free(tmpStr);
-        }
-    }
-
-    return 0;
-}
 
 int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
                              threadInfo *pThreadInfo, int tbSeq) {

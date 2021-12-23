@@ -21,6 +21,11 @@
 
 extern char *    g_sampleDataBuf;
 extern char *    g_sampleBindBatchArray;
+extern int8_t * g_randbool;
+extern int8_t * g_randtinyint;
+extern uint8_t * g_randutinyint;
+extern int16_t * g_randsmallint ;
+extern uint16_t * g_randusmallint ;
 extern int32_t * g_randint;
 extern uint32_t *g_randuint;
 extern int64_t * g_randbigint;
@@ -75,14 +80,13 @@ int     generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
-                       int64_t startTime, int64_t *pSamplePos);
+                       int64_t startTime);
 int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
                               uint32_t batch, int64_t startTime);
 
 int     generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                                int columnCount, char *data_type,
                                int32_t *data_length);
-int     parseSamplefileToStmtBatch(SSuperTable *stbInfo);
 int     prepareSampleData();
 int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
                              threadInfo *pThreadInfo, int tbSeq);
