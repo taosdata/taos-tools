@@ -51,7 +51,7 @@ jobs:
           cd src/kit/taos-tools/
           ctest --verbose
           cd ../../../../tests/pytest
-          pip3 install taospy numpy fabric2 psutil pandas
+          pip3 install taospy numpy fabric2 psutil pandas faker
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
@@ -59,6 +59,18 @@ jobs:
           python3 ./test.py -f tools/taosdumpTest2.py
           python3 ./test.py -f tools/taosdumpTest3.py
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+
+          cd ../develop-test
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+
+          cd ../system-test
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
 
       - name: Generate report
         run: |
