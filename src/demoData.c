@@ -18,11 +18,11 @@
 
 char *    g_sampleDataBuf = NULL;
 char *    g_sampleBindBatchArray = NULL;
-int8_t * g_randbool = NULL;
-int8_t * g_randtinyint = NULL;
+int8_t *  g_randbool = NULL;
+int8_t *  g_randtinyint = NULL;
 uint8_t * g_randutinyint = NULL;
 int16_t * g_randsmallint = NULL;
-uint16_t * g_randusmallint = NULL;
+uint16_t *g_randusmallint = NULL;
 int32_t * g_randint = NULL;
 uint32_t *g_randuint = NULL;
 int64_t * g_randbigint = NULL;
@@ -50,195 +50,162 @@ const char charset[] =
 char *rand_bool_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randbool_buff + ((cursor) * BOOL_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randbool_buff + ((cursor)*BOOL_BUFF_LEN);
 }
 
 int32_t rand_bool() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randbool[cursor];
 }
 
 char *rand_tinyint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randtinyint_buff +
-           ((cursor) * TINYINT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randtinyint_buff + ((cursor)*TINYINT_BUFF_LEN);
 }
 
 int32_t rand_tinyint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randtinyint[cursor];
 }
 
 char *rand_utinyint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randutinyint_buff +
-           ((cursor) * TINYINT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randutinyint_buff + ((cursor)*TINYINT_BUFF_LEN);
 }
 
 int32_t rand_utinyint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randutinyint[cursor];
 }
 
 char *rand_smallint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randsmallint_buff +
-           ((cursor) * SMALLINT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randsmallint_buff + ((cursor)*SMALLINT_BUFF_LEN);
 }
 
 int32_t rand_smallint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randsmallint[cursor];
 }
 
 char *rand_usmallint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randusmallint_buff +
-           ((cursor) * SMALLINT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randusmallint_buff + ((cursor)*SMALLINT_BUFF_LEN);
 }
 
 int32_t rand_usmallint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randusmallint[cursor];
 }
 
 char *rand_int_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randint_buff + ((cursor) * INT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randint_buff + ((cursor)*INT_BUFF_LEN);
 }
 
 int32_t rand_int() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randint[cursor];
 }
 
 char *rand_uint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randuint_buff + ((cursor) * INT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randuint_buff + ((cursor)*INT_BUFF_LEN);
 }
 
 int32_t rand_uint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randuint[cursor];
 }
 
 char *rand_bigint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randbigint_buff +
-           ((cursor) * BIGINT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randbigint_buff + ((cursor)*BIGINT_BUFF_LEN);
 }
 
 int64_t rand_bigint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randbigint[cursor];
 }
 
 char *rand_ubigint_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randubigint_buff +
-           ((cursor) * BIGINT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randubigint_buff + ((cursor)*BIGINT_BUFF_LEN);
 }
 
 int64_t rand_ubigint() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randubigint[cursor];
 }
 
 char *rand_float_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_randfloat_buff +
-           ((cursor) * FLOAT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_randfloat_buff + ((cursor)*FLOAT_BUFF_LEN);
 }
 
 float rand_float() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randfloat[cursor];
 }
 
 char *demo_current_float_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_rand_current_buff +
-           ((cursor) * FLOAT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_rand_current_buff + ((cursor)*FLOAT_BUFF_LEN);
 }
 
 char *demo_voltage_int_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_rand_voltage_buff +
-           ((cursor) * INT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_rand_voltage_buff + ((cursor)*INT_BUFF_LEN);
 }
 
 char *demo_phase_float_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
-    return g_rand_phase_buff +
-           ((cursor) * FLOAT_BUFF_LEN);
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
+    return g_rand_phase_buff + ((cursor)*FLOAT_BUFF_LEN);
 }
 
 static int usc2utf8(char *p, int unic) {
@@ -311,16 +278,14 @@ void rand_string(char *str, int size) {
 char *rand_double_str() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randdouble_buff + (cursor * DOUBLE_BUFF_LEN);
 }
 
 double rand_double() {
     static int cursor;
     cursor++;
-    if (cursor > (g_args.prepared_rand - 1))
-        cursor = 0;
+    if (cursor > (g_args.prepared_rand - 1)) cursor = 0;
     return g_randdouble[cursor];
 }
 
@@ -1149,8 +1114,7 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
     return 0;
 }
 
-int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
-                   int64_t startTime) {
+int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     TAOS_STMT *stmt = pThreadInfo->stmt;
 
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1175,7 +1139,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
 
         } else {
             data_type = stbInfo->col_type[c - 1];
-            param->buffer_length = stbInfo->col_length[c -1];
+            param->buffer_length = stbInfo->col_length[c - 1];
 
             switch (data_type) {
                 case TSDB_DATA_TYPE_NCHAR:
@@ -1354,7 +1318,6 @@ int32_t prepareStbStmtBindTag(char *bindArray, SSuperTable *stbInfo,
 
     return 0;
 }
-
 
 int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
                              threadInfo *pThreadInfo, int tbSeq) {

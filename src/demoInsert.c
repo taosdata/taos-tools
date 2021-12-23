@@ -1106,42 +1106,6 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     return affectedRows;
 }
 
-static void getTableName(char *pTblName, threadInfo *pThreadInfo,
-                         uint64_t tableSeq) {
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
-    if (stbInfo) {
-        if (AUTO_CREATE_SUBTBL != stbInfo->autoCreateTable) {
-            if (stbInfo->childTblLimit > 0) {
-                snprintf(pTblName, TSDB_TABLE_NAME_LEN,
-                         stbInfo->escapeChar ? "`%s`" : "%s",
-                         stbInfo->childTblName +
-                             (tableSeq - stbInfo->childTblOffset) *
-                                 TSDB_TABLE_NAME_LEN);
-            } else {
-                verbosePrint("[%d] %s() LN%d: from=%" PRIu64 " count=%" PRId64
-                             " seq=%" PRIu64 "\n",
-                             pThreadInfo->threadID, __func__, __LINE__,
-                             pThreadInfo->start_table_from,
-                             pThreadInfo->ntables, tableSeq);
-                snprintf(
-                    pTblName, TSDB_TABLE_NAME_LEN,
-                    stbInfo->escapeChar ? "`%s`" : "%s",
-                    stbInfo->childTblName + tableSeq * TSDB_TABLE_NAME_LEN);
-            }
-        } else {
-            snprintf(pTblName, TSDB_TABLE_NAME_LEN,
-                     stbInfo->escapeChar ? "`%s%" PRIu64 "`" : "%s%" PRIu64 "",
-                     stbInfo->childTblPrefix, tableSeq);
-        }
-    } else {
-        snprintf(pTblName, TSDB_TABLE_NAME_LEN,
-                 g_args.escapeChar ? "`%s%" PRIu64 "`" : "%s%" PRIu64 "",
-                 g_args.tb_prefix, tableSeq);
-    }
-}
-
-
-
 void *syncWriteInterlace(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     debugPrint(
@@ -1153,9 +1117,9 @@ void *syncWriteInterlace(void *sarg) {
     *code = -1;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
 
-    int64_t      insertRows = pThreadInfo->insertRows;
-    int32_t      interlaceRows = pThreadInfo->interlaceRows;
-    int64_t         pos = 0;
+    int64_t insertRows = pThreadInfo->insertRows;
+    int32_t interlaceRows = pThreadInfo->interlaceRows;
+    int64_t pos = 0;
 
     uint32_t batchPerTblTimes = g_args.reqPerReq / pThreadInfo->interlaceRows;
 
@@ -1171,7 +1135,7 @@ void *syncWriteInterlace(void *sarg) {
             interlaceRows = insertRows;
         }
         for (int i = 0; i < batchPerTblTimes; ++i) {
-            int64_t   timestamp = pThreadInfo->start_time;
+            int64_t timestamp = pThreadInfo->start_time;
             switch (pThreadInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE: {
@@ -1204,16 +1168,20 @@ void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    char* tableName = calloc(1, TSDB_TABLE_NAME_LEN);
-                    sprintf(tableName, "%s%"PRIu64"", stbInfo?stbInfo->childTblPrefix:g_args.tb_prefix, tableSeq);
+                    char *tableName = calloc(1, TSDB_TABLE_NAME_LEN);
+                    sprintf(
+                        tableName, "%s%" PRIu64 "",
+                        stbInfo ? stbInfo->childTblPrefix : g_args.tb_prefix,
+                        tableSeq);
                     if (taos_stmt_set_tbname(pThreadInfo->stmt, tableName)) {
-                        errorPrint("taos_stmt_set_tbname(%s) failed! reason: %s\n",tableName,
-                                   taos_stmt_errstr(pThreadInfo->stmt));
+                        errorPrint(
+                            "taos_stmt_set_tbname(%s) failed! reason: %s\n",
+                            tableName, taos_stmt_errstr(pThreadInfo->stmt));
                         goto free_of_interlace;
                     }
                     if (stbInfo) {
-                        generated = bindParamBatch(
-                            pThreadInfo, interlaceRows, timestamp);
+                        generated = bindParamBatch(pThreadInfo, interlaceRows,
+                                                   timestamp);
                     } else {
                         generated = prepareStmtWithoutStb(
                             pThreadInfo, tableName, interlaceRows, timestamp);
@@ -1223,7 +1191,8 @@ void *syncWriteInterlace(void *sarg) {
                 }
                 case SML_IFACE: {
                     for (int64_t j = 0; j < interlaceRows; ++j) {
-                        if (pThreadInfo->line_protocol == TSDB_SML_JSON_PROTOCOL) {
+                        if (pThreadInfo->line_protocol ==
+                            TSDB_SML_JSON_PROTOCOL) {
                             cJSON *tag = cJSON_Duplicate(
                                 cJSON_GetArrayItem(
                                     pThreadInfo->sml_json_tags,
@@ -1241,7 +1210,7 @@ void *syncWriteInterlace(void *sarg) {
                                                pThreadInfo->start_table_from],
                                 stbInfo, pThreadInfo, timestamp);
                         }
-                        generated ++;
+                        generated++;
                         timestamp += pThreadInfo->time_step;
                     }
                     break;
@@ -1250,8 +1219,10 @@ void *syncWriteInterlace(void *sarg) {
             tableSeq++;
             if (tableSeq > pThreadInfo->end_table_to) {
                 tableSeq = pThreadInfo->start_table_from;
-                pThreadInfo->start_time += interlaceRows*pThreadInfo->time_step;
-                pThreadInfo->totalInsertRows += pThreadInfo->ntables * interlaceRows;
+                pThreadInfo->start_time +=
+                    interlaceRows * pThreadInfo->time_step;
+                pThreadInfo->totalInsertRows +=
+                    pThreadInfo->ntables * interlaceRows;
                 insertRows -= interlaceRows;
                 break;
             }
@@ -1271,13 +1242,15 @@ void *syncWriteInterlace(void *sarg) {
                 break;
             case SML_IFACE:
                 if (pThreadInfo->line_protocol == TSDB_SML_JSON_PROTOCOL) {
-                    debugPrint("pThreadInfo->lines[0]: %s\n", pThreadInfo->lines[0]);
+                    debugPrint("pThreadInfo->lines[0]: %s\n",
+                               pThreadInfo->lines[0]);
                     cJSON_Delete(pThreadInfo->json_array);
                     pThreadInfo->json_array = cJSON_CreateArray();
                     tmfree(pThreadInfo->lines[0]);
                 } else {
                     for (int j = 0; j < generated; ++j) {
-                        debugPrint("pThreadInfo->lines[%d]: %s\n", j, pThreadInfo->lines[j]);
+                        debugPrint("pThreadInfo->lines[%d]: %s\n", j,
+                                   pThreadInfo->lines[j]);
                         memset(pThreadInfo->lines[j], 0,
                                pThreadInfo->max_sql_len);
                     }
@@ -1300,15 +1273,15 @@ void *syncWriteInterlace(void *sarg) {
         int64_t currentPrintTime = taosGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
             infoPrint("thread[%d] has currently inserted rows: %" PRIu64
-                   ", affected rows: %" PRIu64 "\n",
-                   pThreadInfo->threadID, pThreadInfo->totalInsertRows,
-                   pThreadInfo->totalAffectedRows);
+                      ", affected rows: %" PRIu64 "\n",
+                      pThreadInfo->threadID, pThreadInfo->totalInsertRows,
+                      pThreadInfo->totalAffectedRows);
             lastPrintTime = currentPrintTime;
         }
         debugPrint("thread[%d] has currently inserted rows: %" PRIu64
-                  ", affected rows: %" PRIu64 "\n",
-                  pThreadInfo->threadID, pThreadInfo->totalInsertRows,
-                  pThreadInfo->totalAffectedRows);
+                   ", affected rows: %" PRIu64 "\n",
+                   pThreadInfo->threadID, pThreadInfo->totalInsertRows,
+                   pThreadInfo->totalAffectedRows);
     }
 
     *code = 0;
@@ -1375,17 +1348,25 @@ void *syncWriteProgressive(void *sarg) {
                         stbInfo ? stbInfo->childTblPrefix : g_args.tb_prefix,
                         tableSeq);
                     if (taos_stmt_set_tbname(pThreadInfo->stmt, tableName)) {
-                        errorPrint("taos_stmt_set_tbname(%s) failed! reason: %s\n",tableName,
-                                   taos_stmt_errstr(pThreadInfo->stmt));
+                        errorPrint(
+                            "taos_stmt_set_tbname(%s) failed! reason: %s\n",
+                            tableName, taos_stmt_errstr(pThreadInfo->stmt));
                         goto free_of_progressive;
                     }
                     if (stbInfo) {
                         generated = bindParamBatch(
-                            pThreadInfo, (g_args.reqPerReq > (pThreadInfo->insertRows-i))?(pThreadInfo->insertRows-i):g_args.reqPerReq,
+                            pThreadInfo,
+                            (g_args.reqPerReq > (pThreadInfo->insertRows - i))
+                                ? (pThreadInfo->insertRows - i)
+                                : g_args.reqPerReq,
                             timestamp);
                     } else {
                         generated = prepareStmtWithoutStb(
-                            pThreadInfo, tableName, (g_args.reqPerReq > (pThreadInfo->insertRows-i))?(pThreadInfo->insertRows-i):g_args.reqPerReq, timestamp);
+                            pThreadInfo, tableName,
+                            (g_args.reqPerReq > (pThreadInfo->insertRows - i))
+                                ? (pThreadInfo->insertRows - i)
+                                : g_args.reqPerReq,
+                            timestamp);
                     }
                     tmfree(tableName);
                     break;
@@ -1448,7 +1429,8 @@ void *syncWriteProgressive(void *sarg) {
                         tmfree(pThreadInfo->lines[0]);
                     } else {
                         for (int j = 0; j < generated; ++j) {
-                            debugPrint("pThreadInfo->lines[%d]: %s\n", j, pThreadInfo->lines[j]);
+                            debugPrint("pThreadInfo->lines[%d]: %s\n", j,
+                                       pThreadInfo->lines[j]);
                             memset(pThreadInfo->lines[j], 0,
                                    pThreadInfo->max_sql_len);
                         }
@@ -1723,7 +1705,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         generateSmlConstPart(pThreadInfo->sml_tags[t], stbInfo,
                                              pThreadInfo, t);
-                        debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t, pThreadInfo->sml_tags[t]);
+                        debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
+                                   pThreadInfo->sml_tags[t]);
                     }
                     pThreadInfo->lines =
                         calloc(g_args.reqPerReq, sizeof(char *));

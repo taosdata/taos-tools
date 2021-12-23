@@ -612,8 +612,8 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                     "%s", "failed to read json, childtable_prefix not found\n");
                 goto PARSE_OVER;
             }
-            tstrncpy(db[i].superTbls[j].childTblPrefix,
-                     prefix->valuestring, TBNAME_PREFIX_LEN);
+            tstrncpy(db[i].superTbls[j].childTblPrefix, prefix->valuestring,
+                     TBNAME_PREFIX_LEN);
 
             cJSON *escapeChar =
                 cJSON_GetObjectItem(stbInfo, "escape_character");
@@ -639,17 +639,13 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             if (autoCreateTbl && autoCreateTbl->type == cJSON_String &&
                 autoCreateTbl->valuestring != NULL) {
                 if ((0 == strncasecmp(autoCreateTbl->valuestring, "yes", 3)) &&
-                    (TBL_ALREADY_EXISTS !=
-                     db[i].superTbls[j].childTblExists)) {
-                    db[i].superTbls[j].autoCreateTable =
-                        AUTO_CREATE_SUBTBL;
+                    (TBL_ALREADY_EXISTS != db[i].superTbls[j].childTblExists)) {
+                    db[i].superTbls[j].autoCreateTable = AUTO_CREATE_SUBTBL;
                 } else if (0 ==
                            strncasecmp(autoCreateTbl->valuestring, "no", 2)) {
-                    db[i].superTbls[j].autoCreateTable =
-                        PRE_CREATE_SUBTBL;
+                    db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
                 } else {
-                    db[i].superTbls[j].autoCreateTable =
-                        PRE_CREATE_SUBTBL;
+                    db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
                 }
             } else if (!autoCreateTbl) {
                 db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
@@ -665,8 +661,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 db[i].superTbls[j].batchCreateTableNum =
                     batchCreateTbl->valueint;
             } else if (!batchCreateTbl) {
-                db[i].superTbls[j].batchCreateTableNum =
-                    DEFAULT_CREATE_BATCH;
+                db[i].superTbls[j].batchCreateTableNum = DEFAULT_CREATE_BATCH;
             } else {
                 errorPrint(
                     "%s",
@@ -680,8 +675,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 childTblExists->valuestring != NULL) {
                 if ((0 == strncasecmp(childTblExists->valuestring, "yes", 3)) &&
                     (db[i].drop == false)) {
-                    db[i].superTbls[j].childTblExists =
-                        TBL_ALREADY_EXISTS;
+                    db[i].superTbls[j].childTblExists = TBL_ALREADY_EXISTS;
                 } else if ((0 == strncasecmp(childTblExists->valuestring, "no",
                                              2) ||
                             (db[i].drop == true))) {
@@ -716,8 +710,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             if (dataSource && dataSource->type == cJSON_String &&
                 dataSource->valuestring != NULL) {
                 tstrncpy(
-                    db[i].superTbls[j].dataSource,
-                    dataSource->valuestring,
+                    db[i].superTbls[j].dataSource, dataSource->valuestring,
                     min(SMALL_BUFF_LEN, strlen(dataSource->valuestring) + 1));
             } else if (!dataSource) {
                 tstrncpy(db[i].superTbls[j].dataSource, "rand",
@@ -739,8 +732,8 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                     db[i].superTbls[j].iface = STMT_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
-                    if (strcasecmp(db[i].superTbls[j].dataSource,
-                                   "sample") == 0) {
+                    if (strcasecmp(db[i].superTbls[j].dataSource, "sample") ==
+                        0) {
                         errorPrint("%s",
                                    "sml insert mode currently does not support "
                                    "sample as data source\n");
@@ -767,16 +760,13 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             if (stbLineProtocol && stbLineProtocol->type == cJSON_String &&
                 stbLineProtocol->valuestring != NULL) {
                 if (0 == strcasecmp(stbLineProtocol->valuestring, "line")) {
-                    db[i].superTbls[j].lineProtocol =
-                        TSDB_SML_LINE_PROTOCOL;
+                    db[i].superTbls[j].lineProtocol = TSDB_SML_LINE_PROTOCOL;
                 } else if (0 ==
                            strcasecmp(stbLineProtocol->valuestring, "telnet")) {
-                    db[i].superTbls[j].lineProtocol =
-                        TSDB_SML_TELNET_PROTOCOL;
+                    db[i].superTbls[j].lineProtocol = TSDB_SML_TELNET_PROTOCOL;
                 } else if (0 ==
                            strcasecmp(stbLineProtocol->valuestring, "json")) {
-                    db[i].superTbls[j].lineProtocol =
-                        TSDB_SML_JSON_PROTOCOL;
+                    db[i].superTbls[j].lineProtocol = TSDB_SML_JSON_PROTOCOL;
                 } else {
                     errorPrint(
                         "failed to read json, line_protocol %s not "
@@ -795,14 +785,12 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             cJSON *childTbl_limit =
                 cJSON_GetObjectItem(stbInfo, "childtable_limit");
             if ((childTbl_limit) && (db[i].drop != true) &&
-                (db[i].superTbls[j].childTblExists ==
-                 TBL_ALREADY_EXISTS)) {
+                (db[i].superTbls[j].childTblExists == TBL_ALREADY_EXISTS)) {
                 if (childTbl_limit->type != cJSON_Number) {
                     errorPrint("%s", "failed to read json, childtable_limit\n");
                     goto PARSE_OVER;
                 }
-                db[i].superTbls[j].childTblLimit =
-                    childTbl_limit->valueint;
+                db[i].superTbls[j].childTblLimit = childTbl_limit->valueint;
             } else {
                 db[i].superTbls[j].childTblLimit =
                     -1;  // select ... limit -1 means all query result, drop =
@@ -813,24 +801,22 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             cJSON *childTbl_offset =
                 cJSON_GetObjectItem(stbInfo, "childtable_offset");
             if ((childTbl_offset) && (db[i].drop != true) &&
-                (db[i].superTbls[j].childTblExists ==
-                 TBL_ALREADY_EXISTS)) {
+                (db[i].superTbls[j].childTblExists == TBL_ALREADY_EXISTS)) {
                 if ((childTbl_offset->type != cJSON_Number) ||
                     (0 > childTbl_offset->valueint)) {
                     errorPrint("%s",
                                "failed to read json, childtable_offset\n");
                     goto PARSE_OVER;
                 }
-                db[i].superTbls[j].childTblOffset =
-                    childTbl_offset->valueint;
+                db[i].superTbls[j].childTblOffset = childTbl_offset->valueint;
             } else {
                 db[i].superTbls[j].childTblOffset = 0;
             }
 
             cJSON *ts = cJSON_GetObjectItem(stbInfo, "start_timestamp");
             if (ts && ts->type == cJSON_String && ts->valuestring != NULL) {
-                tstrncpy(db[i].superTbls[j].startTimestamp,
-                         ts->valuestring, TSDB_DB_NAME_LEN);
+                tstrncpy(db[i].superTbls[j].startTimestamp, ts->valuestring,
+                         TSDB_DB_NAME_LEN);
             } else if (!ts) {
                 tstrncpy(db[i].superTbls[j].startTimestamp, "now",
                          TSDB_DB_NAME_LEN);
@@ -843,8 +829,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             cJSON *timestampStep =
                 cJSON_GetObjectItem(stbInfo, "timestamp_step");
             if (timestampStep && timestampStep->type == cJSON_Number) {
-                db[i].superTbls[j].timeStampStep =
-                    timestampStep->valueint;
+                db[i].superTbls[j].timeStampStep = timestampStep->valueint;
             } else if (!timestampStep) {
                 db[i].superTbls[j].timeStampStep = g_args.timestamp_step;
             } else {
@@ -857,8 +842,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             if (sampleFormat && sampleFormat->type == cJSON_String &&
                 sampleFormat->valuestring != NULL) {
                 tstrncpy(
-                    db[i].superTbls[j].sampleFormat,
-                    sampleFormat->valuestring,
+                    db[i].superTbls[j].sampleFormat, sampleFormat->valuestring,
                     min(SMALL_BUFF_LEN, strlen(sampleFormat->valuestring) + 1));
             } else if (!sampleFormat) {
                 tstrncpy(db[i].superTbls[j].sampleFormat, "csv",
@@ -872,13 +856,11 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             cJSON *sampleFile = cJSON_GetObjectItem(stbInfo, "sample_file");
             if (sampleFile && sampleFile->type == cJSON_String &&
                 sampleFile->valuestring != NULL) {
-                tstrncpy(db[i].superTbls[j].sampleFile,
-                         sampleFile->valuestring,
+                tstrncpy(db[i].superTbls[j].sampleFile, sampleFile->valuestring,
                          min(MAX_FILE_NAME_LEN,
                              strlen(sampleFile->valuestring) + 1));
             } else if (!sampleFile) {
-                memset(db[i].superTbls[j].sampleFile, 0,
-                       MAX_FILE_NAME_LEN);
+                memset(db[i].superTbls[j].sampleFile, 0, MAX_FILE_NAME_LEN);
             } else {
                 errorPrint("%s",
                            "failed to read json, sample_file not found\n");
@@ -907,8 +889,8 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             cJSON *tagsFile = cJSON_GetObjectItem(stbInfo, "tags_file");
             if ((tagsFile && tagsFile->type == cJSON_String) &&
                 (tagsFile->valuestring != NULL)) {
-                tstrncpy(db[i].superTbls[j].tagsFile,
-                         tagsFile->valuestring, MAX_FILE_NAME_LEN);
+                tstrncpy(db[i].superTbls[j].tagsFile, tagsFile->valuestring,
+                         MAX_FILE_NAME_LEN);
                 if (0 == db[i].superTbls[j].tagsFile[0]) {
                     db[i].superTbls[j].tagSource = 0;
                 } else {
@@ -985,8 +967,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
 
                 if (disorderRatio->valueint < 0) disorderRatio->valueint = 0;
 
-                db[i].superTbls[j].disorderRatio =
-                    (int)disorderRatio->valueint;
+                db[i].superTbls[j].disorderRatio = (int)disorderRatio->valueint;
             } else if (!disorderRatio) {
                 db[i].superTbls[j].disorderRatio = 0;
             } else {
@@ -998,8 +979,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             cJSON *disorderRange =
                 cJSON_GetObjectItem(stbInfo, "disorder_range");
             if (disorderRange && disorderRange->type == cJSON_Number) {
-                db[i].superTbls[j].disorderRange =
-                    (int)disorderRange->valueint;
+                db[i].superTbls[j].disorderRange = (int)disorderRange->valueint;
             } else if (!disorderRange) {
                 db[i].superTbls[j].disorderRange = DEFAULT_DISORDER_RANGE;
             } else {
@@ -1011,8 +991,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             cJSON *insertInterval =
                 cJSON_GetObjectItem(stbInfo, "insert_interval");
             if (insertInterval && insertInterval->type == cJSON_Number) {
-                db[i].superTbls[j].insertInterval =
-                    insertInterval->valueint;
+                db[i].superTbls[j].insertInterval = insertInterval->valueint;
                 if (insertInterval->valueint < 0) {
                     errorPrint(
                         "%s",
@@ -1024,8 +1003,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                     "%s() LN%d: stable insert interval be overrode by global "
                     "%" PRIu64 ".\n",
                     __func__, __LINE__, g_args.insert_interval);
-                db[i].superTbls[j].insertInterval =
-                    g_args.insert_interval;
+                db[i].superTbls[j].insertInterval = g_args.insert_interval;
             } else {
                 errorPrint(
                     "%s",
@@ -1033,8 +1011,8 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 goto PARSE_OVER;
             }
 
-            if (getColumnAndTagTypeFromInsertJsonFile(
-                    stbInfo, &db[i].superTbls[j])) {
+            if (getColumnAndTagTypeFromInsertJsonFile(stbInfo,
+                                                      &db[i].superTbls[j])) {
                 goto PARSE_OVER;
             }
         }
