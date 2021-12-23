@@ -376,6 +376,7 @@ static struct argp_option options[] = {
     // dump format options
     {"schemaonly", 's', 0, 0,  "Only dump schema.", 2},
     {"without-property", 'N', 0, 0,  "Dump schema without properties.", 2},
+    {"answer-yes", 'y', 0, 0,  "Input yes for prompt. It will skip data file checking!", 3},
     {"avro-codec", 'd', "snappy", 0,  "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
     {"start-time",    'S', "START_TIME",  0,  "Start time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",  8},
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
@@ -409,6 +410,7 @@ typedef struct arguments {
     // dump format option
     bool     schemaonly;
     bool     with_property;
+    bool     answer_yes;
     bool     avro;
     int      avro_codec;
     int64_t  start_time;
@@ -464,6 +466,7 @@ struct arguments g_args = {
     // dump format option
     false,      // schemaonly
     true,       // with_property
+    false,      // answer_yes
     true,       // avro
     AVRO_CODEC_SNAPPY,  // avro_codec
     -INT64_MAX + 1, // start_time
@@ -500,6 +503,13 @@ struct arguments g_args = {
 #define TAOSDUMP_STATUS "unknown"
 #endif
 
+
+void prompt() {
+    if (!g_args.answer_yes) {
+        printf("         Press enter key to continue or Ctrl-C to stop\n\n");
+        (void)getchar();
+    }
+}
 
 char* strToLower(char *dst, const char *src) {
   int esc = 0;
@@ -804,6 +814,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'N':
             g_args.with_property = false;
+            break;
+        case 'y':
+            g_args.answer_yes = true;
             break;
         case 'S':
             // parse time here.
@@ -3409,8 +3422,8 @@ static int dumpInAvroDataImpl(
                                 bind->is_null = &is_null;
                             } else {
                                 debugPrint2("%s | ", (char *)buf);
+                                bind->buffer_length = strlen(buf);
                             }
-                            bind->buffer_length = strlen(buf);
                             bind->buffer = buf;
                         }
                         break;
@@ -3431,8 +3444,8 @@ static int dumpInAvroDataImpl(
                                 bind->is_null = &is_null;
                             } else {
                                 debugPrint2("%s | ", (char*)bytesbuf);
+                                bind->buffer_length = strlen((char*)bytesbuf);
                             }
-                            bind->buffer_length = strlen((char*)bytesbuf);
                             bind->buffer = bytesbuf;
                         }
                         break;
@@ -5621,6 +5634,74 @@ static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
     return dumpNTablesOfDb(dbInfo);
 }
 
+static bool checkFileExists(char *path, char *filename)
+{
+    char filePath[MAX_PATH_LEN] = {0};
+    if (strlen(path)) {
+        sprintf(filePath, "%s/%s", path, filename);
+    } else {
+        sprintf(filePath, "%s/%s", ".", filename);
+    }
+
+    if( access(filePath, F_OK ) == 0 ) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool checkFileExistsExt(char *path, char *ext)
+{
+    bool bRet;
+
+    int namelen, extlen;
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    extlen = strlen(ext);
+    pDir = opendir(path);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            namelen = strlen (pDirent->d_name);
+            if (namelen > extlen) {
+                if (strcmp (ext, &(pDirent->d_name[namelen - extlen])) == 0) {
+                    bRet = true;
+                }
+            }
+        }
+        closedir (pDir);
+    }
+
+    return bRet;
+}
+
+static void checkOutDirAndWarn(char *outpath)
+{
+    if (strlen(outpath)) {
+        if (NULL == opendir(outpath)) {
+            errorPrint("%s is not exist!\n", outpath);
+            return;
+        }
+    } else {
+        outpath = ".";
+    }
+
+    if ((true == checkFileExists(outpath, "dbs.sql"))
+                || (0 != checkFileExistsExt(outpath, "avro-tbstb"))
+                || (0 != checkFileExistsExt(outpath, "avro-ntb"))
+                || (0 != checkFileExistsExt(outpath, "avro"))) {
+        if (strlen(outpath)) {
+            warnPrint("Found data file(s) exists in %s! Continue to dump out will overwrite exist file(s)!\n", outpath);
+        } else {
+            warnPrint("Found data file(s) exists in %s! Continue to dump out will overwrite exist file(s)!\n", "current path");
+        }
+        prompt();
+    }
+
+    return;
+}
+
 static int dumpOut() {
     TAOS     *taos       = NULL;
     TAOS_RES *result     = NULL;
@@ -5628,6 +5709,8 @@ static int dumpOut() {
     TAOS_ROW row;
     FILE *fp = NULL;
     int32_t count = 0;
+
+    checkOutDirAndWarn(g_args.outpath);
 
     char dumpFilename[MAX_PATH_LEN] = {0};
     sprintf(dumpFilename, "%sdbs.sql", g_args.outpath);
@@ -5708,6 +5791,7 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
+        *(((char*)row[TSDB_SHOW_DB_NAME_INDEX])+fields[TSDB_SHOW_DB_NAME_INDEX].bytes) = '\0';
         okPrint("Database:%s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
         tstrncpy(g_dbInfos[count]->name, (char *)row[TSDB_SHOW_DB_NAME_INDEX],
                 min(TSDB_DB_NAME_LEN,
@@ -5900,6 +5984,7 @@ int main(int argc, char *argv[]) {
     printf("databasesSeq: %s\n", g_args.databasesSeq);
     printf("schemaonly: %s\n", g_args.schemaonly?"true":"false");
     printf("with_property: %s\n", g_args.with_property?"true":"false");
+    printf("answer_yes: %s\n", g_args.answer_yes?"true":"false");
     printf("avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
     printf("start_time: %" PRId64 "\n", g_args.start_time);
     printf("human readable start time: %s \n", g_args.humanStartTime);
@@ -5954,6 +6039,7 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "databasesSeq: %s\n", g_args.databasesSeq);
     fprintf(g_fpOfResult, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
     fprintf(g_fpOfResult, "with_property: %s\n", g_args.with_property?"true":"false");
+    fprintf(g_fpOfResult, "answer_yes: %s\n", g_args.answer_yes?"true":"false");
     fprintf(g_fpOfResult, "avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
     fprintf(g_fpOfResult, "start_time: %" PRId64 "\n", g_args.start_time);
     fprintf(g_fpOfResult, "human readable start time: %s \n", g_args.humanStartTime);
