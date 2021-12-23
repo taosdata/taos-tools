@@ -51,7 +51,7 @@ jobs:
           cd src/kit/taos-tools/
           ctest --verbose
           cd ../../../../tests/pytest
-          pip3 install taospy numpy fabric2 psutil pandas
+          pip3 install taospy numpy fabric2 psutil pandas faker
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 

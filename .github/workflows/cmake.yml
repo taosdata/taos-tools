@@ -53,6 +53,18 @@ jobs:
       - name: Unit Test
         run: cd taos-tools/build && ctest --verbose
 
+      - name: Func Test
+        run: |
+          cd TDengine/tests/pytest
+          pip3 install taospy numpy fabric2 psutil pandas faker
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+
+          python3 ./test.py -f tools/taosdumpTest.py
+          python3 ./test.py -f tools/taosdumpTest2.py
+          python3 ./test.py -f tools/taosdumpTest3.py
+          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+
       - name: System Test
         run: |
           cd TDengine/tests/system-test
@@ -62,17 +74,4 @@ jobs:
         run: |
           cd TDengine/tests/develop-test
           for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
-
-      - name: Func Test
-      - name: Func Test
-        run: |
-          cd TDengine/tests/pytest
-          pip3 install taospy numpy fabric2 psutil pandas
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-
-          python3 ./test.py -f tools/taosdumpTest.py
-          python3 ./test.py -f tools/taosdumpTest2.py
-          python3 ./test.py -f tools/taosdumpTest3.py
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
 
