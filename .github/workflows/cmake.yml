@@ -53,6 +53,17 @@ jobs:
       - name: Unit Test
         run: cd taos-tools/build && ctest --verbose
 
+      - name: System Test
+        run: |
+          cd TDengine/tests/system-test
+          for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+
+      - name: System Test
+        run: |
+          cd TDengine/tests/develop-test
+          for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+
+      - name: Func Test
       - name: Func Test
         run: |
           cd TDengine/tests/pytest

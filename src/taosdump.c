@@ -3414,8 +3414,8 @@ static int dumpInAvroDataImpl(
                                 bind->is_null = &is_null;
                             } else {
                                 debugPrint2("%s | ", (char *)buf);
+                                bind->buffer_length = strlen(buf);
                             }
-                            bind->buffer_length = strlen(buf);
                             bind->buffer = buf;
                         }
                         break;
@@ -3436,8 +3436,8 @@ static int dumpInAvroDataImpl(
                                 bind->is_null = &is_null;
                             } else {
                                 debugPrint2("%s | ", (char*)bytesbuf);
+                                bind->buffer_length = strlen((char*)bytesbuf);
                             }
-                            bind->buffer_length = strlen((char*)bytesbuf);
                             bind->buffer = bytesbuf;
                         }
                         break;
@@ -5783,6 +5783,7 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
+        *(((char*)row[TSDB_SHOW_DB_NAME_INDEX])+fields[TSDB_SHOW_DB_NAME_INDEX].bytes) = '\0';
         okPrint("Database:%s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
         tstrncpy(g_dbInfos[count]->name, (char *)row[TSDB_SHOW_DB_NAME_INDEX],
                 min(TSDB_DB_NAME_LEN,
