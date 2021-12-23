@@ -289,7 +289,8 @@ enum enAvro_Codec {
     AVRO_CODEC_DEFLATE,
     AVRO_CODEC_SNAPPY,
     AVRO_CODEC_LZMA,
-    AVRO_CODEC_UNKNOWN
+    AVRO_CODEC_UNKNOWN,
+    AVRO_CODEC_INVALID
 };
 
 char *g_avro_codec[] = {
@@ -297,7 +298,8 @@ char *g_avro_codec[] = {
     "deflate",
     "snappy",
     "lzma",
-    "unknown"
+    "unknown",
+    "invalid"
 };
 
 /* avro sectin begin */
@@ -770,7 +772,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
 
         case 'd':
-            for (; avroCodec < AVRO_CODEC_UNKNOWN; avroCodec ++) {
+            for (; avroCodec < AVRO_CODEC_INVALID; avroCodec ++) {
                 if (0 == strcmp(arg, g_avro_codec[avroCodec])) {
                     g_args.avro_codec = avroCodec;
                     break;
@@ -778,8 +780,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             if (AVRO_CODEC_UNKNOWN == avroCodec) {
-                errorPrint("%s", "Unkown AVRO codec inputed\n");
                 g_args.avro = false;
+            } else if (AVRO_CODEC_INVALID == avroCodec) {
+                errorPrint("%s", "Invalid AVRO codec inputed. Exit program!\n");
+                exit(1);
             }
             break;
 
@@ -2041,8 +2045,7 @@ static FILE* openDumpInFile(char *fptr) {
     if ((fname) && (strlen(fname) > 0)) {
         f = fopen(fname, "r");
         if (f == NULL) {
-            errorPrint("%s() LN%d, failed to open file %s\n",
-                    __func__, __LINE__, fname);
+            errorPrint("Failed to open file %s\n", fname);
         }
     }
 
@@ -5173,7 +5176,7 @@ static int dumpInDbs()
 
     FILE *fp = openDumpInFile(dbsSql);
     if (NULL == fp) {
-        errorPrint("%s() LN%d, failed to open input file %s\n",
+        debugPrint("%s() LN%d, failed to open input file %s\n",
                 __func__, __LINE__, dbsSql);
         return -1;
     }
@@ -5201,7 +5204,7 @@ static int dumpIn() {
 
     int ret = 0;
     if (dumpInDbs()) {
-        errorPrint("%s", "Failed to dump dbs in!\n");
+        errorPrint("%s", "Failed to dump database(s) in!\n");
         exit(EXIT_FAILURE);
     }
 
