@@ -506,6 +506,21 @@ struct arguments g_args = {
 #endif
 
 
+static uint64_t getUniqueIDFromEpoch()
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    uint64_t id =
+        (unsigned long long)(tv.tv_sec) * 1000 +
+        (unsigned long long)(tv.tv_usec) / 1000;
+
+    debugPrint("%"PRIu64"\n", g_uniqueID);
+
+    return id;
+}
+
 void prompt() {
     if (!g_args.answer_yes) {
         printf("         Press enter key to continue or Ctrl-C to stop\n\n");
@@ -4216,8 +4231,8 @@ static int64_t dumpTableData(
     if (g_args.avro) {
         char avroFilename[MAX_PATH_LEN] = {0};
 
-        sprintf(avroFilename, "%s%s.%"PRId64".avro",
-                g_args.outpath, dbName, index);
+        sprintf(avroFilename, "%s%s.%"PRIu64".avro",
+                g_args.outpath, dbName, getUniqueIDFromEpoch() + index);
 
         totalRows = writeResultToAvro(avroFilename, tbName, jsonSchema, res);
     } else {
@@ -4301,8 +4316,8 @@ static int64_t dumpNormalTableWithoutStb(
     FILE *fp = NULL;
 
     if (g_args.avro) {
-        sprintf(dumpFilename, "%s%s.%s.avro-ntb",
-                g_args.outpath, dbInfo->name, ntbName);
+        sprintf(dumpFilename, "%s%s.%"PRIu64".avro-ntb",
+                g_args.outpath, dbInfo->name, getUniqueIDFromEpoch() + index);
         count = dumpNormalTable(
                 index,
                 taos,
@@ -4726,9 +4741,9 @@ static void *dumpNtbOfDb(void *arg) {
                 ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name);
 
         if (g_args.avro) {
-            sprintf(dumpFilename, "%s%s.%"PRId64".%d.avro-ntb",
+            sprintf(dumpFilename, "%s%s.%"PRIu64".%d.avro-ntb",
                     g_args.outpath, pThreadInfo->dbName,
-                    pThreadInfo->from+i,
+                    getUniqueIDFromEpoch() + pThreadInfo->from+i,
                     pThreadInfo->threadIndex);
 
             if (0 == currentPercent) {
@@ -5260,10 +5275,10 @@ static void *dumpNormalTablesOfStb(void *arg) {
     char dumpFilename[MAX_PATH_LEN] = {0};
 
     if (g_args.avro) {
-        sprintf(dumpFilename, "%s%s.%s.%d.avro-tbtags",
+        sprintf(dumpFilename, "%s%s.%"PRIu64".%d.avro-tbtags",
                 g_args.outpath,
                 pThreadInfo->dbName,
-                pThreadInfo->stbName,
+                getUniqueIDFromEpoch()+pThreadInfo->from,
                 pThreadInfo->threadIndex);
     } else {
         sprintf(dumpFilename, "%s%s.%s.%d.sql",
@@ -5578,7 +5593,7 @@ static int dumpTbTagsToAvro(
     char dumpFilename[MAX_PATH_LEN] = {0};
     sprintf(dumpFilename, "%s%s.%"PRId64".avro-tbtags",
             g_args.outpath, dbInfo->name,
-            index);
+            getUniqueIDFromEpoch() + index);
     int ret = createMTableAvroHead(
             taos,
             dumpFilename,
@@ -5983,27 +5998,12 @@ _exit_failure:
     return -1;
 }
 
-static uint64_t convertEpochToUniqueID()
-{
-    struct timeval tv;
-
-    gettimeofday(&tv, NULL);
-
-    uint64_t id =
-        (unsigned long long)(tv.tv_sec) * 1000 +
-        (unsigned long long)(tv.tv_usec) / 1000;
-
-    debugPrint("%"PRIu64"\n", g_uniqueID);
-
-    return id;
-}
-
 int main(int argc, char *argv[]) {
     static char verType[32] = {0};
     sprintf(verType, "version: %s\n", version);
     argp_program_version = verType;
 
-    g_uniqueID = convertEpochToUniqueID();
+    g_uniqueID = getUniqueIDFromEpoch();
 
     int ret = 0;
     /* Parse our arguments; every option seen by parse_opt will be
