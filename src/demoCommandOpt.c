@@ -1326,7 +1326,7 @@ void setParaFromArg(SArguments *pg_args) {
         db[0].superTbls[0].timeStampStep = pg_args->timestamp_step;
 
         db[0].superTbls[0].insertRows = pg_args->insertRows;
-
+        db[0].superTbls[0].interlaceRows = pg_args->interlaceRows;
         db[0].superTbls[0].columnCount = g_args.columnCount;
         db[0].superTbls[0].col_type = g_args.col_type;
         db[0].superTbls[0].col_length = g_args.col_length;

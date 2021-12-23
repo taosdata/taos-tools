@@ -356,9 +356,7 @@ typedef struct SArguments_S {
     int64_t  insertRows;
     uint32_t disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
-    uint64_t totalInsertRows;
-    uint64_t totalAffectedRows;
-    bool     demo_mode;  // use default column name and semi-random data
+    bool     demo_mode;      // use default column name and semi-random data
     bool     chinese;
     bool     pressure_mode;
     int32_t  dbCount;
@@ -414,9 +412,6 @@ typedef struct SSuperTable_S {
     uint32_t tagSampleCount;
     // bind param batch
     char *sampleBindBatchArray;
-    // statistics
-    uint64_t totalInsertRows;
-    uint64_t totalAffectedRows;
 
     char *buffer;
 } SSuperTable;
@@ -581,6 +576,7 @@ typedef struct SThreadInfo_S {
     int32_t iface;
     int32_t line_protocol;
     int32_t smlTimePrec;
+    int32_t interlaceRows;
 } threadInfo;
 
 /* ************ Global variables ************  */

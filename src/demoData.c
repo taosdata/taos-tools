@@ -1109,19 +1109,218 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
     return 0;
 }
 
-int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
-                              uint32_t batch, int64_t insertRows,
-                              int64_t recordFrom, int64_t startTime) {
+int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
+                   int64_t startTime, int64_t *pSamplePos) {
     TAOS_STMT *stmt = pThreadInfo->stmt;
-    int        ret = taos_stmt_set_tbname(stmt, tableName);
-    if (ret != 0) {
-        errorPrint(
-            "failed to execute taos_stmt_set_tbname(%s). return 0x%x. "
-            "reason: "
-            "%s\n",
-            tableName, ret, taos_stmt_errstr(stmt));
-        return ret;
+
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+
+    uint32_t columnCount = pThreadInfo->stbInfo->columnCount;
+
+    uint32_t thisBatch = (uint32_t)(g_args.prepared_rand - (*pSamplePos));
+
+    if (thisBatch > batch) {
+        thisBatch = batch;
     }
+
+    memset(pThreadInfo->bindParams, 0,
+           (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
+    memset(pThreadInfo->is_null, 0, thisBatch);
+
+    for (int c = 0; c < columnCount + 1; c++) {
+        TAOS_MULTI_BIND *param =
+            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
+                                sizeof(TAOS_MULTI_BIND) * c);
+
+        char data_type;
+
+        if (c == 0) {
+            data_type = TSDB_DATA_TYPE_TIMESTAMP;
+            param->buffer_length = sizeof(int64_t);
+            param->buffer = pThreadInfo->bind_ts_array;
+
+        } else {
+            data_type = stbInfo->col_type[c - 1];
+
+            char *tmpP;
+
+            switch (data_type) {
+                case TSDB_DATA_TYPE_BINARY:
+                    param->buffer_length = stbInfo->col_length[c - 1];
+
+                    tmpP =
+                        (char *)((uintptr_t) *
+                                 (uintptr_t *)(stbInfo->sampleBindBatchArray +
+                                               sizeof(char *) * (c - 1)));
+
+                    param->buffer =
+                        (void *)(tmpP + *pSamplePos * param->buffer_length);
+                    break;
+
+                case TSDB_DATA_TYPE_NCHAR:
+                    param->buffer_length = stbInfo->col_length[c - 1];
+
+                    tmpP =
+                        (char *)((uintptr_t) *
+                                 (uintptr_t *)(stbInfo->sampleBindBatchArray +
+                                               sizeof(char *) * (c - 1)));
+
+                    param->buffer =
+                        (void *)(tmpP + *pSamplePos * param->buffer_length);
+                    break;
+
+                case TSDB_DATA_TYPE_INT:
+                case TSDB_DATA_TYPE_UINT:
+                    param->buffer_length = sizeof(int32_t);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                case TSDB_DATA_TYPE_TINYINT:
+                case TSDB_DATA_TYPE_UTINYINT:
+                    param->buffer_length = sizeof(int8_t);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                case TSDB_DATA_TYPE_SMALLINT:
+                case TSDB_DATA_TYPE_USMALLINT:
+                    param->buffer_length = sizeof(int16_t);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                case TSDB_DATA_TYPE_BIGINT:
+                case TSDB_DATA_TYPE_UBIGINT:
+                    param->buffer_length = sizeof(int64_t);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                case TSDB_DATA_TYPE_BOOL:
+                    param->buffer_length = sizeof(int8_t);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                case TSDB_DATA_TYPE_FLOAT:
+                    param->buffer_length = sizeof(float);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                case TSDB_DATA_TYPE_DOUBLE:
+                    param->buffer_length = sizeof(double);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                case TSDB_DATA_TYPE_TIMESTAMP:
+                    param->buffer_length = sizeof(int64_t);
+                    param->buffer =
+                        (void *)((uintptr_t) *
+                                     (uintptr_t *)(stbInfo
+                                                       ->sampleBindBatchArray +
+                                                   sizeof(char *) * (c - 1)) +
+                                 stbInfo->col_length[c - 1] * (*pSamplePos));
+                    break;
+
+                default:
+                    errorPrint("wrong data type: %d\n", data_type);
+                    return -1;
+            }
+        }
+
+        param->buffer_type = data_type;
+        param->length = calloc(thisBatch, sizeof(int32_t));
+
+        for (int b = 0; b < thisBatch; b++) {
+            /*
+            if (param->buffer_type == TSDB_DATA_TYPE_NCHAR) {
+                param->length[b] = (int32_t)strlen((char *)param->buffer +
+                                                   b * sizeof(int32_t));
+            } else {
+                param->length[b] = (int32_t)param->buffer_length;
+            }
+            */
+            param->length[b] = (int32_t)param->buffer_length;
+        }
+        param->is_null = pThreadInfo->is_null;
+        param->num = thisBatch;
+    }
+
+    for (uint32_t k = 0; k < thisBatch; k++) {
+        /* columnCount + 1 (ts) */
+        if (stbInfo->disorderRatio) {
+            *(pThreadInfo->bind_ts_array + k) =
+                startTime + getTSRandTail(stbInfo->timeStampStep, k,
+                                          stbInfo->disorderRatio,
+                                          stbInfo->disorderRange);
+        } else {
+            *(pThreadInfo->bind_ts_array + k) =
+                startTime + stbInfo->timeStampStep * k;
+        }
+
+        (*pSamplePos)++;
+        if ((*pSamplePos) == g_args.prepared_rand) {
+            *pSamplePos = 0;
+        }
+    }
+
+    if (taos_stmt_bind_param_batch(
+            stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
+        errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
+                   taos_stmt_errstr(stmt));
+        return -1;
+    }
+
+    for (int c = 0; c < stbInfo->columnCount + 1; c++) {
+        TAOS_MULTI_BIND *param =
+            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
+                                sizeof(TAOS_MULTI_BIND) * c);
+        tmfree(param->length);
+    }
+
+    // if msg > 3MB, break
+    if (taos_stmt_add_batch(stmt)) {
+        errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
+                   taos_stmt_errstr(stmt));
+        return -1;
+    }
+    return batch;
+}
+
+int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
+                              uint32_t batch, int64_t startTime) {
+    TAOS_STMT *stmt = pThreadInfo->stmt;
 
     char *data_type = g_args.col_type;
 
@@ -1132,8 +1331,7 @@ int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
         return -1;
     }
 
-    int32_t k = 0;
-    for (k = 0; k < batch;) {
+    for (int32_t k = 0; k < batch; k++) {
         /* columnCount + 1 (ts) */
 
         TAOS_BIND *bind = (TAOS_BIND *)(bindArray + 0);
@@ -1175,16 +1373,10 @@ int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
                        taos_stmt_errstr(stmt));
             break;
         }
-
-        k++;
-        recordFrom++;
-        if (recordFrom >= insertRows) {
-            break;
-        }
     }
 
     free(bindArray);
-    return k;
+    return batch;
 }
 
 int32_t prepareStbStmtBindTag(char *bindArray, SSuperTable *stbInfo,

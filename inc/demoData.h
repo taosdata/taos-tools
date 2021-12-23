@@ -74,25 +74,18 @@ int     generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
                                 char *tagsValBuf);
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
-int32_t prepareStbStmtBindTag(char *bindArray, SSuperTable *stbInfo,
-                              char *tagsVal, int32_t timePrec);
+int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch,
+                       int64_t startTime, int64_t *pSamplePos);
 int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
-                              uint32_t batch, int64_t insertRows,
-                              int64_t recordFrom, int64_t startTime);
+                              uint32_t batch, int64_t startTime);
 
 int     generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                                int columnCount, char *data_type,
                                int32_t *data_length);
 int     parseSamplefileToStmtBatch(SSuperTable *stbInfo);
-int     parseStbSampleToStmtBatchForThread(threadInfo * pThreadInfo,
-                                           SSuperTable *stbInfo, uint32_t timePrec,
-                                           uint32_t batch);
-int     parseNtbSampleToStmtBatchForThread(threadInfo *pThreadInfo,
-                                           uint32_t timePrec, uint32_t batch);
 int     prepareSampleData();
 int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
                              threadInfo *pThreadInfo, int tbSeq);
-
 int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
                                threadInfo *pThreadInfo, int64_t timestamp);
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
