@@ -31,6 +31,7 @@
 #include <wordexp.h>
 #include <assert.h>
 #include <termios.h>
+#include <sys/time.h>
 
 
 #include "taos.h"
@@ -320,6 +321,7 @@ typedef struct RecordSchema_S {
 
 /* avro section end */
 
+static uint64_t g_uniqueID = 0;
 static int64_t g_totalDumpOutRows = 0;
 static int64_t g_totalDumpInRecSuccess = 0;
 static int64_t g_totalDumpInRecFailed = 0;
@@ -1591,11 +1593,11 @@ static int convertTableDesToSql(char *dbName,
         if (tableDes->cols[counter].note[0] != '\0') break;
 
         if (counter == 0) {
-            pstr += sprintf(pstr, " (%s %s",
+            pstr += sprintf(pstr, "(`%s` %s",
                     tableDes->cols[counter].field,
                     typeToStr(tableDes->cols[counter].type));
         } else {
-            pstr += sprintf(pstr, ", %s %s",
+            pstr += sprintf(pstr, ",`%s` %s",
                     tableDes->cols[counter].field,
                     typeToStr(tableDes->cols[counter].type));
         }
@@ -1611,11 +1613,11 @@ static int convertTableDesToSql(char *dbName,
 
     for (; counter < (tableDes->columns + tableDes->tags); counter++) {
         if (counter == count_temp) {
-            pstr += sprintf(pstr, ") TAGS(%s %s",
+            pstr += sprintf(pstr, ") TAGS(`%s` %s",
                     tableDes->cols[counter].field,
                     typeToStr(tableDes->cols[counter].type));
         } else {
-            pstr += sprintf(pstr, ", %s %s",
+            pstr += sprintf(pstr, ",`%s` %s",
                     tableDes->cols[counter].field,
                     typeToStr(tableDes->cols[counter].type));
         }
@@ -2254,6 +2256,8 @@ static int convertTbDesToJsonImpl(
     // isTag: add two iterates for stbname and tbnmae
     int iterate = (isColumn)?(tableDes->columns+1):(tableDes->tags+2);
 
+    char *colOrTag = (isColumn)?"col":"tag";
+
     for (int i = 0; i < iterate; i ++) {
         if (0 == i) {
             pstr += sprintf(pstr,
@@ -2274,87 +2278,87 @@ static int convertTbDesToJsonImpl(
             switch(tableDes->cols[pos].type) {
                 case TSDB_DATA_TYPE_BINARY:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":[\"null\",\"%s\"]",
-                            tableDes->cols[pos].field, "string");
+                            "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
+                            colOrTag, i, "string");
                     break;
 
                 case TSDB_DATA_TYPE_NCHAR:
                 case TSDB_DATA_TYPE_JSON:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":[\"null\",\"%s\"]",
-                            tableDes->cols[pos].field, "bytes");
+                            "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
+                            colOrTag, i, "bytes");
                     break;
 
                 case TSDB_DATA_TYPE_BOOL:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":\"%s\"",
-                            tableDes->cols[pos].field, "boolean");
+                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                            colOrTag, i, "boolean");
                     break;
 
                 case TSDB_DATA_TYPE_TINYINT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":\"%s\"",
-                            tableDes->cols[pos].field, "int");
+                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                            colOrTag, i, "int");
                     break;
 
                 case TSDB_DATA_TYPE_SMALLINT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\", \"type\":\"%s\"",
-                            tableDes->cols[pos].field, "int");
+                            "{\"name\":\"%s%d\", \"type\":\"%s\"",
+                            colOrTag, i, "int");
                     break;
 
                 case TSDB_DATA_TYPE_INT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\", \"type\":\"%s\"",
-                            tableDes->cols[pos].field, "int");
+                            "{\"name\":\"%s%d\", \"type\":\"%s\"",
+                            colOrTag, i, "int");
                     break;
 
                 case TSDB_DATA_TYPE_BIGINT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":\"%s\"",
-                            tableDes->cols[pos].field, "long");
+                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                            colOrTag, i, "long");
                     break;
 
                 case TSDB_DATA_TYPE_FLOAT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":\"%s\"",
-                            tableDes->cols[pos].field, "float");
+                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                            colOrTag, i, "float");
                     break;
 
                 case TSDB_DATA_TYPE_DOUBLE:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":\"%s\"",
-                            tableDes->cols[pos].field, "double");
+                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                            colOrTag, i, "double");
                     break;
 
                 case TSDB_DATA_TYPE_TIMESTAMP:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":\"%s\"",
-                            tableDes->cols[pos].field, "long");
+                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                            colOrTag, i, "long");
                     break;
 
                 case TSDB_DATA_TYPE_UTINYINT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            tableDes->cols[pos].field, "int");
+                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                            colOrTag, i, "int");
                     break;
 
                 case TSDB_DATA_TYPE_USMALLINT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            tableDes->cols[pos].field, "int");
+                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                            colOrTag, i, "int");
                     break;
 
                 case TSDB_DATA_TYPE_UINT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            tableDes->cols[pos].field, "int");
+                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                            colOrTag, i, "int");
                     break;
 
                 case TSDB_DATA_TYPE_UBIGINT:
                     pstr += sprintf(pstr,
-                            "{\"name\":\"%s\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            tableDes->cols[pos].field, "long");
+                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                            colOrTag, i, "long");
                     break;
 
                 default:
@@ -4163,7 +4167,9 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
     return res;
 }
 
-static int64_t dumpTableData(FILE *fp, char *tbName,
+static int64_t dumpTableData(
+        int64_t index,
+        FILE *fp, char *tbName,
         char* dbName, int precision,
         int colCount,
         TableDef *tableDes
@@ -4201,8 +4207,8 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
     if (g_args.avro) {
         char avroFilename[MAX_PATH_LEN] = {0};
 
-        sprintf(avroFilename, "%s%s.%s.avro",
-                g_args.outpath, dbName, tbName);
+        sprintf(avroFilename, "%s%s.%"PRId64".avro",
+                g_args.outpath, dbName, index);
 
         totalRows = writeResultToAvro(avroFilename, tbName, jsonSchema, res);
     } else {
@@ -4217,6 +4223,7 @@ static int64_t dumpTableData(FILE *fp, char *tbName,
 }
 
 static int64_t dumpNormalTable(
+        int64_t index,
         TAOS *taos,
         char *dbName,
         char *stable,
@@ -4265,7 +4272,9 @@ static int64_t dumpNormalTable(
 
     int64_t totalRows = 0;
     if (!g_args.schemaonly) {
-        totalRows = dumpTableData(fp, tbName, dbName, precision,
+        totalRows = dumpTableData(
+                index,
+                fp, tbName, dbName, precision,
             numColsAndTags, tableDes);
     }
 
@@ -4273,7 +4282,9 @@ static int64_t dumpNormalTable(
     return totalRows;
 }
 
-static int64_t dumpNormalTableWithoutStb(TAOS *taos, SDbInfo *dbInfo, char *ntbName)
+static int64_t dumpNormalTableWithoutStb(
+        int64_t index,
+        TAOS *taos, SDbInfo *dbInfo, char *ntbName)
 {
     int64_t count = 0;
 
@@ -4284,6 +4295,7 @@ static int64_t dumpNormalTableWithoutStb(TAOS *taos, SDbInfo *dbInfo, char *ntbN
         sprintf(dumpFilename, "%s%s.%s.avro-ntb",
                 g_args.outpath, dbInfo->name, ntbName);
         count = dumpNormalTable(
+                index,
                 taos,
                 dbInfo->name,
                 NULL,
@@ -4303,6 +4315,7 @@ static int64_t dumpNormalTableWithoutStb(TAOS *taos, SDbInfo *dbInfo, char *ntbN
         }
 
         count = dumpNormalTable(
+                index,
                 taos,
                 dbInfo->name,
                 NULL,
@@ -4605,6 +4618,7 @@ static int createMTableAvroHead(
 }
 
 static int64_t dumpNormalTableBelongStb(
+        int64_t index,
         TAOS *taos,
         SDbInfo *dbInfo, char *stbName, char *ntbName)
 {
@@ -4644,6 +4658,7 @@ static int64_t dumpNormalTableBelongStb(
     }
 
     count = dumpNormalTable(
+            index,
             taos,
             dbInfo->name,
             stbName,
@@ -4699,10 +4714,9 @@ static void *dumpNtbOfDb(void *arg) {
                 ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name);
 
         if (g_args.avro) {
-            sprintf(dumpFilename, "%s%s.%s.%d.avro-ntb",
+            sprintf(dumpFilename, "%s%s.%"PRId64".%d.avro-ntb",
                     g_args.outpath, pThreadInfo->dbName,
-                    ((TableInfo *)
-                     (g_tablesList + pThreadInfo->from+i))->name,
+                    pThreadInfo->from+i,
                     pThreadInfo->threadIndex);
 
             if (0 == currentPercent) {
@@ -4711,6 +4725,7 @@ static void *dumpNtbOfDb(void *arg) {
             }
 
             count = dumpNormalTable(
+                    pThreadInfo->from+i,
                     pThreadInfo->taos,
                     pThreadInfo->dbName,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->stable,
@@ -4725,6 +4740,7 @@ static void *dumpNtbOfDb(void *arg) {
             }
 
             count = dumpNormalTable(
+                    pThreadInfo->from+i,
                     pThreadInfo->taos,
                     pThreadInfo->dbName,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->stable,
@@ -5293,6 +5309,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
 
         if (g_args.avro) {
             count = dumpNormalTable(
+                    i,
                     pThreadInfo->taos,
                     pThreadInfo->dbName,
                     pThreadInfo->stbName,
@@ -5302,6 +5319,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
                     NULL);
         } else {
             count = dumpNormalTable(
+                    i,
                     pThreadInfo->taos,
                     pThreadInfo->dbName,
                     pThreadInfo->stbName,
@@ -5873,7 +5891,7 @@ static int dumpOut() {
         }
 
         int superTblCnt = 0 ;
-        for (int i = 1; g_args.arg_list[i]; i++) {
+        for (int64_t i = 1; g_args.arg_list[i]; i++) {
             if (0 == strlen(g_args.arg_list[i])) {
                 continue;
             }
@@ -5913,12 +5931,15 @@ static int dumpOut() {
                             g_args.arg_list[i]);
                 }
                 records = dumpNormalTableBelongStb(
+                        i,
                         taos,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         g_args.arg_list[i]);
             } else {
-                records = dumpNormalTableWithoutStb(taos, g_dbInfos[0], g_args.arg_list[i]);
+                records = dumpNormalTableWithoutStb(
+                        i,
+                        taos, g_dbInfos[0], g_args.arg_list[i]);
             }
 
             if (records >= 0) {
@@ -5946,10 +5967,27 @@ _exit_failure:
     return -1;
 }
 
+static uint64_t convertEpochToUniqueID()
+{
+    struct timeval tv;
+
+    gettimeofday(&tv, NULL);
+
+    uint64_t id =
+        (unsigned long long)(tv.tv_sec) * 1000 +
+        (unsigned long long)(tv.tv_usec) / 1000;
+
+    debugPrint("%"PRIu64"\n", g_uniqueID);
+
+    return id;
+}
+
 int main(int argc, char *argv[]) {
     static char verType[32] = {0};
     sprintf(verType, "version: %s\n", version);
     argp_program_version = verType;
+
+    g_uniqueID = convertEpochToUniqueID();
 
     int ret = 0;
     /* Parse our arguments; every option seen by parse_opt will be
