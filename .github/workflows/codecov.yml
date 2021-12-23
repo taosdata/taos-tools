@@ -1,0 +1,72 @@
+name: Codecov
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  BUILD_TYPE: Debug
+  PR_NUMBER: ${{ github.event.number }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          path: 'taos-tools'
+
+      - name: Checkout tdengine
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: 'develop'
+
+      - name: Install packages
+        run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev
+
+      - name: Checkout TDengine's taos-tools to PR number
+        if: github.event_name == 'pull_request'
+        run: |
+          cd TDengine/src/kit/taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
+      - name: Install tdengine
+        run: |
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug
+          make
+          sudo make install
+          ./build/bin/taosBenchmark --help
+          ./build/bin/taosdump --help
+          cd src/kit/taos-tools/
+          ctest --verbose
+          cd ../../../../tests/pytest
+          pip3 install taospy numpy fabric2 psutil pandas
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+
+          python3 ./test.py -f tools/taosdumpTest.py
+          python3 ./test.py -f tools/taosdumpTest2.py
+          python3 ./test.py -f tools/taosdumpTest3.py
+          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+
+      - name: Generate report
+        run: |
+          cd TDengine/debug
+          gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
+
+      - name: Upload
+        uses: codecov/codecov-action@v2.1.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: TDengine/debug/taosdump.c.gcov
