@@ -43,6 +43,7 @@ char *    g_randfloat_buff = NULL;
 char *    g_rand_current_buff = NULL;
 char *    g_rand_phase_buff = NULL;
 char *    g_randdouble_buff = NULL;
+char **   g_string_grid = NULL;
 
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
@@ -677,8 +678,13 @@ int prepareSampleData() {
                     db[i].superTbls[j].columnCount,
                     &(db[i].superTbls[j].lenOfTags),
                     &(db[i].superTbls[j].lenOfCols), db[i].superTbls[j].iface);
-                debugPrint("lenOfTags: %d; lenOfCols: %d\n",
-                           db[i].superTbls[j].lenOfTags,
+                debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n",
+                           db[i].superTbls[j].stbName,
+                           db[i].superTbls[j].tagCount,
+                           db[i].superTbls[j].lenOfTags);
+                debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n",
+                           db[i].superTbls[j].stbName,
+                           db[i].superTbls[j].columnCount,
                            db[i].superTbls[j].lenOfCols);
                 db[i].superTbls[j].sampleDataBuf = calloc(
                     1, db[i].superTbls[j].lenOfCols * g_args.prepared_rand);
@@ -1139,17 +1145,12 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
 
         } else {
             data_type = stbInfo->col_type[c - 1];
-            param->buffer_length = stbInfo->col_length[c - 1];
-
             switch (data_type) {
                 case TSDB_DATA_TYPE_NCHAR:
-                case TSDB_DATA_TYPE_BINARY:
-                    param->buffer = calloc(batch, param->buffer_length + 1);
-                    for (int i = 0; i < batch; ++i) {
-                        rand_string(param->buffer + i, param->buffer_length);
-                    }
+                case TSDB_DATA_TYPE_BINARY: {
+                    param->buffer = g_string_grid[c - 1];
                     break;
-
+                }
                 case TSDB_DATA_TYPE_INT:
                     param->buffer = g_randint;
                     break;
@@ -1194,8 +1195,8 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
                     errorPrint("wrong data type: %d\n", data_type);
                     return -1;
             }
+            param->buffer_length = stbInfo->col_length[c - 1];
         }
-
         param->buffer_type = data_type;
         param->length = calloc(batch, sizeof(int32_t));
 

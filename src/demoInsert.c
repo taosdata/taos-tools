@@ -1034,6 +1034,11 @@ void postFreeResource() {
     tmfree(g_randutinyint_buff);
     tmfree(g_randusmallint_buff);
     tmfree(g_randubigint_buff);
+    tmfree(g_randbool);
+    tmfree(g_randtinyint);
+    tmfree(g_randutinyint);
+    tmfree(g_randsmallint);
+    tmfree(g_randusmallint);
     tmfree(g_randint);
     tmfree(g_randuint);
     tmfree(g_randbigint);
@@ -1041,7 +1046,6 @@ void postFreeResource() {
     tmfree(g_randfloat);
     tmfree(g_randdouble);
     tmfree(g_sampleDataBuf);
-
     cJSON_Delete(root);
 }
 
@@ -1071,7 +1075,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case STMT_IFACE:
             if (0 != taos_stmt_execute(pThreadInfo->stmt)) {
                 errorPrint(
-                    "%s() LN%d, failied to execute insert statement. reason: "
+                    "%s() LN%d, failied to execute insert statement. "
+                    "reason: "
                     "%s\n",
                     __func__, __LINE__, taos_stmt_errstr(pThreadInfo->stmt));
                 affectedRows = -1;
@@ -1091,7 +1096,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             affectedRows = taos_affected_rows(res);
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
-                    "%s() LN%d, failed to execute schemaless insert. content: "
+                    "%s() LN%d, failed to execute schemaless insert. "
+                    "content: "
                     "%s, reason: "
                     "%s\n",
                     __func__, __LINE__, pThreadInfo->lines[0],
@@ -1558,9 +1564,21 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         len += sprintf(stmtBuffer + len, "INSERT INTO ? VALUES(?");
 
         int columnCount = (stbInfo) ? stbInfo->columnCount : g_args.columnCount;
-
+        char *   col_type = (stbInfo) ? stbInfo->col_type : g_args.col_type;
+        int32_t *col_length =
+            (stbInfo) ? stbInfo->col_length : g_args.col_length;
+        g_string_grid = calloc(columnCount, sizeof(char *));
         for (int col = 0; col < columnCount; col++) {
             len += sprintf(stmtBuffer + len, ",?");
+            if (col_type[col] == TSDB_DATA_TYPE_NCHAR ||
+                col_type[col] == TSDB_DATA_TYPE_BINARY) {
+                g_string_grid[col] =
+                    calloc(1, g_args.reqPerReq * (col_length[col] + 1));
+                for (int i = 0; i < g_args.reqPerReq; ++i) {
+                    rand_string(g_string_grid[col] + i * col_length[col],
+                                col_length[col]);
+                }
+            }
         }
         len += sprintf(stmtBuffer + len, ")");
         debugPrint("stmtBuffer: %s\n", stmtBuffer);
@@ -1581,6 +1599,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         pThreadInfo->time_precision = timePrec;
         pThreadInfo->stbInfo = stbInfo;
         pThreadInfo->start_time = startTime;
+        pThreadInfo->maxDelay = 0;
         pThreadInfo->minDelay = UINT64_MAX;
         tstrncpy(pThreadInfo->tb_prefix,
                  stbInfo ? stbInfo->childTblPrefix : g_args.tb_prefix,
@@ -1808,8 +1827,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             case STMT_IFACE:
                 taos_close(pThreadInfo->taos);
                 taos_stmt_close(pThreadInfo->stmt);
-                tmfree((char *)pThreadInfo->bind_ts);
-                tmfree((char *)pThreadInfo->bind_ts_array);
+                tmfree(pThreadInfo->bind_ts);
+                tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
                 tmfree(pThreadInfo->is_null);
                 break;
@@ -1832,6 +1851,11 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             minDelay = pThreadInfo->minDelay;
         }
     }
+    for (int i = 0; i < (stbInfo ? stbInfo->columnCount : g_args.columnCount);
+         ++i) {
+        tmfree(g_string_grid[i]);
+    }
+    tmfree(g_string_grid);
 
     free(pids);
     free(infos);

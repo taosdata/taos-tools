@@ -46,6 +46,7 @@ extern char *    g_randfloat_buff;
 extern char *    g_rand_current_buff;
 extern char *    g_rand_phase_buff;
 extern char *    g_randdouble_buff;
+extern char **   g_string_grid;
 /***** Declare functions *****/
 int     init_rand_data();
 char *  rand_bool_str();
