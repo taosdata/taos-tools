@@ -60,11 +60,17 @@ jobs:
           python3 ./test.py -f tools/taosdumpTest3.py
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py
 
-          cd ../system-test
-          for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
-
           cd ../develop-test
-          for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+
+          cd ../system-test
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
 
       - name: Generate report
         run: |
