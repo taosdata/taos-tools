@@ -362,6 +362,7 @@ typedef struct SArguments_S {
     bool     chinese;
     bool     pressure_mode;
     int32_t  dbCount;
+    char **   childTblName;
     struct sockaddr_in serv_addr;
 } SArguments;
 
@@ -376,7 +377,6 @@ typedef struct SSuperTable_S {
     uint8_t  autoCreateTable;  // 0: create sub table, 1: auto create sub table
     uint16_t iface;            // 0: taosc, 1: rest, 2: stmt
     uint16_t lineProtocol;
-    int64_t  childTblLimit;
     uint64_t childTblOffset;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
@@ -400,7 +400,7 @@ typedef struct SSuperTable_S {
     uint32_t tagCount;
     char *   tag_type;
     int32_t *tag_length;
-    char *   childTblName;
+    char **   childTblName;
     bool     escapeChar;
     char *   colsOfCreateChildTable;
     int32_t  lenOfTags;
@@ -413,7 +413,6 @@ typedef struct SSuperTable_S {
     char *   tagDataBuf;
     uint32_t tagSampleCount;
     // bind param batch
-
     char *buffer;
 } SSuperTable;
 
@@ -537,7 +536,7 @@ typedef struct SThreadInfo_S {
     uint64_t     end_table_to;
     int64_t      ntables;
     int64_t      tables_created;
-    uint64_t     data_of_rate;
+    uint64_t     insert_interval;
     int64_t      start_time;
     char *       cols;
     bool         use_metric;

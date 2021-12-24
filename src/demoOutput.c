@@ -543,13 +543,6 @@ void printfInsertMetaToFileStream(FILE *fp) {
                                       ? "telnet"
                                       : "json");
                 }
-
-                if (db[i].superTbls[j].childTblLimit > 0) {
-                    fprintf(fp,
-                            "      childTblLimit:     \033[33m%" PRId64
-                            "\033[0m\n",
-                            db[i].superTbls[j].childTblLimit);
-                }
                 if (db[i].superTbls[j].childTblOffset > 0) {
                     fprintf(fp,
                             "      childTblOffset:    \033[33m%" PRIu64

@@ -784,24 +784,17 @@ int getMetaFromInsertJsonFile(cJSON *json) {
 
             cJSON *childTbl_limit =
                 cJSON_GetObjectItem(stbInfo, "childtable_limit");
-            if ((childTbl_limit) && (db[i].drop != true) &&
-                (db[i].superTbls[j].childTblExists == TBL_ALREADY_EXISTS)) {
+            if (childTbl_limit) {
                 if (childTbl_limit->type != cJSON_Number) {
                     errorPrint("%s", "failed to read json, childtable_limit\n");
                     goto PARSE_OVER;
                 }
-                db[i].superTbls[j].childTblLimit = childTbl_limit->valueint;
-            } else {
-                db[i].superTbls[j].childTblLimit =
-                    -1;  // select ... limit -1 means all query result, drop =
-                         // yes mean all table need recreate, limit value is
-                         // invalid.
+                db[i].superTbls[j].childTblCount = childTbl_limit->valueint;
             }
 
             cJSON *childTbl_offset =
                 cJSON_GetObjectItem(stbInfo, "childtable_offset");
-            if ((childTbl_offset) && (db[i].drop != true) &&
-                (db[i].superTbls[j].childTblExists == TBL_ALREADY_EXISTS)) {
+            if ((childTbl_offset)) {
                 if ((childTbl_offset->type != cJSON_Number) ||
                     (0 > childTbl_offset->valueint)) {
                     errorPrint("%s",
@@ -999,16 +992,19 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                     goto PARSE_OVER;
                 }
             } else if (!insertInterval) {
-                verbosePrint(
-                    "%s() LN%d: stable insert interval be overrode by global "
+                infoPrint(
+                    "stable insert interval be overrode by global "
                     "%" PRIu64 ".\n",
-                    __func__, __LINE__, g_args.insert_interval);
+                    g_args.insert_interval);
                 db[i].superTbls[j].insertInterval = g_args.insert_interval;
             } else {
                 errorPrint(
                     "%s",
                     "failed to read json, insert_interval input mistake\n");
                 goto PARSE_OVER;
+            }
+            if (!db[i].drop) {
+                continue;
             }
 
             if (getColumnAndTagTypeFromInsertJsonFile(stbInfo,
