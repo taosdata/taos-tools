@@ -86,30 +86,30 @@ jobs:
           for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
 
       - name: Generate report
-          run: |
-            cd TDengine/debug
-            gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoMain.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoMain.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoCommandOpt.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoData.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoData.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoInsert.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoInsert.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoJsonOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoJsonOpt.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoOutput.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoOutput.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoQuery.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoSubscribe.c.gcno
-            gcov -abcfu ../src/kit/taos-tools/src/demoUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoUtil.c.gcno
-          - name: Upload
-            uses: codecov/codecov-action@v2.1.0
-            with:
-              token: ${{ secrets.CODECOV_TOKEN }}
-              files: |
-                TDengine/debug/taosdump.c.gcov
-                TDengine/debug/demoMain.c.gcov
-                TDengine/debug/demoCommandOpt.c.gcov
-                TDengine/debug/demoData.c.gcov
-                TDengine/debug/demoInsert.c.gcov
-                TDengine/debug/demoJsonOpt.c.gcov
-                TDengine/debug/demoOutput.c.gcov
-                TDengine/debug/demoQuery.c.gcov
-                TDengine/debug/demoSubscribe.c.gcov
-                TDengine/debug/demoUtil.c.gcov
+        run: |
+          cd TDengine/debug
+          gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoMain.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoMain.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoCommandOpt.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoData.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoData.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoInsert.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoInsert.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoJsonOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoJsonOpt.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoOutput.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoOutput.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoQuery.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoSubscribe.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/demoUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoUtil.c.gcno
+      - name: Upload
+        uses: codecov/codecov-action@v2.1.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: |
+            TDengine/debug/taosdump.c.gcov
+            TDengine/debug/demoMain.c.gcov
+            TDengine/debug/demoCommandOpt.c.gcov
+            TDengine/debug/demoData.c.gcov
+            TDengine/debug/demoInsert.c.gcov
+            TDengine/debug/demoJsonOpt.c.gcov
+            TDengine/debug/demoOutput.c.gcov
+            TDengine/debug/demoQuery.c.gcov
+            TDengine/debug/demoSubscribe.c.gcov
+            TDengine/debug/demoUtil.c.gcov
