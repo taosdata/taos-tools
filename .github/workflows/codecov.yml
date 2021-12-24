@@ -76,9 +76,11 @@ jobs:
         run: |
           cd TDengine/debug
           gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
-
+          gcov -abcfu ../src/kit/taos-tools/src/demoMain.c ../src/kit/taos-tools/src/demoCommandOpt.c ../src/kit/taos-tools/src/demoData.c ../src/kit/taos-tools/src/demoInsert.c ../src/kit/taos-tools/src/demoJsonOpt.c ../src/kit/taos-tools/src/demoOutput.c ../src/kit/taos-tools/src/demoQuery.c ../src/kit/taos-tools/src/demoSubscribe.c ../src/kit/taos-tools/src/demoUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/taosBenchmark.c.gcno
       - name: Upload
         uses: codecov/codecov-action@v2.1.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: TDengine/debug/taosdump.c.gcov
+          files: |
+            TDengine/debug/taosdump.c.gcov
+            TDengine/debug/taosBenchmark.c.gcov
