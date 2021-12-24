@@ -498,8 +498,7 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     fprintf(stderr, "password read error!\n");
                 }
             } else {
-                tstrncpy(pg_args->password, (char *)(argv[i] + 2),
-                         SHELL_MAX_PASSWORD_LEN);
+                pg_args->password = (char *)(argv[i] + 2);
             }
         } else if ((0 == strncmp(argv[i], "-o", strlen("-o"))) ||
                    (0 == strncmp(argv[i], "--output", strlen("--output")))) {

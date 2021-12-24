@@ -1052,6 +1052,12 @@ void postFreeResource() {
     tmfree(g_randdouble);
     tmfree(g_sampleDataBuf);
     cJSON_Delete(root);
+    if (g_args.childTblName != NULL) {
+        for (int i = 0; i < g_args.ntables; ++i) {
+            tmfree(g_args.childTblName[i]);
+        }
+        tmfree(g_args.childTblName);
+    }
 }
 
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
