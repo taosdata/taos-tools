@@ -1486,9 +1486,9 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
     int iface = stbInfo ? stbInfo->iface : g_args.iface;
     int line_protocol =
         stbInfo ? stbInfo->lineProtocol : TSDB_SML_LINE_PROTOCOL;
-    int32_t timePrec;
-    int32_t smlTimePrec;
-    int64_t startTime;
+    int32_t timePrec = TSDB_TIME_PRECISION_MILLI;
+    int32_t smlTimePrec = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    int64_t startTime = DEFAULT_START_TIME;
     int64_t ntables = stbInfo ? stbInfo->childTblCount : g_args.ntables;
     int64_t insertRows = stbInfo ? stbInfo->insertRows : g_args.insertRows;
     int32_t interlaceRows =
@@ -1529,10 +1529,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 return -1;
             }
         }
-    } else {
-        timePrec = TSDB_TIME_PRECISION_MILLI;
-        smlTimePrec = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-        startTime = DEFAULT_START_TIME;
     }
     debugPrint("iface: %d\n", iface);
     debugPrint("line_protocol: %d\n", line_protocol);
@@ -1852,8 +1848,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         }
     }
     if (iface == STMT_IFACE) {
-        for (int i = 0; i < (stbInfo ? stbInfo->columnCount : g_args.columnCount);
-             ++i) {
+        for (int i = 0;
+             i < (stbInfo ? stbInfo->columnCount : g_args.columnCount); ++i) {
             tmfree(g_string_grid[i]);
         }
     }

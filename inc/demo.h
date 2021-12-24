@@ -175,9 +175,9 @@
             fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",               \
                     ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
                     ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
-            fprintf(stderr, "DEBG: " fmt, __VA_ARGS__);                       \
+            fprintf(stderr, "DEBG: ");                                        \
             fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                   \
-            fprintf(stderr, " " fmt, __VA_ARGS__);                            \
+            fprintf(stderr, "" fmt, __VA_ARGS__);                             \
         }                                                                     \
     } while (0)
 

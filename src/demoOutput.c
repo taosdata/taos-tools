@@ -468,8 +468,8 @@ void printfInsertMetaToFileStream(FILE *fp) {
                     db[i].dbCfg.fsync);
         }
         if (db[i].dbCfg.quorum > 0) {
-            printf("  quorum:                \033[33m%d\033[0m\n",
-                   db[i].dbCfg.quorum);
+            fprintf(fp, "  quorum:                \033[33m%d\033[0m\n",
+                    db[i].dbCfg.quorum);
         }
         if (db[i].dbCfg.precision[0] != 0) {
             if ((0 == strncasecmp(db[i].dbCfg.precision, "ms", 2)) ||
