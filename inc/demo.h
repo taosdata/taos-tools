@@ -362,7 +362,7 @@ typedef struct SArguments_S {
     bool     chinese;
     bool     pressure_mode;
     int32_t  dbCount;
-    char **   childTblName;
+    char **  childTblName;
     struct sockaddr_in serv_addr;
 } SArguments;
 
@@ -400,7 +400,7 @@ typedef struct SSuperTable_S {
     uint32_t tagCount;
     char *   tag_type;
     int32_t *tag_length;
-    char **   childTblName;
+    char **  childTblName;
     bool     escapeChar;
     char *   colsOfCreateChildTable;
     int32_t  lenOfTags;

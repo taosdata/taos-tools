@@ -70,7 +70,6 @@ jobs:
           python3 ./test.py -f tools/taosdemoTestQuery.py
           python3 ./test.py -f tools/taosdemoTestSampleData.py
           python3 ./test.py -f tools/taosdemoTest.py
-          python3 ./test.py -f tools/taosdemoTestInterlace.py
           python3 ./test.py -f tools/taosdemoTestLimitOffset.py
 
       - name: System Test

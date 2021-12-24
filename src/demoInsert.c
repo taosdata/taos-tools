@@ -123,8 +123,7 @@ int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
     return 0;
 }
 
-int getSuperTableFromServer(TAOS *taos, char *dbName,
-                                   SSuperTable *superTbls) {
+int getSuperTableFromServer(TAOS *taos, char *dbName, SSuperTable *superTbls) {
     char      command[SQL_BUFF_LEN] = "\0";
     TAOS_RES *res;
     TAOS_ROW  row = NULL;
@@ -136,14 +135,14 @@ int getSuperTableFromServer(TAOS *taos, char *dbName,
     int32_t code = taos_errno(res);
     if (code != 0) {
         errorPrint("failed to run command %s, reason: %s\n", command,
-               taos_errstr(res));
+                   taos_errstr(res));
         taos_free_result(res);
         return -1;
     }
     int tagIndex = 0;
     int columnIndex = 0;
-    while ((row = taos_fetch_row(res)) != NULL){
-        if (strcmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "TAG") == 0){
+    while ((row = taos_fetch_row(res)) != NULL) {
+        if (strcmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "TAG") == 0) {
             tagIndex++;
         } else {
             columnIndex++;
@@ -160,7 +159,7 @@ int getSuperTableFromServer(TAOS *taos, char *dbName,
     code = taos_errno(res);
     if (code != 0) {
         errorPrint("failed to run command %s, reason: %s\n", command,
-               taos_errstr(res));
+                   taos_errstr(res));
         taos_free_result(res);
         return -1;
     }
@@ -311,7 +310,6 @@ int getSuperTableFromServer(TAOS *taos, char *dbName,
             columnIndex++;
         }
     }
-
 
     taos_free_result(res);
 
@@ -657,7 +655,8 @@ int createDatabasesAndStables(char *command) {
                     errorPrint("create super table %" PRIu64 " failed!\n\n", j);
                     return -1;
                 }
-                infoPrint("create stable %s success!\n", db[i].superTbls[j].stbName);
+                infoPrint("create stable %s success!\n",
+                          db[i].superTbls[j].stbName);
             }
 
         } else {
@@ -669,10 +668,10 @@ int createDatabasesAndStables(char *command) {
                                db[i].dbName, db[i].superTbls[j].stbName);
                     return -1;
                 }
-                infoPrint("get stable %s success!\n", db[i].superTbls[j].stbName);
+                infoPrint("get stable %s success!\n",
+                          db[i].superTbls[j].stbName);
             }
         }
-
     }
     taos_close(taos);
     return 0;
@@ -1149,7 +1148,8 @@ void *syncWriteInterlace(void *sarg) {
         }
         for (int i = 0; i < batchPerTblTimes; ++i) {
             int64_t timestamp = pThreadInfo->start_time;
-            char* tableName = stbInfo?stbInfo->childTblName[tableSeq]:g_args.childTblName[tableSeq];
+            char *  tableName = stbInfo ? stbInfo->childTblName[tableSeq]
+                                      : g_args.childTblName[tableSeq];
             switch (pThreadInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE: {
@@ -1158,11 +1158,10 @@ void *syncWriteInterlace(void *sarg) {
                                        strlen(STR_INSERT_INTO) + 1, "%s",
                                        STR_INSERT_INTO);
                     }
-                    len += snprintf(
-                        pThreadInfo->buffer + len,
-                        pThreadInfo->max_sql_len - len,
-                        "%s.%s values", pThreadInfo->db_name,
-                        tableName);
+                    len +=
+                        snprintf(pThreadInfo->buffer + len,
+                                 pThreadInfo->max_sql_len - len, "%s.%s values",
+                                 pThreadInfo->db_name, tableName);
                     for (int64_t j = 0; j < interlaceRows; ++j) {
                         len += snprintf(pThreadInfo->buffer + len,
                                         pThreadInfo->max_sql_len - len,
@@ -1315,7 +1314,8 @@ void *syncWriteProgressive(void *sarg) {
     int32_t pos = 0;
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
          tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
-        char* tableName = stbInfo?stbInfo->childTblName[tableSeq]:g_args.childTblName[tableSeq];
+        char *tableName = stbInfo ? stbInfo->childTblName[tableSeq]
+                                  : g_args.childTblName[tableSeq];
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
 
@@ -1326,9 +1326,8 @@ void *syncWriteProgressive(void *sarg) {
                 case TAOSC_IFACE:
                 case REST_IFACE: {
                     len = snprintf(pstr, pThreadInfo->max_sql_len,
-                                   "%s %s.%s values ",
-                                   STR_INSERT_INTO, pThreadInfo->db_name,
-                                   tableName);
+                                   "%s %s.%s values ", STR_INSERT_INTO,
+                                   pThreadInfo->db_name, tableName);
 
                     for (int j = 0; j < g_args.reqPerReq; ++j) {
                         len +=
@@ -1493,7 +1492,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         stbInfo ? stbInfo->interlaceRows : g_args.interlaceRows;
     int64_t time_step =
         stbInfo ? stbInfo->timeStampStep : g_args.timestamp_step;
-    char* childTbls_prefix = stbInfo?stbInfo->childTblPrefix:g_args.tb_prefix;
+    char *childTbls_prefix =
+        stbInfo ? stbInfo->childTblPrefix : g_args.tb_prefix;
     uint64_t tableFrom = 0;
     if (stbInfo) {
         if (stbInfo->lineProtocol != TSDB_SML_LINE_PROTOCOL) {
@@ -1535,38 +1535,53 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         }
 
         if (iface != SML_IFACE) {
-            TAOS* taos = taos_connect(g_args.host, g_args.user, g_args.password, db_name, g_args.port);
+            TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
+                                      db_name, g_args.port);
             if (taos == NULL) {
-                errorPrint("Failed to connect to TDengine, reason: %s\n", taos_errstr(NULL));
+                errorPrint("Failed to connect to TDengine, reason: %s\n",
+                           taos_errstr(NULL));
                 return -1;
             }
             char cmd[SQL_BUFF_LEN] = "\0";
             if (g_args.escapeChar) {
-                snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %"PRId64" offset %"PRIu64"", db_name, stbInfo->stbName, stbInfo->childTblCount, stbInfo->childTblOffset);
+                snprintf(cmd, SQL_BUFF_LEN,
+                         "select tbname from %s.`%s` limit %" PRId64
+                         " offset %" PRIu64 "",
+                         db_name, stbInfo->stbName, stbInfo->childTblCount,
+                         stbInfo->childTblOffset);
             } else {
-                snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.%s limit %"PRId64" offset %"PRIu64"", db_name, stbInfo->stbName, stbInfo->childTblCount, stbInfo->childTblOffset);
+                snprintf(cmd, SQL_BUFF_LEN,
+                         "select tbname from %s.%s limit %" PRId64
+                         " offset %" PRIu64 "",
+                         db_name, stbInfo->stbName, stbInfo->childTblCount,
+                         stbInfo->childTblOffset);
             }
-            TAOS_RES    *res = taos_query(taos, cmd);
-            int32_t code = taos_errno(res);
-            int64_t count = 0;
+            TAOS_RES *res = taos_query(taos, cmd);
+            int32_t   code = taos_errno(res);
+            int64_t   count = 0;
             if (code) {
-                errorPrint("failed to get child table name: %s. reason: %s", cmd, taos_errstr(res));
+                errorPrint("failed to get child table name: %s. reason: %s",
+                           cmd, taos_errstr(res));
                 taos_free_result(res);
                 taos_close(taos);
                 return -1;
             }
             TAOS_ROW row = NULL;
-            while((row = taos_fetch_row(res)) != NULL){
-                if (0 == strlen((char*)(row[0]))){
-                    errorPrint("No.%"PRId64" table return empty name\n", count);
+            while ((row = taos_fetch_row(res)) != NULL) {
+                if (0 == strlen((char *)(row[0]))) {
+                    errorPrint("No.%" PRId64 " table return empty name\n",
+                               count);
                     return -1;
                 }
                 if (g_args.escapeChar) {
-                    snprintf(stbInfo->childTblName[count], TSDB_TABLE_NAME_LEN, "`%s`", (char*)row[0]);
+                    snprintf(stbInfo->childTblName[count], TSDB_TABLE_NAME_LEN,
+                             "`%s`", (char *)row[0]);
                 } else {
-                    snprintf(stbInfo->childTblName[count], TSDB_TABLE_NAME_LEN, "`%s`", (char*)row[0]);
+                    snprintf(stbInfo->childTblName[count], TSDB_TABLE_NAME_LEN,
+                             "`%s`", (char *)row[0]);
                 }
-                debugPrint("stbInfo->childTblName[%"PRId64"]: %s\n", count, stbInfo->childTblName[count]);
+                debugPrint("stbInfo->childTblName[%" PRId64 "]: %s\n", count,
+                           stbInfo->childTblName[count]);
                 count++;
             }
             ntables = count;
@@ -1577,11 +1592,12 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
                 stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
                 if (g_args.escapeChar) {
-                    snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN, "`%s%"PRIu64"`", childTbls_prefix, i);
+                    snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
+                             "`%s%" PRIu64 "`", childTbls_prefix, i);
                 } else {
-                    snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN, "%s%"PRIu64"", childTbls_prefix, i);
+                    snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
+                             "%s%" PRIu64 "", childTbls_prefix, i);
                 }
-
             }
         }
     } else {
@@ -1592,9 +1608,11 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         for (int64_t i = 0; i < g_args.ntables; ++i) {
             g_args.childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
             if (g_args.escapeChar) {
-                snprintf(g_args.childTblName[i], TSDB_TABLE_NAME_LEN, "`%s%"PRIu64"`", childTbls_prefix, i);
+                snprintf(g_args.childTblName[i], TSDB_TABLE_NAME_LEN,
+                         "`%s%" PRIu64 "`", childTbls_prefix, i);
             } else {
-                snprintf(g_args.childTblName[i], TSDB_TABLE_NAME_LEN, "%s%"PRIu64"", childTbls_prefix, i);
+                snprintf(g_args.childTblName[i], TSDB_TABLE_NAME_LEN,
+                         "%s%" PRIu64 "", childTbls_prefix, i);
             }
         }
     }
