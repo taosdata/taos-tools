@@ -176,6 +176,8 @@
                     ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
                     ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
             fprintf(stderr, "DEBG: " fmt, __VA_ARGS__);                       \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                   \
+            fprintf(stderr, " " fmt, __VA_ARGS__);                            \
         }                                                                     \
     } while (0)
 
@@ -216,10 +218,11 @@
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
                 (int32_t)timeSecs.tv_usec);                                  \
         fprintf(stderr, "\033[31m");                                         \
+        fprintf(stderr, "ERROR: ");                                          \
         if (g_args.debug_print) {                                            \
             fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                  \
         }                                                                    \
-        fprintf(stderr, "ERROR: " fmt, __VA_ARGS__);                         \
+        fprintf(stderr, "" fmt, __VA_ARGS__);                                \
         fprintf(stderr, "\033[0m");                                          \
     } while (0)
 

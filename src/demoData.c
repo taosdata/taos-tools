@@ -639,16 +639,16 @@ static int generateSampleFromCsvForStb(SSuperTable *stbInfo) {
             continue;
         }
 
-        if (readLen > (stbInfo->lenOfTags + stbInfo->lenOfCols)) {
-            printf(
+        if (readLen > (stbInfo->lenOfCols)) {
+            infoPrint(
                 "sample row len[%d] overflow define schema len[%d], so discard "
                 "this row\n",
-                (int32_t)readLen, (stbInfo->lenOfTags + stbInfo->lenOfCols));
+                (int32_t)readLen, stbInfo->lenOfCols);
             continue;
         }
 
         memcpy(stbInfo->sampleDataBuf +
-                   getRows * (stbInfo->lenOfTags + stbInfo->lenOfCols),
+                   getRows * stbInfo->lenOfCols,
                line, readLen);
         getRows++;
 
