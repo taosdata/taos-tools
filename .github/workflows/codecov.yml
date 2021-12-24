@@ -104,14 +104,4 @@ jobs:
         uses: codecov/codecov-action@v2.1.0
         with:
          token: ${{ secrets.CODECOV_TOKEN }}
-         files: |
-               TDengine/debug/taosdump.c.gcov
-               TDengine/debug/demoMain.c.gcov
-               TDengine/debug/demoCommandOpt.c.gcov
-               TDengine/debug/demoData.c.gcov
-               TDengine/debug/demoInsert.c.gcov
-               TDengine/debug/demoJsonOpt.c.gcov
-               TDengine/debug/demoOutput.c.gcov
-               TDengine/debug/demoQuery.c.gcov
-               TDengine/debug/demoSubscribe.c.gcov
-               TDengine/debug/demoUtil.c.gcov
+         files: TDengine/debug/taosdump.c.gcov,TDengine/debug/demoMain.c.gcov,TDengine/debug/demoCommandOpt.c.gcov,TDengine/debug/demoData.c.gcov,TDengine/debug/demoInsert.c.gcov,TDengine/debug/demoJsonOpt.c.gcov,TDengine/debug/demoOutput.c.gcov,TDengine/debug/demoQuery.c.gcov,TDengine/debug/demoSubscribe.c.gcov,TDengine/debug/demoUtil.c.gcov
