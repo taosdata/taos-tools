@@ -3046,9 +3046,19 @@ static int dumpInAvroTbTagsImpl(
                                 assert(n32);
 
                                 avro_value_get_int(&field_value, n32);
-                                debugPrint2("%d | ", *n32);
-                                bind->buffer_length = sizeof(int32_t);
-                                bind->buffer = n32;
+
+                                verbosePrint("%s() LN%d: *n32=%d null=%d\n",
+                                        __func__, __LINE__, *n32, (int32_t)TSDB_DATA_INT_NULL);
+
+                                if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
+                                    debugPrint2("%s | ", "null");
+                                    bind->is_null = &is_null;
+                                    free(n32);
+                                } else {
+                                    debugPrint2("%d | ", *n32);
+                                    bind->buffer_length = sizeof(int32_t);
+                                    bind->buffer = n32;
+                                }
                             }
                             break;
 
@@ -3372,9 +3382,16 @@ static int dumpInAvroDataImpl(
                             assert(n32);
 
                             avro_value_get_int(&field_value, n32);
-                            debugPrint2("%d | ", *n32);
-                            bind->buffer_length = sizeof(int32_t);
-                            bind->buffer = n32;
+
+                            if (TSDB_DATA_INT_NULL == *n32) {
+                                debugPrint2("%s | ", "null");
+                                bind->is_null = &is_null;
+                                free(n32);
+                            } else {
+                                debugPrint2("%d | ", *n32);
+                                bind->buffer_length = sizeof(int32_t);
+                                bind->buffer = n32;
+                            }
                         }
                         break;
 
