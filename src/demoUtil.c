@@ -659,35 +659,35 @@ char *taos_convert_datatype_to_string(int type) {
 }
 
 int taos_convert_string_to_datatype(char *type) {
-    if (strcasecmp(type, "binary")) {
+    if (0 == strcasecmp(type, "binary")) {
         return TSDB_DATA_TYPE_BINARY;
-    } else if (strcasecmp(type, "nchar")) {
+    } else if (0 == strcasecmp(type, "nchar")) {
         return TSDB_DATA_TYPE_NCHAR;
-    } else if (strcasecmp(type, "timestamp")) {
+    } else if (0 == strcasecmp(type, "timestamp")) {
         return TSDB_DATA_TYPE_TIMESTAMP;
-    } else if (strcasecmp(type, "bool")) {
+    } else if (0 == strcasecmp(type, "bool")) {
         return TSDB_DATA_TYPE_BOOL;
-    } else if (strcasecmp(type, "tinyint")) {
+    } else if (0 == strcasecmp(type, "tinyint")) {
         return TSDB_DATA_TYPE_TINYINT;
-    } else if (strcasecmp(type, "utinyint")) {
+    } else if (0 == strcasecmp(type, "utinyint")) {
         return TSDB_DATA_TYPE_UTINYINT;
-    } else if (strcasecmp(type, "smallint")) {
+    } else if (0 == strcasecmp(type, "smallint")) {
         return TSDB_DATA_TYPE_SMALLINT;
-    } else if (strcasecmp(type, "usmallint")) {
+    } else if (0 == strcasecmp(type, "usmallint")) {
         return TSDB_DATA_TYPE_USMALLINT;
-    } else if (strcasecmp(type, "int")) {
+    } else if (0 == strcasecmp(type, "int")) {
         return TSDB_DATA_TYPE_INT;
-    } else if (strcasecmp(type, "uint")) {
+    } else if (0 == strcasecmp(type, "uint")) {
         return TSDB_DATA_TYPE_UINT;
-    } else if (strcasecmp(type, "bigint")) {
+    } else if (0 == strcasecmp(type, "bigint")) {
         return TSDB_DATA_TYPE_BIGINT;
-    } else if (strcasecmp(type, "ubigint")) {
+    } else if (0 == strcasecmp(type, "ubigint")) {
         return TSDB_DATA_TYPE_UBIGINT;
-    } else if (strcasecmp(type, "float")) {
+    } else if (0 == strcasecmp(type, "float")) {
         return TSDB_DATA_TYPE_FLOAT;
-    } else if (strcasecmp(type, "double")) {
+    } else if (0 == strcasecmp(type, "double")) {
         return TSDB_DATA_TYPE_DOUBLE;
-    } else if (strcasecmp(type, "json")) {
+    } else if (0 == strcasecmp(type, "json")) {
         return TSDB_DATA_TYPE_JSON;
     } else {
         return TSDB_DATA_TYPE_NULL;

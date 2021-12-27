@@ -641,11 +641,11 @@ int createDatabasesAndStables(char *command) {
             }
             infoPrint("create database %s success!\n", db[i].dbName);
             for (uint64_t j = 0; j < db[i].superTblCount; j++) {
-                char *cmd = calloc(1, BUFFER_SIZE);
-                if (NULL == cmd) {
-                    errorPrint("%s", "failed to allocate memory\n");
-                    return -1;
+                if (db[i].superTbls[j].iface == SML_IFACE){
+                    infoPrint("schemaless insertion will auto create stable: %s\n", db[i].superTbls[j].stbName);
+                    continue;
                 }
+                char *cmd = calloc(1, BUFFER_SIZE);
 
                 ret = createSuperTable(taos, db[i].dbName, &db[i].superTbls[j],
                                        cmd);
@@ -661,6 +661,10 @@ int createDatabasesAndStables(char *command) {
 
         } else {
             for (uint64_t j = 0; j < db[i].superTblCount; j++) {
+                if (db[i].superTbls[j].iface == SML_IFACE){
+                    infoPrint("schemaless insertion will auto create stable: %s\n", db[i].superTbls[j].stbName);
+                    continue;
+                }
                 ret = getSuperTableFromServer(taos, db[i].dbName,
                                               &db[i].superTbls[j]);
                 if (0 != ret) {
@@ -1017,7 +1021,7 @@ void postFreeResource() {
             tmfree(db[i].superTbls[j].tag_type);
             tmfree(db[i].superTbls[j].tag_length);
             tmfree(db[i].superTbls[j].tagDataBuf);
-            for (int k = 0; k < db[i].superTbls[j].childTblCount; ++k) {
+            for (int64_t k = 0; k < db[i].superTbls[j].childTblCount; ++k) {
                 tmfree(db[i].superTbls[j].childTblName[k]);
             }
             tmfree(db[i].superTbls[j].childTblName);
@@ -1377,6 +1381,7 @@ void *syncWriteProgressive(void *sarg) {
                                 : g_args.reqPerReq,
                             timestamp);
                     }
+                    timestamp += generated*pThreadInfo->time_step;
                     break;
                 }
                 case SML_IFACE: {
@@ -1484,7 +1489,7 @@ free_of_progressive:
 }
 
 int startMultiThreadInsertData(int threads, char *db_name, char *precision,
-                               SSuperTable *stbInfo) {
+                                   SSuperTable *stbInfo) {
     int iface = stbInfo ? stbInfo->iface : g_args.iface;
     int line_protocol =
         stbInfo ? stbInfo->lineProtocol : TSDB_SML_LINE_PROTOCOL;
@@ -1596,7 +1601,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
         } else {
             for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
-                stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
                 if (g_args.escapeChar) {
                     snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
                              "`%s%" PRIu64 "`", childTbls_prefix, i);
@@ -1612,7 +1616,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             g_args.childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
         }
         for (int64_t i = 0; i < g_args.ntables; ++i) {
-            g_args.childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
             if (g_args.escapeChar) {
                 snprintf(g_args.childTblName[i], TSDB_TABLE_NAME_LEN,
                          "`%s%" PRIu64 "`", childTbls_prefix, i);
@@ -1912,6 +1915,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
                 } else {
                     cJSON_Delete(pThreadInfo->sml_json_tags);
+                    cJSON_Delete(pThreadInfo->json_array);
                 }
                 tmfree(pThreadInfo->lines);
                 break;
