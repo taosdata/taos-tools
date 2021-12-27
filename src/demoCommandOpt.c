@@ -940,6 +940,7 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                 if (argc == i + 1) {
                     errorPrintReqArg(argv[0], "A");
                     goto end_parse_command;
+<<<<<<< HEAD
                 }
                 dataType = argv[++i];
             } else if (0 ==
@@ -953,6 +954,21 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     goto end_parse_command;
                 }
                 dataType = argv[++i];
+=======
+                }
+                dataType = argv[++i];
+            } else if (0 ==
+                       strncmp(argv[i], "--tag-type=", strlen("--tag-type="))) {
+                dataType = (char *)(argv[i] + strlen("--tag-type="));
+            } else if (0 == strncmp(argv[i], "-A", strlen("-A"))) {
+                dataType = (char *)(argv[i] + strlen("-A"));
+            } else if (strlen("--tag-type") == strlen(argv[i])) {
+                if (argc == i + 1) {
+                    errorPrintReqArg3(argv[0], "--tag-type");
+                    goto end_parse_command;
+                }
+                dataType = argv[++i];
+>>>>>>> 87c0e058b9457c53c76cc8433793f91525d12d43
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
@@ -1637,7 +1653,7 @@ int test(SArguments *pg_args) {
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
         wordfree(&full_path);
     }
-
+    
     if (pg_args->test_mode == INSERT_TEST) {
         if (insertTestProcess()) {
             return -1;
