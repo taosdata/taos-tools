@@ -568,6 +568,10 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
             goto free_of_post;
         }
         if (bytes == 0) break;
+        if (strlen(pThreadInfo->filePath) > 0) {
+            debugPrint("receive %d bytes from server\n", bytes);
+            appendResultBufToFile(response_buf + received, pThreadInfo);
+        }
         received += bytes;
 
         if (strlen(response_buf) && g_args.test_mode == INSERT_TEST) {
@@ -583,10 +587,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     if (received == resp_len) {
         errorPrint("%s", "storing complete response from socket\n");
         goto free_of_post;
-    }
-
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
     }
 
     if (NULL == strstr(response_buf, resHttpOk)) {
