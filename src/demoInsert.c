@@ -1012,6 +1012,9 @@ int createChildTables() {
 void postFreeResource() {
     tmfclose(g_fpOfInsertResult);
     for (int i = 0; i < g_args.dbCount; i++) {
+        if (g_args.test_mode != INSERT_TEST) {
+            continue;
+        }
         for (uint64_t j = 0; j < db[i].superTblCount; j++) {
             tmfree(db[i].superTbls[j].colsOfCreateChildTable);
             tmfree(db[i].superTbls[j].buffer);

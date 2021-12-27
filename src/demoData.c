@@ -666,11 +666,6 @@ int prepareSampleData() {
     if (g_args.use_metric) {
         for (int i = 0; i < g_args.dbCount; i++) {
             for (int j = 0; j < db[i].superTblCount; j++) {
-                if (db[i].superTbls[j].tagsFile[0] != 0) {
-                    if (readTagFromCsvFileToMem(&db[i].superTbls[j]) != 0) {
-                        return -1;
-                    }
-                }
                 calcRowLen(
                     db[i].superTbls[j].tag_type, db[i].superTbls[j].col_type,
                     db[i].superTbls[j].tag_length,
@@ -686,6 +681,10 @@ int prepareSampleData() {
                            db[i].superTbls[j].stbName,
                            db[i].superTbls[j].columnCount,
                            db[i].superTbls[j].lenOfCols);
+                if (db[i].superTbls[j].lenOfCols * g_args.reqPerReq > (1024*1024 - 256)) {
+                    errorPrint("SQL length with batch is: %u, please reduce your batch size\n", db[i].superTbls[j].lenOfCols * g_args.reqPerReq);
+                    return -1;
+                }
                 db[i].superTbls[j].sampleDataBuf = calloc(
                     1, db[i].superTbls[j].lenOfCols * g_args.prepared_rand);
                 int ret;
@@ -712,6 +711,13 @@ int prepareSampleData() {
                 }
                 debugPrint("sampleDataBuf: %s\n",
                            db[i].superTbls[j].sampleDataBuf);
+                if (db[i].superTbls[j].tagsFile[0] != 0) {
+                    if (readTagFromCsvFileToMem(&db[i].superTbls[j]) != 0) {
+                        return -1;
+                    }
+                    debugPrint("tagDataBuf: %s\n",
+                               db[i].superTbls[j].tagDataBuf);
+                }
             }
         }
     } else {

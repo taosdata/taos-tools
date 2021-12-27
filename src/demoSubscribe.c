@@ -361,8 +361,8 @@ int subscribeTestProcess() {
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
         getAllChildNameOfSuperTable(taos, g_queryInfo.dbName,
                                     g_queryInfo.superQueryInfo.stbName,
-                                    &g_queryInfo.superQueryInfo.childTblName,
-                                    &g_queryInfo.superQueryInfo.childTblCount);
+                                    g_queryInfo.superQueryInfo.childTblName,
+                                    g_queryInfo.superQueryInfo.childTblCount);
     }
 
     taos_close(taos);  // workaround to use separate taos connection;
