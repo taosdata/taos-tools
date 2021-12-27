@@ -279,13 +279,14 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                 char ** childTblNameOfSuperTbl,
                                 int64_t childTblCountOfSuperTbl) {
     char cmd[SQL_BUFF_LEN] = "\0";
-    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %"PRId64"", dbName, stbName, childTblCountOfSuperTbl);
+    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %" PRId64 "",
+             dbName, stbName, childTblCountOfSuperTbl);
     TAOS_RES *res = taos_query(taos, cmd);
     int32_t   code = taos_errno(res);
     int64_t   count = 0;
     if (code) {
-        errorPrint("failed to get child table name: %s. reason: %s",
-                   cmd, taos_errstr(res));
+        errorPrint("failed to get child table name: %s. reason: %s", cmd,
+                   taos_errstr(res));
         taos_free_result(res);
         taos_close(taos);
         return -1;
@@ -293,13 +294,12 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         if (0 == strlen((char *)(row[0]))) {
-            errorPrint("No.%" PRId64 " table return empty name\n",
-                       count);
+            errorPrint("No.%" PRId64 " table return empty name\n", count);
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
-        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN,
-                     "`%s`", (char *)row[0]);
+        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
+                 (char *)row[0]);
         debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
                    childTblNameOfSuperTbl[count]);
         count++;
@@ -472,7 +472,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
     }
-    response_buf = calloc(1, RESP_BUF_LEN);
+    response_buf = calloc(1, g_args.response_buffer);
     if (NULL == response_buf) {
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;

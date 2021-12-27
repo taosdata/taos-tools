@@ -146,7 +146,7 @@
 #define DEFAULT_INSERT_INTERVAL 0
 #define DEFAULT_QUERY_TIME 1
 #define DEFAULT_PREPARED_RAND 10000
-#define DEFAULT_REQ_PER_REQ 30000
+#define DEFAULT_REQ_PER_REQ 10000
 #define DEFAULT_INSERT_ROWS 10000
 #define DEFAULT_RATIO 0
 #define DEFAULT_DISORDER_RANGE 1000
@@ -486,22 +486,22 @@ typedef struct SpecifiedQueryInfo_S {
 } SpecifiedQueryInfo;
 
 typedef struct SuperQueryInfo_S {
-    char     stbName[TSDB_TABLE_NAME_LEN];
-    uint64_t queryInterval;  // 0: unlimited  > 0   loop/s
-    uint32_t threadCnt;
-    uint32_t asyncMode;          // 0: sync, 1: async
-    uint64_t subscribeInterval;  // ms
-    bool     subscribeRestart;
-    int      subscribeKeepProgress;
-    uint64_t queryTimes;
-    int64_t  childTblCount;
-    int  sqlCount;
-    char sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
-    char result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
-    int  resubAfterConsume;
-    int  endAfterConsume;
+    char      stbName[TSDB_TABLE_NAME_LEN];
+    uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
+    uint32_t  threadCnt;
+    uint32_t  asyncMode;          // 0: sync, 1: async
+    uint64_t  subscribeInterval;  // ms
+    bool      subscribeRestart;
+    int       subscribeKeepProgress;
+    uint64_t  queryTimes;
+    int64_t   childTblCount;
+    int       sqlCount;
+    char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
+    char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
+    int       resubAfterConsume;
+    int       endAfterConsume;
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
-    char **    childTblName;
+    char **   childTblName;
     uint64_t  totalQueried;
 } SuperQueryInfo;
 
@@ -646,7 +646,7 @@ void    errorPrintReqArg2(char *program, char *wrong_arg);
 void    errorPrintReqArg3(char *program, char *wrong_arg);
 bool    isStringNumber(char *input);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
-                                    char **  childTblNameOfSuperTbl,
+                                    char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
 int     getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                                                    char *   stbName,
