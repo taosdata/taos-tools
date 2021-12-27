@@ -548,7 +548,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         sent += bytes;
     } while (sent < req_str_len);
 
-    resp_len = RESP_BUF_LEN - 1;
+    resp_len = g_args.response_buffer - 1;
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
@@ -570,7 +570,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         if (bytes == 0) break;
         received += bytes;
 
-        if (strlen(response_buf)) {
+        if (strlen(response_buf) && g_args.test_mode == INSERT_TEST) {
             if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                  (NULL != strstr(response_buf, resHttp))) ||
                 ((NULL != strstr(response_buf, resHttpOk)) &&

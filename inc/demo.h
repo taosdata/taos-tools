@@ -364,6 +364,7 @@ typedef struct SArguments_S {
     int32_t  dbCount;
     char **  childTblName;
     struct sockaddr_in serv_addr;
+    uint64_t           response_buffer;
 } SArguments;
 
 typedef struct SSuperTable_S {
