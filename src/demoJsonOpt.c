@@ -1353,15 +1353,6 @@ int getMetaFromQueryJsonFile(cJSON *json) {
             g_queryInfo.superQueryInfo.threadCnt = DEFAULT_NTHREADS;
         }
 
-        // cJSON* subTblCnt = cJSON_GetObjectItem(superQuery,
-        // "childtable_count"); if (subTblCnt && subTblCnt->type ==
-        // cJSON_Number)
-        // {
-        //  g_queryInfo.superQueryInfo.childTblCount = subTblCnt->valueint;
-        //} else if (!subTblCnt) {
-        //  g_queryInfo.superQueryInfo.childTblCount = 0;
-        //}
-
         cJSON *stblname = cJSON_GetObjectItem(superQuery, "stblname");
         if (stblname && stblname->type == cJSON_String &&
             stblname->valuestring != NULL) {
