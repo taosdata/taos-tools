@@ -1291,8 +1291,8 @@ end_parse_command:
     return code;
 }
 void setParaFromArg(SArguments *pg_args) {
+    pg_args->test_mode = INSERT_TEST;
     db[0].drop = true;
-
     tstrncpy(db[0].dbName, pg_args->database, TSDB_DB_NAME_LEN);
     db[0].dbCfg.replica = pg_args->replica;
     tstrncpy(db[0].dbCfg.precision, "ms", SMALL_BUFF_LEN);
@@ -1638,7 +1638,6 @@ int test(SArguments *pg_args) {
         wordfree(&full_path);
     }
 
-    pg_args->test_mode = INSERT_TEST;
     if (pg_args->test_mode == INSERT_TEST) {
         if (insertTestProcess()) {
             return -1;
@@ -1647,6 +1646,10 @@ int test(SArguments *pg_args) {
         if (queryTestProcess()) {
             return -1;
         }
+        for (int64_t i = 0; i < g_queryInfo.superQueryInfo.childTblCount; ++i) {
+            tmfree(g_queryInfo.superQueryInfo.childTblName[i]);
+        }
+        tmfree(g_queryInfo.superQueryInfo.childTblName);
     } else if (pg_args->test_mode == SUBSCRIBE_TEST) {
         if (subscribeTestProcess()) {
             return -1;

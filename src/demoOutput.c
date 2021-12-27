@@ -651,69 +651,68 @@ void printfQueryMeta() {
            g_queryInfo.port);
     printf("user:                    \033[33m%s\033[0m\n", g_queryInfo.user);
     printf("database name:           \033[33m%s\033[0m\n", g_queryInfo.dbName);
-
+    printf("query Mode:              \033[33m%s\033[0m\n",
+           g_queryInfo.queryMode);
     printf("\n");
 
     if ((SUBSCRIBE_TEST == g_args.test_mode) ||
         (QUERY_TEST == g_args.test_mode)) {
         printf("specified table query info:                   \n");
-        printf("sqlCount:       \033[33m%d\033[0m\n",
+        printf("    sqlCount:       \033[33m%d\033[0m\n",
                g_queryInfo.specifiedQueryInfo.sqlCount);
         if (g_queryInfo.specifiedQueryInfo.sqlCount > 0) {
-            printf("specified tbl query times:\n");
-            printf("                \033[33m%" PRIu64 "\033[0m\n",
+            printf("    specified tbl query times: \033[33m%" PRIu64
+                   "\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.queryTimes);
-            printf("query interval: \033[33m%" PRIu64 " ms\033[0m\n",
+            printf("    query interval: \033[33m%" PRIu64 " ms\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.queryInterval);
-            printf("top query times:\033[33m%" PRIu64 "\033[0m\n",
+            printf("    top query times:\033[33m%" PRIu64 "\033[0m\n",
                    g_args.query_times);
-            printf("concurrent:     \033[33m%d\033[0m\n",
+            printf("    concurrent:     \033[33m%d\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.concurrent);
-            printf(
-                "mod:            \033[33m%s\033[0m\n",
-                (g_queryInfo.specifiedQueryInfo.asyncMode) ? "async" : "sync");
-            printf("interval:       \033[33m%" PRIu64 "\033[0m\n",
+            printf("    interval:       \033[33m%" PRIu64 "\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.subscribeInterval);
-            printf("restart:        \033[33m%d\033[0m\n",
+            printf("    restart:        \033[33m%d\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.subscribeRestart);
-            printf("keepProgress:   \033[33m%d\033[0m\n",
+            printf("    keepProgress:   \033[33m%d\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.subscribeKeepProgress);
 
             for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
-                printf("  sql[%d]: \033[33m%s\033[0m\n", i,
+                printf("    sql[%d]:    \033[33m%s\033[0m\n", i,
                        g_queryInfo.specifiedQueryInfo.sql[i]);
+                printf("    result[%d]: \033[33m%s\033[0m\n", i,
+                       g_queryInfo.specifiedQueryInfo.result[i]);
             }
             printf("\n");
         }
 
         printf("super table query info:\n");
-        printf("sqlCount:       \033[33m%d\033[0m\n",
+        printf("    sqlCount:       \033[33m%d\033[0m\n",
                g_queryInfo.superQueryInfo.sqlCount);
 
         if (g_queryInfo.superQueryInfo.sqlCount > 0) {
-            printf("query interval: \033[33m%" PRIu64 "\033[0m\n",
+            printf("    query interval: \033[33m%" PRIu64 "\033[0m\n",
                    g_queryInfo.superQueryInfo.queryInterval);
-            printf("threadCnt:      \033[33m%d\033[0m\n",
+            printf("    threadCnt:      \033[33m%d\033[0m\n",
                    g_queryInfo.superQueryInfo.threadCnt);
-            printf("childTblCount:  \033[33m%" PRId64 "\033[0m\n",
+            printf("    childTblCount:  \033[33m%" PRId64 "\033[0m\n",
                    g_queryInfo.superQueryInfo.childTblCount);
-            printf("stable name:    \033[33m%s\033[0m\n",
+            printf("    stable name:    \033[33m%s\033[0m\n",
                    g_queryInfo.superQueryInfo.stbName);
-            printf("stb query times:\033[33m%" PRIu64 "\033[0m\n",
+            printf("    stb query times:\033[33m%" PRIu64 "\033[0m\n",
                    g_queryInfo.superQueryInfo.queryTimes);
-
-            printf("mod:            \033[33m%s\033[0m\n",
-                   (g_queryInfo.superQueryInfo.asyncMode) ? "async" : "sync");
-            printf("interval:       \033[33m%" PRIu64 "\033[0m\n",
+            printf("    interval:       \033[33m%" PRIu64 "\033[0m\n",
                    g_queryInfo.superQueryInfo.subscribeInterval);
-            printf("restart:        \033[33m%d\033[0m\n",
+            printf("    restart:        \033[33m%d\033[0m\n",
                    g_queryInfo.superQueryInfo.subscribeRestart);
-            printf("keepProgress:   \033[33m%d\033[0m\n",
+            printf("    keepProgress:   \033[33m%d\033[0m\n",
                    g_queryInfo.superQueryInfo.subscribeKeepProgress);
 
             for (int i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
-                printf("  sql[%d]: \033[33m%s\033[0m\n", i,
+                printf("    sql[%d]:    \033[33m%s\033[0m\n", i,
                        g_queryInfo.superQueryInfo.sql[i]);
+                printf("    result[%d]: \033[33m%s\033[0m\n", i,
+                       g_queryInfo.superQueryInfo.result[i]);
             }
             printf("\n");
         }

@@ -494,14 +494,13 @@ typedef struct SuperQueryInfo_S {
     int      subscribeKeepProgress;
     uint64_t queryTimes;
     int64_t  childTblCount;
-    char childTblPrefix[TBNAME_PREFIX_LEN];  // 20 characters reserved for seq
     int  sqlCount;
     char sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
     char result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
     int  resubAfterConsume;
     int  endAfterConsume;
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
-    char *    childTblName;
+    char **    childTblName;
     uint64_t  totalQueried;
 } SuperQueryInfo;
 
@@ -647,7 +646,7 @@ void    errorPrintReqArg3(char *program, char *wrong_arg);
 bool    isStringNumber(char *input);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char **  childTblNameOfSuperTbl,
-                                    int64_t *childTblCountOfSuperTbl);
+                                    int64_t childTblCountOfSuperTbl);
 int     getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                                                    char *   stbName,
                                                    char **  childTblNameOfSuperTbl,

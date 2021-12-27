@@ -98,9 +98,10 @@ void *specifiedTableQuery(void *sarg) {
             g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq]);
 
         et = taosGetTimestampMs();
-        printf("=thread[%" PRId64 "] use %s complete one sql, Spent %10.3f s\n",
-               taosGetSelfPthreadId(), g_queryInfo.queryMode,
-               (et - st) / 1000.0);
+        infoPrint("thread[%d] use %s complete <%s>, Spent %10.3f s\n",
+                  pThreadInfo->threadID, g_queryInfo.queryMode,
+                  g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
+                  (et - st) / 1000.0);
 
         totalQueried++;
         g_queryInfo.specifiedQueryInfo.totalQueried++;
@@ -111,10 +112,10 @@ void *specifiedTableQuery(void *sarg) {
             debugPrint("%s() LN%d, endTs=%" PRIu64 " ms, startTs=%" PRIu64
                        " ms\n",
                        __func__, __LINE__, endTs, startTs);
-            printf("thread[%d] has currently completed queries: %" PRIu64
-                   ", QPS: %10.6f\n",
-                   pThreadInfo->threadID, totalQueried,
-                   (double)(totalQueried / ((endTs - startTs) / 1000.0)));
+            infoPrint("thread[%d] has currently completed queries: %" PRIu64
+                      ", QPS: %10.6f\n",
+                      pThreadInfo->threadID, totalQueried,
+                      (double)(totalQueried / ((endTs - startTs) / 1000.0)));
             lastPrintTime = currentPrintTime;
         }
     }
@@ -185,7 +186,7 @@ void *superTableQuery(void *sarg) {
                 int64_t currentPrintTime = taosGetTimestampMs();
                 int64_t endTs = taosGetTimestampMs();
                 if (currentPrintTime - lastPrintTime > 30 * 1000) {
-                    printf(
+                    infoPrint(
                         "thread[%d] has currently completed queries: %" PRIu64
                         ", QPS: %10.3f\n",
                         pThreadInfo->threadID, totalQueried,
@@ -195,11 +196,11 @@ void *superTableQuery(void *sarg) {
             }
         }
         et = taosGetTimestampMs();
-        printf("####thread[%" PRId64
-               "] complete all sqls to allocate all sub-tables[%" PRIu64
-               " - %" PRIu64 "] once queries duration:%.4fs\n\n",
-               taosGetSelfPthreadId(), pThreadInfo->start_table_from,
-               pThreadInfo->end_table_to, (double)(et - st) / 1000.0);
+        infoPrint(
+            "thread[%d] complete all sqls to allocate all sub-tables[%" PRIu64
+            " - %" PRIu64 "] once queries duration:%.4fs\n",
+            pThreadInfo->threadID, pThreadInfo->start_table_from,
+            pThreadInfo->end_table_to, (double)(et - st) / 1000.0);
     }
     *code = 0;
 free_of_super_query:
@@ -209,10 +210,10 @@ free_of_super_query:
 
 int queryTestProcess() {
     printfQueryMeta();
-
     TAOS *taos = NULL;
-    taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
-                        g_queryInfo.password, NULL, g_queryInfo.port);
+    taos =
+        taos_connect(g_queryInfo.host, g_queryInfo.user, g_queryInfo.password,
+                     g_queryInfo.dbName, g_queryInfo.port);
     if (taos == NULL) {
         errorPrint("Failed to connect to TDengine, reason:%s\n",
                    taos_errstr(NULL));
@@ -220,17 +221,43 @@ int queryTestProcess() {
     }
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
+        char cmd[SQL_BUFF_LEN] = "\0";
+        snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s", g_queryInfo.dbName,g_queryInfo.superQueryInfo.stbName);
+        TAOS_RES *res = taos_query(taos, cmd);
+        int32_t   code = taos_errno(res);
+        if (code) {
+            errorPrint("failed to count child table name: %s. reason: %s\n",
+                       cmd, taos_errstr(res));
+            taos_free_result(res);
+            taos_close(taos);
+            return -1;
+        }
+        TAOS_ROW row = NULL;
+        int         num_fields = taos_num_fields(res);
+        TAOS_FIELD* fields = taos_fetch_fields(res);
+        while ((row = taos_fetch_row(res)) != NULL) {
+            if (0 == strlen((char *)(row[0]))) {
+                errorPrint("stable %s have no child table\n", g_queryInfo.superQueryInfo.stbName);
+                return -1;
+            }
+            char temp[256] = {0};
+            taos_print_row(temp, row, fields, num_fields);
+            g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
+        }
+        infoPrint("%s's childTblCount: %"PRId64"\n", g_queryInfo.superQueryInfo.stbName, g_queryInfo.superQueryInfo.childTblCount);
+        taos_free_result(res);
+        g_queryInfo.superQueryInfo.childTblName = calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char*));
         if (getAllChildNameOfSuperTable(
                 taos, g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName,
-                &g_queryInfo.superQueryInfo.childTblName,
-                &g_queryInfo.superQueryInfo.childTblCount)) {
+                g_queryInfo.superQueryInfo.childTblName,
+                g_queryInfo.superQueryInfo.childTblCount)) {
             return -1;
         }
     }
 
     prompt();
 
-    if (g_args.debug_print || g_args.verbose_print) {
+    if (g_args.debug_print) {
         printfQuerySystemInfo(taos);
     }
 
@@ -253,31 +280,12 @@ int queryTestProcess() {
     if ((nSqlCount > 0) && (nConcurrent > 0)) {
         pids = calloc(1, nConcurrent * nSqlCount * sizeof(pthread_t));
         infos = calloc(1, nConcurrent * nSqlCount * sizeof(threadInfo));
-
-        if ((NULL == pids) || (NULL == infos)) {
-            taos_close(taos);
-            ERROR_EXIT("memory allocation failed for create threads\n");
-        }
-
         for (uint64_t i = 0; i < nSqlCount; i++) {
             for (int j = 0; j < nConcurrent; j++) {
                 uint64_t    seq = i * nConcurrent + j;
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-
-                if (0 == strncasecmp(g_queryInfo.queryMode, "taosc", 5)) {
-                    char sqlStr[TSDB_DB_NAME_LEN + 5];
-                    sprintf(sqlStr, "USE %s", g_queryInfo.dbName);
-                    if (0 != queryDbExec(taos, sqlStr, NO_INSERT_TYPE, false)) {
-                        taos_close(taos);
-                        free(infos);
-                        free(pids);
-                        errorPrint("use database %s failed!\n\n",
-                                   g_queryInfo.dbName);
-                        return -1;
-                    }
-                }
 
                 if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
 #ifdef WINDOWS
@@ -318,7 +326,30 @@ int queryTestProcess() {
     } else {
         g_queryInfo.specifiedQueryInfo.concurrent = 0;
     }
+    if ((nSqlCount > 0) && (nConcurrent > 0)) {
+        for (int i = 0; i < nConcurrent; i++) {
+            for (int j = 0; j < nSqlCount; j++) {
+                void *result;
+                pthread_join(pids[i * nSqlCount + j], &result);
+                if (*(int32_t *)result) {
+                    g_fail = true;
+                }
+                tmfree(result);
+                if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
+                    threadInfo *pThreadInfo = infos + i * nSqlCount + j;
+#ifdef WINDOWS
+                    closesocket(pThreadInfo->sockfd);
+                    WSACleanup();
+#else
+                    close(pThreadInfo->sockfd);
+#endif
+                }
+            }
+        }
+    }
 
+    tmfree((char *)pids);
+    tmfree((char *)infos);
     taos_close(taos);
 
     pthread_t * pidsOfSub = NULL;
@@ -330,13 +361,6 @@ int queryTestProcess() {
             calloc(1, g_queryInfo.superQueryInfo.threadCnt * sizeof(pthread_t));
         infosOfSub = calloc(
             1, g_queryInfo.superQueryInfo.threadCnt * sizeof(threadInfo));
-
-        if ((NULL == pidsOfSub) || (NULL == infosOfSub)) {
-            free(infos);
-            free(pids);
-
-            ERROR_EXIT("memory allocation failed for create threads\n");
-        }
 
         int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
         int     threads = g_queryInfo.superQueryInfo.threadCnt;
@@ -401,31 +425,6 @@ int queryTestProcess() {
         g_queryInfo.superQueryInfo.threadCnt = 0;
     }
 
-    if ((nSqlCount > 0) && (nConcurrent > 0)) {
-        for (int i = 0; i < nConcurrent; i++) {
-            for (int j = 0; j < nSqlCount; j++) {
-                void *result;
-                pthread_join(pids[i * nSqlCount + j], &result);
-                if (*(int32_t *)result) {
-                    g_fail = true;
-                }
-                tmfree(result);
-                if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
-                    threadInfo *pThreadInfo = infos + i * nSqlCount + j;
-#ifdef WINDOWS
-                    closesocket(pThreadInfo->sockfd);
-                    WSACleanup();
-#else
-                    close(pThreadInfo->sockfd);
-#endif
-                }
-            }
-        }
-    }
-
-    tmfree((char *)pids);
-    tmfree((char *)infos);
-
     for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
         void *result;
         pthread_join(pidsOfSub[i], &result);
@@ -457,10 +456,9 @@ int queryTestProcess() {
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +
                             g_queryInfo.superQueryInfo.totalQueried;
 
-    fprintf(stderr,
-            "==== completed total queries: %" PRIu64
-            ", the QPS of all threads: %10.3f====\n",
-            totalQueried,
-            (double)(totalQueried / ((endTs - startTs) / 1000.0)));
+    infoPrint("completed total queries: %" PRIu64
+              ", the QPS of all threads: %10.3f\n\n",
+              totalQueried,
+              (double)(totalQueried / ((endTs - startTs) / 1000.0)));
     return 0;
 }
