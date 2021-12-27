@@ -3022,9 +3022,20 @@ static int dumpInAvroTbTagsImpl(
                                 assert(n8);
 
                                 avro_value_get_int(&field_value, n8);
-                                debugPrint2("%d | ", *n8);
-                                bind->buffer_length = sizeof(int8_t);
-                                bind->buffer = (int8_t *)n8;
+
+                                verbosePrint("%s() LN%d: *n8=%d null=%d\n",
+                                        __func__, __LINE__, *n8,
+                                        (int8_t)TSDB_DATA_TINYINT_NULL);
+
+                                if ((int8_t)TSDB_DATA_TINYINT_NULL == *n8) {
+                                    debugPrint2("%s | ", "null");
+                                    bind->is_null = &is_null;
+                                    free(n8);
+                                } else {
+                                    debugPrint2("%d | ", *n8);
+                                    bind->buffer_length = sizeof(int8_t);
+                                    bind->buffer = (int8_t *)n8;
+                                }
                             }
                             break;
 
@@ -3034,9 +3045,20 @@ static int dumpInAvroTbTagsImpl(
                                 assert(n16);
 
                                 avro_value_get_int(&field_value, n16);
-                                debugPrint2("%d | ", *n16);
-                                bind->buffer_length = sizeof(int16_t);
-                                bind->buffer = (int32_t*)n16;
+
+                                verbosePrint("%s() LN%d: *n16=%d null=%d\n",
+                                        __func__, __LINE__, *n16,
+                                        (int16_t)TSDB_DATA_SMALLINT_NULL);
+
+                                if ((int16_t)TSDB_DATA_SMALLINT_NULL == *n16) {
+                                    debugPrint2("%s | ", "null");
+                                    bind->is_null = &is_null;
+                                    free(n16);
+                                } else {
+                                    debugPrint2("%d | ", *n16);
+                                    bind->buffer_length = sizeof(int16_t);
+                                    bind->buffer = (int32_t*)n16;
+                                }
                             }
                             break;
 
@@ -3048,7 +3070,8 @@ static int dumpInAvroTbTagsImpl(
                                 avro_value_get_int(&field_value, n32);
 
                                 verbosePrint("%s() LN%d: *n32=%d null=%d\n",
-                                        __func__, __LINE__, *n32, (int32_t)TSDB_DATA_INT_NULL);
+                                        __func__, __LINE__, *n32,
+                                        (int32_t)TSDB_DATA_INT_NULL);
 
                                 if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
                                     debugPrint2("%s | ", "null");
@@ -3068,9 +3091,20 @@ static int dumpInAvroTbTagsImpl(
                                 assert(n64);
 
                                 avro_value_get_long(&field_value, n64);
-                                debugPrint2("%"PRId64" | ", *n64);
-                                bind->buffer_length = sizeof(int64_t);
-                                bind->buffer = n64;
+
+                                verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
+                                        __func__, __LINE__, *n64,
+                                        (int64_t)TSDB_DATA_BIGINT_NULL);
+
+                                if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                                    debugPrint2("%s | ", "null");
+                                    bind->is_null = &is_null;
+                                    free(n64);
+                                } else {
+                                    debugPrint2("%"PRId64" | ", *n64);
+                                    bind->buffer_length = sizeof(int64_t);
+                                    bind->buffer = n64;
+                                }
                             }
                             break;
 
@@ -3162,9 +3196,20 @@ static int dumpInAvroTbTagsImpl(
                                 assert(n64);
 
                                 avro_value_get_long(&field_value, n64);
-                                debugPrint2("%"PRId64" | ", *n64);
-                                bind->buffer_length = sizeof(int64_t);
-                                bind->buffer = n64;
+
+                                verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
+                                        __func__, __LINE__, *n64,
+                                        (int64_t)TSDB_DATA_BIGINT_NULL);
+
+                                if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                                    debugPrint2("%s | ", "null");
+                                    bind->is_null = &is_null;
+                                    free(n64);
+                                } else {
+                                    debugPrint2("%"PRId64" | ", *n64);
+                                    bind->buffer_length = sizeof(int64_t);
+                                    bind->buffer = n64;
+                                }
                             }
                             break;
 
@@ -3383,7 +3428,7 @@ static int dumpInAvroDataImpl(
 
                             avro_value_get_int(&field_value, n32);
 
-                            if (TSDB_DATA_INT_NULL == *n32) {
+                            if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
                                 debugPrint2("%s | ", "null");
                                 bind->is_null = &is_null;
                                 free(n32);
@@ -3401,9 +3446,20 @@ static int dumpInAvroDataImpl(
                             assert(n8);
 
                             avro_value_get_int(&field_value, n8);
-                            debugPrint2("%d | ", *n8);
-                            bind->buffer_length = sizeof(int8_t);
-                            bind->buffer = (int8_t *)n8;
+
+                            verbosePrint("%s() LN%d: *n8=%d null=%d\n",
+                                    __func__, __LINE__, *n8,
+                                    (int8_t)TSDB_DATA_TINYINT_NULL);
+
+                            if ((int8_t)TSDB_DATA_TINYINT_NULL == *n8) {
+                                debugPrint2("%s | ", "null");
+                                bind->is_null = &is_null;
+                                free(n8);
+                            } else {
+                                debugPrint2("%d | ", *n8);
+                                bind->buffer_length = sizeof(int8_t);
+                                bind->buffer = (int8_t *)n8;
+                            }
                         }
                         break;
 
@@ -3413,9 +3469,20 @@ static int dumpInAvroDataImpl(
                             assert(n16);
 
                             avro_value_get_int(&field_value, n16);
-                            debugPrint2("%d | ", *n16);
-                            bind->buffer_length = sizeof(int16_t);
-                            bind->buffer = (int32_t*)n16;
+
+                            verbosePrint("%s() LN%d: *n16=%d null=%d\n",
+                                    __func__, __LINE__, *n16,
+                                    (int16_t)TSDB_DATA_SMALLINT_NULL);
+
+                            if ((int16_t)TSDB_DATA_SMALLINT_NULL == *n16) {
+                                debugPrint2("%s | ", "null");
+                                bind->is_null = &is_null;
+                                free(n16);
+                            } else {
+                                debugPrint2("%d | ", *n16);
+                                bind->buffer_length = sizeof(int16_t);
+                                bind->buffer = (int32_t*)n16;
+                            }
                         }
                         break;
 
@@ -3425,9 +3492,20 @@ static int dumpInAvroDataImpl(
                             assert(n64);
 
                             avro_value_get_long(&field_value, n64);
-                            debugPrint2("%"PRId64" | ", *n64);
-                            bind->buffer_length = sizeof(int64_t);
-                            bind->buffer = n64;
+
+                            verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
+                                    __func__, __LINE__, *n64,
+                                    (int64_t)TSDB_DATA_BIGINT_NULL);
+
+                            if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                                debugPrint2("%s | ", "null");
+                                bind->is_null = &is_null;
+                                free(n64);
+                            } else {
+                                debugPrint2("%"PRId64" | ", *n64);
+                                bind->buffer_length = sizeof(int64_t);
+                                bind->buffer = n64;
+                            }
                         }
                         break;
 
