@@ -3062,10 +3062,10 @@ static int dumpInAvroTbTagsImpl(
                                 avro_value_get_int(&field_value, n16);
 
                                 verbosePrint("%s() LN%d: *n16=%d null=%d\n",
-                                        __func__, __LINE__, *n16,
+                                        __func__, __LINE__, (int16_t)*n16,
                                         (int16_t)TSDB_DATA_SMALLINT_NULL);
 
-                                if ((int16_t)TSDB_DATA_SMALLINT_NULL == *n16) {
+                                if ((int16_t)TSDB_DATA_SMALLINT_NULL == (int16_t)*n16) {
                                     debugPrint2("%s | ", "null");
                                     bind->is_null = &is_null;
                                     free(n16);
