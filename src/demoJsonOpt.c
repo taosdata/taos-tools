@@ -491,18 +491,6 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             goto PARSE_OVER;
         }
 
-        // cJSON* maxtablesPerVnode= cJSON_GetObjectItem(dbinfo,
-        // "maxtablesPerVnode"); if (maxtablesPerVnode &&
-        // maxtablesPerVnode->type
-        // == cJSON_Number) {
-        //  db[i].dbCfg.maxtablesPerVnode = maxtablesPerVnode->valueint;
-        //} else if (!maxtablesPerVnode) {
-        //  db[i].dbCfg.maxtablesPerVnode = TSDB_DEFAULT_TABLES;
-        //} else {
-        // printf("failed to read json, maxtablesPerVnode not found");
-        // goto PARSE_OVER;
-        //}
-
         cJSON *minRows = cJSON_GetObjectItem(dbinfo, "minRows");
         if (minRows && minRows->type == cJSON_Number) {
             db[i].dbCfg.minRows = (uint32_t)minRows->valueint;
@@ -557,7 +545,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         if (quorum && quorum->type == cJSON_Number) {
             db[i].dbCfg.quorum = (int)quorum->valueint;
         } else if (!quorum) {
-            db[i].dbCfg.quorum = 1;
+            db[i].dbCfg.quorum = -1;
         } else {
             errorPrint("%s", "failed to read json, quorum input mistake");
             goto PARSE_OVER;
