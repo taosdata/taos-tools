@@ -1424,7 +1424,6 @@ static int getTableDes(
             errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                     __func__, __LINE__, sqlstr, taos_errstr(res));
             taos_free_result(res);
-            taos_close(taos);
             return -1;
         }
 
@@ -1435,7 +1434,6 @@ static int getTableDes(
             warnPrint("No data from fetch to run command <%s>, reason:%s\n",
                     sqlstr, taos_errstr(res));
             taos_free_result(res);
-            taos_close(taos);
             return -1;
         }
 
