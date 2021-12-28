@@ -647,12 +647,16 @@ void printfQueryMeta() {
     setupForAnsiEscape();
     SHOW_PARSE_RESULT_START_TO_FILE(stdout);
 
-    printf("host:                    \033[33m%s:%u\033[0m\n", g_queryInfo.host,
-           g_queryInfo.port);
-    printf("user:                    \033[33m%s\033[0m\n", g_queryInfo.user);
-    printf("database name:           \033[33m%s\033[0m\n", g_queryInfo.dbName);
-    printf("query Mode:              \033[33m%s\033[0m\n",
+    printf("host:                           \033[33m%s:%u\033[0m\n",
+           g_queryInfo.host, g_queryInfo.port);
+    printf("user:                           \033[33m%s\033[0m\n",
+           g_queryInfo.user);
+    printf("database name:                  \033[33m%s\033[0m\n",
+           g_queryInfo.dbName);
+    printf("query Mode:                     \033[33m%s\033[0m\n",
            g_queryInfo.queryMode);
+    printf("response buffer for restful:    \033[33m%" PRIu64 "\033[0m\n",
+           g_args.response_buffer);
     printf("\n");
 
     if ((SUBSCRIBE_TEST == g_args.test_mode) ||

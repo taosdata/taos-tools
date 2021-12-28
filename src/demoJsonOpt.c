@@ -1097,6 +1097,21 @@ int getMetaFromQueryJsonFile(cJSON *json) {
         goto PARSE_OVER;
     }
 
+    cJSON *respBuffer = cJSON_GetObjectItem(json, "response_buffer");
+    if (respBuffer && respBuffer->type == cJSON_Number) {
+        if (respBuffer->valueint <= 0) {
+            errorPrint("%s",
+                       "failed to read json, response_buffer input mistake\n");
+            goto PARSE_OVER;
+        }
+        g_args.response_buffer = respBuffer->valueint;
+    } else if (!respBuffer) {
+        g_args.response_buffer = RESP_BUF_LEN;
+    } else {
+        errorPrint("%s", "failed to read json, query_times input mistake\n");
+        goto PARSE_OVER;
+    }
+
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
     if (dbs && dbs->type == cJSON_String && dbs->valuestring != NULL) {
         tstrncpy(g_queryInfo.dbName, dbs->valuestring, TSDB_DB_NAME_LEN);
