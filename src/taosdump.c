@@ -368,11 +368,10 @@ static struct argp_option options[] = {
     {"inpath", 'i', "INPATH",      0,  "Input file path.", 1},
     {"resultFile", 'r', "RESULTFILE",  0,  "DumpOut/In Result file path and name.", 1},
 #ifdef _TD_POWER_
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/power/taos.cfg.", 1},
+    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/power", 1},
 #else
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos/taos.cfg.", 1},
+    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos", 1},
 #endif
-    {"encode", 'e', "ENCODE", 0,  "Input file encoding.", 1},
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,  "Dump inputted databases. Use comma to separate databases\' name.", 2},
@@ -406,7 +405,6 @@ typedef struct arguments {
     char     inpath[MAX_FILE_NAME_LEN];
     // result file
     char    *resultFile;
-    char    *encode;
     // dump unit option
     bool     all_databases;
     bool     databases;
@@ -461,8 +459,7 @@ struct arguments g_args = {
     // outpath and inpath
     "",
     "",
-    "./dump_result.txt",
-    NULL,
+    "./dump_result.txt", // result_file
     // dump unit option
     false,      // all_databases
     false,      // databases
@@ -824,10 +821,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             tstrncpy(g_configDir, full_path.we_wordv[0], MAX_FILE_NAME_LEN);
             wordfree(&full_path);
             break;
-        case 'e':
-            g_args.encode = arg;
-            break;
-            // dump unit option
+
         case 'A':
             break;
         case 'D':
@@ -3961,7 +3955,7 @@ static RecordSchema *getSchemaAndReaderFromFile(
 static int64_t dumpInOneAvroFile(
         enum enWHICH which,
         char* fcharset,
-        char* encode, char *avroFilepath)
+        char *avroFilepath)
 {
     debugPrint("avroFilepath: %s\n", avroFilepath);
 
@@ -4083,7 +4077,6 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         int64_t rows = dumpInOneAvroFile(
                 pThreadInfo->which,
                 g_tsCharset,
-                g_args.encode,
                 avroFile);
         switch (pThreadInfo->which) {
             case WHICH_AVRO_DATA:
@@ -5038,7 +5031,7 @@ static int checkParam() {
         }
     }
 
-    if (!g_args.isDumpIn && g_args.encode != NULL) {
+    if (!g_args.isDumpIn) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
@@ -5207,8 +5200,9 @@ _exit_no_charset:
 }
 
 // ========  dumpIn support multi threads functions ================================//
-static int64_t dumpInOneSqlFile(TAOS* taos, FILE* fp, char* fcharset,
-        char* encode, char* fileName) {
+static int64_t dumpInOneSqlFile(
+        TAOS* taos, FILE* fp, char* fcharset,
+        char* fileName) {
     int       read_len = 0;
     char *    cmd      = NULL;
     size_t    cmd_len  = 0;
@@ -5294,8 +5288,9 @@ static void* dumpInSqlWorkThreadFp(void *arg)
             continue;
         }
 
-        int64_t rows = dumpInOneSqlFile(pThread->taos, fp, g_tsCharset, g_args.encode,
-                    sqlFile);
+        int64_t rows = dumpInOneSqlFile(
+                pThread->taos, fp, g_tsCharset,
+                sqlFile);
         if (rows > 0) {
             pThread->recSuccess += rows;
             okPrint("[%d] Total %"PRId64" row(s) be successfully dumped in file: %s\n",
@@ -5443,7 +5438,7 @@ static int dumpInDbs()
     loadFileCharset(fp, g_tsCharset);
 
     int64_t rows = dumpInOneSqlFile(
-            taos, fp, g_tsCharset, g_args.encode, dbsSql);
+            taos, fp, g_tsCharset, dbsSql);
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
                 rows, dbsSql);
@@ -6259,7 +6254,6 @@ int main(int argc, char *argv[]) {
     printf("outpath: %s\n", g_args.outpath);
     printf("inpath: %s\n", g_args.inpath);
     printf("resultFile: %s\n", g_args.resultFile);
-    printf("encode: %s\n", g_args.encode);
     printf("all_databases: %s\n", g_args.all_databases?"true":"false");
     printf("databases: %d\n", g_args.databases);
     printf("databasesSeq: %s\n", g_args.databasesSeq);
@@ -6314,7 +6308,6 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "outpath: %s\n", g_args.outpath);
     fprintf(g_fpOfResult, "inpath: %s\n", g_args.inpath);
     fprintf(g_fpOfResult, "resultFile: %s\n", g_args.resultFile);
-    fprintf(g_fpOfResult, "encode: %s\n", g_args.encode);
     fprintf(g_fpOfResult, "all_databases: %s\n", g_args.all_databases?"true":"false");
     fprintf(g_fpOfResult, "databases: %d\n", g_args.databases);
     fprintf(g_fpOfResult, "databasesSeq: %s\n", g_args.databasesSeq);
