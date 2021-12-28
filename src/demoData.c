@@ -647,9 +647,8 @@ static int generateSampleFromCsvForStb(SSuperTable *stbInfo) {
             continue;
         }
 
-        memcpy(stbInfo->sampleDataBuf +
-                   getRows * stbInfo->lenOfCols,
-               line, readLen);
+        memcpy(stbInfo->sampleDataBuf + getRows * stbInfo->lenOfCols, line,
+               readLen);
         getRows++;
 
         if (getRows == g_args.prepared_rand) {
@@ -681,10 +680,6 @@ int prepareSampleData() {
                            db[i].superTbls[j].stbName,
                            db[i].superTbls[j].columnCount,
                            db[i].superTbls[j].lenOfCols);
-                if (db[i].superTbls[j].lenOfCols * g_args.reqPerReq > (1024*1024 - 256)) {
-                    errorPrint("SQL length with batch is: %u, please reduce your batch size\n", db[i].superTbls[j].lenOfCols * g_args.reqPerReq);
-                    return -1;
-                }
                 db[i].superTbls[j].sampleDataBuf = calloc(
                     1, db[i].superTbls[j].lenOfCols * g_args.prepared_rand);
                 int ret;
