@@ -1471,18 +1471,46 @@ static int getTableDes(
                         *((int64_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
                 break;
             case TSDB_DATA_TYPE_FLOAT:
+                {
+                    char tmpFloat[512] = {0};
+                    sprintf(tmpFloat, "%f",
+                        GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                    verbosePrint("%s() LN%d, float value: %s\n",
+                            __func__, __LINE__, tmpFloat);
+                    int bufLenOfFloat = strlen(tmpFloat);
+
+                    if (bufLenOfFloat < (COL_VALUEBUF_LEN -1)) {
                 sprintf(tableDes->cols[i].value, "%f",
                         GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                    } else {
+                        if (tableDes->cols[i].var_value) {
+                            free(tableDes->cols[i].var_value);
+                            tableDes->cols[i].var_value = NULL;
+                        }
+                        tableDes->cols[i].var_value =
+                            calloc(1, bufLenOfFloat + 1);
+
+                        if (NULL == tableDes->cols[i].var_value) {
+                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                    __func__, __LINE__);
+                            taos_free_result(res);
+                            return -1;
+                        }
+                        sprintf(tableDes->cols[i].var_value, "%f",
+                                GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                    }
+                }
                 break;
             case TSDB_DATA_TYPE_DOUBLE:
                 {
-                    char tmp[512] = {0};
-                    sprintf(tmp, "%f",
+                    char tmpDouble[512] = {0};
+                    sprintf(tmpDouble, "%f",
                             GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
                     verbosePrint("%s() LN%d, double value: %s\n",
-                            __func__, __LINE__, tmp);
-                    int bufLen = strlen(tmp);
-                    if (bufLen < (COL_VALUEBUF_LEN -1)) {
+                            __func__, __LINE__, tmpDouble);
+                    int bufLenOfDouble = strlen(tmpDouble);
+
+                    if (bufLenOfDouble < (COL_VALUEBUF_LEN -1)) {
                         sprintf(tableDes->cols[i].value, "%f",
                                 GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
                     } else {
@@ -1490,7 +1518,8 @@ static int getTableDes(
                             free(tableDes->cols[i].var_value);
                             tableDes->cols[i].var_value = NULL;
                         }
-                        tableDes->cols[i].var_value = calloc(1, bufLen + 1);
+                        tableDes->cols[i].var_value =
+                            calloc(1, bufLenOfDouble + 1);
 
                         if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
@@ -4718,8 +4747,13 @@ static int createMTableAvroHead(
                                 "NUL", 3)) {
                         avro_value_set_float(&value, TSDB_DATA_FLOAT_NULL);
                     } else {
-                        avro_value_set_float(&value,
-                                atof(subTableDes->cols[subTableDes->columns + tag].value));
+                        if (subTableDes->cols[subTableDes->columns + tag].var_value) {
+                            avro_value_set_float(&value,
+                                    atof(subTableDes->cols[subTableDes->columns + tag].var_value));
+                        } else {
+                            avro_value_set_float(&value,
+                                    atof(subTableDes->cols[subTableDes->columns + tag].value));
+                        }
                     }
                     break;
 
