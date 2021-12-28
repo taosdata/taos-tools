@@ -1477,9 +1477,35 @@ static int getTableDes(
                         GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
                 break;
             case TSDB_DATA_TYPE_DOUBLE:
-                sprintf(tableDes->cols[i].value, "%f",
-                        GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                {
+                    char tmp[512] = {0};
+                    sprintf(tmp, "%f",
+                            GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                    verbosePrint("%s() LN%d, double value: %s\n",
+                            __func__, __LINE__, tmp);
+                    int bufLen = strlen(tmp);
+                    if (bufLen < (COL_VALUEBUF_LEN -1)) {
+                        sprintf(tableDes->cols[i].value, "%f",
+                                GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                    } else {
+                        if (tableDes->cols[i].var_value) {
+                            free(tableDes->cols[i].var_value);
+                            tableDes->cols[i].var_value = NULL;
+                        }
+                        tableDes->cols[i].var_value = calloc(1, bufLen + 1);
+
+                        if (NULL == tableDes->cols[i].var_value) {
+                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                    __func__, __LINE__);
+                            taos_free_result(res);
+                            return -1;
+                        }
+                        sprintf(tableDes->cols[i].var_value, "%f",
+                                GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                    }
+                }
                 break;
+
             case TSDB_DATA_TYPE_BINARY:
                 memset(tableDes->cols[i].value, 0,
                         sizeof(tableDes->cols[i].value));
@@ -4705,8 +4731,13 @@ static int createMTableAvroHead(
                                 "NUL", 3)) {
                         avro_value_set_double(&value, TSDB_DATA_DOUBLE_NULL);
                     } else {
-                        avro_value_set_double(&value,
-                                atof(subTableDes->cols[subTableDes->columns + tag].value));
+                        if (subTableDes->cols[subTableDes->columns + tag].var_value) {
+                            avro_value_set_double(&value,
+                                    atof(subTableDes->cols[subTableDes->columns + tag].var_value));
+                        } else {
+                            avro_value_set_double(&value,
+                                    atof(subTableDes->cols[subTableDes->columns + tag].value));
+                        }
                     }
                     break;
 
