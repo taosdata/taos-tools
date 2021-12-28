@@ -66,8 +66,6 @@
 #define RESP_BUF_LEN 4096
 #define SQL_BUFF_LEN 1024
 
-extern char configDir[];
-
 #define STR_INSERT_INTO "INSERT INTO "
 
 #define MAX_RECORDS_PER_REQ 32766
@@ -96,7 +94,7 @@ extern char configDir[];
 #define MAX_PREPARED_RAND 1000000
 #define INT_BUFF_LEN 12
 #define BIGINT_BUFF_LEN 21
-#define SMALLINT_BUFF_LEN 7
+#define SMALLINT_BUFF_LEN 8
 #define TINYINT_BUFF_LEN 5
 #define BOOL_BUFF_LEN 6
 #define FLOAT_BUFF_LEN 22
@@ -104,7 +102,6 @@ extern char configDir[];
 #define TIMESTAMP_BUFF_LEN 21
 #define PRINT_STAT_INTERVAL 30 * 1000
 
-#define MAX_SAMPLES 10000
 #define MAX_NUM_COLUMNS \
     (TSDB_MAX_COLUMNS - 1)  // exclude first column timestamp
 
@@ -130,11 +127,9 @@ extern char configDir[];
 #define DEFAULT_DATATYPE_NUM 1
 #define DEFAULT_CHILDTABLES 10000
 #define DEFAULT_TEST_MODE 0
-#define DEFAULT_METAFILE NULL
-#define DEFAULT_SQLFILE NULL
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 6030
-#define DEFAULT_IFACE INTERFACE_BUT
+#define DEFAULT_IFACE 0
 #define DEFAULT_DATABASE "test"
 #define DEFAULT_REPLICA 1
 #define DEFAULT_TB_PREFIX "d"
@@ -147,27 +142,14 @@ extern char configDir[];
 #define DEFAULT_PERF_STAT false
 #define DEFAULT_ANS_YES false
 #define DEFAULT_OUTPUT "./output.txt"
-#define DEFAULT_SYNC_MODE 0
-#define DEFAULT_DATA_TYPE \
-    { TSDB_DATA_TYPE_FLOAT, TSDB_DATA_TYPE_INT, TSDB_DATA_TYPE_FLOAT }
-#define DEFAULT_DATATYPE \
-    { "FLOAT", "INT", "FLOAT" }
-#define DEFAULT_DATALENGTH \
-    { 4, 4, 4 }
 #define DEFAULT_BINWIDTH 64
-#define DEFAULT_COL_COUNT 4
-#define DEFAULT_LEN_ONE_ROW 76
 #define DEFAULT_INSERT_INTERVAL 0
 #define DEFAULT_QUERY_TIME 1
 #define DEFAULT_PREPARED_RAND 10000
 #define DEFAULT_REQ_PER_REQ 30000
 #define DEFAULT_INSERT_ROWS 10000
-#define DEFAULT_ABORT 0
 #define DEFAULT_RATIO 0
 #define DEFAULT_DISORDER_RANGE 1000
-#define DEFAULT_METHOD_DEL 1
-#define DEFAULT_TOTAL_INSERT 0
-#define DEFAULT_TOTAL_AFFECT 0
 #define DEFAULT_DEMO_MODE true
 #define DEFAULT_CHINESE_OPT false
 #define DEFAULT_PRESSURE_MODE false
@@ -181,10 +163,36 @@ extern char configDir[];
 #define __func__ __FUNCTION__
 #endif
 
-#define debugPrint(fmt, ...)                            \
-    do {                                                \
-        if (g_args.debug_print || g_args.verbose_print) \
-            fprintf(stderr, "DEBG: " fmt, __VA_ARGS__); \
+#define debugPrint(fmt, ...)                                                  \
+    do {                                                                      \
+        if (g_args.debug_print) {                                             \
+            struct tm      Tm, *ptm;                                          \
+            struct timeval timeSecs;                                          \
+            time_t         curTime;                                           \
+            gettimeofday(&timeSecs, NULL);                                    \
+            curTime = timeSecs.tv_sec;                                        \
+            ptm = localtime_r(&curTime, &Tm);                                 \
+            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",               \
+                    ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
+                    ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
+            fprintf(stderr, "DEBG: ");                                        \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                   \
+            fprintf(stderr, "" fmt, __VA_ARGS__);                             \
+        }                                                                     \
+    } while (0)
+
+#define infoPrint(fmt, ...)                                                  \
+    do {                                                                     \
+        struct tm      Tm, *ptm;                                             \
+        struct timeval timeSecs;                                             \
+        time_t         curTime;                                              \
+        gettimeofday(&timeSecs, NULL);                                       \
+        curTime = timeSecs.tv_sec;                                           \
+        ptm = localtime_r(&curTime, &Tm);                                    \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
+                (int32_t)timeSecs.tv_usec);                                  \
+        fprintf(stderr, "INFO: " fmt, __VA_ARGS__);                          \
     } while (0)
 
 #define verbosePrint(fmt, ...)                                                \
@@ -198,12 +206,24 @@ extern char configDir[];
             fprintf(stderr, "PERF: " fmt, __VA_ARGS__); \
     } while (0)
 
-#define errorPrint(fmt, ...)                            \
-    do {                                                \
-        fprintf(stderr, "\033[31m");                    \
-        fprintf(stderr, "%s(%d) ", __FILE__, __LINE__); \
-        fprintf(stderr, "ERROR: " fmt, __VA_ARGS__);    \
-        fprintf(stderr, "\033[0m");                     \
+#define errorPrint(fmt, ...)                                                 \
+    do {                                                                     \
+        struct tm      Tm, *ptm;                                             \
+        struct timeval timeSecs;                                             \
+        time_t         curTime;                                              \
+        gettimeofday(&timeSecs, NULL);                                       \
+        curTime = timeSecs.tv_sec;                                           \
+        ptm = localtime_r(&curTime, &Tm);                                    \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
+                (int32_t)timeSecs.tv_usec);                                  \
+        fprintf(stderr, "\033[31m");                                         \
+        fprintf(stderr, "ERROR: ");                                          \
+        if (g_args.debug_print) {                                            \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                  \
+        }                                                                    \
+        fprintf(stderr, "" fmt, __VA_ARGS__);                                \
+        fprintf(stderr, "\033[0m");                                          \
     } while (0)
 
 enum TEST_MODE {
@@ -304,7 +324,7 @@ typedef struct SArguments_S {
     uint16_t port;
     uint16_t iface;
     char *   user;
-    char     password[SHELL_MAX_PASSWORD_LEN];
+    char *   password;
     char *   database;
     int      replica;
     char *   tb_prefix;
@@ -318,41 +338,34 @@ typedef struct SArguments_S {
     bool     verbose_print;
     bool     performance_print;
     char *   output_file;
-    bool     async_mode;
-    char     data_type[MAX_NUM_COLUMNS + 1];
-    char *   dataType[MAX_NUM_COLUMNS + 1];
-    int32_t  data_length[MAX_NUM_COLUMNS + 1];
+    char *   col_type;
+    int32_t *col_length;
+    char *   tag_type;
+    int32_t *tag_length;
     uint32_t binwidth;
-    uint32_t columnCount;
-    uint64_t lenOfOneRow;
+    int32_t  columnCount;
+    int32_t  tagCount;
+    int32_t  lenOfTags;
+    int32_t  lenOfCols;
     uint32_t nthreads;
     uint64_t insert_interval;
     uint64_t timestamp_step;
     int64_t  query_times;
     int64_t  prepared_rand;
-    uint32_t interlaceRows;
+    int32_t  interlaceRows;
     uint32_t reqPerReq;  // num_of_records_per_req
-    uint64_t max_sql_len;
     int64_t  ntables;
     int64_t  insertRows;
-    int      abort;
     uint32_t disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
-    uint32_t method_of_delete;
-    uint64_t totalInsertRows;
-    uint64_t totalAffectedRows;
-    bool     demo_mode;  // use default column name and semi-random data
+    bool     demo_mode;      // use default column name and semi-random data
     bool     chinese;
     bool     pressure_mode;
+    int32_t  dbCount;
+    char **  childTblName;
+    struct sockaddr_in serv_addr;
+    uint64_t           response_buffer;
 } SArguments;
-
-typedef struct SColumn_S {
-    char     field[TSDB_COL_NAME_LEN];
-    char     data_type;
-    char     dataType[DATATYPE_BUFF_LEN];
-    uint32_t dataLen;
-    char     note[NOTE_BUFF_LEN];
-} StrColumn;
 
 typedef struct SSuperTable_S {
     char     stbName[TSDB_TABLE_NAME_LEN];
@@ -365,14 +378,12 @@ typedef struct SSuperTable_S {
     uint8_t  autoCreateTable;  // 0: create sub table, 1: auto create sub table
     uint16_t iface;            // 0: taosc, 1: rest, 2: stmt
     uint16_t lineProtocol;
-    int64_t  childTblLimit;
     uint64_t childTblOffset;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
-    uint32_t interlaceRows;  //
-    int      disorderRatio;  // 0: no disorder, >0: x%
-    int      disorderRange;  // ms, us or ns. according to database precision
-    uint64_t maxSqlLen;      //
+    int32_t interlaceRows;  //
+    int     disorderRatio;  // 0: no disorder, >0: x%
+    int     disorderRange;  // ms, us or ns. according to database precision
 
     uint64_t insertInterval;  // insert interval, will override global insert
                               // interval
@@ -384,16 +395,17 @@ typedef struct SSuperTable_S {
     char    sampleFile[MAX_FILE_NAME_LEN];
     char    tagsFile[MAX_FILE_NAME_LEN];
 
-    uint32_t  columnCount;
-    StrColumn columns[TSDB_MAX_COLUMNS];
-    uint32_t  tagCount;
-    StrColumn tags[TSDB_MAX_TAGS];
-
-    char *   childTblName;
+    uint32_t columnCount;
+    char *   col_type;
+    int32_t *col_length;
+    uint32_t tagCount;
+    char *   tag_type;
+    int32_t *tag_length;
+    char **  childTblName;
     bool     escapeChar;
     char *   colsOfCreateChildTable;
-    uint64_t lenOfOneRow;
-    uint64_t lenOfTagOfOneRow;
+    int32_t  lenOfTags;
+    int32_t  lenOfCols;
 
     char *sampleDataBuf;
     bool  useSampleTs;
@@ -401,14 +413,7 @@ typedef struct SSuperTable_S {
     uint32_t tagSource;  // 0: rand, 1: tag sample
     char *   tagDataBuf;
     uint32_t tagSampleCount;
-    uint32_t tagUsePos;
-
     // bind param batch
-    char *sampleBindBatchArray;
-    // statistics
-    uint64_t totalInsertRows;
-    uint64_t totalAffectedRows;
-
     char *buffer;
 } SSuperTable;
 
@@ -460,29 +465,6 @@ typedef struct SDataBase_S {
     SSuperTable *superTbls;
 } SDataBase;
 
-typedef struct SDbs_S {
-    char               cfgDir[MAX_FILE_NAME_LEN];
-    char               host[MAX_HOSTNAME_SIZE];
-    struct sockaddr_in serv_addr;
-
-    uint16_t port;
-    char     user[MAX_USERNAME_SIZE];
-    char     password[SHELL_MAX_PASSWORD_LEN];
-    char     resultFile[MAX_FILE_NAME_LEN];
-    bool     use_metric;
-    bool     aggr_func;
-    bool     asyncMode;
-
-    uint32_t threadCount;
-    uint32_t threadCountForCreateTbl;
-    uint32_t dbCount;
-    // statistics
-    uint64_t totalInsertRows;
-    uint64_t totalAffectedRows;
-
-    SDataBase *db;
-} SDbs;
-
 typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
     uint32_t  concurrent;
@@ -504,23 +486,22 @@ typedef struct SpecifiedQueryInfo_S {
 } SpecifiedQueryInfo;
 
 typedef struct SuperQueryInfo_S {
-    char     stbName[TSDB_TABLE_NAME_LEN];
-    uint64_t queryInterval;  // 0: unlimited  > 0   loop/s
-    uint32_t threadCnt;
-    uint32_t asyncMode;          // 0: sync, 1: async
-    uint64_t subscribeInterval;  // ms
-    bool     subscribeRestart;
-    int      subscribeKeepProgress;
-    uint64_t queryTimes;
-    int64_t  childTblCount;
-    char childTblPrefix[TBNAME_PREFIX_LEN];  // 20 characters reserved for seq
-    int  sqlCount;
-    char sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
-    char result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
-    int  resubAfterConsume;
-    int  endAfterConsume;
+    char      stbName[TSDB_TABLE_NAME_LEN];
+    uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
+    uint32_t  threadCnt;
+    uint32_t  asyncMode;          // 0: sync, 1: async
+    uint64_t  subscribeInterval;  // ms
+    bool      subscribeRestart;
+    int       subscribeKeepProgress;
+    uint64_t  queryTimes;
+    int64_t   childTblCount;
+    int       sqlCount;
+    char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
+    char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
+    int       resubAfterConsume;
+    int       endAfterConsume;
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
-    char *    childTblName;
+    char **   childTblName;
     uint64_t  totalQueried;
 } SuperQueryInfo;
 
@@ -555,11 +536,12 @@ typedef struct SThreadInfo_S {
     uint64_t     end_table_to;
     int64_t      ntables;
     int64_t      tables_created;
-    uint64_t     data_of_rate;
+    uint64_t     insert_interval;
     int64_t      start_time;
     char *       cols;
     bool         use_metric;
     SSuperTable *stbInfo;
+    int64_t      max_sql_len;
     char *       buffer;  // sql cmd buffer
 
     int64_t  counter;
@@ -586,14 +568,22 @@ typedef struct SThreadInfo_S {
 
     char ** lines;
     int32_t sockfd;
+    int64_t insertRows;
+    int64_t time_step;
+    char ** sml_tags;
+    cJSON * sml_json_tags;
+    cJSON * json_array;
+    int32_t iface;
+    int32_t line_protocol;
+    int32_t smlTimePrec;
+    int32_t interlaceRows;
 } threadInfo;
 
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
 extern char *         g_aggreFunc[];
 extern SArguments     g_args;
-extern SDbs           g_Dbs;
-extern char *         g_dupstr;
+extern SDataBase *    db;
 extern int64_t        g_totalChildTables;
 extern int64_t        g_actualChildTables;
 extern int64_t        g_autoCreatedChildTables;
@@ -601,6 +591,9 @@ extern int64_t        g_existedChildTables;
 extern SQueryMetaInfo g_queryInfo;
 extern FILE *         g_fpOfInsertResult;
 extern bool           g_fail;
+extern bool           custom_col_num;
+extern char           configDir[];
+extern cJSON *        root;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
@@ -611,12 +604,15 @@ extern bool           g_fail;
 /* ************ Function declares ************  */
 /* demoCommandOpt.c */
 int  parse_args(int argc, char *argv[], SArguments *pg_args);
+int  count_datatype(char *dataType, int32_t *number);
+int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
+                    bool is_tag);
 void setParaFromArg(SArguments *pg_args);
 int  querySqlFile(TAOS *taos, char *sqlFile);
-int  testCmdLine(SArguments *pg_args);
+int  test(SArguments *pg_args);
+void init_g_args(SArguments *pg_args);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file);
-int testMetaFile();
 /* demoUtil.c */
 int     isCommentLine(char *line);
 int64_t taosGetTimestampMs();
@@ -628,6 +624,8 @@ int64_t taosGetSelfPthreadId();
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
+char *  taos_convert_datatype_to_string(int type);
+int     taos_convert_string_to_datatype(char *type);
 int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
@@ -648,8 +646,8 @@ void    errorPrintReqArg2(char *program, char *wrong_arg);
 void    errorPrintReqArg3(char *program, char *wrong_arg);
 bool    isStringNumber(char *input);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
-                                    char **  childTblNameOfSuperTbl,
-                                    int64_t *childTblCountOfSuperTbl);
+                                    char ** childTblNameOfSuperTbl,
+                                    int64_t childTblCountOfSuperTbl);
 int     getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                                                    char *   stbName,
                                                    char **  childTblNameOfSuperTbl,
@@ -659,10 +657,12 @@ int     getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
+int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
+                int32_t *col_length, int32_t tagCount, int32_t colCount,
+                int32_t *plenOfTags, int32_t *plenOfCols, int iface);
 /* demoOutput.c */
 void printVersion();
-void printfInsertMeta();
-void printfInsertMetaToFile(FILE *fp);
+void printfInsertMetaToFileStream(FILE *fp);
 void printStatPerThread(threadInfo *pThreadInfo);
 void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo);
 void printfQueryMeta();

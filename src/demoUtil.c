@@ -276,11 +276,36 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
 }
 
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
-                                char **  childTblNameOfSuperTbl,
-                                int64_t *childTblCountOfSuperTbl) {
-    return getChildNameOfSuperTableWithLimitAndOffset(
-        taos, dbName, stbName, childTblNameOfSuperTbl, childTblCountOfSuperTbl,
-        -1, 0, false);
+                                char ** childTblNameOfSuperTbl,
+                                int64_t childTblCountOfSuperTbl) {
+    char cmd[SQL_BUFF_LEN] = "\0";
+    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %" PRId64 "",
+             dbName, stbName, childTblCountOfSuperTbl);
+    TAOS_RES *res = taos_query(taos, cmd);
+    int32_t   code = taos_errno(res);
+    int64_t   count = 0;
+    if (code) {
+        errorPrint("failed to get child table name: %s. reason: %s", cmd,
+                   taos_errstr(res));
+        taos_free_result(res);
+        taos_close(taos);
+        return -1;
+    }
+    TAOS_ROW row = NULL;
+    while ((row = taos_fetch_row(res)) != NULL) {
+        if (0 == strlen((char *)(row[0]))) {
+            errorPrint("No.%" PRId64 " table return empty name\n", count);
+            return -1;
+        }
+        childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
+        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
+                 (char *)row[0]);
+        debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
+                   childTblNameOfSuperTbl[count]);
+        count++;
+    }
+    taos_free_result(res);
+    return 0;
 }
 
 int convertHostToServAddr(char *host, uint16_t port,
@@ -291,12 +316,6 @@ int convertHostToServAddr(char *host, uint16_t port,
         errorPrint("%s", "no such host");
         return -1;
     }
-
-    debugPrint("h_name: %s\nh_addr=%p\nh_addretype: %s\nh_length: %d\n",
-               server->h_name, server->h_addr,
-               (server->h_addrtype == AF_INET) ? "ipv4" : "ipv6",
-               server->h_length);
-
     memset(serv_addr, 0, sizeof(struct sockaddr_in));
     serv_addr->sin_family = AF_INET;
     serv_addr->sin_port = htons(rest_port);
@@ -310,7 +329,8 @@ int convertHostToServAddr(char *host, uint16_t port,
 
 void prompt() {
     if (!g_args.answer_yes) {
-        printf("         Press enter key to continue or Ctrl-C to stop\n\n");
+        printf(
+            "\n\n         Press enter key to continue or Ctrl-C to stop\n\n");
         (void)getchar();
     }
 }
@@ -319,8 +339,7 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
     sprintf(subTblName, "%s.%s", g_queryInfo.dbName,
-            g_queryInfo.superQueryInfo.childTblName +
-                tblIndex * TSDB_TABLE_NAME_LEN);
+            g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
 
@@ -409,8 +428,6 @@ int regexMatch(const char *s, const char *reg, int cflags) {
 }
 
 int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
-    verbosePrint("%s() LN%d - command: %s\n", __func__, __LINE__, command);
-
     TAOS_RES *res = taos_query(taos, command);
     int32_t   code = taos_errno(res);
 
@@ -420,7 +437,6 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
                        taos_errstr(res));
         }
         taos_free_result(res);
-        // taos_close(taos);
         return -1;
     }
 
@@ -456,7 +472,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
     }
-    response_buf = calloc(1, RESP_BUF_LEN);
+    response_buf = calloc(1, g_args.response_buffer);
     if (NULL == response_buf) {
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
@@ -472,8 +488,8 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
     if (g_args.test_mode == INSERT_TEST) {
-        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_Dbs.user,
-                 g_Dbs.password);
+        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_args.user,
+                 g_args.password);
     } else {
         snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_queryInfo.user,
                  g_queryInfo.password);
@@ -504,8 +520,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     for (int l = 0; l < mod_table[userpass_buf_len % 3]; l++)
         base64_buf[encoded_len - 1 - l] = '=';
 
-    debugPrint("%s() LN%d: auth string base64 encoded: %s\n", __func__,
-               __LINE__, base64_buf);
     char *auth = base64_buf;
 
     int r = snprintf(request_buf, req_buf_len, req_fmt, url, host, rest_port,
@@ -534,7 +548,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         sent += bytes;
     } while (sent < req_str_len);
 
-    resp_len = RESP_BUF_LEN - 1;
+    resp_len = g_args.response_buffer - 1;
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
@@ -549,29 +563,21 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes = read(pThreadInfo->sockfd, response_buf + received,
                      resp_len - received);
 #endif
-        verbosePrint("%s() LN%d: bytes:%d\n", __func__, __LINE__, bytes);
+        debugPrint("receive %d bytes from server\n", bytes);
         if (bytes < 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
-        if (bytes == 0) break;
+        if (bytes == 0) {
+            break;
+        }
         received += bytes;
 
-        verbosePrint("%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
-                     __func__, __LINE__, received, resp_len, response_buf);
-
         if (strlen(response_buf)) {
-            verbosePrint(
-                "%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
-                __func__, __LINE__, received, resp_len, response_buf);
-
             if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                  (NULL != strstr(response_buf, resHttp))) ||
                 ((NULL != strstr(response_buf, resHttpOk)) &&
                  (NULL != strstr(response_buf, "\"status\":")))) {
-                debugPrint(
-                    "%s() LN%d: received:%d resp_len:%d, response_buf:\n%s\n",
-                    __func__, __LINE__, received, resp_len, response_buf);
                 break;
             }
         }
@@ -582,13 +588,13 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         goto free_of_post;
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
-    }
-
     if (NULL == strstr(response_buf, resHttpOk)) {
         errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
+    }
+
+    if (strlen(pThreadInfo->filePath) > 0) {
+        appendResultBufToFile(response_buf, pThreadInfo);
     }
     code = 0;
 free_of_post:
@@ -639,4 +645,78 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         appendResultBufToFile(databuf, pThreadInfo);
     }
     free(databuf);
+}
+
+char *taos_convert_datatype_to_string(int type) {
+    switch (type) {
+        case TSDB_DATA_TYPE_BINARY:
+            return "binary";
+        case TSDB_DATA_TYPE_NCHAR:
+            return "nchar";
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            return "timestamp";
+        case TSDB_DATA_TYPE_TINYINT:
+            return "tinyiny";
+        case TSDB_DATA_TYPE_UTINYINT:
+            return "unsigned tinyint";
+        case TSDB_DATA_TYPE_SMALLINT:
+            return "smallint";
+        case TSDB_DATA_TYPE_USMALLINT:
+            return "unsigned smallint";
+        case TSDB_DATA_TYPE_INT:
+            return "int";
+        case TSDB_DATA_TYPE_UINT:
+            return "unsigned int";
+        case TSDB_DATA_TYPE_BIGINT:
+            return "bigint";
+        case TSDB_DATA_TYPE_UBIGINT:
+            return "unsigned bigint";
+        case TSDB_DATA_TYPE_BOOL:
+            return "bool";
+        case TSDB_DATA_TYPE_FLOAT:
+            return "float";
+        case TSDB_DATA_TYPE_DOUBLE:
+            return "double";
+        case TSDB_DATA_TYPE_JSON:
+            return "json";
+        default:
+            break;
+    }
+    return "unknown type";
+}
+
+int taos_convert_string_to_datatype(char *type) {
+    if (0 == strcasecmp(type, "binary")) {
+        return TSDB_DATA_TYPE_BINARY;
+    } else if (0 == strcasecmp(type, "nchar")) {
+        return TSDB_DATA_TYPE_NCHAR;
+    } else if (0 == strcasecmp(type, "timestamp")) {
+        return TSDB_DATA_TYPE_TIMESTAMP;
+    } else if (0 == strcasecmp(type, "bool")) {
+        return TSDB_DATA_TYPE_BOOL;
+    } else if (0 == strcasecmp(type, "tinyint")) {
+        return TSDB_DATA_TYPE_TINYINT;
+    } else if (0 == strcasecmp(type, "utinyint")) {
+        return TSDB_DATA_TYPE_UTINYINT;
+    } else if (0 == strcasecmp(type, "smallint")) {
+        return TSDB_DATA_TYPE_SMALLINT;
+    } else if (0 == strcasecmp(type, "usmallint")) {
+        return TSDB_DATA_TYPE_USMALLINT;
+    } else if (0 == strcasecmp(type, "int")) {
+        return TSDB_DATA_TYPE_INT;
+    } else if (0 == strcasecmp(type, "uint")) {
+        return TSDB_DATA_TYPE_UINT;
+    } else if (0 == strcasecmp(type, "bigint")) {
+        return TSDB_DATA_TYPE_BIGINT;
+    } else if (0 == strcasecmp(type, "ubigint")) {
+        return TSDB_DATA_TYPE_UBIGINT;
+    } else if (0 == strcasecmp(type, "float")) {
+        return TSDB_DATA_TYPE_FLOAT;
+    } else if (0 == strcasecmp(type, "double")) {
+        return TSDB_DATA_TYPE_DOUBLE;
+    } else if (0 == strcasecmp(type, "json")) {
+        return TSDB_DATA_TYPE_JSON;
+    } else {
+        return TSDB_DATA_TYPE_NULL;
+    }
 }
