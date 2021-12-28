@@ -958,12 +958,12 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
-            tmfree(g_args.tag_type);
-            tmfree(g_args.tag_length);
-            count_datatype(dataType, &(g_args.tagCount));
-            g_args.tag_type = calloc(g_args.tagCount, sizeof(char));
-            g_args.tag_length = calloc(g_args.tagCount, sizeof(int32_t));
-            if (parse_datatype(dataType, g_args.tag_type, g_args.tag_length,
+            tmfree(pg_args->tag_type);
+            tmfree(pg_args->tag_length);
+            count_datatype(dataType, &(pg_args->tagCount));
+            pg_args->tag_type = calloc(pg_args->tagCount, sizeof(char));
+            pg_args->tag_length = calloc(pg_args->tagCount, sizeof(int32_t));
+            if (parse_datatype(dataType, pg_args->tag_type, pg_args->tag_length,
                                true)) {
                 goto end_parse_command;
             }
