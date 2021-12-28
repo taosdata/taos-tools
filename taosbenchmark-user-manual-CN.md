@@ -1,9 +1,12 @@
-taosBenchmark是TDengine进行性能测试的工具应用程序。
-taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。
-taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。
-taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。
+### taosBenchmark是TDengine进行性能测试的工具应用程序。
 
-taosBenchmark 命令行参数：
+##### taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。
+
+##### taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。
+
+##### taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。
+
+### taosBenchmark 命令行参数：
 
 -c:：配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。缺省值路径是 "/etc/taos"
 
@@ -67,16 +70,15 @@ taosBenchmark 命令行参数：
 
 --help：打印命令行参数介绍。
 
+### taosBenchmark json配置文件：
 
+##### -f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，必选项。
 
-taosBenchmark json配置文件：
+##### taosBenchmark支持三种格式的json配置文件，分别为写入，查询与订阅：
 
--f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，必选项。
+#### 一、写入性能测试json配置文件：
 
-taosBenchmark支持三种格式的json配置文件，分别为写入，查询与订阅：
-
-一、写入性能测试json配置文件：
-```
+```json
 {
     "filetype": "insert",
     "cfgdir": "/etc/taos",
@@ -134,7 +136,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
             "start_timestamp": "2020-10-01 00:00:00.000",  
             "sample_format": "csv",       
             "sample_file": "./sample.csv",
-               "use_sameple_ts": "no",
+            "use_sameple_ts": "no",
             "tags_file": "",              
             "columns": [{"type": "INT"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
             "tags": [{"type": "TINYINT", "count":2}, {"type": "BINARY", "len": 16, "count":5}]
@@ -142,7 +144,8 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
     }]
 }
 ```
-参数说明：
+#### 参数说明：
+
 "filetype": taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
 
 "cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
@@ -255,7 +258,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 
 "columns": [{
 
-超级表的column列表，最大支持1024列（指所有普通列+超级列总和）。默认的第一列为时间类型，程序自动添加，不需要手工添加。
+超级表的column列表，最大支持4096列（指所有普通列+超级列总和）。默认的第一列为时间类型，程序自动添加，不需要手工添加。
 
 "type": 该列的数据类型 ，必选项。
 
@@ -275,10 +278,15 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 
 "count":该类型的连续列个数，可选项，缺省是1。
 
+##### 注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度
+
 }]
 
-二、查询性能测试json配置文件：
-```
+
+
+#### 二、查询性能测试json配置文件：
+
+```json
 {
   "filetype": "query",
   "cfgdir": "/etc/taos",
@@ -317,7 +325,8 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
   }
 }
 ```
-​参数说明：
+#### 参数说明：
+
 "filetype": 本taosBenchmark实例进行哪种功能测试。"query"表示数据查询功能。必选项。
 
 "cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
@@ -350,7 +359,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 
 "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。
 
-"super_table_query": { 对超级表中所有子表的查询
+"super_table_query": 对超级表中所有子表的查询
 
 "stblname": 超级表名称。必选项。
 
@@ -362,15 +371,15 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 
 "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。
 
+##### 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
+
+##### 查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。
 
 
-注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
 
-查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。
+#### 三、订阅性能测试json文件配置：
 
-
-三、订阅性能测试json文件配置：
-```
+```json
 {
     "filetype":"subscribe",
     "cfgdir": "/etc/taos",
@@ -408,8 +417,9 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
         }]
       }
   }
- ```
-参数说明：
+```
+#### 参数说明：
+
 "filetype": 本taosBenchmark实例进行哪种功能测试。"subscribe"表示数据查询功能。必选项。
 
 "cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
@@ -425,8 +435,6 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 "databases": 数据库名称。必选项。**
 
 "confirm_parameter_prompt": 执行过程中提示是否确认，为no时，执行过程无需手工输入enter。可选项，缺省是no。
-
-注意：这里的订阅查询sql目前只支持select * ，其余不支持。
 
 "specified_table_query": 指定表的订阅。
 
@@ -464,6 +472,5 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 
 "sql": " select count(*) from xxxx "。查询语句，其中表名必须写成 “xxxx”，实例会自动替换成子表名。
 
-​ "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
-
+ "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
 
