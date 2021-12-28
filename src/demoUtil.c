@@ -563,18 +563,17 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes = read(pThreadInfo->sockfd, response_buf + received,
                      resp_len - received);
 #endif
+        debugPrint("receive %d bytes from server\n", bytes);
         if (bytes < 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
-        if (bytes == 0) break;
-        if (strlen(pThreadInfo->filePath) > 0) {
-            debugPrint("receive %d bytes from server\n", bytes);
-            appendResultBufToFile(response_buf + received, pThreadInfo);
+        if (bytes == 0) {
+            break;
         }
         received += bytes;
 
-        if (strlen(response_buf) && g_args.test_mode == INSERT_TEST) {
+        if (strlen(response_buf)) {
             if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                  (NULL != strstr(response_buf, resHttp))) ||
                 ((NULL != strstr(response_buf, resHttpOk)) &&
@@ -592,6 +591,10 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     if (NULL == strstr(response_buf, resHttpOk)) {
         errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
+    }
+
+    if (strlen(pThreadInfo->filePath) > 0) {
+        appendResultBufToFile(response_buf, pThreadInfo);
     }
     code = 0;
 free_of_post:
