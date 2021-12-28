@@ -18,6 +18,7 @@ jobs:
       - name: Checkout taos-tools
         uses: actions/checkout@v2
         with:
+          ref: develop
           submodules: recursive
           path: 'taos-tools'
 
@@ -64,7 +65,7 @@ jobs:
           python3 ./test.py -f tools/taosdumpTest2.py
           python3 ./test.py -f tools/taosdumpTest3.py
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py
-          
+
           python3 ./test.py -f tools/taosdemoTestWithoutMetric.py
           python3 ./test.py -f tools/taosdemoTestWithJson.py
           python3 ./test.py -f tools/taosdemoTestQuery.py

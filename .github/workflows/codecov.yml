@@ -18,6 +18,7 @@ jobs:
         with:
           submodules: recursive
           path: 'taos-tools'
+          ref: 'develop'
 
       - name: Checkout tdengine
         uses: actions/checkout@v2
@@ -57,14 +58,14 @@ jobs:
           python3 ./test.py -f tools/taosdumpTest2.py
           python3 ./test.py -f tools/taosdumpTest3.py
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py
-          
+
           python3 ./test.py -f tools/taosdemoTestWithoutMetric.py
           python3 ./test.py -f tools/taosdemoTestWithJson.py
           python3 ./test.py -f tools/taosdemoTestQuery.py
           python3 ./test.py -f tools/taosdemoTestSampleData.py
           python3 ./test.py -f tools/taosdemoTest.py
           python3 ./test.py -f tools/taosdemoTestLimitOffset.py
-          
+
           cd ../develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
@@ -75,7 +76,7 @@ jobs:
           then
             for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
           fi
-          
+
           cd ../develop-test
           if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
           then
@@ -99,7 +100,7 @@ jobs:
           gcov -abcfu ../src/kit/taos-tools/src/demoQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoQuery.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/demoSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoSubscribe.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/demoUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/demoUtil.c.gcno
-      
+
       - name: Upload
         uses: codecov/codecov-action@v2.1.0
         with:
