@@ -278,7 +278,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 }]
 
 二、查询性能测试json配置文件：
-
+```
 {
   "filetype": "query",
   "cfgdir": "/etc/taos",
@@ -316,6 +316,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
     ]
   }
 }
+```
 ​参数说明：
 "filetype": 本taosBenchmark实例进行哪种功能测试。"query"表示数据查询功能。必选项。
 
@@ -369,7 +370,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
 
 
 三、订阅性能测试json文件配置：
-
+```
 {
     "filetype":"subscribe",
     "cfgdir": "/etc/taos",
@@ -407,6 +408,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
         }]
       }
   }
+ ```
 参数说明：
 "filetype": 本taosBenchmark实例进行哪种功能测试。"subscribe"表示数据查询功能。必选项。
 
