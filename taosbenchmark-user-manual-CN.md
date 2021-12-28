@@ -76,7 +76,7 @@ taosBenchmark json配置文件：
 taosBenchmark支持三种格式的json配置文件，分别为写入，查询与订阅：
 
 一、写入性能测试json配置文件：
-
+```
 {
     "filetype": "insert",
     "cfgdir": "/etc/taos",
@@ -141,6 +141,7 @@ taosBenchmark支持三种格式的json配置文件，分别为写入，查询与
         }]
     }]
 }
+```
 参数说明：
 "filetype": taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
 
