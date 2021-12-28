@@ -61,6 +61,7 @@ void init_g_args(SArguments *pg_args) {
     pg_args->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
     pg_args->tag_length[0] = sizeof(int32_t);
     pg_args->tag_length[1] = 16;
+    pg_args->response_buffer = RESP_BUF_LEN;
     pg_args->columnCount = 3;
     pg_args->tagCount = 2;
     pg_args->binwidth = DEFAULT_BINWIDTH;

@@ -222,7 +222,8 @@ int queryTestProcess() {
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
         char cmd[SQL_BUFF_LEN] = "\0";
-        snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s", g_queryInfo.dbName,g_queryInfo.superQueryInfo.stbName);
+        snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
+                 g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
@@ -232,21 +233,25 @@ int queryTestProcess() {
             taos_close(taos);
             return -1;
         }
-        TAOS_ROW row = NULL;
+        TAOS_ROW    row = NULL;
         int         num_fields = taos_num_fields(res);
-        TAOS_FIELD* fields = taos_fetch_fields(res);
+        TAOS_FIELD *fields = taos_fetch_fields(res);
         while ((row = taos_fetch_row(res)) != NULL) {
             if (0 == strlen((char *)(row[0]))) {
-                errorPrint("stable %s have no child table\n", g_queryInfo.superQueryInfo.stbName);
+                errorPrint("stable %s have no child table\n",
+                           g_queryInfo.superQueryInfo.stbName);
                 return -1;
             }
             char temp[256] = {0};
             taos_print_row(temp, row, fields, num_fields);
             g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
         }
-        infoPrint("%s's childTblCount: %"PRId64"\n", g_queryInfo.superQueryInfo.stbName, g_queryInfo.superQueryInfo.childTblCount);
+        infoPrint("%s's childTblCount: %" PRId64 "\n",
+                  g_queryInfo.superQueryInfo.stbName,
+                  g_queryInfo.superQueryInfo.childTblCount);
         taos_free_result(res);
-        g_queryInfo.superQueryInfo.childTblName = calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char*));
+        g_queryInfo.superQueryInfo.childTblName =
+            calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *));
         if (getAllChildNameOfSuperTable(
                 taos, g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
@@ -309,8 +314,6 @@ int queryTestProcess() {
                     int retConn = connect(
                         sockfd, (struct sockaddr *)&(g_queryInfo.serv_addr),
                         sizeof(struct sockaddr));
-                    debugPrint("%s() LN%d connect() return %d\n", __func__,
-                               __LINE__, retConn);
                     if (retConn < 0) {
                         ERROR_EXIT("connecting");
                     }

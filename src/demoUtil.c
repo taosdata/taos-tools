@@ -279,13 +279,14 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                 char ** childTblNameOfSuperTbl,
                                 int64_t childTblCountOfSuperTbl) {
     char cmd[SQL_BUFF_LEN] = "\0";
-    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %"PRId64"", dbName, stbName, childTblCountOfSuperTbl);
+    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %" PRId64 "",
+             dbName, stbName, childTblCountOfSuperTbl);
     TAOS_RES *res = taos_query(taos, cmd);
     int32_t   code = taos_errno(res);
     int64_t   count = 0;
     if (code) {
-        errorPrint("failed to get child table name: %s. reason: %s",
-                   cmd, taos_errstr(res));
+        errorPrint("failed to get child table name: %s. reason: %s", cmd,
+                   taos_errstr(res));
         taos_free_result(res);
         taos_close(taos);
         return -1;
@@ -293,13 +294,12 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         if (0 == strlen((char *)(row[0]))) {
-            errorPrint("No.%" PRId64 " table return empty name\n",
-                       count);
+            errorPrint("No.%" PRId64 " table return empty name\n", count);
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
-        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN,
-                     "`%s`", (char *)row[0]);
+        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
+                 (char *)row[0]);
         debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
                    childTblNameOfSuperTbl[count]);
         count++;
@@ -472,7 +472,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
     }
-    response_buf = calloc(1, RESP_BUF_LEN);
+    response_buf = calloc(1, g_args.response_buffer);
     if (NULL == response_buf) {
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
@@ -548,7 +548,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         sent += bytes;
     } while (sent < req_str_len);
 
-    resp_len = RESP_BUF_LEN - 1;
+    resp_len = g_args.response_buffer - 1;
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
@@ -563,11 +563,14 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes = read(pThreadInfo->sockfd, response_buf + received,
                      resp_len - received);
 #endif
+        debugPrint("receive %d bytes from server\n", bytes);
         if (bytes < 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
-        if (bytes == 0) break;
+        if (bytes == 0) {
+            break;
+        }
         received += bytes;
 
         if (strlen(response_buf)) {
@@ -585,13 +588,13 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         goto free_of_post;
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
-    }
-
     if (NULL == strstr(response_buf, resHttpOk)) {
         errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
+    }
+
+    if (strlen(pThreadInfo->filePath) > 0) {
+        appendResultBufToFile(response_buf, pThreadInfo);
     }
     code = 0;
 free_of_post:
