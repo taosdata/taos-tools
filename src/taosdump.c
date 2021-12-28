@@ -2933,12 +2933,21 @@ static int dumpInAvroTbTagsImpl(
 
     char tbuf[COMMAND_SIZE] = {0};
 
+    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+    assert(tableDes);
+
     avro_value_iface_t *value_class = avro_generic_class_from_schema(schema);
     avro_value_t value;
     avro_generic_value_new(value_class, &value);
 
     while(!avro_file_reader_read_value(reader, &value)) {
         TAOS_STMT *stmt = taos_stmt_init(taos);
+        if (NULL == stmt) {
+            errorPrint("%s() LN%d, Failed to execute taos_stmt_init(). reason: %s\n",
+                    __func__, __LINE__,
+                    taos_stmt_errstr(NULL));
+        }
         char *bindArray =
             calloc(1, sizeof(TAOS_BIND)*(recordSchema->num_fields-1));
         assert(bindArray);
@@ -2946,8 +2955,8 @@ static int dumpInAvroTbTagsImpl(
         TAOS_BIND *bind;
         int is_null = 1;
 
-        char *stbname = NULL;
-        char *tbname = NULL;
+        char *stbName = NULL;
+        char *tbName = NULL;
         for (int i = 0; i < recordSchema->num_fields-1; i++) {
             avro_value_t field_value, field_branch;
             size_t size;
@@ -2959,17 +2968,23 @@ static int dumpInAvroTbTagsImpl(
                 avro_value_get_current_branch(
                                         &field_value, &field_branch);
                 avro_value_get_string(&field_branch,
-                        (const char **)&stbname, &size);
+                        (const char **)&stbName, &size);
+
+                if ((NULL == tableDes->name)
+                        || (0 != strcmp(tableDes->name, stbName))) {
+                    getTableDes(taos, namespace,
+                            stbName, tableDes, false);
+                }
 
                 avro_value_get_by_name(&value, "tbname", &field_value, NULL);
                 avro_value_get_current_branch(
                                         &field_value, &field_branch);
                 avro_value_get_string(&field_branch,
-                        (const char **)&tbname, &size);
+                        (const char **)&tbName, &size);
 
                 curr_sqlstr_len = sprintf(tbuf,
                         "CREATE TABLE %s.`%s` USING %s.`%s` TAGS(?",
-                        namespace, tbname, namespace, stbname);
+                        namespace, tbName, namespace, stbName);
                 for (int j = 0; j < recordSchema->num_fields-3; j ++) {
                     curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ",?");
                 }
@@ -2993,7 +3008,7 @@ static int dumpInAvroTbTagsImpl(
                     bind = (TAOS_BIND *)((char *)bindArray
                             + (sizeof(TAOS_BIND)*(i-1)));
                     bind->is_null = NULL;
-                    switch (field->type) {
+                    switch(tableDes->cols[tableDes->columns -1 + i].type) {
                         case TSDB_DATA_TYPE_BOOL:
                             {
                                 avro_value_t bool_branch;
@@ -3024,10 +3039,10 @@ static int dumpInAvroTbTagsImpl(
                                 avro_value_get_int(&field_value, n8);
 
                                 verbosePrint("%s() LN%d: *n8=%d null=%d\n",
-                                        __func__, __LINE__, *n8,
+                                        __func__, __LINE__, (int8_t)*n8,
                                         (int8_t)TSDB_DATA_TINYINT_NULL);
 
-                                if ((int8_t)TSDB_DATA_TINYINT_NULL == *n8) {
+                                if ((int8_t)TSDB_DATA_TINYINT_NULL == (int8_t)*n8) {
                                     debugPrint2("%s | ", "null");
                                     bind->is_null = &is_null;
                                     free(n8);
@@ -3254,6 +3269,8 @@ static int dumpInAvroTbTagsImpl(
 
     avro_value_decref(&value);
     avro_value_iface_decref(value_class);
+
+    freeTbDes(tableDes);
 
     if (failed)
         return failed;
