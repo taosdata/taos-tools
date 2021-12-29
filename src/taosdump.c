@@ -368,11 +368,10 @@ static struct argp_option options[] = {
     {"inpath", 'i', "INPATH",      0,  "Input file path.", 1},
     {"resultFile", 'r', "RESULTFILE",  0,  "DumpOut/In Result file path and name.", 1},
 #ifdef _TD_POWER_
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/power/taos.cfg.", 1},
+    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/power", 1},
 #else
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos/taos.cfg.", 1},
+    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos", 1},
 #endif
-    {"encode", 'e', "ENCODE", 0,  "Input file encoding.", 1},
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,  "Dump inputted databases. Use comma to separate databases\' name.", 2},
@@ -386,7 +385,6 @@ static struct argp_option options[] = {
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
     {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data point per insert statement. Default value is 16384.", 10},
     {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
-    {"table-batch", 't', "TABLE_BATCH", 0,  "Number of table dumpout into one output file. Default is 1.", 10},
     {"thread_num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -406,7 +404,6 @@ typedef struct arguments {
     char     inpath[MAX_FILE_NAME_LEN];
     // result file
     char    *resultFile;
-    char    *encode;
     // dump unit option
     bool     all_databases;
     bool     databases;
@@ -425,7 +422,6 @@ typedef struct arguments {
 
     int32_t  data_batch;
     int32_t  max_sql_len;
-    int32_t  table_batch; // num of table which will be dump into one output file.
     bool     allow_sys;
     // other options
     int32_t  thread_num;
@@ -461,8 +457,7 @@ struct arguments g_args = {
     // outpath and inpath
     "",
     "",
-    "./dump_result.txt",
-    NULL,
+    "./dump_result.txt", // result_file
     // dump unit option
     false,      // all_databases
     false,      // databases
@@ -480,7 +475,6 @@ struct arguments g_args = {
     "ms",       // precision
     MAX_RECORDS_PER_REQ / 2,    // data_batch
     TSDB_MAX_SQL_LEN,   // max_sql_len
-    1,          // table_batch
     false,      // allow_sys
     // other options
     8,          // thread_num
@@ -824,10 +818,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             tstrncpy(g_configDir, full_path.we_wordv[0], MAX_FILE_NAME_LEN);
             wordfree(&full_path);
             break;
-        case 'e':
-            g_args.encode = arg;
-            break;
-            // dump unit option
+
         case 'A':
             break;
         case 'D':
@@ -865,9 +856,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.max_sql_len = len;
                 break;
             }
-        case 't':
-            g_args.table_batch = atoi((const char *)arg);
-            break;
         case 'T':
             if (!isStringNumber(arg)) {
                 errorPrint("%s", "\n\t-T need a number following!\n");
@@ -1183,6 +1171,8 @@ static int inDatabasesSeq(
 
             dbname = strsep(&running, ",");
         }
+
+        free(dupSeq);
     }
 
     return -1;
@@ -3961,7 +3951,7 @@ static RecordSchema *getSchemaAndReaderFromFile(
 static int64_t dumpInOneAvroFile(
         enum enWHICH which,
         char* fcharset,
-        char* encode, char *avroFilepath)
+        char *avroFilepath)
 {
     debugPrint("avroFilepath: %s\n", avroFilepath);
 
@@ -4083,7 +4073,6 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         int64_t rows = dumpInOneAvroFile(
                 pThreadInfo->which,
                 g_tsCharset,
-                g_args.encode,
                 avroFile);
         switch (pThreadInfo->which) {
             case WHICH_AVRO_DATA:
@@ -5038,12 +5027,9 @@ static int checkParam() {
         }
     }
 
-    if (!g_args.isDumpIn && g_args.encode != NULL) {
-        errorPrint("%s", "Invalid option in dump out\n");
-        return -1;
-    }
-
-    if (g_args.table_batch <= 0) {
+    if ((!g_args.isDumpIn)
+            && (!g_args.databases)
+            && (0 == g_args.arg_list_len)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
@@ -5207,8 +5193,9 @@ _exit_no_charset:
 }
 
 // ========  dumpIn support multi threads functions ================================//
-static int64_t dumpInOneSqlFile(TAOS* taos, FILE* fp, char* fcharset,
-        char* encode, char* fileName) {
+static int64_t dumpInOneSqlFile(
+        TAOS* taos, FILE* fp, char* fcharset,
+        char* fileName) {
     int       read_len = 0;
     char *    cmd      = NULL;
     size_t    cmd_len  = 0;
@@ -5294,8 +5281,9 @@ static void* dumpInSqlWorkThreadFp(void *arg)
             continue;
         }
 
-        int64_t rows = dumpInOneSqlFile(pThread->taos, fp, g_tsCharset, g_args.encode,
-                    sqlFile);
+        int64_t rows = dumpInOneSqlFile(
+                pThread->taos, fp, g_tsCharset,
+                sqlFile);
         if (rows > 0) {
             pThread->recSuccess += rows;
             okPrint("[%d] Total %"PRId64" row(s) be successfully dumped in file: %s\n",
@@ -5443,7 +5431,7 @@ static int dumpInDbs()
     loadFileCharset(fp, g_tsCharset);
 
     int64_t rows = dumpInOneSqlFile(
-            taos, fp, g_tsCharset, g_args.encode, dbsSql);
+            taos, fp, g_tsCharset, dbsSql);
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
                 rows, dbsSql);
@@ -6259,7 +6247,6 @@ int main(int argc, char *argv[]) {
     printf("outpath: %s\n", g_args.outpath);
     printf("inpath: %s\n", g_args.inpath);
     printf("resultFile: %s\n", g_args.resultFile);
-    printf("encode: %s\n", g_args.encode);
     printf("all_databases: %s\n", g_args.all_databases?"true":"false");
     printf("databases: %d\n", g_args.databases);
     printf("databasesSeq: %s\n", g_args.databasesSeq);
@@ -6274,7 +6261,6 @@ int main(int argc, char *argv[]) {
     printf("precision: %s\n", g_args.precision);
     printf("data_batch: %d\n", g_args.data_batch);
     printf("max_sql_len: %d\n", g_args.max_sql_len);
-    printf("table_batch: %d\n", g_args.table_batch);
     printf("thread_num: %d\n", g_args.thread_num);
     printf("allow_sys: %d\n", g_args.allow_sys);
     printf("abort: %d\n", g_args.abort);
@@ -6314,7 +6300,6 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "outpath: %s\n", g_args.outpath);
     fprintf(g_fpOfResult, "inpath: %s\n", g_args.inpath);
     fprintf(g_fpOfResult, "resultFile: %s\n", g_args.resultFile);
-    fprintf(g_fpOfResult, "encode: %s\n", g_args.encode);
     fprintf(g_fpOfResult, "all_databases: %s\n", g_args.all_databases?"true":"false");
     fprintf(g_fpOfResult, "databases: %d\n", g_args.databases);
     fprintf(g_fpOfResult, "databasesSeq: %s\n", g_args.databasesSeq);
@@ -6329,7 +6314,6 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "precision: %s\n", g_args.precision);
     fprintf(g_fpOfResult, "data_batch: %d\n", g_args.data_batch);
     fprintf(g_fpOfResult, "max_sql_len: %d\n", g_args.max_sql_len);
-    fprintf(g_fpOfResult, "table_batch: %d\n", g_args.table_batch);
     fprintf(g_fpOfResult, "thread_num: %d\n", g_args.thread_num);
     fprintf(g_fpOfResult, "allow_sys: %d\n", g_args.allow_sys);
     fprintf(g_fpOfResult, "abort: %d\n", g_args.abort);
