@@ -365,14 +365,14 @@ static struct argp_option options[] = {
     {"databases", 'D', "DATABASES", 0,  "Dump inputted databases. Use comma to separate databases\' name.", 2},
     {"allow-sys",   'a', 0, 0,  "Allow to dump system database", 2},
     // dump format options
-    {"schemaonly", 's', 0, 0,  "Only dump schema.", 2},
-    {"without-property", 'N', 0, 0,  "Dump schema without properties.", 2},
+    {"schemaonly", 's', 0, 0,  "Only dump tables' schema.", 2},
+    {"without-property", 'N', 0, 0,  "Dump database without its properties.", 2},
     {"answer-yes", 'y', 0, 0,  "Input yes for prompt. It will skip data file checking!", 3},
     {"avro-codec", 'd', "snappy", 0,  "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
     {"start-time",    'S', "START_TIME",  0,  "Start time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",  8},
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
-    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data point per insert statement. Default value is 16384.", 10},
-    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
+    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement. Default value is 16384.", 10},
+//    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread_num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -829,6 +829,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.data_batch = MAX_RECORDS_PER_REQ/2;
             }
             break;
+            /*
         case 'L':
             {
                 int32_t len = atoi((const char *)arg);
@@ -840,6 +841,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.max_sql_len = len;
                 break;
             }
+            */
         case 'T':
             if (!isStringNumber(arg)) {
                 errorPrint("%s", "\n\t-T need a number following!\n");
