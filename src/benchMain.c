@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 int64_t        g_totalChildTables = DEFAULT_CHILDTABLES;
 int64_t        g_actualChildTables = 0;
 int64_t        g_autoCreatedChildTables = 0;

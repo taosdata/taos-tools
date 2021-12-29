@@ -13,8 +13,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
-#include "demoData.h"
+#include "bench.h"
+#include "benchData.h"
 
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",

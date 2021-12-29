@@ -602,7 +602,7 @@ extern cJSON *        root;
         (dst)[(size)-1] = 0;           \
     } while (0)
 /* ************ Function declares ************  */
-/* demoCommandOpt.c */
+/* benchCommandOpt.c */
 int  parse_args(int argc, char *argv[], SArguments *pg_args);
 int  count_datatype(char *dataType, int32_t *number);
 int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,

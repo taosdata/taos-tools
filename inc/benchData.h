@@ -16,7 +16,7 @@
 #ifndef __DEMODATA__
 #define __DEMODATA__
 
-#include "demo.h"
+#include "bench.h"
 /***** Global variables ******/
 
 extern char *    g_sampleDataBuf;

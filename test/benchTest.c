@@ -13,12 +13,12 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "bench.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include "CUnit/Basic.h"
-#include "demo.h"
-#include "demoData.h"
+#include "benchData.h"
 
 SArguments test_g_args;
 
@@ -137,7 +137,7 @@ int main() {
 
     /* add a suite to the registry */
     demoCommandSuite =
-        CU_add_suite("demoCommandOpt.c", init_suite1, clean_suite1);
+        CU_add_suite("benchCommandOpt.c", init_suite1, clean_suite1);
     if (NULL == demoCommandSuite) {
         CU_cleanup_registry();
         return CU_get_error();
