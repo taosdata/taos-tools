@@ -2,10 +2,9 @@
 INCLUDE(ExternalProject)
 ExternalProject_Add(
     apache-avro
-    PREFIX              "avro"
-    SOURCE_DIR          ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
-    BUILD_IN_SOURCE     1
-    CONFIGURE_COMMAND   cmake -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/build/
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
+    SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
+    CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/build/ ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
 )
 
 ADD_SUBDIRECTORY(cJsonDemo)
