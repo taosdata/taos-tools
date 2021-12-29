@@ -1171,6 +1171,8 @@ static int inDatabasesSeq(
 
             dbname = strsep(&running, ",");
         }
+
+        free(dupSeq);
     }
 
     return -1;
