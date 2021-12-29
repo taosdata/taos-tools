@@ -39,8 +39,8 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
   -A, --all-databases        Dump all databases.
   -D, --databases=DATABASES  Dump inputted databases. Use comma to separate
                              databases' name.
-  -N, --without-property     Dump schema without properties.
-  -s, --schemaonly           Only dump schema.
+  -N, --without-property     Dump database without its properties.
+  -s, --schemaonly           Only dump tables' schema.
   -y, --answer-yes           Input yes for prompt. It will skip data file
                              checking!
   -d, --avro-codec=snappy    Choose an avro codec among null, deflate, snappy,
@@ -55,9 +55,8 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              2017-10-01T00:00:00.000+0800 or
                              2017-10-0100:00:00.000+0800 or '2017-10-01
                              00:00:00.000+0800'
-  -B, --data-batch=DATA_BATCH   Number of data point per insert statement.
-                             Default value is 16384.
-  -L, --max-sql-len=SQL_LEN  Max length of one sql. Default is 65480.
+  -B, --data-batch=DATA_BATCH   Number of data per insert statement. Default
+                             value is 16384.
   -T, --thread_num=THREAD_NUM   Number of thread for dump in file. Default is
                              5.
   -g, --debug                Print debug info.
