@@ -1242,6 +1242,23 @@ void setParaFromArg(SArguments *pg_args) {
     tstrncpy(db[0].dbCfg.precision, "ms", SMALL_BUFF_LEN);
     pg_args->prepared_rand = min(pg_args->insertRows, MAX_PREPARED_RAND);
 
+    if (pg_args->intColumnCount > pg_args->columnCount) {
+        char *tmp_type = (char *)realloc(
+            pg_args->col_type, pg_args->intColumnCount * sizeof(char));
+        int32_t *tmp_length = (int32_t *)realloc(
+            pg_args->col_length, pg_args->intColumnCount * sizeof(int32_t));
+        if (tmp_type != NULL && tmp_length != NULL) {
+            pg_args->col_type = tmp_type;
+            pg_args->col_length = tmp_length;
+            for (int i = pg_args->columnCount; i < pg_args->intColumnCount;
+                 ++i) {
+                pg_args->col_type[i] = TSDB_DATA_TYPE_INT;
+                pg_args->col_length[i] = sizeof(int32_t);
+            }
+        }
+        pg_args->columnCount = pg_args->intColumnCount;
+    }
+
     if ((pg_args->col_type[0] == TSDB_DATA_TYPE_BINARY) ||
         (pg_args->col_type[0] == TSDB_DATA_TYPE_BOOL) ||
         (pg_args->col_type[0] == TSDB_DATA_TYPE_NCHAR)) {

@@ -88,7 +88,7 @@ jobs:
           python3 test.py -f tools/taosdumpTestNanoSupport.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py
           
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py
+
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py
           python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py
           python3 test.py -f tools/taosdemoAllTest/TD-5213/insert4096columns_not_use_taosdemo.py

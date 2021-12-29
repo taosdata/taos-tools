@@ -1498,6 +1498,15 @@ free_of_progressive:
 
 int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                                SSuperTable *stbInfo) {
+    if (g_args.reqPerReq > MAX_RECORDS_PER_REQ) {
+        infoPrint("NOTICE: number of records per request value %u > %d\n\n",
+                  g_args.reqPerReq, MAX_RECORDS_PER_REQ);
+        infoPrint(
+            "        number of records per request value will be set to "
+            "%d\n\n",
+            MAX_RECORDS_PER_REQ);
+        g_args.reqPerReq = MAX_RECORDS_PER_REQ;
+    }
     int iface = stbInfo ? stbInfo->iface : g_args.iface;
     int line_protocol =
         stbInfo ? stbInfo->lineProtocol : TSDB_SML_LINE_PROTOCOL;

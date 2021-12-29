@@ -320,16 +320,6 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 "mistake\n",
                 __func__, __LINE__);
             goto PARSE_OVER;
-        } else if (numRecPerReq->valueint > MAX_RECORDS_PER_REQ) {
-            printf("NOTICE: number of records per request value %" PRIu64
-                   " > %d\n\n",
-                   numRecPerReq->valueint, MAX_RECORDS_PER_REQ);
-            printf(
-                "        number of records per request value will be set to "
-                "%d\n\n",
-                MAX_RECORDS_PER_REQ);
-            prompt();
-            numRecPerReq->valueint = MAX_RECORDS_PER_REQ;
         }
         g_args.reqPerReq = (uint32_t)numRecPerReq->valueint;
     } else if (!numRecPerReq) {
