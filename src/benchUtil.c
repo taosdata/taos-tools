@@ -18,40 +18,40 @@
 void errorWrongValue(char *program, char *wrong_arg, char *wrong_value) {
     fprintf(stderr, "%s %s: %s is an invalid value\n", program, wrong_arg,
             wrong_value);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorUnrecognized(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: unrecognized options '%s'\n", program, wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorPrintReqArg(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: option requires an argument -- '%s'\n", program,
             wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorPrintReqArg2(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: option requires a number argument '-%s'\n", program,
             wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorPrintReqArg3(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: option '%s' requires an argument\n", program,
             wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void tmfclose(FILE *fp) {
@@ -227,7 +227,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
     int32_t code = taos_errno(res);
     if (code != 0) {
         taos_free_result(res);
-        taos_close(taos);
+
         errorPrint("failed to run command %s, reason: %s\n", command,
                    taos_errstr(res));
         return -1;
@@ -257,7 +257,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                 // exit, if allocate more memory failed
                 tmfree(childTblName);
                 taos_free_result(res);
-                taos_close(taos);
+
                 errorPrint(
                     "realloc fail for save child table name of "
                     "%s.%s\n",
@@ -288,7 +288,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         errorPrint("failed to get child table name: %s. reason: %s", cmd,
                    taos_errstr(res));
         taos_free_result(res);
-        taos_close(taos);
+
         return -1;
     }
     TAOS_ROW row = NULL;
@@ -719,4 +719,44 @@ int taos_convert_string_to_datatype(char *type) {
     } else {
         return TSDB_DATA_TYPE_NULL;
     }
+}
+
+int init_taos_list(TAOS_POOL *pool, int size) {
+    pool->taos_list = calloc(size, sizeof(TAOS *));
+    pool->current = 0;
+    pool->size = size;
+    for (int i = 0; i < size; ++i) {
+        pool->taos_list[i] = taos_connect(g_args.host, g_args.user,
+                                          g_args.password, NULL, g_args.port);
+        if (pool->taos_list[i] == NULL) {
+            errorPrint("Failed to connect to TDengine, reason:%s\n",
+                       taos_errstr(NULL));
+            return -1;
+        }
+    }
+    return 0;
+}
+
+TAOS *select_one_from_pool(TAOS_POOL *pool, char *db_name) {
+    TAOS *taos = pool->taos_list[pool->current];
+    if (db_name != NULL) {
+        int code = taos_select_db(taos, db_name);
+        if (code) {
+            errorPrint("failed to select %s, reason: %s\n", db_name,
+                       tstrerror(code));
+            return NULL;
+        }
+    }
+    pool->current++;
+    if (pool->current >= pool->size) {
+        pool->current = 0;
+    }
+    return taos;
+}
+
+void cleanup_taos_list(TAOS_POOL *pool) {
+    for (int i = 0; i < pool->size; ++i) {
+        taos_close(pool->taos_list[i]);
+    }
+    tmfree(pool->taos_list);
 }

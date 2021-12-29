@@ -417,7 +417,7 @@ static int createSuperTable(TAOS *taos, char *dbName, SSuperTable *superTbl,
                 break;
 
             default:
-                taos_close(taos);
+
                 errorPrint("unknown data type : %d\n",
                            superTbl->col_type[colIndex]);
                 return -1;
@@ -428,7 +428,6 @@ static int createSuperTable(TAOS *taos, char *dbName, SSuperTable *superTbl,
     superTbl->colsOfCreateChildTable =
         (char *)calloc(len + TIMESTAMP_BUFF_LEN, 1);
     if (NULL == superTbl->colsOfCreateChildTable) {
-        taos_close(taos);
         errorPrint("%s", "failed to allocate memory\n");
         return -1;
     }
@@ -524,7 +523,7 @@ static int createSuperTable(TAOS *taos, char *dbName, SSuperTable *superTbl,
                     snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "jtag json");
                 goto skip;
             default:
-                taos_close(taos);
+
                 errorPrint("unknown data type : %d\n",
                            superTbl->tag_type[tagIndex]);
                 return -1;
@@ -552,11 +551,8 @@ skip:
 int createDatabasesAndStables(char *command) {
     TAOS *taos = NULL;
     int   ret = 0;
-    taos = taos_connect(g_args.host, g_args.user, g_args.password, NULL,
-                        g_args.port);
+    taos = select_one_from_pool(&g_taos_pool, NULL);
     if (taos == NULL) {
-        errorPrint("Failed to connect to TDengine, reason:%s\n",
-                   taos_errstr(NULL));
         return -1;
     }
 
@@ -565,7 +561,6 @@ int createDatabasesAndStables(char *command) {
         if (db[i].drop) {
             sprintf(command, "drop database if exists %s;", db[i].dbName);
             if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
-                taos_close(taos);
                 return -1;
             }
 
@@ -635,7 +630,6 @@ int createDatabasesAndStables(char *command) {
             }
 
             if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
-                taos_close(taos);
                 errorPrint("\ncreate database %s failed!\n\n", db[i].dbName);
                 return -1;
             }
@@ -681,7 +675,7 @@ int createDatabasesAndStables(char *command) {
             }
         }
     }
-    taos_close(taos);
+
     return 0;
 }
 
@@ -812,11 +806,8 @@ int startMultiThreadCreateChildTable(char *cols, int threads, int64_t ntables,
         pThreadInfo->threadID = (int)i;
         tstrncpy(pThreadInfo->db_name, db_name, TSDB_DB_NAME_LEN);
         pThreadInfo->stbInfo = stbInfo;
-        pThreadInfo->taos = taos_connect(g_args.host, g_args.user,
-                                         g_args.password, db_name, g_args.port);
+        pThreadInfo->taos = select_one_from_pool(&g_taos_pool, db_name);
         if (pThreadInfo->taos == NULL) {
-            errorPrint("failed to connect to TDengine, reason:%s\n",
-                       taos_errstr(NULL));
             free(pids);
             free(infos);
             return -1;
@@ -844,7 +835,7 @@ int startMultiThreadCreateChildTable(char *cols, int threads, int64_t ntables,
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-        taos_close(pThreadInfo->taos);
+
         g_actualChildTables += pThreadInfo->tables_created;
     }
 
@@ -1069,6 +1060,7 @@ void postFreeResource() {
         }
         tmfree(g_args.childTblName);
     }
+    cleanup_taos_list(&g_taos_pool);
 }
 
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
@@ -1152,7 +1144,11 @@ void *syncWriteInterlace(void *sarg) {
     int      len = 0;
     uint64_t tableSeq = pThreadInfo->start_table_from;
     while (insertRows > 0) {
-        taosMsleep((int32_t)pThreadInfo->insert_interval);
+        if (pThreadInfo->insert_interval > 0) {
+            performancePrint("sleep %" PRIu64 " ms\n",
+                             pThreadInfo->insert_interval);
+            taosMsleep((int32_t)pThreadInfo->insert_interval);
+        }
         generated = 0;
         if (insertRows <= interlaceRows) {
             interlaceRows = insertRows;
@@ -1334,7 +1330,11 @@ void *syncWriteProgressive(void *sarg) {
         uint64_t len = 0;
 
         for (uint64_t i = 0; i < pThreadInfo->insertRows;) {
-            taosMsleep((int32_t)pThreadInfo->insert_interval);
+            if (pThreadInfo->insert_interval > 0) {
+                performancePrint("sleep %" PRIu64 " ms\n",
+                                 pThreadInfo->insert_interval);
+                taosMsleep((int32_t)pThreadInfo->insert_interval);
+            }
             int32_t generated = 0;
             switch (pThreadInfo->iface) {
                 case TAOSC_IFACE:
@@ -1344,19 +1344,35 @@ void *syncWriteProgressive(void *sarg) {
                                    pThreadInfo->db_name, tableName);
 
                     for (int j = 0; j < g_args.reqPerReq; ++j) {
-                        len +=
-                            snprintf(pstr + len, pThreadInfo->max_sql_len - len,
-                                     "(%" PRId64 ",%s)", timestamp,
-                                     (stbInfo ? stbInfo->sampleDataBuf
-                                              : g_sampleDataBuf) +
-                                         pos * (stbInfo ? stbInfo->lenOfCols
-                                                        : g_args.lenOfCols));
+                        if (stbInfo && stbInfo->useSampleTs &&
+                            0 == strcasecmp(stbInfo->dataSource, "sample")) {
+                            len += snprintf(
+                                pstr + len, pThreadInfo->max_sql_len - len,
+                                "(%s)",
+                                (stbInfo ? stbInfo->sampleDataBuf
+                                         : g_sampleDataBuf) +
+                                    pos * (stbInfo ? stbInfo->lenOfCols
+                                                   : g_args.lenOfCols));
+                        } else {
+                            len += snprintf(
+                                pstr + len, pThreadInfo->max_sql_len - len,
+                                "(%" PRId64 ",%s)", timestamp,
+                                (stbInfo ? stbInfo->sampleDataBuf
+                                         : g_sampleDataBuf) +
+                                    pos * (stbInfo ? stbInfo->lenOfCols
+                                                   : g_args.lenOfCols));
+                        }
                         pos++;
                         if (pos >= g_args.prepared_rand) {
                             pos = 0;
                         }
                         timestamp += pThreadInfo->time_step;
                         generated++;
+                        if (len >
+                            (BUFFER_SIZE - (stbInfo ? stbInfo->lenOfCols
+                                                    : g_args.lenOfCols))) {
+                            break;
+                        }
                         if (i + generated >= pThreadInfo->insertRows) {
                             break;
                         }
@@ -1493,6 +1509,15 @@ free_of_progressive:
 
 int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                                SSuperTable *stbInfo) {
+    if (g_args.reqPerReq > MAX_RECORDS_PER_REQ) {
+        infoPrint("NOTICE: number of records per request value %u > %d\n\n",
+                  g_args.reqPerReq, MAX_RECORDS_PER_REQ);
+        infoPrint(
+            "        number of records per request value will be set to "
+            "%d\n\n",
+            MAX_RECORDS_PER_REQ);
+        g_args.reqPerReq = MAX_RECORDS_PER_REQ;
+    }
     int iface = stbInfo ? stbInfo->iface : g_args.iface;
     int line_protocol =
         stbInfo ? stbInfo->lineProtocol : TSDB_SML_LINE_PROTOCOL;
@@ -1548,12 +1573,10 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
         }
 
-        if (iface != SML_IFACE) {
-            TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                                      db_name, g_args.port);
+        if (iface != SML_IFACE &&
+            stbInfo->childTblExists == TBL_ALREADY_EXISTS) {
+            TAOS *taos = select_one_from_pool(&g_taos_pool, db_name);
             if (taos == NULL) {
-                errorPrint("Failed to connect to TDengine, reason: %s\n",
-                           taos_errstr(NULL));
                 return -1;
             }
             char cmd[SQL_BUFF_LEN] = "\0";
@@ -1561,15 +1584,16 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 snprintf(cmd, SQL_BUFF_LEN,
                          "select tbname from %s.`%s` limit %" PRId64
                          " offset %" PRIu64 "",
-                         db_name, stbInfo->stbName, stbInfo->childTblCount,
+                         db_name, stbInfo->stbName, stbInfo->childTblLimit,
                          stbInfo->childTblOffset);
             } else {
                 snprintf(cmd, SQL_BUFF_LEN,
                          "select tbname from %s.%s limit %" PRId64
                          " offset %" PRIu64 "",
-                         db_name, stbInfo->stbName, stbInfo->childTblCount,
+                         db_name, stbInfo->stbName, stbInfo->childTblLimit,
                          stbInfo->childTblOffset);
             }
+            debugPrint("cmd: %s\n", cmd);
             TAOS_RES *res = taos_query(taos, cmd);
             int32_t   code = taos_errno(res);
             int64_t   count = 0;
@@ -1577,7 +1601,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 errorPrint("failed to get child table name: %s. reason: %s",
                            cmd, taos_errstr(res));
                 taos_free_result(res);
-                taos_close(taos);
+
                 return -1;
             }
             TAOS_ROW row = NULL;
@@ -1600,8 +1624,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             }
             ntables = count;
             taos_free_result(res);
-            taos_close(taos);
-
         } else {
             for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
                 if (g_args.escapeChar) {
@@ -1612,6 +1634,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                              "%s%" PRIu64 "", childTbls_prefix, i);
                 }
             }
+            ntables = stbInfo->childTblCount;
         }
     } else {
         g_args.childTblName = calloc(g_args.ntables, sizeof(char *));
@@ -1768,15 +1791,9 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 break;
             }
             case STMT_IFACE: {
-                pThreadInfo->taos =
-                    taos_connect(g_args.host, g_args.user, g_args.password,
-                                 db_name, g_args.port);
+                pThreadInfo->taos = select_one_from_pool(&g_taos_pool, db_name);
                 if (NULL == pThreadInfo->taos) {
                     tmfree(infos);
-                    errorPrint(
-                        "connect to taosd server failed "
-                        "reason:%s\n ",
-                        taos_errstr(NULL));
                     return -1;
                 }
                 pThreadInfo->stmt = taos_stmt_init(pThreadInfo->taos);
@@ -1812,15 +1829,9 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 break;
             }
             case SML_IFACE: {
-                pThreadInfo->taos =
-                    taos_connect(g_args.host, g_args.user, g_args.password,
-                                 db_name, g_args.port);
+                pThreadInfo->taos = select_one_from_pool(&g_taos_pool, db_name);
                 if (NULL == pThreadInfo->taos) {
                     tmfree(infos);
-                    errorPrint(
-                        "connect to taosd server failed "
-                        "reason:%s\n ",
-                        taos_errstr(NULL));
                     return -1;
                 }
                 pThreadInfo->smlTimePrec = smlTimePrec;
@@ -1865,15 +1876,9 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                     (stbInfo ? stbInfo->lenOfCols : g_args.lenOfCols) *
                         g_args.reqPerReq +
                     1024;
-                pThreadInfo->taos =
-                    taos_connect(g_args.host, g_args.user, g_args.password,
-                                 db_name, g_args.port);
+                pThreadInfo->taos = select_one_from_pool(&g_taos_pool, db_name);
                 if (NULL == pThreadInfo->taos) {
                     tmfree(infos);
-                    errorPrint(
-                        "connect to taosd server failed "
-                        "reason:%s\n ",
-                        taos_errstr(NULL));
                     return -1;
                 }
                 pThreadInfo->buffer = calloc(1, pThreadInfo->max_sql_len);
@@ -1923,7 +1928,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 tmfree(pThreadInfo->buffer);
                 break;
             case SML_IFACE:
-                taos_close(pThreadInfo->taos);
+
                 if (pThreadInfo->line_protocol != TSDB_SML_JSON_PROTOCOL) {
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         tmfree(pThreadInfo->sml_tags[t]);
@@ -1940,7 +1945,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 tmfree(pThreadInfo->lines);
                 break;
             case STMT_IFACE:
-                taos_close(pThreadInfo->taos);
+
                 taos_stmt_close(pThreadInfo->stmt);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
@@ -1948,7 +1953,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 tmfree(pThreadInfo->is_null);
                 break;
             case TAOSC_IFACE:
-                taos_close(pThreadInfo->taos);
+
                 tmfree(pThreadInfo->buffer);
                 break;
             default:
@@ -2041,6 +2046,9 @@ int insertTestProcess() {
     prompt();
 
     if (init_rand_data()) {
+        goto end_insert_process;
+    }
+    if (init_taos_list(&g_taos_pool, g_args.nthreads_pool)) {
         goto end_insert_process;
     }
 

@@ -268,6 +268,16 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         goto PARSE_OVER;
     }
 
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        g_args.nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        g_args.nthreads_pool = g_args.nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
+        goto PARSE_OVER;
+    }
+
     cJSON *gInsertInterval = cJSON_GetObjectItem(json, "insert_interval");
     if (gInsertInterval && gInsertInterval->type == cJSON_Number) {
         if (gInsertInterval->valueint < 0) {
@@ -310,16 +320,6 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 "mistake\n",
                 __func__, __LINE__);
             goto PARSE_OVER;
-        } else if (numRecPerReq->valueint > MAX_RECORDS_PER_REQ) {
-            printf("NOTICE: number of records per request value %" PRIu64
-                   " > %d\n\n",
-                   numRecPerReq->valueint, MAX_RECORDS_PER_REQ);
-            printf(
-                "        number of records per request value will be set to "
-                "%d\n\n",
-                MAX_RECORDS_PER_REQ);
-            prompt();
-            numRecPerReq->valueint = MAX_RECORDS_PER_REQ;
         }
         g_args.reqPerReq = (uint32_t)numRecPerReq->valueint;
     } else if (!numRecPerReq) {
@@ -818,11 +818,18 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                     goto PARSE_OVER;
                 } else if (childTbl_limit->valueint <= 0) {
                     infoPrint("childTbl_limit(%" PRId64
-                              ") less than 0, ignore it\n",
-                              childTbl_limit->valueint);
+                              ") less than 0, ignore it and set to "
+                              "%" PRId64 "\n",
+                              childTbl_limit->valueint,
+                              db[i].superTbls[j].childTblCount);
+                    db[i].superTbls[j].childTblLimit =
+                        db[i].superTbls[j].childTblCount;
                 } else {
-                    db[i].superTbls[j].childTblCount = childTbl_limit->valueint;
+                    db[i].superTbls[j].childTblLimit = childTbl_limit->valueint;
                 }
+            } else {
+                db[i].superTbls[j].childTblLimit =
+                    db[i].superTbls[j].childTblCount;
             }
 
             cJSON *childTbl_offset =
@@ -1127,6 +1134,16 @@ int getMetaFromQueryJsonFile(cJSON *json) {
         g_args.query_times = DEFAULT_QUERY_TIME;
     } else {
         errorPrint("%s", "failed to read json, query_times input mistake\n");
+        goto PARSE_OVER;
+    }
+
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        g_args.nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        g_args.nthreads_pool = g_args.nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
         goto PARSE_OVER;
     }
 

@@ -66,6 +66,7 @@ void init_g_args(SArguments *pg_args) {
     pg_args->tagCount = 2;
     pg_args->binwidth = DEFAULT_BINWIDTH;
     pg_args->nthreads = DEFAULT_NTHREADS;
+    pg_args->nthreads_pool = DEFAULT_NTHREADS + 5;
     pg_args->insert_interval = DEFAULT_INSERT_INTERVAL;
     pg_args->timestamp_step = DEFAULT_TIMESTAMP_STEP;
     pg_args->query_times = DEFAULT_QUERY_TIME;
@@ -78,7 +79,6 @@ void init_g_args(SArguments *pg_args) {
     pg_args->disorderRatio = DEFAULT_RATIO;
     pg_args->demo_mode = DEFAULT_DEMO_MODE;
     pg_args->chinese = DEFAULT_CHINESE_OPT;
-    pg_args->pressure_mode = DEFAULT_PRESSURE_MODE;
 }
 
 int count_datatype(char *dataType, int32_t *number) {
@@ -525,30 +525,6 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
-        } else if ((0 == strncmp(argv[i], "-s", strlen("-s"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--sql-file", strlen("--sql-file")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "s");
-                    goto end_parse_command;
-                }
-                pg_args->sqlFile = argv[++i];
-            } else if (0 ==
-                       strncmp(argv[i], "--sql-file=", strlen("--sql-file="))) {
-                pg_args->sqlFile = (char *)(argv[i++] + strlen("--sql-file="));
-            } else if (0 == strncmp(argv[i], "-s", strlen("-s"))) {
-                pg_args->sqlFile = (char *)(argv[i++] + strlen("-s"));
-            } else if (strlen("--sql-file") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--sql-file");
-                    goto end_parse_command;
-                }
-                pg_args->sqlFile = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
         } else if ((0 == strncmp(argv[i], "-T", strlen("-T"))) ||
                    (0 == strncmp(argv[i], "--threads", strlen("--threads")))) {
             if (2 == strlen(argv[i])) {
@@ -877,13 +853,6 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
         } else if ((0 == strncmp(argv[i], "-l", strlen("-l"))) ||
                    (0 == strncmp(argv[i], "--columns", strlen("--columns")))) {
             pg_args->demo_mode = false;
-            if (custom_col_num) {
-                errorPrint(
-                    "%s",
-                    "-l/columns option cannot work with custom column types\n");
-                goto end_parse_command;
-            }
-            custom_col_num = true;
             if (2 == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg(argv[0], "l");
@@ -892,11 +861,11 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     errorPrintReqArg2(argv[0], "l");
                     goto end_parse_command;
                 }
-                pg_args->columnCount = atoi(argv[++i]);
+                pg_args->intColumnCount = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--columns=", strlen("--columns="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--columns=")))) {
-                    pg_args->columnCount =
+                    pg_args->intColumnCount =
                         atoi((char *)(argv[i] + strlen("--columns=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--columns");
@@ -904,7 +873,7 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                 }
             } else if (0 == strncmp(argv[i], "-l", strlen("-l"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-l")))) {
-                    pg_args->columnCount =
+                    pg_args->intColumnCount =
                         atoi((char *)(argv[i] + strlen("-l")));
                 } else {
                     errorPrintReqArg2(argv[0], "-l");
@@ -918,18 +887,10 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     errorPrintReqArg2(argv[0], "--columns");
                     goto end_parse_command;
                 }
-                pg_args->columnCount = atoi(argv[++i]);
+                pg_args->intColumnCount = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
-            }
-            tmfree(pg_args->col_type);
-            tmfree(pg_args->col_length);
-            pg_args->col_type = calloc(pg_args->columnCount, sizeof(char));
-            pg_args->col_length = calloc(pg_args->columnCount, sizeof(int32_t));
-            for (int j = 0; j < pg_args->columnCount; ++j) {
-                pg_args->col_type[j] = TSDB_DATA_TYPE_INT;
-                pg_args->col_length[j] = sizeof(int32_t);
             }
         } else if ((0 == strncmp(argv[i], "-A", strlen("-A"))) ||
                    (0 ==
@@ -969,15 +930,8 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
             }
         } else if ((0 == strncmp(argv[i], "-b", strlen("-b"))) ||
                    (0 ==
-                    strncmp(argv[i], "--col-type", strlen("--col-type")))) {
+                    strncmp(argv[i], "--data-type", strlen("--data-type")))) {
             pg_args->demo_mode = false;
-            if (custom_col_num) {
-                errorPrint(
-                    "%s",
-                    "-l/columns option cannot work with custom column types\n");
-                goto end_parse_command;
-            }
-            custom_col_num = true;
             char *dataType;
             if (2 == strlen(argv[i])) {
                 if (argc == i + 1) {
@@ -985,14 +939,14 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     goto end_parse_command;
                 }
                 dataType = argv[++i];
-            } else if (0 ==
-                       strncmp(argv[i], "--col-type=", strlen("--col-type="))) {
-                dataType = (char *)(argv[i] + strlen("--col-type="));
+            } else if (0 == strncmp(argv[i],
+                                    "--data-type=", strlen("--data-type="))) {
+                dataType = (char *)(argv[i] + strlen("--data-type="));
             } else if (0 == strncmp(argv[i], "-b", strlen("-b"))) {
                 dataType = (char *)(argv[i] + strlen("-b"));
-            } else if (strlen("--col-type") == strlen(argv[i])) {
+            } else if (strlen("--data-type") == strlen(argv[i])) {
                 if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--col-type");
+                    errorPrintReqArg3(argv[0], "--data-type");
                     goto end_parse_command;
                 }
                 dataType = argv[++i];
@@ -1079,8 +1033,6 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                    (0 == strncmp(argv[i], "--escape-character",
                                  strlen("--escape-character")))) {
             pg_args->escapeChar = true;
-        } else if (0 == strncmp(argv[i], "-pressure", strlen("-pressure"))) {
-            pg_args->pressure_mode = true;
         } else if ((0 == strncmp(argv[i], "-C", strlen("-C"))) ||
                    (0 == strncmp(argv[i], "--chinese", strlen("--chinese")))) {
             pg_args->chinese = true;
@@ -1252,16 +1204,6 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
         } else if ((strcmp(argv[i], "--help") == 0) ||
                    (strcmp(argv[i], "-?") == 0)) {
             printHelp();
-        } else if (strcmp(argv[i], "--usage") == 0) {
-            printf(
-                "    Usage: taosdemo [-f JSONFILE] [-u USER] [-p PASSWORD] [-c CONFIG_DIR]\n\
-                    [-h HOST] [-P PORT] [-I INTERFACE] [-d DATABASE] [-a REPLICA]\n\
-                    [-m TABLEPREFIX] [-s SQLFILE] [-N] [-o OUTPUTFILE] [-q QUERYMODE]\n\
-                    [-b DATATYPES] [-w WIDTH_OF_BINARY] [-l COLUMNS] [-T THREADNUMBER]\n\
-                    [-i SLEEPTIME] [-S TIME_STEP] [-B INTERLACE_ROWS] [-t TABLES]\n\
-                    [-n RECORDS] [-M] [-x] [-y] [-O ORDERMODE] [-R RANGE] [-a REPLIcA][-g]\n\
-                    [--help] [--usage] [--version]\n");
-            exit(EXIT_SUCCESS);
         } else {
             // to simulate argp_option output
             if (strlen(argv[i]) > 2) {
@@ -1281,7 +1223,8 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                         (char *)((char *)argv[i]) + 1);
             }
             fprintf(stderr,
-                    "Try `taosdemo --help' or `taosdemo --usage' for more "
+                    "Try `taosbenchmark --help' or `taosbenchmark --usage' for "
+                    "more "
                     "information.\n");
             goto end_parse_command;
         }
@@ -1299,6 +1242,23 @@ void setParaFromArg(SArguments *pg_args) {
     tstrncpy(db[0].dbCfg.precision, "ms", SMALL_BUFF_LEN);
     pg_args->prepared_rand = min(pg_args->insertRows, MAX_PREPARED_RAND);
 
+    if (pg_args->intColumnCount > pg_args->columnCount) {
+        char *tmp_type = (char *)realloc(
+            pg_args->col_type, pg_args->intColumnCount * sizeof(char));
+        int32_t *tmp_length = (int32_t *)realloc(
+            pg_args->col_length, pg_args->intColumnCount * sizeof(int32_t));
+        if (tmp_type != NULL && tmp_length != NULL) {
+            pg_args->col_type = tmp_type;
+            pg_args->col_length = tmp_length;
+            for (int i = pg_args->columnCount; i < pg_args->intColumnCount;
+                 ++i) {
+                pg_args->col_type[i] = TSDB_DATA_TYPE_INT;
+                pg_args->col_length[i] = sizeof(int32_t);
+            }
+        }
+        pg_args->columnCount = pg_args->intColumnCount;
+    }
+
     if ((pg_args->col_type[0] == TSDB_DATA_TYPE_BINARY) ||
         (pg_args->col_type[0] == TSDB_DATA_TYPE_BOOL) ||
         (pg_args->col_type[0] == TSDB_DATA_TYPE_NCHAR)) {
@@ -1308,6 +1268,8 @@ void setParaFromArg(SArguments *pg_args) {
         db[0].superTblCount = 1;
         tstrncpy(db[0].superTbls[0].stbName, "meters", TSDB_TABLE_NAME_LEN);
         db[0].superTbls[0].childTblCount = pg_args->ntables;
+        db[0].superTbls[0].childTblLimit = pg_args->ntables;
+        db[0].superTbls[0].childTblOffset = 0;
         db[0].superTbls[0].escapeChar = pg_args->escapeChar;
 
         db[0].superTbls[0].autoCreateTable = PRE_CREATE_SUBTBL;
@@ -1607,12 +1569,10 @@ void queryAggrFunc(SArguments *pg_args) {
                  TSDB_TABLE_NAME_LEN);
     }
 
-    pThreadInfo->taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                                     db[0].dbName, g_args.port);
+    pThreadInfo->taos = select_one_from_pool(&g_taos_pool, db[0].dbName);
+
     if (pThreadInfo->taos == NULL) {
         free(pThreadInfo);
-        errorPrint("Failed to connect to TDengine, reason:%s\n",
-                   taos_errstr(NULL));
         exit(EXIT_FAILURE);
     }
 
@@ -1624,7 +1584,6 @@ void queryAggrFunc(SArguments *pg_args) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
-    taos_close(pThreadInfo->taos);
     free(pThreadInfo);
 }
 
