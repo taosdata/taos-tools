@@ -385,7 +385,6 @@ static struct argp_option options[] = {
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
     {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data point per insert statement. Default value is 16384.", 10},
     {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
-    {"table-batch", 't', "TABLE_BATCH", 0,  "Number of table dumpout into one output file. Default is 1.", 10},
     {"thread_num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -423,7 +422,6 @@ typedef struct arguments {
 
     int32_t  data_batch;
     int32_t  max_sql_len;
-    int32_t  table_batch; // num of table which will be dump into one output file.
     bool     allow_sys;
     // other options
     int32_t  thread_num;
@@ -477,7 +475,6 @@ struct arguments g_args = {
     "ms",       // precision
     MAX_RECORDS_PER_REQ / 2,    // data_batch
     TSDB_MAX_SQL_LEN,   // max_sql_len
-    1,          // table_batch
     false,      // allow_sys
     // other options
     8,          // thread_num
@@ -859,9 +856,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.max_sql_len = len;
                 break;
             }
-        case 't':
-            g_args.table_batch = atoi((const char *)arg);
-            break;
         case 'T':
             if (!isStringNumber(arg)) {
                 errorPrint("%s", "\n\t-T need a number following!\n");
@@ -5031,12 +5025,7 @@ static int checkParam() {
         }
     }
 
-    if (!g_args.isDumpIn) {
-        errorPrint("%s", "Invalid option in dump out\n");
-        return -1;
-    }
-
-    if (g_args.table_batch <= 0) {
+    if ((!g_args.isDumpIn) && (!g_args.databases)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
@@ -6268,7 +6257,6 @@ int main(int argc, char *argv[]) {
     printf("precision: %s\n", g_args.precision);
     printf("data_batch: %d\n", g_args.data_batch);
     printf("max_sql_len: %d\n", g_args.max_sql_len);
-    printf("table_batch: %d\n", g_args.table_batch);
     printf("thread_num: %d\n", g_args.thread_num);
     printf("allow_sys: %d\n", g_args.allow_sys);
     printf("abort: %d\n", g_args.abort);
@@ -6322,7 +6310,6 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "precision: %s\n", g_args.precision);
     fprintf(g_fpOfResult, "data_batch: %d\n", g_args.data_batch);
     fprintf(g_fpOfResult, "max_sql_len: %d\n", g_args.max_sql_len);
-    fprintf(g_fpOfResult, "table_batch: %d\n", g_args.table_batch);
     fprintf(g_fpOfResult, "thread_num: %d\n", g_args.thread_num);
     fprintf(g_fpOfResult, "allow_sys: %d\n", g_args.allow_sys);
     fprintf(g_fpOfResult, "abort: %d\n", g_args.abort);
