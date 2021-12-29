@@ -1330,17 +1330,7 @@ int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
     uint64_t length = (stbInfo->lenOfTags + stbInfo->lenOfCols);
     if (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
         dataLen +=
-            snprintf(sml + dataLen, length - dataLen, "%s,id=%s%" PRIu64 "",
-                     stbInfo->stbName, stbInfo->childTblPrefix,
-                     tbSeq + pThreadInfo->start_table_from);
-    } else if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-        dataLen += snprintf(sml + dataLen, length - dataLen, "id=%s%" PRIu64 "",
-                            stbInfo->childTblPrefix,
-                            tbSeq + pThreadInfo->start_table_from);
-    } else {
-        errorPrint("unsupport schemaless protocol (%d)\n",
-                   stbInfo->lineProtocol);
-        return -1;
+            snprintf(sml + dataLen, length - dataLen, "%s", stbInfo->stbName);
     }
 
     for (int j = 0; j < stbInfo->tagCount; j++) {
