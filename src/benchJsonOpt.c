@@ -76,7 +76,35 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                        __func__, __LINE__);
             goto PARSE_OVER;
         } else {
-            length = SMALL_BUFF_LEN;
+            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+                case TSDB_DATA_TYPE_BOOL:
+                case TSDB_DATA_TYPE_TINYINT:
+                case TSDB_DATA_TYPE_UTINYINT:
+                    length = sizeof(int8_t);
+                    break;
+                case TSDB_DATA_TYPE_SMALLINT:
+                case TSDB_DATA_TYPE_USMALLINT:
+                    length = sizeof(int16_t);
+                    break;
+                case TSDB_DATA_TYPE_INT:
+                case TSDB_DATA_TYPE_UINT:
+                    length = sizeof(int32_t);
+                    break;
+                case TSDB_DATA_TYPE_BIGINT:
+                case TSDB_DATA_TYPE_UBIGINT:
+                case TSDB_DATA_TYPE_TIMESTAMP:
+                    length = sizeof(int64_t);
+                    break;
+                case TSDB_DATA_TYPE_FLOAT:
+                    length = sizeof(float);
+                    break;
+                case TSDB_DATA_TYPE_DOUBLE:
+                    length = sizeof(double);
+                    break;
+                default:
+                    length = SMALL_BUFF_LEN;
+                    break;
+            }
         }
 
         for (int n = 0; n < count; ++n) {
@@ -788,8 +816,13 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 if (childTbl_limit->type != cJSON_Number) {
                     errorPrint("%s", "failed to read json, childtable_limit\n");
                     goto PARSE_OVER;
+                } else if (childTbl_limit->valueint < 0) {
+                    infoPrint("childTbl_limit(%" PRId64
+                              ") less than 0, ignore it\n",
+                              childTbl_limit->valueint);
+                } else {
+                    db[i].superTbls[j].childTblCount = childTbl_limit->valueint;
                 }
-                db[i].superTbls[j].childTblCount = childTbl_limit->valueint;
             }
 
             cJSON *childTbl_offset =

@@ -1096,11 +1096,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case STMT_IFACE:
             if (0 != taos_stmt_execute(pThreadInfo->stmt)) {
-                errorPrint(
-                    "%s() LN%d, failied to execute insert statement. "
-                    "reason: "
-                    "%s\n",
-                    __func__, __LINE__, taos_stmt_errstr(pThreadInfo->stmt));
+                errorPrint("failied to execute insert statement. reason: %s\n",
+                           taos_stmt_errstr(pThreadInfo->stmt));
                 affectedRows = -1;
             } else {
                 affectedRows = taos_stmt_affected_rows(pThreadInfo->stmt);
@@ -1118,12 +1115,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             affectedRows = taos_affected_rows(res);
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
-                    "%s() LN%d, failed to execute schemaless insert. "
-                    "content: "
-                    "%s, reason: "
+                    "failed to execute schemaless insert. content: %s, reason: "
                     "%s\n",
-                    __func__, __LINE__, pThreadInfo->lines[0],
-                    taos_errstr(res));
+                    pThreadInfo->lines[0], taos_errstr(res));
                 affectedRows = -1;
             }
             break;
@@ -1284,6 +1278,9 @@ void *syncWriteInterlace(void *sarg) {
                 pThreadInfo->totalAffectedRows = affectedRows;
                 break;
         }
+        if (affectedRows < 0) {
+            goto free_of_interlace;
+        }
         uint64_t delay = endTs - startTs;
         performancePrint("%s() LN%d, insert execution time is %10.2f ms\n",
                          __func__, __LINE__, delay / 1000.0);
@@ -1433,7 +1430,6 @@ void *syncWriteProgressive(void *sarg) {
 
             endTs = taosGetTimestampUs();
             if (affectedRows < 0) {
-                errorPrint("affected rows: %d\n", affectedRows);
                 goto free_of_progressive;
             }
             switch (pThreadInfo->iface) {
@@ -1682,6 +1678,23 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
         }
         len += sprintf(stmtBuffer + len, ")");
         debugPrint("stmtBuffer: %s\n", stmtBuffer);
+        if (g_args.prepared_rand < g_args.reqPerReq) {
+            infoPrint(
+                "in stmt mode, batch size(%u) can not larger than prepared "
+                "sample data size(%" PRId64
+                "), restart with larger prepared_rand or batch size will be "
+                "auto set to %" PRId64 "\n",
+                g_args.reqPerReq, g_args.prepared_rand, g_args.prepared_rand);
+            g_args.reqPerReq = g_args.prepared_rand;
+        }
+    }
+
+    if (interlaceRows > g_args.reqPerReq) {
+        infoPrint(
+            "interlaceRows(%d) is larger than record per request(%u), which "
+            "will be set to %u\n",
+            interlaceRows, g_args.reqPerReq, g_args.reqPerReq);
+        interlaceRows = g_args.reqPerReq;
     }
 
     pthread_t * pids = calloc(1, threads * sizeof(pthread_t));
