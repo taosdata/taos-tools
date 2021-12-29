@@ -1971,8 +1971,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
              i < (stbInfo ? stbInfo->columnCount : g_args.columnCount); ++i) {
             tmfree(g_string_grid[i]);
         }
+        tmfree(g_string_grid);
     }
-    tmfree(g_string_grid);
 
     free(pids);
     free(infos);
