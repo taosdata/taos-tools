@@ -33,31 +33,27 @@
 #include <termios.h>
 #include <sys/time.h>
 
-
 #include "taos.h"
 #include "taosdef.h"
 #include "taoserror.h"
 
+#include <avro.h>
+#include <jansson.h>
+
+#define MAX_FILE_NAME_LEN       256             // max file name length on linux is 255
+#define MAX_PATH_LEN            4096            // max path length on linux is 4095
+#define COMMAND_SIZE            65536
+#define MAX_RECORDS_PER_REQ     32766
 
 static char    **g_tsDumpInSqlFiles     = NULL;
 static char      g_tsCharset[63] = {0};
-static char      *g_configDir = "/etc/taos";
-
-#include <avro.h>
-#include <jansson.h>
+static char      g_configDir[MAX_FILE_NAME_LEN] = "/etc/taos";
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
 
 static void print_json_aux(json_t *element, int indent);
-
-#define TSDB_SUPPORT_NANOSECOND 1
-
-#define MAX_FILE_NAME_LEN       256             // max file name length on linux is 255
-#define MAX_PATH_LEN            4096            // max path length on linux is 4095
-#define COMMAND_SIZE            65536
-#define MAX_RECORDS_PER_REQ     32766
 
 // for tstrncpy buffer overflow
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -1020,11 +1016,9 @@ static int getPrecisionByString(char *precision)
     } else if (0 == strncasecmp(precision,
                 "us", 2)) {
         return TSDB_TIME_PRECISION_MICRO;
-#if TSDB_SUPPORT_NANOSECOND == 1
     } else if (0 == strncasecmp(precision,
                 "ns", 2)) {
         return TSDB_TIME_PRECISION_NANO;
-#endif
     } else {
         errorPrint("Invalid time precision: %s",
                 precision);
