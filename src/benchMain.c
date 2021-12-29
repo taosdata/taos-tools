@@ -32,7 +32,6 @@ int main(int argc, char *argv[]) {
     if (parse_args(argc, argv, &g_args)) {
         exit(EXIT_FAILURE);
     }
-
     if (g_args.metaFile) {
         g_totalChildTables = 0;
         if (getInfoFromJsonFile(g_args.metaFile)) {

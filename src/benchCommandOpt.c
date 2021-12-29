@@ -1273,7 +1273,7 @@ void setParaFromArg(SArguments *pg_args) {
         db[0].superTblCount = 1;
         tstrncpy(db[0].superTbls[0].stbName, "meters", TSDB_TABLE_NAME_LEN);
         db[0].superTbls[0].childTblCount = pg_args->ntables;
-        db[0].superTbls[0].childTbLlimit = pg_args->ntables;
+        db[0].superTbls[0].childTblLimit = pg_args->ntables;
         db[0].superTbls[0].childTblOffset = 0;
         db[0].superTbls[0].escapeChar = pg_args->escapeChar;
 

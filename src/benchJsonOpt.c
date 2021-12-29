@@ -832,11 +832,14 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                               "%" PRId64 "\n",
                               childTbl_limit->valueint,
                               db[i].superTbls[j].childTblCount);
-                    db[i].superTbls[j].childTbLlimit =
+                    db[i].superTbls[j].childTblLimit =
                         db[i].superTbls[j].childTblCount;
                 } else {
-                    db[i].superTbls[j].childTbLlimit = childTbl_limit->valueint;
+                    db[i].superTbls[j].childTblLimit = childTbl_limit->valueint;
                 }
+            } else {
+                db[i].superTbls[j].childTblLimit =
+                    db[i].superTbls[j].childTblCount;
             }
 
             cJSON *childTbl_offset =

@@ -387,7 +387,7 @@ typedef struct SSuperTable_S {
     uint8_t  autoCreateTable;  // 0: create sub table, 1: auto create sub table
     uint16_t iface;            // 0: taosc, 1: rest, 2: stmt
     uint16_t lineProtocol;
-    uint64_t childTbLlimit;
+    uint64_t childTblLimit;
     uint64_t childTblOffset;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes

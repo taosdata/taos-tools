@@ -1563,13 +1563,13 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 snprintf(cmd, SQL_BUFF_LEN,
                          "select tbname from %s.`%s` limit %" PRId64
                          " offset %" PRIu64 "",
-                         db_name, stbInfo->stbName, stbInfo->childTbLlimit,
+                         db_name, stbInfo->stbName, stbInfo->childTblLimit,
                          stbInfo->childTblOffset);
             } else {
                 snprintf(cmd, SQL_BUFF_LEN,
                          "select tbname from %s.%s limit %" PRId64
                          " offset %" PRIu64 "",
-                         db_name, stbInfo->stbName, stbInfo->childTbLlimit,
+                         db_name, stbInfo->stbName, stbInfo->childTblLimit,
                          stbInfo->childTblOffset);
             }
             debugPrint("cmd: %s\n", cmd);

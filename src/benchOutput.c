@@ -522,7 +522,7 @@ void printfInsertMetaToFileStream(FILE *fp) {
                         db[i].superTbls[j].childTblCount);
                 fprintf(fp,
                         "      childTblLimit:     \033[33m%" PRIu64 "\033[0m\n",
-                        db[i].superTbls[j].childTbLlimit);
+                        db[i].superTbls[j].childTblLimit);
                 fprintf(fp,
                         "      childTblOffset:    \033[33m%" PRIu64 "\033[0m\n",
                         db[i].superTbls[j].childTblOffset);
