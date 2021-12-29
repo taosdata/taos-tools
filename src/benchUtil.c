@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 void errorWrongValue(char *program, char *wrong_arg, char *wrong_value) {
     fprintf(stderr, "%s %s: %s is an invalid value\n", program, wrong_arg,

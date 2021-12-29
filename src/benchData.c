@@ -13,8 +13,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demoData.h"
-#include "demo.h"
+#include "benchData.h"
+#include "bench.h"
 
 char *    g_sampleDataBuf = NULL;
 char *    g_sampleBindBatchArray = NULL;

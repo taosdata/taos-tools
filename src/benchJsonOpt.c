@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                                           SSuperTable *superTbls) {

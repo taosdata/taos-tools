@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param, int code) {
     if (res == NULL || taos_errno(res) != 0) {
