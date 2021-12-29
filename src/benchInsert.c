@@ -13,8 +13,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "benchData.h"
 #include "bench.h"
+#include "benchData.h"
 
 int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                int32_t *col_length, int32_t tagCount, int32_t colCount,
