@@ -357,21 +357,13 @@ static struct argp_option options[] = {
     // connection option
     {"host", 'h', "HOST",    0,  "Server host dumping data from. Default is localhost.", 0},
     {"user", 'u', "USER",    0,  "User name used to connect to server. Default is root.", 0},
-#ifdef _TD_POWER_
-    {"password", 'p', 0,    0,  "User password to connect to server. Default is powerdb.", 0},
-#else
     {"password", 'p', 0,    0,  "User password to connect to server. Default is taosdata.", 0},
-#endif
     {"port", 'P', "PORT",        0,  "Port to connect", 0},
     // input/output file
     {"outpath", 'o', "OUTPATH",     0,  "Output file path.", 1},
     {"inpath", 'i', "INPATH",      0,  "Input file path.", 1},
     {"resultFile", 'r', "RESULTFILE",  0,  "DumpOut/In Result file path and name.", 1},
-#ifdef _TD_POWER_
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/power", 1},
-#else
     {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos", 1},
-#endif
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,  "Dump inputted databases. Use comma to separate databases\' name.", 2},
@@ -448,11 +440,7 @@ struct arguments g_args = {
     // connection option
     NULL,
     "root",
-#ifdef _TD_POWER_
-    "powerdb",
-#else
     "taosdata",
-#endif
     0,          // port
     // outpath and inpath
     "",
