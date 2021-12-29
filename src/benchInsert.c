@@ -1349,6 +1349,11 @@ void *syncWriteProgressive(void *sarg) {
                         }
                         timestamp += pThreadInfo->time_step;
                         generated++;
+                        if (len >
+                            (BUFFER_SIZE - (stbInfo ? stbInfo->lenOfCols
+                                                    : g_args.lenOfCols))) {
+                            break;
+                        }
                         if (i + generated >= pThreadInfo->insertRows) {
                             break;
                         }
