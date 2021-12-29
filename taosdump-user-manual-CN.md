@@ -6,13 +6,20 @@ taosdump是一个逻辑备份工具。它不打算或不应被期望用于备份
 
 taosdump使用[Apache AVRO](https://avro.apache.org/)作为数据文件格式来存储备份数据。
 
-taosdump可以将数据备份到指定的目录中。如果不指定位置，taosdump默认会将数据备份到当前目录。如果指定的位置已经有数据文件，taosdump会提示用户可能会被备份动作再次覆盖。如果你看到提示，请小心操作。
+taosdump可以将数据备份到指定的目录中。如果不指定位置，taosdump默认会将数据备份到当前目录。如果指定的位置已经有数据文件，taosdump会提示用户可能会被备份动作再次覆盖。如果您看到提示，请小心操作。
+
+taosdump 备份可以指定 -A 或 --all-databases 参数指定所有数据库；或使用 -D db1,db2,... 参数备份指定的多个数据库；或者使用 dbname stbname1 stbname2 tbname1 tbname2 ... 参数方式备份指定数据库中的某些个超级表或普通表，注意这种输入序列第一个参数为数据库名称，且只支持一个数据库，第二个和之后的参数为该数据库中的超级表或普通表名称，中间以空格分隔。
+
+taosdump 恢复数据使用 -i 加上数据文件所在路径作为参数进行备份指定路径下的数据文件。如前面提及，不应该使用同一个目录备份不同数据集合，也不应该在同一路径多次备份同一数据集，否则备份数据会造成覆盖或多次备份。
+
+TDengine 服务器或集群通常会包含一个系统数据库，名为 log，这个数据库内的数据为 TDengine 自我运行的数据，taosdump 默认不会对 log 库进行备份。如果有特定需求对 log 库进行备份，可以使用 -a 或 --allow-sys 命令行参数。
+
+taosdump 内部使用 TDengine stmt binding API 进行恢复数据的写入，为提高数据恢复性能，目前使用 16384 为一次写入批次。如果备份数据中有比较多列数据，可能会导致产生 WAL size exceeds limit 错误，此时可以通过使用 -B 参数调整为一个更小的值进行尝试。
 
 以下为 taosdump 详细命令行参数列表：
 ```
-$ taosdump --help
 Usage: taosdump [OPTION...] dbname [tbname ...]
-  or:  taosdump [OPTION...] --databases db1,db2,... 
+  or:  taosdump [OPTION...] --databases db1,db2,...
   or:  taosdump [OPTION...] --all-databases
   or:  taosdump [OPTION...] -i inpath
   or:  taosdump [OPTION...] -o outpath
@@ -24,9 +31,7 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
   -P, --port=PORT            Port to connect
   -u, --user=USER            User name used to connect to server. Default is
                              root.
-  -c, --config-dir=CONFIG_DIR   Configure directory. Default is
-                             /etc/taos/taos.cfg.
-  -e, --encode=ENCODE        Input file encoding.
+  -c, --config-dir=CONFIG_DIR   Configure directory. Default is /etc/taos
   -i, --inpath=INPATH        Input file path.
   -o, --outpath=OUTPATH      Output file path.
   -r, --resultFile=RESULTFILE   DumpOut/In Result file path and name.
@@ -50,11 +55,9 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              2017-10-01T00:00:00.000+0800 or
                              2017-10-0100:00:00.000+0800 or '2017-10-01
                              00:00:00.000+0800'
-  -B, --data-batch=DATA_BATCH   Number of data point per insert statement. Default
-                             value is 16384.
+  -B, --data-batch=DATA_BATCH   Number of data point per insert statement.
+                             Default value is 16384.
   -L, --max-sql-len=SQL_LEN  Max length of one sql. Default is 65480.
-  -t, --table-batch=TABLE_BATCH   Number of table dumpout into one output file.
-                             Default is 1.
   -T, --thread_num=THREAD_NUM   Number of thread for dump in file. Default is
                              5.
   -g, --debug                Print debug info.
