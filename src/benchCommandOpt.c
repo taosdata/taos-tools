@@ -945,7 +945,7 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
             }
         } else if ((0 == strncmp(argv[i], "-b", strlen("-b"))) ||
                    (0 ==
-                    strncmp(argv[i], "--col-type", strlen("--col-type")))) {
+                    strncmp(argv[i], "--data-type", strlen("--data-type")))) {
             pg_args->demo_mode = false;
             if (custom_col_num) {
                 errorPrint(
@@ -961,14 +961,14 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     goto end_parse_command;
                 }
                 dataType = argv[++i];
-            } else if (0 ==
-                       strncmp(argv[i], "--col-type=", strlen("--col-type="))) {
-                dataType = (char *)(argv[i] + strlen("--col-type="));
+            } else if (0 == strncmp(argv[i],
+                                    "--data-type=", strlen("--data-type="))) {
+                dataType = (char *)(argv[i] + strlen("--data-type="));
             } else if (0 == strncmp(argv[i], "-b", strlen("-b"))) {
                 dataType = (char *)(argv[i] + strlen("-b"));
-            } else if (strlen("--col-type") == strlen(argv[i])) {
+            } else if (strlen("--data-type") == strlen(argv[i])) {
                 if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--col-type");
+                    errorPrintReqArg3(argv[0], "--data-type");
                     goto end_parse_command;
                 }
                 dataType = argv[++i];
