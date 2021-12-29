@@ -1563,15 +1563,16 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 snprintf(cmd, SQL_BUFF_LEN,
                          "select tbname from %s.`%s` limit %" PRId64
                          " offset %" PRIu64 "",
-                         db_name, stbInfo->stbName, stbInfo->childTblCount,
+                         db_name, stbInfo->stbName, stbInfo->childTbLlimit,
                          stbInfo->childTblOffset);
             } else {
                 snprintf(cmd, SQL_BUFF_LEN,
                          "select tbname from %s.%s limit %" PRId64
                          " offset %" PRIu64 "",
-                         db_name, stbInfo->stbName, stbInfo->childTblCount,
+                         db_name, stbInfo->stbName, stbInfo->childTbLlimit,
                          stbInfo->childTblOffset);
             }
+            debugPrint("cmd: %s\n", cmd);
             TAOS_RES *res = taos_query(taos, cmd);
             int32_t   code = taos_errno(res);
             int64_t   count = 0;
@@ -1602,7 +1603,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             }
             ntables = count;
             taos_free_result(res);
-
         } else {
             for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
                 if (g_args.escapeChar) {

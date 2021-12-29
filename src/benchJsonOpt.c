@@ -826,12 +826,16 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 if (childTbl_limit->type != cJSON_Number) {
                     errorPrint("%s", "failed to read json, childtable_limit\n");
                     goto PARSE_OVER;
-                } else if (childTbl_limit->valueint < 0) {
+                } else if (childTbl_limit->valueint <= 0) {
                     infoPrint("childTbl_limit(%" PRId64
-                              ") less than 0, ignore it\n",
-                              childTbl_limit->valueint);
+                              ") less than or equal to 0, ignore it and set to "
+                              "%" PRId64 "\n",
+                              childTbl_limit->valueint,
+                              db[i].superTbls[j].childTblCount);
+                    db[i].superTbls[j].childTbLlimit =
+                        db[i].superTbls[j].childTblCount;
                 } else {
-                    db[i].superTbls[j].childTblCount = childTbl_limit->valueint;
+                    db[i].superTbls[j].childTbLlimit = childTbl_limit->valueint;
                 }
             }
 

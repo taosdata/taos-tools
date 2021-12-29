@@ -520,6 +520,12 @@ void printfInsertMetaToFileStream(FILE *fp) {
                 fprintf(fp,
                         "      childTblCount:     \033[33m%" PRId64 "\033[0m\n",
                         db[i].superTbls[j].childTblCount);
+                fprintf(fp,
+                        "      childTblLimit:     \033[33m%" PRIu64 "\033[0m\n",
+                        db[i].superTbls[j].childTbLlimit);
+                fprintf(fp,
+                        "      childTblOffset:    \033[33m%" PRIu64 "\033[0m\n",
+                        db[i].superTbls[j].childTblOffset);
                 fprintf(fp, "      childTblPrefix:    \033[33m%s\033[0m\n",
                         db[i].superTbls[j].childTblPrefix);
                 fprintf(fp, "      dataSource:        \033[33m%s\033[0m\n",
