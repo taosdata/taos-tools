@@ -329,7 +329,6 @@ typedef struct SArguments_S {
     int      replica;
     char *   tb_prefix;
     bool     escapeChar;
-    char *   sqlFile;
     bool     use_metric;
     bool     drop_database;
     bool     aggr_func;
@@ -347,6 +346,7 @@ typedef struct SArguments_S {
     int32_t  tagCount;
     int32_t  lenOfTags;
     int32_t  lenOfCols;
+    uint32_t nthreads_pool;
     uint32_t nthreads;
     uint64_t insert_interval;
     uint64_t timestamp_step;
@@ -360,7 +360,6 @@ typedef struct SArguments_S {
     int      disorderRange;  // ms, us or ns. according to database precision
     bool     demo_mode;      // use default column name and semi-random data
     bool     chinese;
-    bool     pressure_mode;
     int32_t  dbCount;
     char **  childTblName;
     struct sockaddr_in serv_addr;
@@ -579,6 +578,12 @@ typedef struct SThreadInfo_S {
     int32_t interlaceRows;
 } threadInfo;
 
+typedef struct TAOS_POOL_S {
+    int    size;
+    int    current;
+    TAOS **taos_list;
+} TAOS_POOL;
+
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
 extern char *         g_aggreFunc[];
@@ -594,6 +599,7 @@ extern bool           g_fail;
 extern bool           custom_col_num;
 extern char           configDir[];
 extern cJSON *        root;
+extern TAOS_POOL      g_taos_pool;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
@@ -615,12 +621,14 @@ void init_g_args(SArguments *pg_args);
 int getInfoFromJsonFile(char *file);
 /* demoUtil.c */
 int     isCommentLine(char *line);
+int     init_taos_list(TAOS_POOL *pool, int size);
+TAOS *  select_one_from_pool(TAOS_POOL *pool, char *db_name);
+void    cleanup_taos_list(TAOS_POOL *pool);
 int64_t taosGetTimestampMs();
 int64_t taosGetTimestampUs();
 int64_t taosGetTimestampNs();
 int64_t taosGetTimestamp(int32_t precision);
 void    taosMsleep(int32_t mseconds);
-int64_t taosGetSelfPthreadId();
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);

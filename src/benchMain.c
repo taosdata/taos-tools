@@ -25,6 +25,7 @@ SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
 bool           custom_col_num = false;
 cJSON *        root;
+TAOS_POOL      g_taos_pool;
 
 int main(int argc, char *argv[]) {
     init_g_args(&g_args);
@@ -41,15 +42,6 @@ int main(int argc, char *argv[]) {
         db = calloc(1, sizeof(SDataBase));
         db[0].superTbls = calloc(1, sizeof(SSuperTable));
         setParaFromArg(&g_args);
-        if (NULL != g_args.sqlFile) {
-            TAOS *qtaos = taos_connect(g_args.host, g_args.user,
-                                       g_args.password, NULL, g_args.port);
-            if (querySqlFile(qtaos, g_args.sqlFile)) {
-                taos_close(qtaos);
-                exit(EXIT_FAILURE);
-            }
-            taos_close(qtaos);
-        }
     }
     if (test(&g_args)) {
         exit(EXIT_FAILURE);

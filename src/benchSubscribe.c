@@ -78,15 +78,9 @@ void *specifiedSubscribe(void *sarg) {
 
     prctl(PR_SET_NAME, "specSub");
 
+    pThreadInfo->taos = select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
     if (pThreadInfo->taos == NULL) {
-        pThreadInfo->taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
-                                         g_queryInfo.password,
-                                         g_queryInfo.dbName, g_queryInfo.port);
-        if (pThreadInfo->taos == NULL) {
-            errorPrint("[%d] Failed to connect to TDengine, reason:%s\n",
-                       pThreadInfo->threadID, taos_errstr(NULL));
-            goto free_of_specified_subscribe;
-        }
+        goto free_of_specified_subscribe;
     }
 
     char sqlStr[TSDB_DB_NAME_LEN + 5];
@@ -96,7 +90,7 @@ void *specifiedSubscribe(void *sarg) {
     }
 
     sprintf(g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
-            "taosdemo-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
+            "taosbenchmark-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
             pThreadInfo->threadID);
     if (g_queryInfo.specifiedQueryInfo.result[pThreadInfo->querySeq][0] !=
         '\0') {
@@ -205,12 +199,9 @@ static void *superSubscribe(void *sarg) {
     }
 
     if (pThreadInfo->taos == NULL) {
-        pThreadInfo->taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
-                                         g_queryInfo.password,
-                                         g_queryInfo.dbName, g_queryInfo.port);
+        pThreadInfo->taos =
+            select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
         if (pThreadInfo->taos == NULL) {
-            errorPrint("[%d] Failed to connect to TDengine, reason:%s\n",
-                       pThreadInfo->threadID, taos_errstr(NULL));
             goto free_of_super_subscribe;
         }
     }
@@ -231,7 +222,7 @@ static void *superSubscribe(void *sarg) {
                      __func__, __LINE__, pThreadInfo->threadID,
                      pThreadInfo->start_table_from, pThreadInfo->end_table_to,
                      i);
-        sprintf(topic, "taosdemo-subscribe-%" PRIu64 "-%" PRIu64 "", i,
+        sprintf(topic, "taosbenchmark-subscribe-%" PRIu64 "-%" PRIu64 "", i,
                 pThreadInfo->querySeq);
         memset(subSqlStr, 0, BUFFER_SIZE);
         replaceChildTblName(
@@ -348,14 +339,13 @@ int subscribeTestProcess() {
 
     prompt();
 
-    TAOS *taos = NULL;
-    taos =
-        taos_connect(g_queryInfo.host, g_queryInfo.user, g_queryInfo.password,
-                     g_queryInfo.dbName, g_queryInfo.port);
+    if (init_taos_list(&g_taos_pool, g_args.nthreads_pool)) {
+        return -1;
+    }
+
+    TAOS *taos = select_one_from_pool(&g_taos_pool, NULL);
     if (taos == NULL) {
-        errorPrint("Failed to connect to TDengine, reason:%s\n",
-                   taos_errstr(NULL));
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
@@ -364,8 +354,6 @@ int subscribeTestProcess() {
                                     g_queryInfo.superQueryInfo.childTblName,
                                     g_queryInfo.superQueryInfo.childTblCount);
     }
-
-    taos_close(taos);  // workaround to use separate taos connection;
 
     pthread_t * pids = NULL;
     threadInfo *infos = NULL;
@@ -465,8 +453,6 @@ int subscribeTestProcess() {
                     pThreadInfo->end_table_to =
                         j < b ? tableFrom + a : tableFrom + a - 1;
                     tableFrom = pThreadInfo->end_table_to + 1;
-                    pThreadInfo->taos =
-                        NULL;  // workaround to use separate taos connection;
                     pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                    pThreadInfo);
                 }

@@ -268,6 +268,16 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         goto PARSE_OVER;
     }
 
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        g_args.nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        g_args.nthreads_pool = g_args.nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
+        goto PARSE_OVER;
+    }
+
     cJSON *gInsertInterval = cJSON_GetObjectItem(json, "insert_interval");
     if (gInsertInterval && gInsertInterval->type == cJSON_Number) {
         if (gInsertInterval->valueint < 0) {
@@ -1127,6 +1137,16 @@ int getMetaFromQueryJsonFile(cJSON *json) {
         g_args.query_times = DEFAULT_QUERY_TIME;
     } else {
         errorPrint("%s", "failed to read json, query_times input mistake\n");
+        goto PARSE_OVER;
+    }
+
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        g_args.nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        g_args.nthreads_pool = g_args.nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
         goto PARSE_OVER;
     }
 
