@@ -200,10 +200,20 @@
         if (g_args.verbose_print) fprintf(stderr, "VERB: " fmt, __VA_ARGS__); \
     } while (0)
 
-#define performancePrint(fmt, ...)                      \
-    do {                                                \
-        if (g_args.performance_print)                   \
-            fprintf(stderr, "PERF: " fmt, __VA_ARGS__); \
+#define performancePrint(fmt, ...)                                            \
+    do {                                                                      \
+        if (g_args.performance_print) {                                       \
+            struct tm      Tm, *ptm;                                          \
+            struct timeval timeSecs;                                          \
+            time_t         curTime;                                           \
+            gettimeofday(&timeSecs, NULL);                                    \
+            curTime = timeSecs.tv_sec;                                        \
+            ptm = localtime_r(&curTime, &Tm);                                 \
+            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",               \
+                    ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
+                    ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
+            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                       \
+        }                                                                     \
     } while (0)
 
 #define errorPrint(fmt, ...)                                                 \

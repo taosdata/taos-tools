@@ -1144,7 +1144,11 @@ void *syncWriteInterlace(void *sarg) {
     int      len = 0;
     uint64_t tableSeq = pThreadInfo->start_table_from;
     while (insertRows > 0) {
-        taosMsleep((int32_t)pThreadInfo->insert_interval);
+        if (pThreadInfo->insert_interval > 0) {
+            performancePrint("sleep %" PRIu64 " ms\n",
+                             pThreadInfo->insert_interval);
+            taosMsleep((int32_t)pThreadInfo->insert_interval);
+        }
         generated = 0;
         if (insertRows <= interlaceRows) {
             interlaceRows = insertRows;
@@ -1326,7 +1330,11 @@ void *syncWriteProgressive(void *sarg) {
         uint64_t len = 0;
 
         for (uint64_t i = 0; i < pThreadInfo->insertRows;) {
-            taosMsleep((int32_t)pThreadInfo->insert_interval);
+            if (pThreadInfo->insert_interval > 0) {
+                performancePrint("sleep %" PRIu64 " ms\n",
+                                 pThreadInfo->insert_interval);
+                taosMsleep((int32_t)pThreadInfo->insert_interval);
+            }
             int32_t generated = 0;
             switch (pThreadInfo->iface) {
                 case TAOSC_IFACE:
