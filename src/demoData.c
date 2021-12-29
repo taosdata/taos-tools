@@ -1197,6 +1197,9 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
                     return -1;
             }
             param->buffer_length = stbInfo->col_length[c - 1];
+            debugPrint("col[%d]: type: %s, len: %d\n", c,
+                       taos_convert_datatype_to_string(data_type),
+                       stbInfo->col_length[c - 1]);
         }
         param->buffer_type = data_type;
         param->length = calloc(batch, sizeof(int32_t));
