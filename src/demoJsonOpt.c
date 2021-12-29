@@ -76,7 +76,35 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                        __func__, __LINE__);
             goto PARSE_OVER;
         } else {
-            length = SMALL_BUFF_LEN;
+            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+                case TSDB_DATA_TYPE_BOOL:
+                case TSDB_DATA_TYPE_TINYINT:
+                case TSDB_DATA_TYPE_UTINYINT:
+                    length = sizeof(int8_t);
+                    break;
+                case TSDB_DATA_TYPE_SMALLINT:
+                case TSDB_DATA_TYPE_USMALLINT:
+                    length = sizeof(int16_t);
+                    break;
+                case TSDB_DATA_TYPE_INT:
+                case TSDB_DATA_TYPE_UINT:
+                    length = sizeof(int32_t);
+                    break;
+                case TSDB_DATA_TYPE_BIGINT:
+                case TSDB_DATA_TYPE_UBIGINT:
+                case TSDB_DATA_TYPE_TIMESTAMP:
+                    length = sizeof(int64_t);
+                    break;
+                case TSDB_DATA_TYPE_FLOAT:
+                    length = sizeof(float);
+                    break;
+                case TSDB_DATA_TYPE_DOUBLE:
+                    length = sizeof(double);
+                    break;
+                default:
+                    length = SMALL_BUFF_LEN;
+                    break;
+            }
         }
 
         for (int n = 0; n < count; ++n) {
