@@ -5027,7 +5027,9 @@ static int checkParam() {
         }
     }
 
-    if ((!g_args.isDumpIn) && (!g_args.databases)) {
+    if ((!g_args.isDumpIn)
+            && (!g_args.databases)
+            && (0 == g_args.arg_list_len)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
