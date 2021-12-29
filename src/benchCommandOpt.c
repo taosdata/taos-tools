@@ -853,13 +853,6 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
         } else if ((0 == strncmp(argv[i], "-l", strlen("-l"))) ||
                    (0 == strncmp(argv[i], "--columns", strlen("--columns")))) {
             pg_args->demo_mode = false;
-            if (custom_col_num) {
-                errorPrint(
-                    "%s",
-                    "-l/columns option cannot work with custom column types\n");
-                goto end_parse_command;
-            }
-            custom_col_num = true;
             if (2 == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg(argv[0], "l");
@@ -868,11 +861,11 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     errorPrintReqArg2(argv[0], "l");
                     goto end_parse_command;
                 }
-                pg_args->columnCount = atoi(argv[++i]);
+                pg_args->intColumnCount = atoi(argv[++i]);
             } else if (0 ==
                        strncmp(argv[i], "--columns=", strlen("--columns="))) {
                 if (isStringNumber((char *)(argv[i] + strlen("--columns=")))) {
-                    pg_args->columnCount =
+                    pg_args->intColumnCount =
                         atoi((char *)(argv[i] + strlen("--columns=")));
                 } else {
                     errorPrintReqArg2(argv[0], "--columns");
@@ -880,7 +873,7 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                 }
             } else if (0 == strncmp(argv[i], "-l", strlen("-l"))) {
                 if (isStringNumber((char *)(argv[i] + strlen("-l")))) {
-                    pg_args->columnCount =
+                    pg_args->intColumnCount =
                         atoi((char *)(argv[i] + strlen("-l")));
                 } else {
                     errorPrintReqArg2(argv[0], "-l");
@@ -894,18 +887,10 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                     errorPrintReqArg2(argv[0], "--columns");
                     goto end_parse_command;
                 }
-                pg_args->columnCount = atoi(argv[++i]);
+                pg_args->intColumnCount = atoi(argv[++i]);
             } else {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
-            }
-            tmfree(pg_args->col_type);
-            tmfree(pg_args->col_length);
-            pg_args->col_type = calloc(pg_args->columnCount, sizeof(char));
-            pg_args->col_length = calloc(pg_args->columnCount, sizeof(int32_t));
-            for (int j = 0; j < pg_args->columnCount; ++j) {
-                pg_args->col_type[j] = TSDB_DATA_TYPE_INT;
-                pg_args->col_length[j] = sizeof(int32_t);
             }
         } else if ((0 == strncmp(argv[i], "-A", strlen("-A"))) ||
                    (0 ==
@@ -947,13 +932,6 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                    (0 ==
                     strncmp(argv[i], "--data-type", strlen("--data-type")))) {
             pg_args->demo_mode = false;
-            if (custom_col_num) {
-                errorPrint(
-                    "%s",
-                    "-l/columns option cannot work with custom column types\n");
-                goto end_parse_command;
-            }
-            custom_col_num = true;
             char *dataType;
             if (2 == strlen(argv[i])) {
                 if (argc == i + 1) {

@@ -23,7 +23,6 @@ SDataBase *    db;
 SArguments     g_args;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
-bool           custom_col_num = false;
 cJSON *        root;
 TAOS_POOL      g_taos_pool;
 

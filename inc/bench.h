@@ -352,6 +352,7 @@ typedef struct SArguments_S {
     char *   tag_type;
     int32_t *tag_length;
     uint32_t binwidth;
+    int32_t  intColumnCount;
     int32_t  columnCount;
     int32_t  tagCount;
     int32_t  lenOfTags;
@@ -607,7 +608,6 @@ extern int64_t        g_existedChildTables;
 extern SQueryMetaInfo g_queryInfo;
 extern FILE *         g_fpOfInsertResult;
 extern bool           g_fail;
-extern bool           custom_col_num;
 extern char           configDir[];
 extern cJSON *        root;
 extern TAOS_POOL      g_taos_pool;
