@@ -1587,7 +1587,6 @@ void queryAggrFunc(SArguments *pg_args) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
-    taos_close(pThreadInfo->taos);
     free(pThreadInfo);
 }
 

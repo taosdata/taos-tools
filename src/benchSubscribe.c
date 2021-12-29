@@ -173,7 +173,7 @@ void *specifiedSubscribe(void *sarg) {
     *code = 0;
     taos_free_result(g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]);
 free_of_specified_subscribe:
-    taos_close(pThreadInfo->taos);
+
     return code;
 }
 
@@ -327,7 +327,7 @@ static void *superSubscribe(void *sarg) {
     }
     *code = 0;
 free_of_super_subscribe:
-    taos_close(pThreadInfo->taos);
+
     tmfree(subSqlStr);
     return code;
 }
@@ -491,7 +491,7 @@ int subscribeTestProcess() {
 
     tmfree((char *)pidsOfStable);
     tmfree((char *)infosOfStable);
-    //   taos_close(taos);
+    //
     if (g_fail) {
         return -1;
     }

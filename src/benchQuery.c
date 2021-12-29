@@ -206,7 +206,7 @@ int queryTestProcess() {
             errorPrint("failed to count child table name: %s. reason: %s\n",
                        cmd, taos_errstr(res));
             taos_free_result(res);
-            taos_close(taos);
+
             return -1;
         }
         TAOS_ROW    row = NULL;
@@ -329,7 +329,7 @@ int queryTestProcess() {
 
     tmfree((char *)pids);
     tmfree((char *)infos);
-    taos_close(taos);
+
 
     pthread_t * pidsOfSub = NULL;
     threadInfo *infosOfSub = NULL;
@@ -429,7 +429,7 @@ int queryTestProcess() {
         return -1;
     }
 
-    //  taos_close(taos);// workaround to use separate taos connection;
+    //  // workaround to use separate taos connection;
     uint64_t endTs = taosGetTimestampMs();
 
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +

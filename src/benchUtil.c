@@ -227,7 +227,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
     int32_t code = taos_errno(res);
     if (code != 0) {
         taos_free_result(res);
-        taos_close(taos);
+
         errorPrint("failed to run command %s, reason: %s\n", command,
                    taos_errstr(res));
         return -1;
@@ -257,7 +257,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                 // exit, if allocate more memory failed
                 tmfree(childTblName);
                 taos_free_result(res);
-                taos_close(taos);
+
                 errorPrint(
                     "realloc fail for save child table name of "
                     "%s.%s\n",
@@ -288,7 +288,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         errorPrint("failed to get child table name: %s. reason: %s", cmd,
                    taos_errstr(res));
         taos_free_result(res);
-        taos_close(taos);
+
         return -1;
     }
     TAOS_ROW row = NULL;

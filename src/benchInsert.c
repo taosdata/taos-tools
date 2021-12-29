@@ -417,7 +417,7 @@ static int createSuperTable(TAOS *taos, char *dbName, SSuperTable *superTbl,
                 break;
 
             default:
-                taos_close(taos);
+
                 errorPrint("unknown data type : %d\n",
                            superTbl->col_type[colIndex]);
                 return -1;
@@ -428,7 +428,6 @@ static int createSuperTable(TAOS *taos, char *dbName, SSuperTable *superTbl,
     superTbl->colsOfCreateChildTable =
         (char *)calloc(len + TIMESTAMP_BUFF_LEN, 1);
     if (NULL == superTbl->colsOfCreateChildTable) {
-        taos_close(taos);
         errorPrint("%s", "failed to allocate memory\n");
         return -1;
     }
@@ -524,7 +523,7 @@ static int createSuperTable(TAOS *taos, char *dbName, SSuperTable *superTbl,
                     snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "jtag json");
                 goto skip;
             default:
-                taos_close(taos);
+
                 errorPrint("unknown data type : %d\n",
                            superTbl->tag_type[tagIndex]);
                 return -1;
@@ -562,7 +561,6 @@ int createDatabasesAndStables(char *command) {
         if (db[i].drop) {
             sprintf(command, "drop database if exists %s;", db[i].dbName);
             if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
-                taos_close(taos);
                 return -1;
             }
 
@@ -632,7 +630,6 @@ int createDatabasesAndStables(char *command) {
             }
 
             if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
-                taos_close(taos);
                 errorPrint("\ncreate database %s failed!\n\n", db[i].dbName);
                 return -1;
             }
@@ -678,7 +675,7 @@ int createDatabasesAndStables(char *command) {
             }
         }
     }
-    taos_close(taos);
+
     return 0;
 }
 
@@ -838,7 +835,7 @@ int startMultiThreadCreateChildTable(char *cols, int threads, int64_t ntables,
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-        taos_close(pThreadInfo->taos);
+
         g_actualChildTables += pThreadInfo->tables_created;
     }
 
@@ -1569,7 +1566,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 errorPrint("failed to get child table name: %s. reason: %s",
                            cmd, taos_errstr(res));
                 taos_free_result(res);
-                taos_close(taos);
+
                 return -1;
             }
             TAOS_ROW row = NULL;
@@ -1592,7 +1589,6 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             }
             ntables = count;
             taos_free_result(res);
-            taos_close(taos);
 
         } else {
             for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
@@ -1897,7 +1893,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 tmfree(pThreadInfo->buffer);
                 break;
             case SML_IFACE:
-                taos_close(pThreadInfo->taos);
+
                 if (pThreadInfo->line_protocol != TSDB_SML_JSON_PROTOCOL) {
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         tmfree(pThreadInfo->sml_tags[t]);
@@ -1914,7 +1910,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 tmfree(pThreadInfo->lines);
                 break;
             case STMT_IFACE:
-                taos_close(pThreadInfo->taos);
+
                 taos_stmt_close(pThreadInfo->stmt);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
@@ -1922,7 +1918,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                 tmfree(pThreadInfo->is_null);
                 break;
             case TAOSC_IFACE:
-                taos_close(pThreadInfo->taos);
+
                 tmfree(pThreadInfo->buffer);
                 break;
             default:
