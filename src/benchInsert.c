@@ -1344,13 +1344,24 @@ void *syncWriteProgressive(void *sarg) {
                                    pThreadInfo->db_name, tableName);
 
                     for (int j = 0; j < g_args.reqPerReq; ++j) {
-                        len +=
-                            snprintf(pstr + len, pThreadInfo->max_sql_len - len,
-                                     "(%" PRId64 ",%s)", timestamp,
-                                     (stbInfo ? stbInfo->sampleDataBuf
-                                              : g_sampleDataBuf) +
-                                         pos * (stbInfo ? stbInfo->lenOfCols
-                                                        : g_args.lenOfCols));
+                        if (stbInfo && stbInfo->useSampleTs &&
+                            0 == strcasecmp(stbInfo->dataSource, "sample")) {
+                            len += snprintf(
+                                pstr + len, pThreadInfo->max_sql_len - len,
+                                "(%s)",
+                                (stbInfo ? stbInfo->sampleDataBuf
+                                         : g_sampleDataBuf) +
+                                    pos * (stbInfo ? stbInfo->lenOfCols
+                                                   : g_args.lenOfCols));
+                        } else {
+                            len += snprintf(
+                                pstr + len, pThreadInfo->max_sql_len - len,
+                                "(%" PRId64 ",%s)", timestamp,
+                                (stbInfo ? stbInfo->sampleDataBuf
+                                         : g_sampleDataBuf) +
+                                    pos * (stbInfo ? stbInfo->lenOfCols
+                                                   : g_args.lenOfCols));
+                        }
                         pos++;
                         if (pos >= g_args.prepared_rand) {
                             pos = 0;
@@ -1562,7 +1573,8 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
             stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
         }
 
-        if (iface != SML_IFACE) {
+        if (iface != SML_IFACE &&
+            stbInfo->childTblExists == TBL_ALREADY_EXISTS) {
             TAOS *taos = select_one_from_pool(&g_taos_pool, db_name);
             if (taos == NULL) {
                 return -1;
@@ -1622,6 +1634,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                              "%s%" PRIu64 "", childTbls_prefix, i);
                 }
             }
+            ntables = stbInfo->childTblCount;
         }
     } else {
         g_args.childTblName = calloc(g_args.ntables, sizeof(char *));
