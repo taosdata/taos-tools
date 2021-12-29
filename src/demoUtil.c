@@ -656,7 +656,7 @@ char *taos_convert_datatype_to_string(int type) {
         case TSDB_DATA_TYPE_TIMESTAMP:
             return "timestamp";
         case TSDB_DATA_TYPE_TINYINT:
-            return "tinyiny";
+            return "tinyint";
         case TSDB_DATA_TYPE_UTINYINT:
             return "unsigned tinyint";
         case TSDB_DATA_TYPE_SMALLINT:
