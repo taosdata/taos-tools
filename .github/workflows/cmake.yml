@@ -30,6 +30,11 @@ jobs:
           path: 'TDengine'
           ref: 'develop'
 
+      - name: Change time zone
+        run: |
+          rm -rf /etc/localtime
+          ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
         run: |
