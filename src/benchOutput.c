@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 #define SHOW_PARSE_RESULT_START_TO_FILE(fp)                               \
     do {                                                                  \

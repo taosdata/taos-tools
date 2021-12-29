@@ -13,8 +13,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
-#include "demoData.h"
+#include "benchData.h"
+#include "bench.h"
 
 int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                int32_t *col_length, int32_t tagCount, int32_t colCount,
@@ -641,8 +641,10 @@ int createDatabasesAndStables(char *command) {
             }
             infoPrint("create database %s success!\n", db[i].dbName);
             for (uint64_t j = 0; j < db[i].superTblCount; j++) {
-                if (db[i].superTbls[j].iface == SML_IFACE){
-                    infoPrint("schemaless insertion will auto create stable: %s\n", db[i].superTbls[j].stbName);
+                if (db[i].superTbls[j].iface == SML_IFACE) {
+                    infoPrint(
+                        "schemaless insertion will auto create stable: %s\n",
+                        db[i].superTbls[j].stbName);
                     continue;
                 }
                 char *cmd = calloc(1, BUFFER_SIZE);
@@ -661,8 +663,10 @@ int createDatabasesAndStables(char *command) {
 
         } else {
             for (uint64_t j = 0; j < db[i].superTblCount; j++) {
-                if (db[i].superTbls[j].iface == SML_IFACE){
-                    infoPrint("schemaless insertion will auto create stable: %s\n", db[i].superTbls[j].stbName);
+                if (db[i].superTbls[j].iface == SML_IFACE) {
+                    infoPrint(
+                        "schemaless insertion will auto create stable: %s\n",
+                        db[i].superTbls[j].stbName);
                     continue;
                 }
                 ret = getSuperTableFromServer(taos, db[i].dbName,
@@ -1384,7 +1388,7 @@ void *syncWriteProgressive(void *sarg) {
                                 : g_args.reqPerReq,
                             timestamp);
                     }
-                    timestamp += generated*pThreadInfo->time_step;
+                    timestamp += generated * pThreadInfo->time_step;
                     break;
                 }
                 case SML_IFACE: {
@@ -1492,7 +1496,7 @@ free_of_progressive:
 }
 
 int startMultiThreadInsertData(int threads, char *db_name, char *precision,
-                                   SSuperTable *stbInfo) {
+                               SSuperTable *stbInfo) {
     int iface = stbInfo ? stbInfo->iface : g_args.iface;
     int line_protocol =
         stbInfo ? stbInfo->lineProtocol : TSDB_SML_LINE_PROTOCOL;

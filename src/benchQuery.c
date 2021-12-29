@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     if (0 == strncasecmp(g_queryInfo.queryMode, "taosc", strlen("taosc"))) {
