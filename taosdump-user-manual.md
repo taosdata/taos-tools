@@ -6,13 +6,20 @@ taosdump is a logical backup tool. It does not intend to or to be expected to ba
 
 taosdump uses the [Apache AVRO](https://avro.apache.org/) as the data file format to store the backup data.
 
-taosdump can backup the data to the specified directory. If you don't specify the location, taosdump will back up the data to the current directory by default. taosdump will prompt the user if the specified location already has any data file taosdump generated may be overwritten by backup action again. Please be careful if you see a prompt.
+taosdump can backup data to the specified directory. If no location is specified, taosdump will back up the data to the current directory by default. If the specified location already has data files, taosdump will prompt the user that the backup action may be overwritten again. If you see the prompt, please proceed with caution.
+
+taosdump backups can specify all databases with the -A or --all-databases parameter; or use the -D db1,db2,... parameter; or -D db1, db2, ... -D db1, db2, ... -D db1, db2, ... -D dbname stbname1 stbname2 tbname1 tbname2 ... parameters, note that the first parameter of this input sequence must be the database name and only the database name can be specified here. Note that the first parameter of this input sequence is the database name, and only one database is supported, and the second and subsequent parameters are the names of the super or normal tables in the database, separated by spaces.
+
+taosdump restores data using -i and the path where the data file is located as an argument to backup the data file under the specified path. As mentioned earlier, you should not use the same directory to backup different data sets, nor should you backup the same data set multiple times in the same path, otherwise the backup data will be overwritten or backed up multiple times.
+
+TDengine servers or clusters usually contain a system database named log, the data in this database is the data that TDengine runs itself, and taosdump does not back up the log library by default. If you have a specific need to back up the log database, you can use the -a or --allow-sys command line parameter.
+
+taosdump uses the TDengine stmt binding API internally for writing recovery data, and currently uses 16384 as a write batch to improve data recovery performance. If the backup data has more columns of data, it may cause WAL size exceeds limit error, you can try by adjusting to a smaller value with -B parameter.
 
 Following is the list of taosdump command line arguments in details:
 ```
-$ taosdump --help
 Usage: taosdump [OPTION...] dbname [tbname ...]
-  or:  taosdump [OPTION...] --databases db1,db2,... 
+  or:  taosdump [OPTION...] --databases db1,db2,...
   or:  taosdump [OPTION...] --all-databases
   or:  taosdump [OPTION...] -i inpath
   or:  taosdump [OPTION...] -o outpath
@@ -24,9 +31,7 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
   -P, --port=PORT            Port to connect
   -u, --user=USER            User name used to connect to server. Default is
                              root.
-  -c, --config-dir=CONFIG_DIR   Configure directory. Default is
-                             /etc/taos/taos.cfg.
-  -e, --encode=ENCODE        Input file encoding.
+  -c, --config-dir=CONFIG_DIR   Configure directory. Default is /etc/taos
   -i, --inpath=INPATH        Input file path.
   -o, --outpath=OUTPATH      Output file path.
   -r, --resultFile=RESULTFILE   DumpOut/In Result file path and name.
@@ -50,11 +55,9 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              2017-10-01T00:00:00.000+0800 or
                              2017-10-0100:00:00.000+0800 or '2017-10-01
                              00:00:00.000+0800'
-  -B, --data-batch=DATA_BATCH   Number of data point per insert statement. Default
-                             value is 16384.
+  -B, --data-batch=DATA_BATCH   Number of data point per insert statement.
+                             Default value is 16384.
   -L, --max-sql-len=SQL_LEN  Max length of one sql. Default is 65480.
-  -t, --table-batch=TABLE_BATCH   Number of table dumpout into one output file.
-                             Default is 1.
   -T, --thread_num=THREAD_NUM   Number of thread for dump in file. Default is
                              5.
   -g, --debug                Print debug info.
