@@ -3225,10 +3225,11 @@ static int dumpInAvroTbTagsImpl(
                                 if (NULL == bytesbuf) {
                                     debugPrint2("%s | ", "NULL");
                                     bind->is_null = &is_null;
+                                    bind->buffer_length = 0;
                                 } else {
                                     debugPrint2("%s | ", (char *)bytesbuf);
+                                    bind->buffer_length = strlen((char*)bytesbuf);
                                 }
-                                bind->buffer_length = strlen((char*)bytesbuf);
                                 bind->buffer = bytesbuf;
                             }
                             break;
