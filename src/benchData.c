@@ -514,33 +514,31 @@ int generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
     return 0;
 }
 
-static int readTagFromCsvFileToMem(SSuperTable *stbInfo) {
+static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
+                                       int64_t size) {
     size_t  n = 0;
     ssize_t readLen = 0;
     char *  line = NULL;
+    int     getRows = 0;
 
-    FILE *fp = fopen(stbInfo->tagsFile, "r");
+    FILE *fp = fopen(file, "r");
     if (fp == NULL) {
-        printf("Failed to open tags file: %s, reason:%s\n", stbInfo->tagsFile,
-               strerror(errno));
+        errorPrint("Failed to open sample file: %s, reason:%s\n", file,
+                   strerror(errno));
         return -1;
     }
+    while (1) {
+        readLen = getline(&line, &n, fp);
+        if (-1 == readLen) {
+            if (0 != fseek(fp, 0, SEEK_SET)) {
+                errorPrint("Failed to fseek file: %s, reason:%s\n", file,
+                           strerror(errno));
+                fclose(fp);
+                return -1;
+            }
+            continue;
+        }
 
-    if (stbInfo->tagDataBuf) {
-        free(stbInfo->tagDataBuf);
-        stbInfo->tagDataBuf = NULL;
-    }
-
-    int   tagCount = g_args.prepared_rand;
-    int   count = 0;
-    char *tagDataBuf = calloc(1, stbInfo->lenOfTags * tagCount);
-    if (tagDataBuf == NULL) {
-        printf("Failed to calloc, reason:%s\n", strerror(errno));
-        fclose(fp);
-        return -1;
-    }
-
-    while ((readLen = getline(&line, &n, fp)) != -1) {
         if (('\r' == line[readLen - 1]) || ('\n' == line[readLen - 1])) {
             line[--readLen] = 0;
         }
@@ -549,34 +547,24 @@ static int readTagFromCsvFileToMem(SSuperTable *stbInfo) {
             continue;
         }
 
-        memcpy(tagDataBuf + count * stbInfo->lenOfTags, line, readLen);
-        count++;
+        if (readLen > length) {
+            infoPrint(
+                "sample row len[%d] overflow define schema len[%d], so discard "
+                "this row\n",
+                (int32_t)readLen, length);
+            continue;
+        }
 
-        if (count >= tagCount - 1) {
-            char *tmp = realloc(tagDataBuf,
-                                (size_t)(tagCount * 1.5 * stbInfo->lenOfTags));
-            if (tmp != NULL) {
-                tagDataBuf = tmp;
-                tagCount = (int)(tagCount * 1.5);
-                memset(tagDataBuf + count * stbInfo->lenOfTags, 0,
-                       (size_t)((tagCount - count) * stbInfo->lenOfTags));
-            } else {
-                // exit, if allocate more memory failed
-                printf("realloc fail for save tag val from %s\n",
-                       stbInfo->tagsFile);
-                tmfree(tagDataBuf);
-                free(line);
-                fclose(fp);
-                return -1;
-            }
+        memcpy(buffer + getRows * length, line, readLen);
+        getRows++;
+
+        if (getRows == size) {
+            break;
         }
     }
 
-    stbInfo->tagDataBuf = tagDataBuf;
-    stbInfo->tagSampleCount = count;
-
-    free(line);
     fclose(fp);
+    tmfree(line);
     return 0;
 }
 
@@ -607,136 +595,65 @@ free_of_get_set_rows_from_csv:
     return code;
 }
 
-static int generateSampleFromCsvForStb(SSuperTable *stbInfo) {
-    size_t  n = 0;
-    ssize_t readLen = 0;
-    char *  line = NULL;
-    int     getRows = 0;
-
-    FILE *fp = fopen(stbInfo->sampleFile, "r");
-    if (fp == NULL) {
-        errorPrint("Failed to open sample file: %s, reason:%s\n",
-                   stbInfo->sampleFile, strerror(errno));
-        return -1;
-    }
-    while (1) {
-        readLen = getline(&line, &n, fp);
-        if (-1 == readLen) {
-            if (0 != fseek(fp, 0, SEEK_SET)) {
-                errorPrint("Failed to fseek file: %s, reason:%s\n",
-                           stbInfo->sampleFile, strerror(errno));
-                fclose(fp);
+int prepareSampleDataWithStb(SSuperTable *stbInfo) {
+    calcRowLen(stbInfo->tag_type, stbInfo->col_type, stbInfo->tag_length,
+               stbInfo->col_length, stbInfo->tagCount, stbInfo->columnCount,
+               &(stbInfo->lenOfTags), &(stbInfo->lenOfCols), stbInfo->iface);
+    debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n", stbInfo->stbName,
+               stbInfo->tagCount, stbInfo->lenOfTags);
+    debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n", stbInfo->stbName,
+               stbInfo->columnCount, stbInfo->lenOfCols);
+    stbInfo->sampleDataBuf =
+        calloc(1, stbInfo->lenOfCols * g_args.prepared_rand);
+    int ret;
+    if (0 == strncasecmp(stbInfo->dataSource, "sample", strlen("sample"))) {
+        if (stbInfo->useSampleTs) {
+            if (getAndSetRowsFromCsvFile(stbInfo)) {
+                tmfree(stbInfo->sampleDataBuf);
                 return -1;
             }
-            continue;
         }
-
-        if (('\r' == line[readLen - 1]) || ('\n' == line[readLen - 1])) {
-            line[--readLen] = 0;
-        }
-
-        if (readLen == 0) {
-            continue;
-        }
-
-        if (readLen > (stbInfo->lenOfCols)) {
-            infoPrint(
-                "sample row len[%d] overflow define schema len[%d], so discard "
-                "this row\n",
-                (int32_t)readLen, stbInfo->lenOfCols);
-            continue;
-        }
-
-        memcpy(stbInfo->sampleDataBuf + getRows * stbInfo->lenOfCols, line,
-               readLen);
-        getRows++;
-
-        if (getRows == g_args.prepared_rand) {
-            break;
-        }
-    }
-
-    fclose(fp);
-    tmfree(line);
-    return 0;
-}
-
-int prepareSampleData() {
-    if (g_args.use_metric) {
-        for (int i = 0; i < g_args.dbCount; i++) {
-            for (int j = 0; j < db[i].superTblCount; j++) {
-                calcRowLen(
-                    db[i].superTbls[j].tag_type, db[i].superTbls[j].col_type,
-                    db[i].superTbls[j].tag_length,
-                    db[i].superTbls[j].col_length, db[i].superTbls[j].tagCount,
-                    db[i].superTbls[j].columnCount,
-                    &(db[i].superTbls[j].lenOfTags),
-                    &(db[i].superTbls[j].lenOfCols), db[i].superTbls[j].iface);
-                debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n",
-                           db[i].superTbls[j].stbName,
-                           db[i].superTbls[j].tagCount,
-                           db[i].superTbls[j].lenOfTags);
-                debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n",
-                           db[i].superTbls[j].stbName,
-                           db[i].superTbls[j].columnCount,
-                           db[i].superTbls[j].lenOfCols);
-                db[i].superTbls[j].sampleDataBuf = calloc(
-                    1, db[i].superTbls[j].lenOfCols * g_args.prepared_rand);
-                int ret;
-                if (0 == strncasecmp(db[i].superTbls[j].dataSource, "sample",
-                                     strlen("sample"))) {
-                    if (db[i].superTbls[j].useSampleTs) {
-                        if (getAndSetRowsFromCsvFile(&(db[i].superTbls[j]))) {
-                            tmfree(db[i].superTbls[j].sampleDataBuf);
-                            return -1;
-                        }
-                    }
-                    ret = generateSampleFromCsvForStb(&(db[i].superTbls[j]));
-                } else {
-                    ret =
-                        generateSampleFromRand(db[i].superTbls[j].sampleDataBuf,
-                                               db[i].superTbls[j].lenOfCols,
-                                               db[i].superTbls[j].columnCount,
-                                               db[i].superTbls[j].col_type,
-                                               db[i].superTbls[j].col_length);
-                }
-                if (ret) {
-                    tmfree(db[i].superTbls[j].sampleDataBuf);
-                    return -1;
-                }
-                debugPrint("sampleDataBuf: %s\n",
-                           db[i].superTbls[j].sampleDataBuf);
-                if (db[i].superTbls[j].tagsFile[0] != 0) {
-                    if (readTagFromCsvFileToMem(&db[i].superTbls[j]) != 0) {
-                        return -1;
-                    }
-                    debugPrint("tagDataBuf: %s\n",
-                               db[i].superTbls[j].tagDataBuf);
-                }
-            }
-        }
+        ret = generateSampleFromCsvForStb(
+            stbInfo->sampleDataBuf, stbInfo->sampleFile, stbInfo->lenOfCols,
+            g_args.prepared_rand);
     } else {
-        calcRowLen(g_args.tag_type, g_args.col_type, g_args.tag_length,
-                   g_args.col_length, g_args.tagCount, g_args.columnCount,
-                   &(g_args.lenOfTags), &(g_args.lenOfCols), g_args.iface);
-        debugPrint("lenOfTags: %d; lenOfCols: %d\n", g_args.lenOfTags,
-                   g_args.lenOfCols);
-        g_sampleDataBuf = calloc(1, g_args.lenOfCols * g_args.prepared_rand);
-        generateSampleFromRand(g_sampleDataBuf, g_args.lenOfCols,
-                               g_args.columnCount, g_args.col_type,
-                               g_args.col_length);
-        debugPrint("g_sampleDataBuf: %s\n", g_sampleDataBuf);
+        ret = generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
+                                     stbInfo->columnCount, stbInfo->col_type,
+                                     stbInfo->col_length, g_args.prepared_rand);
     }
-
+    if (ret) {
+        tmfree(stbInfo->sampleDataBuf);
+        return -1;
+    }
+    debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
+    if (stbInfo->childTblExists != TBL_ALREADY_EXISTS) {
+        stbInfo->tagDataBuf =
+            calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
+        if (stbInfo->tagsFile[0] != 0) {
+            ret = generateSampleFromCsvForStb(
+                stbInfo->tagDataBuf, stbInfo->tagsFile, stbInfo->lenOfTags,
+                stbInfo->childTblCount);
+        } else {
+            ret = generateSampleFromRand(
+                stbInfo->tagDataBuf, stbInfo->lenOfTags, stbInfo->tagCount,
+                stbInfo->tag_type, stbInfo->tag_length, stbInfo->childTblCount);
+        }
+        if (ret) {
+            tmfree(stbInfo->sampleDataBuf);
+            tmfree(stbInfo->tagDataBuf);
+            return -1;
+        }
+        debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
+    }
     return 0;
 }
 
-int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
-                           int columnCount, char *data_type,
-                           int32_t *data_length) {
-    for (int i = 0; i < g_args.prepared_rand; i++) {
+int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
+                           char *data_type, int32_t *data_length,
+                           int64_t size) {
+    for (int64_t i = 0; i < size; i++) {
         int32_t pos = i * lenOfOneRow;
-        for (int c = 0; c < columnCount; c++) {
+        for (int c = 0; c < count; c++) {
             char *tmp = NULL;
             switch (data_type[c]) {
                 case TSDB_DATA_TYPE_BINARY:
@@ -840,7 +757,6 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
             randTail = (randTail + (taosRandom() % disorderRange + 1)) * (-1);
         }
     }
-
     return randTail;
 }
 
