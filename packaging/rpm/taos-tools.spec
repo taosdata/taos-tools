@@ -3,7 +3,7 @@
 %define cfg_install_dir  /etc/taos
 %define __strip /bin/true
 
-Name:		taos-tools
+Name:		taostools
 Version:	%{_version}
 Release:	3%{?dist}
 Summary:	from taosdata
