@@ -1151,6 +1151,18 @@ void *syncWriteInterlace(void *sarg) {
                             generateSmlJsonCols(pThreadInfo->json_array, tag,
                                                 stbInfo, pThreadInfo,
                                                 timestamp);
+                        } else if (pThreadInfo->line_protocol ==
+                                   TSDB_SML_LINE_PROTOCOL) {
+                            snprintf(
+                                pThreadInfo->lines[generated],
+                                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                                "%s %s %" PRId64 "",
+                                pThreadInfo
+                                    ->sml_tags[(int)tableSeq -
+                                               pThreadInfo->start_table_from],
+                                stbInfo->sampleDataBuf +
+                                    pos * stbInfo->lenOfCols,
+                                timestamp);
                         } else {
                             generateSmlMutablePart(
                                 pThreadInfo->lines[generated],
@@ -1369,6 +1381,18 @@ void *syncWriteProgressive(void *sarg) {
                             generateSmlJsonCols(pThreadInfo->json_array, tag,
                                                 stbInfo, pThreadInfo,
                                                 timestamp);
+                        } else if (pThreadInfo->line_protocol ==
+                                   TSDB_SML_LINE_PROTOCOL) {
+                            snprintf(
+                                pThreadInfo->lines[j],
+                                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                                "%s %s %" PRId64 "",
+                                pThreadInfo
+                                    ->sml_tags[(int)tableSeq -
+                                               pThreadInfo->start_table_from],
+                                stbInfo->sampleDataBuf +
+                                    pos * stbInfo->lenOfCols,
+                                timestamp);
                         } else {
                             generateSmlMutablePart(
                                 pThreadInfo->lines[j],
@@ -1376,6 +1400,10 @@ void *syncWriteProgressive(void *sarg) {
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
                                 stbInfo, pThreadInfo, timestamp);
+                        }
+                        pos++;
+                        if (pos >= g_args.prepared_rand) {
+                            pos = 0;
                         }
                         timestamp +=
                             getTSRandTail(pThreadInfo->time_step, i + 1,
@@ -2081,7 +2109,8 @@ int insertTestProcess() {
         g_sampleDataBuf = calloc(1, g_args.lenOfCols * g_args.prepared_rand);
         generateSampleFromRand(g_sampleDataBuf, g_args.lenOfCols,
                                g_args.columnCount, g_args.col_type,
-                               g_args.col_length, g_args.prepared_rand, g_args.iface);
+                               g_args.col_length, g_args.prepared_rand,
+                               g_args.iface);
         debugPrint("g_sampleDataBuf: %s\n", g_sampleDataBuf);
         if (startMultiThreadInsertData(g_args.nthreads, g_args.database, "ms",
                                        NULL)) {

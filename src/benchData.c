@@ -660,9 +660,25 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
             switch (data_type[c]) {
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
+                    if (data_length[c] > TSDB_MAX_BINARY_LEN) {
+                        errorPrint(
+                            "binary or nchar length overflow, maxsize:%u\n",
+                            (uint32_t)TSDB_MAX_BINARY_LEN);
+                        return -1;
+                    }
                     char *data = calloc(1, 1 + data_length[c]);
                     rand_string(data, data_length[c]);
-                    pos += sprintf(sampleDataBuf + pos, "'%s',", data);
+                    if (iface == SML_IFACE &&
+                        data_type[c] == TSDB_DATA_TYPE_BINARY) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=\"%s\",", c,
+                                       data);
+                    } else if (iface == SML_IFACE &&
+                               data_type[c] == TSDB_DATA_TYPE_NCHAR) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=L\"%s\",", c,
+                                       data);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "'%s',", data);
+                    }
                     tmfree(data);
                     break;
                 }
@@ -672,21 +688,42 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                     } else {
                         tmp = rand_int_str();
                     }
-                    pos += sprintf(sampleDataBuf + pos, "%s,", tmp);
+                    if (iface == SML_IFACE) {
+                        pos +=
+                            sprintf(sampleDataBuf + pos, "c%d=%si32,", c, tmp);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,", tmp);
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_UINT:
-                    pos += sprintf(sampleDataBuf + pos, "%s,", rand_uint_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%su32,", c,
+                                       rand_uint_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_uint_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_BIGINT:
-                    pos +=
-                        sprintf(sampleDataBuf + pos, "%s,", rand_bigint_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%si64,", c,
+                                       rand_bigint_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_bigint_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_UBIGINT:
-                    pos +=
-                        sprintf(sampleDataBuf + pos, "%s,", rand_ubigint_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%su64,", c,
+                                       rand_ubigint_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_ubigint_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_FLOAT:
@@ -699,41 +736,86 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                     } else {
                         tmp = rand_float_str();
                     }
-                    pos += sprintf(sampleDataBuf + pos, "%s,", tmp);
+                    if (iface == SML_IFACE) {
+                        pos +=
+                            sprintf(sampleDataBuf + pos, "c%d=%sf32,", c, tmp);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,", tmp);
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_DOUBLE:
-                    pos +=
-                        sprintf(sampleDataBuf + pos, "%s,", rand_double_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%sf64,", c,
+                                       rand_double_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_double_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_SMALLINT:
-                    pos += sprintf(sampleDataBuf + pos, "%s,",
-                                   rand_smallint_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%si16,", c,
+                                       rand_smallint_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_smallint_str());
+                    }
+
                     break;
 
                 case TSDB_DATA_TYPE_USMALLINT:
-                    pos += sprintf(sampleDataBuf + pos, "%s,",
-                                   rand_usmallint_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%su16,", c,
+                                       rand_usmallint_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_usmallint_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_TINYINT:
-                    pos +=
-                        sprintf(sampleDataBuf + pos, "%s,", rand_tinyint_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%si8,", c,
+                                       rand_tinyint_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_tinyint_str());
+                    }
+
                     break;
 
                 case TSDB_DATA_TYPE_UTINYINT:
-                    pos += sprintf(sampleDataBuf + pos, "%s,",
-                                   rand_utinyint_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%su8,", c,
+                                       rand_utinyint_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_utinyint_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_BOOL:
-                    pos += sprintf(sampleDataBuf + pos, "%s,", rand_bool_str());
+                    if (iface == SML_IFACE) {
+                        pos += sprintf(sampleDataBuf + pos, "c%d=%s,", c,
+                                       rand_bool_str());
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_bool_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_TIMESTAMP:
-                    pos +=
-                        sprintf(sampleDataBuf + pos, "%s,", rand_bigint_str());
+                    if (iface == SML_IFACE) {
+                        errorPrint("%s",
+                                   "schemaless does not support timestamp as "
+                                   "column\n");
+                        return -1;
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%s,",
+                                       rand_bigint_str());
+                    }
                     break;
 
                 case TSDB_DATA_TYPE_NULL:
@@ -1332,173 +1414,79 @@ int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
 
 int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
                                threadInfo *pThreadInfo, int64_t timestamp) {
-    int      dataLen = 0;
     uint64_t buffer = (stbInfo->lenOfTags + stbInfo->lenOfCols);
-    if (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
-        dataLen = snprintf(line, buffer, "%s ", sml);
-        for (uint32_t c = 0; c < stbInfo->columnCount; c++) {
-            if (c != 0) {
-                tstrncpy(line + dataLen, ",", 2);
-                dataLen += 1;
-            }
-            switch (stbInfo->col_type[c]) {
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    errorPrint("%s", "Does not support timestamp as column\n");
-                    return -1;
-                case TSDB_DATA_TYPE_BOOL:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%s", c, rand_bool_str());
-                    break;
-                case TSDB_DATA_TYPE_TINYINT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%si8", c, rand_tinyint_str());
-                    break;
-                case TSDB_DATA_TYPE_UTINYINT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%su8", c, rand_utinyint_str());
-                    break;
-                case TSDB_DATA_TYPE_SMALLINT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%si16", c, rand_smallint_str());
-                    break;
-                case TSDB_DATA_TYPE_USMALLINT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%su16", c, rand_usmallint_str());
-                    break;
-                case TSDB_DATA_TYPE_INT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%si32", c, rand_int_str());
-                    break;
-                case TSDB_DATA_TYPE_UINT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%su32", c, rand_uint_str());
-                    break;
-                case TSDB_DATA_TYPE_BIGINT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%si64", c, rand_bigint_str());
-                    break;
-                case TSDB_DATA_TYPE_UBIGINT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%su64", c, rand_ubigint_str());
-                    break;
-                case TSDB_DATA_TYPE_FLOAT:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%sf32", c, rand_float_str());
-                    break;
-                case TSDB_DATA_TYPE_DOUBLE:
-                    dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                        "c%d=%sf64", c, rand_double_str());
-                    break;
-                case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR:
-                    if (stbInfo->col_length[c] > TSDB_MAX_BINARY_LEN) {
-                        errorPrint(
-                            "binary or nchar length overflow, maxsize:%u\n",
-                            (uint32_t)TSDB_MAX_BINARY_LEN);
-                        return -1;
-                    }
-                    char *buf = (char *)calloc(stbInfo->col_length[c] + 1, 1);
-                    if (NULL == buf) {
-                        errorPrint("%s", "failed to allocate memory\n");
-                        return -1;
-                    }
-                    rand_string(buf, stbInfo->col_length[c]);
-                    if (stbInfo->col_type[c] == TSDB_DATA_TYPE_BINARY) {
-                        dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                            "c%d=\"%s\"", c, buf);
-                    } else {
-                        dataLen += snprintf(line + dataLen, buffer - dataLen,
-                                            "c%d=L\"%s\"", c, buf);
-                    }
-                    tmfree(buf);
-                    break;
-                default:
-                    errorPrint("unknown data type %d\n", stbInfo->col_type[c]);
-                    return -1;
-            }
-        }
-        dataLen += snprintf(line + dataLen, buffer - dataLen, " %" PRId64 "",
-                            timestamp);
-        return 0;
-    } else if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-        switch (stbInfo->col_type[0]) {
-            case TSDB_DATA_TYPE_BOOL:
-                snprintf(line, buffer, "%s %" PRId64 " %s %s", stbInfo->stbName,
-                         timestamp, rand_bool_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_TINYINT:
-                snprintf(line, buffer, "%s %" PRId64 " %si8 %s",
-                         stbInfo->stbName, timestamp, rand_tinyint_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_UTINYINT:
-                snprintf(line, buffer, "%s %" PRId64 " %su8 %s",
-                         stbInfo->stbName, timestamp, rand_utinyint_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_SMALLINT:
-                snprintf(line, buffer, "%s %" PRId64 " %si16 %s",
-                         stbInfo->stbName, timestamp, rand_smallint_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_USMALLINT:
-                snprintf(line, buffer, "%s %" PRId64 " %su16 %s",
-                         stbInfo->stbName, timestamp, rand_usmallint_str(),
-                         sml);
-                break;
-            case TSDB_DATA_TYPE_INT:
-                snprintf(line, buffer, "%s %" PRId64 " %si32 %s",
-                         stbInfo->stbName, timestamp, rand_int_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_UINT:
-                snprintf(line, buffer, "%s %" PRId64 " %su32 %s",
-                         stbInfo->stbName, timestamp, rand_uint_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_BIGINT:
-                snprintf(line, buffer, "%s %" PRId64 " %si64 %s",
-                         stbInfo->stbName, timestamp, rand_bigint_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_UBIGINT:
-                snprintf(line, buffer, "%s %" PRId64 " %su64 %s",
-                         stbInfo->stbName, timestamp, rand_ubigint_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_FLOAT:
-                snprintf(line, buffer, "%s %" PRId64 " %sf32 %s",
-                         stbInfo->stbName, timestamp, rand_float_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_DOUBLE:
-                snprintf(line, buffer, "%s %" PRId64 " %sf64 %s",
-                         stbInfo->stbName, timestamp, rand_double_str(), sml);
-                break;
-            case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR:
-                if (stbInfo->col_length[0] > TSDB_MAX_BINARY_LEN) {
-                    errorPrint("binary or nchar length overflow, maxsize:%u\n",
-                               (uint32_t)TSDB_MAX_BINARY_LEN);
-                    return -1;
-                }
-                char *buf = (char *)calloc(stbInfo->col_length[0] + 1, 1);
-                if (NULL == buf) {
-                    errorPrint("%s", "failed to allocate memory\n");
-                    return -1;
-                }
-                rand_string(buf, stbInfo->col_length[0]);
-                if (stbInfo->col_type[0] == TSDB_DATA_TYPE_BINARY) {
-                    snprintf(line, buffer, "%s %" PRId64 " \"%s\" %s",
-                             stbInfo->stbName, timestamp, buf, sml);
-                } else {
-                    snprintf(line, buffer, "%s %" PRId64 " L\"%s\" %s",
-                             stbInfo->stbName, timestamp, buf, sml);
-                }
-                tmfree(buf);
-                break;
-            default:
-                errorPrint("unknown data type %d\n", stbInfo->col_type[0]);
+    switch (stbInfo->col_type[0]) {
+        case TSDB_DATA_TYPE_BOOL:
+            snprintf(line, buffer, "%s %" PRId64 " %s %s", stbInfo->stbName,
+                     timestamp, rand_bool_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_TINYINT:
+            snprintf(line, buffer, "%s %" PRId64 " %si8 %s", stbInfo->stbName,
+                     timestamp, rand_tinyint_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_UTINYINT:
+            snprintf(line, buffer, "%s %" PRId64 " %su8 %s", stbInfo->stbName,
+                     timestamp, rand_utinyint_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+            snprintf(line, buffer, "%s %" PRId64 " %si16 %s", stbInfo->stbName,
+                     timestamp, rand_smallint_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_USMALLINT:
+            snprintf(line, buffer, "%s %" PRId64 " %su16 %s", stbInfo->stbName,
+                     timestamp, rand_usmallint_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_INT:
+            snprintf(line, buffer, "%s %" PRId64 " %si32 %s", stbInfo->stbName,
+                     timestamp, rand_int_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_UINT:
+            snprintf(line, buffer, "%s %" PRId64 " %su32 %s", stbInfo->stbName,
+                     timestamp, rand_uint_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_BIGINT:
+            snprintf(line, buffer, "%s %" PRId64 " %si64 %s", stbInfo->stbName,
+                     timestamp, rand_bigint_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_UBIGINT:
+            snprintf(line, buffer, "%s %" PRId64 " %su64 %s", stbInfo->stbName,
+                     timestamp, rand_ubigint_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            snprintf(line, buffer, "%s %" PRId64 " %sf32 %s", stbInfo->stbName,
+                     timestamp, rand_float_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            snprintf(line, buffer, "%s %" PRId64 " %sf64 %s", stbInfo->stbName,
+                     timestamp, rand_double_str(), sml);
+            break;
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR:
+            if (stbInfo->col_length[0] > TSDB_MAX_BINARY_LEN) {
+                errorPrint("binary or nchar length overflow, maxsize:%u\n",
+                           (uint32_t)TSDB_MAX_BINARY_LEN);
                 return -1;
-        }
-        return 0;
-    } else {
-        errorPrint("unsupport schemaless protocol(%d)\n",
-                   stbInfo->lineProtocol);
-        return -1;
+            }
+            char *buf = (char *)calloc(stbInfo->col_length[0] + 1, 1);
+            if (NULL == buf) {
+                errorPrint("%s", "failed to allocate memory\n");
+                return -1;
+            }
+            rand_string(buf, stbInfo->col_length[0]);
+            if (stbInfo->col_type[0] == TSDB_DATA_TYPE_BINARY) {
+                snprintf(line, buffer, "%s %" PRId64 " \"%s\" %s",
+                         stbInfo->stbName, timestamp, buf, sml);
+            } else {
+                snprintf(line, buffer, "%s %" PRId64 " L\"%s\" %s",
+                         stbInfo->stbName, timestamp, buf, sml);
+            }
+            tmfree(buf);
+            break;
+        default:
+            errorPrint("unknown data type %d\n", stbInfo->col_type[0]);
+            return -1;
     }
+    return 0;
 }
 
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
