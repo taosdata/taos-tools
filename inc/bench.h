@@ -94,7 +94,7 @@
 #define INT_BUFF_LEN 12
 #define BIGINT_BUFF_LEN 21
 #define SMALLINT_BUFF_LEN 8
-#define TINYINT_BUFF_LEN 5
+#define TINYINT_BUFF_LEN 6
 #define BOOL_BUFF_LEN 6
 #define FLOAT_BUFF_LEN 22
 #define DOUBLE_BUFF_LEN 42
@@ -576,17 +576,19 @@ typedef struct SThreadInfo_S {
     uint64_t  querySeq;  // sequence number of sql command
     TAOS_SUB *tsub;
 
-    char ** lines;
-    int32_t sockfd;
-    int64_t insertRows;
-    int64_t time_step;
-    char ** sml_tags;
-    cJSON * sml_json_tags;
-    cJSON * json_array;
-    int32_t iface;
-    int32_t line_protocol;
-    int32_t smlTimePrec;
-    int32_t interlaceRows;
+    char **  lines;
+    int32_t  sockfd;
+    int64_t  insertRows;
+    int64_t  time_step;
+    char **  sml_tags;
+    cJSON *  sml_json_tags;
+    cJSON *  json_array;
+    int32_t  iface;
+    int32_t  line_protocol;
+    int32_t  smlTimePrec;
+    int32_t  interlaceRows;
+    uint32_t disorderRatio;
+    int      disorderRange;
 } threadInfo;
 
 typedef struct TAOS_POOL_S {

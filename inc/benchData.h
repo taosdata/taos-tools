@@ -84,10 +84,9 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
                               uint32_t batch, int64_t startTime);
 
-int     generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
-                               int columnCount, char *data_type,
-                               int32_t *data_length);
-int     prepareSampleData();
+int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
+                           char *data_type, int32_t *data_length, int64_t size);
+int     prepareSampleDataWithStb();
 int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
                              threadInfo *pThreadInfo, int tbSeq);
 int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,

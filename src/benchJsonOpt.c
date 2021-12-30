@@ -673,7 +673,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                            strncasecmp(autoCreateTbl->valuestring, "no", 2)) {
                     db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
                 } else {
-                    db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
+                    db[i].superTbls[j].autoCreateTable = AUTO_CREATE_SUBTBL;
                 }
             } else if (!autoCreateTbl) {
                 db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
@@ -816,7 +816,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 if (childTbl_limit->type != cJSON_Number) {
                     errorPrint("%s", "failed to read json, childtable_limit\n");
                     goto PARSE_OVER;
-                } else if (childTbl_limit->valueint <= 0) {
+                } else if (childTbl_limit->valueint < 0) {
                     infoPrint("childTbl_limit(%" PRId64
                               ") less than 0, ignore it and set to "
                               "%" PRId64 "\n",
@@ -1042,9 +1042,6 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                     "%s",
                     "failed to read json, insert_interval input mistake\n");
                 goto PARSE_OVER;
-            }
-            if (!db[i].drop) {
-                continue;
             }
 
             if (getColumnAndTagTypeFromInsertJsonFile(stbInfo,
