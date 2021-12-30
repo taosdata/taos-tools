@@ -619,7 +619,8 @@ int prepareSampleDataWithStb(SSuperTable *stbInfo) {
     } else {
         ret = generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
                                      stbInfo->columnCount, stbInfo->col_type,
-                                     stbInfo->col_length, g_args.prepared_rand);
+                                     stbInfo->col_length, g_args.prepared_rand,
+                                     stbInfo->iface);
     }
     if (ret) {
         tmfree(stbInfo->sampleDataBuf);
@@ -636,7 +637,8 @@ int prepareSampleDataWithStb(SSuperTable *stbInfo) {
         } else {
             ret = generateSampleFromRand(
                 stbInfo->tagDataBuf, stbInfo->lenOfTags, stbInfo->tagCount,
-                stbInfo->tag_type, stbInfo->tag_length, stbInfo->childTblCount);
+                stbInfo->tag_type, stbInfo->tag_length, stbInfo->childTblCount,
+                stbInfo->iface);
         }
         if (ret) {
             tmfree(stbInfo->sampleDataBuf);
@@ -649,8 +651,8 @@ int prepareSampleDataWithStb(SSuperTable *stbInfo) {
 }
 
 int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
-                           char *data_type, int32_t *data_length,
-                           int64_t size) {
+                           char *data_type, int32_t *data_length, int64_t size,
+                           uint16_t iface) {
     for (int64_t i = 0; i < size; i++) {
         int32_t pos = i * lenOfOneRow;
         for (int c = 0; c < count; c++) {

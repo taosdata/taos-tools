@@ -2081,7 +2081,7 @@ int insertTestProcess() {
         g_sampleDataBuf = calloc(1, g_args.lenOfCols * g_args.prepared_rand);
         generateSampleFromRand(g_sampleDataBuf, g_args.lenOfCols,
                                g_args.columnCount, g_args.col_type,
-                               g_args.col_length, g_args.prepared_rand);
+                               g_args.col_length, g_args.prepared_rand, g_args.iface);
         debugPrint("g_sampleDataBuf: %s\n", g_sampleDataBuf);
         if (startMultiThreadInsertData(g_args.nthreads, g_args.database, "ms",
                                        NULL)) {
