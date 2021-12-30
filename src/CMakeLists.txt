@@ -121,9 +121,20 @@ ELSE ()
 ENDIF ()
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    SET(OS_ID "")
     ADD_EXECUTABLE(taosdump taosdump.c)
     ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchOutput.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c)
-    TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+    execute_process (
+        COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+        OUTPUT_VARIABLE OS_ID
+    )
+    MESSAGE(DEBUG "Linux os ID: ${OD_ID}")
+    IF (${OS_ID} MATCHES "alpine")
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
+    ELSE()
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+    ENDIF()
+
     target_link_libraries(taosBenchmark taos pthread cJsonDemo)
     IF (${BUILD_TYPE} MATCHES "Debug")
         ADD_LIBRARY(taosbench SHARED benchMain.c benchSubscribe.c benchQuery.c benchOutput.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c)

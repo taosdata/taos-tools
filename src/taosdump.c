@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
-#include <error.h>
+// #include <error.h>
 #include <inttypes.h>
 #include <argp.h>
 #include <dirent.h>
@@ -32,6 +32,7 @@
 #include <assert.h>
 #include <termios.h>
 #include <sys/time.h>
+#include <limits.h>
 
 #include "taos.h"
 #include "taosdef.h"
@@ -6215,11 +6216,7 @@ int main(int argc, char *argv[]) {
     argp_parse(&argp, argc, argv, 0, 0, &g_args);
 
     if (g_args.abort) {
-#ifndef _ALPINE
-        error(10, 0, "ABORTED");
-#else
         abort();
-#endif
     }
 
     printf("====== arguments config ======\n");
