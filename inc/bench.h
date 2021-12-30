@@ -41,7 +41,6 @@
 #endif
 
 #include <assert.h>
-#include <bits/time.h>
 #include <cJSONDEMO.h>
 #include <ctype.h>
 #include <errno.h>
