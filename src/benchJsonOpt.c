@@ -816,7 +816,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 if (childTbl_limit->type != cJSON_Number) {
                     errorPrint("%s", "failed to read json, childtable_limit\n");
                     goto PARSE_OVER;
-                } else if (childTbl_limit->valueint < 0) {
+                } else if (childTbl_limit->valueint <= 0) {
                     infoPrint("childTbl_limit(%" PRId64
                               ") less than 0, ignore it and set to "
                               "%" PRId64 "\n",

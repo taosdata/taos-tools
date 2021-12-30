@@ -1,4 +1,4 @@
-name: taos-tools
+name: CI
 
 on:
   push:
