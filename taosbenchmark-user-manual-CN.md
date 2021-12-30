@@ -6,9 +6,11 @@
 
 ##### taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。
 
+##### 原为taosdemo，现在更名为taosBenchmark，并且安装包也提供了作为 taosBenchmark 软连接的 taosdemo。
+
 ### taosBenchmark 命令行参数：
 
--c:：配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。缺省值路径是 "/etc/taos"
+-c：配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。缺省值路径是 "/etc/taos"
 
 -h：连接taosd服务的FQDN。缺省值为localhost。
 
@@ -64,7 +66,7 @@
 
 -R：若插入数据时间戳乱序比例不为0时，规定乱序的时间戳范围，单位为毫秒(ms)。缺省值为1000。
 
--a：指定创建数据库时副本的个数，缺省值为0。
+-a：指定创建数据库时副本的个数，缺省值为1。
 
 -V：打印taosBenchmark的版本信息。
 
@@ -72,7 +74,7 @@
 
 ### taosBenchmark json配置文件：
 
-##### -f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，必选项。
+##### -f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
 
 ##### taosBenchmark支持三种格式的json配置文件，分别为写入，查询与订阅：
 
@@ -119,7 +121,6 @@
         "childtable_count": 100,
         "childtable_prefix": "stb_",
         "escape_character": "yes",
-        "auto_create_table": "no",
         "batch_create_tbl_num": 5,
         "data_source": "rand",
         "insert_mode": "taosc",
@@ -149,13 +150,15 @@
 
 "cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
 
-"host": taosd服务的FQDN。可选项，缺省是“localhost“。
+"host": taosd服务的FQDN。可选项，缺省是"localhost"。
 
 "port": taosd服务的端口号。可选项，缺省是6030。
 
-"user": 用户名。可选项，缺省是“root“。
+"user": 用户名。可选项，缺省是"root"。
 
-"password": 密码。可选项，缺省是“taosdata"。
+"password": 密码。可选项，缺省是"taosdata"。
+
+"thread_pool_count": 插入
 
 "thread_count": 插入数据和建表时的并发线程数。可选项，缺省是8。
 
@@ -171,15 +174,15 @@
 
 "prepared_rand": 随机生成的数据的个数，取值范围为大于1的正整数，缺省值为10000。调小可以控制taosBenchmark占用内存。
 
-"chinese": 随机生成的nchar或者binary的内容是否为中文，可选项"yes" 和 “no”, 默认为“no”
+"chinese": 随机生成的nchar或者binary的内容是否为中文，可选项"yes" 和 "no", 默认为"no"
 
 "databases": [{
 
-"dbinfo": { ​ 
+"dbinfo": { 
 
 "name": 数据库名称。必选项。
 
-"drop": 如果数据库已经存在，”yes“：删除后重建；”no“：不删除，直接使用。可选项，缺省是”yes“。
+"drop": 如果数据库已经存在，"yes"：删除后重建；"no"：不删除，直接使用。可选项，缺省是"yes"。
 
 "replica": 副本个数，可选项。1 - 3，缺省是1。
 
@@ -189,7 +192,7 @@
 
 "blocks": 每个VNODE（TSDB）中有多少cache大小的内存块，可选项。缺省是6块。
 
-"precision": 数据库时间精度，可选项。"ms"：毫秒， “us”：微秒。"ns": 纳秒。缺省是“ms”。
+"precision": 数据库时间精度，可选项。"ms"：毫秒， “us”：微秒。"ns": 纳秒。缺省是"ms"。
 
 "keep": 数据保留的天数，可选项。缺省是3650天。
 
@@ -197,39 +200,39 @@
 
 "maxRows": 文件块中记录的最大条数，可选项。缺省是4096.
 
-"comp":文件压缩标志位，可选项。0：关闭，1:一阶段压缩，2:两阶段压缩。缺省是2。
+"comp": 文件压缩标志位，可选项。0：关闭，1:一阶段压缩，2:两阶段压缩。缺省是2。
 
-"walLevel":WAL级别，可选项。1：写wal, 但不执行fsync; 2：写wal, 而且执行fsync。缺省是1。
+"walLevel": WAL级别，可选项。1：写wal, 但不执行fsync; 2：写wal, 而且执行fsync。缺省是1。
 
-"cachelast":允许在内存中保留每张表的最后一条记录。1表示允许。
+"cachelast": 允许在内存中保留每张表的最后一条记录。1表示允许。
 
-"quorum":异步写入成功所需应答之法定数，1-3，可选项。缺省是1。
+"quorum": 异步写入成功所需应答之法定数，1-3，可选项。缺省是1。
 
-"fsync":当wal设置为2时，执行fsync的周期，单位是毫秒，最小为0，表示每次写入，立即执行fsync. 最大为180000，可选项。缺省是3000。
+"fsync": 当wal设置为2时，执行fsync的周期，单位是毫秒，最小为0，表示每次写入，立即执行fsync. 最大为180000，可选项。缺省是3000。
 
-"update": 支持数据更新，0：否；1：是。可选项。缺省是0。 ​ },
+"update": 支持数据更新，0：否；1：是。可选项。缺省是0。 },
 
-"super_tables": [{ ​ 
+"super_tables": [{
 
 "name": 超级表名称，必选项。
 
-"child_table_exists": 子表是否已经存在，“yes”：是；"no"：否。指定“是”后，不再建子表，后面相关子表的参数就无效了。可选项，缺省是“no”。database 设置 drop = yes 时，无论配置文件内容，此参数将自动置为 no。
+"child_table_exists": 子表是否已经存在，"yes"：是；"no"：否。指定"是"后，不再建子表，后面相关子表的参数就无效了。可选项，缺省是"no"。database 设置 drop = yes 时，无论配置文件内容，此参数将自动置为 no。
 
-"childtable_count": 建立子表个数 。该值需要大于0。当child_table_exists为“no”时，必选项，否则就是无效项。
+"childtable_count": 建立子表个数 。该值需要大于0。当child_table_exists为"no"时，必选项，否则就是无效项。
 
-"childtable_prefix": 子表名称前缀。当child_table_exists为“no”时，必选项，否则就是无效项。确保数据库中表名没有重复。
+"childtable_prefix": 子表名称前缀。当child_table_exists为"no"时，必选项，否则就是无效项。确保数据库中表名没有重复。
 
 "escape_character": 子表名是否包含转义字符。"yes": 包含; "no": 不包含。可选项，缺省是"no"。
 
 "batch_create_tbl_num": 一个sql批量创建子表的数目。
 
-"data_source": 插入数据来源，"rand"：实例随机生成；“sample”：从样例文件中读取。可选项。缺省是“rand”。
+"data_source": 插入数据来源，"rand"：实例随机生成；"sample"：从样例文件中读取，近当insert_mode为taosc和rest时有效。可选项。缺省是"rand"。
 
-"insert_mode": 插入数据接口，"taosc"：调用TDengine的c接口；“rest”：使用restful接口；“stmt”：使用 stmt （参数绑定）接口; "sml": 使用schemaless 。可选项。缺省是“taosc”。
+"insert_mode": 插入数据接口，"taosc"：调用TDengine的c接口；"rest"：使用restful接口；"stmt"：使用 stmt （参数绑定）接口; "sml": 使用schemaless 。可选项。缺省是“taosc”。
 
 "line_protocol": 只有在insert_mode为sml时生效，可选项为"line", "telnet", "json", 默认为"line"。
 
-"insert_rows": 插入记录数，0：一直插入，永不退出；>0：每个子表插入记录数，完成后实例退出。可选项，缺省是0。
+"insert_rows": 插入记录数，0：不插入数据，只建表；>0：每个子表插入记录数，完成后实例退出。可选项，缺省是0。
 
 "childtable_offset": 插入数据时，子表起始值。只在drop=no && child_table_exists= yes，该字段生效。
 
@@ -249,9 +252,9 @@
 
 "sample_format": 当插入数据源选择“sample”时，sample文件的格式，"csv"：csv格式，每列的值与子表的columns保持一致，但不包含第1列的时间戳。可选项，缺省是”csv”。目前仅仅支持csv格式的sample文件。
 
-"sample_file":sample文件，包含路径和文件名。当插入数据源选择“sample”时，该项为必选项。
+"sample_file": sample文件，包含路径和文件名。当插入数据源选择“sample”时，该项为必选项。
 
-"use_sample_ts":sample文件是否包含第一列时间戳，可选项: "yes" 和 "no", 若为"yes"，则插入数据量为sample文件内数据量，默认 "no"。
+"use_sample_ts": sample文件是否包含第一列时间戳，可选项: "yes" 和 "no", 若为"yes"，则插入数据量为sample文件内数据量，默认 "no"。
 
 "tags_file": 子表tags值文件，只能是csv文件格式，且必须与超级表的tags保持一致。当该项为非空时，表示子表的tags值从文件中获取；为空时，实例随机生成。可选项，缺省是空。
 
@@ -263,7 +266,7 @@
 
 "len": 该列的长度，只有type是BINARY或NCHAR时有效，可选项，缺省值是8。
 
-"count":该类型的连续列个数，可选项，缺省是1。
+"count": 该类型的连续列个数，可选项，缺省是1。
 
 }],
 
@@ -275,7 +278,7 @@
 
 "len": 该列的长度，只有type是BINARY或NCHAR时有效，可选项，缺省值是8。
 
-"count":该类型的连续列个数，可选项，缺省是1。
+"count": 该类型的连续列个数，可选项，缺省是1。
 
 ##### 注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度
 
@@ -448,7 +451,7 @@
 
 "keepProgress": 保留订阅信息进度。yes表示保留订阅信息，no表示不保留。该值为yes，restart为no时，才能继续之前的订阅。
 
-"resubAfterConsume":  配合 keepProgress 使用，在订阅消费了相应次数后调用 unsubscribe 取消订阅并再次订阅。
+"resubAfterConsume": 配合 keepProgress 使用，在订阅消费了相应次数后调用 unsubscribe 取消订阅并再次订阅。
 
 "sql": 查询语句。必选项。
 
@@ -468,7 +471,7 @@
 
 "keepProgress": 保留订阅信息进度。yes表示保留订阅信息，no表示不保留。该值为yes，restart为no时，才能继续之前的订阅。
 
-"resubAfterConsume":  配合 keepProgress 使用，在订阅消费了相应次数后调用 unsubscribe 取消订阅并再次订阅。
+"resubAfterConsume": 配合 keepProgress 使用，在订阅消费了相应次数后调用 unsubscribe 取消订阅并再次订阅。
 
 "sql": " select count(*) from xxxx "。查询语句，其中表名必须写成 “xxxx”，实例会自动替换成子表名。
 
