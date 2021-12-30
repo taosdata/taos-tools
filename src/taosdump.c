@@ -6310,6 +6310,8 @@ int main(int argc, char *argv[]) {
     time_t tTime = time(NULL);
     struct tm tm = *localtime(&tTime);
 
+    taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
+
     if (g_args.isDumpIn) {
         fprintf(g_fpOfResult, "============================== DUMP IN ============================== \n");
         fprintf(g_fpOfResult, "# DumpIn start time:                   %d-%02d-%02d %02d:%02d:%02d\n",
