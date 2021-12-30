@@ -43,7 +43,7 @@ function cp_rpm_package() {
             cd ..
         fi
         if test -e ${dirlist}; then
-            cp ${cur_dir}/${dirlist} ${output_dir}/taos-tools-${taos_tools_ver}.rpm
+            cp ${cur_dir}/${dirlist} ${output_dir}/taosTools-${taos_tools_ver}.rpm
         fi
     done
 }
@@ -63,10 +63,10 @@ ${csudo} rpmbuild --define="_version ${taos_tools_ver}" --define="_topdir ${pkg_
 cp_rpm_package ${pkg_dir}/RPMS
 
 
-rpmname="taos-tools-"${taos_tools_ver}-${osType}-${cpuType}
+rpmname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
 
 if [ "$verType" == "beta" ]; then
-  rpmname="taos-tools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".rpm"
+  rpmname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".rpm"
 elif [ "$verType" == "stable" ]; then
   rpmname=${rpmname}".rpm"
 else
@@ -74,7 +74,7 @@ else
   exit 1
 fi
 
-mv ${output_dir}/taos-tools-${taos_tools_ver}.rpm ${output_dir}/${rpmname}
+mv ${output_dir}/taosTools-${taos_tools_ver}.rpm ${output_dir}/${rpmname}
 
 cd ..
 ${csudo} rm -rf ${pkg_dir}
