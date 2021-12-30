@@ -5013,6 +5013,7 @@ static int checkParam() {
 
     if ((!g_args.isDumpIn)
             && (!g_args.databases)
+            && (!g_args.all_databases)
             && (0 == g_args.arg_list_len)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
