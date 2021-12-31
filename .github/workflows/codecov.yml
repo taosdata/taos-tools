@@ -28,6 +28,11 @@ jobs:
           path: 'TDengine'
           ref: 'develop'
 
+      - name: Change time zone
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          sudo date
+
       - name: Install packages
         run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev
 
@@ -72,7 +77,7 @@ jobs:
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py
-          python3 test.py -f tools/taosdumpTestNanoSupport.py
+
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py

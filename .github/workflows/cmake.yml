@@ -32,8 +32,8 @@ jobs:
 
       - name: Change time zone
         run: |
-          export TZ=Asia/Shanghai
-          date
+          sudo timedatectl set-timezone Asia/Shanghai
+          sudo date
 
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
@@ -80,12 +80,11 @@ jobs:
           python3 test.py -f tools/taosdemoTestSampleData.py
           python3 test.py -f tools/taosdemoTestInterlace.py
           python3 test.py -f tools/taosdemoTestQuery.py
-          python3 ./test.py -f tools/taosdemoTestdatatype.py
+          python3 test.py -f tools/taosdemoTestdatatype.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py
-          python3 test.py -f tools/taosdumpTestNanoSupport.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py
@@ -99,11 +98,25 @@ jobs:
       - name: System Test
         run: |
           cd TDengine/tests/system-test
-          for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
-          for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+
+          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
 
       - name: Develop Test
         run: |
           cd TDengine/tests/develop-test
-          for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
-          for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+
+          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
