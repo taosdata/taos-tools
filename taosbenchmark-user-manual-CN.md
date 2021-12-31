@@ -4,6 +4,7 @@
 taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。原为taosdemo，现在更名为taosBenchmark，并且安装包也提供了作为 taosBenchmark 软连接的 taosdemo。
 
 ### taosBenchmark 命令行参数：
+```
 
 -f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
 
@@ -69,9 +70,11 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 
 --help：打印命令行参数介绍。
 
+```
+
 ### taosBenchmark json配置文件：
 
-#### 一、写入性能测试json配置文件：
+#### 写入性能测试json配置文件：
 
 ```json
 {
@@ -137,7 +140,10 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
       }]
 }
 ```
+
 #### 参数说明：
+
+``` json
 
 "filetype": taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
 
@@ -273,10 +279,9 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 
 "count": 该类型的连续列个数，可选项，缺省是1。
 
-##### 注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度
-
 }]
-
+```
+**注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度**
 
 
 #### 二、查询性能测试json配置文件：
@@ -321,6 +326,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 }
 ```
 #### 参数说明：
+```json
 
 "filetype": 本taosBenchmark实例进行哪种功能测试。"query"表示数据查询功能。必选项。
 
@@ -366,10 +372,10 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 
 "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。
 
-##### 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
+```
+**注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。**
 
-##### 查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。
-
+**查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。**
 
 
 #### 三、订阅性能测试json文件配置：
@@ -415,6 +421,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 }
 ```
 #### 参数说明：
+```json
 
 "filetype": 本taosBenchmark实例进行哪种功能测试。"subscribe"表示数据查询功能。必选项。
 
@@ -469,4 +476,4 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 "sql": " select count(*) from xxxx "。查询语句，其中表名必须写成 “xxxx”，实例会自动替换成子表名。
 
  "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
-
+```
