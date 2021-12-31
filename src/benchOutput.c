@@ -277,8 +277,6 @@ void printHelp() {
            "Table prefix name. By default use 'd'.");
     printf("%s%s%s%s\n", indent, "-E, --escape-character", "\t",
            "Use escape character for Both Stable and normmal table name");
-    printf("%s%s%s%s\n", indent, "-pressure", "\t",
-           "Use taosbenchmark pressure mode");
     printf("%s%s%s%s\n", indent, "-C, --chinese", "\t",
            "Use chinese characters as the data source for binary/nchar data");
     printf("%s%s%s%s\n", indent, "-s, --sql-file=FILE", "\t\t",
@@ -330,14 +328,10 @@ void printHelp() {
            "is in order.");
     printf("%s%s%s%s\n", indent, "-R, --disorder-range=NUMBER", "\t",
            "Out of order data's range. Unit is ms. By default is 1000.");
-    printf("%s%s%s%s\n", indent, "-g, --debug", "\t\t\t", "Print debug info.");
     printf("%s%s%s%s\n", indent, "-?, --help\t", "\t\t", "Give this help list");
     printf("%s%s%s%s\n", indent, "    --usage\t", "\t\t",
            "Give a short usage message");
     printf("%s%s\n", indent, "-V, --version\t\t\tPrint program version.");
-    /*    printf("%s%s%s%s\n", indent, "-D", indent,
-          "Delete database if exists. 0: no, 1: yes, default is 1");
-          */
     printf(
         "\nMandatory or optional arguments to long options are also mandatory or optional\n\
 for any corresponding short options.\n\
