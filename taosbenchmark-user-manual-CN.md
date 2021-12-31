@@ -1,12 +1,7 @@
-### taosBenchmark是TDengine进行性能测试的工具应用程序。
+## taosBenchmark
 
-##### taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。
-
-##### taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。
-
-##### taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。
-
-##### 原为taosdemo，现在更名为taosBenchmark，并且安装包也提供了作为 taosBenchmark 软连接的 taosdemo。
+### 简介
+taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。原为taosdemo，现在更名为taosBenchmark，并且安装包也提供了作为 taosBenchmark 软连接的 taosdemo。
 
 ### taosBenchmark 命令行参数：
 
@@ -32,7 +27,7 @@
 
 -B：子表交错写入的行数，若为0，则按子表顺序依次写入，缺省值为0。
 
--r：每条插入请求包含的记录条数，等同于批次数，缺省值为10000。
+-r：每条插入请求包含的记录条数，等同于批次数，缺省值为30000。
 
 -t：子表的个数，缺省值为10000。
 
@@ -75,8 +70,6 @@
 ### taosBenchmark json配置文件：
 
 ##### -f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
-
-##### taosBenchmark支持三种格式的json配置文件，分别为写入，查询与订阅：
 
 #### 一、写入性能测试json配置文件：
 
@@ -170,7 +163,7 @@
 
 "interlace_rows": 设置轮询插入每个单表数据的条目数，可选项，缺省是0。
 
-"num_of_records_per_req": 每条请求数据内容包含的插入数据记录数目，可选项，缺省值为10000。
+"num_of_records_per_req": 每条请求数据内容包含的插入数据记录数目，可选项，缺省值为30000。
 
 "prepared_rand": 随机生成的数据的个数，取值范围为大于1的正整数，缺省值为10000。调小可以控制taosBenchmark占用内存。
 
