@@ -5702,8 +5702,8 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
     int64_t count = 0;
     while(NULL != (row = taos_fetch_row(result))) {
         int32_t *length = taos_fetch_lengths(result);
-        char tbName[TSDB_SHOW_TABLES_NAME_INDEX+1];
-        char stbName[TSDB_SHOW_TABLES_NAME_INDEX+1];
+        char tbName[TSDB_TABLE_NAME_LEN+1];
+        char stbName[TSDB_TABLE_NAME_LEN+1];
         strncpy(tbName,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                 min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
