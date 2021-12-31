@@ -28,6 +28,11 @@ jobs:
           path: 'TDengine'
           ref: 'develop'
 
+      - name: Change time zone
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          sudo date
+
       - name: Install packages
         run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev
 

@@ -32,8 +32,8 @@ jobs:
 
       - name: Change time zone
         run: |
-          export TZ=Asia/Shanghai
-          date
+          sudo timedatectl set-timezone Asia/Shanghai
+          sudo date
 
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
