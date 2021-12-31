@@ -5,6 +5,8 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 
 ### taosBenchmark 命令行参数：
 
+-f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
+
 -c：配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。缺省值路径是 "/etc/taos"
 
 -h：连接taosd服务的FQDN。缺省值为localhost。
@@ -68,8 +70,6 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 --help：打印命令行参数介绍。
 
 ### taosBenchmark json配置文件：
-
-##### -f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
 
 #### 一、写入性能测试json配置文件：
 
