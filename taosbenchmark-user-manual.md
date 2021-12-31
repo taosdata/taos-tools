@@ -6,7 +6,7 @@
 
 | Option Name                                          | Description                                                  |
 | :--------------------------------------------------- | ------------------------------------------------------------ |
-| [-f/--file](# taosBenchmark json configuration file) | json configuration file                                      |
+| [-f/--file](#taosBenchmark-json-configuration-file) | json configuration file                                      |
 | -c/--config-dir                                      | The directory where the config file in, the default path is /etc/taos/ |
 | -h/--host                                            | FQDN used to connect taosd server, the default value is localhost |
 | -P/--port                                            | port number used to connect taosd server, the default value is 6030 |
@@ -15,26 +15,26 @@
 | -p/--password                                        | password used to connect taosd server, the default value is taosdata |
 | -o/--ouput                                           | specify the path of the result output file, the default value is ./output.txt |
 | -T/--threads                                         | specify the number of thread to insert data, the default value is 8 |
-| [-i/--insert-interval](# -i/--insert-interval)       | the insert interval for interlace insert mode, unit is ms, default value is 0 |
+| [-i/--insert-interval](#-i/--insert-interval)       | the insert interval for interlace insert mode, unit is ms, default value is 0 |
 | -S/--time-step                                       | insert timestamp step for each record in each sub-table, unit is ms, the default value is 1 |
-| [-B/--interlace-rows](# -B/--interlace-rows)         | the number of interlaced row insert into child tables        |
+| [-B/--interlace-rows](#-B/--interlace-rows)         | the number of interlaced row insert into child tables        |
 | -r/--rec-per-req                                     | the number of records in each insert request, the default value is 30000 |
 | -t/--tables                                          | the number of child tables, the default value is 10000       |
 | -n/--records                                         | the number of record inserted for each child tables, the default value is 10000 |
 | -d/--database                                        | the name of the database, the default value is test          |
-| [-l/--columns](# -l/--columns)                       | the number of columns in child tables, will use columns with int data type. |
-| [-A/--tag-type](# -A/--tag-type)                     | the data type of child tables' tags                          |
-| [-b/--data-type](# -b/--data-type)                   | the data type of child tables' columns                       |
+| [-l/--columns](#-l/--columns)                       | the number of columns in child tables, will use columns with int data type. |
+| [-A/--tag-type](#-A/--tag-type)                     | the data type of child tables' tags                          |
+| [-b/--data-type](#-b/--data-type)                   | the data type of child tables' columns                       |
 | -w/--binwidth                                        | the default length of nchar and binary data type, the default value is 64 |
 | -m/--table-prefix                                    | the prefix of child tables' name, the default value is d     |
 | -E/--escape-character                                | use escape character in stable and sub-table name, optional. |
 | -C/--chinese                                         | nchar and binary are basic unicode chinese characters, optional. |
-| [-N/--normal-table](# -N/--normal-table)             | only create normal table without super table, optional       |
+| [-N/--normal-table](#-N/--normal-table)             | only create normal table without super table, optional       |
 | -M/--random                                          | the data source is random, optional                          |
 | -x/--aggr-func                                       | query  aggregation function after insertion, optional        |
 | -y/--answer-yes                                      | pass confirmation prompt to continue, optional               |
 | [-R/--disorder-range](#-R/--disorder-range)          | the range of disorder timestamp, based on database's precision, the default value is 1000 |
-| [-O/--disorder](# -O/--disorder)                     | the ratio of inserting data with disorder timestamp, the default is 0 |
+| [-O/--disorder](#-O/--disorder)                     | the ratio of inserting data with disorder timestamp, the default is 0 |
 | -a/--replica                                         | the number of replica when create the database, the default value is 1 |
 | -V/--version                                         | display version information and exit                         |
 | -?/--help                                            | display help message and exit                                |
