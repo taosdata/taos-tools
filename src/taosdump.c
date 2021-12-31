@@ -3225,10 +3225,11 @@ static int dumpInAvroTbTagsImpl(
                                 if (NULL == bytesbuf) {
                                     debugPrint2("%s | ", "NULL");
                                     bind->is_null = &is_null;
+                                    bind->buffer_length = 0;
                                 } else {
                                     debugPrint2("%s | ", (char *)bytesbuf);
+                                    bind->buffer_length = strlen((char*)bytesbuf);
                                 }
-                                bind->buffer_length = strlen((char*)bytesbuf);
                                 bind->buffer = bytesbuf;
                             }
                             break;
@@ -6309,6 +6310,8 @@ int main(int argc, char *argv[]) {
 
     time_t tTime = time(NULL);
     struct tm tm = *localtime(&tTime);
+
+    taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 
     if (g_args.isDumpIn) {
         fprintf(g_fpOfResult, "============================== DUMP IN ============================== \n");
