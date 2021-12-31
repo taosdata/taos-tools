@@ -651,13 +651,6 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                 errorUnrecognized(argv[0], argv[i]);
                 goto end_parse_command;
             }
-        } else if (strcmp(argv[i], "-qt") == 0) {
-            if ((argc == i + 1) || (!isStringNumber(argv[i + 1]))) {
-                printHelp();
-                errorPrint("%s", "\n\t-qt need a number following!\n");
-                goto end_parse_command;
-            }
-            pg_args->query_times = atoi(argv[++i]);
         } else if ((0 == strncmp(argv[i], "-B", strlen("-B"))) ||
                    (0 == strncmp(argv[i], "--interlace-rows",
                                  strlen("--interlace-rows")))) {
@@ -836,10 +829,9 @@ int parse_args(int argc, char *argv[], SArguments *pg_args) {
                 pg_args->database = argv[++i];
             } else if (0 ==
                        strncmp(argv[i], "--database=", strlen("--database="))) {
-                pg_args->output_file =
-                    (char *)(argv[i] + strlen("--database="));
+                pg_args->database = (char *)(argv[i] + strlen("--database="));
             } else if (0 == strncmp(argv[i], "-d", strlen("-d"))) {
-                pg_args->output_file = (char *)(argv[i] + strlen("-d"));
+                pg_args->database = (char *)(argv[i] + strlen("-d"));
             } else if (strlen("--database") == strlen(argv[i])) {
                 if (argc == i + 1) {
                     errorPrintReqArg3(argv[0], "--database");
