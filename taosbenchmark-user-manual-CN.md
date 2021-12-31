@@ -157,8 +157,6 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 
 "password": 密码。可选项，缺省是"taosdata"。
 
-"thread_pool_count": 插入
-
 "thread_count": 插入数据和建表时的并发线程数。可选项，缺省是8。
 
 "result_file": 测试完成后结果保存文件。可选项，缺省是本实例启动目录下的"./output.txt"。
