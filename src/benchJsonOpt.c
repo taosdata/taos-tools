@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                                           SSuperTable *superTbls) {
@@ -76,7 +76,35 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                        __func__, __LINE__);
             goto PARSE_OVER;
         } else {
-            length = SMALL_BUFF_LEN;
+            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+                case TSDB_DATA_TYPE_BOOL:
+                case TSDB_DATA_TYPE_TINYINT:
+                case TSDB_DATA_TYPE_UTINYINT:
+                    length = sizeof(int8_t);
+                    break;
+                case TSDB_DATA_TYPE_SMALLINT:
+                case TSDB_DATA_TYPE_USMALLINT:
+                    length = sizeof(int16_t);
+                    break;
+                case TSDB_DATA_TYPE_INT:
+                case TSDB_DATA_TYPE_UINT:
+                    length = sizeof(int32_t);
+                    break;
+                case TSDB_DATA_TYPE_BIGINT:
+                case TSDB_DATA_TYPE_UBIGINT:
+                case TSDB_DATA_TYPE_TIMESTAMP:
+                    length = sizeof(int64_t);
+                    break;
+                case TSDB_DATA_TYPE_FLOAT:
+                    length = sizeof(float);
+                    break;
+                case TSDB_DATA_TYPE_DOUBLE:
+                    length = sizeof(double);
+                    break;
+                default:
+                    length = SMALL_BUFF_LEN;
+                    break;
+            }
         }
 
         for (int n = 0; n < count; ++n) {
@@ -240,6 +268,16 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         goto PARSE_OVER;
     }
 
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        g_args.nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        g_args.nthreads_pool = g_args.nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
+        goto PARSE_OVER;
+    }
+
     cJSON *gInsertInterval = cJSON_GetObjectItem(json, "insert_interval");
     if (gInsertInterval && gInsertInterval->type == cJSON_Number) {
         if (gInsertInterval->valueint < 0) {
@@ -282,16 +320,6 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 "mistake\n",
                 __func__, __LINE__);
             goto PARSE_OVER;
-        } else if (numRecPerReq->valueint > MAX_RECORDS_PER_REQ) {
-            printf("NOTICE: number of records per request value %" PRIu64
-                   " > %d\n\n",
-                   numRecPerReq->valueint, MAX_RECORDS_PER_REQ);
-            printf(
-                "        number of records per request value will be set to "
-                "%d\n\n",
-                MAX_RECORDS_PER_REQ);
-            prompt();
-            numRecPerReq->valueint = MAX_RECORDS_PER_REQ;
         }
         g_args.reqPerReq = (uint32_t)numRecPerReq->valueint;
     } else if (!numRecPerReq) {
@@ -633,7 +661,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                            strncasecmp(autoCreateTbl->valuestring, "no", 2)) {
                     db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
                 } else {
-                    db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
+                    db[i].superTbls[j].autoCreateTable = AUTO_CREATE_SUBTBL;
                 }
             } else if (!autoCreateTbl) {
                 db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
@@ -776,8 +804,20 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 if (childTbl_limit->type != cJSON_Number) {
                     errorPrint("%s", "failed to read json, childtable_limit\n");
                     goto PARSE_OVER;
+                } else if (childTbl_limit->valueint < 0) {
+                    infoPrint("childTbl_limit(%" PRId64
+                              ") less than 0, ignore it and set to "
+                              "%" PRId64 "\n",
+                              childTbl_limit->valueint,
+                              db[i].superTbls[j].childTblCount);
+                    db[i].superTbls[j].childTblLimit =
+                        db[i].superTbls[j].childTblCount;
+                } else {
+                    db[i].superTbls[j].childTblLimit = childTbl_limit->valueint;
                 }
-                db[i].superTbls[j].childTblCount = childTbl_limit->valueint;
+            } else {
+                db[i].superTbls[j].childTblLimit =
+                    db[i].superTbls[j].childTblCount;
             }
 
             cJSON *childTbl_offset =
@@ -991,9 +1031,6 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                     "failed to read json, insert_interval input mistake\n");
                 goto PARSE_OVER;
             }
-            if (!db[i].drop) {
-                continue;
-            }
 
             if (getColumnAndTagTypeFromInsertJsonFile(stbInfo,
                                                       &db[i].superTbls[j])) {
@@ -1080,6 +1117,31 @@ int getMetaFromQueryJsonFile(cJSON *json) {
         g_args.query_times = gQueryTimes->valueint;
     } else if (!gQueryTimes) {
         g_args.query_times = DEFAULT_QUERY_TIME;
+    } else {
+        errorPrint("%s", "failed to read json, query_times input mistake\n");
+        goto PARSE_OVER;
+    }
+
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        g_args.nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        g_args.nthreads_pool = g_args.nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
+        goto PARSE_OVER;
+    }
+
+    cJSON *respBuffer = cJSON_GetObjectItem(json, "response_buffer");
+    if (respBuffer && respBuffer->type == cJSON_Number) {
+        if (respBuffer->valueint <= 0) {
+            errorPrint("%s",
+                       "failed to read json, response_buffer input mistake\n");
+            goto PARSE_OVER;
+        }
+        g_args.response_buffer = respBuffer->valueint;
+    } else if (!respBuffer) {
+        g_args.response_buffer = RESP_BUF_LEN;
     } else {
         errorPrint("%s", "failed to read json, query_times input mistake\n");
         goto PARSE_OVER;

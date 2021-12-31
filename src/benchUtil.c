@@ -13,45 +13,45 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 void errorWrongValue(char *program, char *wrong_arg, char *wrong_value) {
     fprintf(stderr, "%s %s: %s is an invalid value\n", program, wrong_arg,
             wrong_value);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorUnrecognized(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: unrecognized options '%s'\n", program, wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorPrintReqArg(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: option requires an argument -- '%s'\n", program,
             wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorPrintReqArg2(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: option requires a number argument '-%s'\n", program,
             wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void errorPrintReqArg3(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: option '%s' requires an argument\n", program,
             wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
+    fprintf(stderr,
+            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
+            "information.\n");
 }
 
 void tmfclose(FILE *fp) {
@@ -227,7 +227,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
     int32_t code = taos_errno(res);
     if (code != 0) {
         taos_free_result(res);
-        taos_close(taos);
+
         errorPrint("failed to run command %s, reason: %s\n", command,
                    taos_errstr(res));
         return -1;
@@ -257,7 +257,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                 // exit, if allocate more memory failed
                 tmfree(childTblName);
                 taos_free_result(res);
-                taos_close(taos);
+
                 errorPrint(
                     "realloc fail for save child table name of "
                     "%s.%s\n",
@@ -279,27 +279,27 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                 char ** childTblNameOfSuperTbl,
                                 int64_t childTblCountOfSuperTbl) {
     char cmd[SQL_BUFF_LEN] = "\0";
-    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %"PRId64"", dbName, stbName, childTblCountOfSuperTbl);
+    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %" PRId64 "",
+             dbName, stbName, childTblCountOfSuperTbl);
     TAOS_RES *res = taos_query(taos, cmd);
     int32_t   code = taos_errno(res);
     int64_t   count = 0;
     if (code) {
-        errorPrint("failed to get child table name: %s. reason: %s",
-                   cmd, taos_errstr(res));
+        errorPrint("failed to get child table name: %s. reason: %s", cmd,
+                   taos_errstr(res));
         taos_free_result(res);
-        taos_close(taos);
+
         return -1;
     }
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         if (0 == strlen((char *)(row[0]))) {
-            errorPrint("No.%" PRId64 " table return empty name\n",
-                       count);
+            errorPrint("No.%" PRId64 " table return empty name\n", count);
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
-        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN,
-                     "`%s`", (char *)row[0]);
+        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
+                 (char *)row[0]);
         debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
                    childTblNameOfSuperTbl[count]);
         count++;
@@ -472,7 +472,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
     }
-    response_buf = calloc(1, RESP_BUF_LEN);
+    response_buf = calloc(1, g_args.response_buffer);
     if (NULL == response_buf) {
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
@@ -548,7 +548,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         sent += bytes;
     } while (sent < req_str_len);
 
-    resp_len = RESP_BUF_LEN - 1;
+    resp_len = g_args.response_buffer - 1;
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
@@ -563,11 +563,14 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes = read(pThreadInfo->sockfd, response_buf + received,
                      resp_len - received);
 #endif
+        debugPrint("receive %d bytes from server\n", bytes);
         if (bytes < 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
-        if (bytes == 0) break;
+        if (bytes == 0) {
+            break;
+        }
         received += bytes;
 
         if (strlen(response_buf)) {
@@ -585,13 +588,13 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         goto free_of_post;
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
-    }
-
     if (NULL == strstr(response_buf, resHttpOk)) {
         errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
+    }
+
+    if (strlen(pThreadInfo->filePath) > 0) {
+        appendResultBufToFile(response_buf, pThreadInfo);
     }
     code = 0;
 free_of_post:
@@ -653,7 +656,7 @@ char *taos_convert_datatype_to_string(int type) {
         case TSDB_DATA_TYPE_TIMESTAMP:
             return "timestamp";
         case TSDB_DATA_TYPE_TINYINT:
-            return "tinyiny";
+            return "tinyint";
         case TSDB_DATA_TYPE_UTINYINT:
             return "unsigned tinyint";
         case TSDB_DATA_TYPE_SMALLINT:
@@ -716,4 +719,44 @@ int taos_convert_string_to_datatype(char *type) {
     } else {
         return TSDB_DATA_TYPE_NULL;
     }
+}
+
+int init_taos_list(TAOS_POOL *pool, int size) {
+    pool->taos_list = calloc(size, sizeof(TAOS *));
+    pool->current = 0;
+    pool->size = size;
+    for (int i = 0; i < size; ++i) {
+        pool->taos_list[i] = taos_connect(g_args.host, g_args.user,
+                                          g_args.password, NULL, g_args.port);
+        if (pool->taos_list[i] == NULL) {
+            errorPrint("Failed to connect to TDengine, reason:%s\n",
+                       taos_errstr(NULL));
+            return -1;
+        }
+    }
+    return 0;
+}
+
+TAOS *select_one_from_pool(TAOS_POOL *pool, char *db_name) {
+    TAOS *taos = pool->taos_list[pool->current];
+    if (db_name != NULL) {
+        int code = taos_select_db(taos, db_name);
+        if (code) {
+            errorPrint("failed to select %s, reason: %s\n", db_name,
+                       tstrerror(code));
+            return NULL;
+        }
+    }
+    pool->current++;
+    if (pool->current >= pool->size) {
+        pool->current = 0;
+    }
+    return taos;
+}
+
+void cleanup_taos_list(TAOS_POOL *pool) {
+    for (int i = 0; i < pool->size; ++i) {
+        taos_close(pool->taos_list[i]);
+    }
+    tmfree(pool->taos_list);
 }

@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 int64_t        g_totalChildTables = DEFAULT_CHILDTABLES;
 int64_t        g_actualChildTables = 0;
 int64_t        g_autoCreatedChildTables = 0;
@@ -23,15 +23,14 @@ SDataBase *    db;
 SArguments     g_args;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
-bool           custom_col_num = false;
 cJSON *        root;
+TAOS_POOL      g_taos_pool;
 
 int main(int argc, char *argv[]) {
     init_g_args(&g_args);
     if (parse_args(argc, argv, &g_args)) {
         exit(EXIT_FAILURE);
     }
-
     if (g_args.metaFile) {
         g_totalChildTables = 0;
         if (getInfoFromJsonFile(g_args.metaFile)) {
