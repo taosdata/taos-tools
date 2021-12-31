@@ -282,7 +282,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 **注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度**
 
 
-#### 二、查询性能测试json配置文件：
+#### 查询性能测试json配置文件：
 
 ```json
 {
@@ -376,7 +376,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 **查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。**
 
 
-#### 三、订阅性能测试json文件配置：
+#### 订阅性能测试json文件配置：
 
 ```json
 {
