@@ -34,7 +34,7 @@
 | -x/--aggr-func                                       | query  aggregation function after insertion, optional        |
 | -y/--answer-yes                                      | pass confirmation prompt to continue, optional               |
 | [-R/--disorder-range](#-r--disorder-range)          | the range of disorder timestamp, based on database's precision, the default value is 1000 |
-| [-O/--disorder](#-o/--disorder)                     | the ratio of inserting data with disorder timestamp, the default is 0 |
+| [-O/--disorder](#-o--disorder)                     | the ratio of inserting data with disorder timestamp, the default is 0 |
 | -a/--replica                                         | the number of replica when create the database, the default value is 1 |
 | -V/--version                                         | display version information and exit                         |
 | -?/--help                                            | display help message and exit                                |
