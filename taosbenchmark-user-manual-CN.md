@@ -143,7 +143,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 
 #### 参数说明：
 
-``` json
+```
 
 "filetype": taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
 
@@ -324,7 +324,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 }
 ```
 #### 参数说明：
-```json
+```
 
 "filetype": 本taosBenchmark实例进行哪种功能测试。"query"表示数据查询功能。必选项。
 
@@ -419,7 +419,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 }
 ```
 #### 参数说明：
-```json
+```
 
 "filetype": 本taosBenchmark实例进行哪种功能测试。"subscribe"表示数据查询功能。必选项。
 
