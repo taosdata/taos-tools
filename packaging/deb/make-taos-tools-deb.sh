@@ -53,10 +53,10 @@ fi
 cp -r ${top_dir}/src/kit/taos-tools/packaging/deb/DEBIAN        ${pkg_dir}/
 chmod 755 ${pkg_dir}/DEBIAN/*
 
-debname="taos-tools-"${taos_tools_ver}-${osType}-${cpuType}
+debname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
 
 if [ "$verType" == "beta" ]; then
-  debname="taos-tools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".deb"
+  debname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".deb"
 elif [ "$verType" == "stable" ]; then
   debname=${debname}".deb"
 else

@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     if (0 == strncasecmp(g_queryInfo.queryMode, "taosc", strlen("taosc"))) {
@@ -49,23 +49,12 @@ void *specifiedTableQuery(void *sarg) {
     prctl(PR_SET_NAME, "specTableQuery");
     if (pThreadInfo->taos == NULL) {
         TAOS *taos = NULL;
-        taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
-                            g_queryInfo.password, NULL, g_queryInfo.port);
+        taos = select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
         if (taos == NULL) {
-            errorPrint("[%d] Failed to connect to TDengine, reason:%s\n",
-                       pThreadInfo->threadID, taos_errstr(NULL));
             goto end_of_specified_query;
         } else {
             pThreadInfo->taos = taos;
         }
-    }
-
-    char sqlStr[TSDB_DB_NAME_LEN + 5];
-    sprintf(sqlStr, "use %s", g_queryInfo.dbName);
-    if (0 != queryDbExec(pThreadInfo->taos, sqlStr, NO_INSERT_TYPE, false)) {
-        taos_close(pThreadInfo->taos);
-        errorPrint("use database %s failed!\n\n", g_queryInfo.dbName);
-        goto end_of_specified_query;
     }
 
     uint64_t st = 0;
@@ -135,17 +124,9 @@ void *superTableQuery(void *sarg) {
 
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     prctl(PR_SET_NAME, "superTableQuery");
+    pThreadInfo->taos = select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
     if (pThreadInfo->taos == NULL) {
-        TAOS *taos = NULL;
-        taos = taos_connect(g_queryInfo.host, g_queryInfo.user,
-                            g_queryInfo.password, NULL, g_queryInfo.port);
-        if (taos == NULL) {
-            errorPrint("[%d] Failed to connect to TDengine, reason:%s\n",
-                       pThreadInfo->threadID, taos_errstr(NULL));
-            goto free_of_super_query;
-        } else {
-            pThreadInfo->taos = taos;
-        }
+        goto free_of_super_query;
     }
 
     uint64_t st = 0;
@@ -160,10 +141,7 @@ void *superTableQuery(void *sarg) {
         if (g_queryInfo.superQueryInfo.queryInterval &&
             (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval) {
             taosMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval -
-                                 (et - st)));  // ms
-            // printf("========sleep duration:%"PRId64 "========inserted
-            // rows:%d, table range:%d - %d\n", (1000 - (et - st)), i,
-            // pThreadInfo->start_table_from, pThreadInfo->end_table_to);
+                                 (et - st)));
         }
 
         st = taosGetTimestampMs();
@@ -210,13 +188,11 @@ free_of_super_query:
 
 int queryTestProcess() {
     printfQueryMeta();
-    TAOS *taos = NULL;
-    taos =
-        taos_connect(g_queryInfo.host, g_queryInfo.user, g_queryInfo.password,
-                     g_queryInfo.dbName, g_queryInfo.port);
+    if (init_taos_list(&g_taos_pool, g_args.nthreads_pool)) {
+        return -1;
+    }
+    TAOS *taos = select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
     if (taos == NULL) {
-        errorPrint("Failed to connect to TDengine, reason:%s\n",
-                   taos_errstr(NULL));
         return -1;
     }
 
@@ -230,7 +206,7 @@ int queryTestProcess() {
             errorPrint("failed to count child table name: %s. reason: %s\n",
                        cmd, taos_errstr(res));
             taos_free_result(res);
-            taos_close(taos);
+
             return -1;
         }
         TAOS_ROW    row = NULL;
@@ -353,7 +329,7 @@ int queryTestProcess() {
 
     tmfree((char *)pids);
     tmfree((char *)infos);
-    taos_close(taos);
+
 
     pthread_t * pidsOfSub = NULL;
     threadInfo *infosOfSub = NULL;
@@ -453,7 +429,7 @@ int queryTestProcess() {
         return -1;
     }
 
-    //  taos_close(taos);// workaround to use separate taos connection;
+    //  // workaround to use separate taos connection;
     uint64_t endTs = taosGetTimestampMs();
 
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +

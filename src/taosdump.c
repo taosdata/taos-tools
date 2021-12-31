@@ -24,7 +24,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/prctl.h>
-#include <error.h>
+// #include <error.h>
 #include <inttypes.h>
 #include <argp.h>
 #include <dirent.h>
@@ -32,32 +32,29 @@
 #include <assert.h>
 #include <termios.h>
 #include <sys/time.h>
-
+#include <limits.h>
 
 #include "taos.h"
 #include "taosdef.h"
 #include "taoserror.h"
 
+#include <avro.h>
+#include <jansson.h>
+
+#define MAX_FILE_NAME_LEN       256             // max file name length on linux is 255
+#define MAX_PATH_LEN            4096            // max path length on linux is 4095
+#define COMMAND_SIZE            65536
+#define MAX_RECORDS_PER_REQ     32766
 
 static char    **g_tsDumpInSqlFiles     = NULL;
 static char      g_tsCharset[63] = {0};
-static char      *g_configDir = "/etc/taos";
-
-#include <avro.h>
-#include <jansson.h>
+static char      g_configDir[MAX_FILE_NAME_LEN] = "/etc/taos";
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
 
 static void print_json_aux(json_t *element, int indent);
-
-#define TSDB_SUPPORT_NANOSECOND 1
-
-#define MAX_FILE_NAME_LEN       256             // max file name length on linux is 255
-#define MAX_PATH_LEN            4096            // max path length on linux is 4095
-#define COMMAND_SIZE            65536
-#define MAX_RECORDS_PER_REQ     32766
 
 // for tstrncpy buffer overflow
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -357,36 +354,26 @@ static struct argp_option options[] = {
     // connection option
     {"host", 'h', "HOST",    0,  "Server host dumping data from. Default is localhost.", 0},
     {"user", 'u', "USER",    0,  "User name used to connect to server. Default is root.", 0},
-#ifdef _TD_POWER_
-    {"password", 'p', 0,    0,  "User password to connect to server. Default is powerdb.", 0},
-#else
     {"password", 'p', 0,    0,  "User password to connect to server. Default is taosdata.", 0},
-#endif
     {"port", 'P', "PORT",        0,  "Port to connect", 0},
     // input/output file
     {"outpath", 'o', "OUTPATH",     0,  "Output file path.", 1},
     {"inpath", 'i', "INPATH",      0,  "Input file path.", 1},
     {"resultFile", 'r', "RESULTFILE",  0,  "DumpOut/In Result file path and name.", 1},
-#ifdef _TD_POWER_
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/power/taos.cfg.", 1},
-#else
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos/taos.cfg.", 1},
-#endif
-    {"encode", 'e', "ENCODE", 0,  "Input file encoding.", 1},
+    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos", 1},
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,  "Dump inputted databases. Use comma to separate databases\' name.", 2},
     {"allow-sys",   'a', 0, 0,  "Allow to dump system database", 2},
     // dump format options
-    {"schemaonly", 's', 0, 0,  "Only dump schema.", 2},
-    {"without-property", 'N', 0, 0,  "Dump schema without properties.", 2},
+    {"schemaonly", 's', 0, 0,  "Only dump tables' schema.", 2},
+    {"without-property", 'N', 0, 0,  "Dump database without its properties.", 2},
     {"answer-yes", 'y', 0, 0,  "Input yes for prompt. It will skip data file checking!", 3},
     {"avro-codec", 'd', "snappy", 0,  "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
     {"start-time",    'S', "START_TIME",  0,  "Start time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",  8},
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
-    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data point per insert statement. Default value is 16384.", 10},
-    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
-    {"table-batch", 't', "TABLE_BATCH", 0,  "Number of table dumpout into one output file. Default is 1.", 10},
+    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement. Default value is 16384.", 10},
+//    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread_num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -406,7 +393,6 @@ typedef struct arguments {
     char     inpath[MAX_FILE_NAME_LEN];
     // result file
     char    *resultFile;
-    char    *encode;
     // dump unit option
     bool     all_databases;
     bool     databases;
@@ -425,7 +411,6 @@ typedef struct arguments {
 
     int32_t  data_batch;
     int32_t  max_sql_len;
-    int32_t  table_batch; // num of table which will be dump into one output file.
     bool     allow_sys;
     // other options
     int32_t  thread_num;
@@ -452,17 +437,12 @@ struct arguments g_args = {
     // connection option
     NULL,
     "root",
-#ifdef _TD_POWER_
-    "powerdb",
-#else
     "taosdata",
-#endif
     0,          // port
     // outpath and inpath
     "",
     "",
-    "./dump_result.txt",
-    NULL,
+    "./dump_result.txt", // result_file
     // dump unit option
     false,      // all_databases
     false,      // databases
@@ -480,7 +460,6 @@ struct arguments g_args = {
     "ms",       // precision
     MAX_RECORDS_PER_REQ / 2,    // data_batch
     TSDB_MAX_SQL_LEN,   // max_sql_len
-    1,          // table_batch
     false,      // allow_sys
     // other options
     8,          // thread_num
@@ -824,10 +803,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             tstrncpy(g_configDir, full_path.we_wordv[0], MAX_FILE_NAME_LEN);
             wordfree(&full_path);
             break;
-        case 'e':
-            g_args.encode = arg;
-            break;
-            // dump unit option
+
         case 'A':
             break;
         case 'D':
@@ -854,6 +830,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.data_batch = MAX_RECORDS_PER_REQ/2;
             }
             break;
+            /*
         case 'L':
             {
                 int32_t len = atoi((const char *)arg);
@@ -865,9 +842,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.max_sql_len = len;
                 break;
             }
-        case 't':
-            g_args.table_batch = atoi((const char *)arg);
-            break;
+            */
         case 'T':
             if (!isStringNumber(arg)) {
                 errorPrint("%s", "\n\t-T need a number following!\n");
@@ -1044,11 +1019,9 @@ static int getPrecisionByString(char *precision)
     } else if (0 == strncasecmp(precision,
                 "us", 2)) {
         return TSDB_TIME_PRECISION_MICRO;
-#if TSDB_SUPPORT_NANOSECOND == 1
     } else if (0 == strncasecmp(precision,
                 "ns", 2)) {
         return TSDB_TIME_PRECISION_NANO;
-#endif
     } else {
         errorPrint("Invalid time precision: %s",
                 precision);
@@ -1183,6 +1156,8 @@ static int inDatabasesSeq(
 
             dbname = strsep(&running, ",");
         }
+
+        free(dupSeq);
     }
 
     return -1;
@@ -3250,10 +3225,11 @@ static int dumpInAvroTbTagsImpl(
                                 if (NULL == bytesbuf) {
                                     debugPrint2("%s | ", "NULL");
                                     bind->is_null = &is_null;
+                                    bind->buffer_length = 0;
                                 } else {
                                     debugPrint2("%s | ", (char *)bytesbuf);
+                                    bind->buffer_length = strlen((char*)bytesbuf);
                                 }
-                                bind->buffer_length = strlen((char*)bytesbuf);
                                 bind->buffer = bytesbuf;
                             }
                             break;
@@ -3961,7 +3937,7 @@ static RecordSchema *getSchemaAndReaderFromFile(
 static int64_t dumpInOneAvroFile(
         enum enWHICH which,
         char* fcharset,
-        char* encode, char *avroFilepath)
+        char *avroFilepath)
 {
     debugPrint("avroFilepath: %s\n", avroFilepath);
 
@@ -4083,7 +4059,6 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         int64_t rows = dumpInOneAvroFile(
                 pThreadInfo->which,
                 g_tsCharset,
-                g_args.encode,
                 avroFile);
         switch (pThreadInfo->which) {
             case WHICH_AVRO_DATA:
@@ -5038,12 +5013,10 @@ static int checkParam() {
         }
     }
 
-    if (!g_args.isDumpIn && g_args.encode != NULL) {
-        errorPrint("%s", "Invalid option in dump out\n");
-        return -1;
-    }
-
-    if (g_args.table_batch <= 0) {
+    if ((!g_args.isDumpIn)
+            && (!g_args.databases)
+            && (!g_args.all_databases)
+            && (0 == g_args.arg_list_len)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
     }
@@ -5207,8 +5180,9 @@ _exit_no_charset:
 }
 
 // ========  dumpIn support multi threads functions ================================//
-static int64_t dumpInOneSqlFile(TAOS* taos, FILE* fp, char* fcharset,
-        char* encode, char* fileName) {
+static int64_t dumpInOneSqlFile(
+        TAOS* taos, FILE* fp, char* fcharset,
+        char* fileName) {
     int       read_len = 0;
     char *    cmd      = NULL;
     size_t    cmd_len  = 0;
@@ -5294,8 +5268,9 @@ static void* dumpInSqlWorkThreadFp(void *arg)
             continue;
         }
 
-        int64_t rows = dumpInOneSqlFile(pThread->taos, fp, g_tsCharset, g_args.encode,
-                    sqlFile);
+        int64_t rows = dumpInOneSqlFile(
+                pThread->taos, fp, g_tsCharset,
+                sqlFile);
         if (rows > 0) {
             pThread->recSuccess += rows;
             okPrint("[%d] Total %"PRId64" row(s) be successfully dumped in file: %s\n",
@@ -5443,7 +5418,7 @@ static int dumpInDbs()
     loadFileCharset(fp, g_tsCharset);
 
     int64_t rows = dumpInOneSqlFile(
-            taos, fp, g_tsCharset, g_args.encode, dbsSql);
+            taos, fp, g_tsCharset, dbsSql);
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
                 rows, dbsSql);
@@ -6071,45 +6046,43 @@ static int dumpOut() {
         tstrncpy(g_dbInfos[count]->name, (char *)row[TSDB_SHOW_DB_NAME_INDEX],
                 min(TSDB_DB_NAME_LEN,
                     fields[TSDB_SHOW_DB_NAME_INDEX].bytes + 1));
-        if (g_args.with_property) {
-            g_dbInfos[count]->ntables =
-                *((int32_t *)row[TSDB_SHOW_DB_NTABLES_INDEX]);
-            g_dbInfos[count]->vgroups =
-                *((int32_t *)row[TSDB_SHOW_DB_VGROUPS_INDEX]);
-            g_dbInfos[count]->replica =
-                *((int16_t *)row[TSDB_SHOW_DB_REPLICA_INDEX]);
-            g_dbInfos[count]->quorum =
-                *((int16_t *)row[TSDB_SHOW_DB_QUORUM_INDEX]);
-            g_dbInfos[count]->days =
-                *((int16_t *)row[TSDB_SHOW_DB_DAYS_INDEX]);
+        g_dbInfos[count]->ntables =
+            *((int32_t *)row[TSDB_SHOW_DB_NTABLES_INDEX]);
+        g_dbInfos[count]->vgroups =
+            *((int32_t *)row[TSDB_SHOW_DB_VGROUPS_INDEX]);
+        g_dbInfos[count]->replica =
+            *((int16_t *)row[TSDB_SHOW_DB_REPLICA_INDEX]);
+        g_dbInfos[count]->quorum =
+            *((int16_t *)row[TSDB_SHOW_DB_QUORUM_INDEX]);
+        g_dbInfos[count]->days =
+            *((int16_t *)row[TSDB_SHOW_DB_DAYS_INDEX]);
 
-            tstrncpy(g_dbInfos[count]->keeplist,
-                    (char *)row[TSDB_SHOW_DB_KEEP_INDEX],
-                    min(32, fields[TSDB_SHOW_DB_KEEP_INDEX].bytes + 1));
+        tstrncpy(g_dbInfos[count]->keeplist,
+                (char *)row[TSDB_SHOW_DB_KEEP_INDEX],
+                min(32, fields[TSDB_SHOW_DB_KEEP_INDEX].bytes + 1));
 
-            g_dbInfos[count]->cache =
-                *((int32_t *)row[TSDB_SHOW_DB_CACHE_INDEX]);
-            g_dbInfos[count]->blocks =
-                *((int32_t *)row[TSDB_SHOW_DB_BLOCKS_INDEX]);
-            g_dbInfos[count]->minrows =
-                *((int32_t *)row[TSDB_SHOW_DB_MINROWS_INDEX]);
-            g_dbInfos[count]->maxrows =
-                *((int32_t *)row[TSDB_SHOW_DB_MAXROWS_INDEX]);
-            g_dbInfos[count]->wallevel =
-                *((int8_t *)row[TSDB_SHOW_DB_WALLEVEL_INDEX]);
-            g_dbInfos[count]->fsync =
-                *((int32_t *)row[TSDB_SHOW_DB_FSYNC_INDEX]);
-            g_dbInfos[count]->comp =
-                (int8_t)(*((int8_t *)row[TSDB_SHOW_DB_COMP_INDEX]));
-            g_dbInfos[count]->cachelast =
-                (int8_t)(*((int8_t *)row[TSDB_SHOW_DB_CACHELAST_INDEX]));
+        g_dbInfos[count]->cache =
+            *((int32_t *)row[TSDB_SHOW_DB_CACHE_INDEX]);
+        g_dbInfos[count]->blocks =
+            *((int32_t *)row[TSDB_SHOW_DB_BLOCKS_INDEX]);
+        g_dbInfos[count]->minrows =
+            *((int32_t *)row[TSDB_SHOW_DB_MINROWS_INDEX]);
+        g_dbInfos[count]->maxrows =
+            *((int32_t *)row[TSDB_SHOW_DB_MAXROWS_INDEX]);
+        g_dbInfos[count]->wallevel =
+            *((int8_t *)row[TSDB_SHOW_DB_WALLEVEL_INDEX]);
+        g_dbInfos[count]->fsync =
+            *((int32_t *)row[TSDB_SHOW_DB_FSYNC_INDEX]);
+        g_dbInfos[count]->comp =
+            (int8_t)(*((int8_t *)row[TSDB_SHOW_DB_COMP_INDEX]));
+        g_dbInfos[count]->cachelast =
+            (int8_t)(*((int8_t *)row[TSDB_SHOW_DB_CACHELAST_INDEX]));
 
-            tstrncpy(g_dbInfos[count]->precision,
-                    (char *)row[TSDB_SHOW_DB_PRECISION_INDEX],
-                    DB_PRECISION_LEN);
-            g_dbInfos[count]->update =
-                *((int8_t *)row[TSDB_SHOW_DB_UPDATE_INDEX]);
-        }
+        tstrncpy(g_dbInfos[count]->precision,
+                (char *)row[TSDB_SHOW_DB_PRECISION_INDEX],
+                DB_PRECISION_LEN);
+        g_dbInfos[count]->update =
+            *((int8_t *)row[TSDB_SHOW_DB_UPDATE_INDEX]);
         count++;
 
         if (g_args.databases) {
@@ -6243,11 +6216,7 @@ int main(int argc, char *argv[]) {
     argp_parse(&argp, argc, argv, 0, 0, &g_args);
 
     if (g_args.abort) {
-#ifndef _ALPINE
-        error(10, 0, "ABORTED");
-#else
         abort();
-#endif
     }
 
     printf("====== arguments config ======\n");
@@ -6259,7 +6228,6 @@ int main(int argc, char *argv[]) {
     printf("outpath: %s\n", g_args.outpath);
     printf("inpath: %s\n", g_args.inpath);
     printf("resultFile: %s\n", g_args.resultFile);
-    printf("encode: %s\n", g_args.encode);
     printf("all_databases: %s\n", g_args.all_databases?"true":"false");
     printf("databases: %d\n", g_args.databases);
     printf("databasesSeq: %s\n", g_args.databasesSeq);
@@ -6274,7 +6242,6 @@ int main(int argc, char *argv[]) {
     printf("precision: %s\n", g_args.precision);
     printf("data_batch: %d\n", g_args.data_batch);
     printf("max_sql_len: %d\n", g_args.max_sql_len);
-    printf("table_batch: %d\n", g_args.table_batch);
     printf("thread_num: %d\n", g_args.thread_num);
     printf("allow_sys: %d\n", g_args.allow_sys);
     printf("abort: %d\n", g_args.abort);
@@ -6314,7 +6281,6 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "outpath: %s\n", g_args.outpath);
     fprintf(g_fpOfResult, "inpath: %s\n", g_args.inpath);
     fprintf(g_fpOfResult, "resultFile: %s\n", g_args.resultFile);
-    fprintf(g_fpOfResult, "encode: %s\n", g_args.encode);
     fprintf(g_fpOfResult, "all_databases: %s\n", g_args.all_databases?"true":"false");
     fprintf(g_fpOfResult, "databases: %d\n", g_args.databases);
     fprintf(g_fpOfResult, "databasesSeq: %s\n", g_args.databasesSeq);
@@ -6329,7 +6295,6 @@ int main(int argc, char *argv[]) {
     fprintf(g_fpOfResult, "precision: %s\n", g_args.precision);
     fprintf(g_fpOfResult, "data_batch: %d\n", g_args.data_batch);
     fprintf(g_fpOfResult, "max_sql_len: %d\n", g_args.max_sql_len);
-    fprintf(g_fpOfResult, "table_batch: %d\n", g_args.table_batch);
     fprintf(g_fpOfResult, "thread_num: %d\n", g_args.thread_num);
     fprintf(g_fpOfResult, "allow_sys: %d\n", g_args.allow_sys);
     fprintf(g_fpOfResult, "abort: %d\n", g_args.abort);
@@ -6345,6 +6310,8 @@ int main(int argc, char *argv[]) {
 
     time_t tTime = time(NULL);
     struct tm tm = *localtime(&tTime);
+
+    taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 
     if (g_args.isDumpIn) {
         fprintf(g_fpOfResult, "============================== DUMP IN ============================== \n");

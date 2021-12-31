@@ -41,7 +41,6 @@
 #endif
 
 #include <assert.h>
-#include <bits/time.h>
 #include <cJSONDEMO.h>
 #include <ctype.h>
 #include <errno.h>
@@ -95,7 +94,7 @@
 #define INT_BUFF_LEN 12
 #define BIGINT_BUFF_LEN 21
 #define SMALLINT_BUFF_LEN 8
-#define TINYINT_BUFF_LEN 5
+#define TINYINT_BUFF_LEN 6
 #define BOOL_BUFF_LEN 6
 #define FLOAT_BUFF_LEN 22
 #define DOUBLE_BUFF_LEN 42
@@ -200,10 +199,20 @@
         if (g_args.verbose_print) fprintf(stderr, "VERB: " fmt, __VA_ARGS__); \
     } while (0)
 
-#define performancePrint(fmt, ...)                      \
-    do {                                                \
-        if (g_args.performance_print)                   \
-            fprintf(stderr, "PERF: " fmt, __VA_ARGS__); \
+#define performancePrint(fmt, ...)                                            \
+    do {                                                                      \
+        if (g_args.performance_print) {                                       \
+            struct tm      Tm, *ptm;                                          \
+            struct timeval timeSecs;                                          \
+            time_t         curTime;                                           \
+            gettimeofday(&timeSecs, NULL);                                    \
+            curTime = timeSecs.tv_sec;                                        \
+            ptm = localtime_r(&curTime, &Tm);                                 \
+            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",               \
+                    ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
+                    ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
+            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                       \
+        }                                                                     \
     } while (0)
 
 #define errorPrint(fmt, ...)                                                 \
@@ -329,7 +338,6 @@ typedef struct SArguments_S {
     int      replica;
     char *   tb_prefix;
     bool     escapeChar;
-    char *   sqlFile;
     bool     use_metric;
     bool     drop_database;
     bool     aggr_func;
@@ -343,10 +351,12 @@ typedef struct SArguments_S {
     char *   tag_type;
     int32_t *tag_length;
     uint32_t binwidth;
+    int32_t  intColumnCount;
     int32_t  columnCount;
     int32_t  tagCount;
     int32_t  lenOfTags;
     int32_t  lenOfCols;
+    uint32_t nthreads_pool;
     uint32_t nthreads;
     uint64_t insert_interval;
     uint64_t timestamp_step;
@@ -360,7 +370,6 @@ typedef struct SArguments_S {
     int      disorderRange;  // ms, us or ns. according to database precision
     bool     demo_mode;      // use default column name and semi-random data
     bool     chinese;
-    bool     pressure_mode;
     int32_t  dbCount;
     char **  childTblName;
     struct sockaddr_in serv_addr;
@@ -378,6 +387,7 @@ typedef struct SSuperTable_S {
     uint8_t  autoCreateTable;  // 0: create sub table, 1: auto create sub table
     uint16_t iface;            // 0: taosc, 1: rest, 2: stmt
     uint16_t lineProtocol;
+    uint64_t childTblLimit;
     uint64_t childTblOffset;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
@@ -566,18 +576,26 @@ typedef struct SThreadInfo_S {
     uint64_t  querySeq;  // sequence number of sql command
     TAOS_SUB *tsub;
 
-    char ** lines;
-    int32_t sockfd;
-    int64_t insertRows;
-    int64_t time_step;
-    char ** sml_tags;
-    cJSON * sml_json_tags;
-    cJSON * json_array;
-    int32_t iface;
-    int32_t line_protocol;
-    int32_t smlTimePrec;
-    int32_t interlaceRows;
+    char **  lines;
+    int32_t  sockfd;
+    int64_t  insertRows;
+    int64_t  time_step;
+    char **  sml_tags;
+    cJSON *  sml_json_tags;
+    cJSON *  json_array;
+    int32_t  iface;
+    int32_t  line_protocol;
+    int32_t  smlTimePrec;
+    int32_t  interlaceRows;
+    uint32_t disorderRatio;
+    int      disorderRange;
 } threadInfo;
+
+typedef struct TAOS_POOL_S {
+    int    size;
+    int    current;
+    TAOS **taos_list;
+} TAOS_POOL;
 
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
@@ -591,9 +609,9 @@ extern int64_t        g_existedChildTables;
 extern SQueryMetaInfo g_queryInfo;
 extern FILE *         g_fpOfInsertResult;
 extern bool           g_fail;
-extern bool           custom_col_num;
 extern char           configDir[];
 extern cJSON *        root;
+extern TAOS_POOL      g_taos_pool;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
@@ -602,7 +620,7 @@ extern cJSON *        root;
         (dst)[(size)-1] = 0;           \
     } while (0)
 /* ************ Function declares ************  */
-/* demoCommandOpt.c */
+/* benchCommandOpt.c */
 int  parse_args(int argc, char *argv[], SArguments *pg_args);
 int  count_datatype(char *dataType, int32_t *number);
 int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
@@ -615,12 +633,14 @@ void init_g_args(SArguments *pg_args);
 int getInfoFromJsonFile(char *file);
 /* demoUtil.c */
 int     isCommentLine(char *line);
+int     init_taos_list(TAOS_POOL *pool, int size);
+TAOS *  select_one_from_pool(TAOS_POOL *pool, char *db_name);
+void    cleanup_taos_list(TAOS_POOL *pool);
 int64_t taosGetTimestampMs();
 int64_t taosGetTimestampUs();
 int64_t taosGetTimestampNs();
 int64_t taosGetTimestamp(int32_t precision);
 void    taosMsleep(int32_t mseconds);
-int64_t taosGetSelfPthreadId();
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
