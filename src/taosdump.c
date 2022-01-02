@@ -1435,22 +1435,32 @@ static int getTableDes(
                                        row[TSDB_SHOW_TABLES_NAME_INDEX])))==1)
                          ?1:0));
                 break;
+
             case TSDB_DATA_TYPE_TINYINT:
                 sprintf(tableDes->cols[i].value, "%d",
                         *((int8_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
                 break;
+
             case TSDB_DATA_TYPE_SMALLINT:
                 sprintf(tableDes->cols[i].value, "%d",
                         *((int16_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
                 break;
+
             case TSDB_DATA_TYPE_INT:
                 sprintf(tableDes->cols[i].value, "%d",
                         *((int32_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
                 break;
+
             case TSDB_DATA_TYPE_BIGINT:
                 sprintf(tableDes->cols[i].value, "%" PRId64 "",
                         *((int64_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
                 break;
+
+            case TSDB_DATA_TYPE_UINT:
+                sprintf(tableDes->cols[i].value, "%u",
+                        *((uint32_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                break;
+
             case TSDB_DATA_TYPE_FLOAT:
                 {
                     char tmpFloat[512] = {0};
@@ -1482,6 +1492,7 @@ static int getTableDes(
                     }
                 }
                 break;
+
             case TSDB_DATA_TYPE_DOUBLE:
                 {
                     char tmpDouble[512] = {0};
