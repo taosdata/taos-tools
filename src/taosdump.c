@@ -1328,6 +1328,9 @@ static int64_t getNtbCountOfStb(char *dbName, char *stbName)
         count = *(int64_t*)row[TSDB_SHOW_TABLES_NAME_INDEX];
     }
 
+    debugPrint("%s() LN%d, COUNT(TBNAME): %"PRId64"\n",
+            __func__, __LINE__, count);
+
     taos_close(taos);
     return count;
 }
@@ -1359,6 +1362,7 @@ static int getTableDes(
 
     tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
     while ((row = taos_fetch_row(res)) != NULL) {
+
         tstrncpy(tableDes->cols[colCount].field,
                 (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                 min(TSDB_COL_NAME_LEN,
@@ -1371,6 +1375,7 @@ static int getTableDes(
                 (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
                 min(COL_NOTE_LEN,
                     fields[TSDB_DESCRIBE_METRIC_NOTE_INDEX].bytes + 1));
+
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
             tableDes->columns ++;
         } else {
@@ -1405,12 +1410,15 @@ static int getTableDes(
         fields = taos_fetch_fields(res);
 
         row = taos_fetch_row(res);
+
         if (NULL == row) {
             warnPrint("No data from fetch to run command <%s>, reason:%s\n",
                     sqlstr, taos_errstr(res));
             taos_free_result(res);
             return -1;
         }
+
+        int32_t* length = taos_fetch_lengths(res);
 
         if (row[TSDB_SHOW_TABLES_NAME_INDEX] == NULL) {
             sprintf(tableDes->cols[i].note, "%s", "NUL");
@@ -1419,8 +1427,6 @@ static int getTableDes(
             res = NULL;
             continue;
         }
-
-        int32_t* length = taos_fetch_lengths(res);
 
         switch (fields[0].type) {
             case TSDB_DATA_TYPE_BOOL:
@@ -1455,8 +1461,8 @@ static int getTableDes(
                     int bufLenOfFloat = strlen(tmpFloat);
 
                     if (bufLenOfFloat < (COL_VALUEBUF_LEN -1)) {
-                sprintf(tableDes->cols[i].value, "%f",
-                        GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                        sprintf(tableDes->cols[i].value, "%f",
+                                GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
                     } else {
                         if (tableDes->cols[i].var_value) {
                             free(tableDes->cols[i].var_value);
@@ -1511,10 +1517,9 @@ static int getTableDes(
             case TSDB_DATA_TYPE_BINARY:
                 memset(tableDes->cols[i].value, 0,
                         sizeof(tableDes->cols[i].value));
-                int len = strlen((char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
-                // FIXME for long value
+
                 if (g_args.avro) {
-                    if (len < (COL_VALUEBUF_LEN - 1)) {
+                    if (length[TSDB_SHOW_TABLES_NAME_INDEX] < (COL_VALUEBUF_LEN - 1)) {
                         strcpy(tableDes->cols[i].value,
                                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
                     } else {
@@ -1522,7 +1527,8 @@ static int getTableDes(
                             free(tableDes->cols[i].var_value);
                             tableDes->cols[i].var_value = NULL;
                         }
-                        tableDes->cols[i].var_value = calloc(1, len + 1);
+                        tableDes->cols[i].var_value = calloc(1,
+                                1 + length[TSDB_SHOW_TABLES_NAME_INDEX]);
 
                         if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
@@ -1532,21 +1538,24 @@ static int getTableDes(
                         }
                         strncpy(
                                 (char *)(tableDes->cols[i].var_value),
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], len);
+                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                                min(TSDB_TABLE_NAME_LEN,
+                                    length[TSDB_SHOW_TABLES_NAME_INDEX]));
                     }
                 } else {
-                    if (len < (COL_VALUEBUF_LEN - 2)) {
+                    if (length[TSDB_SHOW_TABLES_NAME_INDEX] < (COL_VALUEBUF_LEN - 2)) {
                         converStringToReadable(
                                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                length[0],
+                                length[TSDB_SHOW_TABLES_NAME_INDEX],
                                 tableDes->cols[i].value,
-                                len);
+                                length[TSDB_SHOW_TABLES_NAME_INDEX]);
                     } else {
                         if (tableDes->cols[i].var_value) {
                             free(tableDes->cols[i].var_value);
                             tableDes->cols[i].var_value = NULL;
                         }
-                        tableDes->cols[i].var_value = calloc(1, len * 2);
+                        tableDes->cols[i].var_value = calloc(1,
+                                length[TSDB_SHOW_TABLES_NAME_INDEX] * 2);
 
                         if (NULL == tableDes->cols[i].var_value) {
                             errorPrint("%s() LN%d, memory alalocation failed!\n",
@@ -1556,7 +1565,8 @@ static int getTableDes(
                         }
                         converStringToReadable((char *)row[0],
                                 length[0],
-                                (char *)(tableDes->cols[i].var_value), len);
+                                (char *)(tableDes->cols[i].var_value),
+                                length[TSDB_SHOW_TABLES_NAME_INDEX]);
                     }
                 }
                 break;
@@ -2702,6 +2712,8 @@ static int64_t writeResultToAvro(
 
     bool printDot = true;
     while ((row = taos_fetch_row(res)) != NULL) {
+        int32_t *length = taos_fetch_lengths(res);
+
         printDotOrX(count, &printDot);
         count++;
 
@@ -2737,7 +2749,6 @@ static int64_t writeResultToAvro(
                 continue;
             }
 
-            int len;
             avro_value_t firsthalf, secondhalf;
             uint8_t u8Temp = 0;
             uint16_t u16Temp = 0;
@@ -2886,8 +2897,13 @@ static int64_t writeResultToAvro(
                         avro_value_set_null(&branch);
                     } else {
                         avro_value_set_branch(&value, 1, &branch);
+                        char *binTemp = calloc(1, 1+fields[col].bytes);
+                        assert(binTemp);
+                        strncpy(binTemp, (char*)row[col],
+                                min(fields[col].bytes, length[col]));
                         *((char*)row[col] + fields[col].bytes) = '\0';
-                        avro_value_set_string(&branch, (char *)row[col]);
+                        avro_value_set_string(&branch, binTemp);
+                        free(binTemp);
                     }
                     break;
 
@@ -2898,8 +2914,8 @@ static int64_t writeResultToAvro(
                         avro_value_set_null(&branch);
                     } else {
                         avro_value_set_branch(&value, 1, &branch);
-                        len = strlen((char*)row[col]);
-                        avro_value_set_bytes(&branch, (void*)(row[col]),len);
+                        avro_value_set_bytes(&branch, (void*)(row[col]),
+                                length[col]);
                     }
                     break;
 
@@ -4206,9 +4222,9 @@ static int64_t writeResultToSql(TAOS_RES *res, FILE *fp,
     int32_t  total_sqlstr_len = 0;
 
     while ((row = taos_fetch_row(res)) != NULL) {
-        int32_t curr_sqlstr_len = 0;
-
         int32_t* length = taos_fetch_lengths(res);   // act len
+
+        int32_t curr_sqlstr_len = 0;
 
         if (count == 0) {
             total_sqlstr_len = 0;
@@ -4586,14 +4602,18 @@ static int createMTableAvroHead(
     int64_t ntbCount = 0;
 
     while((row = taos_fetch_row(res)) != NULL) {
+        int32_t *length = taos_fetch_lengths(res);
+        char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
+
+        strncpy(tbName,
+                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
         if (specifiedTb) {
-            if(0 != strcmp(specifiedTb,
-                        (char *)row[TSDB_SHOW_TABLES_NAME_INDEX])) {
+            if(0 != strcmp(specifiedTb, tbName)) {
                 continue;
             }
         }
-        debugPrint("sub table %"PRId64": name: %s\n",
-                ++ntbCount, (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+        debugPrint("sub table %"PRId64": name: %s\n", ++ntbCount, tbName);
         avro_value_t record;
         avro_generic_value_new(wface, &record);
 
@@ -4618,19 +4638,19 @@ static int createMTableAvroHead(
 
         avro_value_set_branch(&value, 1, &branch);
         avro_value_set_string(&branch,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                tbName);
 
         TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
                 + sizeof(ColDes) * colCount);
         assert(subTableDes);
 
         getTableDes(taos, dbName,
-                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                    tbName,
                     subTableDes, false);
 
         for (int tag = 0; tag < subTableDes->tags; tag ++) {
             debugPrint("sub table %s no. %d tags is %s, type is %d, value is %s\n",
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                tbName,
                 tag,
                 subTableDes->cols[subTableDes->columns + tag].field,
                 subTableDes->cols[subTableDes->columns + tag].type,
@@ -5526,8 +5546,13 @@ static void *dumpNormalTablesOfStb(void *arg) {
     int64_t i = 0;
     int64_t count;
     while((row = taos_fetch_row(res)) != NULL) {
+        int32_t *length = taos_fetch_lengths(res);
+        char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
+        strncpy(tbName,
+                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
         debugPrint("[%d] sub table %"PRId64": name: %s\n",
-                pThreadInfo->threadIndex, i++, (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                pThreadInfo->threadIndex, i++, tbName);
 
         if (g_args.avro) {
             count = dumpNormalTable(
@@ -5535,7 +5560,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
                     pThreadInfo->taos,
                     pThreadInfo->dbName,
                     pThreadInfo->stbName,
-                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                    tbName,
                     pThreadInfo->precision,
                     dumpFilename,
                     NULL);
@@ -5545,7 +5570,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
                     pThreadInfo->taos,
                     pThreadInfo->dbName,
                     pThreadInfo->stbName,
-                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                    tbName,
                     pThreadInfo->precision,
                     NULL,
                     fp);
@@ -5676,15 +5701,26 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
     TAOS_ROW row;
     int64_t count = 0;
     while(NULL != (row = taos_fetch_row(result))) {
+        int32_t *length = taos_fetch_lengths(result);
+        char tbName[TSDB_TABLE_NAME_LEN+1];
+        char stbName[TSDB_TABLE_NAME_LEN+1];
+        strncpy(tbName,
+                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
+
         debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s\n",
                 __func__, __LINE__,
-                count, (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
-        tstrncpy(((TableInfo *)(g_tablesList + count))->name,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], TSDB_TABLE_NAME_LEN);
-        char *stbName = (char *) row[TSDB_SHOW_TABLES_METRIC_INDEX];
+                count, tbName);
+        strncpy(((TableInfo *)(g_tablesList + count))->name,
+                tbName,
+                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
+        strncpy(stbName,
+                (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_METRIC_INDEX]));
         if (strlen(stbName)) {
-            tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
-                (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX], TSDB_TABLE_NAME_LEN);
+            strncpy(((TableInfo *)(g_tablesList + count))->stable,
+                stbName,
+                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_METRIC_INDEX]));
             ((TableInfo *)(g_tablesList + count))->belongStb = true;
         } else {
             ((TableInfo *)(g_tablesList + count))->belongStb = false;

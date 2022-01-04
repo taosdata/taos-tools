@@ -1492,7 +1492,7 @@ free_of_progressive:
 int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                                SSuperTable *stbInfo) {
     if (g_args.reqPerReq > MAX_RECORDS_PER_REQ) {
-        infoPrint("NOTICE: number of records per request value %u > %d\n\n",
+        infoPrint("number of records per request value %u > %d\n\n",
                   g_args.reqPerReq, MAX_RECORDS_PER_REQ);
         infoPrint(
             "        number of records per request value will be set to "
@@ -1511,6 +1511,12 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
     uint64_t insert_interval = stbInfo ? stbInfo->insertInterval : 0;
     int32_t  interlaceRows =
         stbInfo ? stbInfo->interlaceRows : g_args.interlaceRows;
+    if (interlaceRows > insertRows) {
+        infoPrint("interlaceRows larger than insertRows %d > %" PRId64 "\n\n",
+                  interlaceRows, insertRows);
+        infoPrint("%s", "interlaceRows will be set to 0\n\n");
+        interlaceRows = 0;
+    }
     int64_t time_step =
         stbInfo ? stbInfo->timeStampStep : g_args.timestamp_step;
     char *childTbls_prefix =

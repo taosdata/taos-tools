@@ -28,6 +28,11 @@ jobs:
           path: 'TDengine'
           ref: 'develop'
 
+      - name: Change time zone
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          sudo date
+
       - name: Install packages
         run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev
 
@@ -62,26 +67,24 @@ jobs:
           python3 test.py -f tools/taosdemoTest.py
           python3 test.py -f tools/taosdemoTestWithoutMetric.py
           python3 test.py -f tools/taosdemoTestWithJson.py
-          
           python3 test.py -f tools/taosdemoTestLimitOffset.py
           python3 test.py -f tools/taosdemoTestTblAlt.py
           python3 test.py -f tools/taosdemoTestSampleData.py
-          
+          python3 test.py -f tools/taosdemoTestInterlace.py
+          python3 test.py -f tools/taosdemoTestQuery.py
           python3 ./test.py -f tools/taosdemoTestdatatype.py
-          
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py
-          python3 test.py -f tools/taosdumpTestNanoSupport.py
+
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py
-          
-          
-          
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py
           python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py
           python3 test.py -f tools/taosdemoAllTest/TD-5213/insert4096columns_not_use_taosdemo.py
           python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py
-          
-          
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonStmt.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertShell.py
 
