@@ -1441,6 +1441,11 @@ static int getTableDes(
                         *((int8_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
                 break;
 
+            case TSDB_DATA_TYPE_UTINYINT:
+                sprintf(tableDes->cols[i].value, "%u",
+                        *((uint8_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
+                break;
+
             case TSDB_DATA_TYPE_SMALLINT:
                 sprintf(tableDes->cols[i].value, "%d",
                         *((int16_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
@@ -3284,6 +3289,43 @@ static int dumpInAvroTbTagsImpl(
                             }
                             break;
 
+                        case TSDB_DATA_TYPE_UTINYINT:
+                            {
+                                if (TSDB_DATA_TYPE_INT == field->array_type) {
+                                    uint8_t *array_u8 = malloc(sizeof(uint8_t));
+                                    assert(array_u8);
+                                    *array_u8 = 0;
+
+                                    size_t array_size;
+                                    int32_t n32tmp;
+                                    avro_value_get_size(&field_value, &array_size);
+
+                                    debugPrint("%s() LN%d, array_size: %d\n",
+                                            __func__, __LINE__, (int)array_size);
+                                    for (size_t item = 0; item < array_size; item ++) {
+                                        avro_value_t item_value;
+                                        avro_value_get_by_index(&field_value, item,
+                                                &item_value, NULL);
+                                        avro_value_get_int(&item_value, &n32tmp);
+                                        *array_u8 += (int8_t)n32tmp;
+                                    }
+
+                                    if (TSDB_DATA_UTINYINT_NULL == *array_u8) {
+                                        debugPrint2("%s |", "null");
+                                        bind->is_null = &is_null;
+                                    } else {
+                                        debugPrint2("%u | ", (uint32_t)*array_u8);
+                                        bind->buffer_length = sizeof(uint8_t);
+                                        bind->buffer = array_u8;
+                                    }
+                                } else {
+                                    errorPrint("%s() LN%d mix type %s with int array",
+                                            __func__, __LINE__,
+                                            typeToStr(field->array_type));
+                                }
+                            }
+                            break;
+
                         case TSDB_DATA_TYPE_UINT:
                             {
                                 if (TSDB_DATA_TYPE_INT == field->array_type) {
@@ -3332,6 +3374,9 @@ static int dumpInAvroTbTagsImpl(
                     }
 
                     bind->buffer_type = tableDes->cols[tableDes->columns -1 + i].type;
+                    debugPrint("%s() LN%d, bind->buffer_type=%d\n",
+                            __func__, __LINE__, bind->buffer_type);
+
                     bind->length = &bind->buffer_length;
                 } else {
                     errorPrint("Failed to get value by name: %s\n",
@@ -4726,7 +4771,7 @@ static int createMTableAvroHead(
             }
 
             avro_value_t firsthalf, secondhalf;
-//            uint8_t u8Temp = 0;
+            uint8_t u8Temp = 0;
 //            uint16_t u16Temp = 0;
             uint32_t u32Temp = 0;
 //            uint64_t u64Temp = 0;
@@ -4886,6 +4931,27 @@ static int createMTableAvroHead(
                                 (int64_t)atoll((const char *)
                                     subTableDes->cols[subTableDes->columns + tag].value));
                     }
+                    break;
+
+                case TSDB_DATA_TYPE_UTINYINT:
+                    if (0 == strncmp(
+                                subTableDes->cols[subTableDes->columns+tag].note,
+                                "NUL", 3)) {
+                        u8Temp = TSDB_DATA_UTINYINT_NULL;
+                    } else {
+                        u8Temp = (int8_t)atoi((const char *)
+                                subTableDes->cols[subTableDes->columns + tag].value);
+                    }
+
+                    int8_t n8tmp = (int8_t)(u8Temp - SCHAR_MAX);
+                    avro_value_append(&value, &firsthalf, NULL);
+                    avro_value_set_int(&firsthalf, n8tmp);
+                    debugPrint("%s() LN%d, first half is: %d, ",
+                            __func__, __LINE__, n8tmp);
+                    avro_value_append(&value, &secondhalf, NULL);
+                    avro_value_set_int(&secondhalf, (int32_t)SCHAR_MAX);
+                    debugPrint("second half is: %d\n", SCHAR_MAX);
+
                     break;
 
                 case TSDB_DATA_TYPE_UINT:
