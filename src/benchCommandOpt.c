@@ -27,6 +27,238 @@ char *g_aggreFuncDemo[] = {"*",
 char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
                        "max(C0)", "min(C0)",  "first(C0)", "last(C0)"};
 
+const char *              argp_program_version;
+const char *              argp_program_bug_address = "<support@taosdata.com>";
+static char               doc[] = "";
+static char               args_doc[] = "";
+static struct argp_option options[] = {
+    {"file", 'f', "FILE", 0, "Json configuration file."},
+    {"config-dir", 'c', "CONFIG_DIR", 0, "Configuration directory."},
+    {"host", 'h', "HOST", 0,
+     "TDengine server FQDN to connect, default is localhost."},
+    {"port", 'P', "PORT", 0,
+     "The TCP/IP port number to use for the connection, default is 6030."},
+    {"interface", 'I', "IFACE", 0,
+     "insert mode, default is taosc, options: taosc|rest|stmt|sml"},
+    {"user", 'u', "USER", 0,
+     "The user name to use when connecting to the server, default is root."},
+    {"password", 'p', 0, 0,
+     "The password to use when connecting to the server, default is taosdata."},
+    {"output", 'o', "FILE", 0,
+     "The path of result output file, default is ./output.txt."},
+    {"threads", 'T', "NUMBER", 0,
+     "The number of thread when insert data, default is 8."},
+    {"insert-interval", 'i', "NUMBER", 0,
+     "Insert interval for interlace mode in milliseconds, default is 0."},
+    {"time-step", 'S', "NUMBER", 0,
+     "Timestamp step in milliseconds, default is 1."},
+    {"interlace-rows", 'B', "NUMBER", 0,
+     "The number of interlace rows insert into tables, default is 0"},
+    {"rec-per-req", 'r', "NUMBER", 0,
+     "Number of records in each insert request, default is 30000."},
+    {"tables", 't', "NUMBER", 0, "Number of child tables, default is 10000."},
+    {"records", 'n', "NUMBER", 0,
+     "Number of records for each table, default is 10000."},
+    {"database", 'd', "DATABASE", 0, "Name of database, default is test."},
+    {"columns", 'l', "NUMBER", 0,
+     "Number of INT data type columns in table, default is 0. "},
+    {"tag-type", 'A', "TAG_TYPE", 0,
+     "Data type of tables' tags, default is INT,BINARY(16)."},
+    {"data-type", 'b', "COL_TYPE", 0,
+     "Data type of tables' cols, default is FLOAT,INT,FLOAT."},
+    {"binwidth", 'w', "NUMBEER", 0,
+     "The default length of nchar and binary if not specified, default is "
+     "64."},
+    {"table-prefix", 'm', "TABLE_PREFIX", 0,
+     "Prefix of child table name, default is d."},
+    {"escape-character", 'E', 0, 0,
+     "Use escape character in stable and child table name, optional."},
+    {"chinese", 'C', 0, 0,
+     "Nchar and binary are basic unicode chinese characters, optional."},
+    {"normal-table", 'N', 0, 0,
+     "Only create normal table without super table, optional."},
+    {"random", 'M', 0, 0, "Data source is randomly generated, optional."},
+    {"aggr-func", 'x', 0, 0,
+     "Query aggregation function after insertion, optional."},
+    {"answer-yes", 'y', 0, 0,
+     "Pass confirmation prompt to continue, optional."},
+    {"disorder-range", 'R', "NUMBER", 0,
+     "Range of disordered timestamp, default is 1000."},
+    {"disorder", 'O', "NUMBER", 0,
+     "Ratio of inserting data with disorder timestamp, default is 0."},
+    {"replia", 'a', "NUMBER", 0,
+     "The number of replica when create database, default is 1."},
+    {0}};
+
+static error_t parse_opt(int key, char *arg, struct argp_state *state) {
+    SArguments *arguments = state->input;
+    switch (key) {
+        case 'f':
+            arguments->metaFile = arg;
+            break;
+        case 'h':
+            arguments->host = arg;
+            break;
+        case 'P':
+            arguments->port = atoi(arg);
+            break;
+        case 'I':
+            if (0 == strcasecmp(arg, "taosc")) {
+                arguments->iface = TAOSC_IFACE;
+            } else if (0 == strcasecmp(arg, "stmt")) {
+                arguments->iface = STMT_IFACE;
+            } else if (0 == strcasecmp(arg, "rest")) {
+                arguments->iface = REST_IFACE;
+            } else if (0 == strcasecmp(arg, "sml")) {
+                arguments->iface = SML_IFACE;
+            } else {
+                errorPrint("Invalid -I: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'p':
+            break;
+        case 'u':
+            arguments->user = arg;
+            break;
+        case 'c':
+            tstrncpy(configDir, arg, TSDB_FILENAME_LEN);
+            break;
+        case 'o':
+            arguments->output_file = arg;
+            break;
+        case 'T':
+            arguments->nthreads = atoi(arg);
+            if (arguments->nthreads == 0) {
+                errorPrint("Invalid -T: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'i':
+            arguments->insert_interval = atol(arg);
+            if (arguments->insert_interval == 0) {
+                errorPrint("Invalid -i: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'S':
+            arguments->timestamp_step = atol(arg);
+            if (arguments->timestamp_step == 0) {
+                errorPrint("Invalid -S: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'B':
+            arguments->interlaceRows = atoi(arg);
+            if (arguments->interlaceRows <= 0) {
+                errorPrint("Invalid -B: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'r':
+            arguments->reqPerReq = atoi(arg);
+            break;
+        case 't':
+            arguments->ntables = atoi(arg);
+            break;
+        case 'n':
+            arguments->insertRows = atol(arg);
+            break;
+        case 'd':
+            arguments->database = arg;
+            break;
+        case 'l':
+            arguments->intColumnCount = atoi(arg);
+            if (arguments->intColumnCount <= 0) {
+                errorPrint("Invalid -l: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'A':
+            tmfree(arguments->tag_type);
+            tmfree(arguments->tag_length);
+            if (count_datatype(arg, &(arguments->tagCount))) {
+                exit(EXIT_FAILURE);
+            }
+            arguments->tag_type = calloc(arguments->tagCount, sizeof(char));
+            arguments->tag_length =
+                calloc(arguments->tagCount, sizeof(int32_t));
+            if (parse_datatype(arg, arguments->tag_type, arguments->tag_length,
+                               true)) {
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'b':
+            tmfree(arguments->col_type);
+            tmfree(arguments->col_length);
+            if (count_datatype(arg, &(arguments->columnCount))) {
+                exit(EXIT_FAILURE);
+            }
+            arguments->col_type = calloc(arguments->columnCount, sizeof(char));
+            arguments->col_length =
+                calloc(arguments->columnCount, sizeof(int32_t));
+            if (parse_datatype(arg, arguments->col_type, arguments->col_length,
+                               false)) {
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'w':
+            arguments->binwidth = atoi(arg);
+            if (arguments->binwidth == 0) {
+                errorPrint("Invalid value for w: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'm':
+            arguments->tb_prefix = arg;
+            break;
+        case 'E':
+            arguments->escapeChar = true;
+            break;
+        case 'C':
+            arguments->chinese = true;
+            break;
+        case 'N':
+            arguments->use_metric = false;
+            break;
+        case 'M':
+            arguments->demo_mode = false;
+            break;
+        case 'x':
+            arguments->aggr_func = true;
+            break;
+        case 'y':
+            arguments->answer_yes = false;
+            break;
+        case 'R':
+            arguments->disorderRange = atoi(arg);
+            if (arguments->disorderRange == 0) {
+                errorPrint("Invalid value for -R: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'O':
+            arguments->disorderRatio = atoi(arg);
+            if (arguments->disorderRatio == 0) {
+                errorPrint("Invalid value for -O: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'a':
+            arguments->replica = atoi(arg);
+            if (arguments->replica == 0) {
+                errorPrint("Invalid value for -a: %s\n", arg);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        default:
+            return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+}
+
+static struct argp argp = {options, parse_opt, args_doc, doc};
+
 void init_g_args(SArguments *pg_args) {
     pg_args->dbCount = 1;
     pg_args->test_mode = DEFAULT_TEST_MODE;
@@ -256,982 +488,17 @@ int parse_datatype(char *dataType, char *data_type, int32_t *data_length,
     return 0;
 }
 
-int parse_args(int argc, char *argv[], SArguments *pg_args) {
-    int32_t code = -1;
-    for (int i = 1; i < argc; i++) {
-        if ((0 == strncmp(argv[i], "-f", strlen("-f"))) ||
-            (0 == strncmp(argv[i], "--file", strlen("--file")))) {
-            pg_args->demo_mode = false;
-
-            if (2 == strlen(argv[i])) {
-                if (i + 1 == argc) {
-                    errorPrintReqArg(argv[0], "f");
-                    goto end_parse_command;
-                }
-                pg_args->metaFile = argv[++i];
-            } else if (0 == strncmp(argv[i], "-f", strlen("-f"))) {
-                pg_args->metaFile = (char *)(argv[i] + strlen("-f"));
-            } else if (strlen("--file") == strlen(argv[i])) {
-                if (i + 1 == argc) {
-                    errorPrintReqArg3(argv[0], "--file");
-                    goto end_parse_command;
-                }
-                pg_args->metaFile = argv[++i];
-            } else if (0 == strncmp(argv[i], "--file=", strlen("--file="))) {
-                pg_args->metaFile = (char *)(argv[i] + strlen("--file="));
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-c", strlen("-c"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--config-dir", strlen("--config-dir")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "c");
-                    goto end_parse_command;
-                }
-                tstrncpy(configDir, argv[++i], TSDB_FILENAME_LEN);
-            } else if (0 == strncmp(argv[i], "-c", strlen("-c"))) {
-                tstrncpy(configDir, (char *)(argv[i] + strlen("-c")),
-                         TSDB_FILENAME_LEN);
-            } else if (strlen("--config-dir") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--config-dir");
-                    goto end_parse_command;
-                }
-                tstrncpy(configDir, argv[++i], TSDB_FILENAME_LEN);
-            } else if (0 == strncmp(argv[i],
-                                    "--config-dir=", strlen("--config-dir="))) {
-                tstrncpy(configDir, (char *)(argv[i] + strlen("--config-dir=")),
-                         TSDB_FILENAME_LEN);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-h", strlen("-h"))) ||
-                   (0 == strncmp(argv[i], "--host", strlen("--host")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "h");
-                    goto end_parse_command;
-                }
-                pg_args->host = argv[++i];
-            } else if (0 == strncmp(argv[i], "-h", strlen("-h"))) {
-                pg_args->host = (char *)(argv[i] + strlen("-h"));
-            } else if (strlen("--host") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--host");
-                    goto end_parse_command;
-                }
-                pg_args->host = argv[++i];
-            } else if (0 == strncmp(argv[i], "--host=", strlen("--host="))) {
-                pg_args->host = (char *)(argv[i] + strlen("--host="));
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if (strcmp(argv[i], "-PP") == 0) {
-            pg_args->performance_print = true;
-        } else if ((0 == strncmp(argv[i], "-P", strlen("-P"))) ||
-                   (0 == strncmp(argv[i], "--port", strlen("--port")))) {
-            uint64_t port;
-            char     strPort[BIGINT_BUFF_LEN];
-
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "P");
-                    goto end_parse_command;
-                } else if (isStringNumber(argv[i + 1])) {
-                    tstrncpy(strPort, argv[++i], BIGINT_BUFF_LEN);
-                } else {
-                    errorPrintReqArg2(argv[0], "P");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "--port=", strlen("--port="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--port=")))) {
-                    tstrncpy(strPort, (char *)(argv[i] + strlen("--port=")),
-                             BIGINT_BUFF_LEN);
-                } else {
-                    errorPrintReqArg2(argv[0], "--port");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-P", strlen("-P"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-P")))) {
-                    tstrncpy(strPort, (char *)(argv[i] + strlen("-P")),
-                             BIGINT_BUFF_LEN);
-                } else {
-                    errorPrintReqArg2(argv[0], "--port");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--port") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--port");
-                    goto end_parse_command;
-                } else if (isStringNumber(argv[i + 1])) {
-                    tstrncpy(strPort, argv[++i], BIGINT_BUFF_LEN);
-                } else {
-                    errorPrintReqArg2(argv[0], "--port");
-                    goto end_parse_command;
-                }
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-
-            port = atoi(strPort);
-            if (port > 65535) {
-                errorWrongValue("taosdump", "-P or --port", strPort);
-                goto end_parse_command;
-            }
-            pg_args->port = (uint16_t)port;
-
-        } else if ((0 == strncmp(argv[i], "-I", strlen("-I"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--interface", strlen("--interface")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "I");
-                    goto end_parse_command;
-                }
-                if (0 == strcasecmp(argv[i + 1], "taosc")) {
-                    pg_args->iface = TAOSC_IFACE;
-                } else if (0 == strcasecmp(argv[i + 1], "rest")) {
-                    pg_args->iface = REST_IFACE;
-                } else if (0 == strcasecmp(argv[i + 1], "stmt")) {
-                    pg_args->iface = STMT_IFACE;
-                } else if (0 == strcasecmp(argv[i + 1], "sml")) {
-                    pg_args->iface = SML_IFACE;
-                } else {
-                    errorWrongValue(argv[0], "-I", argv[i + 1]);
-                    goto end_parse_command;
-                }
-                i++;
-            } else if (0 == strncmp(argv[i],
-                                    "--interface=", strlen("--interface="))) {
-                if (0 == strcasecmp((char *)(argv[i] + strlen("--interface=")),
-                                    "taosc")) {
-                    pg_args->iface = TAOSC_IFACE;
-                } else if (0 == strcasecmp(
-                                    (char *)(argv[i] + strlen("--interface=")),
-                                    "rest")) {
-                    pg_args->iface = REST_IFACE;
-                } else if (0 == strcasecmp(
-                                    (char *)(argv[i] + strlen("--interface=")),
-                                    "stmt")) {
-                    pg_args->iface = STMT_IFACE;
-                } else if (0 == strcasecmp(
-                                    (char *)(argv[i] + strlen("--interface=")),
-                                    "sml")) {
-                    pg_args->iface = SML_IFACE;
-                } else {
-                    errorPrintReqArg3(argv[0], "--interface");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-I", strlen("-I"))) {
-                if (0 ==
-                    strcasecmp((char *)(argv[i] + strlen("-I")), "taosc")) {
-                    pg_args->iface = TAOSC_IFACE;
-                } else if (0 == strcasecmp((char *)(argv[i] + strlen("-I")),
-                                           "rest")) {
-                    pg_args->iface = REST_IFACE;
-                } else if (0 == strcasecmp((char *)(argv[i] + strlen("-I")),
-                                           "stmt")) {
-                    pg_args->iface = STMT_IFACE;
-                } else if (0 == strcasecmp((char *)(argv[i] + strlen("-I")),
-                                           "sml")) {
-                    pg_args->iface = SML_IFACE;
-                } else {
-                    errorWrongValue(argv[0], "-I",
-                                    (char *)(argv[i] + strlen("-I")));
-                    goto end_parse_command;
-                }
-            } else if (strlen("--interface") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--interface");
-                    goto end_parse_command;
-                }
-                if (0 == strcasecmp(argv[i + 1], "taosc")) {
-                    pg_args->iface = TAOSC_IFACE;
-                } else if (0 == strcasecmp(argv[i + 1], "rest")) {
-                    pg_args->iface = REST_IFACE;
-                } else if (0 == strcasecmp(argv[i + 1], "stmt")) {
-                    pg_args->iface = STMT_IFACE;
-                } else if (0 == strcasecmp(argv[i + 1], "sml")) {
-                    pg_args->iface = SML_IFACE;
-                } else {
-                    errorWrongValue(argv[0], "--interface", argv[i + 1]);
-                    goto end_parse_command;
-                }
-                i++;
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-u", strlen("-u"))) ||
-                   (0 == strncmp(argv[i], "--user", strlen("--user")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "u");
-                    goto end_parse_command;
-                }
-                pg_args->user = argv[++i];
-            } else if (0 == strncmp(argv[i], "-u", strlen("-u"))) {
-                pg_args->user = (char *)(argv[i++] + strlen("-u"));
-            } else if (0 == strncmp(argv[i], "--user=", strlen("--user="))) {
-                pg_args->user = (char *)(argv[i++] + strlen("--user="));
-            } else if (strlen("--user") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--user");
-                    goto end_parse_command;
-                }
-                pg_args->user = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-p", strlen("-p"))) ||
-                   (0 == strcmp(argv[i], "--password"))) {
-            if ((strlen(argv[i]) == 2) ||
-                (0 == strcmp(argv[i], "--password"))) {
-                printf("Enter password: ");
-                if (scanf("%26s", pg_args->password) > 1) {
-                    fprintf(stderr, "password read error!\n");
-                }
-            } else {
-                pg_args->password = (char *)(argv[i] + 2);
-            }
-        } else if ((0 == strncmp(argv[i], "-o", strlen("-o"))) ||
-                   (0 == strncmp(argv[i], "--output", strlen("--output")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--output");
-                    goto end_parse_command;
-                }
-                pg_args->output_file = argv[++i];
-            } else if (0 ==
-                       strncmp(argv[i], "--output=", strlen("--output="))) {
-                pg_args->output_file =
-                    (char *)(argv[i++] + strlen("--output="));
-            } else if (0 == strncmp(argv[i], "-o", strlen("-o"))) {
-                pg_args->output_file = (char *)(argv[i++] + strlen("-o"));
-            } else if (strlen("--output") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--output");
-                    goto end_parse_command;
-                }
-                pg_args->output_file = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-T", strlen("-T"))) ||
-                   (0 == strncmp(argv[i], "--threads", strlen("--threads")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "T");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "T");
-                    goto end_parse_command;
-                }
-                pg_args->nthreads = atoi(argv[++i]);
-            } else if (0 ==
-                       strncmp(argv[i], "--threads=", strlen("--threads="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--threads=")))) {
-                    pg_args->nthreads =
-                        atoi((char *)(argv[i] + strlen("--threads=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--threads");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-T", strlen("-T"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-T")))) {
-                    pg_args->nthreads = atoi((char *)(argv[i] + strlen("-T")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-T");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--threads") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--threads");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--threads");
-                    goto end_parse_command;
-                }
-                pg_args->nthreads = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-i", strlen("-i"))) ||
-                   (0 == strncmp(argv[i], "--insert-interval",
-                                 strlen("--insert-interval")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "i");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "i");
-                    goto end_parse_command;
-                }
-                pg_args->insert_interval = atoi(argv[++i]);
-            } else if (0 == strncmp(argv[i], "--insert-interval=",
-                                    strlen("--insert-interval="))) {
-                if (isStringNumber(
-                        (char *)(argv[i] + strlen("--insert-interval=")))) {
-                    pg_args->insert_interval =
-                        atoi((char *)(argv[i] + strlen("--insert-interval=")));
-                } else {
-                    errorPrintReqArg3(argv[0], "--insert-innterval");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-i", strlen("-i"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-i")))) {
-                    pg_args->insert_interval =
-                        atoi((char *)(argv[i] + strlen("-i")));
-                } else {
-                    errorPrintReqArg3(argv[0], "-i");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--insert-interval") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--insert-interval");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--insert-interval");
-                    goto end_parse_command;
-                }
-                pg_args->insert_interval = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-S", strlen("-S"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--time-step", strlen("--time-step")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "S");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "S");
-                    goto end_parse_command;
-                }
-                pg_args->timestamp_step = atoi(argv[++i]);
-            } else if (0 == strncmp(argv[i],
-                                    "--time-step=", strlen("--time-step="))) {
-                if (isStringNumber(
-                        (char *)(argv[i] + strlen("--time-step=")))) {
-                    pg_args->timestamp_step =
-                        atoi((char *)(argv[i] + strlen("--time-step=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--time-step");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-S", strlen("-S"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-S")))) {
-                    pg_args->timestamp_step =
-                        atoi((char *)(argv[i] + strlen("-S")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-S");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--time-step") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--time-step");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--time-step");
-                    goto end_parse_command;
-                }
-                pg_args->timestamp_step = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-B", strlen("-B"))) ||
-                   (0 == strncmp(argv[i], "--interlace-rows",
-                                 strlen("--interlace-rows")))) {
-            if (strlen("-B") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "B");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "B");
-                    goto end_parse_command;
-                }
-                pg_args->interlaceRows = atoi(argv[++i]);
-            } else if (0 == strncmp(argv[i], "--interlace-rows=",
-                                    strlen("--interlace-rows="))) {
-                if (isStringNumber(
-                        (char *)(argv[i] + strlen("--interlace-rows=")))) {
-                    pg_args->interlaceRows =
-                        atoi((char *)(argv[i] + strlen("--interlace-rows=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--interlace-rows");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-B", strlen("-B"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-B")))) {
-                    pg_args->interlaceRows =
-                        atoi((char *)(argv[i] + strlen("-B")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-B");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--interlace-rows") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--interlace-rows");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--interlace-rows");
-                    goto end_parse_command;
-                }
-                pg_args->interlaceRows = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-r", strlen("-r"))) ||
-                   (0 == strncmp(argv[i], "--rec-per-req", 13))) {
-            if (strlen("-r") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "r");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "r");
-                    goto end_parse_command;
-                }
-                pg_args->reqPerReq = atoi(argv[++i]);
-            } else if (0 == strncmp(argv[i], "--rec-per-req=",
-                                    strlen("--rec-per-req="))) {
-                if (isStringNumber(
-                        (char *)(argv[i] + strlen("--rec-per-req=")))) {
-                    pg_args->reqPerReq =
-                        atoi((char *)(argv[i] + strlen("--rec-per-req=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--rec-per-req");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-r", strlen("-r"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-r")))) {
-                    pg_args->reqPerReq = atoi((char *)(argv[i] + strlen("-r")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-r");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--rec-per-req") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--rec-per-req");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--rec-per-req");
-                    goto end_parse_command;
-                }
-                pg_args->reqPerReq = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-t", strlen("-t"))) ||
-                   (0 == strncmp(argv[i], "--tables", strlen("--tables")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "t");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "t");
-                    goto end_parse_command;
-                }
-                pg_args->ntables = atoi(argv[++i]);
-            } else if (0 ==
-                       strncmp(argv[i], "--tables=", strlen("--tables="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--tables=")))) {
-                    pg_args->ntables =
-                        atoi((char *)(argv[i] + strlen("--tables=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--tables");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-t", strlen("-t"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-t")))) {
-                    pg_args->ntables = atoi((char *)(argv[i] + strlen("-t")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-t");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--tables") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--tables");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--tables");
-                    goto end_parse_command;
-                }
-                pg_args->ntables = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-
-            g_totalChildTables = pg_args->ntables;
-        } else if ((0 == strncmp(argv[i], "-n", strlen("-n"))) ||
-                   (0 == strncmp(argv[i], "--records", strlen("--records")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "n");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "n");
-                    goto end_parse_command;
-                }
-                pg_args->insertRows = atoi(argv[++i]);
-            } else if (0 ==
-                       strncmp(argv[i], "--records=", strlen("--records="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--records=")))) {
-                    pg_args->insertRows =
-                        atoi((char *)(argv[i] + strlen("--records=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--records");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-n", strlen("-n"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-n")))) {
-                    pg_args->insertRows =
-                        atoi((char *)(argv[i] + strlen("-n")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-n");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--records") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--records");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--records");
-                    goto end_parse_command;
-                }
-                pg_args->insertRows = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-d", strlen("-d"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--database", strlen("--database")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "d");
-                    goto end_parse_command;
-                }
-                pg_args->database = argv[++i];
-            } else if (0 ==
-                       strncmp(argv[i], "--database=", strlen("--database="))) {
-                pg_args->database = (char *)(argv[i] + strlen("--database="));
-            } else if (0 == strncmp(argv[i], "-d", strlen("-d"))) {
-                pg_args->database = (char *)(argv[i] + strlen("-d"));
-            } else if (strlen("--database") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--database");
-                    goto end_parse_command;
-                }
-                pg_args->database = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-l", strlen("-l"))) ||
-                   (0 == strncmp(argv[i], "--columns", strlen("--columns")))) {
-            pg_args->demo_mode = false;
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "l");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "l");
-                    goto end_parse_command;
-                }
-                pg_args->intColumnCount = atoi(argv[++i]);
-            } else if (0 ==
-                       strncmp(argv[i], "--columns=", strlen("--columns="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--columns=")))) {
-                    pg_args->intColumnCount =
-                        atoi((char *)(argv[i] + strlen("--columns=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--columns");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-l", strlen("-l"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-l")))) {
-                    pg_args->intColumnCount =
-                        atoi((char *)(argv[i] + strlen("-l")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-l");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--columns") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--columns");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--columns");
-                    goto end_parse_command;
-                }
-                pg_args->intColumnCount = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-A", strlen("-A"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--tag-type", strlen("--tag-type")))) {
-            pg_args->demo_mode = false;
-
-            char *dataType;
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "A");
-                    goto end_parse_command;
-                }
-                dataType = argv[++i];
-            } else if (0 ==
-                       strncmp(argv[i], "--tag-type=", strlen("--tag-type="))) {
-                dataType = (char *)(argv[i] + strlen("--tag-type="));
-            } else if (0 == strncmp(argv[i], "-A", strlen("-A"))) {
-                dataType = (char *)(argv[i] + strlen("-A"));
-            } else if (strlen("--tag-type") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--tag-type");
-                    goto end_parse_command;
-                }
-                dataType = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-            tmfree(pg_args->tag_type);
-            tmfree(pg_args->tag_length);
-            count_datatype(dataType, &(pg_args->tagCount));
-            pg_args->tag_type = calloc(pg_args->tagCount, sizeof(char));
-            pg_args->tag_length = calloc(pg_args->tagCount, sizeof(int32_t));
-            if (parse_datatype(dataType, pg_args->tag_type, pg_args->tag_length,
-                               true)) {
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-b", strlen("-b"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--data-type", strlen("--data-type")))) {
-            pg_args->demo_mode = false;
-            char *dataType;
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "b");
-                    goto end_parse_command;
-                }
-                dataType = argv[++i];
-            } else if (0 == strncmp(argv[i],
-                                    "--data-type=", strlen("--data-type="))) {
-                dataType = (char *)(argv[i] + strlen("--data-type="));
-            } else if (0 == strncmp(argv[i], "-b", strlen("-b"))) {
-                dataType = (char *)(argv[i] + strlen("-b"));
-            } else if (strlen("--data-type") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--data-type");
-                    goto end_parse_command;
-                }
-                dataType = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-            tmfree(g_args.col_type);
-            tmfree(g_args.col_length);
-            count_datatype(dataType, &(g_args.columnCount));
-            g_args.col_type = calloc(g_args.columnCount, sizeof(char));
-            g_args.col_length = calloc(g_args.columnCount, sizeof(int32_t));
-            if (parse_datatype(dataType, g_args.col_type, g_args.col_length,
-                               false)) {
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-w", strlen("-w"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--binwidth", strlen("--binwidth")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "w");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "w");
-                    goto end_parse_command;
-                }
-                pg_args->binwidth = atoi(argv[++i]);
-            } else if (0 ==
-                       strncmp(argv[i], "--binwidth=", strlen("--binwidth="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--binwidth=")))) {
-                    pg_args->binwidth =
-                        atoi((char *)(argv[i] + strlen("--binwidth=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--binwidth");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-w", strlen("-w"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-w")))) {
-                    pg_args->binwidth = atoi((char *)(argv[i] + strlen("-w")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-w");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--binwidth") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--binwidth");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--binwidth");
-                    goto end_parse_command;
-                }
-                pg_args->binwidth = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-m", strlen("-m"))) ||
-                   (0 == strncmp(argv[i], "--table-prefix",
-                                 strlen("--table-prefix")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "m");
-                    goto end_parse_command;
-                }
-                pg_args->tb_prefix = argv[++i];
-            } else if (0 == strncmp(argv[i], "--table-prefix=",
-                                    strlen("--table-prefix="))) {
-                pg_args->tb_prefix =
-                    (char *)(argv[i] + strlen("--table-prefix="));
-            } else if (0 == strncmp(argv[i], "-m", strlen("-m"))) {
-                pg_args->tb_prefix = (char *)(argv[i] + strlen("-m"));
-            } else if (strlen("--table-prefix") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--table-prefix");
-                    goto end_parse_command;
-                }
-                pg_args->tb_prefix = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-E", strlen("-E"))) ||
-                   (0 == strncmp(argv[i], "--escape-character",
-                                 strlen("--escape-character")))) {
-            pg_args->escapeChar = true;
-        } else if ((0 == strncmp(argv[i], "-C", strlen("-C"))) ||
-                   (0 == strncmp(argv[i], "--chinese", strlen("--chinese")))) {
-            pg_args->chinese = true;
-        } else if ((strcmp(argv[i], "-N") == 0) ||
-                   (0 == strcmp(argv[i], "--normal-table"))) {
-            pg_args->demo_mode = false;
-            pg_args->use_metric = false;
-            pg_args->tagCount = 0;
-        } else if ((strcmp(argv[i], "-M") == 0) ||
-                   (0 == strcmp(argv[i], "--random"))) {
-            pg_args->demo_mode = false;
-        } else if ((strcmp(argv[i], "-x") == 0) ||
-                   (0 == strcmp(argv[i], "--aggr-func"))) {
-            pg_args->aggr_func = true;
-        } else if ((strcmp(argv[i], "-y") == 0) ||
-                   (0 == strcmp(argv[i], "--answer-yes"))) {
-            pg_args->answer_yes = true;
-        } else if ((strcmp(argv[i], "-g") == 0) ||
-                   (0 == strcmp(argv[i], "--debug"))) {
-            pg_args->debug_print = true;
-        } else if (strcmp(argv[i], "-gg") == 0) {
-            pg_args->verbose_print = true;
-        } else if ((0 == strncmp(argv[i], "-R", strlen("-R"))) ||
-                   (0 == strncmp(argv[i], "--disorder-range",
-                                 strlen("--disorder-range")))) {
-            if (strlen("-R") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "R");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "R");
-                    goto end_parse_command;
-                }
-                pg_args->disorderRange = atoi(argv[++i]);
-            } else if (0 == strncmp(argv[i], "--disorder-range=",
-                                    strlen("--disorder-range="))) {
-                if (isStringNumber(
-                        (char *)(argv[i] + strlen("--disorder-range=")))) {
-                    pg_args->disorderRange =
-                        atoi((char *)(argv[i] + strlen("--disorder-range=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--disorder-range");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-R", strlen("-R"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-R")))) {
-                    pg_args->disorderRange =
-                        atoi((char *)(argv[i] + strlen("-R")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-R");
-                    goto end_parse_command;
-                }
-
-                if (pg_args->disorderRange < 0) {
-                    errorPrint("Invalid disorder range %d, will be set to %d\n",
-                               pg_args->disorderRange, 1000);
-                    pg_args->disorderRange = 1000;
-                }
-            } else if (strlen("--disorder-range") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--disorder-range");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--disorder-range");
-                    goto end_parse_command;
-                }
-                pg_args->disorderRange = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-        } else if ((0 == strncmp(argv[i], "-O", strlen("-O"))) ||
-                   (0 ==
-                    strncmp(argv[i], "--disorder", strlen("--disorder")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "O");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "O");
-                    goto end_parse_command;
-                }
-                pg_args->disorderRatio = atoi(argv[++i]);
-            } else if (0 ==
-                       strncmp(argv[i], "--disorder=", strlen("--disorder="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--disorder=")))) {
-                    pg_args->disorderRatio =
-                        atoi((char *)(argv[i] + strlen("--disorder=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--disorder");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-O", strlen("-O"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-O")))) {
-                    pg_args->disorderRatio =
-                        atoi((char *)(argv[i] + strlen("-O")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-O");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--disorder") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--disorder");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--disorder");
-                    goto end_parse_command;
-                }
-                pg_args->disorderRatio = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-
-            if (pg_args->disorderRatio > 50) {
-                errorPrint("Invalid disorder ratio %d, will be set to %d\n",
-                           pg_args->disorderRatio, 50);
-                pg_args->disorderRatio = 50;
-            }
-        } else if ((0 == strncmp(argv[i], "-a", strlen("-a"))) ||
-                   (0 == strncmp(argv[i], "--replica", strlen("--replica")))) {
-            if (2 == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg(argv[0], "a");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "a");
-                    goto end_parse_command;
-                }
-                pg_args->replica = atoi(argv[++i]);
-            } else if (0 ==
-                       strncmp(argv[i], "--replica=", strlen("--replica="))) {
-                if (isStringNumber((char *)(argv[i] + strlen("--replica=")))) {
-                    pg_args->replica =
-                        atoi((char *)(argv[i] + strlen("--replica=")));
-                } else {
-                    errorPrintReqArg2(argv[0], "--replica");
-                    goto end_parse_command;
-                }
-            } else if (0 == strncmp(argv[i], "-a", strlen("-a"))) {
-                if (isStringNumber((char *)(argv[i] + strlen("-a")))) {
-                    pg_args->replica = atoi((char *)(argv[i] + strlen("-a")));
-                } else {
-                    errorPrintReqArg2(argv[0], "-a");
-                    goto end_parse_command;
-                }
-            } else if (strlen("--replica") == strlen(argv[i])) {
-                if (argc == i + 1) {
-                    errorPrintReqArg3(argv[0], "--replica");
-                    goto end_parse_command;
-                } else if (!isStringNumber(argv[i + 1])) {
-                    errorPrintReqArg2(argv[0], "--replica");
-                    goto end_parse_command;
-                }
-                pg_args->replica = atoi(argv[++i]);
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                goto end_parse_command;
-            }
-
-            if (pg_args->replica > 3 || pg_args->replica < 1) {
-                errorPrint("Invalid replica value %d, will be set to %d\n",
-                           pg_args->replica, 1);
-                pg_args->replica = 1;
-            }
-        } else if ((strcmp(argv[i], "--version") == 0) ||
-                   (strcmp(argv[i], "-V") == 0)) {
-            printVersion();
-        } else if ((strcmp(argv[i], "--help") == 0) ||
-                   (strcmp(argv[i], "-?") == 0)) {
-            printHelp();
-        } else {
-            // to simulate argp_option output
-            if (strlen(argv[i]) > 2) {
-                if (0 == strncmp(argv[i], "--", 2)) {
-                    fprintf(stderr, "%s: unrecognized options '%s'\n", argv[0],
-                            argv[i]);
-                } else if (0 == strncmp(argv[i], "-", 1)) {
-                    char tmp[2] = {0};
-                    tstrncpy(tmp, argv[i] + 1, 2);
-                    fprintf(stderr, "%s: invalid options -- '%s'\n", argv[0],
-                            tmp);
-                } else {
-                    fprintf(stderr, "%s: Too many arguments\n", argv[0]);
-                }
-            } else {
-                fprintf(stderr, "%s invalid options -- '%s'\n", argv[0],
-                        (char *)((char *)argv[i]) + 1);
-            }
-            fprintf(stderr,
-                    "Try `taosbenchmark --help' or `taosbenchmark --usage' for "
-                    "more "
-                    "information.\n");
-            goto end_parse_command;
-        }
-    }
-
-    code = 0;
-end_parse_command:
-    return code;
+void commandLineParseArgument(int argc, char *argv[], SArguments *arguments) {
+    argp_program_version = taos_get_client_info();
+    argp_parse(&argp, argc, argv, 0, 0, arguments);
 }
-void setParaFromArg(SArguments *pg_args) {
+
+void setParaFromArg(SArguments *pg_args, SDataBase *pdb) {
     pg_args->test_mode = INSERT_TEST;
-    db[0].drop = true;
-    tstrncpy(db[0].dbName, pg_args->database, TSDB_DB_NAME_LEN);
-    db[0].dbCfg.replica = pg_args->replica;
-    tstrncpy(db[0].dbCfg.precision, "ms", SMALL_BUFF_LEN);
+    pdb->drop = true;
+    tstrncpy(pdb->dbName, pg_args->database, TSDB_DB_NAME_LEN);
+    pdb->dbCfg.replica = pg_args->replica;
+    tstrncpy(pdb->dbCfg.precision, "ms", SMALL_BUFF_LEN);
     pg_args->prepared_rand = min(pg_args->insertRows, MAX_PREPARED_RAND);
 
     if (pg_args->intColumnCount > pg_args->columnCount) {
@@ -1254,93 +521,40 @@ void setParaFromArg(SArguments *pg_args) {
     if ((pg_args->col_type[0] == TSDB_DATA_TYPE_BINARY) ||
         (pg_args->col_type[0] == TSDB_DATA_TYPE_BOOL) ||
         (pg_args->col_type[0] == TSDB_DATA_TYPE_NCHAR)) {
-        g_args.aggr_func = false;
+        pg_args->aggr_func = false;
     }
     if (pg_args->use_metric) {
-        db[0].superTblCount = 1;
-        tstrncpy(db[0].superTbls[0].stbName, "meters", TSDB_TABLE_NAME_LEN);
-        db[0].superTbls[0].childTblCount = pg_args->ntables;
-        db[0].superTbls[0].childTblLimit = pg_args->ntables;
-        db[0].superTbls[0].childTblOffset = 0;
-        db[0].superTbls[0].escapeChar = pg_args->escapeChar;
+        pdb->superTblCount = 1;
+        tstrncpy(pdb->superTbls[0].stbName, "meters", TSDB_TABLE_NAME_LEN);
+        pdb->superTbls[0].childTblCount = pg_args->ntables;
+        pdb->superTbls[0].childTblLimit = pg_args->ntables;
+        pdb->superTbls[0].childTblOffset = 0;
+        pdb->superTbls[0].escapeChar = pg_args->escapeChar;
 
-        db[0].superTbls[0].autoCreateTable = PRE_CREATE_SUBTBL;
-        db[0].superTbls[0].childTblExists = TBL_NO_EXISTS;
-        db[0].superTbls[0].disorderRange = pg_args->disorderRange;
-        db[0].superTbls[0].disorderRatio = pg_args->disorderRatio;
-        tstrncpy(db[0].superTbls[0].childTblPrefix, pg_args->tb_prefix,
+        pdb->superTbls[0].autoCreateTable = PRE_CREATE_SUBTBL;
+        pdb->superTbls[0].childTblExists = TBL_NO_EXISTS;
+        pdb->superTbls[0].disorderRange = pg_args->disorderRange;
+        pdb->superTbls[0].disorderRatio = pg_args->disorderRatio;
+        tstrncpy(pdb->superTbls[0].childTblPrefix, pg_args->tb_prefix,
                  TBNAME_PREFIX_LEN);
-        tstrncpy(db[0].superTbls[0].dataSource, "rand", SMALL_BUFF_LEN);
+        tstrncpy(pdb->superTbls[0].dataSource, "rand", SMALL_BUFF_LEN);
 
-        db[0].superTbls[0].iface = pg_args->iface;
-        db[0].superTbls[0].lineProtocol = TSDB_SML_LINE_PROTOCOL;
-        db[0].superTbls[0].tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-        tstrncpy(db[0].superTbls[0].startTimestamp, "2017-07-14 10:40:00.000",
+        pdb->superTbls[0].iface = pg_args->iface;
+        pdb->superTbls[0].lineProtocol = TSDB_SML_LINE_PROTOCOL;
+        pdb->superTbls[0].tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+        tstrncpy(pdb->superTbls[0].startTimestamp, "2017-07-14 10:40:00.000",
                  MAX_TB_NAME_SIZE);
-        db[0].superTbls[0].timeStampStep = pg_args->timestamp_step;
+        pdb->superTbls[0].timeStampStep = pg_args->timestamp_step;
 
-        db[0].superTbls[0].insertRows = pg_args->insertRows;
-        db[0].superTbls[0].interlaceRows = pg_args->interlaceRows;
-        db[0].superTbls[0].columnCount = g_args.columnCount;
-        db[0].superTbls[0].col_type = g_args.col_type;
-        db[0].superTbls[0].col_length = g_args.col_length;
-        db[0].superTbls[0].tagCount = g_args.tagCount;
-        db[0].superTbls[0].tag_type = g_args.tag_type;
-        db[0].superTbls[0].tag_length = g_args.tag_length;
+        pdb->superTbls[0].insertRows = pg_args->insertRows;
+        pdb->superTbls[0].interlaceRows = pg_args->interlaceRows;
+        pdb->superTbls[0].columnCount = pg_args->columnCount;
+        pdb->superTbls[0].col_type = pg_args->col_type;
+        pdb->superTbls[0].col_length = pg_args->col_length;
+        pdb->superTbls[0].tagCount = pg_args->tagCount;
+        pdb->superTbls[0].tag_type = pg_args->tag_type;
+        pdb->superTbls[0].tag_length = pg_args->tag_length;
     }
-}
-
-int querySqlFile(TAOS *taos, char *sqlFile) {
-    int32_t code = -1;
-    FILE *  fp = fopen(sqlFile, "r");
-    char *  cmd;
-    int     read_len = 0;
-    size_t  cmd_len = 0;
-    char *  line = NULL;
-    size_t  line_len = 0;
-    if (fp == NULL) {
-        errorPrint("failed to open file %s, reason:%s\n", sqlFile,
-                   strerror(errno));
-        goto free_of_query_sql_file;
-    }
-    cmd = calloc(1, TSDB_MAX_BYTES_PER_ROW);
-    if (cmd == NULL) {
-        errorPrint("%s", "failde to allocate memory\n");
-        goto free_of_query_sql_file;
-    }
-    double t = (double)taosGetTimestampMs();
-    while ((read_len = getline(&line, &line_len, fp)) != -1) {
-        if (read_len >= TSDB_MAX_BYTES_PER_ROW) continue;
-        line[--read_len] = '\0';
-
-        if (read_len == 0 || isCommentLine(line)) {  // line starts with #
-            continue;
-        }
-
-        if (line[read_len - 1] == '\\') {
-            line[read_len - 1] = ' ';
-            memcpy(cmd + cmd_len, line, read_len);
-            cmd_len += read_len;
-            continue;
-        }
-
-        memcpy(cmd + cmd_len, line, read_len);
-        if (0 != queryDbExec(taos, cmd, NO_INSERT_TYPE, false)) {
-            errorPrint("queryDbExec %s failed!\n", cmd);
-            goto free_of_query_sql_file;
-        }
-        memset(cmd, 0, TSDB_MAX_BYTES_PER_ROW);
-        cmd_len = 0;
-    }
-
-    t = taosGetTimestampMs() - t;
-    printf("run %s took %.6f second(s)\n\n", sqlFile, t / 1000000);
-    code = 0;
-free_of_query_sql_file:
-    tmfree(cmd);
-    tmfree(line);
-    tmfclose(fp);
-    return code;
 }
 
 void *queryStableAggrFunc(void *sarg) {

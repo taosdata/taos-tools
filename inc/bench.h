@@ -40,6 +40,7 @@
 #include <stdio.h>
 #endif
 
+#include <argp.h>
 #include <assert.h>
 #include <cJSONDEMO.h>
 #include <ctype.h>
@@ -269,12 +270,6 @@ typedef enum enumQUERY_CLASS {
     STABLE_CLASS,
     CLASS_BUT
 } QUERY_CLASS;
-
-typedef enum enum_PROGRESSIVE_OR_INTERLACE {
-    PROGRESSIVE_INSERT_MODE,
-    INTERLACE_INSERT_MODE,
-    INVALID_INSERT_MODE
-} PROG_OR_INTERLACE_MODE;
 
 typedef enum enumQUERY_TYPE {
     NO_INSERT_TYPE,
@@ -621,12 +616,11 @@ extern TAOS_POOL      g_taos_pool;
     } while (0)
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
-int  parse_args(int argc, char *argv[], SArguments *pg_args);
+void commandLineParseArgument(int argc, char *argv[], SArguments *arguments);
 int  count_datatype(char *dataType, int32_t *number);
 int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                     bool is_tag);
-void setParaFromArg(SArguments *pg_args);
-int  querySqlFile(TAOS *taos, char *sqlFile);
+void setParaFromArg(SArguments *pg_args, SDataBase *pdb);
 int  test(SArguments *pg_args);
 void init_g_args(SArguments *pg_args);
 /* demoJsonOpt.c */
@@ -659,21 +653,14 @@ int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
 char *  formatTimestamp(char *buf, int64_t val, int precision);
-void    errorWrongValue(char *program, char *wrong_arg, char *wrong_value);
+void    errorWrongValue(char *wrong_arg, char *wrong_value);
 void    errorUnrecognized(char *program, char *wrong_arg);
-void    errorPrintReqArg(char *program, char *wrong_arg);
+void    errorPrintReqArg(char *wrong_arg);
 void    errorPrintReqArg2(char *program, char *wrong_arg);
-void    errorPrintReqArg3(char *program, char *wrong_arg);
 bool    isStringNumber(char *input);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
-int     getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
-                                                   char *   stbName,
-                                                   char **  childTblNameOfSuperTbl,
-                                                   int64_t *childTblCountOfSuperTbl,
-                                                   int64_t limit, uint64_t offset,
-                                                   bool escapChar);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

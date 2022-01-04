@@ -15,9 +15,8 @@
 
 #include "bench.h"
 
-void errorWrongValue(char *program, char *wrong_arg, char *wrong_value) {
-    fprintf(stderr, "%s %s: %s is an invalid value\n", program, wrong_arg,
-            wrong_value);
+void errorWrongValue(char *wrong_arg, char *wrong_value) {
+    errorPrint(" %s: %s is an invalid value\n", wrong_arg, wrong_value);
     fprintf(stderr,
             "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
             "information.\n");
@@ -30,9 +29,8 @@ void errorUnrecognized(char *program, char *wrong_arg) {
             "information.\n");
 }
 
-void errorPrintReqArg(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: option requires an argument -- '%s'\n", program,
-            wrong_arg);
+void errorPrintReqArg(char *wrong_arg) {
+    errorPrint("%s: option requires an value\n", wrong_arg);
     fprintf(stderr,
             "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
             "information.\n");
@@ -40,14 +38,6 @@ void errorPrintReqArg(char *program, char *wrong_arg) {
 
 void errorPrintReqArg2(char *program, char *wrong_arg) {
     fprintf(stderr, "%s: option requires a number argument '-%s'\n", program,
-            wrong_arg);
-    fprintf(stderr,
-            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
-            "information.\n");
-}
-
-void errorPrintReqArg3(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: option '%s' requires an argument\n", program,
             wrong_arg);
     fprintf(stderr,
             "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
