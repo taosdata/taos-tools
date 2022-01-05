@@ -233,7 +233,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             arguments->aggr_func = true;
             break;
         case 'y':
-            arguments->answer_yes = false;
+            arguments->answer_yes = true;
             break;
         case 'R':
             arguments->disorderRange = atoi(arg);
@@ -258,6 +258,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'g':
             arguments->debug_print = true;
+            break;
         default:
             return ARGP_ERR_UNKNOWN;
     }
@@ -267,6 +268,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
 void init_g_args(SArguments *pg_args) {
+    pg_args->demo_mode = DEFAULT_DEMO_MODE;
     pg_args->dbCount = 1;
     pg_args->test_mode = DEFAULT_TEST_MODE;
     pg_args->host = DEFAULT_HOST;
