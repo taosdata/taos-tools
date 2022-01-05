@@ -15,35 +15,6 @@
 
 #include "bench.h"
 
-void errorWrongValue(char *wrong_arg, char *wrong_value) {
-    errorPrint(" %s: %s is an invalid value\n", wrong_arg, wrong_value);
-    fprintf(stderr,
-            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
-            "information.\n");
-}
-
-void errorUnrecognized(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: unrecognized options '%s'\n", program, wrong_arg);
-    fprintf(stderr,
-            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
-            "information.\n");
-}
-
-void errorPrintReqArg(char *wrong_arg) {
-    errorPrint("%s: option requires an value\n", wrong_arg);
-    fprintf(stderr,
-            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
-            "information.\n");
-}
-
-void errorPrintReqArg2(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: option requires a number argument '-%s'\n", program,
-            wrong_arg);
-    fprintf(stderr,
-            "Try `taosbenchmark --help' or `taosbenchmark --usage' for more "
-            "information.\n");
-}
-
 void tmfclose(FILE *fp) {
     if (NULL != fp) {
         fclose(fp);
@@ -129,19 +100,6 @@ void resetAfterAnsiEscape(void) {
 int taosRandom() { return rand(); }
 
 #endif
-
-bool isStringNumber(char *input) {
-    int len = (int)strlen(input);
-    if (0 == len) {
-        return false;
-    }
-
-    for (int i = 0; i < len; i++) {
-        if (!isdigit(input[i])) return false;
-    }
-
-    return true;
-}
 
 char *formatTimestamp(char *buf, int64_t val, int precision) {
     time_t tt;
@@ -462,7 +420,13 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
     }
-    response_buf = calloc(1, g_args.response_buffer);
+    uint64_t response_length;
+    if (g_args.test_mode == INSERT_TEST) {
+        response_length = RESP_BUF_LEN;
+    } else {
+        response_length = g_queryInfo.response_buffer;
+    }
+    response_buf = calloc(1, response_length);
     if (NULL == response_buf) {
         errorPrint("%s", "cannot allocate memory\n");
         goto free_of_post;
@@ -518,7 +482,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         free(request_buf);
         ERROR_EXIT("too long request");
     }
-    verbosePrint("%s() LN%d: Request:\n%s\n", __func__, __LINE__, request_buf);
 
     req_str_len = (int)strlen(request_buf);
     sent = 0;
@@ -538,7 +501,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         sent += bytes;
     } while (sent < req_str_len);
 
-    resp_len = g_args.response_buffer - 1;
+    resp_len = response_length - 1;
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
@@ -625,12 +588,8 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         // printf("query result:%s\n", temp);
         memcpy(databuf + totalLen, temp, len);
         totalLen += len;
-        verbosePrint("%s() LN%d, totalLen: %" PRId64 "\n", __func__, __LINE__,
-                     totalLen);
     }
 
-    verbosePrint("%s() LN%d, databuf=%s resultFile=%s\n", __func__, __LINE__,
-                 databuf, pThreadInfo->filePath);
     if (strlen(pThreadInfo->filePath) > 0) {
         appendResultBufToFile(databuf, pThreadInfo);
     }

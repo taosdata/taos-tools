@@ -516,7 +516,7 @@ void printfQueryMeta() {
     printf("query Mode:                     \033[33m%s\033[0m\n",
            g_queryInfo.queryMode);
     printf("response buffer for restful:    \033[33m%" PRIu64 "\033[0m\n",
-           g_args.response_buffer);
+           g_queryInfo.response_buffer);
     printf("\n");
 
     if ((SUBSCRIBE_TEST == g_args.test_mode) ||
@@ -530,8 +530,6 @@ void printfQueryMeta() {
                    g_queryInfo.specifiedQueryInfo.queryTimes);
             printf("    query interval: \033[33m%" PRIu64 " ms\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.queryInterval);
-            printf("    top query times:\033[33m%" PRIu64 "\033[0m\n",
-                   g_args.query_times);
             printf("    concurrent:     \033[33m%d\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.concurrent);
             printf("    interval:       \033[33m%" PRIu64 "\033[0m\n",

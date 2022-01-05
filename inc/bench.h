@@ -195,11 +195,6 @@
         fprintf(stderr, "INFO: " fmt, __VA_ARGS__);                          \
     } while (0)
 
-#define verbosePrint(fmt, ...)                                                \
-    do {                                                                      \
-        if (g_args.verbose_print) fprintf(stderr, "VERB: " fmt, __VA_ARGS__); \
-    } while (0)
-
 #define performancePrint(fmt, ...)                                            \
     do {                                                                      \
         if (g_args.performance_print) {                                       \
@@ -302,16 +297,6 @@ enum _show_db_index {
 
 // -----------------------------------------SHOW TABLES CONFIGURE
 // -------------------------------------
-enum _show_stables_index {
-    TSDB_SHOW_STABLES_NAME_INDEX,
-    TSDB_SHOW_STABLES_CREATED_TIME_INDEX,
-    TSDB_SHOW_STABLES_COLUMNS_INDEX,
-    TSDB_SHOW_STABLES_METRIC_INDEX,
-    TSDB_SHOW_STABLES_UID_INDEX,
-    TSDB_SHOW_STABLES_TID_INDEX,
-    TSDB_SHOW_STABLES_VGID_INDEX,
-    TSDB_MAX_SHOW_STABLES
-};
 
 enum _describe_table_index {
     TSDB_DESCRIBE_METRIC_FIELD_INDEX,
@@ -334,11 +319,9 @@ typedef struct SArguments_S {
     char *   tb_prefix;
     bool     escapeChar;
     bool     use_metric;
-    bool     drop_database;
     bool     aggr_func;
     bool     answer_yes;
     bool     debug_print;
-    bool     verbose_print;
     bool     performance_print;
     char *   output_file;
     char *   col_type;
@@ -355,7 +338,6 @@ typedef struct SArguments_S {
     uint32_t nthreads;
     uint64_t insert_interval;
     uint64_t timestamp_step;
-    int64_t  query_times;
     int64_t  prepared_rand;
     int32_t  interlaceRows;
     uint32_t reqPerReq;  // num_of_records_per_req
@@ -368,7 +350,6 @@ typedef struct SArguments_S {
     int32_t  dbCount;
     char **  childTblName;
     struct sockaddr_in serv_addr;
-    uint64_t           response_buffer;
 } SArguments;
 
 typedef struct SSuperTable_S {
@@ -522,6 +503,8 @@ typedef struct SQueryMetaInfo_S {
     SpecifiedQueryInfo specifiedQueryInfo;
     SuperQueryInfo     superQueryInfo;
     uint64_t           totalQueried;
+    int64_t            query_times;
+    uint64_t           response_buffer;
 } SQueryMetaInfo;
 
 typedef struct SThreadInfo_S {
@@ -622,7 +605,7 @@ int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                     bool is_tag);
 void setParaFromArg(SArguments *pg_args, SDataBase *pdb);
 int  test(SArguments *pg_args);
-void init_g_args(SArguments *pg_args);
+void init_argument(SArguments *pg_args);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file);
 /* demoUtil.c */
@@ -653,11 +636,6 @@ int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
 char *  formatTimestamp(char *buf, int64_t val, int precision);
-void    errorWrongValue(char *wrong_arg, char *wrong_value);
-void    errorUnrecognized(char *program, char *wrong_arg);
-void    errorPrintReqArg(char *wrong_arg);
-void    errorPrintReqArg2(char *program, char *wrong_arg);
-bool    isStringNumber(char *input);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);

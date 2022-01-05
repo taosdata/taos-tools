@@ -447,8 +447,6 @@ int createSuperTable(char *dbName, SSuperTable *superTbl, char *command) {
 
     snprintf(superTbl->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
              "(ts timestamp%s)", cols);
-    verbosePrint("%s() LN%d: %s\n", __func__, __LINE__,
-                 superTbl->colsOfCreateChildTable);
 
     if (superTbl->tagCount == 0) {
         errorPrint("super table tag count is %d\n", superTbl->tagCount);

@@ -27,7 +27,7 @@ cJSON *        root;
 TAOS_POOL      g_taos_pool;
 
 int main(int argc, char *argv[]) {
-    init_g_args(&g_args);
+    init_argument(&g_args);
     commandLineParseArgument(argc, argv, &g_args);
     if (g_args.metaFile) {
         g_totalChildTables = 0;

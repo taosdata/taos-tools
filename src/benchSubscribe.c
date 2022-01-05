@@ -217,11 +217,6 @@ static void *superSubscribe(void *sarg) {
     for (uint64_t i = pThreadInfo->start_table_from;
          i <= pThreadInfo->end_table_to; i++) {
         tsubSeq = i - pThreadInfo->start_table_from;
-        verbosePrint("%s() LN%d, [%d], start=%" PRId64 " end=%" PRId64
-                     " i=%" PRIu64 "\n",
-                     __func__, __LINE__, pThreadInfo->threadID,
-                     pThreadInfo->start_table_from, pThreadInfo->end_table_to,
-                     i);
         sprintf(topic, "taosbenchmark-subscribe-%" PRIu64 "-%" PRIu64 "", i,
                 pThreadInfo->querySeq);
         memset(subSqlStr, 0, BUFFER_SIZE);
@@ -233,9 +228,6 @@ static void *superSubscribe(void *sarg) {
                     g_queryInfo.superQueryInfo.result[pThreadInfo->querySeq],
                     pThreadInfo->threadID);
         }
-
-        verbosePrint("%s() LN%d, [%d] subSqlStr: %s\n", __func__, __LINE__,
-                     pThreadInfo->threadID, subSqlStr);
         tsub[tsubSeq] =
             subscribeImpl(STABLE_CLASS, pThreadInfo, subSqlStr, topic,
                           g_queryInfo.superQueryInfo.subscribeRestart,
@@ -258,10 +250,6 @@ static void *superSubscribe(void *sarg) {
         (g_queryInfo.superQueryInfo.endAfterConsume == -1) ||
         (g_queryInfo.superQueryInfo.endAfterConsume >
          consumed[pThreadInfo->end_table_to - pThreadInfo->start_table_from])) {
-        verbosePrint("super endAfterConsume: %d, consumed: %d\n",
-                     g_queryInfo.superQueryInfo.endAfterConsume,
-                     consumed[pThreadInfo->end_table_to -
-                              pThreadInfo->start_table_from]);
         for (uint64_t i = pThreadInfo->start_table_from;
              i <= pThreadInfo->end_table_to; i++) {
             tsubSeq = i - pThreadInfo->start_table_from;
@@ -293,12 +281,6 @@ static void *superSubscribe(void *sarg) {
                 if ((g_queryInfo.superQueryInfo.resubAfterConsume != -1) &&
                     (consumed[tsubSeq] >=
                      g_queryInfo.superQueryInfo.resubAfterConsume)) {
-                    verbosePrint(
-                        "%s() LN%d, keepProgress:%d, resub super table query: "
-                        "%" PRIu64 "\n",
-                        __func__, __LINE__,
-                        g_queryInfo.superQueryInfo.subscribeKeepProgress,
-                        pThreadInfo->querySeq);
                     taos_unsubscribe(
                         tsub[tsubSeq],
                         g_queryInfo.superQueryInfo.subscribeKeepProgress);
@@ -314,10 +296,6 @@ static void *superSubscribe(void *sarg) {
             }
         }
     }
-    verbosePrint(
-        "%s() LN%d, super endAfterConsume: %d, consumed: %d\n", __func__,
-        __LINE__, g_queryInfo.superQueryInfo.endAfterConsume,
-        consumed[pThreadInfo->end_table_to - pThreadInfo->start_table_from]);
     taos_free_result(res);
 
     for (uint64_t i = pThreadInfo->start_table_from;

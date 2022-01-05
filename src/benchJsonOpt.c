@@ -452,7 +452,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 db[i].drop = false;
             }
         } else if (!drop) {
-            db[i].drop = g_args.drop_database;
+            db[i].drop = DEFAULT_DROP_DB;
         } else {
             errorPrint("%s", "failed to read json, drop input mistake\n");
             goto PARSE_OVER;
@@ -1085,7 +1085,6 @@ int getMetaFromQueryJsonFile(cJSON *json) {
         tstrncpy(g_queryInfo.user, user->valuestring, MAX_USERNAME_SIZE);
     } else if (!user) {
         tstrncpy(g_queryInfo.user, TSDB_DEFAULT_USER, MAX_USERNAME_SIZE);
-        ;
     }
 
     cJSON *password = cJSON_GetObjectItem(json, "password");
@@ -1125,9 +1124,9 @@ int getMetaFromQueryJsonFile(cJSON *json) {
                        "failed to read json, query_times input mistake\n");
             goto PARSE_OVER;
         }
-        g_args.query_times = gQueryTimes->valueint;
+        g_queryInfo.query_times = gQueryTimes->valueint;
     } else if (!gQueryTimes) {
-        g_args.query_times = DEFAULT_QUERY_TIME;
+        g_queryInfo.query_times = DEFAULT_QUERY_TIME;
     } else {
         errorPrint("%s", "failed to read json, query_times input mistake\n");
         goto PARSE_OVER;
@@ -1150,9 +1149,9 @@ int getMetaFromQueryJsonFile(cJSON *json) {
                        "failed to read json, response_buffer input mistake\n");
             goto PARSE_OVER;
         }
-        g_args.response_buffer = respBuffer->valueint;
+        g_queryInfo.response_buffer = respBuffer->valueint;
     } else if (!respBuffer) {
-        g_args.response_buffer = RESP_BUF_LEN;
+        g_queryInfo.response_buffer = RESP_BUF_LEN;
     } else {
         errorPrint("%s", "failed to read json, query_times input mistake\n");
         goto PARSE_OVER;
@@ -1209,7 +1208,7 @@ int getMetaFromQueryJsonFile(cJSON *json) {
             g_queryInfo.specifiedQueryInfo.queryTimes =
                 specifiedQueryTimes->valueint;
         } else if (!specifiedQueryTimes) {
-            g_queryInfo.specifiedQueryInfo.queryTimes = g_args.query_times;
+            g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         } else {
             errorPrint(
                 "%s() LN%d, failed to read json, query_times input mistake\n",
@@ -1395,7 +1394,7 @@ int getMetaFromQueryJsonFile(cJSON *json) {
             }
             g_queryInfo.superQueryInfo.queryTimes = superQueryTimes->valueint;
         } else if (!superQueryTimes) {
-            g_queryInfo.superQueryInfo.queryTimes = g_args.query_times;
+            g_queryInfo.superQueryInfo.queryTimes = g_queryInfo.query_times;
         } else {
             errorPrint("%s",
                        "failed to read json, query_times input mistake\n");

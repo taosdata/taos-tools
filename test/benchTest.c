@@ -22,14 +22,30 @@
 
 SArguments test_g_args;
 
-int init_suite1(void) {
-    init_g_args(&test_g_args);
-    return 0;
-}
+int init_suite1(void) { return 0; }
 
 int clean_suite1(void) { return 0; }
 
-void testPARSEDATATYPE(void) {
+void testINITARGUMENT(void) {
+    init_argument(&test_g_args);
+    CU_ASSERT_EQUAL(test_g_args.test_mode, INSERT_TEST);
+    CU_ASSERT_TRUE(test_g_args.demo_mode);
+    CU_ASSERT_EQUAL(test_g_args.dbCount, 1);
+    CU_ASSERT_STRING_EQUAL(test_g_args.host, DEFAULT_HOST);
+    CU_ASSERT_EQUAL(test_g_args.port, DEFAULT_PORT);
+    CU_ASSERT_EQUAL(test_g_args.iface, TAOSC_IFACE);
+    CU_ASSERT_STRING_EQUAL(test_g_args.output_file, DEFAULT_OUTPUT);
+    CU_ASSERT_STRING_EQUAL(test_g_args.user, TSDB_DEFAULT_USER);
+    CU_ASSERT_STRING_EQUAL(test_g_args.password, TSDB_DEFAULT_PASS);
+    CU_ASSERT_EQUAL(test_g_args.replica, 1);
+    CU_ASSERT_STRING_EQUAL(test_g_args.database, DEFAULT_DATABASE);
+    CU_ASSERT_STRING_EQUAL(test_g_args.tb_prefix, DEFAULT_TB_PREFIX);
+    CU_ASSERT_FALSE(test_g_args.escapeChar);
+    CU_ASSERT_TRUE(test_g_args.use_metric);
+    CU_ASSERT_FALSE(test_g_args.aggr_func);
+    CU_ASSERT_FALSE(test_g_args.answer_yes);
+    CU_ASSERT_FALSE(test_g_args.debug_print);
+    CU_ASSERT_FALSE(test_g_args.performance_print);
     CU_ASSERT_EQUAL(test_g_args.tagCount, 2);
     CU_ASSERT_EQUAL(test_g_args.columnCount, 3);
     CU_ASSERT_EQUAL(test_g_args.tag_type[0], TSDB_DATA_TYPE_INT);
@@ -42,6 +58,21 @@ void testPARSEDATATYPE(void) {
     CU_ASSERT_EQUAL(test_g_args.col_length[0], sizeof(float));
     CU_ASSERT_EQUAL(test_g_args.col_length[1], sizeof(int32_t));
     CU_ASSERT_EQUAL(test_g_args.col_length[2], sizeof(float));
+    CU_ASSERT_EQUAL(test_g_args.binwidth, DEFAULT_BINWIDTH);
+    CU_ASSERT_EQUAL(test_g_args.nthreads, DEFAULT_NTHREADS);
+    CU_ASSERT_EQUAL(test_g_args.nthreads_pool, DEFAULT_NTHREADS + 5);
+    CU_ASSERT_EQUAL(test_g_args.insert_interval, 0);
+    CU_ASSERT_EQUAL(test_g_args.timestamp_step, 1);
+    CU_ASSERT_EQUAL(test_g_args.prepared_rand, DEFAULT_PREPARED_RAND);
+    CU_ASSERT_EQUAL(test_g_args.interlaceRows, 0);
+    CU_ASSERT_EQUAL(test_g_args.reqPerReq, DEFAULT_REQ_PER_REQ);
+    CU_ASSERT_EQUAL(test_g_args.ntables, DEFAULT_CHILDTABLES);
+    CU_ASSERT_EQUAL(test_g_args.insertRows, DEFAULT_INSERT_ROWS);
+    CU_ASSERT_EQUAL(test_g_args.disorderRatio, 0);
+    CU_ASSERT_EQUAL(test_g_args.disorderRange, DEFAULT_DISORDER_RANGE);
+    CU_ASSERT_FALSE(test_g_args.chinese);
+}
+void testPARSEDATATYPE(void) {
     int32_t* data_length;
     int32_t  number = 0;
     char*    data_type;
@@ -304,27 +335,29 @@ void testCOMMANDLINEPARSE(void) {
  * CUnit error code on failure.
  */
 int main() {
-    CU_pSuite demoCommandSuite = NULL;
+    CU_pSuite benchCommandSuite = NULL;
 
     /* initialize the CUnit test registry */
     if (CUE_SUCCESS != CU_initialize_registry()) return CU_get_error();
 
     /* add a suite to the registry */
-    demoCommandSuite =
+    benchCommandSuite =
         CU_add_suite("benchCommandOpt.c", init_suite1, clean_suite1);
-    if (NULL == demoCommandSuite) {
+    if (NULL == benchCommandSuite) {
         CU_cleanup_registry();
         return CU_get_error();
     }
 
     /* add the tests to the suite */
-    if ((NULL == CU_add_test(demoCommandSuite, "parse_datatype()",
+    if ((NULL ==
+         CU_add_test(benchCommandSuite, "init_argument()", testINITARGUMENT)) ||
+        (NULL == CU_add_test(benchCommandSuite, "parse_datatype()",
                              testPARSEDATATYPE)) ||
-        (NULL == CU_add_test(demoCommandSuite, "commandLineParseArgument(-A)",
+        (NULL == CU_add_test(benchCommandSuite, "commandLineParseArgument(-A)",
                              testPARSETAGS)) ||
-        (NULL == CU_add_test(demoCommandSuite, "commandLineParseArgument(-b)",
+        (NULL == CU_add_test(benchCommandSuite, "commandLineParseArgument(-b)",
                              testPARSECOLS)) ||
-        (NULL == CU_add_test(demoCommandSuite, "commandLineParseArgument()",
+        (NULL == CU_add_test(benchCommandSuite, "commandLineParseArgument()",
                              testCOMMANDLINEPARSE))) {
         CU_cleanup_registry();
         return CU_get_error();

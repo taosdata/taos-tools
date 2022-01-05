@@ -275,27 +275,25 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-void init_g_args(SArguments *pg_args) {
-    pg_args->demo_mode = DEFAULT_DEMO_MODE;
+void init_argument(SArguments *pg_args) {
+    pg_args->test_mode = INSERT_TEST;
+    pg_args->demo_mode = 1;
     pg_args->dbCount = 1;
-    pg_args->test_mode = DEFAULT_TEST_MODE;
     pg_args->host = DEFAULT_HOST;
     pg_args->port = DEFAULT_PORT;
-    pg_args->iface = DEFAULT_IFACE;
+    pg_args->iface = TAOSC_IFACE;
     pg_args->output_file = DEFAULT_OUTPUT;
     pg_args->user = TSDB_DEFAULT_USER;
     pg_args->password = TSDB_DEFAULT_PASS;
     pg_args->database = DEFAULT_DATABASE;
-    pg_args->replica = DEFAULT_REPLICA;
+    pg_args->replica = 1;
     pg_args->tb_prefix = DEFAULT_TB_PREFIX;
-    pg_args->escapeChar = DEFAULT_ESCAPE_CHAR;
-    pg_args->use_metric = DEFAULT_USE_METRIC;
-    pg_args->drop_database = DEFAULT_DROP_DB;
-    pg_args->aggr_func = DEFAULT_AGGR_FUNC;
-    pg_args->answer_yes = DEFAULT_ANS_YES;
-    pg_args->debug_print = DEFAULT_DEBUG;
-    pg_args->verbose_print = DEFAULT_VERBOSE;
-    pg_args->performance_print = DEFAULT_PERF_STAT;
+    pg_args->escapeChar = 0;
+    pg_args->use_metric = 1;
+    pg_args->aggr_func = 0;
+    pg_args->answer_yes = 0;
+    pg_args->debug_print = 0;
+    pg_args->performance_print = 0;
     pg_args->col_type = (char *)calloc(3, sizeof(char));
     pg_args->col_type[0] = TSDB_DATA_TYPE_FLOAT;
     pg_args->col_type[1] = TSDB_DATA_TYPE_INT;
@@ -310,24 +308,21 @@ void init_g_args(SArguments *pg_args) {
     pg_args->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
     pg_args->tag_length[0] = sizeof(int32_t);
     pg_args->tag_length[1] = 16;
-    pg_args->response_buffer = RESP_BUF_LEN;
     pg_args->columnCount = 3;
     pg_args->tagCount = 2;
     pg_args->binwidth = DEFAULT_BINWIDTH;
     pg_args->nthreads = DEFAULT_NTHREADS;
     pg_args->nthreads_pool = DEFAULT_NTHREADS + 5;
-    pg_args->insert_interval = DEFAULT_INSERT_INTERVAL;
-    pg_args->timestamp_step = DEFAULT_TIMESTAMP_STEP;
-    pg_args->query_times = DEFAULT_QUERY_TIME;
+    pg_args->insert_interval = 0;
+    pg_args->timestamp_step = 1;
     pg_args->prepared_rand = DEFAULT_PREPARED_RAND;
-    pg_args->interlaceRows = DEFAULT_INTERLACE_ROWS;
+    pg_args->interlaceRows = 0;
     pg_args->reqPerReq = DEFAULT_REQ_PER_REQ;
     pg_args->ntables = DEFAULT_CHILDTABLES;
     pg_args->insertRows = DEFAULT_INSERT_ROWS;
     pg_args->disorderRange = DEFAULT_DISORDER_RANGE;
-    pg_args->disorderRatio = DEFAULT_RATIO;
-    pg_args->demo_mode = DEFAULT_DEMO_MODE;
-    pg_args->chinese = DEFAULT_CHINESE_OPT;
+    pg_args->disorderRatio = 0;
+    pg_args->chinese = 0;
 }
 
 int count_datatype(char *dataType, int32_t *number) {
@@ -511,7 +506,6 @@ void commandLineParseArgument(int argc, char *argv[], SArguments *arguments) {
 }
 
 void setParaFromArg(SArguments *pg_args, SDataBase *pdb) {
-    pg_args->test_mode = INSERT_TEST;
     pdb->drop = true;
     tstrncpy(pdb->dbName, pg_args->database, TSDB_DB_NAME_LEN);
     pdb->dbCfg.replica = pg_args->replica;
