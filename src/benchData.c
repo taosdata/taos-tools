@@ -1324,8 +1324,7 @@ int32_t prepareStbStmtBindTag(char *bindArray, SSuperTable *stbInfo,
     return 0;
 }
 
-int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
-                             threadInfo *pThreadInfo, int tbSeq) {
+int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo, int tbSeq) {
     int64_t  dataLen = 0;
     uint64_t length = (stbInfo->lenOfTags + stbInfo->lenOfCols);
     if (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
@@ -1412,8 +1411,8 @@ int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
     return 0;
 }
 
-int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
-                               threadInfo *pThreadInfo, int64_t timestamp) {
+int32_t generateSmlTelnetColData(char *line, char *sml, SSuperTable *stbInfo,
+                                 int64_t timestamp) {
     uint64_t buffer = (stbInfo->lenOfTags + stbInfo->lenOfCols);
     switch (stbInfo->col_type[0]) {
         case TSDB_DATA_TYPE_BOOL:
@@ -1461,17 +1460,8 @@ int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
                      timestamp, rand_double_str(), sml);
             break;
         case TSDB_DATA_TYPE_BINARY:
-        case TSDB_DATA_TYPE_NCHAR:
-            if (stbInfo->col_length[0] > TSDB_MAX_BINARY_LEN) {
-                errorPrint("binary or nchar length overflow, maxsize:%u\n",
-                           (uint32_t)TSDB_MAX_BINARY_LEN);
-                return -1;
-            }
+        case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)calloc(stbInfo->col_length[0] + 1, 1);
-            if (NULL == buf) {
-                errorPrint("%s", "failed to allocate memory\n");
-                return -1;
-            }
             rand_string(buf, stbInfo->col_length[0]);
             if (stbInfo->col_type[0] == TSDB_DATA_TYPE_BINARY) {
                 snprintf(line, buffer, "%s %" PRId64 " \"%s\" %s",
@@ -1482,6 +1472,7 @@ int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
             }
             tmfree(buf);
             break;
+        }
         default:
             errorPrint("unknown data type %d\n", stbInfo->col_type[0]);
             return -1;
@@ -1490,13 +1481,13 @@ int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
 }
 
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
-                            threadInfo *pThreadInfo, int tbSeq) {
+                            uint64_t start_table_from, int tbSeq) {
     int32_t code = -1;
     cJSON * tags = cJSON_CreateObject();
     char *  tbName = calloc(1, TSDB_TABLE_NAME_LEN);
     assert(tbName);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
-             stbInfo->childTblPrefix, tbSeq + pThreadInfo->start_table_from);
+             stbInfo->childTblPrefix, tbSeq + start_table_from);
     cJSON_AddStringToObject(tags, "id", tbName);
     char *tagName = calloc(1, TSDB_MAX_TAGS);
     assert(tagName);
@@ -1571,19 +1562,18 @@ free_of_generate_sml_json_tag:
 }
 
 int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
-                            threadInfo *pThreadInfo, int64_t timestamp) {
+                            uint32_t time_precision, int64_t timestamp) {
     cJSON *record = cJSON_CreateObject();
     cJSON *ts = cJSON_CreateObject();
     cJSON_AddNumberToObject(ts, "value", (double)timestamp);
-    if (pThreadInfo->time_precision == TSDB_TIME_PRECISION_MILLI) {
+    if (time_precision == TSDB_TIME_PRECISION_MILLI) {
         cJSON_AddStringToObject(ts, "type", "ms");
-    } else if (pThreadInfo->time_precision == TSDB_TIME_PRECISION_MICRO) {
+    } else if (time_precision == TSDB_TIME_PRECISION_MICRO) {
         cJSON_AddStringToObject(ts, "type", "us");
-    } else if (pThreadInfo->time_precision == TSDB_TIME_PRECISION_NANO) {
+    } else if (time_precision == TSDB_TIME_PRECISION_NANO) {
         cJSON_AddStringToObject(ts, "type", "ns");
     } else {
-        errorPrint("unsupport time precision %d\n",
-                   pThreadInfo->time_precision);
+        errorPrint("Unknown time precision %d\n", time_precision);
         return -1;
     }
     cJSON *value = cJSON_CreateObject();

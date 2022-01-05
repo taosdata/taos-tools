@@ -70,7 +70,7 @@ jobs:
           python3 test.py -f tools/taosdemoTestLimitOffset.py
           python3 test.py -f tools/taosdemoTestTblAlt.py
           python3 test.py -f tools/taosdemoTestSampleData.py
-          python3 test.py -f tools/taosdemoTestInterlace.py
+          
           python3 test.py -f tools/taosdemoTestQuery.py
           python3 ./test.py -f tools/taosdemoTestdatatype.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py

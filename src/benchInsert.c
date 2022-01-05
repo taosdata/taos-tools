@@ -1151,7 +1151,7 @@ void *syncWriteInterlace(void *sarg) {
                                         pThreadInfo->start_table_from),
                                 true);
                             generateSmlJsonCols(pThreadInfo->json_array, tag,
-                                                stbInfo, pThreadInfo,
+                                                stbInfo, pThreadInfo->time_precision,
                                                 timestamp);
                         } else if (pThreadInfo->line_protocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
@@ -1166,12 +1166,12 @@ void *syncWriteInterlace(void *sarg) {
                                     pos * stbInfo->lenOfCols,
                                 timestamp);
                         } else {
-                            generateSmlMutablePart(
+                            generateSmlTelnetColData(
                                 pThreadInfo->lines[generated],
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
-                                stbInfo, pThreadInfo, timestamp);
+                                stbInfo, timestamp);
                         }
                         generated++;
                         timestamp += pThreadInfo->time_step;
@@ -1396,12 +1396,12 @@ void *syncWriteProgressive(void *sarg) {
                                     pos * stbInfo->lenOfCols,
                                 timestamp);
                         } else {
-                            generateSmlMutablePart(
+                            generateSmlTelnetColData(
                                 pThreadInfo->lines[j],
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
-                                stbInfo, pThreadInfo, timestamp);
+                                stbInfo, timestamp);
                         }
                         pos++;
                         if (pos >= g_args.prepared_rand) {
@@ -1854,7 +1854,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         generateSmlConstPart(pThreadInfo->sml_tags[t], stbInfo,
-                                             pThreadInfo, t);
+                                             t);
                         debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }
@@ -1869,7 +1869,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                     pThreadInfo->sml_json_tags = cJSON_CreateArray();
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         if (generateSmlJsonTags(pThreadInfo->sml_json_tags,
-                                                stbInfo, pThreadInfo, t)) {
+                                                stbInfo, pThreadInfo->start_table_from, t)) {
                             return -1;
                         }
                     }
