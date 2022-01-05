@@ -71,9 +71,14 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
+            if (length > TSDB_MAX_BINARY_LEN) {
+                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
+                           ")\n",
+                           length, TSDB_MAX_BINARY_LEN);
+                goto PARSE_OVER;
+            }
         } else if (dataLen && dataLen->type != cJSON_Number) {
-            errorPrint("%s() LN%d: failed to read json, column len not found\n",
-                       __func__, __LINE__);
+            errorPrint("%s", "failed to read json, column len not found\n");
             goto PARSE_OVER;
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
@@ -167,7 +172,13 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         int    data_length = SMALL_BUFF_LEN;
         cJSON *dataLen = cJSON_GetObjectItem(tag, "len");
         if (dataLen && dataLen->type == cJSON_Number) {
-            data_length = (uint32_t)dataLen->valueint;
+            data_length = (int32_t)dataLen->valueint;
+            if (data_length > TSDB_MAX_BINARY_LEN) {
+                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
+                           ")\n",
+                           data_length, TSDB_MAX_BINARY_LEN);
+                goto PARSE_OVER;
+            }
         } else if (dataLen && dataLen->type != cJSON_Number) {
             errorPrint("%s", "failed to read json, column len not found\n");
             goto PARSE_OVER;

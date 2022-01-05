@@ -1150,16 +1150,28 @@ void *syncWriteInterlace(void *sarg) {
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
                                 true);
-                            generateSmlJsonCols(pThreadInfo->json_array, tag,
-                                                stbInfo, pThreadInfo,
-                                                timestamp);
+                            generateSmlJsonCols(
+                                pThreadInfo->json_array, tag, stbInfo,
+                                pThreadInfo->time_precision, timestamp);
+                        } else if (pThreadInfo->line_protocol ==
+                                   TSDB_SML_LINE_PROTOCOL) {
+                            snprintf(
+                                pThreadInfo->lines[generated],
+                                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                                "%s %s %" PRId64 "",
+                                pThreadInfo
+                                    ->sml_tags[(int)tableSeq -
+                                               pThreadInfo->start_table_from],
+                                stbInfo->sampleDataBuf +
+                                    pos * stbInfo->lenOfCols,
+                                timestamp);
                         } else {
-                            generateSmlMutablePart(
+                            generateSmlTelnetColData(
                                 pThreadInfo->lines[generated],
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
-                                stbInfo, pThreadInfo, timestamp);
+                                stbInfo, timestamp);
                         }
                         generated++;
                         timestamp += pThreadInfo->time_step;
@@ -1368,16 +1380,32 @@ void *syncWriteProgressive(void *sarg) {
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
                                 true);
-                            generateSmlJsonCols(pThreadInfo->json_array, tag,
-                                                stbInfo, pThreadInfo,
-                                                timestamp);
+                            generateSmlJsonCols(
+                                pThreadInfo->json_array, tag, stbInfo,
+                                pThreadInfo->time_precision, timestamp);
+                        } else if (pThreadInfo->line_protocol ==
+                                   TSDB_SML_LINE_PROTOCOL) {
+                            snprintf(
+                                pThreadInfo->lines[j],
+                                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                                "%s %s %" PRId64 "",
+                                pThreadInfo
+                                    ->sml_tags[(int)tableSeq -
+                                               pThreadInfo->start_table_from],
+                                stbInfo->sampleDataBuf +
+                                    pos * stbInfo->lenOfCols,
+                                timestamp);
                         } else {
-                            generateSmlMutablePart(
+                            generateSmlTelnetColData(
                                 pThreadInfo->lines[j],
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
-                                stbInfo, pThreadInfo, timestamp);
+                                stbInfo, timestamp);
+                        }
+                        pos++;
+                        if (pos >= g_args.prepared_rand) {
+                            pos = 0;
                         }
                         timestamp +=
                             getTSRandTail(pThreadInfo->time_step, i + 1,
@@ -1826,7 +1854,7 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
 
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         generateSmlConstPart(pThreadInfo->sml_tags[t], stbInfo,
-                                             pThreadInfo, t);
+                                             t);
                         debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }
@@ -1840,8 +1868,9 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                     pThreadInfo->json_array = cJSON_CreateArray();
                     pThreadInfo->sml_json_tags = cJSON_CreateArray();
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
-                        if (generateSmlJsonTags(pThreadInfo->sml_json_tags,
-                                                stbInfo, pThreadInfo, t)) {
+                        if (generateSmlJsonTags(
+                                pThreadInfo->sml_json_tags, stbInfo,
+                                pThreadInfo->start_table_from, t)) {
                             return -1;
                         }
                     }
@@ -2089,7 +2118,8 @@ int insertTestProcess() {
         g_sampleDataBuf = calloc(1, g_args.lenOfCols * g_args.prepared_rand);
         generateSampleFromRand(g_sampleDataBuf, g_args.lenOfCols,
                                g_args.columnCount, g_args.col_type,
-                               g_args.col_length, g_args.prepared_rand);
+                               g_args.col_length, g_args.prepared_rand,
+                               g_args.iface);
         debugPrint("g_sampleDataBuf: %s\n", g_sampleDataBuf);
         if (startMultiThreadInsertData(g_args.nthreads, g_args.database, "ms",
                                        NULL)) {

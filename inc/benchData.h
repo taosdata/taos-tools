@@ -85,14 +85,13 @@ int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
                               uint32_t batch, int64_t startTime);
 
 int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
-                           char *data_type, int32_t *data_length, int64_t size);
+                           char *data_type, int32_t *data_length, int64_t size, uint16_t iface);
 int     prepareSampleDataWithStb();
 int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
-                             threadInfo *pThreadInfo, int tbSeq);
-int32_t generateSmlMutablePart(char *line, char *sml, SSuperTable *stbInfo,
-                               threadInfo *pThreadInfo, int64_t timestamp);
+                              int tbSeq);
+int32_t generateSmlTelnetColData(char *line, char *sml, SSuperTable *stbInfo, int64_t timestamp);
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
-                            threadInfo *pThreadInfo, int tbSeq);
+                            uint64_t start_table_from, int tbSeq);
 int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
-                            threadInfo *pThreadInfo, int64_t timestamp);
+                            uint32_t time_precision, int64_t timestamp);
 #endif

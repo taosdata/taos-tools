@@ -213,6 +213,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             if (arguments->binwidth == 0) {
                 errorPrint("Invalid value for w: %s\n", arg);
                 exit(EXIT_FAILURE);
+            } else if (arguments->binwidth > TSDB_MAX_BINARY_LEN) {
+                errorPrint("-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64 ")\n",
+                           arguments->binwidth, TSDB_MAX_BINARY_LEN);
+                exit(EXIT_FAILURE);
             }
             break;
         case 'm':
