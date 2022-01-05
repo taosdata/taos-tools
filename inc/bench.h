@@ -668,12 +668,10 @@ int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 int32_t *col_length, int32_t tagCount, int32_t colCount,
                 int32_t *plenOfTags, int32_t *plenOfCols, int iface);
 /* demoOutput.c */
-void printVersion();
 void printfInsertMetaToFileStream(FILE *fp);
 void printStatPerThread(threadInfo *pThreadInfo);
 void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo);
 void printfQueryMeta();
-void printHelp();
 void printfQuerySystemInfo(TAOS *taos);
 /* demoQuery.c */
 int queryTestProcess();

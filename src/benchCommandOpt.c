@@ -88,6 +88,7 @@ static struct argp_option options[] = {
      "Ratio of inserting data with disorder timestamp, default is 0."},
     {"replia", 'a', "NUMBER", 0,
      "The number of replica when create database, default is 1."},
+    {"debug", 'g', 0, 0, "Debug mode"},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -251,6 +252,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 exit(EXIT_FAILURE);
             }
             break;
+        case 'g':
+            arguments->debug_print = true;
         default:
             return ARGP_ERR_UNKNOWN;
     }
