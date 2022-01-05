@@ -95,6 +95,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     SArguments *arguments = state->input;
     switch (key) {
         case 'f':
+            arguments->demo_mode = false;
             arguments->metaFile = arg;
             break;
         case 'h':

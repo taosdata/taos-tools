@@ -169,6 +169,18 @@ void testCOMMANDLINEPARSE(void) {
     char* file_command[] = {"taosBenchmark", "-f", "test.json"};
     commandLineParseArgument(3, file_command, &test_g_args);
     CU_ASSERT_STRING_EQUAL(test_g_args.metaFile, "test.json");
+    char* host_command[] = {"taosBenchmark", "-h", "new_host"};
+    commandLineParseArgument(3, host_command, &test_g_args);
+    CU_ASSERT_STRING_EQUAL(test_g_args.host, "new_host");
+    char* port_command[] = {"taosBenchmark", "-P", "123"};
+    commandLineParseArgument(3, port_command, &test_g_args);
+    CU_ASSERT_EQUAL(test_g_args.port, 123);
+    char* rest_command[] = {"taosBenchmark", "-I", "rest"};
+    commandLineParseArgument(3, rest_command, &test_g_args);
+    CU_ASSERT_EQUAL(test_g_args.iface, REST_IFACE);
+    char* stmt_command[] = {"taosBenchmark", "-I", "stmt"};
+    commandLineParseArgument(3, stmt_command, &test_g_args);
+    CU_ASSERT_EQUAL(test_g_args.iface, STMT_IFACE);
 }
 /* The main() function for setting up and running the tests.
  * Returns a CUE_SUCCESS on successful running, another
