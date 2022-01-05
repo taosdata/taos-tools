@@ -644,10 +644,6 @@ void printfQuerySystemInfo(TAOS *taos) {
     res = taos_query(taos, "show databases;");
     SDbInfo **dbInfos =
         (SDbInfo **)calloc(MAX_DATABASE_COUNT, sizeof(SDbInfo *));
-    if (dbInfos == NULL) {
-        errorPrint("%s", "failed to allocate memory\n");
-        return;
-    }
     int dbCount = getDbFromServer(taos, dbInfos);
     if (dbCount <= 0) {
         tmfree(dbInfos);

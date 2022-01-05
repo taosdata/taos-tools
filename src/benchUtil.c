@@ -155,10 +155,6 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
 
     if (childTblName == NULL) {
         childTblName = (char *)calloc(1, childTblCount * TSDB_TABLE_NAME_LEN);
-        if (childTblName == NULL) {
-            errorPrint("%s", "failed to allocate memory\n");
-            return -1;
-        }
     }
     char *pTblName = childTblName;
 
@@ -416,10 +412,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = calloc(1, req_buf_len);
-    if (NULL == request_buf) {
-        errorPrint("%s", "cannot allocate memory\n");
-        goto free_of_post;
-    }
     uint64_t response_length;
     if (g_args.test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
@@ -427,10 +419,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         response_length = g_queryInfo.response_buffer;
     }
     response_buf = calloc(1, response_length);
-    if (NULL == response_buf) {
-        errorPrint("%s", "cannot allocate memory\n");
-        goto free_of_post;
-    }
     char userpass_buf[INPUT_BUF_LEN];
     int  mod_table[] = {0, 2, 1};
 
@@ -563,13 +551,6 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
     char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
-    if (databuf == NULL) {
-        errorPrint(
-            "%s() LN%d, failed to malloc, warning: save result to file "
-            "slowly!\n",
-            __func__, __LINE__);
-        return;
-    }
 
     int64_t totalLen = 0;
 

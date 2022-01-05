@@ -412,10 +412,6 @@ int generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
             case TSDB_DATA_TYPE_NCHAR: {
                 int32_t tagBufLen = stbInfo->tag_length[i] + 1;
                 char *  buf = (char *)calloc(1, tagBufLen);
-                if (NULL == buf) {
-                    errorPrint("%s", "failed to allocate memory\n");
-                    return -1;
-                }
                 generateBinaryNCharTagValues(tableSeq, tagBufLen, buf);
                 dataLen += snprintf(tagsValBuf + dataLen,
                                     TSDB_MAX_SQL_LEN - dataLen, "\'%s\',", buf);
@@ -579,11 +575,6 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
         goto free_of_get_set_rows_from_csv;
     }
     buf = calloc(1, TSDB_MAX_SQL_LEN);
-    if (buf == NULL) {
-        errorPrint("%s", "failed to allocate memory\n");
-        goto free_of_get_set_rows_from_csv;
-    }
-
     while (fgets(buf, TSDB_MAX_SQL_LEN, fp)) {
         line_count++;
     }

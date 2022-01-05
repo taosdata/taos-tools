@@ -585,24 +585,16 @@ void *queryStableAggrFunc(void *sarg) {
         pThreadInfo->ntables;  // pThreadInfo->end_table_to -
                                // pThreadInfo->start_table_from + 1;
     int64_t totalData = insertRows * ntables;
-    bool    aggr_func = g_args.aggr_func;
 
     char **aggreFunc;
     int    n;
 
     if (g_args.demo_mode) {
         aggreFunc = g_aggreFuncDemo;
-        n = aggr_func ? (sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]))
-                      : 2;
+        n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
         aggreFunc = g_aggreFunc;
-        n = aggr_func ? (sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0])) : 2;
-    }
-
-    if (!aggr_func) {
-        printf(
-            "\nThe first field is either Binary or Bool. Aggregation functions "
-            "are not supported.\n");
+        n = sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0]);
     }
 
     infoPrint("total Data: %" PRId64 "\n", totalData);
@@ -689,25 +681,18 @@ void *queryNtableAggrFunc(void *sarg) {
         pThreadInfo->ntables;  // pThreadInfo->end_table_to -
                                // pThreadInfo->start_table_from + 1;
     int64_t totalData = insertRows * ntables;
-    bool    aggr_func = g_args.aggr_func;
 
     char **aggreFunc;
     int    n;
 
     if (g_args.demo_mode) {
         aggreFunc = g_aggreFuncDemo;
-        n = aggr_func ? (sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]))
-                      : 2;
+        n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
         aggreFunc = g_aggreFunc;
-        n = aggr_func ? (sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0])) : 2;
+        n = sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0]);
     }
 
-    if (!aggr_func) {
-        printf(
-            "\nThe first field is either Binary or Bool. Aggregation functions "
-            "are not supported.\n");
-    }
     infoPrint("totalData: %" PRId64 "\n", totalData);
     if (fp) {
         fprintf(fp,

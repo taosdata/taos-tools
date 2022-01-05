@@ -440,10 +440,6 @@ int createSuperTable(char *dbName, SSuperTable *superTbl, char *command) {
     // save for creating child table
     superTbl->colsOfCreateChildTable =
         (char *)calloc(len + TIMESTAMP_BUFF_LEN, 1);
-    if (NULL == superTbl->colsOfCreateChildTable) {
-        errorPrint("%s", "failed to allocate memory\n");
-        return -1;
-    }
 
     snprintf(superTbl->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
              "(ts timestamp%s)", cols);
@@ -829,9 +825,9 @@ int createChildTables() {
                         db[i].dbName, &(db[i].superTbls[j]));
                     if (code) {
                         errorPrint(
-                            "%s() LN%d, startMultiThreadCreateChildTable() "
+                            "startMultiThreadCreateChildTable() "
                             "failed for db %d stable %d\n",
-                            __func__, __LINE__, i, j);
+                             i, j);
                         return code;
                     }
                 }
@@ -916,10 +912,6 @@ int createChildTables() {
                                                     g_args.ntables,
                                                     db[i].dbName, NULL);
             if (code) {
-                errorPrint(
-                    "%s() LN%d, startMultiThreadCreateChildTable() "
-                    "failed\n",
-                    __func__, __LINE__);
                 return code;
             }
         }

@@ -298,7 +298,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         }
         g_args.insert_interval = gInsertInterval->valueint;
     } else if (!gInsertInterval) {
-        g_args.insert_interval = DEFAULT_INSERT_INTERVAL;
+        g_args.insert_interval = 0;
     } else {
         errorPrint("%s",
                    "failed to read json, insert_interval input mistake\n");
@@ -315,7 +315,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         g_args.interlaceRows = (uint32_t)interlaceRows->valueint;
     } else if (!interlaceRows) {
         g_args.interlaceRows =
-            DEFAULT_INTERLACE_ROWS;  // 0 means progressive mode, > 0 mean
+            0;  // 0 means progressive mode, > 0 mean
                                      // interlace mode. max value is less or equ
                                      // num_of_records_per_req
     } else {
@@ -367,10 +367,10 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         } else if (0 == strncasecmp(chineseOpt->valuestring, "no", 2)) {
             g_args.chinese = false;
         } else {
-            g_args.chinese = DEFAULT_CHINESE_OPT;
+            g_args.chinese = false;
         }
     } else if (!chineseOpt) {
-        g_args.chinese = DEFAULT_CHINESE_OPT;
+        g_args.chinese = false;
     } else {
         errorPrint("%s", "failed to read json, chinese input mistake\n");
         goto PARSE_OVER;
@@ -385,7 +385,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         } else if (0 == strncasecmp(answerPrompt->valuestring, "no", 2)) {
             g_args.answer_yes = true;
         } else {
-            g_args.answer_yes = DEFAULT_ANS_YES;
+            g_args.answer_yes = false;
         }
     } else if (!answerPrompt) {
         g_args.answer_yes = true;  // default is no, mean answer_yes.
@@ -452,7 +452,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 db[i].drop = false;
             }
         } else if (!drop) {
-            db[i].drop = DEFAULT_DROP_DB;
+            db[i].drop = true;
         } else {
             errorPrint("%s", "failed to read json, drop input mistake\n");
             goto PARSE_OVER;

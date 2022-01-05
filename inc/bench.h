@@ -82,11 +82,8 @@
 #define MAX_HOSTNAME_SIZE \
     253  // https://man7.org/linux/man-pages/man7/hostname.7.html
 #define MAX_TB_NAME_SIZE 64
-#define MAX_DATA_SIZE \
-    (16 * TSDB_MAX_COLUMNS) + 20  // max record len: 16*MAX_COLUMNS, timestamp
-                                  // string and ,('') need extra space
-#define OPT_ABORT 1               /* –abort */
-#define MAX_FILE_NAME_LEN 256     // max file name length on linux is 255.
+#define OPT_ABORT 1            /* –abort */
+#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
 #define MAX_PATH_LEN 4096
 
 #define DEFAULT_START_TIME 1500000000000
@@ -119,40 +116,20 @@
     (TSDB_TABLE_NAME_LEN - 20)  // 20 characters reserved for seq
 #define SMALL_BUFF_LEN 8
 #define DATATYPE_BUFF_LEN (SMALL_BUFF_LEN * 3)
-#define NOTE_BUFF_LEN (SMALL_BUFF_LEN * 16)
 
 #define DEFAULT_NTHREADS 8
-#define DEFAULT_TIMESTAMP_STEP 1
-#define DEFAULT_INTERLACE_ROWS 0
-#define DEFAULT_DATATYPE_NUM 1
 #define DEFAULT_CHILDTABLES 10000
-#define DEFAULT_TEST_MODE 0
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 6030
-#define DEFAULT_IFACE 0
 #define DEFAULT_DATABASE "test"
-#define DEFAULT_REPLICA 1
 #define DEFAULT_TB_PREFIX "d"
-#define DEFAULT_ESCAPE_CHAR false
-#define DEFAULT_USE_METRIC true
-#define DEFAULT_DROP_DB true
-#define DEFAULT_AGGR_FUNC false
-#define DEFAULT_DEBUG false
-#define DEFAULT_VERBOSE false
-#define DEFAULT_PERF_STAT false
-#define DEFAULT_ANS_YES false
 #define DEFAULT_OUTPUT "./output.txt"
 #define DEFAULT_BINWIDTH 64
-#define DEFAULT_INSERT_INTERVAL 0
 #define DEFAULT_QUERY_TIME 1
 #define DEFAULT_PREPARED_RAND 10000
 #define DEFAULT_REQ_PER_REQ 30000
 #define DEFAULT_INSERT_ROWS 10000
-#define DEFAULT_RATIO 0
 #define DEFAULT_DISORDER_RANGE 1000
-#define DEFAULT_DEMO_MODE true
-#define DEFAULT_CHINESE_OPT false
-#define DEFAULT_PRESSURE_MODE false
 #define DEFAULT_CREATE_BATCH 10
 #define DEFAULT_SUB_INTERVAL 10000
 #define DEFAULT_QUERY_INTERVAL 10000
