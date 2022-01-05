@@ -68,6 +68,7 @@ int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 errorPrint("unknown data type : %d\n", col_type[colIndex]);
                 return -1;
         }
+        *plenOfCols += 1;
         if (iface == SML_IFACE) {
             *plenOfCols += SML_LINE_SQL_SYNTAX_OFFSET;
         }
@@ -112,6 +113,7 @@ int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 errorPrint("unknown data type : %d\n", tag_type[tagIndex]);
                 return -1;
         }
+        *plenOfTags += 1;
         if (iface == SML_IFACE) {
             *plenOfTags += SML_LINE_SQL_SYNTAX_OFFSET;
         }
@@ -2077,7 +2079,7 @@ int insertTestProcess() {
         for (int j = 0; j < db[i].superTblCount; ++j) {
             if (getSuperTableFromServer(db[i].dbName, &(db[i].superTbls[j]))) {
                 infoPrint(
-                    "There is no stbale %s in the server, will create it\n",
+                    "There is no stable %s in the server, will create it\n",
                     db[i].superTbls[j].stbName);
                 if (createSuperTable(db[i].dbName, &(db[i].superTbls[j]),
                                      cmdBuffer)) {

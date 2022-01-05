@@ -1,6 +1,6 @@
-# taos-tools
+# taosTools
 [![codecov](https://codecov.io/gh/taosdata/taos-tools/branch/develop/graph/badge.svg?token=W7Z6XKIKV9)](https://codecov.io/gh/taosdata/taos-tools)
-taos-tools 是多个用于 TDengine 的辅助工具软件集合。
+taosTools 是多个用于 TDengine 的辅助工具软件集合。
 
 # 如何通过源代码构建？
 
