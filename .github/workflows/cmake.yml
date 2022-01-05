@@ -49,9 +49,7 @@ jobs:
         run: |
           cd TDengine
           git pull
-          git branch -a
-          git branch -a | grep ${{ github.head_ref }}
-          git checkout ${{ github.head_ref }}
+          git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
           git submodule update --init --recursive
 
       - name: Checkout TDengine's taos-tools to PR number
