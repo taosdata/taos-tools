@@ -44,6 +44,16 @@ jobs:
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
 
+      - name: Checkout TDengine with same branch of taos-tools
+        if: github.event_name == 'pull_request'
+        run: |
+          cd TDengine
+          git pull
+          git branch -a
+          git branch -a | grep ${{ github.head_ref }}
+          git checkout ${{ github.head_ref }}
+          git submodule update --init --recursive
+
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
         run: |
