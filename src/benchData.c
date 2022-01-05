@@ -660,12 +660,6 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
             switch (data_type[c]) {
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
-                    if (data_length[c] > TSDB_MAX_BINARY_LEN) {
-                        errorPrint(
-                            "binary or nchar length overflow, maxsize:%u\n",
-                            (uint32_t)TSDB_MAX_BINARY_LEN);
-                        return -1;
-                    }
                     char *data = calloc(1, 1 + data_length[c]);
                     rand_string(data, data_length[c]);
                     if (iface == SML_IFACE &&
@@ -861,12 +855,7 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
     uint8_t * bind_utinyint;
 
     switch (data_type) {
-        case TSDB_DATA_TYPE_BINARY:
-            if (dataLen > TSDB_MAX_BINARY_LEN) {
-                errorPrint("binary length overflow, max size:%u\n",
-                           (uint32_t)TSDB_MAX_BINARY_LEN);
-                return -1;
-            }
+        case TSDB_DATA_TYPE_BINARY: {
             char *bind_binary;
 
             bind->buffer_type = TSDB_DATA_TYPE_BINARY;
@@ -884,13 +873,8 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
             bind->buffer = bind_binary;
             bind->is_null = NULL;
             break;
-
-        case TSDB_DATA_TYPE_NCHAR:
-            if (dataLen > TSDB_MAX_BINARY_LEN) {
-                errorPrint("nchar length overflow, max size:%u\n",
-                           (uint32_t)TSDB_MAX_BINARY_LEN);
-                return -1;
-            }
+        }
+        case TSDB_DATA_TYPE_NCHAR: {
             char *bind_nchar;
 
             bind->buffer_type = TSDB_DATA_TYPE_NCHAR;
@@ -907,7 +891,7 @@ static int32_t prepareStmtBindArrayByType(TAOS_BIND *bind, char data_type,
             bind->length = &bind->buffer_length;
             bind->is_null = NULL;
             break;
-
+        }
         case TSDB_DATA_TYPE_INT:
             bind_int = calloc(1, sizeof(int32_t));
             if (value) {
@@ -1386,23 +1370,14 @@ int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo, int tbSeq) {
                                     j, rand_double_str());
                 break;
             case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR:
-                if (stbInfo->tag_length[j] > TSDB_MAX_BINARY_LEN) {
-                    errorPrint("binary or nchar length overflow, maxsize:%u\n",
-                               (uint32_t)TSDB_MAX_BINARY_LEN);
-                    return -1;
-                }
+            case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)calloc(stbInfo->tag_length[j] + 1, 1);
-                if (NULL == buf) {
-                    errorPrint("%s", "failed to allocate memory\n");
-                    return -1;
-                }
                 rand_string(buf, stbInfo->tag_length[j]);
                 dataLen +=
                     snprintf(sml + dataLen, length - dataLen, "t%d=%s", j, buf);
                 tmfree(buf);
                 break;
-
+            }
             default:
                 errorPrint("unknown data type %d\n", stbInfo->tag_type[j]);
                 return -1;
@@ -1524,17 +1499,8 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                 cJSON_AddStringToObject(tag, "type", "double");
                 break;
             case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR:
-                if (stbInfo->tag_length[i] > TSDB_MAX_BINARY_LEN) {
-                    errorPrint("binary or nchar length overflow, maxsize:%u\n",
-                               (uint32_t)TSDB_MAX_BINARY_LEN);
-                    goto free_of_generate_sml_json_tag;
-                }
+            case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)calloc(stbInfo->tag_length[i] + 1, 1);
-                if (NULL == buf) {
-                    errorPrint("%s", "failed to allocate memory\n");
-                    goto free_of_generate_sml_json_tag;
-                }
                 rand_string(buf, stbInfo->tag_length[i]);
                 if (stbInfo->tag_type[i] == TSDB_DATA_TYPE_BINARY) {
                     cJSON_AddStringToObject(tag, "value", buf);
@@ -1545,6 +1511,7 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                 }
                 tmfree(buf);
                 break;
+            }
             default:
                 errorPrint(
                     "unknown data type (%d) for schemaless json protocol\n",
@@ -1607,17 +1574,8 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
             cJSON_AddStringToObject(value, "type", "double");
             break;
         case TSDB_DATA_TYPE_BINARY:
-        case TSDB_DATA_TYPE_NCHAR:
-            if (stbInfo->col_length[0] > TSDB_MAX_BINARY_LEN) {
-                errorPrint("binary or nchar length overflow, maxsize:%u\n",
-                           (uint32_t)TSDB_MAX_BINARY_LEN);
-                return -1;
-            }
+        case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)calloc(stbInfo->col_length[0] + 1, 1);
-            if (NULL == buf) {
-                errorPrint("%s", "failed to allocate memory\n");
-                return -1;
-            }
             rand_string(buf, stbInfo->col_length[0]);
             if (stbInfo->col_type[0] == TSDB_DATA_TYPE_BINARY) {
                 cJSON_AddStringToObject(value, "value", buf);
@@ -1628,6 +1586,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
             }
             tmfree(buf);
             break;
+        }
         default:
             errorPrint("unknown data type (%d) for schemaless json protocol\n",
                        stbInfo->col_type[0]);
