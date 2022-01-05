@@ -169,6 +169,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             arguments->database = arg;
             break;
         case 'l':
+            arguments->demo_mode = false;
             arguments->intColumnCount = atoi(arg);
             if (arguments->intColumnCount <= 0) {
                 errorPrint("Invalid -l: %s\n", arg);
@@ -176,6 +177,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
             break;
         case 'A':
+            arguments->demo_mode = false;
             tmfree(arguments->tag_type);
             tmfree(arguments->tag_length);
             if (count_datatype(arg, &(arguments->tagCount))) {
@@ -190,6 +192,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
             break;
         case 'b':
+            arguments->demo_mode = false;
             tmfree(arguments->col_type);
             tmfree(arguments->col_length);
             if (count_datatype(arg, &(arguments->columnCount))) {

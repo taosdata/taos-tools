@@ -165,6 +165,11 @@ void testPARSETAGS(void) {
     CU_ASSERT_EQUAL(test_g_args.tag_length[0], test_g_args.binwidth);
     CU_ASSERT_EQUAL(test_g_args.tag_type[0], TSDB_DATA_TYPE_JSON);
 }
+void testCOMMANDLINEPARSE(void) {
+    char* file_command[] = {"taosBenchmark", "-f", "test.json"};
+    commandLineParseArgument(3, file_command, &test_g_args);
+    CU_ASSERT_STRING_EQUAL(test_g_args.metaFile, "test.json");
+}
 /* The main() function for setting up and running the tests.
  * Returns a CUE_SUCCESS on successful running, another
  * CUnit error code on failure.
@@ -186,10 +191,12 @@ int main() {
     /* add the tests to the suite */
     if ((NULL == CU_add_test(demoCommandSuite, "parse_datatype()",
                              testPARSEDATATYPE)) ||
-        (NULL ==
-         CU_add_test(demoCommandSuite, "parse_args(-A)", testPARSETAGS)) ||
-        (NULL ==
-         CU_add_test(demoCommandSuite, "parse_args(-b)", testPARSECOLS))) {
+        (NULL == CU_add_test(demoCommandSuite, "commandLineParseArgument(-A)",
+                             testPARSETAGS)) ||
+        (NULL == CU_add_test(demoCommandSuite, "commandLineParseArgument(-b)",
+                             testPARSECOLS)) ||
+        (NULL == CU_add_test(demoCommandSuite, "commandLineParseArgument()",
+                             testCOMMANDLINEPARSE))) {
         CU_cleanup_registry();
         return CU_get_error();
     }
