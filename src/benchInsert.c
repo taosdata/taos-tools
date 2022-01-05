@@ -1150,9 +1150,9 @@ void *syncWriteInterlace(void *sarg) {
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
                                 true);
-                            generateSmlJsonCols(pThreadInfo->json_array, tag,
-                                                stbInfo, pThreadInfo->time_precision,
-                                                timestamp);
+                            generateSmlJsonCols(
+                                pThreadInfo->json_array, tag, stbInfo,
+                                pThreadInfo->time_precision, timestamp);
                         } else if (pThreadInfo->line_protocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1380,9 +1380,9 @@ void *syncWriteProgressive(void *sarg) {
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
                                 true);
-                            generateSmlJsonCols(pThreadInfo->json_array, tag,
-                                                stbInfo, pThreadInfo,
-                                                timestamp);
+                            generateSmlJsonCols(
+                                pThreadInfo->json_array, tag, stbInfo,
+                                pThreadInfo->time_precision, timestamp);
                         } else if (pThreadInfo->line_protocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1868,8 +1868,9 @@ int startMultiThreadInsertData(int threads, char *db_name, char *precision,
                     pThreadInfo->json_array = cJSON_CreateArray();
                     pThreadInfo->sml_json_tags = cJSON_CreateArray();
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
-                        if (generateSmlJsonTags(pThreadInfo->sml_json_tags,
-                                                stbInfo, pThreadInfo->start_table_from, t)) {
+                        if (generateSmlJsonTags(
+                                pThreadInfo->sml_json_tags, stbInfo,
+                                pThreadInfo->start_table_from, t)) {
                             return -1;
                         }
                     }
