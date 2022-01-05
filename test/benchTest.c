@@ -294,6 +294,10 @@ void testCOMMANDLINEPARSE(void) {
     char* debug_command[] = {"taosBenchmark", "-g"};
     commandLineParseArgument(2, debug_command, &test_g_args);
     CU_ASSERT_TRUE(test_g_args.debug_print);
+    CU_ASSERT_FALSE(test_g_args.performance_print);
+    char* performace_command[] = {"taosBenchmark", "-G"};
+    commandLineParseArgument(2, performace_command, &test_g_args);
+    CU_ASSERT_TRUE(test_g_args.performance_print);
 }
 /* The main() function for setting up and running the tests.
  * Returns a CUE_SUCCESS on successful running, another

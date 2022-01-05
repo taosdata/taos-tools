@@ -89,6 +89,7 @@ static struct argp_option options[] = {
     {"replia", 'a', "NUMBER", 0,
      "The number of replica when create database, default is 1."},
     {"debug", 'g', 0, 0, "Debug mode"},
+    {"performace", 'G', 0, 0, "Performance mode"},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -258,6 +259,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'g':
             arguments->debug_print = true;
+            break;
+        case 'G':
+            arguments->performance_print = true;
             break;
         default:
             return ARGP_ERR_UNKNOWN;
