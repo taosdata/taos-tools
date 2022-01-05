@@ -28,9 +28,7 @@ TAOS_POOL      g_taos_pool;
 
 int main(int argc, char *argv[]) {
     init_g_args(&g_args);
-    if (parse_args(argc, argv, &g_args)) {
-        exit(EXIT_FAILURE);
-    }
+    commandLineParseArgument(argc, argv, &g_args);
     if (g_args.metaFile) {
         g_totalChildTables = 0;
         if (getInfoFromJsonFile(g_args.metaFile)) {
@@ -39,7 +37,7 @@ int main(int argc, char *argv[]) {
     } else {
         db = calloc(1, sizeof(SDataBase));
         db[0].superTbls = calloc(1, sizeof(SSuperTable));
-        setParaFromArg(&g_args);
+        setParaFromArg(&g_args, db);
     }
     if (test(&g_args)) {
         exit(EXIT_FAILURE);
