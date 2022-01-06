@@ -17,7 +17,6 @@
 #include "bench.h"
 
 char *    g_sampleDataBuf = NULL;
-char *    g_sampleBindBatchArray = NULL;
 int8_t *  g_randbool = NULL;
 int8_t *  g_randtinyint = NULL;
 uint8_t * g_randutinyint = NULL;
@@ -296,34 +295,36 @@ static void check_randomness(char *buffer_name, int buffer_length,
                buffer + buffer_length, buffer + 2 * buffer_length);
 }
 
-int init_rand_data() {
-    g_randint_buff = calloc(1, INT_BUFF_LEN * g_args.prepared_rand);
-    g_rand_voltage_buff = calloc(1, INT_BUFF_LEN * g_args.prepared_rand);
-    g_randbigint_buff = calloc(1, BIGINT_BUFF_LEN * g_args.prepared_rand);
-    g_randsmallint_buff = calloc(1, SMALLINT_BUFF_LEN * g_args.prepared_rand);
-    g_randtinyint_buff = calloc(1, TINYINT_BUFF_LEN * g_args.prepared_rand);
-    g_randbool_buff = calloc(1, BOOL_BUFF_LEN * g_args.prepared_rand);
-    g_randfloat_buff = calloc(1, FLOAT_BUFF_LEN * g_args.prepared_rand);
-    g_rand_current_buff = calloc(1, FLOAT_BUFF_LEN * g_args.prepared_rand);
-    g_rand_phase_buff = calloc(1, FLOAT_BUFF_LEN * g_args.prepared_rand);
-    g_randdouble_buff = calloc(1, DOUBLE_BUFF_LEN * g_args.prepared_rand);
-    g_randuint_buff = calloc(1, INT_BUFF_LEN * g_args.prepared_rand);
-    g_randutinyint_buff = calloc(1, TINYINT_BUFF_LEN * g_args.prepared_rand);
-    g_randusmallint_buff = calloc(1, SMALLINT_BUFF_LEN * g_args.prepared_rand);
-    g_randubigint_buff = calloc(1, BIGINT_BUFF_LEN * g_args.prepared_rand);
-    g_randbool = calloc(1, sizeof(int8_t) * g_args.prepared_rand);
-    g_randtinyint = calloc(1, sizeof(int8_t) * g_args.prepared_rand);
-    g_randutinyint = calloc(1, sizeof(uint8_t) * g_args.prepared_rand);
-    g_randsmallint = calloc(1, sizeof(int16_t) * g_args.prepared_rand);
-    g_randusmallint = calloc(1, sizeof(uint16_t) * g_args.prepared_rand);
-    g_randint = calloc(1, sizeof(int32_t) * g_args.prepared_rand);
-    g_randuint = calloc(1, sizeof(uint32_t) * g_args.prepared_rand);
-    g_randbigint = calloc(1, sizeof(int64_t) * g_args.prepared_rand);
-    g_randubigint = calloc(1, sizeof(uint64_t) * g_args.prepared_rand);
-    g_randfloat = calloc(1, sizeof(float) * g_args.prepared_rand);
-    g_randdouble = calloc(1, sizeof(double) * g_args.prepared_rand);
+int init_rand_data(SArguments *argument) {
+    g_randint_buff = calloc(1, INT_BUFF_LEN * argument->prepared_rand);
+    g_rand_voltage_buff = calloc(1, INT_BUFF_LEN * argument->prepared_rand);
+    g_randbigint_buff = calloc(1, BIGINT_BUFF_LEN * argument->prepared_rand);
+    g_randsmallint_buff =
+        calloc(1, SMALLINT_BUFF_LEN * argument->prepared_rand);
+    g_randtinyint_buff = calloc(1, TINYINT_BUFF_LEN * argument->prepared_rand);
+    g_randbool_buff = calloc(1, BOOL_BUFF_LEN * argument->prepared_rand);
+    g_randfloat_buff = calloc(1, FLOAT_BUFF_LEN * argument->prepared_rand);
+    g_rand_current_buff = calloc(1, FLOAT_BUFF_LEN * argument->prepared_rand);
+    g_rand_phase_buff = calloc(1, FLOAT_BUFF_LEN * argument->prepared_rand);
+    g_randdouble_buff = calloc(1, DOUBLE_BUFF_LEN * argument->prepared_rand);
+    g_randuint_buff = calloc(1, INT_BUFF_LEN * argument->prepared_rand);
+    g_randutinyint_buff = calloc(1, TINYINT_BUFF_LEN * argument->prepared_rand);
+    g_randusmallint_buff =
+        calloc(1, SMALLINT_BUFF_LEN * argument->prepared_rand);
+    g_randubigint_buff = calloc(1, BIGINT_BUFF_LEN * argument->prepared_rand);
+    g_randbool = calloc(1, sizeof(int8_t) * argument->prepared_rand);
+    g_randtinyint = calloc(1, sizeof(int8_t) * argument->prepared_rand);
+    g_randutinyint = calloc(1, sizeof(uint8_t) * argument->prepared_rand);
+    g_randsmallint = calloc(1, sizeof(int16_t) * argument->prepared_rand);
+    g_randusmallint = calloc(1, sizeof(uint16_t) * argument->prepared_rand);
+    g_randint = calloc(1, sizeof(int32_t) * argument->prepared_rand);
+    g_randuint = calloc(1, sizeof(uint32_t) * argument->prepared_rand);
+    g_randbigint = calloc(1, sizeof(int64_t) * argument->prepared_rand);
+    g_randubigint = calloc(1, sizeof(uint64_t) * argument->prepared_rand);
+    g_randfloat = calloc(1, sizeof(float) * argument->prepared_rand);
+    g_randdouble = calloc(1, sizeof(double) * argument->prepared_rand);
 
-    for (int i = 0; i < g_args.prepared_rand; i++) {
+    for (int i = 0; i < argument->prepared_rand; i++) {
         g_randint[i] = (int)(taosRandom() % RAND_MAX - (RAND_MAX >> 1));
         g_randuint[i] = (int)(taosRandom());
         g_randbool[i] = (g_randint[i] % 2) & 1;
@@ -402,8 +403,8 @@ static void generateBinaryNCharTagValues(int64_t tableSeq, uint32_t len,
     // rand_string(buf, stbInfo->tag_length[i]);
 }
 
-int generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
-                            char *tagsValBuf) {
+int generateTagValuesForStb(SArguments *arguments, SSuperTable *stbInfo,
+                            int64_t tableSeq, char *tagsValBuf) {
     int dataLen = 0;
     dataLen += snprintf(tagsValBuf + dataLen, TSDB_MAX_SQL_LEN - dataLen, "(");
     for (int i = 0; i < stbInfo->tagCount; i++) {
@@ -412,10 +413,6 @@ int generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
             case TSDB_DATA_TYPE_NCHAR: {
                 int32_t tagBufLen = stbInfo->tag_length[i] + 1;
                 char *  buf = (char *)calloc(1, tagBufLen);
-                if (NULL == buf) {
-                    errorPrint("%s", "failed to allocate memory\n");
-                    return -1;
-                }
                 generateBinaryNCharTagValues(tableSeq, tagBufLen, buf);
                 dataLen += snprintf(tagsValBuf + dataLen,
                                     TSDB_MAX_SQL_LEN - dataLen, "\'%s\',", buf);
@@ -423,7 +420,7 @@ int generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
                 break;
             }
             case TSDB_DATA_TYPE_INT:
-                if ((g_args.demo_mode) && (i == 0)) {
+                if ((arguments->demo_mode) && (i == 0)) {
                     dataLen += snprintf(tagsValBuf + dataLen,
                                         TSDB_MAX_SQL_LEN - dataLen,
                                         "%" PRId64 ",", (tableSeq % 10) + 1);
@@ -579,11 +576,6 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
         goto free_of_get_set_rows_from_csv;
     }
     buf = calloc(1, TSDB_MAX_SQL_LEN);
-    if (buf == NULL) {
-        errorPrint("%s", "failed to allocate memory\n");
-        goto free_of_get_set_rows_from_csv;
-    }
-
     while (fgets(buf, TSDB_MAX_SQL_LEN, fp)) {
         line_count++;
     }
@@ -595,7 +587,7 @@ free_of_get_set_rows_from_csv:
     return code;
 }
 
-int prepareSampleDataWithStb(SSuperTable *stbInfo) {
+int prepareSampleDataWithStb(SArguments *argument, SSuperTable *stbInfo) {
     calcRowLen(stbInfo->tag_type, stbInfo->col_type, stbInfo->tag_length,
                stbInfo->col_length, stbInfo->tagCount, stbInfo->columnCount,
                &(stbInfo->lenOfTags), &(stbInfo->lenOfCols), stbInfo->iface);
@@ -604,7 +596,7 @@ int prepareSampleDataWithStb(SSuperTable *stbInfo) {
     debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n", stbInfo->stbName,
                stbInfo->columnCount, stbInfo->lenOfCols);
     stbInfo->sampleDataBuf =
-        calloc(1, stbInfo->lenOfCols * g_args.prepared_rand);
+        calloc(1, stbInfo->lenOfCols * argument->prepared_rand);
     int ret;
     if (0 == strncasecmp(stbInfo->dataSource, "sample", strlen("sample"))) {
         if (stbInfo->useSampleTs) {
@@ -615,12 +607,12 @@ int prepareSampleDataWithStb(SSuperTable *stbInfo) {
         }
         ret = generateSampleFromCsvForStb(
             stbInfo->sampleDataBuf, stbInfo->sampleFile, stbInfo->lenOfCols,
-            g_args.prepared_rand);
+            argument->prepared_rand);
     } else {
-        ret = generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
-                                     stbInfo->columnCount, stbInfo->col_type,
-                                     stbInfo->col_length, g_args.prepared_rand,
-                                     stbInfo->iface);
+        ret = generateSampleFromRand(argument, stbInfo->sampleDataBuf,
+                                     stbInfo->lenOfCols, stbInfo->columnCount,
+                                     stbInfo->col_type, stbInfo->col_length,
+                                     argument->prepared_rand, stbInfo->iface);
     }
     if (ret) {
         tmfree(stbInfo->sampleDataBuf);
@@ -636,9 +628,9 @@ int prepareSampleDataWithStb(SSuperTable *stbInfo) {
                 stbInfo->childTblCount);
         } else {
             ret = generateSampleFromRand(
-                stbInfo->tagDataBuf, stbInfo->lenOfTags, stbInfo->tagCount,
-                stbInfo->tag_type, stbInfo->tag_length, stbInfo->childTblCount,
-                stbInfo->iface);
+                argument, stbInfo->tagDataBuf, stbInfo->lenOfTags,
+                stbInfo->tagCount, stbInfo->tag_type, stbInfo->tag_length,
+                stbInfo->childTblCount, stbInfo->iface);
         }
         if (ret) {
             tmfree(stbInfo->sampleDataBuf);
@@ -650,9 +642,9 @@ int prepareSampleDataWithStb(SSuperTable *stbInfo) {
     return 0;
 }
 
-int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
-                           char *data_type, int32_t *data_length, int64_t size,
-                           uint16_t iface) {
+int generateSampleFromRand(SArguments *arguments, char *sampleDataBuf,
+                           int32_t lenOfOneRow, int count, char *data_type,
+                           int32_t *data_length, int64_t size, uint16_t iface) {
     for (int64_t i = 0; i < size; i++) {
         int32_t pos = i * lenOfOneRow;
         for (int c = 0; c < count; c++) {
@@ -677,7 +669,7 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT:
-                    if ((g_args.demo_mode) && (c == 1)) {
+                    if ((arguments->demo_mode) && (c == 1)) {
                         tmp = demo_voltage_int_str();
                     } else {
                         tmp = rand_int_str();
@@ -721,7 +713,7 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                     break;
 
                 case TSDB_DATA_TYPE_FLOAT:
-                    if (g_args.demo_mode) {
+                    if (arguments->demo_mode) {
                         if (c == 0) {
                             tmp = demo_current_float_str();
                         } else {

@@ -42,7 +42,7 @@ static struct argp_option options[] = {
      "insert mode, default is taosc, options: taosc|rest|stmt|sml"},
     {"user", 'u', "USER", 0,
      "The user name to use when connecting to the server, default is root."},
-    {"password", 'p', 0, 0,
+    {"password", 'p', "PASSWORD", 0,
      "The password to use when connecting to the server, default is taosdata."},
     {"output", 'o', "FILE", 0,
      "The path of result output file, default is ./output.txt."},
@@ -88,13 +88,23 @@ static struct argp_option options[] = {
      "Ratio of inserting data with disorder timestamp, default is 0."},
     {"replia", 'a', "NUMBER", 0,
      "The number of replica when create database, default is 1."},
-    {"debug", 'g', 0, 0, "Debug mode"},
-    {"performace", 'G', 0, 0, "Performance mode"},
+    {"debug", 'g', 0, 0, "Debug mode, optional."},
+    {"performace", 'G', 0, 0, "Performance mode, optional."},
+    {"prepared_rand", 'F', "NUMBER", 0,
+     "Random data source size, default is 10000."},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     SArguments *arguments = state->input;
     switch (key) {
+        case 'F':
+            arguments->prepared_rand = atol(arg);
+            if (arguments->prepared_rand <= 0) {
+                errorPrint("Invalid -F: %s, will auto set to default(10000)\n",
+                           arg);
+                arguments->prepared_rand = DEFAULT_PREPARED_RAND;
+            }
+            break;
         case 'f':
             arguments->demo_mode = false;
             arguments->metaFile = arg;
@@ -104,6 +114,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'P':
             arguments->port = atoi(arg);
+            if (arguments->port <= 0) {
+                errorPrint("Invalid -P: %s, will auto set to default(6030)\n",
+                           arg);
+                arguments->port = DEFAULT_PORT;
+            }
             break;
         case 'I':
             if (0 == strcasecmp(arg, "taosc")) {
@@ -115,11 +130,13 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             } else if (0 == strcasecmp(arg, "sml")) {
                 arguments->iface = SML_IFACE;
             } else {
-                errorPrint("Invalid -I: %s\n", arg);
-                exit(EXIT_FAILURE);
+                errorPrint("Invalid -I: %s, will auto set to default (taosc)\n",
+                           arg);
+                arguments->iface = TAOSC_IFACE;
             }
             break;
         case 'p':
+            arguments->password = arg;
             break;
         case 'u':
             arguments->user = arg;
@@ -132,40 +149,59 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'T':
             arguments->nthreads = atoi(arg);
-            if (arguments->nthreads == 0) {
-                errorPrint("Invalid -T: %s\n", arg);
-                exit(EXIT_FAILURE);
+            if (arguments->nthreads <= 0) {
+                errorPrint("Invalid -T: %s, will auto set to default(8)\n",
+                           arg);
+                arguments->nthreads = DEFAULT_NTHREADS;
             }
             break;
         case 'i':
-            arguments->insert_interval = atol(arg);
-            if (arguments->insert_interval == 0) {
-                errorPrint("Invalid -i: %s\n", arg);
-                exit(EXIT_FAILURE);
+            arguments->insert_interval = atoi(arg);
+            if (arguments->insert_interval <= 0) {
+                errorPrint("Invalid -i: %s, will auto set to default(0)\n",
+                           arg);
+                arguments->insert_interval = 0;
             }
             break;
         case 'S':
             arguments->timestamp_step = atol(arg);
-            if (arguments->timestamp_step == 0) {
-                errorPrint("Invalid -S: %s\n", arg);
-                exit(EXIT_FAILURE);
+            if (arguments->timestamp_step <= 0) {
+                errorPrint("Invalid -S: %s, will auto set to default(1)\n",
+                           arg);
+                arguments->timestamp_step = 1;
             }
             break;
         case 'B':
             arguments->interlaceRows = atoi(arg);
             if (arguments->interlaceRows <= 0) {
-                errorPrint("Invalid -B: %s\n", arg);
-                exit(EXIT_FAILURE);
+                errorPrint("Invalid -B: %s, will auto set to default(0)\n",
+                           arg);
+                arguments->interlaceRows = 0;
             }
             break;
         case 'r':
             arguments->reqPerReq = atoi(arg);
+            if (arguments->reqPerReq <= 0) {
+                errorPrint("Invalid -r: %s, will auto set to default(30000)\n",
+                           arg);
+                arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
+            }
             break;
         case 't':
             arguments->ntables = atoi(arg);
+            if (arguments->ntables <= 0) {
+                errorPrint("Invalid -t: %s, will auto set to default(10000)\n",
+                           arg);
+                arguments->ntables = DEFAULT_CHILDTABLES;
+            }
             break;
         case 'n':
             arguments->insertRows = atol(arg);
+            if (arguments->insertRows <= 0) {
+                errorPrint("Invalid -n: %s, will auto set to default(10000)\n",
+                           arg);
+                arguments->insertRows = DEFAULT_INSERT_ROWS;
+            }
             break;
         case 'd':
             arguments->database = arg;
@@ -174,49 +210,67 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             arguments->demo_mode = false;
             arguments->intColumnCount = atoi(arg);
             if (arguments->intColumnCount <= 0) {
-                errorPrint("Invalid -l: %s\n", arg);
-                exit(EXIT_FAILURE);
+                errorPrint("Invalid -l: %s, will auto set to default(0)\n",
+                           arg);
+                arguments->intColumnCount = 0;
             }
             break;
         case 'A':
             arguments->demo_mode = false;
+            count_datatype(arg, &(arguments->tagCount));
             tmfree(arguments->tag_type);
             tmfree(arguments->tag_length);
-            if (count_datatype(arg, &(arguments->tagCount))) {
-                exit(EXIT_FAILURE);
-            }
             arguments->tag_type = calloc(arguments->tagCount, sizeof(char));
             arguments->tag_length =
                 calloc(arguments->tagCount, sizeof(int32_t));
             if (parse_datatype(arg, arguments->tag_type, arguments->tag_length,
                                true)) {
-                exit(EXIT_FAILURE);
+                tmfree(arguments->tag_type);
+                tmfree(arguments->tag_length);
+                arguments->tag_type = (char *)calloc(2, sizeof(char));
+                arguments->tag_type[0] = TSDB_DATA_TYPE_INT;
+                arguments->tag_type[1] = TSDB_DATA_TYPE_BINARY;
+                arguments->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
+                arguments->tag_length[0] = sizeof(int32_t);
+                arguments->tag_length[1] = 16;
+                arguments->tagCount = 2;
             }
             break;
         case 'b':
             arguments->demo_mode = false;
             tmfree(arguments->col_type);
             tmfree(arguments->col_length);
-            if (count_datatype(arg, &(arguments->columnCount))) {
-                exit(EXIT_FAILURE);
-            }
+            count_datatype(arg, &(arguments->columnCount));
             arguments->col_type = calloc(arguments->columnCount, sizeof(char));
             arguments->col_length =
                 calloc(arguments->columnCount, sizeof(int32_t));
             if (parse_datatype(arg, arguments->col_type, arguments->col_length,
                                false)) {
-                exit(EXIT_FAILURE);
+                tmfree(arguments->col_type);
+                tmfree(arguments->col_length);
+                arguments->col_type = (char *)calloc(3, sizeof(char));
+                arguments->col_type[0] = TSDB_DATA_TYPE_FLOAT;
+                arguments->col_type[1] = TSDB_DATA_TYPE_INT;
+                arguments->col_type[2] = TSDB_DATA_TYPE_FLOAT;
+                arguments->col_length = (int32_t *)calloc(3, sizeof(int32_t));
+                arguments->col_length[0] = sizeof(float);
+                arguments->col_length[1] = sizeof(int32_t);
+                arguments->col_length[2] = sizeof(float);
+                arguments->columnCount = 3;
             }
             break;
         case 'w':
             arguments->binwidth = atoi(arg);
-            if (arguments->binwidth == 0) {
-                errorPrint("Invalid value for w: %s\n", arg);
-                exit(EXIT_FAILURE);
+            if (arguments->binwidth <= 0) {
+                errorPrint(
+                    "Invalid value for w: %s, will auto set to default(64)\n",
+                    arg);
+                arguments->binwidth = DEFAULT_BINWIDTH;
             } else if (arguments->binwidth > TSDB_MAX_BINARY_LEN) {
-                errorPrint("-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64 ")\n",
+                errorPrint("-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
+                           "), will auto set to default(64)\n",
                            arguments->binwidth, TSDB_MAX_BINARY_LEN);
-                exit(EXIT_FAILURE);
+                arguments->binwidth = DEFAULT_BINWIDTH;
             }
             break;
         case 'm':
@@ -242,23 +296,30 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'R':
             arguments->disorderRange = atoi(arg);
-            if (arguments->disorderRange == 0) {
-                errorPrint("Invalid value for -R: %s\n", arg);
-                exit(EXIT_FAILURE);
+            if (arguments->disorderRange <= 0) {
+                errorPrint(
+                    "Invalid value for -R: %s, will auto set to "
+                    "default(1000)\n",
+                    arg);
+                arguments->disorderRange = DEFAULT_DISORDER_RANGE;
             }
             break;
         case 'O':
             arguments->disorderRatio = atoi(arg);
-            if (arguments->disorderRatio == 0) {
-                errorPrint("Invalid value for -O: %s\n", arg);
-                exit(EXIT_FAILURE);
+            if (arguments->disorderRatio <= 0) {
+                errorPrint(
+                    "Invalid value for -O: %s, will auto set to default(0)\n",
+                    arg);
+                arguments->disorderRatio = 0;
             }
             break;
         case 'a':
             arguments->replica = atoi(arg);
-            if (arguments->replica == 0) {
-                errorPrint("Invalid value for -a: %s\n", arg);
-                exit(EXIT_FAILURE);
+            if (arguments->replica <= 0) {
+                errorPrint(
+                    "Invalid value for -a: %s, will auto set to default(1)\n",
+                    arg);
+                arguments->replica = 1;
             }
             break;
         case 'g':
@@ -275,59 +336,59 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-void init_g_args(SArguments *pg_args) {
-    pg_args->demo_mode = DEFAULT_DEMO_MODE;
-    pg_args->dbCount = 1;
-    pg_args->test_mode = DEFAULT_TEST_MODE;
-    pg_args->host = DEFAULT_HOST;
-    pg_args->port = DEFAULT_PORT;
-    pg_args->iface = DEFAULT_IFACE;
-    pg_args->output_file = DEFAULT_OUTPUT;
-    pg_args->user = TSDB_DEFAULT_USER;
-    pg_args->password = TSDB_DEFAULT_PASS;
-    pg_args->database = DEFAULT_DATABASE;
-    pg_args->replica = DEFAULT_REPLICA;
-    pg_args->tb_prefix = DEFAULT_TB_PREFIX;
-    pg_args->escapeChar = DEFAULT_ESCAPE_CHAR;
-    pg_args->use_metric = DEFAULT_USE_METRIC;
-    pg_args->drop_database = DEFAULT_DROP_DB;
-    pg_args->aggr_func = DEFAULT_AGGR_FUNC;
-    pg_args->answer_yes = DEFAULT_ANS_YES;
-    pg_args->debug_print = DEFAULT_DEBUG;
-    pg_args->verbose_print = DEFAULT_VERBOSE;
-    pg_args->performance_print = DEFAULT_PERF_STAT;
-    pg_args->col_type = (char *)calloc(3, sizeof(char));
-    pg_args->col_type[0] = TSDB_DATA_TYPE_FLOAT;
-    pg_args->col_type[1] = TSDB_DATA_TYPE_INT;
-    pg_args->col_type[2] = TSDB_DATA_TYPE_FLOAT;
-    pg_args->col_length = (int32_t *)calloc(3, sizeof(int32_t));
-    pg_args->col_length[0] = sizeof(float);
-    pg_args->col_length[1] = sizeof(int32_t);
-    pg_args->col_length[2] = sizeof(float);
-    pg_args->tag_type = (char *)calloc(2, sizeof(char));
-    pg_args->tag_type[0] = TSDB_DATA_TYPE_INT;
-    pg_args->tag_type[1] = TSDB_DATA_TYPE_BINARY;
-    pg_args->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
-    pg_args->tag_length[0] = sizeof(int32_t);
-    pg_args->tag_length[1] = 16;
-    pg_args->response_buffer = RESP_BUF_LEN;
-    pg_args->columnCount = 3;
-    pg_args->tagCount = 2;
-    pg_args->binwidth = DEFAULT_BINWIDTH;
-    pg_args->nthreads = DEFAULT_NTHREADS;
-    pg_args->nthreads_pool = DEFAULT_NTHREADS + 5;
-    pg_args->insert_interval = DEFAULT_INSERT_INTERVAL;
-    pg_args->timestamp_step = DEFAULT_TIMESTAMP_STEP;
-    pg_args->query_times = DEFAULT_QUERY_TIME;
-    pg_args->prepared_rand = DEFAULT_PREPARED_RAND;
-    pg_args->interlaceRows = DEFAULT_INTERLACE_ROWS;
-    pg_args->reqPerReq = DEFAULT_REQ_PER_REQ;
-    pg_args->ntables = DEFAULT_CHILDTABLES;
-    pg_args->insertRows = DEFAULT_INSERT_ROWS;
-    pg_args->disorderRange = DEFAULT_DISORDER_RANGE;
-    pg_args->disorderRatio = DEFAULT_RATIO;
-    pg_args->demo_mode = DEFAULT_DEMO_MODE;
-    pg_args->chinese = DEFAULT_CHINESE_OPT;
+void init_argument(SArguments *arguments) {
+    arguments->test_mode = INSERT_TEST;
+    arguments->demo_mode = 1;
+    arguments->dbCount = 1;
+    arguments->host = DEFAULT_HOST;
+    arguments->port = DEFAULT_PORT;
+    arguments->iface = TAOSC_IFACE;
+    arguments->output_file = DEFAULT_OUTPUT;
+    arguments->user = TSDB_DEFAULT_USER;
+    arguments->password = TSDB_DEFAULT_PASS;
+    arguments->database = DEFAULT_DATABASE;
+    arguments->replica = 1;
+    arguments->tb_prefix = DEFAULT_TB_PREFIX;
+    arguments->escapeChar = 0;
+    arguments->use_metric = 1;
+    arguments->aggr_func = 0;
+    arguments->answer_yes = 0;
+    arguments->debug_print = 0;
+    arguments->performance_print = 0;
+    arguments->col_type = (char *)calloc(3, sizeof(char));
+    arguments->col_type[0] = TSDB_DATA_TYPE_FLOAT;
+    arguments->col_type[1] = TSDB_DATA_TYPE_INT;
+    arguments->col_type[2] = TSDB_DATA_TYPE_FLOAT;
+    arguments->col_length = (int32_t *)calloc(3, sizeof(int32_t));
+    arguments->col_length[0] = sizeof(float);
+    arguments->col_length[1] = sizeof(int32_t);
+    arguments->col_length[2] = sizeof(float);
+    arguments->tag_type = (char *)calloc(2, sizeof(char));
+    arguments->tag_type[0] = TSDB_DATA_TYPE_INT;
+    arguments->tag_type[1] = TSDB_DATA_TYPE_BINARY;
+    arguments->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
+    arguments->tag_length[0] = sizeof(int32_t);
+    arguments->tag_length[1] = 16;
+    arguments->columnCount = 3;
+    arguments->tagCount = 2;
+    arguments->binwidth = DEFAULT_BINWIDTH;
+    arguments->nthreads = DEFAULT_NTHREADS;
+    arguments->nthreads_pool = DEFAULT_NTHREADS + 5;
+    arguments->insert_interval = 0;
+    arguments->timestamp_step = 1;
+    arguments->prepared_rand = DEFAULT_PREPARED_RAND;
+    arguments->interlaceRows = 0;
+    arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
+    arguments->ntables = DEFAULT_CHILDTABLES;
+    arguments->insertRows = DEFAULT_INSERT_ROWS;
+    arguments->disorderRange = DEFAULT_DISORDER_RANGE;
+    arguments->disorderRatio = 0;
+    arguments->chinese = 0;
+    arguments->pool = calloc(1, sizeof(TAOS_POOL));
+    arguments->g_totalChildTables = arguments->ntables;
+    arguments->g_actualChildTables = 0;
+    arguments->g_autoCreatedChildTables = 0;
+    arguments->g_existedChildTables = 0;
 }
 
 int count_datatype(char *dataType, int32_t *number) {
@@ -511,12 +572,10 @@ void commandLineParseArgument(int argc, char *argv[], SArguments *arguments) {
 }
 
 void setParaFromArg(SArguments *pg_args, SDataBase *pdb) {
-    pg_args->test_mode = INSERT_TEST;
     pdb->drop = true;
     tstrncpy(pdb->dbName, pg_args->database, TSDB_DB_NAME_LEN);
     pdb->dbCfg.replica = pg_args->replica;
     tstrncpy(pdb->dbCfg.precision, "ms", SMALL_BUFF_LEN);
-    pg_args->prepared_rand = min(pg_args->insertRows, MAX_PREPARED_RAND);
 
     if (pg_args->intColumnCount > pg_args->columnCount) {
         char *tmp_type = (char *)realloc(
@@ -574,7 +633,7 @@ void setParaFromArg(SArguments *pg_args, SDataBase *pdb) {
     }
 }
 
-void *queryStableAggrFunc(void *sarg) {
+static void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryStableAggrFunc");
@@ -591,24 +650,16 @@ void *queryStableAggrFunc(void *sarg) {
         pThreadInfo->ntables;  // pThreadInfo->end_table_to -
                                // pThreadInfo->start_table_from + 1;
     int64_t totalData = insertRows * ntables;
-    bool    aggr_func = g_args.aggr_func;
 
     char **aggreFunc;
     int    n;
 
-    if (g_args.demo_mode) {
+    if (pThreadInfo->demo_mode) {
         aggreFunc = g_aggreFuncDemo;
-        n = aggr_func ? (sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]))
-                      : 2;
+        n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
         aggreFunc = g_aggreFunc;
-        n = aggr_func ? (sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0])) : 2;
-    }
-
-    if (!aggr_func) {
-        printf(
-            "\nThe first field is either Binary or Bool. Aggregation functions "
-            "are not supported.\n");
+        n = sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0]);
     }
 
     infoPrint("total Data: %" PRId64 "\n", totalData);
@@ -623,13 +674,13 @@ void *queryStableAggrFunc(void *sarg) {
 
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
-                if (g_args.demo_mode) {
+                if (pThreadInfo->demo_mode) {
                     sprintf(tempS, "groupid = %" PRId64 "", i);
                 } else {
                     sprintf(tempS, "t0 = %" PRId64 "", i);
                 }
             } else {
-                if (g_args.demo_mode) {
+                if (pThreadInfo->demo_mode) {
                     sprintf(tempS, " or groupid = %" PRId64 " ", i);
                 } else {
                     sprintf(tempS, " or t0 = %" PRId64 " ", i);
@@ -674,7 +725,7 @@ void *queryStableAggrFunc(void *sarg) {
     return NULL;
 }
 
-void *queryNtableAggrFunc(void *sarg) {
+static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
@@ -695,25 +746,18 @@ void *queryNtableAggrFunc(void *sarg) {
         pThreadInfo->ntables;  // pThreadInfo->end_table_to -
                                // pThreadInfo->start_table_from + 1;
     int64_t totalData = insertRows * ntables;
-    bool    aggr_func = g_args.aggr_func;
 
     char **aggreFunc;
     int    n;
 
-    if (g_args.demo_mode) {
+    if (pThreadInfo->demo_mode) {
         aggreFunc = g_aggreFuncDemo;
-        n = aggr_func ? (sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]))
-                      : 2;
+        n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
         aggreFunc = g_aggreFunc;
-        n = aggr_func ? (sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0])) : 2;
+        n = sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0]);
     }
 
-    if (!aggr_func) {
-        printf(
-            "\nThe first field is either Binary or Bool. Aggregation functions "
-            "are not supported.\n");
-    }
     infoPrint("totalData: %" PRId64 "\n", totalData);
     if (fp) {
         fprintf(fp,
@@ -725,7 +769,7 @@ void *queryNtableAggrFunc(void *sarg) {
         double   totalT = 0;
         uint64_t count = 0;
         for (int64_t i = 0; i < ntables; i++) {
-            if (g_args.escapeChar) {
+            if (pThreadInfo->escapeChar) {
                 sprintf(command,
                         "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
                         aggreFunc[j], tb_prefix, i, startTime);
@@ -770,47 +814,34 @@ void *queryNtableAggrFunc(void *sarg) {
     return NULL;
 }
 
-void queryAggrFunc(SArguments *pg_args) {
-    // query data
-
+static int queryAggrFunc(SArguments *argument, TAOS_POOL *pool) {
     pthread_t   read_id;
     threadInfo *pThreadInfo = calloc(1, sizeof(threadInfo));
-
     pThreadInfo->start_time = DEFAULT_START_TIME;  // 2017-07-14 10:40:00.000
     pThreadInfo->start_table_from = 0;
 
-    if (pg_args->use_metric) {
-        pThreadInfo->ntables = db[0].superTbls[0].childTblCount;
-        pThreadInfo->end_table_to = db[0].superTbls[0].childTblCount - 1;
-        pThreadInfo->stbInfo = &db[0].superTbls[0];
-        tstrncpy(pThreadInfo->tb_prefix, db[0].superTbls[0].childTblPrefix,
-                 TBNAME_PREFIX_LEN);
-    } else {
-        pThreadInfo->ntables = pg_args->ntables;
-        pThreadInfo->end_table_to = pg_args->ntables - 1;
-        tstrncpy(pThreadInfo->tb_prefix, pg_args->tb_prefix,
-                 TSDB_TABLE_NAME_LEN);
-    }
-
-    pThreadInfo->taos = select_one_from_pool(&g_taos_pool, db[0].dbName);
-
+    pThreadInfo->ntables = argument->ntables;
+    pThreadInfo->end_table_to = argument->ntables - 1;
+    pThreadInfo->stbInfo = &db[0].superTbls[0];
+    pThreadInfo->demo_mode = argument->demo_mode;
+    tstrncpy(pThreadInfo->tb_prefix, argument->tb_prefix, TBNAME_PREFIX_LEN);
+    pThreadInfo->taos = select_one_from_pool(pool, argument->database);
     if (pThreadInfo->taos == NULL) {
         free(pThreadInfo);
-        exit(EXIT_FAILURE);
+        return -1;
     }
-
-    tstrncpy(pThreadInfo->filePath, g_args.output_file, MAX_FILE_NAME_LEN);
-
-    if (!g_args.use_metric) {
+    tstrncpy(pThreadInfo->filePath, argument->output_file, MAX_FILE_NAME_LEN);
+    if (!argument->use_metric) {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
     } else {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
     free(pThreadInfo);
+    return 0;
 }
 
-int test(SArguments *pg_args) {
+int test(SArguments *argument, SDataBase *database) {
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
@@ -821,28 +852,30 @@ int test(SArguments *pg_args) {
         wordfree(&full_path);
     }
 
-    if (pg_args->test_mode == INSERT_TEST) {
-        if (insertTestProcess()) {
+    if (argument->test_mode == INSERT_TEST) {
+        if (insertTestProcess(argument, database)) {
             return -1;
         }
-    } else if (pg_args->test_mode == QUERY_TEST) {
-        if (queryTestProcess()) {
+    } else if (argument->test_mode == QUERY_TEST) {
+        if (queryTestProcess(argument)) {
             return -1;
         }
         for (int64_t i = 0; i < g_queryInfo.superQueryInfo.childTblCount; ++i) {
             tmfree(g_queryInfo.superQueryInfo.childTblName[i]);
         }
         tmfree(g_queryInfo.superQueryInfo.childTblName);
-    } else if (pg_args->test_mode == SUBSCRIBE_TEST) {
-        if (subscribeTestProcess()) {
+    } else if (argument->test_mode == SUBSCRIBE_TEST) {
+        if (subscribeTestProcess(argument)) {
             return -1;
         }
     } else {
-        errorPrint("unknown test mode: %d\n", pg_args->test_mode);
+        errorPrint("unknown test mode: %d\n", argument->test_mode);
         return -1;
     }
-    if (g_args.aggr_func) {
-        queryAggrFunc(pg_args);
+    if (argument->aggr_func) {
+        if (queryAggrFunc(argument, argument->pool)) {
+            return -1;
+        }
     }
     return 0;
 }

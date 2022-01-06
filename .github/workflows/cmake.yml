@@ -63,18 +63,23 @@ jobs:
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true && make && sudo make install
+          
 
       - name: Start tdengine
         run: nohup sudo taosd &
 
       - name: Configure CMake
-        run: cd taos-tools && cmake -B ./build -DBUILD_TYPE=${{env.BUILD_TYPE}}
+        run: |
+          cd taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+          cmake -B ./build -DBUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
         run: cd taos-tools && cmake --build ./build
 
       - name: Unit Test
-        run: cd taos-tools/build && ctest --verbose
+        run: ls && pwd && cd taos-tools/build && git branch && ctest --verbose
 
       - name: Func Test
         run: |

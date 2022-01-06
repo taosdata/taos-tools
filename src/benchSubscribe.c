@@ -17,9 +17,8 @@
 
 void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param, int code) {
     if (res == NULL || taos_errno(res) != 0) {
-        errorPrint(
-            "%s() LN%d, failed to subscribe result, code:%d, reason:%s\n",
-            __func__, __LINE__, code, taos_errstr(res));
+        errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
+                   taos_errstr(res));
         return;
     }
 
@@ -30,9 +29,8 @@ void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param, int code) {
 void specified_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
                             int code) {
     if (res == NULL || taos_errno(res) != 0) {
-        errorPrint(
-            "%s() LN%d, failed to subscribe result, code:%d, reason:%s\n",
-            __func__, __LINE__, code, taos_errstr(res));
+        errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
+                   taos_errstr(res));
         return;
     }
 
@@ -77,12 +75,6 @@ void *specifiedSubscribe(void *sarg) {
     //  TAOS_SUB*  tsub = NULL;
 
     prctl(PR_SET_NAME, "specSub");
-
-    pThreadInfo->taos = select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
-    if (pThreadInfo->taos == NULL) {
-        goto free_of_specified_subscribe;
-    }
-
     char sqlStr[TSDB_DB_NAME_LEN + 5];
     sprintf(sqlStr, "USE %s", g_queryInfo.dbName);
     if (0 != queryDbExec(pThreadInfo->taos, sqlStr, NO_INSERT_TYPE, false)) {
@@ -184,10 +176,6 @@ static void *superSubscribe(void *sarg) {
     TAOS_SUB *  tsub[MAX_QUERY_SQL_COUNT] = {0};
     uint64_t    tsubSeq;
     char *      subSqlStr = calloc(1, BUFFER_SIZE);
-    if (NULL == subSqlStr) {
-        errorPrint("%s", "failed to allocate memory\n");
-        goto free_of_super_subscribe;
-    }
 
     prctl(PR_SET_NAME, "superSub");
 
@@ -196,14 +184,6 @@ static void *superSubscribe(void *sarg) {
                    ") of the thread is more than max query sql count: %d\n",
                    pThreadInfo->ntables, MAX_QUERY_SQL_COUNT);
         goto free_of_super_subscribe;
-    }
-
-    if (pThreadInfo->taos == NULL) {
-        pThreadInfo->taos =
-            select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
-        if (pThreadInfo->taos == NULL) {
-            goto free_of_super_subscribe;
-        }
     }
 
     char sqlStr[TSDB_DB_NAME_LEN + 5];
@@ -217,11 +197,6 @@ static void *superSubscribe(void *sarg) {
     for (uint64_t i = pThreadInfo->start_table_from;
          i <= pThreadInfo->end_table_to; i++) {
         tsubSeq = i - pThreadInfo->start_table_from;
-        verbosePrint("%s() LN%d, [%d], start=%" PRId64 " end=%" PRId64
-                     " i=%" PRIu64 "\n",
-                     __func__, __LINE__, pThreadInfo->threadID,
-                     pThreadInfo->start_table_from, pThreadInfo->end_table_to,
-                     i);
         sprintf(topic, "taosbenchmark-subscribe-%" PRIu64 "-%" PRIu64 "", i,
                 pThreadInfo->querySeq);
         memset(subSqlStr, 0, BUFFER_SIZE);
@@ -233,9 +208,6 @@ static void *superSubscribe(void *sarg) {
                     g_queryInfo.superQueryInfo.result[pThreadInfo->querySeq],
                     pThreadInfo->threadID);
         }
-
-        verbosePrint("%s() LN%d, [%d] subSqlStr: %s\n", __func__, __LINE__,
-                     pThreadInfo->threadID, subSqlStr);
         tsub[tsubSeq] =
             subscribeImpl(STABLE_CLASS, pThreadInfo, subSqlStr, topic,
                           g_queryInfo.superQueryInfo.subscribeRestart,
@@ -258,10 +230,6 @@ static void *superSubscribe(void *sarg) {
         (g_queryInfo.superQueryInfo.endAfterConsume == -1) ||
         (g_queryInfo.superQueryInfo.endAfterConsume >
          consumed[pThreadInfo->end_table_to - pThreadInfo->start_table_from])) {
-        verbosePrint("super endAfterConsume: %d, consumed: %d\n",
-                     g_queryInfo.superQueryInfo.endAfterConsume,
-                     consumed[pThreadInfo->end_table_to -
-                              pThreadInfo->start_table_from]);
         for (uint64_t i = pThreadInfo->start_table_from;
              i <= pThreadInfo->end_table_to; i++) {
             tsubSeq = i - pThreadInfo->start_table_from;
@@ -293,12 +261,6 @@ static void *superSubscribe(void *sarg) {
                 if ((g_queryInfo.superQueryInfo.resubAfterConsume != -1) &&
                     (consumed[tsubSeq] >=
                      g_queryInfo.superQueryInfo.resubAfterConsume)) {
-                    verbosePrint(
-                        "%s() LN%d, keepProgress:%d, resub super table query: "
-                        "%" PRIu64 "\n",
-                        __func__, __LINE__,
-                        g_queryInfo.superQueryInfo.subscribeKeepProgress,
-                        pThreadInfo->querySeq);
                     taos_unsubscribe(
                         tsub[tsubSeq],
                         g_queryInfo.superQueryInfo.subscribeKeepProgress);
@@ -314,10 +276,6 @@ static void *superSubscribe(void *sarg) {
             }
         }
     }
-    verbosePrint(
-        "%s() LN%d, super endAfterConsume: %d, consumed: %d\n", __func__,
-        __LINE__, g_queryInfo.superQueryInfo.endAfterConsume,
-        consumed[pThreadInfo->end_table_to - pThreadInfo->start_table_from]);
     taos_free_result(res);
 
     for (uint64_t i = pThreadInfo->start_table_from;
@@ -332,18 +290,18 @@ free_of_super_subscribe:
     return code;
 }
 
-int subscribeTestProcess() {
+int subscribeTestProcess(SArguments *argument) {
     setupForAnsiEscape();
-    printfQueryMeta();
+    printfQueryMeta(argument);
     resetAfterAnsiEscape();
 
-    prompt();
+    prompt(argument);
 
-    if (init_taos_list(&g_taos_pool, g_args.nthreads_pool)) {
+    if (init_taos_list(argument->pool, argument->nthreads_pool)) {
         return -1;
     }
 
-    TAOS *taos = select_one_from_pool(&g_taos_pool, NULL);
+    TAOS *taos = select_one_from_pool(argument->pool, NULL);
     if (taos == NULL) {
         return -1;
     }
@@ -375,17 +333,10 @@ int subscribeTestProcess() {
         pids = calloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
                              g_queryInfo.specifiedQueryInfo.concurrent *
                              sizeof(pthread_t));
-        if (pids == NULL) {
-            errorPrint("%s", "failed to allocate memory\n");
-        }
 
         infos = calloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
                               g_queryInfo.specifiedQueryInfo.concurrent *
                               sizeof(threadInfo));
-
-        if (infos == NULL) {
-            errorPrint("%s", "failed to allocate memory\n");
-        }
 
         for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
             for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent;
@@ -396,7 +347,7 @@ int subscribeTestProcess() {
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
                 pThreadInfo->taos =
-                    NULL;  // workaround to use separate taos connection;
+                    select_one_from_pool(argument->pool, g_queryInfo.dbName);
                 pthread_create(pids + seq, NULL, specifiedSubscribe,
                                pThreadInfo);
             }
@@ -414,17 +365,9 @@ int subscribeTestProcess() {
                                          g_queryInfo.superQueryInfo.threadCnt *
                                          sizeof(pthread_t));
 
-            if (pidsOfStable) {
-                errorPrint("%s", "failed to allocate memory\n");
-            }
-
             infosOfStable = calloc(1, g_queryInfo.superQueryInfo.sqlCount *
                                           g_queryInfo.superQueryInfo.threadCnt *
                                           sizeof(threadInfo));
-
-            if (infosOfStable) {
-                errorPrint("%s", "failed to allocate memmory\n");
-            }
 
             int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
             int     threads = g_queryInfo.superQueryInfo.threadCnt;
@@ -453,6 +396,8 @@ int subscribeTestProcess() {
                     pThreadInfo->end_table_to =
                         j < b ? tableFrom + a : tableFrom + a - 1;
                     tableFrom = pThreadInfo->end_table_to + 1;
+                    pThreadInfo->taos = select_one_from_pool(
+                        argument->pool, g_queryInfo.dbName);
                     pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                    pThreadInfo);
                 }
