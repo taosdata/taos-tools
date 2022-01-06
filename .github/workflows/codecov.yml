@@ -52,7 +52,7 @@ jobs:
         if: github.event_name == 'pull_request'
 
       - name: Install packages
-        run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev
+        run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
@@ -60,15 +60,16 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
+          
       - name: Install tdengine
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
           cd TDengine
           mkdir debug
           cd debug
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug
-          make
-          sudo make install
+          make > /dev/null
+          sudo make install > /dev/null
           ./build/bin/taosBenchmark --help
           ./build/bin/taosdump --help
           cd src/kit/taos-tools/
@@ -76,7 +77,7 @@ jobs:
           sleep 10
           ctest --verbose
           cd ../../../../tests/pytest
-          pip3 install taospy numpy fabric2 psutil pandas faker
+          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
           python3 ./test.py -f tools/taosdumpTest.py
@@ -129,6 +130,7 @@ jobs:
           then
             for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
           fi
+          
       - name: Generate report
         run: |
           cd TDengine/debug
