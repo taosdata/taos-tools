@@ -48,7 +48,7 @@ extern char *    g_rand_phase_buff;
 extern char *    g_randdouble_buff;
 extern char **   g_string_grid;
 /***** Declare functions *****/
-int     init_rand_data();
+int     init_rand_data(SArguments* arguments);
 char *  rand_bool_str();
 int32_t rand_bool();
 char *  rand_tinyint_str();
@@ -76,7 +76,7 @@ void    rand_string(char *str, int size);
 char *  rand_double_str();
 double  rand_double();
 
-int     generateTagValuesForStb(SSuperTable *stbInfo, int64_t tableSeq,
+int     generateTagValuesForStb(SArguments * arguments, SSuperTable *stbInfo, int64_t tableSeq,
                                 char *tagsValBuf);
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
@@ -84,10 +84,10 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
                               uint32_t batch, int64_t startTime);
 
-int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
+int generateSampleFromRand(SArguments * arguments, char *sampleDataBuf, int32_t lenOfOneRow, int count,
                            char *data_type, int32_t *data_length, int64_t size, uint16_t iface);
-int     prepareSampleDataWithStb();
-int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
+int prepareSampleDataWithStb(SArguments *argument, SSuperTable *stbInfo) ;
+    int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
                               int tbSeq);
 int32_t generateSmlTelnetColData(char *line, char *sml, SSuperTable *stbInfo, int64_t timestamp);
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,

@@ -17,9 +17,8 @@
 
 void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param, int code) {
     if (res == NULL || taos_errno(res) != 0) {
-        errorPrint(
-            "failed to subscribe result, code:%d, reason:%s\n",
-             code, taos_errstr(res));
+        errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
+                   taos_errstr(res));
         return;
     }
 
@@ -30,9 +29,8 @@ void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param, int code) {
 void specified_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
                             int code) {
     if (res == NULL || taos_errno(res) != 0) {
-        errorPrint(
-            "failed to subscribe result, code:%d, reason:%s\n",
-             code, taos_errstr(res));
+        errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
+                   taos_errstr(res));
         return;
     }
 
@@ -77,12 +75,6 @@ void *specifiedSubscribe(void *sarg) {
     //  TAOS_SUB*  tsub = NULL;
 
     prctl(PR_SET_NAME, "specSub");
-
-    pThreadInfo->taos = select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
-    if (pThreadInfo->taos == NULL) {
-        goto free_of_specified_subscribe;
-    }
-
     char sqlStr[TSDB_DB_NAME_LEN + 5];
     sprintf(sqlStr, "USE %s", g_queryInfo.dbName);
     if (0 != queryDbExec(pThreadInfo->taos, sqlStr, NO_INSERT_TYPE, false)) {
@@ -194,14 +186,6 @@ static void *superSubscribe(void *sarg) {
         goto free_of_super_subscribe;
     }
 
-    if (pThreadInfo->taos == NULL) {
-        pThreadInfo->taos =
-            select_one_from_pool(&g_taos_pool, g_queryInfo.dbName);
-        if (pThreadInfo->taos == NULL) {
-            goto free_of_super_subscribe;
-        }
-    }
-
     char sqlStr[TSDB_DB_NAME_LEN + 5];
     sprintf(sqlStr, "USE %s", g_queryInfo.dbName);
     if (0 != queryDbExec(pThreadInfo->taos, sqlStr, NO_INSERT_TYPE, false)) {
@@ -306,18 +290,18 @@ free_of_super_subscribe:
     return code;
 }
 
-int subscribeTestProcess() {
+int subscribeTestProcess(SArguments *argument) {
     setupForAnsiEscape();
-    printfQueryMeta();
+    printfQueryMeta(argument);
     resetAfterAnsiEscape();
 
-    prompt();
+    prompt(argument);
 
-    if (init_taos_list(&g_taos_pool, g_args.nthreads_pool)) {
+    if (init_taos_list(argument->pool, argument->nthreads_pool)) {
         return -1;
     }
 
-    TAOS *taos = select_one_from_pool(&g_taos_pool, NULL);
+    TAOS *taos = select_one_from_pool(argument->pool, NULL);
     if (taos == NULL) {
         return -1;
     }
@@ -363,7 +347,7 @@ int subscribeTestProcess() {
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
                 pThreadInfo->taos =
-                    NULL;  // workaround to use separate taos connection;
+                    select_one_from_pool(argument->pool, g_queryInfo.dbName);
                 pthread_create(pids + seq, NULL, specifiedSubscribe,
                                pThreadInfo);
             }
@@ -412,6 +396,8 @@ int subscribeTestProcess() {
                     pThreadInfo->end_table_to =
                         j < b ? tableFrom + a : tableFrom + a - 1;
                     tableFrom = pThreadInfo->end_table_to + 1;
+                    pThreadInfo->taos = select_one_from_pool(
+                        argument->pool, g_queryInfo.dbName);
                     pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                    pThreadInfo);
                 }

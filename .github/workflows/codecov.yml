@@ -114,7 +114,7 @@ jobs:
           cd TDengine/debug
           gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/benchMain.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/benchData.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchData.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/benchInsert.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchInsert.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/benchJsonOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno

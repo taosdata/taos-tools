@@ -271,8 +271,8 @@ int convertHostToServAddr(char *host, uint16_t port,
     return 0;
 }
 
-void prompt() {
-    if (!g_args.answer_yes) {
+void prompt(SArguments *arguments) {
+    if (!arguments->answer_yes) {
         printf(
             "\n\n         Press enter key to continue or Ctrl-C to stop\n\n");
         (void)getchar();
