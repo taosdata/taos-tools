@@ -1,7 +1,7 @@
 # taosTools
 [![CI](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml)
 [![codecov](https://codecov.io/gh/taosdata/taos-tools/branch/develop/graph/badge.svg?token=W7Z6XKIKV9)](https://codecov.io/gh/taosdata/taos-tools)
-[![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
+
 taosTools are some useful tool collections for TDengine.
 
 # How to build from source?
