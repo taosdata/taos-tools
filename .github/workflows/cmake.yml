@@ -68,11 +68,16 @@ jobs:
       - name: Start tdengine
         run: nohup sudo taosd &
 
-      - name: Configure CMake
+      - name: Checkout PR commit if PR
         run: |
           cd taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
+        if: github.event_name == 'pull_request'
+        
+      - name: Configure CMake
+        run: |
+          cd taos-tools
           cmake -B ./build -DBUILD_TYPE=${{env.BUILD_TYPE}}
 
       - name: Build
