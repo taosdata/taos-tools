@@ -72,6 +72,7 @@ jobs:
           ./build/bin/taosBenchmark --help
           ./build/bin/taosdump --help
           cd src/kit/taos-tools/
+          nohup sudo taosd &
           ctest --verbose
           cd ../../../../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker

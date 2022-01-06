@@ -63,6 +63,7 @@ jobs:
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true && make && sudo make install
+          nohup sudo taosd &
 
       - name: Start tdengine
         run: nohup sudo taosd &
