@@ -155,5 +155,5 @@ jobs:
             fi
           fi
           
-          [ -f taosdump-failed.txt ] && [ ! -s taosdump-failed.txt ] && exit 1
+          #[ -f taosdump-failed.txt ] && [ ! -s taosdump-failed.txt ] && exit 1
           #[ -f taosbenchmark-failed.txt ] && [ ! -s taosbenchmark-failed.txt ] && exit 1
