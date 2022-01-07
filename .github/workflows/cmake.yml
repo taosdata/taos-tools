@@ -128,7 +128,7 @@ jobs:
           cd TDengine/tests/system-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m failed! \033[0m" || echo -e "echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
           fi
 
           if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
