@@ -15,7 +15,7 @@ sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 
 ### For CentOS
 ```
-sudo yum install xz-devel snappy-devel jansson-devel pkgconfig libatomic
+sudo yum install zlib-devel xz-devel snappy-devel jansson-devel pkgconfig libatomic
 ```
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)), it lead a cmake prompt libsnappy not found. But snappy will works well.
 
