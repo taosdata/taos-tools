@@ -100,6 +100,7 @@ jobs:
 
 
           python3 test.py -f tools/taosdemoTest.py
+          python3 test.py -f tools/taosdemoTestInterlace.py
           python3 test.py -f tools/taosdemoTestWithoutMetric.py
           python3 test.py -f tools/taosdemoTestWithJson.py
           python3 test.py -f tools/taosdemoTestLimitOffset.py
@@ -127,12 +128,12 @@ jobs:
           cd TDengine/tests/system-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m failed! \033[0m" || echo -e "echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
           fi
 
           if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: Develop Test
@@ -140,10 +141,12 @@ jobs:
           cd TDengine/tests/develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
           fi
 
           if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
+          
+          [ -s taosdump-failed.txt ] && exit 1
