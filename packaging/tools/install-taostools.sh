@@ -134,5 +134,35 @@ function install_taostools() {
     echo -e "\033[44;32;1mtaos tools is installed successfully!${NC}"
 }
 
+function uninstall_bin() {
+    # Remove links
+    ${csudo} rm -f ${bin_link_dir}/taosdemo         || :
+    ${csudo} rm -f ${bin_link_dir}/taosBenchmark    || :
+    ${csudo} rm -f ${bin_link_dir}/taosdump         || :
+
+    ${csudo} rm -f ${install_main_dir}/bin/taosdemo         || :
+    ${csudo} rm -f ${install_main_dir}/bin/taosBenchmark    || :
+    ${csudo} rm -f ${install_main_dir}/bin/taosdump         || :
+}
+
+
+function uninstall_taostools() {
+    # Start to uninstall
+    echo -e "${GREEN}Start to uninstall taos tools ...${NC}"
+
+    kill_process taosdemo
+    kill_process taosBenchmark
+    kill_process taosdump
+    
+    uninstall_bin
+
+    echo
+    echo -e "\033[44;32;1mtaos tools is uninstalled successfully!${NC}"
+}
+
 ## ==============================Main program starts from here============================
-install_taostools
+if [ "$1" == "uninstall" ]; then
+    uninstall_taostools
+else
+    install_taostools
+fi
