@@ -14,36 +14,29 @@
  */
 
 #include "bench.h"
-int64_t        g_totalChildTables = DEFAULT_CHILDTABLES;
-int64_t        g_actualChildTables = 0;
-int64_t        g_autoCreatedChildTables = 0;
-int64_t        g_existedChildTables = 0;
 FILE *         g_fpOfInsertResult = NULL;
 SDataBase *    db;
 SArguments     g_args;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
 cJSON *        root;
-TAOS_POOL      g_taos_pool;
 
 int main(int argc, char *argv[]) {
-    init_g_args(&g_args);
-    if (parse_args(argc, argv, &g_args)) {
-        exit(EXIT_FAILURE);
-    }
+    init_argument(&g_args);
+    commandLineParseArgument(argc, argv, &g_args);
     if (g_args.metaFile) {
-        g_totalChildTables = 0;
-        if (getInfoFromJsonFile(g_args.metaFile)) {
+        g_args.g_totalChildTables = 0;
+        if (getInfoFromJsonFile(g_args.metaFile, &g_args)) {
             exit(EXIT_FAILURE);
         }
     } else {
         db = calloc(1, sizeof(SDataBase));
         db[0].superTbls = calloc(1, sizeof(SSuperTable));
-        setParaFromArg(&g_args);
+        setParaFromArg(&g_args, db);
     }
-    if (test(&g_args)) {
+    if (test(&g_args, db)) {
         exit(EXIT_FAILURE);
     }
-    postFreeResource();
+    postFreeResource(&g_args, db);
     return 0;
 }
