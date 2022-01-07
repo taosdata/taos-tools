@@ -3461,7 +3461,11 @@ static int dumpInAvroTbTagsImpl(
                             break;
                     }
 
-                    bind->buffer_type = tableDes->cols[tableDes->columns -1 + i].type;
+                    if (TSDB_DATA_TYPE_JSON == tableDes->cols[tableDes->columns -1 + i].type) {
+                        bind->buffer_type = TSDB_DATA_TYPE_NCHAR;
+                    } else {
+                        bind->buffer_type = tableDes->cols[tableDes->columns -1 + i].type;
+                    }
                     debugPrint("%s() LN%d, bind->buffer_type=%d\n",
                             __func__, __LINE__, bind->buffer_type);
 
