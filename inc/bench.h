@@ -82,11 +82,8 @@
 #define MAX_HOSTNAME_SIZE \
     253  // https://man7.org/linux/man-pages/man7/hostname.7.html
 #define MAX_TB_NAME_SIZE 64
-#define MAX_DATA_SIZE \
-    (16 * TSDB_MAX_COLUMNS) + 20  // max record len: 16*MAX_COLUMNS, timestamp
-                                  // string and ,('') need extra space
-#define OPT_ABORT 1               /* –abort */
-#define MAX_FILE_NAME_LEN 256     // max file name length on linux is 255.
+#define OPT_ABORT 1            /* –abort */
+#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
 #define MAX_PATH_LEN 4096
 
 #define DEFAULT_START_TIME 1500000000000
@@ -119,40 +116,20 @@
     (TSDB_TABLE_NAME_LEN - 20)  // 20 characters reserved for seq
 #define SMALL_BUFF_LEN 8
 #define DATATYPE_BUFF_LEN (SMALL_BUFF_LEN * 3)
-#define NOTE_BUFF_LEN (SMALL_BUFF_LEN * 16)
 
 #define DEFAULT_NTHREADS 8
-#define DEFAULT_TIMESTAMP_STEP 1
-#define DEFAULT_INTERLACE_ROWS 0
-#define DEFAULT_DATATYPE_NUM 1
 #define DEFAULT_CHILDTABLES 10000
-#define DEFAULT_TEST_MODE 0
 #define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 6030
-#define DEFAULT_IFACE 0
 #define DEFAULT_DATABASE "test"
-#define DEFAULT_REPLICA 1
 #define DEFAULT_TB_PREFIX "d"
-#define DEFAULT_ESCAPE_CHAR false
-#define DEFAULT_USE_METRIC true
-#define DEFAULT_DROP_DB true
-#define DEFAULT_AGGR_FUNC false
-#define DEFAULT_DEBUG false
-#define DEFAULT_VERBOSE false
-#define DEFAULT_PERF_STAT false
-#define DEFAULT_ANS_YES false
 #define DEFAULT_OUTPUT "./output.txt"
 #define DEFAULT_BINWIDTH 64
-#define DEFAULT_INSERT_INTERVAL 0
 #define DEFAULT_QUERY_TIME 1
 #define DEFAULT_PREPARED_RAND 10000
 #define DEFAULT_REQ_PER_REQ 30000
 #define DEFAULT_INSERT_ROWS 10000
-#define DEFAULT_RATIO 0
 #define DEFAULT_DISORDER_RANGE 1000
-#define DEFAULT_DEMO_MODE true
-#define DEFAULT_CHINESE_OPT false
-#define DEFAULT_PRESSURE_MODE false
 #define DEFAULT_CREATE_BATCH 10
 #define DEFAULT_SUB_INTERVAL 10000
 #define DEFAULT_QUERY_INTERVAL 10000
@@ -193,11 +170,6 @@
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
                 (int32_t)timeSecs.tv_usec);                                  \
         fprintf(stderr, "INFO: " fmt, __VA_ARGS__);                          \
-    } while (0)
-
-#define verbosePrint(fmt, ...)                                                \
-    do {                                                                      \
-        if (g_args.verbose_print) fprintf(stderr, "VERB: " fmt, __VA_ARGS__); \
     } while (0)
 
 #define performancePrint(fmt, ...)                                            \
@@ -302,16 +274,6 @@ enum _show_db_index {
 
 // -----------------------------------------SHOW TABLES CONFIGURE
 // -------------------------------------
-enum _show_stables_index {
-    TSDB_SHOW_STABLES_NAME_INDEX,
-    TSDB_SHOW_STABLES_CREATED_TIME_INDEX,
-    TSDB_SHOW_STABLES_COLUMNS_INDEX,
-    TSDB_SHOW_STABLES_METRIC_INDEX,
-    TSDB_SHOW_STABLES_UID_INDEX,
-    TSDB_SHOW_STABLES_TID_INDEX,
-    TSDB_SHOW_STABLES_VGID_INDEX,
-    TSDB_MAX_SHOW_STABLES
-};
 
 enum _describe_table_index {
     TSDB_DESCRIBE_METRIC_FIELD_INDEX,
@@ -321,12 +283,18 @@ enum _describe_table_index {
     TSDB_MAX_DESCRIBE_METRIC
 };
 
+typedef struct TAOS_POOL_S {
+    int    size;
+    int    current;
+    TAOS **taos_list;
+} TAOS_POOL;
+
 typedef struct SArguments_S {
     char *   metaFile;
-    uint32_t test_mode;
+    int32_t  test_mode;
     char *   host;
-    uint16_t port;
-    uint16_t iface;
+    int16_t  port;
+    int16_t  iface;
     char *   user;
     char *   password;
     char *   database;
@@ -334,41 +302,42 @@ typedef struct SArguments_S {
     char *   tb_prefix;
     bool     escapeChar;
     bool     use_metric;
-    bool     drop_database;
     bool     aggr_func;
     bool     answer_yes;
     bool     debug_print;
-    bool     verbose_print;
     bool     performance_print;
     char *   output_file;
     char *   col_type;
     int32_t *col_length;
     char *   tag_type;
     int32_t *tag_length;
-    uint32_t binwidth;
+    int32_t  binwidth;
     int32_t  intColumnCount;
     int32_t  columnCount;
     int32_t  tagCount;
     int32_t  lenOfTags;
     int32_t  lenOfCols;
-    uint32_t nthreads_pool;
-    uint32_t nthreads;
-    uint64_t insert_interval;
-    uint64_t timestamp_step;
-    int64_t  query_times;
+    int32_t  nthreads_pool;
+    int32_t  nthreads;
+    int64_t  insert_interval;
+    int64_t  timestamp_step;
     int64_t  prepared_rand;
     int32_t  interlaceRows;
-    uint32_t reqPerReq;  // num_of_records_per_req
+    int32_t  reqPerReq;  // num_of_records_per_req
     int64_t  ntables;
     int64_t  insertRows;
-    uint32_t disorderRatio;  // 0: no disorder, >0: x%
+    int32_t  disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
     bool     demo_mode;      // use default column name and semi-random data
     bool     chinese;
     int32_t  dbCount;
     char **  childTblName;
     struct sockaddr_in serv_addr;
-    uint64_t           response_buffer;
+    TAOS_POOL *        pool;
+    int64_t            g_totalChildTables;
+    int64_t            g_actualChildTables;
+    int64_t            g_autoCreatedChildTables;
+    int64_t            g_existedChildTables;
 } SArguments;
 
 typedef struct SSuperTable_S {
@@ -414,12 +383,10 @@ typedef struct SSuperTable_S {
 
     char *sampleDataBuf;
     bool  useSampleTs;
-
-    uint32_t tagSource;  // 0: rand, 1: tag sample
-    char *   tagDataBuf;
-    uint32_t tagSampleCount;
+    char *tagDataBuf;
     // bind param batch
     char *buffer;
+    int   tagSource;
 } SSuperTable;
 
 typedef struct {
@@ -522,6 +489,8 @@ typedef struct SQueryMetaInfo_S {
     SpecifiedQueryInfo specifiedQueryInfo;
     SuperQueryInfo     superQueryInfo;
     uint64_t           totalQueried;
+    int64_t            query_times;
+    uint64_t           response_buffer;
 } SQueryMetaInfo;
 
 typedef struct SThreadInfo_S {
@@ -547,66 +516,53 @@ typedef struct SThreadInfo_S {
     bool         use_metric;
     SSuperTable *stbInfo;
     int64_t      max_sql_len;
-    char *       buffer;  // sql cmd buffer
-
-    int64_t  counter;
-    uint64_t st;
-    uint64_t et;
-    uint64_t lastTs;
-
-    // sample data
-    int64_t samplePos;
-    // statistics
-    uint64_t totalInsertRows;
-    uint64_t totalAffectedRows;
-
-    // insert delay statistics
-    uint64_t cntDelay;
-    uint64_t totalDelay;
-    uint64_t avgDelay;
-    uint64_t maxDelay;
-    uint64_t minDelay;
-
-    // seq of query or subscribe
-    uint64_t  querySeq;  // sequence number of sql command
-    TAOS_SUB *tsub;
-
-    char **  lines;
-    int32_t  sockfd;
-    int64_t  insertRows;
-    int64_t  time_step;
-    char **  sml_tags;
-    cJSON *  sml_json_tags;
-    cJSON *  json_array;
-    int32_t  iface;
-    int32_t  line_protocol;
-    int32_t  smlTimePrec;
-    int32_t  interlaceRows;
-    uint32_t disorderRatio;
-    int      disorderRange;
+    char *       buffer;
+    int64_t      counter;
+    uint64_t     st;
+    uint64_t     et;
+    uint64_t     lastTs;
+    int64_t      samplePos;
+    uint64_t     totalInsertRows;
+    uint64_t     totalAffectedRows;
+    uint64_t     cntDelay;
+    uint64_t     totalDelay;
+    uint64_t     maxDelay;
+    uint64_t     minDelay;
+    uint64_t     querySeq;
+    TAOS_SUB *   tsub;
+    char **      lines;
+    int32_t      sockfd;
+    int64_t      insertRows;
+    int64_t      batch;
+    char *       host;
+    uint16_t     port;
+    int64_t      time_step;
+    char **      sml_tags;
+    cJSON *      sml_json_tags;
+    cJSON *      json_array;
+    int32_t      iface;
+    int32_t      line_protocol;
+    int32_t      smlTimePrec;
+    int32_t      interlaceRows;
+    uint32_t     disorderRatio;
+    int          disorderRange;
+    bool         escapeChar;
+    char **      childTblName;
+    uint64_t     prepared_rand;
+    uint32_t     lenOfCols;
+    bool         demo_mode;
 } threadInfo;
-
-typedef struct TAOS_POOL_S {
-    int    size;
-    int    current;
-    TAOS **taos_list;
-} TAOS_POOL;
 
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
 extern char *         g_aggreFunc[];
 extern SArguments     g_args;
 extern SDataBase *    db;
-extern int64_t        g_totalChildTables;
-extern int64_t        g_actualChildTables;
-extern int64_t        g_autoCreatedChildTables;
-extern int64_t        g_existedChildTables;
 extern SQueryMetaInfo g_queryInfo;
 extern FILE *         g_fpOfInsertResult;
 extern bool           g_fail;
 extern char           configDir[];
 extern cJSON *        root;
-extern TAOS_POOL      g_taos_pool;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
@@ -621,10 +577,10 @@ int  count_datatype(char *dataType, int32_t *number);
 int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                     bool is_tag);
 void setParaFromArg(SArguments *pg_args, SDataBase *pdb);
-int  test(SArguments *pg_args);
-void init_g_args(SArguments *pg_args);
+void init_argument(SArguments *arguments);
+int  test(SArguments *argument, SDataBase *database);
 /* demoJsonOpt.c */
-int getInfoFromJsonFile(char *file);
+int getInfoFromJsonFile(char *file, SArguments *argument);
 /* demoUtil.c */
 int     isCommentLine(char *line);
 int     init_taos_list(TAOS_POOL *pool, int size);
@@ -644,7 +600,7 @@ int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
-void    prompt();
+void    prompt(SArguments *arguments);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *host, uint16_t port, char *sqlstr,
                      threadInfo *pThreadInfo);
@@ -653,28 +609,24 @@ int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
 char *  formatTimestamp(char *buf, int64_t val, int precision);
-void    errorWrongValue(char *wrong_arg, char *wrong_value);
-void    errorUnrecognized(char *program, char *wrong_arg);
-void    errorPrintReqArg(char *wrong_arg);
-void    errorPrintReqArg2(char *program, char *wrong_arg);
-bool    isStringNumber(char *input);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
 /* demoInsert.c */
-int  insertTestProcess();
-void postFreeResource();
+int  insertTestProcess(SArguments *arguments, SDataBase *database);
+void postFreeResource(SArguments *arguments, SDataBase *database);
 int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 int32_t *col_length, int32_t tagCount, int32_t colCount,
                 int32_t *plenOfTags, int32_t *plenOfCols, int iface);
 /* demoOutput.c */
-void printfInsertMetaToFileStream(FILE *fp);
+void printfInsertMetaToFileStream(FILE *fp, SArguments *argument,
+                                  SDataBase *db);
 void printStatPerThread(threadInfo *pThreadInfo);
 void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo);
-void printfQueryMeta();
+void printfQueryMeta(SArguments *arguments);
 void printfQuerySystemInfo(TAOS *taos);
 /* demoQuery.c */
-int queryTestProcess();
+int queryTestProcess(SArguments *arguments);
 /* demoSubscribe.c */
-int subscribeTestProcess();
+int subscribeTestProcess(SArguments *arguments);
 #endif
