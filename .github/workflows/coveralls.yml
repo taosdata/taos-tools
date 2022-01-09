@@ -150,5 +150,5 @@ jobs:
       - name: Publish to coveralls.io
         uses: coverallsapp/github-action@master
         with:
-          repo_token: ${{ secrets.COVERALLS_TOKEN }};
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
