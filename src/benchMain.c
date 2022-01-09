@@ -14,29 +14,25 @@
  */
 
 #include "bench.h"
-FILE *         g_fpOfInsertResult = NULL;
-SDataBase *    db;
-SArguments     g_args;
+SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
-cJSON *        root;
+cJSON*         root;
 
-int main(int argc, char *argv[]) {
-    init_argument(&g_args);
-    commandLineParseArgument(argc, argv, &g_args);
-    if (g_args.metaFile) {
-        g_args.g_totalChildTables = 0;
-        if (getInfoFromJsonFile(g_args.metaFile, &g_args)) {
+int main(int argc, char* argv[]) {
+    init_argument(g_arguments);
+    commandLineParseArgument(argc, argv, g_arguments);
+    if (g_arguments->metaFile) {
+        g_arguments->g_totalChildTables = 0;
+        if (getInfoFromJsonFile(g_arguments->metaFile, g_arguments)) {
             exit(EXIT_FAILURE);
         }
     } else {
-        db = calloc(1, sizeof(SDataBase));
-        db[0].superTbls = calloc(1, sizeof(SSuperTable));
-        setParaFromArg(&g_args, db);
+        resize_schema(g_arguments, g_arguments->db->superTbls);
     }
-    if (test(&g_args, db)) {
+    if (start(g_arguments)) {
         exit(EXIT_FAILURE);
     }
-    postFreeResource(&g_args, db);
+    postFreeResource(g_arguments);
     return 0;
 }

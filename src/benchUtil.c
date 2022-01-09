@@ -396,8 +396,9 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
 
 int postProceSql(char *host, uint16_t port, char *sqlstr,
                  threadInfo *pThreadInfo) {
-    int32_t code = -1;
-    char *  req_fmt =
+    SArguments *arguments = pThreadInfo->arguments;
+    int32_t     code = -1;
+    char *      req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
@@ -413,7 +414,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
 
     request_buf = calloc(1, req_buf_len);
     uint64_t response_length;
-    if (g_args.test_mode == INSERT_TEST) {
+    if (arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
     } else {
         response_length = g_queryInfo.response_buffer;
@@ -429,9 +430,9 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
-    if (g_args.test_mode == INSERT_TEST) {
-        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_args.user,
-                 g_args.password);
+    if (arguments->test_mode == INSERT_TEST) {
+        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", arguments->user,
+                 arguments->password);
     } else {
         snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_queryInfo.user,
                  g_queryInfo.password);
@@ -534,8 +535,8 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         goto free_of_post;
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
+    if (arguments->fpOfInsertResult) {
+        fprintf(arguments->fpOfInsertResult, "%s", response_buf);
     }
     code = 0;
 free_of_post:
@@ -557,8 +558,10 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     // fetch the records row by row
     while ((row = taos_fetch_row(res))) {
         if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
-            if (strlen(pThreadInfo->filePath) > 0)
-                appendResultBufToFile(databuf, pThreadInfo);
+            SArguments *arguments = pThreadInfo->arguments;
+            if (arguments->fpOfInsertResult) {
+                fprintf(arguments->fpOfInsertResult, "%s", databuf);
+            }
             totalLen = 0;
             memset(databuf, 0, FETCH_BUFFER_SIZE);
         }
@@ -571,8 +574,9 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         totalLen += len;
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(databuf, pThreadInfo);
+    SArguments *arguments = pThreadInfo->arguments;
+    if (arguments->fpOfInsertResult) {
+        fprintf(arguments->fpOfInsertResult, "%s", databuf);
     }
     free(databuf);
 }
@@ -651,13 +655,16 @@ int taos_convert_string_to_datatype(char *type) {
     }
 }
 
-int init_taos_list(TAOS_POOL *pool, int size) {
+int init_taos_list(SArguments *arguments) {
+    int        size = arguments->nthreads_pool;
+    TAOS_POOL *pool = arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
     pool->current = 0;
     pool->size = size;
     for (int i = 0; i < size; ++i) {
-        pool->taos_list[i] = taos_connect(g_args.host, g_args.user,
-                                          g_args.password, NULL, g_args.port);
+        pool->taos_list[i] =
+            taos_connect(arguments->host, arguments->user, arguments->password,
+                         NULL, arguments->port);
         if (pool->taos_list[i] == NULL) {
             errorPrint("Failed to connect to TDengine, reason:%s\n",
                        taos_errstr(NULL));

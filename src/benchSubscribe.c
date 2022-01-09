@@ -297,7 +297,7 @@ int subscribeTestProcess(SArguments *argument) {
 
     prompt(argument);
 
-    if (init_taos_list(argument->pool, argument->nthreads_pool)) {
+    if (init_taos_list(argument)) {
         return -1;
     }
 

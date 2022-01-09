@@ -174,7 +174,7 @@ free_of_super_query:
 
 int queryTestProcess(SArguments *argument) {
     printfQueryMeta(argument);
-    if (init_taos_list(argument->pool, g_args.nthreads_pool)) {
+    if (init_taos_list(argument)) {
         return -1;
     }
     TAOS *taos = select_one_from_pool(argument->pool, g_queryInfo.dbName);

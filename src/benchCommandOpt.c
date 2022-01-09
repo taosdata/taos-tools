@@ -14,7 +14,6 @@
  */
 
 #include "bench.h"
-#include "benchData.h"
 
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
@@ -66,7 +65,7 @@ static struct argp_option options[] = {
      "Data type of tables' tags, default is INT,BINARY(16)."},
     {"data-type", 'b', "COL_TYPE", 0,
      "Data type of tables' cols, default is FLOAT,INT,FLOAT."},
-    {"binwidth", 'w', "NUMBEER", 0,
+    {"binwidth", 'w', "NUMBER", 0,
      "The default length of nchar and binary if not specified, default is "
      "64."},
     {"table-prefix", 'm', "TABLE_PREFIX", 0,
@@ -122,17 +121,17 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'I':
             if (0 == strcasecmp(arg, "taosc")) {
-                arguments->iface = TAOSC_IFACE;
+                arguments->db->superTbls->iface = TAOSC_IFACE;
             } else if (0 == strcasecmp(arg, "stmt")) {
-                arguments->iface = STMT_IFACE;
+                arguments->db->superTbls->iface = STMT_IFACE;
             } else if (0 == strcasecmp(arg, "rest")) {
-                arguments->iface = REST_IFACE;
+                arguments->db->superTbls->iface = REST_IFACE;
             } else if (0 == strcasecmp(arg, "sml")) {
-                arguments->iface = SML_IFACE;
+                arguments->db->superTbls->iface = SML_IFACE;
             } else {
                 errorPrint("Invalid -I: %s, will auto set to default (taosc)\n",
                            arg);
-                arguments->iface = TAOSC_IFACE;
+                arguments->db->superTbls->iface = TAOSC_IFACE;
             }
             break;
         case 'p':
@@ -156,27 +155,27 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
             break;
         case 'i':
-            arguments->insert_interval = atoi(arg);
-            if (arguments->insert_interval <= 0) {
+            arguments->db->superTbls->insert_interval = atoi(arg);
+            if (arguments->db->superTbls->insert_interval <= 0) {
                 errorPrint("Invalid -i: %s, will auto set to default(0)\n",
                            arg);
-                arguments->insert_interval = 0;
+                arguments->db->superTbls->insert_interval = 0;
             }
             break;
         case 'S':
-            arguments->timestamp_step = atol(arg);
-            if (arguments->timestamp_step <= 0) {
+            arguments->db->superTbls->timestamp_step = atol(arg);
+            if (arguments->db->superTbls->timestamp_step <= 0) {
                 errorPrint("Invalid -S: %s, will auto set to default(1)\n",
                            arg);
-                arguments->timestamp_step = 1;
+                arguments->db->superTbls->timestamp_step = 1;
             }
             break;
         case 'B':
-            arguments->interlaceRows = atoi(arg);
-            if (arguments->interlaceRows <= 0) {
+            arguments->db->superTbls->interlaceRows = atoi(arg);
+            if (arguments->db->superTbls->interlaceRows <= 0) {
                 errorPrint("Invalid -B: %s, will auto set to default(0)\n",
                            arg);
-                arguments->interlaceRows = 0;
+                arguments->db->superTbls->interlaceRows = 0;
             }
             break;
         case 'r':
@@ -188,23 +187,23 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
             break;
         case 't':
-            arguments->ntables = atoi(arg);
-            if (arguments->ntables <= 0) {
+            arguments->db->superTbls->childTblCount = atoi(arg);
+            if (arguments->db->superTbls->childTblCount <= 0) {
                 errorPrint("Invalid -t: %s, will auto set to default(10000)\n",
                            arg);
-                arguments->ntables = DEFAULT_CHILDTABLES;
+                arguments->db->superTbls->childTblCount = DEFAULT_CHILDTABLES;
             }
             break;
         case 'n':
-            arguments->insertRows = atol(arg);
-            if (arguments->insertRows <= 0) {
+            arguments->db->superTbls->insertRows = atol(arg);
+            if (arguments->db->superTbls->insertRows <= 0) {
                 errorPrint("Invalid -n: %s, will auto set to default(10000)\n",
                            arg);
-                arguments->insertRows = DEFAULT_INSERT_ROWS;
+                arguments->db->superTbls->insertRows = DEFAULT_INSERT_ROWS;
             }
             break;
         case 'd':
-            arguments->database = arg;
+            arguments->db->dbName = arg;
             break;
         case 'l':
             arguments->demo_mode = false;
@@ -217,46 +216,52 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'A':
             arguments->demo_mode = false;
-            count_datatype(arg, &(arguments->tagCount));
-            tmfree(arguments->tag_type);
-            tmfree(arguments->tag_length);
-            arguments->tag_type = calloc(arguments->tagCount, sizeof(char));
-            arguments->tag_length =
-                calloc(arguments->tagCount, sizeof(int32_t));
-            if (parse_datatype(arg, arguments->tag_type, arguments->tag_length,
-                               true)) {
-                tmfree(arguments->tag_type);
-                tmfree(arguments->tag_length);
-                arguments->tag_type = (char *)calloc(2, sizeof(char));
-                arguments->tag_type[0] = TSDB_DATA_TYPE_INT;
-                arguments->tag_type[1] = TSDB_DATA_TYPE_BINARY;
-                arguments->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
-                arguments->tag_length[0] = sizeof(int32_t);
-                arguments->tag_length[1] = 16;
-                arguments->tagCount = 2;
+            count_datatype(arg, &(arguments->db->superTbls->tagCount));
+            tmfree(arguments->db->superTbls->tag_type);
+            tmfree(arguments->db->superTbls->tag_length);
+            arguments->db->superTbls->tag_type =
+                calloc(arguments->db->superTbls->tagCount, sizeof(char));
+            arguments->db->superTbls->tag_length =
+                calloc(arguments->db->superTbls->tagCount, sizeof(int32_t));
+            if (parse_datatype(arg, arguments->db->superTbls->tag_type,
+                               arguments->db->superTbls->tag_length, true)) {
+                tmfree(arguments->db->superTbls->tag_type);
+                tmfree(arguments->db->superTbls->tag_length);
+                arguments->db->superTbls->tag_type =
+                    (char *)calloc(2, sizeof(char));
+                arguments->db->superTbls->tag_type[0] = TSDB_DATA_TYPE_INT;
+                arguments->db->superTbls->tag_type[1] = TSDB_DATA_TYPE_BINARY;
+                arguments->db->superTbls->tag_length =
+                    (int32_t *)calloc(2, sizeof(int32_t));
+                arguments->db->superTbls->tag_length[0] = sizeof(int32_t);
+                arguments->db->superTbls->tag_length[1] = 16;
+                arguments->db->superTbls->tagCount = 2;
             }
             break;
         case 'b':
             arguments->demo_mode = false;
-            tmfree(arguments->col_type);
-            tmfree(arguments->col_length);
-            count_datatype(arg, &(arguments->columnCount));
-            arguments->col_type = calloc(arguments->columnCount, sizeof(char));
-            arguments->col_length =
-                calloc(arguments->columnCount, sizeof(int32_t));
-            if (parse_datatype(arg, arguments->col_type, arguments->col_length,
-                               false)) {
-                tmfree(arguments->col_type);
-                tmfree(arguments->col_length);
-                arguments->col_type = (char *)calloc(3, sizeof(char));
-                arguments->col_type[0] = TSDB_DATA_TYPE_FLOAT;
-                arguments->col_type[1] = TSDB_DATA_TYPE_INT;
-                arguments->col_type[2] = TSDB_DATA_TYPE_FLOAT;
-                arguments->col_length = (int32_t *)calloc(3, sizeof(int32_t));
-                arguments->col_length[0] = sizeof(float);
-                arguments->col_length[1] = sizeof(int32_t);
-                arguments->col_length[2] = sizeof(float);
-                arguments->columnCount = 3;
+            tmfree(arguments->db->superTbls->col_type);
+            tmfree(arguments->db->superTbls->col_length);
+            count_datatype(arg, &(arguments->db->superTbls->columnCount));
+            arguments->db->superTbls->col_type =
+                calloc(arguments->db->superTbls->columnCount, sizeof(char));
+            arguments->db->superTbls->col_length =
+                calloc(arguments->db->superTbls->columnCount, sizeof(int32_t));
+            if (parse_datatype(arg, arguments->db->superTbls->col_type,
+                               arguments->db->superTbls->col_length, false)) {
+                tmfree(arguments->db->superTbls->col_type);
+                tmfree(arguments->db->superTbls->col_length);
+                arguments->db->superTbls->col_type =
+                    (char *)calloc(3, sizeof(char));
+                arguments->db->superTbls->col_type[0] = TSDB_DATA_TYPE_FLOAT;
+                arguments->db->superTbls->col_type[1] = TSDB_DATA_TYPE_INT;
+                arguments->db->superTbls->col_type[2] = TSDB_DATA_TYPE_FLOAT;
+                arguments->db->superTbls->col_length =
+                    (int32_t *)calloc(3, sizeof(int32_t));
+                arguments->db->superTbls->col_length[0] = sizeof(float);
+                arguments->db->superTbls->col_length[1] = sizeof(int32_t);
+                arguments->db->superTbls->col_length[2] = sizeof(float);
+                arguments->db->superTbls->columnCount = 3;
             }
             break;
         case 'w':
@@ -274,16 +279,17 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
             break;
         case 'm':
-            arguments->tb_prefix = arg;
+            arguments->db->superTbls->childTblPrefix = arg;
             break;
         case 'E':
-            arguments->escapeChar = true;
+            arguments->db->superTbls->escape_character = true;
             break;
         case 'C':
             arguments->chinese = true;
             break;
         case 'N':
-            arguments->use_metric = false;
+            arguments->db->superTbls->use_metric = false;
+            arguments->db->superTbls->tagCount = 0;
             break;
         case 'M':
             arguments->demo_mode = false;
@@ -295,31 +301,32 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             arguments->answer_yes = true;
             break;
         case 'R':
-            arguments->disorderRange = atoi(arg);
-            if (arguments->disorderRange <= 0) {
+            arguments->db->superTbls->disorderRange = atoi(arg);
+            if (arguments->db->superTbls->disorderRange <= 0) {
                 errorPrint(
                     "Invalid value for -R: %s, will auto set to "
                     "default(1000)\n",
                     arg);
-                arguments->disorderRange = DEFAULT_DISORDER_RANGE;
+                arguments->db->superTbls->disorderRange =
+                    DEFAULT_DISORDER_RANGE;
             }
             break;
         case 'O':
-            arguments->disorderRatio = atoi(arg);
-            if (arguments->disorderRatio <= 0) {
+            arguments->db->superTbls->disorderRatio = atoi(arg);
+            if (arguments->db->superTbls->disorderRatio <= 0) {
                 errorPrint(
                     "Invalid value for -O: %s, will auto set to default(0)\n",
                     arg);
-                arguments->disorderRatio = 0;
+                arguments->db->superTbls->disorderRatio = 0;
             }
             break;
         case 'a':
-            arguments->replica = atoi(arg);
-            if (arguments->replica <= 0) {
+            arguments->db->dbCfg.replica = atoi(arg);
+            if (arguments->db->dbCfg.replica <= 0) {
                 errorPrint(
                     "Invalid value for -a: %s, will auto set to default(1)\n",
                     arg);
-                arguments->replica = 1;
+                arguments->db->dbCfg.replica = 1;
             }
             break;
         case 'g':
@@ -336,59 +343,89 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
+static void init_stable(SDataBase *database) {
+    database->superTbls = calloc(1, sizeof(SSuperTable));
+    SSuperTable *stbInfo = database->superTbls;
+    stbInfo->iface = TAOSC_IFACE;
+    stbInfo->stbName = "meters";
+    stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
+    stbInfo->escape_character = 0;
+    stbInfo->use_metric = 1;
+    stbInfo->col_type = (char *)calloc(3, sizeof(char));
+    stbInfo->col_type[0] = TSDB_DATA_TYPE_FLOAT;
+    stbInfo->col_type[1] = TSDB_DATA_TYPE_INT;
+    stbInfo->col_type[2] = TSDB_DATA_TYPE_FLOAT;
+    stbInfo->col_length = (int32_t *)calloc(3, sizeof(int32_t));
+    stbInfo->col_length[0] = sizeof(float);
+    stbInfo->col_length[1] = sizeof(int32_t);
+    stbInfo->col_length[2] = sizeof(float);
+    stbInfo->tag_type = (char *)calloc(2, sizeof(char));
+    stbInfo->tag_type[0] = TSDB_DATA_TYPE_INT;
+    stbInfo->tag_type[1] = TSDB_DATA_TYPE_BINARY;
+    stbInfo->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
+    stbInfo->tag_length[0] = sizeof(int32_t);
+    stbInfo->tag_length[1] = 16;
+    stbInfo->columnCount = 3;
+    stbInfo->tagCount = 2;
+    stbInfo->insert_interval = 0;
+    stbInfo->timestamp_step = 1;
+    stbInfo->interlaceRows = 0;
+    stbInfo->childTblCount = DEFAULT_CHILDTABLES;
+    stbInfo->childTblLimit = 0;
+    stbInfo->childTblOffset = 0;
+    stbInfo->autoCreateTable = false;
+    stbInfo->childTblExists = false;
+    stbInfo->random_data_source = true;
+    stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
+    stbInfo->tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    stbInfo->startTimestamp = DEFAULT_START_TIME;
+    stbInfo->insertRows = DEFAULT_INSERT_ROWS;
+    stbInfo->disorderRange = DEFAULT_DISORDER_RANGE;
+    stbInfo->disorderRatio = 0;
+}
+
+static void init_database(SArguments *arguments) {
+    arguments->db = calloc(1, sizeof(SDataBase));
+    SDataBase *database = arguments->db;
+    database->dbName = DEFAULT_DATABASE;
+    database->drop = 1;
+    database->superTblCount = 1;
+    database->dbCfg.replica = 1;
+    database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
+    database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+}
 void init_argument(SArguments *arguments) {
+    arguments = calloc(1, sizeof(SArguments));
+    arguments->pool = calloc(1, sizeof(TAOS_POOL));
     arguments->test_mode = INSERT_TEST;
     arguments->demo_mode = 1;
     arguments->dbCount = 1;
     arguments->host = DEFAULT_HOST;
     arguments->port = DEFAULT_PORT;
-    arguments->iface = TAOSC_IFACE;
-    arguments->output_file = DEFAULT_OUTPUT;
     arguments->user = TSDB_DEFAULT_USER;
     arguments->password = TSDB_DEFAULT_PASS;
-    arguments->database = DEFAULT_DATABASE;
-    arguments->replica = 1;
-    arguments->tb_prefix = DEFAULT_TB_PREFIX;
-    arguments->escapeChar = 0;
-    arguments->use_metric = 1;
-    arguments->aggr_func = 0;
     arguments->answer_yes = 0;
     arguments->debug_print = 0;
     arguments->performance_print = 0;
-    arguments->col_type = (char *)calloc(3, sizeof(char));
-    arguments->col_type[0] = TSDB_DATA_TYPE_FLOAT;
-    arguments->col_type[1] = TSDB_DATA_TYPE_INT;
-    arguments->col_type[2] = TSDB_DATA_TYPE_FLOAT;
-    arguments->col_length = (int32_t *)calloc(3, sizeof(int32_t));
-    arguments->col_length[0] = sizeof(float);
-    arguments->col_length[1] = sizeof(int32_t);
-    arguments->col_length[2] = sizeof(float);
-    arguments->tag_type = (char *)calloc(2, sizeof(char));
-    arguments->tag_type[0] = TSDB_DATA_TYPE_INT;
-    arguments->tag_type[1] = TSDB_DATA_TYPE_BINARY;
-    arguments->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
-    arguments->tag_length[0] = sizeof(int32_t);
-    arguments->tag_length[1] = 16;
-    arguments->columnCount = 3;
-    arguments->tagCount = 2;
-    arguments->binwidth = DEFAULT_BINWIDTH;
+    arguments->output_file = DEFAULT_OUTPUT;
     arguments->nthreads = DEFAULT_NTHREADS;
     arguments->nthreads_pool = DEFAULT_NTHREADS + 5;
-    arguments->insert_interval = 0;
-    arguments->timestamp_step = 1;
+    arguments->binwidth = DEFAULT_BINWIDTH;
     arguments->prepared_rand = DEFAULT_PREPARED_RAND;
-    arguments->interlaceRows = 0;
+    arguments->fpOfInsertResult = fopen(arguments->output_file, "a");
     arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
-    arguments->ntables = DEFAULT_CHILDTABLES;
-    arguments->insertRows = DEFAULT_INSERT_ROWS;
-    arguments->disorderRange = DEFAULT_DISORDER_RANGE;
-    arguments->disorderRatio = 0;
-    arguments->chinese = 0;
-    arguments->pool = calloc(1, sizeof(TAOS_POOL));
-    arguments->g_totalChildTables = arguments->ntables;
+    if (NULL == arguments->fpOfInsertResult) {
+        errorPrint("failed to open %s for save result\n",
+                   arguments->output_file);
+    }
+    arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
     arguments->g_actualChildTables = 0;
     arguments->g_autoCreatedChildTables = 0;
     arguments->g_existedChildTables = 0;
+    arguments->chinese = 0;
+    arguments->aggr_func = 0;
+    init_database(arguments);
+    init_stable(arguments->db);
 }
 
 int count_datatype(char *dataType, int32_t *number) {
@@ -571,90 +608,40 @@ void commandLineParseArgument(int argc, char *argv[], SArguments *arguments) {
     argp_parse(&argp, argc, argv, 0, 0, arguments);
 }
 
-void setParaFromArg(SArguments *pg_args, SDataBase *pdb) {
-    pdb->drop = true;
-    tstrncpy(pdb->dbName, pg_args->database, TSDB_DB_NAME_LEN);
-    pdb->dbCfg.replica = pg_args->replica;
-    tstrncpy(pdb->dbCfg.precision, "ms", SMALL_BUFF_LEN);
-
-    if (pg_args->intColumnCount > pg_args->columnCount) {
+void resize_schema(SArguments *arguments, SSuperTable *superTable) {
+    if (arguments->intColumnCount > superTable->columnCount) {
         char *tmp_type = (char *)realloc(
-            pg_args->col_type, pg_args->intColumnCount * sizeof(char));
-        int32_t *tmp_length = (int32_t *)realloc(
-            pg_args->col_length, pg_args->intColumnCount * sizeof(int32_t));
+            superTable->col_type, arguments->intColumnCount * sizeof(char));
+        int32_t *tmp_length =
+            (int32_t *)realloc(superTable->col_length,
+                               arguments->intColumnCount * sizeof(int32_t));
         if (tmp_type != NULL && tmp_length != NULL) {
-            pg_args->col_type = tmp_type;
-            pg_args->col_length = tmp_length;
-            for (int i = pg_args->columnCount; i < pg_args->intColumnCount;
+            superTable->col_type = tmp_type;
+            superTable->col_length = tmp_length;
+            for (int i = superTable->columnCount; i < arguments->intColumnCount;
                  ++i) {
-                pg_args->col_type[i] = TSDB_DATA_TYPE_INT;
-                pg_args->col_length[i] = sizeof(int32_t);
+                superTable->col_type[i] = TSDB_DATA_TYPE_INT;
+                superTable->col_length[i] = sizeof(int32_t);
             }
         }
-        pg_args->columnCount = pg_args->intColumnCount;
-    }
-
-    if ((pg_args->col_type[0] == TSDB_DATA_TYPE_BINARY) ||
-        (pg_args->col_type[0] == TSDB_DATA_TYPE_BOOL) ||
-        (pg_args->col_type[0] == TSDB_DATA_TYPE_NCHAR)) {
-        pg_args->aggr_func = false;
-    }
-    if (pg_args->use_metric) {
-        pdb->superTblCount = 1;
-        tstrncpy(pdb->superTbls[0].stbName, "meters", TSDB_TABLE_NAME_LEN);
-        pdb->superTbls[0].childTblCount = pg_args->ntables;
-        pdb->superTbls[0].childTblLimit = pg_args->ntables;
-        pdb->superTbls[0].childTblOffset = 0;
-        pdb->superTbls[0].escapeChar = pg_args->escapeChar;
-
-        pdb->superTbls[0].autoCreateTable = PRE_CREATE_SUBTBL;
-        pdb->superTbls[0].childTblExists = TBL_NO_EXISTS;
-        pdb->superTbls[0].disorderRange = pg_args->disorderRange;
-        pdb->superTbls[0].disorderRatio = pg_args->disorderRatio;
-        tstrncpy(pdb->superTbls[0].childTblPrefix, pg_args->tb_prefix,
-                 TBNAME_PREFIX_LEN);
-        tstrncpy(pdb->superTbls[0].dataSource, "rand", SMALL_BUFF_LEN);
-
-        pdb->superTbls[0].iface = pg_args->iface;
-        pdb->superTbls[0].lineProtocol = TSDB_SML_LINE_PROTOCOL;
-        pdb->superTbls[0].tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-        tstrncpy(pdb->superTbls[0].startTimestamp, "2017-07-14 10:40:00.000",
-                 MAX_TB_NAME_SIZE);
-        pdb->superTbls[0].timeStampStep = pg_args->timestamp_step;
-
-        pdb->superTbls[0].insertRows = pg_args->insertRows;
-        pdb->superTbls[0].interlaceRows = pg_args->interlaceRows;
-        pdb->superTbls[0].columnCount = pg_args->columnCount;
-        pdb->superTbls[0].col_type = pg_args->col_type;
-        pdb->superTbls[0].col_length = pg_args->col_length;
-        pdb->superTbls[0].tagCount = pg_args->tagCount;
-        pdb->superTbls[0].tag_type = pg_args->tag_type;
-        pdb->superTbls[0].tag_length = pg_args->tag_length;
+        superTable->columnCount = arguments->intColumnCount;
     }
 }
 
 static void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
+    SArguments *arguments = pThreadInfo->arguments;
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryStableAggrFunc");
     char *command = calloc(1, BUFFER_SIZE);
 
-    FILE *fp = fopen(pThreadInfo->filePath, "a");
-    if (NULL == fp) {
-        errorPrint("fopen %s fail, reason:%s.\n", pThreadInfo->filePath,
-                   strerror(errno));
-    }
-
-    int64_t insertRows = pThreadInfo->stbInfo->insertRows;
-    int64_t ntables =
-        pThreadInfo->ntables;  // pThreadInfo->end_table_to -
-                               // pThreadInfo->start_table_from + 1;
-    int64_t totalData = insertRows * ntables;
-
+    FILE *  fp = arguments->fpOfInsertResult;
+    int64_t totalData = arguments->db->superTbls->insertRows *
+                        arguments->db->superTbls->childTblCount;
     char **aggreFunc;
     int    n;
 
-    if (pThreadInfo->demo_mode) {
+    if (arguments->demo_mode) {
         aggreFunc = g_aggreFuncDemo;
         n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
@@ -670,17 +657,19 @@ static void *queryStableAggrFunc(void *sarg) {
         char condition[COND_BUF_LEN] = "\0";
         char tempS[64] = "\0";
 
-        int64_t m = 10 < ntables ? 10 : ntables;
+        int64_t m = 10 < arguments->db->superTbls->childTblCount
+                        ? 10
+                        : arguments->db->superTbls->childTblCount;
 
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
-                if (pThreadInfo->demo_mode) {
+                if (arguments->demo_mode) {
                     sprintf(tempS, "groupid = %" PRId64 "", i);
                 } else {
                     sprintf(tempS, "t0 = %" PRId64 "", i);
                 }
             } else {
-                if (pThreadInfo->demo_mode) {
+                if (arguments->demo_mode) {
                     sprintf(tempS, " or groupid = %" PRId64 " ", i);
                 } else {
                     sprintf(tempS, " or t0 = %" PRId64 " ", i);
@@ -713,7 +702,7 @@ static void *queryStableAggrFunc(void *sarg) {
             t = taosGetTimestampUs() - t;
             if (fp) {
                 fprintf(fp, "| Speed: %12.2f(per s) | Latency: %.4f(ms) |\n",
-                        ntables * insertRows / (t / 1000), t);
+                        totalData / (t / 1000), t);
             }
             infoPrint("%s took %.6f second(s)\n\n", command, t / 1000000);
 
@@ -727,30 +716,17 @@ static void *queryStableAggrFunc(void *sarg) {
 
 static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
+    SArguments *arguments = pThreadInfo->arguments;
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
-    char *command = calloc(1, BUFFER_SIZE);
-
-    uint64_t startTime = pThreadInfo->start_time;
-    char *   tb_prefix = pThreadInfo->tb_prefix;
-    FILE *   fp = fopen(pThreadInfo->filePath, "a");
-    if (NULL == fp) {
-        errorPrint("fopen %s fail, reason:%s.\n", pThreadInfo->filePath,
-                   strerror(errno));
-    }
-
-    int64_t insertRows;
-    insertRows = g_args.insertRows;
-
-    int64_t ntables =
-        pThreadInfo->ntables;  // pThreadInfo->end_table_to -
-                               // pThreadInfo->start_table_from + 1;
-    int64_t totalData = insertRows * ntables;
-
+    char *  command = calloc(1, BUFFER_SIZE);
+    FILE *  fp = arguments->fpOfInsertResult;
+    int64_t totalData = arguments->db->superTbls->childTblCount *
+                        arguments->db->superTbls->insertRows;
     char **aggreFunc;
     int    n;
 
-    if (pThreadInfo->demo_mode) {
+    if (arguments->demo_mode) {
         aggreFunc = g_aggreFuncDemo;
         n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
@@ -768,15 +744,17 @@ static void *queryNtableAggrFunc(void *sarg) {
     for (int j = 0; j < n; j++) {
         double   totalT = 0;
         uint64_t count = 0;
-        for (int64_t i = 0; i < ntables; i++) {
-            if (pThreadInfo->escapeChar) {
+        for (int64_t i = 0; i < arguments->db->superTbls->childTblCount; i++) {
+            if (arguments->db->superTbls->escape_character) {
                 sprintf(command,
                         "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
-                        aggreFunc[j], tb_prefix, i, startTime);
+                        aggreFunc[j], arguments->db->superTbls->childTblPrefix,
+                        i, DEFAULT_START_TIME);
             } else {
                 sprintf(command,
                         "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
-                        aggreFunc[j], tb_prefix, i, startTime);
+                        aggreFunc[j], arguments->db->superTbls->childTblPrefix,
+                        i, DEFAULT_START_TIME);
             }
 
             double    t = (double)taosGetTimestampUs();
@@ -804,7 +782,10 @@ static void *queryNtableAggrFunc(void *sarg) {
         if (fp) {
             fprintf(fp, "|%10s  |   %" PRId64 "   |  %12.2f   |   %10.2f  |\n",
                     aggreFunc[j][0] == '*' ? "   *   " : aggreFunc[j],
-                    totalData, (double)(ntables * insertRows) / totalT,
+                    totalData,
+                    (double)(arguments->db->superTbls->childTblCount *
+                             arguments->db->superTbls->insertRows) /
+                        totalT,
                     totalT / 1000000);
         }
         infoPrint("<%s> took %.6f second(s)\n", command, totalT / 1000000);
@@ -814,34 +795,26 @@ static void *queryNtableAggrFunc(void *sarg) {
     return NULL;
 }
 
-static int queryAggrFunc(SArguments *argument, TAOS_POOL *pool) {
+static int queryAggrFunc(SArguments *arguments, TAOS_POOL *pool) {
     pthread_t   read_id;
     threadInfo *pThreadInfo = calloc(1, sizeof(threadInfo));
-    pThreadInfo->start_time = DEFAULT_START_TIME;  // 2017-07-14 10:40:00.000
-    pThreadInfo->start_table_from = 0;
-
-    pThreadInfo->ntables = argument->ntables;
-    pThreadInfo->end_table_to = argument->ntables - 1;
-    pThreadInfo->stbInfo = &db[0].superTbls[0];
-    pThreadInfo->demo_mode = argument->demo_mode;
-    tstrncpy(pThreadInfo->tb_prefix, argument->tb_prefix, TBNAME_PREFIX_LEN);
-    pThreadInfo->taos = select_one_from_pool(pool, argument->database);
+    pThreadInfo->arguments = arguments;
+    pThreadInfo->taos = select_one_from_pool(pool, arguments->db->dbName);
     if (pThreadInfo->taos == NULL) {
         free(pThreadInfo);
         return -1;
     }
-    tstrncpy(pThreadInfo->filePath, argument->output_file, MAX_FILE_NAME_LEN);
-    if (!argument->use_metric) {
-        pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
-    } else {
+    if (arguments->db->superTbls->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
+    } else {
+        pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
     free(pThreadInfo);
     return 0;
 }
 
-int test(SArguments *argument, SDataBase *database) {
+int start(SArguments *arguments) {
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
@@ -852,28 +825,28 @@ int test(SArguments *argument, SDataBase *database) {
         wordfree(&full_path);
     }
 
-    if (argument->test_mode == INSERT_TEST) {
-        if (insertTestProcess(argument, database)) {
+    if (arguments->test_mode == INSERT_TEST) {
+        if (insertTestProcess(arguments)) {
             return -1;
         }
-    } else if (argument->test_mode == QUERY_TEST) {
-        if (queryTestProcess(argument)) {
+    } else if (arguments->test_mode == QUERY_TEST) {
+        if (queryTestProcess(arguments)) {
             return -1;
         }
         for (int64_t i = 0; i < g_queryInfo.superQueryInfo.childTblCount; ++i) {
             tmfree(g_queryInfo.superQueryInfo.childTblName[i]);
         }
         tmfree(g_queryInfo.superQueryInfo.childTblName);
-    } else if (argument->test_mode == SUBSCRIBE_TEST) {
-        if (subscribeTestProcess(argument)) {
+    } else if (arguments->test_mode == SUBSCRIBE_TEST) {
+        if (subscribeTestProcess(arguments)) {
             return -1;
         }
     } else {
-        errorPrint("unknown test mode: %d\n", argument->test_mode);
+        errorPrint("unknown test mode: %d\n", arguments->test_mode);
         return -1;
     }
-    if (argument->aggr_func) {
-        if (queryAggrFunc(argument, argument->pool)) {
+    if (arguments->aggr_func) {
+        if (queryAggrFunc(arguments, arguments->pool)) {
             return -1;
         }
     }
