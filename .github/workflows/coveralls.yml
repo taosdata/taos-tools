@@ -1,5 +1,4 @@
-name: CI
-
+name: Codecov
 on:
   push:
     branches: [ develop ]
@@ -11,16 +10,16 @@ env:
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
-  build:
+  run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout taos-tools
+      - name: Run test for codecov report
         uses: actions/checkout@v2
         with:
-          ref: develop
           submodules: recursive
           path: 'taos-tools'
+          ref: 'develop'
 
       - name: Step that prints name of pull request's base branch
         run: |
@@ -52,6 +51,9 @@ jobs:
           git submodule update --init --recursive
         if: github.event_name == 'pull_request'
 
+      - name: Install packages
+        run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev -y > /dev/null
+
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
         run: |
@@ -61,45 +63,29 @@ jobs:
 
       - name: Install tdengine
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true && make && sudo make install
-
-      - name: Start tdengine
-        run: nohup sudo taosd &
-
-      - name: Checkout PR commit if PR
-        run: |
-          cd taos-tools
-          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
-          git checkout -qf FETCH_HEAD
-        if: github.event_name == 'pull_request'
-
-      - name: Configure CMake
-        run: |
-          cd taos-tools
-          cmake -B ./build -DBUILD_TYPE=${{env.BUILD_TYPE}}
-
-      - name: Build
-        run: cd taos-tools && cmake --build ./build
-
-      - name: Unit Test
-        run: ls && pwd && cd taos-tools/build && git branch && ctest --verbose
-
-      - name: Func Test
-        run: |
-          cd TDengine/tests/pytest
-          pip3 install taospy numpy fabric2 psutil pandas faker
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug
+          make > /dev/null
+          sudo make install > /dev/null
+          ./build/bin/taosBenchmark --help
+          ./build/bin/taosdump --help
+          cd src/kit/taos-tools/
+          nohup sudo taosd &
+          sleep 10
+          ctest --verbose
+          cd ../../../../tests/pytest
+          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
-
           python3 ./test.py -f tools/taosdumpTest.py
           python3 ./test.py -f tools/taosdumpTest2.py
           python3 ./test.py -f tools/taosdumpTest3.py
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py
 
-
           python3 test.py -f tools/taosdemoTest.py
-          python3 test.py -f tools/taosdemoTestInterlace.py
           python3 test.py -f tools/taosdemoTestWithoutMetric.py
           python3 test.py -f tools/taosdemoTestWithJson.py
           python3 test.py -f tools/taosdemoTestLimitOffset.py
@@ -107,11 +93,12 @@ jobs:
           python3 test.py -f tools/taosdemoTestSampleData.py
 
           python3 test.py -f tools/taosdemoTestQuery.py
-          python3 test.py -f tools/taosdemoTestdatatype.py
+          python3 ./test.py -f tools/taosdemoTestdatatype.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py
+
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py
@@ -122,37 +109,44 @@ jobs:
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertShell.py
 
-      - name: System Test
-        run: |
-          cd TDengine/tests/system-test
+          cd ../develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
           fi
-
-          if [ -d 5-taos-tools/taosbenchmark ];
-          then
-            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-            then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
-            fi
-          fi
-
-      - name: Develop Test
-        run: |
-          cd TDengine/tests/develop-test
+          cd ../system-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
           fi
 
-          if [ -d 5-taos-tools/taosbenchmark ];
+          cd ../develop-test
+          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
           then
-            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-            then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
-            fi
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+          cd ../system-test
+          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
           fi
 
-          #[ -f taosdump-failed.txt ] && [ ! -s taosdump-failed.txt ] && exit 1
-          #[ -f taosbenchmark-failed.txt ] && [ ! -s taosbenchmark-failed.txt ] && exit 1
+      - name: Generate report
+        run: |
+          cd TDengine/debug
+          gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchMain.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchData.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchData.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchInsert.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchJsonOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchOutput.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+
+      - name: Publish to coveralls.io
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }};
+
