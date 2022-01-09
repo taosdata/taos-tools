@@ -52,7 +52,7 @@ jobs:
         if: github.event_name == 'pull_request'
 
       - name: Install packages
-        run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev -y > /dev/null
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
@@ -63,7 +63,6 @@ jobs:
 
       - name: Install tdengine
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
           cd TDengine
           mkdir debug
           cd debug
@@ -144,6 +143,8 @@ jobs:
           gcov -abcfu ../src/kit/taos-tools/src/benchQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/benchSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
           gcov -abcfu ../src/kit/taos-tools/src/benchUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+          mkdir coverage || :
+          lcov -c -d . -o coverage/lcov.info
 
       - name: Publish to coveralls.io
         uses: coverallsapp/github-action@master
