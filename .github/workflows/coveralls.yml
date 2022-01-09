@@ -145,7 +145,7 @@ jobs:
           gcov -abcfu ../src/kit/taos-tools/src/benchUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
           cd ../..
           mkdir coverage || :
-          lcov -c -d . -o coverage/lcov.info
+          lcov -c -d TDengine/debug/src/kit/taos-tools -o coverage/lcov.info
 
       - name: Publish to coveralls.io
         uses: coverallsapp/github-action@master
