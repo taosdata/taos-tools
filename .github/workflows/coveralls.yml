@@ -1,4 +1,4 @@
-name: Codecov
+name: Coveralls
 on:
   push:
     branches: [ develop ]
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Run test for codecov report
+      - name: Run test for Coveralls report
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -52,7 +52,7 @@ jobs:
         if: github.event_name == 'pull_request'
 
       - name: Install packages
-        run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev -y > /dev/null
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
@@ -63,7 +63,6 @@ jobs:
 
       - name: Install tdengine
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
           cd TDengine
           mkdir debug
           cd debug
@@ -133,20 +132,23 @@ jobs:
 
       - name: Generate report
         run: |
-          cd TDengine/debug
-          gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchMain.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchData.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchData.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchInsert.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchJsonOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchOutput.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+          topdir=`pwd`
+          cd TDengine/debug/src/kit/taos-tools
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/taosdump.c -o src/CMakeFiles/taosdump.dir/taosdump.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchMain.c -o src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchData.c -o src/CMakeFiles/taosbench.dir/benchData.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+          mkdir ${topdir}/coverage || :
+          lcov -c -d . -o ${topdir}/coverage/lcov.info
 
-      - name: Upload
-        uses: codecov/codecov-action@v2.1.0
+      - name: Publish to coveralls.io
+        uses: coverallsapp/github-action@master
         with:
-         token: ${{ secrets.CODECOV_TOKEN }}
-         files: TDengine/debug/taosdump.c.gcov,TDengine/debug/benchMain.c.gcov,TDengine/debug/benchCommandOpt.c.gcov,TDengine/debug/benchData.c.gcov,TDengine/debug/benchInsert.c.gcov,TDengine/debug/benchJsonOpt.c.gcov,TDengine/debug/benchOutput.c.gcov,TDengine/debug/benchQuery.c.gcov,TDengine/debug/benchSubscribe.c.gcov,TDengine/debug/benchUtil.c.gcov
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+

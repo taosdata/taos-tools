@@ -63,7 +63,6 @@ jobs:
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true && make && sudo make install
-          
 
       - name: Start tdengine
         run: nohup sudo taosd &
@@ -74,7 +73,7 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
         if: github.event_name == 'pull_request'
-        
+
       - name: Configure CMake
         run: |
           cd taos-tools
@@ -102,12 +101,13 @@ jobs:
 
 
           python3 test.py -f tools/taosdemoTest.py
+          python3 test.py -f tools/taosdemoTestInterlace.py
           python3 test.py -f tools/taosdemoTestWithoutMetric.py
           python3 test.py -f tools/taosdemoTestWithJson.py
           python3 test.py -f tools/taosdemoTestLimitOffset.py
           python3 test.py -f tools/taosdemoTestTblAlt.py
           python3 test.py -f tools/taosdemoTestSampleData.py
-    
+
           python3 test.py -f tools/taosdemoTestQuery.py
           python3 test.py -f tools/taosdemoTestdatatype.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py
@@ -129,12 +129,15 @@ jobs:
           cd TDengine/tests/system-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
           fi
 
-          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          if [ -d 5-taos-tools/taosbenchmark ];
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+            then
+              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
+            fi
           fi
 
       - name: Develop Test
@@ -142,10 +145,16 @@ jobs:
           cd TDengine/tests/develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
           fi
 
-          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          if [ -d 5-taos-tools/taosbenchmark ];
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+            then
+              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
+            fi
           fi
+
+          #[ -f taosdump-failed.txt ] && [ ! -s taosdump-failed.txt ] && exit 1
+          #[ -f taosbenchmark-failed.txt ] && [ ! -s taosbenchmark-failed.txt ] && exit 1
