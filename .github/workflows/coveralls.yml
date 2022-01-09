@@ -132,20 +132,20 @@ jobs:
 
       - name: Generate report
         run: |
-          cd TDengine/debug
-          gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchMain.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchData.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchData.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchInsert.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchJsonOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchOutput.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
-          gcov -abcfu ../src/kit/taos-tools/src/benchUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
-          cd ../..
-          mkdir coverage || :
-          lcov -c -d TDengine/debug/src/kit/taos-tools -o coverage/lcov.info
+          topdir=`pwd`
+          cd TDengine/debug/src/kit/taos-tools
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/taosdump.c -o src/CMakeFiles/taosdump.dir/taosdump.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchMain.c -o src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchData.c -o src/CMakeFiles/taosbench.dir/benchData.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+          mkdir ${topdir}/coverage || :
+          lcov -c -d . -o ${topdir}/coverage/lcov.info
 
       - name: Publish to coveralls.io
         uses: coverallsapp/github-action@master
