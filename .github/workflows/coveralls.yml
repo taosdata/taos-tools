@@ -71,9 +71,28 @@ jobs:
           sudo make install > /dev/null
           ./build/bin/taosBenchmark --help
           ./build/bin/taosdump --help
+          ./build/bin/taosdump --version
+          ./build/bin/taosdump --port 10000 || :
+          ./build/bin/taosdump -D || :
+          ./build/bin/taosdump --databases || :
           cd src/kit/taos-tools/
           nohup sudo taosd &
           sleep 10
+
+          ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
+          ./build/bin/taosdump -D test -d null
+          rm -f *.sql *.avro*
+          ./build/bin/taosdump -D test -d snappy
+          rm -f *.sql *.avro*
+          ./build/bin/taosdump -D test -d deflate
+          rm -f *.sql *.avro*
+          ./build/bin/taosdump -D test -d lzma
+          rm -f *.sql *.avro*
+          ./build/bin/taosdump -D test -d lzma
+          rm -f *.sql *.avro*
+          ./build/bin/taosdump -D test -d unknown
+          rm -f *.sql *.avro*
+
           ctest --verbose
           cd ../../../../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
