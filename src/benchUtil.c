@@ -279,6 +279,21 @@ void prompt(SArguments *arguments) {
     }
 }
 
+static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
+    pThreadInfo->fp = fopen(pThreadInfo->filePath, "at");
+    if (pThreadInfo->fp == NULL) {
+        errorPrint(
+            "failed to open result file: %s, result will not save "
+            "to file\n",
+            pThreadInfo->filePath);
+        return;
+    }
+
+    fprintf(pThreadInfo->fp, "%s", resultBuf);
+    tmfclose(pThreadInfo->fp);
+    pThreadInfo->fp = NULL;
+}
+
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
@@ -535,8 +550,8 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         goto free_of_post;
     }
 
-    if (arguments->fpOfInsertResult) {
-        fprintf(arguments->fpOfInsertResult, "%s", response_buf);
+    if (strlen(pThreadInfo->filePath) > 0) {
+        appendResultBufToFile(response_buf, pThreadInfo);
     }
     code = 0;
 free_of_post:
@@ -558,9 +573,8 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     // fetch the records row by row
     while ((row = taos_fetch_row(res))) {
         if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
-            SArguments *arguments = pThreadInfo->arguments;
-            if (arguments->fpOfInsertResult) {
-                fprintf(arguments->fpOfInsertResult, "%s", databuf);
+            if (strlen(pThreadInfo->filePath) > 0) {
+                appendResultBufToFile(databuf, pThreadInfo);
             }
             totalLen = 0;
             memset(databuf, 0, FETCH_BUFFER_SIZE);
@@ -574,9 +588,8 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         totalLen += len;
     }
 
-    SArguments *arguments = pThreadInfo->arguments;
-    if (arguments->fpOfInsertResult) {
-        fprintf(arguments->fpOfInsertResult, "%s", databuf);
+    if (strlen(pThreadInfo->filePath) > 0) {
+        appendResultBufToFile(databuf, pThreadInfo);
     }
     free(databuf);
 }

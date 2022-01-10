@@ -786,7 +786,7 @@ static int startMultiThreadCreateChildTable(SArguments *arguments, int db_index,
 }
 
 int createChildTables(SArguments *arguments) {
-    int32_t    code = -1;
+    int32_t    code;
     SDataBase *database = arguments->db;
     infoPrint("start creating %" PRId64 " table(s) with %d thread(s)\n",
               arguments->g_totalChildTables, arguments->nthreads);
@@ -848,16 +848,13 @@ int createChildTables(SArguments *arguments) {
                 arguments->g_actualChildTables,
                 arguments->g_autoCreatedChildTables);
     }
-    return code;
+    return 0;
 }
 
 void postFreeResource(SArguments *arguments) {
     tmfclose(arguments->fpOfInsertResult);
     SDataBase *database = arguments->db;
     for (int i = 0; i < arguments->dbCount; i++) {
-        if (arguments->test_mode != INSERT_TEST) {
-            continue;
-        }
         for (uint64_t j = 0; j < database[i].superTblCount; j++) {
             tmfree(database[i].superTbls[j].colsOfCreateChildTable);
             tmfree(database[i].superTbls[j].buffer);
@@ -867,9 +864,11 @@ void postFreeResource(SArguments *arguments) {
             tmfree(database[i].superTbls[j].tag_type);
             tmfree(database[i].superTbls[j].tag_length);
             tmfree(database[i].superTbls[j].tagDataBuf);
-            for (int64_t k = 0; k < database[i].superTbls[j].childTblCount;
-                 ++k) {
-                tmfree(database[i].superTbls[j].childTblName[k]);
+            if (arguments->test_mode == INSERT_TEST) {
+                for (int64_t k = 0; k < database[i].superTbls[j].childTblCount;
+                     ++k) {
+                    tmfree(database[i].superTbls[j].childTblName[k]);
+                }
             }
             tmfree(database[i].superTbls[j].childTblName);
         }
@@ -1048,7 +1047,7 @@ void *syncWriteInterlace(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                pThreadInfo->time_precision, timestamp,
+                                database->dbCfg.sml_precision, timestamp,
                                 arguments->prepared_rand, arguments->chinese);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
@@ -1134,8 +1133,8 @@ void *syncWriteInterlace(void *sarg) {
             goto free_of_interlace;
         }
         uint64_t delay = endTs - startTs;
-        performancePrint("%s() LN%d, insert execution time is %10.2f ms\n",
-                         __func__, __LINE__, delay / 1000.0);
+        performancePrint("insert execution time is %10.2f ms\n",
+                         delay / 1000.0);
 
         if (delay > pThreadInfo->maxDelay) pThreadInfo->maxDelay = delay;
         if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
@@ -1267,7 +1266,7 @@ void *syncWriteProgressive(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                pThreadInfo->time_precision, timestamp,
+                                database->dbCfg.sml_precision, timestamp,
                                 arguments->prepared_rand, arguments->chinese);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {

@@ -351,6 +351,22 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
         goto PARSE_OVER;
     }
 
+    cJSON *top_insertInterval = cJSON_GetObjectItem(json, "insert_interval");
+    if (top_insertInterval && top_insertInterval->type == cJSON_Number) {
+        if (top_insertInterval->valueint < 0) {
+            errorPrint("%s",
+                       "failed to read json, insert_interval input mistake\n");
+            goto PARSE_OVER;
+        }
+        arguments->insert_interval = top_insertInterval->valueint;
+    } else if (!top_insertInterval) {
+        arguments->insert_interval = 0;
+    } else {
+        errorPrint("%s",
+                   "failed to read json, insert_interval input mistake\n");
+        goto PARSE_OVER;
+    }
+
     cJSON *answerPrompt =
         cJSON_GetObjectItem(json, "confirm_parameter_prompt");  // yes, no,
     if (answerPrompt && answerPrompt->type == cJSON_String &&
@@ -385,6 +401,12 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
             MAX_DB_COUNT);
         goto PARSE_OVER;
     }
+    tmfree(arguments->db->superTbls->col_length);
+    tmfree(arguments->db->superTbls->col_type);
+    tmfree(arguments->db->superTbls->tag_type);
+    tmfree(arguments->db->superTbls->tag_length);
+    tmfree(arguments->db->superTbls);
+    tmfree(arguments->db);
     arguments->db = calloc(dbSize, sizeof(SDataBase));
     arguments->dbCount = dbSize;
     for (int i = 0; i < dbSize; ++i) {
@@ -404,8 +426,7 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
             errorPrint("%s", "failed to read json, db name not found\n");
             goto PARSE_OVER;
         }
-        tstrncpy(arguments->db[i].dbName, dbName->valuestring,
-                 TSDB_DB_NAME_LEN);
+        arguments->db[i].dbName = dbName->valuestring;
 
         cJSON *drop = cJSON_GetObjectItem(dbinfo, "drop");
         if (drop && drop->type == cJSON_String && drop->valuestring != NULL) {
@@ -609,8 +630,8 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
                 errorPrint("%s", "failed to read json, stb name not found\n");
                 goto PARSE_OVER;
             }
-            tstrncpy(arguments->db[i].superTbls[j].stbName,
-                     stbName->valuestring, TSDB_TABLE_NAME_LEN);
+
+            arguments->db[i].superTbls[j].stbName = stbName->valuestring;
 
             cJSON *prefix = cJSON_GetObjectItem(stbInfo, "childtable_prefix");
             if (!prefix || prefix->type != cJSON_String ||
@@ -619,8 +640,7 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
                     "%s", "failed to read json, childtable_prefix not found\n");
                 goto PARSE_OVER;
             }
-            tstrncpy(arguments->db[i].superTbls[j].childTblPrefix,
-                     prefix->valuestring, TBNAME_PREFIX_LEN);
+            arguments->db[i].superTbls[j].childTblPrefix = prefix->valuestring;
 
             cJSON *escapeChar =
                 cJSON_GetObjectItem(stbInfo, "escape_character");
@@ -834,11 +854,14 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
 
             cJSON *ts = cJSON_GetObjectItem(stbInfo, "start_timestamp");
             if (ts && ts->type == cJSON_String && ts->valuestring != NULL) {
-                if (taos_parse_time(
-                        ts->valuestring,
-                        &(arguments->db[i].superTbls[j].startTimestamp),
-                        (int32_t)strlen(ts->valuestring),
-                        arguments->db[i].dbCfg.precision, 0)) {
+                if (0 == strcasecmp(ts->valuestring, "now")) {
+                    arguments->db[i].superTbls[j].startTimestamp =
+                        taosGetTimestamp(arguments->db[i].dbCfg.precision);
+                } else if (taos_parse_time(
+                               ts->valuestring,
+                               &(arguments->db[i].superTbls[j].startTimestamp),
+                               (int32_t)strlen(ts->valuestring),
+                               arguments->db[i].dbCfg.precision, 0)) {
                     errorPrint("failed to parse time %s\n", ts->valuestring);
                     return -1;
                 }
@@ -1030,7 +1053,8 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
                     goto PARSE_OVER;
                 }
             } else if (!insertInterval) {
-                arguments->db[i].superTbls[j].insert_interval = 0;
+                arguments->db[i].superTbls[j].insert_interval =
+                    arguments->insert_interval;
             } else {
                 errorPrint(
                     "%s",

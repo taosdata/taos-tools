@@ -448,6 +448,7 @@ typedef struct SArguments_S {
     int32_t            nthreads;
     int64_t            prepared_rand;
     int32_t            reqPerReq;
+    int64_t            insert_interval;
     bool               demo_mode;
     bool               aggr_func;
     int32_t            dbCount;
@@ -469,7 +470,6 @@ typedef struct SThreadInfo_S {
     char *      bindParams;
     char *      is_null;
     int         threadID;
-    uint32_t    time_precision;
     uint64_t    start_table_from;
     uint64_t    end_table_to;
     int64_t     ntables;
@@ -498,7 +498,8 @@ typedef struct SThreadInfo_S {
     cJSON *     sml_json_tags;
     int64_t     start_time;
     int64_t     max_sql_len;
-    char *      filePath;
+    FILE *      fp;
+    char        filePath[MAX_PATH_LEN];
 } threadInfo;
 
 /* ************ Global variables ************  */
@@ -568,7 +569,6 @@ int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
 void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                                   SDataBase *database);
 void printStatPerThread(threadInfo *pThreadInfo);
-void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo);
 void printfQueryMeta(SArguments *arguments);
 void printfQuerySystemInfo(TAOS *taos);
 /* demoQuery.c */
