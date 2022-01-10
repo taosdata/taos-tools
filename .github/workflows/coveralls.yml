@@ -94,6 +94,8 @@ jobs:
           rm -f *.sql *.avro*
           ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004'
           rm -f *.sql *.avro*
+          ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
+          ./build/bin/taosdump -D test
 
           cd src/kit/taos-tools/
           ctest --verbose
