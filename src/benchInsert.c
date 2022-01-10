@@ -18,7 +18,8 @@
 
 int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                int32_t *col_length, int32_t tagCount, int32_t colCount,
-               int32_t *plenOfTags, int32_t *plenOfCols, int iface) {
+               int32_t *plenOfTags, int32_t *plenOfCols, int iface,
+               int line_protocol) {
     *plenOfCols = 0;
     *plenOfTags = 0;
     for (int colIndex = 0; colIndex < colCount; colIndex++) {
@@ -947,7 +948,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             res = taos_schemaless_insert(
                 pThreadInfo->taos, pThreadInfo->lines,
                 stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
-                stbInfo->lineProtocol, stbInfo->tsPrecision);
+                stbInfo->lineProtocol, database->dbCfg.sml_precision);
             code = taos_errno(res);
             affectedRows = taos_affected_rows(res);
             if (code != TSDB_CODE_SUCCESS) {
@@ -1065,7 +1066,7 @@ void *syncWriteInterlace(void *sarg) {
                             snprintf(
                                 pThreadInfo->lines[generated],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
-                                "%s %" PRId64 " %s %s", stbInfo->stbName,
+                                "%s %" PRId64 " %s%s", stbInfo->stbName,
                                 timestamp,
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
@@ -1284,7 +1285,7 @@ void *syncWriteProgressive(void *sarg) {
                             snprintf(
                                 pThreadInfo->lines[j],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
-                                "%s %" PRId64 " %s %s", stbInfo->stbName,
+                                "%s %" PRId64 " %s%s", stbInfo->stbName,
                                 timestamp,
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
@@ -1829,9 +1830,6 @@ int insertTestProcess(SArguments *arguments) {
     prompt(arguments);
 
     if (init_rand_data(arguments)) {
-        goto end_insert_process;
-    }
-    if (init_taos_list(arguments)) {
         goto end_insert_process;
     }
 

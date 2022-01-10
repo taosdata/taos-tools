@@ -564,7 +564,7 @@ int  insertTestProcess(SArguments *arguments);
 void postFreeResource(SArguments *arguments);
 int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 int32_t *col_length, int32_t tagCount, int32_t colCount,
-                int32_t *plenOfTags, int32_t *plenOfCols, int iface);
+                int32_t *plenOfTags, int32_t *plenOfCols, int iface, int line_protocol);
 /* demoOutput.c */
 void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                                   SDataBase *database);

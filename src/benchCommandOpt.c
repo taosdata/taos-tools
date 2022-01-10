@@ -153,6 +153,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                            arg);
                 arguments->nthreads = DEFAULT_NTHREADS;
             }
+            arguments->nthreads_pool = arguments->nthreads + 5;
             break;
         case 'i':
             arguments->db->superTbls->insert_interval = atoi(arg);
@@ -612,6 +613,9 @@ void commandLineParseArgument(int argc, char *argv[], SArguments *arguments) {
 }
 
 void resize_schema(SArguments *arguments, SSuperTable *superTable) {
+    if (init_taos_list(arguments)) {
+        exit(EXIT_FAILURE);
+    }
     if (arguments->intColumnCount > superTable->columnCount) {
         char *tmp_type = (char *)realloc(
             superTable->col_type, arguments->intColumnCount * sizeof(char));

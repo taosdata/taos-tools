@@ -253,6 +253,7 @@ int queryTestProcess(SArguments *argument) {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
+                pThreadInfo->arguments = argument;
 
                 if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
 #ifdef WINDOWS
@@ -345,7 +346,7 @@ int queryTestProcess(SArguments *argument) {
         for (int i = 0; i < threads; i++) {
             threadInfo *pThreadInfo = infosOfSub + i;
             pThreadInfo->threadID = i;
-
+            pThreadInfo->arguments = argument;
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
             pThreadInfo->end_table_to =

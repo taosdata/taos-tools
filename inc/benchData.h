@@ -55,7 +55,7 @@ int  bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int  generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                             char *data_type, int32_t *data_length, int64_t size,
                             uint16_t iface, bool demo_mode, bool chinese,
-                            uint64_t prepared_rand);
+                            uint64_t prepared_rand, int32_t line_protocol);
 int     prepare_sample_data(SArguments *argument, SSuperTable *stbInfo);
 int32_t generateSmlTags(char *sml, SSuperTable *stbInfo, uint64_t prepared_rand,
                         bool chinese);

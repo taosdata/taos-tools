@@ -298,6 +298,10 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
         goto PARSE_OVER;
     }
 
+    if (init_taos_list(arguments)) {
+        goto PARSE_OVER;
+    }
+
     cJSON *numRecPerReq = cJSON_GetObjectItem(json, "num_of_records_per_req");
     if (numRecPerReq && numRecPerReq->type == cJSON_Number) {
         if (numRecPerReq->valueint <= 0) {
@@ -1074,7 +1078,7 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
 PARSE_OVER:
     return code;
 }
-int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
+int getMetaFromQueryJsonFile(cJSON *json, SArguments *arguments) {
     int32_t code = -1;
 
     cJSON *cfgdir = cJSON_GetObjectItem(json, "cfgdir");
@@ -1122,14 +1126,14 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
     if (answerPrompt && answerPrompt->type == cJSON_String &&
         answerPrompt->valuestring != NULL) {
         if (0 == strncasecmp(answerPrompt->valuestring, "yes", 3)) {
-            argument->answer_yes = false;
+            arguments->answer_yes = false;
         } else if (0 == strncasecmp(answerPrompt->valuestring, "no", 2)) {
-            argument->answer_yes = true;
+            arguments->answer_yes = true;
         } else {
-            argument->answer_yes = false;
+            arguments->answer_yes = false;
         }
     } else if (!answerPrompt) {
-        argument->answer_yes = false;
+        arguments->answer_yes = false;
     } else {
         errorPrint("%s",
                    "failed to read json, confirm_parameter_prompt not found\n");
@@ -1153,9 +1157,9 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
 
     cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
-        argument->nthreads_pool = (uint32_t)threadspool->valueint;
+        arguments->nthreads_pool = (uint32_t)threadspool->valueint;
     } else if (!threadspool) {
-        argument->nthreads_pool = argument->nthreads + 5;
+        arguments->nthreads_pool = arguments->nthreads + 5;
     } else {
         errorPrint("%s", "failed to read json, thread_pool_size not found\n");
         goto PARSE_OVER;
