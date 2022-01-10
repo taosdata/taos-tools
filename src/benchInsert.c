@@ -642,9 +642,9 @@ int createDatabase(SArguments *arguments, char *command, SDataBase *database) {
 }
 
 static void *createTable(void *sarg) {
-    threadInfo *pThreadInfo = (threadInfo *)sarg;
-    SArguments *arguments = pThreadInfo->arguments;
-    SDataBase * database = &(pThreadInfo->arguments->db[pThreadInfo->db_index]);
+    threadInfo * pThreadInfo = (threadInfo *)sarg;
+    SArguments * arguments = pThreadInfo->arguments;
+    SDataBase *  database = &(arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     int32_t *    code = calloc(1, sizeof(int32_t));
     *code = -1;
@@ -795,8 +795,6 @@ int createChildTables(SArguments *arguments) {
                 arguments->g_totalChildTables, arguments->nthreads);
     }
     double start = (double)taosGetTimestampMs();
-    char   tblColsBuf[TSDB_MAX_BYTES_PER_ROW];
-    int    len;
 
     for (int i = 0; i < arguments->dbCount; i++) {
         for (int j = 0; j < database[i].superTblCount; j++) {

@@ -81,13 +81,6 @@ static char *rand_utinyint_str(uint64_t prepared_rand) {
     return g_randutinyint_buff + ((cursor)*TINYINT_BUFF_LEN);
 }
 
-static int32_t rand_utinyint(uint64_t prepared_rand) {
-    static int cursor;
-    cursor++;
-    if (cursor > (prepared_rand - 1)) cursor = 0;
-    return g_randutinyint[cursor];
-}
-
 static char *rand_smallint_str(uint64_t prepared_rand) {
     static int cursor;
     cursor++;
@@ -107,13 +100,6 @@ static char *rand_usmallint_str(uint64_t prepared_rand) {
     cursor++;
     if (cursor > (prepared_rand - 1)) cursor = 0;
     return g_randusmallint_buff + ((cursor)*SMALLINT_BUFF_LEN);
-}
-
-static int32_t rand_usmallint(uint64_t prepared_rand) {
-    static int cursor;
-    cursor++;
-    if (cursor > (prepared_rand - 1)) cursor = 0;
-    return g_randusmallint[cursor];
 }
 
 static char *rand_int_str(uint64_t prepared_rand) {
@@ -137,13 +123,6 @@ static char *rand_uint_str(uint64_t prepared_rand) {
     return g_randuint_buff + ((cursor)*INT_BUFF_LEN);
 }
 
-static int32_t rand_uint(uint64_t prepared_rand) {
-    static int cursor;
-    cursor++;
-    if (cursor > (prepared_rand - 1)) cursor = 0;
-    return g_randuint[cursor];
-}
-
 static char *rand_bigint_str(uint64_t prepared_rand) {
     static int cursor;
     cursor++;
@@ -163,13 +142,6 @@ static char *rand_ubigint_str(uint64_t prepared_rand) {
     cursor++;
     if (cursor > (prepared_rand - 1)) cursor = 0;
     return g_randubigint_buff + ((cursor)*BIGINT_BUFF_LEN);
-}
-
-static int64_t rand_ubigint(uint64_t prepared_rand) {
-    static int cursor;
-    cursor++;
-    if (cursor > (prepared_rand - 1)) cursor = 0;
-    return g_randubigint[cursor];
 }
 
 static char *rand_float_str(uint64_t prepared_rand) {

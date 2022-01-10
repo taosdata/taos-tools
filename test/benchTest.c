@@ -23,11 +23,7 @@
 SArguments test_g_args;
 SDataBase* db;
 
-int init_suite1(void) {
-    db = calloc(1, sizeof(SDataBase));
-    db->superTbls = calloc(1, sizeof(SSuperTable));
-    return 0;
-}
+int init_suite1(void) { return 0; }
 
 int clean_suite1(void) { return 0; }
 
