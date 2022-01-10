@@ -79,6 +79,7 @@ jobs:
           nohup sudo taosd &
           sleep 10
 
+          # test codec
           ./build/bin/taosBenchmark -t 2 -n 10 -y > /dev/null
           ./build/bin/taosdump -D test -d null
           rm -f *.sql *.avro*
@@ -92,10 +93,15 @@ jobs:
           rm -f *.sql *.avro*
           ./build/bin/taosdump -D test -d unknown
           rm -f *.sql *.avro*
+
+          # test human time
           ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004'
           rm -f *.sql *.avro*
+
+          # test normal table
           ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
-          ./build/bin/taosdump -D test
+          ./build/bin/taosdump -D test -gg
+          rm -f *.sql *.avro*
 
           cd src/kit/taos-tools/
           ctest --verbose
