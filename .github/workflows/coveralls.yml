@@ -75,7 +75,7 @@ jobs:
           ./build/bin/taosdump --port 10000 || :
           ./build/bin/taosdump -D || :
           ./build/bin/taosdump --databases || :
-          cd src/kit/taos-tools/
+
           nohup sudo taosd &
           sleep 10
 
@@ -93,6 +93,7 @@ jobs:
           ./build/bin/taosdump -D test -d unknown
           rm -f *.sql *.avro*
 
+          cd src/kit/taos-tools/
           ctest --verbose
           cd ../../../../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
