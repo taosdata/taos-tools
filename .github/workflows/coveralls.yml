@@ -66,8 +66,8 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug > /dev/null
-          make > /dev/null
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug > /dev/null 2>&1
+          make > /dev/null 2>&1
           sudo make install > /dev/null
           ./build/bin/taosBenchmark --help
           ./build/bin/taosdump --help
