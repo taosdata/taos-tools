@@ -523,8 +523,8 @@ int  count_datatype(char *dataType, int32_t *number);
 int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                     bool is_tag);
 void resize_schema(SArguments *arguments, SSuperTable *superTable);
-void init_argument(SArguments *arguments);
-int  start(SArguments *arguments);
+SArguments *init_argument(SArguments *arguments);
+int         start(SArguments *arguments);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file, SArguments *argument);
 /* demoUtil.c */

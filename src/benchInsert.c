@@ -747,6 +747,7 @@ static int startMultiThreadCreateChildTable(SArguments *arguments, int db_index,
     for (int64_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
         pThreadInfo->threadID = (int)i;
+        pThreadInfo->arguments = arguments;
         pThreadInfo->stb_index = stb_index;
         pThreadInfo->db_index = db_index;
         pThreadInfo->taos =
@@ -1504,6 +1505,9 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
         pThreadInfo->threadID = i;
+        pThreadInfo->arguments = arguments;
+        pThreadInfo->db_index = db_index;
+        pThreadInfo->stb_index = stb_index;
         pThreadInfo->start_time = stbInfo->startTimestamp;
         pThreadInfo->totalInsertRows = 0;
         pThreadInfo->totalAffectedRows = 0;

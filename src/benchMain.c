@@ -20,7 +20,7 @@ bool           g_fail = false;
 cJSON*         root;
 
 int main(int argc, char* argv[]) {
-    init_argument(g_arguments);
+    g_arguments = init_argument(g_arguments);
     commandLineParseArgument(argc, argv, g_arguments);
     if (g_arguments->metaFile) {
         g_arguments->g_totalChildTables = 0;

@@ -65,7 +65,9 @@ jobs:
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug && make && sudo make install
 
       - name: Start tdengine
-        run: nohup sudo taosd &
+        run: |
+          nohup sudo taosd &
+          sleep 10
 
       - name: Unit Test
         run: |

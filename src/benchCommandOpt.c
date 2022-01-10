@@ -343,7 +343,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-static void init_stable(SDataBase *database) {
+static SSuperTable *init_stable(SDataBase *database) {
     database->superTbls = calloc(1, sizeof(SSuperTable));
     SSuperTable *stbInfo = database->superTbls;
     stbInfo->iface = TAOSC_IFACE;
@@ -382,9 +382,10 @@ static void init_stable(SDataBase *database) {
     stbInfo->insertRows = DEFAULT_INSERT_ROWS;
     stbInfo->disorderRange = DEFAULT_DISORDER_RANGE;
     stbInfo->disorderRatio = 0;
+    return stbInfo;
 }
 
-static void init_database(SArguments *arguments) {
+static SDataBase *init_database(SArguments *arguments) {
     arguments->db = calloc(1, sizeof(SDataBase));
     SDataBase *database = arguments->db;
     database->dbName = DEFAULT_DATABASE;
@@ -393,8 +394,9 @@ static void init_database(SArguments *arguments) {
     database->dbCfg.replica = 1;
     database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    return database;
 }
-void init_argument(SArguments *arguments) {
+SArguments *init_argument(SArguments *arguments) {
     arguments = calloc(1, sizeof(SArguments));
     arguments->pool = calloc(1, sizeof(TAOS_POOL));
     arguments->test_mode = INSERT_TEST;
@@ -424,8 +426,9 @@ void init_argument(SArguments *arguments) {
     arguments->g_existedChildTables = 0;
     arguments->chinese = 0;
     arguments->aggr_func = 0;
-    init_database(arguments);
-    init_stable(arguments->db);
+    arguments->db = init_database(arguments);
+    arguments->db->superTbls = init_stable(arguments->db);
+    return arguments;
 }
 
 int count_datatype(char *dataType, int32_t *number) {
