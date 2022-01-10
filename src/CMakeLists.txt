@@ -15,7 +15,7 @@ IF(GIT_FOUND)
             COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}
             WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
             RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSDEMO_COMMIT_SHA1
+            OUTPUT_VARIABLE taosbenchmark_COMMIT_SHA1
     )
     IF ("${TAOSDUMP_COMMIT_SHA1}" STREQUAL "")
         SET(TAOSDUMP_COMMIT_SHA1 "unknown")
@@ -23,11 +23,11 @@ IF(GIT_FOUND)
         STRING(SUBSTRING "${TAOSDUMP_COMMIT_SHA1}" 0 7 TAOSDUMP_COMMIT_SHA1)
         STRING(STRIP "${TAOSDUMP_COMMIT_SHA1}" TAOSDUMP_COMMIT_SHA1)
     ENDIF ()
-    IF ("${TAOSDEMO_COMMIT_SHA1}" STREQUAL "")
-        SET(TAOSDEMO_COMMIT_SHA1 "unknown")
+    IF ("${taosbenchmark_COMMIT_SHA1}" STREQUAL "")
+        SET(taosbenchmark_COMMIT_SHA1 "unknown")
     ELSE ()
-        STRING(SUBSTRING "${TAOSDEMO_COMMIT_SHA1}" 0 7 TAOSDEMO_COMMIT_SHA1)
-        STRING(STRIP "${TAOSDEMO_COMMIT_SHA1}" TAOSDEMO_COMMIT_SHA1)
+        STRING(SUBSTRING "${taosbenchmark_COMMIT_SHA1}" 0 7 taosbenchmark_COMMIT_SHA1)
+        STRING(STRIP "${taosbenchmark_COMMIT_SHA1}" taosbenchmark_COMMIT_SHA1)
     ENDIF ()
     EXECUTE_PROCESS(
             COMMAND ${GIT_EXECUTABLE} describe --tags
@@ -50,7 +50,7 @@ IF(GIT_FOUND)
     EXECUTE_PROCESS(
             COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/demo*.c
             RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSDEMO_STATUS
+            OUTPUT_VARIABLE taosbenchmark_STATUS
     )
     IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         EXECUTE_PROCESS(
@@ -59,25 +59,25 @@ IF(GIT_FOUND)
                 OUTPUT_VARIABLE TAOSDUMP_STATUS
         )
         EXECUTE_PROCESS(
-                COMMAND bash "-c" "echo '${TAOSDEMO_STATUS}' | awk '{print $1}'"
+                COMMAND bash "-c" "echo '${taosbenchmark_STATUS}' | awk '{print $1}'"
                 RESULT_VARIABLE RESULT
-                OUTPUT_VARIABLE TAOSDEMO_STATUS
+                OUTPUT_VARIABLE taosbenchmark_STATUS
         )
     ENDIF ()
 ELSE()
     MESSAGE("Git not found")
     SET(TAOSDUMP_COMMIT_SHA1 "unknown")
-    SET(TAOSDEMO_COMMIT_SHA1 "unknown")
+    SET(taosbenchmark_COMMIT_SHA1 "unknown")
     SET(TAOSTOOLS_TAG "0.1.0")
     SET(TAOSDUMP_STATUS "unknown")
-    SET(TAOSDEMO_STATUS "unknown")
+    SET(taosbenchmark_STATUS "unknown")
 ENDIF (GIT_FOUND)
 
 MESSAGE("taos-tools tag:" ${TAOSTOOLS_TAG})
 MESSAGE("taosdump's latest commit in short is:" ${TAOSDUMP_COMMIT_SHA1})
-MESSAGE("taosdemo's latest commit in short is:" ${TAOSDEMO_COMMIT_SHA1})
+MESSAGE("taosbenchmark's latest commit in short is:" ${taosbenchmark_COMMIT_SHA1})
 STRING(STRIP "${TAOSDUMP_STATUS}" TAOSDUMP_STATUS)
-STRING(STRIP "${TAOSDEMO_STATUS}" TAOSDEMO_STATUS)
+STRING(STRIP "${taosbenchmark_STATUS}" taosbenchmark_STATUS)
 
 IF (TAOSDUMP_STATUS MATCHES "M")
     SET(TAOSDUMP_STATUS "modified")
@@ -85,20 +85,20 @@ ELSE()
     SET(TAOSDUMP_STATUS "")
 ENDIF ()
 
-IF (TAOSDEMO_STATUS MATCHES "M")
-    SET(TAOSDEMO_STATUS "modified")
+IF (taosbenchmark_STATUS MATCHES "M")
+    SET(taosbenchmark_STATUS "modified")
 ELSE()
-    SET(TAOSDEMO_STATUS "")
+    SET(taosbenchmark_STATUS "")
 ENDIF ()
 
 MESSAGE("taosdump's status is:" ${TAOSDUMP_STATUS})
-MESSAGE("taosdemo's status is:" ${TAOSDEMO_STATUS})
+MESSAGE("taosbenchmark's status is:" ${taosbenchmark_STATUS})
 
 ADD_DEFINITIONS(-DTAOSTOOLS_TAG="${TAOSTOOLS_TAG}")
 ADD_DEFINITIONS(-DTAOSDUMP_COMMIT_SHA1="${TAOSDUMP_COMMIT_SHA1}")
 ADD_DEFINITIONS(-DTAOSDUMP_STATUS="${TAOSDUMP_STATUS}")
-ADD_DEFINITIONS(-DTAOSDEMO_COMMIT_SHA1="${TAOSDEMO_COMMIT_SHA1}")
-ADD_DEFINITIONS(-DTAOSDEMO_STATUS="${TAOSDEMO_STATUS}")
+ADD_DEFINITIONS(-Dtaosbenchmark_COMMIT_SHA1="${taosbenchmark_COMMIT_SHA1}")
+ADD_DEFINITIONS(-Dtaosbenchmark_STATUS="${taosbenchmark_STATUS}")
 
 LINK_DIRECTORIES(${CMAKE_BINARY_DIR}/build/lib ${CMAKE_BINARY_DIR}/build/lib64)
 LINK_DIRECTORIES(/usr/lib /usr/lib64)
@@ -121,13 +121,24 @@ ELSE ()
 ENDIF ()
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    SET(OS_ID "")
     ADD_EXECUTABLE(taosdump taosdump.c)
-    ADD_EXECUTABLE(taosBenchmark demoMain.c demoSubscribe.c demoQuery.c demoOutput.c demoJsonOpt.c demoInsert.c demoData.c demoCommandOpt.c demoUtil.c)
-    TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchOutput.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c)
+    execute_process (
+        COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+        OUTPUT_VARIABLE OS_ID
+    )
+    MESSAGE(DEBUG "Linux os ID: ${OD_ID}")
+    IF (${OS_ID} MATCHES "alpine")
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
+    ELSE()
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+    ENDIF()
+
     target_link_libraries(taosBenchmark taos pthread cJsonDemo)
     IF (${BUILD_TYPE} MATCHES "Debug")
-        ADD_LIBRARY(taosdemo SHARED demoMain.c demoSubscribe.c demoQuery.c demoOutput.c demoJsonOpt.c demoInsert.c demoData.c demoCommandOpt.c demoUtil.c)
-        target_link_libraries(taosdemo taos pthread cJsonDemo -fsanitize=address)
+        ADD_LIBRARY(taosbench SHARED benchMain.c benchSubscribe.c benchQuery.c benchOutput.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c)
+        target_link_libraries(taosbench taos pthread cJsonDemo -fsanitize=address)
     ENDIF()
 
 ENDIF ()

@@ -13,24 +13,24 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
-#define SHOW_PARSE_RESULT_START_TO_FILE(fp)                               \
+#define SHOW_PARSE_RESULT_START_TO_FILE(fp, argument)                     \
     do {                                                                  \
-        if (g_args.metaFile)                                              \
+        if (argument->metaFile)                                           \
             fprintf(fp,                                                   \
                     "\033[1m\033[40;32m================ %s parse result " \
                     "START ================\033[0m\n",                    \
-                    g_args.metaFile);                                     \
+                    argument->metaFile);                                  \
     } while (0)
 
-#define SHOW_PARSE_RESULT_END_TO_FILE(fp)                                 \
+#define SHOW_PARSE_RESULT_END_TO_FILE(fp, argument)                       \
     do {                                                                  \
-        if (g_args.metaFile)                                              \
+        if (argument->metaFile)                                           \
             fprintf(fp,                                                   \
                     "\033[1m\033[40;32m================ %s parse result " \
                     "END================\033[0m\n",                       \
-                    g_args.metaFile);                                     \
+                    argument->metaFile);                                  \
     } while (0)
 
 int getDbFromServer(TAOS *taos, SDbInfo **dbInfos) {
@@ -57,11 +57,6 @@ int getDbFromServer(TAOS *taos, SDbInfo **dbInfos) {
         }
 
         dbInfos[count] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
-        if (dbInfos[count] == NULL) {
-            errorPrint("failed to allocate memory for some dbInfo[%d]\n",
-                       count);
-            return -1;
-        }
 
         tstrncpy(dbInfos[count]->name, (char *)row[TSDB_SHOW_DB_NAME_INDEX],
                  fields[TSDB_SHOW_DB_NAME_INDEX].bytes);
@@ -221,161 +216,16 @@ int xDumpResultToFile(const char *fname, TAOS_RES *tres) {
     return numOfRows;
 }
 
-#ifndef TAOSDEMO_COMMIT_SHA1
-#define TAOSDEMO_COMMIT_SHA1 "unknown"
-#endif
-
-#ifndef TD_VERNUMBER
-#define TD_VERNUMBER "unknown"
-#endif
-
-#ifndef TAOSDEMO_STATUS
-#define TAOSDEMO_STATUS "unknown"
-#endif
-
-void printVersion() {
-    char tdengine_ver[] = TD_VERNUMBER;
-    char taosdemo_ver[] = TAOSDEMO_COMMIT_SHA1;
-    char taosdemo_status[] = TAOSDEMO_STATUS;
-
-    if (strlen(taosdemo_status) == 0) {
-        printf("taosdemo version %s-%s\n", tdengine_ver, taosdemo_ver);
-    } else {
-        printf("taosdemo version %s-%s, status:%s\n", tdengine_ver,
-               taosdemo_ver, taosdemo_status);
-    }
-    exit(EXIT_SUCCESS);
-}
-
-void printHelp() {
-    char indent[10] = "  ";
-    printf("%s\n\n", "Usage: taosBenchmark [OPTION...]");
-    printf("%s%s%s%s\n", indent, "-f, --file=FILE", "\t\t",
-           "The meta file to the execution procedure.");
-    printf("%s%s%s%s\n", indent, "-u, --user=USER", "\t\t",
-           "The user name to use when connecting to the server.");
-#ifdef _TD_POWER_
-    printf("%s%s%s%s\n", indent, "-p, --password", "\t\t",
-           "The password to use when connecting to the server. By default is "
-           "'powerdb'");
-    printf("%s%s%s%s\n", indent, "-c, --config-dir=CONFIG_DIR", "\t",
-           "Configuration directory. By default is '/etc/power/'.");
-#elif (_TD_TQ_ == true)
-    printf("%s%s%s%s\n", indent, "-p, --password", "\t\t",
-           "The password to use when connecting to the server. By default is "
-           "'tqueue'");
-    printf("%s%s%s%s\n", indent, "-c, --config-dir=CONFIG_DIR", "\t",
-           "Configuration directory. By default is '/etc/tq/'.");
-#elif (_TD_PRO_ == true)
-    printf("%s%s%s%s\n", indent, "-p, --password", "\t\t",
-           "The password to use when connecting to the server. By default is "
-           "'prodb'");
-    printf("%s%s%s%s\n", indent, "-c, --config-dir=CONFIG_DIR", "\t",
-           "Configuration directory. By default is '/etc/ProDB/'.");
-#else
-    printf("%s%s%s%s\n", indent, "-p, --password", "\t\t",
-           "The password to use when connecting to the server.");
-    printf("%s%s%s%s\n", indent, "-c, --config-dir=CONFIG_DIR", "\t",
-           "Configuration directory.");
-#endif
-    printf("%s%s%s%s\n", indent, "-h, --host=HOST", "\t\t",
-           "TDengine server FQDN to connect. The default host is localhost.");
-    printf("%s%s%s%s\n", indent, "-P, --port=PORT", "\t\t",
-           "The TCP/IP port number to use for the connection.");
-    printf("%s%s%s%s\n", indent, "-I, --interface=INTERFACE", "\t",
-           "The interface (taosc, rest, stmt, and sml(line protocol)) taosdemo "
-           "uses. By default "
-           "use 'taosc'.");
-    printf("%s%s%s%s\n", indent, "-d, --database=DATABASE", "\t",
-           "Destination database. By default is 'test'.");
-    printf("%s%s%s%s\n", indent, "-a, --replica=REPLICA", "\t\t",
-           "Set the replica parameters of the database, By default use 1, min: "
-           "1, max: 3.");
-    printf("%s%s%s%s\n", indent, "-m, --table-prefix=TABLEPREFIX", "\t",
-           "Table prefix name. By default use 'd'.");
-    printf("%s%s%s%s\n", indent, "-E, --escape-character", "\t",
-           "Use escape character for Both Stable and normmal table name");
-    printf("%s%s%s%s\n", indent, "-pressure", "\t",
-           "Use taosdemo pressure mode");
-    printf("%s%s%s%s\n", indent, "-C, --chinese", "\t",
-           "Use chinese characters as the data source for binary/nchar data");
-    printf("%s%s%s%s\n", indent, "-s, --sql-file=FILE", "\t\t",
-           "The select sql file.");
-    printf("%s%s%s%s\n", indent, "-N, --normal-table", "\t\t",
-           "Use normal table flag.");
-    printf("%s%s%s%s\n", indent, "-o, --output=FILE", "\t\t",
-           "Direct output to the named file. By default use './output.txt'.");
-    printf("%s%s%s%s\n", indent, "-q, --query-mode=MODE", "\t\t",
-           "Query mode -- 0: SYNC, 1: ASYNC. By default use SYNC.");
-    printf("%s%s%s%s\n", indent, "-b, --data-type=DATATYPE", "\t",
-           "The col_type of columns, By default use: FLOAT,INT,FLOAT. NCHAR "
-           "and BINARY can also use custom length. Eg: NCHAR(16),BINARY(8)");
-    printf("%s%s%s%s%d\n", indent, "-w, --binwidth=WIDTH", "\t\t",
-           "The width of col_type 'BINARY' or 'NCHAR'. By default use ",
-           g_args.binwidth);
-    printf("%s%s%s%s%d%s%d\n", indent, "-l, --columns=COLUMNS", "\t\t",
-           "The number of columns per record. Demo mode by default is ",
-           DEFAULT_DATATYPE_NUM, " (float, int, float). Max values is ",
-           MAX_NUM_COLUMNS);
-    printf("%s%s%s%s\n", indent, indent, indent,
-           "\t\t\t\tAll of the new column(s) type is INT. If use -b to specify "
-           "column type, -l will be ignored.");
-    printf("%s%s%s%s%d.\n", indent, "-T, --threads=NUMBER", "\t\t",
-           "The number of threads. By default use ", DEFAULT_NTHREADS);
-    printf("%s%s%s%s\n", indent, "-i, --insert-interval=NUMBER", "\t",
-           "The sleep time (ms) between insertion. By default is 0.");
-    printf("%s%s%s%s%d.\n", indent, "-S, --time-step=TIME_STEP", "\t",
-           "The timestamp step between insertion. By default is ",
-           DEFAULT_TIMESTAMP_STEP);
-    printf("%s%s%s%s%d.\n", indent, "-B, --interlace-rows=NUMBER", "\t",
-           "The interlace rows of insertion. By default is ",
-           DEFAULT_INTERLACE_ROWS);
-    printf("%s%s%s%s\n", indent, "-r, --rec-per-req=NUMBER", "\t",
-           "The number of records per request. By default is 30000.");
-    printf("%s%s%s%s\n", indent, "-t, --tables=NUMBER", "\t\t",
-           "The number of tables. By default is 10000.");
-    printf("%s%s%s%s\n", indent, "-n, --records=NUMBER", "\t\t",
-           "The number of records per table. By default is 10000.");
-    printf("%s%s%s%s\n", indent, "-M, --random", "\t\t\t",
-           "The value of records generated are totally random.");
-    printf("%s\n", "\t\t\t\tBy default to simulate power equipment scenario.");
-    printf("%s%s%s%s\n", indent, "-x, --aggr-func", "\t\t",
-           "Test aggregation functions after insertion.");
-    printf("%s%s%s%s\n", indent, "-y, --answer-yes", "\t\t",
-           "Input yes for prompt.");
-    printf("%s%s%s%s\n", indent, "-O, --disorder=NUMBER", "\t\t",
-           "Insert order mode--0: In order, 1 ~ 50: disorder ratio. By default "
-           "is in order.");
-    printf("%s%s%s%s\n", indent, "-R, --disorder-range=NUMBER", "\t",
-           "Out of order data's range. Unit is ms. By default is 1000.");
-    printf("%s%s%s%s\n", indent, "-g, --debug", "\t\t\t", "Print debug info.");
-    printf("%s%s%s%s\n", indent, "-?, --help\t", "\t\t", "Give this help list");
-    printf("%s%s%s%s\n", indent, "    --usage\t", "\t\t",
-           "Give a short usage message");
-    printf("%s%s\n", indent, "-V, --version\t\t\tPrint program version.");
-    /*    printf("%s%s%s%s\n", indent, "-D", indent,
-          "Delete database if exists. 0: no, 1: yes, default is 1");
-          */
-    printf(
-        "\nMandatory or optional arguments to long options are also mandatory or optional\n\
-for any corresponding short options.\n\
-\n\
-Report bugs to <support@taosdata.com>.\n");
-    exit(EXIT_SUCCESS);
-}
-
-void printfInsertMetaToFileStream(FILE *fp) {
+void printfInsertMetaToFileStream(FILE *fp, SArguments *argument,
+                                  SDataBase *pdb) {
     setupForAnsiEscape();
-    SHOW_PARSE_RESULT_START_TO_FILE(fp);
+    SHOW_PARSE_RESULT_START_TO_FILE(fp, argument);
 
-    if (g_args.demo_mode && !g_args.pressure_mode) {
+    if (argument->demo_mode) {
         fprintf(
             fp,
             "\ntaosBenchmark is simulating data generated by power equipment "
             "monitoring...\n\n");
-    } else if (g_args.pressure_mode) {
-        fprintf(fp,
-                "\ntaosBenchmark is simulating data in pressure mode ... \n\n");
     } else {
         fprintf(
             fp,
@@ -383,122 +233,123 @@ void printfInsertMetaToFileStream(FILE *fp) {
     }
 
     fprintf(fp, "interface:                  \033[33m%s\033[0m\n",
-            (g_args.iface == TAOSC_IFACE)
+            (argument->iface == TAOSC_IFACE)
                 ? "taosc"
-                : (g_args.iface == REST_IFACE)
+                : (argument->iface == REST_IFACE)
                       ? "rest"
-                      : (g_args.iface == STMT_IFACE) ? "stmt" : "sml");
+                      : (argument->iface == STMT_IFACE) ? "stmt" : "sml");
 
     fprintf(fp, "host:                       \033[33m%s:%u\033[0m\n",
-            g_args.host, g_args.port);
-    fprintf(fp, "user:                       \033[33m%s\033[0m\n", g_args.user);
+            argument->host, argument->port);
+    fprintf(fp, "user:                       \033[33m%s\033[0m\n",
+            argument->user);
     fprintf(fp, "password:                   \033[33m%s\033[0m\n",
-            g_args.password);
+            argument->password);
     fprintf(fp, "configDir:                  \033[33m%s\033[0m\n", configDir);
     fprintf(fp, "resultFile:                 \033[33m%s\033[0m\n",
-            g_args.output_file);
+            argument->output_file);
     fprintf(fp, "thread num of insert data:  \033[33m%d\033[0m\n",
-            g_args.nthreads);
+            argument->nthreads);
     fprintf(fp, "thread num of create table: \033[33m%d\033[0m\n",
-            g_args.nthreads);
+            argument->nthreads);
     fprintf(fp, "top insert interval:        \033[33m%" PRIu64 "\033[0m\n",
-            g_args.insert_interval);
+            argument->insert_interval);
     fprintf(fp, "number of records per req:  \033[33m%u\033[0m\n",
-            g_args.reqPerReq);
+            argument->reqPerReq);
     fprintf(fp, "random prepare data:        \033[33m%" PRId64 "\033[0m\n",
-            g_args.prepared_rand);
+            argument->prepared_rand);
     fprintf(fp, "chinese:                    \033[33m%s\033[0m\n",
-            g_args.chinese ? "yes" : "no");
+            argument->chinese ? "yes" : "no");
 
     fprintf(fp, "database count:             \033[33m%d\033[0m\n",
-            g_args.dbCount);
+            argument->dbCount);
 
-    for (int i = 0; i < g_args.dbCount; i++) {
+    for (int i = 0; i < argument->dbCount; i++) {
         fprintf(fp, "database[\033[33m%d\033[0m]:\n", i);
         fprintf(fp, "  database[%d] name:      \033[33m%s\033[0m\n", i,
-                db[i].dbName);
-        if (0 == db[i].drop) {
+                pdb[i].dbName);
+        if (0 == pdb[i].drop) {
             fprintf(fp, "  drop:                 \033[33m no\033[0m\n");
         } else {
             fprintf(fp, "  drop:                 \033[33m yes\033[0m\n");
         }
 
-        if (db[i].dbCfg.blocks > 0) {
+        if (pdb[i].dbCfg.blocks > 0) {
             fprintf(fp, "  blocks:                \033[33m%d\033[0m\n",
-                    db[i].dbCfg.blocks);
+                    pdb[i].dbCfg.blocks);
         }
-        if (db[i].dbCfg.cache > 0) {
+        if (pdb[i].dbCfg.cache > 0) {
             fprintf(fp, "  cache:                 \033[33m%d\033[0m\n",
-                    db[i].dbCfg.cache);
+                    pdb[i].dbCfg.cache);
         }
-        if (db[i].dbCfg.days > 0) {
+        if (pdb[i].dbCfg.days > 0) {
             fprintf(fp, "  days:                  \033[33m%d\033[0m\n",
-                    db[i].dbCfg.days);
+                    pdb[i].dbCfg.days);
         }
-        if (db[i].dbCfg.keep > 0) {
+        if (pdb[i].dbCfg.keep > 0) {
             fprintf(fp, "  keep:                  \033[33m%d\033[0m\n",
-                    db[i].dbCfg.keep);
+                    pdb[i].dbCfg.keep);
         }
-        if (db[i].dbCfg.replica > 0) {
+        if (pdb[i].dbCfg.replica > 0) {
             fprintf(fp, "  replica:               \033[33m%d\033[0m\n",
-                    db[i].dbCfg.replica);
+                    pdb[i].dbCfg.replica);
         }
-        if (db[i].dbCfg.update > 0) {
+        if (pdb[i].dbCfg.update > 0) {
             fprintf(fp, "  update:                \033[33m%d\033[0m\n",
-                    db[i].dbCfg.update);
+                    pdb[i].dbCfg.update);
         }
-        if (db[i].dbCfg.minRows > 0) {
+        if (pdb[i].dbCfg.minRows > 0) {
             fprintf(fp, "  minRows:               \033[33m%d\033[0m\n",
-                    db[i].dbCfg.minRows);
+                    pdb[i].dbCfg.minRows);
         }
-        if (db[i].dbCfg.maxRows > 0) {
+        if (pdb[i].dbCfg.maxRows > 0) {
             fprintf(fp, "  maxRows:               \033[33m%d\033[0m\n",
-                    db[i].dbCfg.maxRows);
+                    pdb[i].dbCfg.maxRows);
         }
-        if (db[i].dbCfg.comp > 0) {
+        if (pdb[i].dbCfg.comp > 0) {
             fprintf(fp, "  comp:                  \033[33m%d\033[0m\n",
-                    db[i].dbCfg.comp);
+                    pdb[i].dbCfg.comp);
         }
-        if (db[i].dbCfg.walLevel > 0) {
+        if (pdb[i].dbCfg.walLevel > 0) {
             fprintf(fp, "  walLevel:              \033[33m%d\033[0m\n",
-                    db[i].dbCfg.walLevel);
+                    pdb[i].dbCfg.walLevel);
         }
-        if (db[i].dbCfg.fsync > 0) {
+        if (pdb[i].dbCfg.fsync > 0) {
             fprintf(fp, "  fsync:                 \033[33m%d\033[0m\n",
-                    db[i].dbCfg.fsync);
+                    pdb[i].dbCfg.fsync);
         }
-        if (db[i].dbCfg.quorum > 0) {
+        if (pdb[i].dbCfg.quorum > 0) {
             fprintf(fp, "  quorum:                \033[33m%d\033[0m\n",
-                    db[i].dbCfg.quorum);
+                    pdb[i].dbCfg.quorum);
         }
-        if (db[i].dbCfg.precision[0] != 0) {
-            if ((0 == strncasecmp(db[i].dbCfg.precision, "ms", 2)) ||
-                (0 == strncasecmp(db[i].dbCfg.precision, "us", 2)) ||
-                (0 == strncasecmp(db[i].dbCfg.precision, "ns", 2))) {
+        if (pdb[i].dbCfg.precision[0] != 0) {
+            if ((0 == strncasecmp(pdb[i].dbCfg.precision, "ms", 2)) ||
+                (0 == strncasecmp(pdb[i].dbCfg.precision, "us", 2)) ||
+                (0 == strncasecmp(pdb[i].dbCfg.precision, "ns", 2))) {
                 fprintf(fp, "  precision:             \033[33m%s\033[0m\n",
-                        db[i].dbCfg.precision);
+                        pdb[i].dbCfg.precision);
             } else {
                 fprintf(
                     fp,
                     "\033[1m\033[40;31m  precision error:       %s\033[0m\n",
-                    db[i].dbCfg.precision);
+                    pdb[i].dbCfg.precision);
             }
         }
 
-        if (g_args.use_metric) {
+        if (argument->use_metric) {
             fprintf(fp, "  super table count:     \033[33m%" PRIu64 "\033[0m\n",
-                    db[i].superTblCount);
-            for (uint64_t j = 0; j < db[i].superTblCount; j++) {
+                    pdb[i].superTblCount);
+            for (uint64_t j = 0; j < pdb[i].superTblCount; j++) {
                 fprintf(fp, "  super table[\033[33m%" PRIu64 "\033[0m]:\n", j);
 
                 fprintf(fp, "      stbName:           \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].stbName);
+                        pdb[i].superTbls[j].stbName);
 
-                if (PRE_CREATE_SUBTBL == db[i].superTbls[j].autoCreateTable) {
+                if (PRE_CREATE_SUBTBL == pdb[i].superTbls[j].autoCreateTable) {
                     fprintf(fp, "      autoCreateTable:   \033[33m%s\033[0m\n",
                             "no");
                 } else if (AUTO_CREATE_SUBTBL ==
-                           db[i].superTbls[j].autoCreateTable) {
+                           pdb[i].superTbls[j].autoCreateTable) {
                     fprintf(fp, "      autoCreateTable:   \033[33m%s\033[0m\n",
                             "yes");
                 } else {
@@ -506,11 +357,11 @@ void printfInsertMetaToFileStream(FILE *fp) {
                             "error");
                 }
 
-                if (TBL_NO_EXISTS == db[i].superTbls[j].childTblExists) {
+                if (TBL_NO_EXISTS == pdb[i].superTbls[j].childTblExists) {
                     fprintf(fp, "      childTblExists:    \033[33m%s\033[0m\n",
                             "no");
                 } else if (TBL_ALREADY_EXISTS ==
-                           db[i].superTbls[j].childTblExists) {
+                           pdb[i].superTbls[j].childTblExists) {
                     fprintf(fp, "      childTblExists:    \033[33m%s\033[0m\n",
                             "yes");
                 } else {
@@ -520,84 +371,90 @@ void printfInsertMetaToFileStream(FILE *fp) {
 
                 fprintf(fp,
                         "      childTblCount:     \033[33m%" PRId64 "\033[0m\n",
-                        db[i].superTbls[j].childTblCount);
+                        pdb[i].superTbls[j].childTblCount);
+                fprintf(fp,
+                        "      childTblLimit:     \033[33m%" PRIu64 "\033[0m\n",
+                        pdb[i].superTbls[j].childTblLimit);
+                fprintf(fp,
+                        "      childTblOffset:    \033[33m%" PRIu64 "\033[0m\n",
+                        pdb[i].superTbls[j].childTblOffset);
                 fprintf(fp, "      childTblPrefix:    \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].childTblPrefix);
+                        pdb[i].superTbls[j].childTblPrefix);
                 fprintf(fp, "      dataSource:        \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].dataSource);
+                        pdb[i].superTbls[j].dataSource);
                 fprintf(fp, "      iface:             \033[33m%s\033[0m\n",
-                        (db[i].superTbls[j].iface == TAOSC_IFACE)
+                        (pdb[i].superTbls[j].iface == TAOSC_IFACE)
                             ? "taosc"
-                            : (db[i].superTbls[j].iface == REST_IFACE)
+                            : (pdb[i].superTbls[j].iface == REST_IFACE)
                                   ? "rest"
-                                  : (db[i].superTbls[j].iface == STMT_IFACE)
+                                  : (pdb[i].superTbls[j].iface == STMT_IFACE)
                                         ? "stmt"
                                         : "sml");
-                if (db[i].superTbls[j].iface == SML_IFACE) {
+                if (pdb[i].superTbls[j].iface == SML_IFACE) {
                     fprintf(fp, "      lineProtocol:      \033[33m%s\033[0m\n",
-                            (db[i].superTbls[j].lineProtocol ==
+                            (pdb[i].superTbls[j].lineProtocol ==
                              TSDB_SML_LINE_PROTOCOL)
                                 ? "line"
-                                : (db[i].superTbls[j].lineProtocol ==
+                                : (pdb[i].superTbls[j].lineProtocol ==
                                    TSDB_SML_TELNET_PROTOCOL)
                                       ? "telnet"
                                       : "json");
                 }
-                if (db[i].superTbls[j].childTblOffset > 0) {
+                if (pdb[i].superTbls[j].childTblOffset > 0) {
                     fprintf(fp,
                             "      childTblOffset:    \033[33m%" PRIu64
                             "\033[0m\n",
-                            db[i].superTbls[j].childTblOffset);
+                            pdb[i].superTbls[j].childTblOffset);
                 }
                 fprintf(fp,
                         "      insertRows:        \033[33m%" PRId64 "\033[0m\n",
-                        db[i].superTbls[j].insertRows);
+                        pdb[i].superTbls[j].insertRows);
                 fprintf(fp, "      interlaceRows:     \033[33m%u\033[0m\n",
-                        db[i].superTbls[j].interlaceRows);
+                        pdb[i].superTbls[j].interlaceRows);
 
-                if (db[i].superTbls[j].interlaceRows > 0) {
+                if (pdb[i].superTbls[j].interlaceRows > 0) {
                     fprintf(fp,
                             "      stable insert interval:   \033[33m%" PRIu64
                             "\033[0m\n",
-                            db[i].superTbls[j].insertInterval);
+                            pdb[i].superTbls[j].insertInterval);
                 }
 
                 fprintf(fp, "      disorderRange:     \033[33m%d\033[0m\n",
-                        db[i].superTbls[j].disorderRange);
+                        pdb[i].superTbls[j].disorderRange);
                 fprintf(fp, "      disorderRatio:     \033[33m%d\033[0m\n",
-                        db[i].superTbls[j].disorderRatio);
+                        pdb[i].superTbls[j].disorderRatio);
                 fprintf(fp,
                         "      timeStampStep:     \033[33m%" PRId64 "\033[0m\n",
-                        db[i].superTbls[j].timeStampStep);
+                        pdb[i].superTbls[j].timeStampStep);
                 fprintf(fp, "      startTimestamp:    \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].startTimestamp);
+                        pdb[i].superTbls[j].startTimestamp);
                 fprintf(fp, "      sampleFormat:      \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].sampleFormat);
+                        pdb[i].superTbls[j].sampleFormat);
                 fprintf(fp, "      sampleFile:        \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].sampleFile);
+                        pdb[i].superTbls[j].sampleFile);
                 fprintf(fp, "      useSampleTs:       \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].useSampleTs
+                        pdb[i].superTbls[j].useSampleTs
                             ? "yes (warning: disorderRange/disorderRatio is "
                               "disabled)"
                             : "no");
                 fprintf(fp, "      tagsFile:          \033[33m%s\033[0m\n",
-                        db[i].superTbls[j].tagsFile);
+                        pdb[i].superTbls[j].tagsFile);
                 fprintf(fp,
                         "      columnCount:       \033[33m%d\033[0m\n        ",
-                        db[i].superTbls[j].columnCount);
-                for (int k = 0; k < db[i].superTbls[j].columnCount; k++) {
-                    if ((db[i].superTbls[j].col_type[k] ==
+                        pdb[i].superTbls[j].columnCount);
+                for (int k = 0; k < pdb[i].superTbls[j].columnCount; k++) {
+                    if ((pdb[i].superTbls[j].col_type[k] ==
                          TSDB_DATA_TYPE_NCHAR) ||
-                        (db[i].superTbls[j].col_type[k] ==
+                        (pdb[i].superTbls[j].col_type[k] ==
                          TSDB_DATA_TYPE_BINARY)) {
                         fprintf(fp, "column[%d]:\033[33m%s(%d)\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    db[i].superTbls[j].col_type[k]),
-                                db[i].superTbls[j].col_length[k]);
+                                    pdb[i].superTbls[j].col_type[k]),
+                                pdb[i].superTbls[j].col_length[k]);
                     } else {
                         fprintf(fp, "column[%d]:\033[33m%s\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    db[i].superTbls[j].col_type[k]));
+                                    pdb[i].superTbls[j].col_type[k]));
                     }
                 }
                 fprintf(fp, "\n");
@@ -605,47 +462,47 @@ void printfInsertMetaToFileStream(FILE *fp) {
                 fprintf(
                     fp,
                     "      tagCount:            \033[33m%d\033[0m\n        ",
-                    db[i].superTbls[j].tagCount);
-                for (int k = 0; k < db[i].superTbls[j].tagCount; k++) {
-                    if ((db[i].superTbls[j].tag_type[k] ==
+                    pdb[i].superTbls[j].tagCount);
+                for (int k = 0; k < pdb[i].superTbls[j].tagCount; k++) {
+                    if ((pdb[i].superTbls[j].tag_type[k] ==
                          TSDB_DATA_TYPE_BINARY) ||
-                        (db[i].superTbls[j].tag_type[k] ==
+                        (pdb[i].superTbls[j].tag_type[k] ==
                          TSDB_DATA_TYPE_NCHAR)) {
                         fprintf(fp, "tag[%d]:\033[33m%s(%d)\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    db[i].superTbls[j].tag_type[k]),
-                                db[i].superTbls[j].tag_length[k]);
-                    } else if (db[i].superTbls[j].tag_type[k] ==
+                                    pdb[i].superTbls[j].tag_type[k]),
+                                pdb[i].superTbls[j].tag_length[k]);
+                    } else if (pdb[i].superTbls[j].tag_type[k] ==
                                TSDB_DATA_TYPE_JSON) {
                         fprintf(
                             fp,
                             "tag[%d]:\033[33mjson{key(%d):value(%d)}\033[0m ",
-                            k, db[i].superTbls[j].tagCount,
-                            db[i].superTbls[j].tag_length[k]);
+                            k, pdb[i].superTbls[j].tagCount,
+                            pdb[i].superTbls[j].tag_length[k]);
                         break;
                     } else {
                         fprintf(fp, "tag[%d]:\033[33m%s\033[0m ", k,
                                 taos_convert_datatype_to_string(
-                                    db[i].superTbls[j].tag_type[k]));
+                                    pdb[i].superTbls[j].tag_type[k]));
                     }
                 }
                 fprintf(fp, "\n");
             }
         } else {
             fprintf(fp, "  childTblCount:     \033[33m%" PRId64 "\033[0m\n",
-                    g_args.ntables);
+                    argument->ntables);
             fprintf(fp, "  insertRows:        \033[33m%" PRId64 "\033[0m\n",
-                    g_args.insertRows);
+                    argument->insertRows);
         }
         fprintf(fp, "\n");
     }
 
-    SHOW_PARSE_RESULT_END_TO_FILE(fp);
+    SHOW_PARSE_RESULT_END_TO_FILE(fp, argument);
 }
 
-void printfQueryMeta() {
+void printfQueryMeta(SArguments *argument) {
     setupForAnsiEscape();
-    SHOW_PARSE_RESULT_START_TO_FILE(stdout);
+    SHOW_PARSE_RESULT_START_TO_FILE(stdout, argument);
 
     printf("host:                           \033[33m%s:%u\033[0m\n",
            g_queryInfo.host, g_queryInfo.port);
@@ -656,11 +513,11 @@ void printfQueryMeta() {
     printf("query Mode:                     \033[33m%s\033[0m\n",
            g_queryInfo.queryMode);
     printf("response buffer for restful:    \033[33m%" PRIu64 "\033[0m\n",
-           g_args.response_buffer);
+           g_queryInfo.response_buffer);
     printf("\n");
 
-    if ((SUBSCRIBE_TEST == g_args.test_mode) ||
-        (QUERY_TEST == g_args.test_mode)) {
+    if ((SUBSCRIBE_TEST == argument->test_mode) ||
+        (QUERY_TEST == argument->test_mode)) {
         printf("specified table query info:                   \n");
         printf("    sqlCount:       \033[33m%d\033[0m\n",
                g_queryInfo.specifiedQueryInfo.sqlCount);
@@ -670,8 +527,6 @@ void printfQueryMeta() {
                    g_queryInfo.specifiedQueryInfo.queryTimes);
             printf("    query interval: \033[33m%" PRIu64 " ms\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.queryInterval);
-            printf("    top query times:\033[33m%" PRIu64 "\033[0m\n",
-                   g_args.query_times);
             printf("    concurrent:     \033[33m%d\033[0m\n",
                    g_queryInfo.specifiedQueryInfo.concurrent);
             printf("    interval:       \033[33m%" PRIu64 "\033[0m\n",
@@ -722,7 +577,7 @@ void printfQueryMeta() {
         }
     }
 
-    SHOW_PARSE_RESULT_END_TO_FILE(stdout);
+    SHOW_PARSE_RESULT_END_TO_FILE(stdout, argument);
 }
 
 void printfDbInfoForQueryToFile(char *filename, SDbInfo *dbInfos, int index) {
@@ -786,10 +641,6 @@ void printfQuerySystemInfo(TAOS *taos) {
     res = taos_query(taos, "show databases;");
     SDbInfo **dbInfos =
         (SDbInfo **)calloc(MAX_DATABASE_COUNT, sizeof(SDbInfo *));
-    if (dbInfos == NULL) {
-        errorPrint("%s", "failed to allocate memory\n");
-        return;
-    }
     int dbCount = getDbFromServer(taos, dbInfos);
     if (dbCount <= 0) {
         tmfree(dbInfos);

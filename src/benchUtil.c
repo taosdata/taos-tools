@@ -13,46 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
-
-void errorWrongValue(char *program, char *wrong_arg, char *wrong_value) {
-    fprintf(stderr, "%s %s: %s is an invalid value\n", program, wrong_arg,
-            wrong_value);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
-}
-
-void errorUnrecognized(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: unrecognized options '%s'\n", program, wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
-}
-
-void errorPrintReqArg(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: option requires an argument -- '%s'\n", program,
-            wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
-}
-
-void errorPrintReqArg2(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: option requires a number argument '-%s'\n", program,
-            wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
-}
-
-void errorPrintReqArg3(char *program, char *wrong_arg) {
-    fprintf(stderr, "%s: option '%s' requires an argument\n", program,
-            wrong_arg);
-    fprintf(
-        stderr,
-        "Try `taosdemo --help' or `taosdemo --usage' for more information.\n");
-}
+#include "bench.h"
 
 void tmfclose(FILE *fp) {
     if (NULL != fp) {
@@ -140,19 +101,6 @@ int taosRandom() { return rand(); }
 
 #endif
 
-bool isStringNumber(char *input) {
-    int len = (int)strlen(input);
-    if (0 == len) {
-        return false;
-    }
-
-    for (int i = 0; i < len; i++) {
-        if (!isdigit(input[i])) return false;
-    }
-
-    return true;
-}
-
 char *formatTimestamp(char *buf, int64_t val, int precision) {
     time_t tt;
     if (precision == TSDB_TIME_PRECISION_MICRO) {
@@ -207,10 +155,6 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
 
     if (childTblName == NULL) {
         childTblName = (char *)calloc(1, childTblCount * TSDB_TABLE_NAME_LEN);
-        if (childTblName == NULL) {
-            errorPrint("%s", "failed to allocate memory\n");
-            return -1;
-        }
     }
     char *pTblName = childTblName;
 
@@ -227,7 +171,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
     int32_t code = taos_errno(res);
     if (code != 0) {
         taos_free_result(res);
-        taos_close(taos);
+
         errorPrint("failed to run command %s, reason: %s\n", command,
                    taos_errstr(res));
         return -1;
@@ -257,7 +201,7 @@ int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
                 // exit, if allocate more memory failed
                 tmfree(childTblName);
                 taos_free_result(res);
-                taos_close(taos);
+
                 errorPrint(
                     "realloc fail for save child table name of "
                     "%s.%s\n",
@@ -288,7 +232,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         errorPrint("failed to get child table name: %s. reason: %s", cmd,
                    taos_errstr(res));
         taos_free_result(res);
-        taos_close(taos);
+
         return -1;
     }
     TAOS_ROW row = NULL;
@@ -327,8 +271,8 @@ int convertHostToServAddr(char *host, uint16_t port,
     return 0;
 }
 
-void prompt() {
-    if (!g_args.answer_yes) {
+void prompt(SArguments *arguments) {
+    if (!arguments->answer_yes) {
         printf(
             "\n\n         Press enter key to continue or Ctrl-C to stop\n\n");
         (void)getchar();
@@ -468,15 +412,13 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = calloc(1, req_buf_len);
-    if (NULL == request_buf) {
-        errorPrint("%s", "cannot allocate memory\n");
-        goto free_of_post;
+    uint64_t response_length;
+    if (g_args.test_mode == INSERT_TEST) {
+        response_length = RESP_BUF_LEN;
+    } else {
+        response_length = g_queryInfo.response_buffer;
     }
-    response_buf = calloc(1, g_args.response_buffer);
-    if (NULL == response_buf) {
-        errorPrint("%s", "cannot allocate memory\n");
-        goto free_of_post;
-    }
+    response_buf = calloc(1, response_length);
     char userpass_buf[INPUT_BUF_LEN];
     int  mod_table[] = {0, 2, 1};
 
@@ -528,7 +470,6 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         free(request_buf);
         ERROR_EXIT("too long request");
     }
-    verbosePrint("%s() LN%d: Request:\n%s\n", __func__, __LINE__, request_buf);
 
     req_str_len = (int)strlen(request_buf);
     sent = 0;
@@ -548,7 +489,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         sent += bytes;
     } while (sent < req_str_len);
 
-    resp_len = g_args.response_buffer - 1;
+    resp_len = response_length - 1;
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
@@ -610,13 +551,6 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
     char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
-    if (databuf == NULL) {
-        errorPrint(
-            "%s() LN%d, failed to malloc, warning: save result to file "
-            "slowly!\n",
-            __func__, __LINE__);
-        return;
-    }
 
     int64_t totalLen = 0;
 
@@ -635,12 +569,8 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         // printf("query result:%s\n", temp);
         memcpy(databuf + totalLen, temp, len);
         totalLen += len;
-        verbosePrint("%s() LN%d, totalLen: %" PRId64 "\n", __func__, __LINE__,
-                     totalLen);
     }
 
-    verbosePrint("%s() LN%d, databuf=%s resultFile=%s\n", __func__, __LINE__,
-                 databuf, pThreadInfo->filePath);
     if (strlen(pThreadInfo->filePath) > 0) {
         appendResultBufToFile(databuf, pThreadInfo);
     }
@@ -719,4 +649,44 @@ int taos_convert_string_to_datatype(char *type) {
     } else {
         return TSDB_DATA_TYPE_NULL;
     }
+}
+
+int init_taos_list(TAOS_POOL *pool, int size) {
+    pool->taos_list = calloc(size, sizeof(TAOS *));
+    pool->current = 0;
+    pool->size = size;
+    for (int i = 0; i < size; ++i) {
+        pool->taos_list[i] = taos_connect(g_args.host, g_args.user,
+                                          g_args.password, NULL, g_args.port);
+        if (pool->taos_list[i] == NULL) {
+            errorPrint("Failed to connect to TDengine, reason:%s\n",
+                       taos_errstr(NULL));
+            return -1;
+        }
+    }
+    return 0;
+}
+
+TAOS *select_one_from_pool(TAOS_POOL *pool, char *db_name) {
+    TAOS *taos = pool->taos_list[pool->current];
+    if (db_name != NULL) {
+        int code = taos_select_db(taos, db_name);
+        if (code) {
+            errorPrint("failed to select %s, reason: %s\n", db_name,
+                       tstrerror(code));
+            return NULL;
+        }
+    }
+    pool->current++;
+    if (pool->current >= pool->size) {
+        pool->current = 0;
+    }
+    return taos;
+}
+
+void cleanup_taos_list(TAOS_POOL *pool) {
+    for (int i = 0; i < pool->size; ++i) {
+        taos_close(pool->taos_list[i]);
+    }
+    tmfree(pool->taos_list);
 }

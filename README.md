@@ -1,6 +1,8 @@
-# taos-tools
-[![codecov](https://codecov.io/gh/taosdata/taos-tools/branch/develop/graph/badge.svg?token=W7Z6XKIKV9)](https://codecov.io/gh/taosdata/taos-tools)
-taos-tools are some useful tool collections for TDengine.
+# taosTools
+[![CI](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml)
+[![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
+
+taosTools are some useful tool collections for TDengine.
 
 # How to build from source?
 
@@ -13,7 +15,7 @@ sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 
 ### For CentOS
 ```
-sudo yum install xz-devel snappy-devel jansson-devel pkgconfig libatomic
+sudo yum install zlib-devel xz-devel snappy-devel jansson-devel pkgconfig libatomic
 ```
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)), it lead a cmake prompt libsnappy not found. But snappy will works well.
 

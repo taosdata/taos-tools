@@ -13,7 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
+#include "bench.h"
 
 int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                                           SSuperTable *superTbls) {
@@ -71,9 +71,14 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
+            if (length > TSDB_MAX_BINARY_LEN) {
+                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
+                           ")\n",
+                           length, TSDB_MAX_BINARY_LEN);
+                goto PARSE_OVER;
+            }
         } else if (dataLen && dataLen->type != cJSON_Number) {
-            errorPrint("%s() LN%d: failed to read json, column len not found\n",
-                       __func__, __LINE__);
+            errorPrint("%s", "failed to read json, column len not found\n");
             goto PARSE_OVER;
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
@@ -167,7 +172,13 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         int    data_length = SMALL_BUFF_LEN;
         cJSON *dataLen = cJSON_GetObjectItem(tag, "len");
         if (dataLen && dataLen->type == cJSON_Number) {
-            data_length = (uint32_t)dataLen->valueint;
+            data_length = (int32_t)dataLen->valueint;
+            if (data_length > TSDB_MAX_BINARY_LEN) {
+                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
+                           ")\n",
+                           data_length, TSDB_MAX_BINARY_LEN);
+                goto PARSE_OVER;
+            }
         } else if (dataLen && dataLen->type != cJSON_Number) {
             errorPrint("%s", "failed to read json, column len not found\n");
             goto PARSE_OVER;
@@ -223,7 +234,7 @@ PARSE_OVER:
     return code;
 }
 
-int getMetaFromInsertJsonFile(cJSON *json) {
+int getMetaFromInsertJsonFile(cJSON *json, SArguments *argument) {
     int32_t code = -1;
 
     cJSON *cfgdir = cJSON_GetObjectItem(json, "cfgdir");
@@ -233,38 +244,48 @@ int getMetaFromInsertJsonFile(cJSON *json) {
 
     cJSON *host = cJSON_GetObjectItem(json, "host");
     if (host && host->type == cJSON_String && host->valuestring != NULL) {
-        g_args.host = host->valuestring;
+        argument->host = host->valuestring;
     }
 
     cJSON *port = cJSON_GetObjectItem(json, "port");
     if (port && port->type == cJSON_Number) {
-        g_args.port = (uint16_t)port->valueint;
+        argument->port = (uint16_t)port->valueint;
     }
 
     cJSON *user = cJSON_GetObjectItem(json, "user");
     if (user && user->type == cJSON_String && user->valuestring != NULL) {
-        g_args.user = user->valuestring;
+        argument->user = user->valuestring;
     }
 
     cJSON *password = cJSON_GetObjectItem(json, "password");
     if (password && password->type == cJSON_String &&
         password->valuestring != NULL) {
-        g_args.password = password->valuestring;
+        argument->password = password->valuestring;
     }
 
     cJSON *resultfile = cJSON_GetObjectItem(json, "result_file");
     if (resultfile && resultfile->type == cJSON_String &&
         resultfile->valuestring != NULL) {
-        g_args.output_file = resultfile->valuestring;
+        argument->output_file = resultfile->valuestring;
     }
 
     cJSON *threads = cJSON_GetObjectItem(json, "thread_count");
     if (threads && threads->type == cJSON_Number) {
-        g_args.nthreads = (uint32_t)threads->valueint;
+        argument->nthreads = (uint32_t)threads->valueint;
     } else if (!threads) {
-        g_args.nthreads = DEFAULT_NTHREADS;
+        argument->nthreads = DEFAULT_NTHREADS;
     } else {
         errorPrint("%s", "failed to read json, threads not found\n");
+        goto PARSE_OVER;
+    }
+
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        argument->nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        argument->nthreads_pool = argument->nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
         goto PARSE_OVER;
     }
 
@@ -275,9 +296,9 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                        "failed to read json, insert interval input mistake\n");
             goto PARSE_OVER;
         }
-        g_args.insert_interval = gInsertInterval->valueint;
+        argument->insert_interval = gInsertInterval->valueint;
     } else if (!gInsertInterval) {
-        g_args.insert_interval = DEFAULT_INSERT_INTERVAL;
+        argument->insert_interval = 0;
     } else {
         errorPrint("%s",
                    "failed to read json, insert_interval input mistake\n");
@@ -291,12 +312,11 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                        "failed to read json, interlaceRows input mistake\n");
             goto PARSE_OVER;
         }
-        g_args.interlaceRows = (uint32_t)interlaceRows->valueint;
+        argument->interlaceRows = (uint32_t)interlaceRows->valueint;
     } else if (!interlaceRows) {
-        g_args.interlaceRows =
-            DEFAULT_INTERLACE_ROWS;  // 0 means progressive mode, > 0 mean
-                                     // interlace mode. max value is less or equ
-                                     // num_of_records_per_req
+        argument->interlaceRows = 0;  // 0 means progressive mode, > 0 mean
+                                      // interlace mode. max value is less or
+                                      // equ num_of_records_per_req
     } else {
         errorPrint("%s", "failed to read json, interlaceRows input mistake\n");
         goto PARSE_OVER;
@@ -310,20 +330,10 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 "mistake\n",
                 __func__, __LINE__);
             goto PARSE_OVER;
-        } else if (numRecPerReq->valueint > MAX_RECORDS_PER_REQ) {
-            printf("NOTICE: number of records per request value %" PRIu64
-                   " > %d\n\n",
-                   numRecPerReq->valueint, MAX_RECORDS_PER_REQ);
-            printf(
-                "        number of records per request value will be set to "
-                "%d\n\n",
-                MAX_RECORDS_PER_REQ);
-            prompt();
-            numRecPerReq->valueint = MAX_RECORDS_PER_REQ;
         }
-        g_args.reqPerReq = (uint32_t)numRecPerReq->valueint;
+        argument->reqPerReq = (uint32_t)numRecPerReq->valueint;
     } else if (!numRecPerReq) {
-        g_args.reqPerReq = MAX_RECORDS_PER_REQ;
+        argument->reqPerReq = MAX_RECORDS_PER_REQ;
     } else {
         errorPrint(
             "%s() LN%d, failed to read json, num_of_records_per_req not "
@@ -340,9 +350,9 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 __func__, __LINE__);
             goto PARSE_OVER;
         }
-        g_args.prepared_rand = prepareRand->valueint;
+        argument->prepared_rand = prepareRand->valueint;
     } else if (!prepareRand) {
-        g_args.prepared_rand = DEFAULT_PREPARED_RAND;
+        argument->prepared_rand = DEFAULT_PREPARED_RAND;
     } else {
         errorPrint("%s", "failed to read json, prepared_rand not found\n");
         goto PARSE_OVER;
@@ -352,14 +362,14 @@ int getMetaFromInsertJsonFile(cJSON *json) {
     if (chineseOpt && chineseOpt->type == cJSON_String &&
         chineseOpt->valuestring != NULL) {
         if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
-            g_args.chinese = true;
+            argument->chinese = true;
         } else if (0 == strncasecmp(chineseOpt->valuestring, "no", 2)) {
-            g_args.chinese = false;
+            argument->chinese = false;
         } else {
-            g_args.chinese = DEFAULT_CHINESE_OPT;
+            argument->chinese = false;
         }
     } else if (!chineseOpt) {
-        g_args.chinese = DEFAULT_CHINESE_OPT;
+        argument->chinese = false;
     } else {
         errorPrint("%s", "failed to read json, chinese input mistake\n");
         goto PARSE_OVER;
@@ -370,14 +380,14 @@ int getMetaFromInsertJsonFile(cJSON *json) {
     if (answerPrompt && answerPrompt->type == cJSON_String &&
         answerPrompt->valuestring != NULL) {
         if (0 == strncasecmp(answerPrompt->valuestring, "yes", 3)) {
-            g_args.answer_yes = false;
+            argument->answer_yes = false;
         } else if (0 == strncasecmp(answerPrompt->valuestring, "no", 2)) {
-            g_args.answer_yes = true;
+            argument->answer_yes = true;
         } else {
-            g_args.answer_yes = DEFAULT_ANS_YES;
+            argument->answer_yes = false;
         }
     } else if (!answerPrompt) {
-        g_args.answer_yes = true;  // default is no, mean answer_yes.
+        argument->answer_yes = true;  // default is no, mean answer_yes.
     } else {
         errorPrint(
             "%s",
@@ -386,16 +396,16 @@ int getMetaFromInsertJsonFile(cJSON *json) {
     }
 
     // rows per table need be less than insert batch
-    if (g_args.interlaceRows > g_args.reqPerReq) {
+    if (argument->interlaceRows > argument->reqPerReq) {
         printf(
             "NOTICE: interlace rows value %u > num_of_records_per_req %u\n\n",
-            g_args.interlaceRows, g_args.reqPerReq);
+            argument->interlaceRows, argument->reqPerReq);
         printf(
             "        interlace rows value will be set to "
             "num_of_records_per_req %u\n\n",
-            g_args.reqPerReq);
-        prompt();
-        g_args.interlaceRows = g_args.reqPerReq;
+            argument->reqPerReq);
+        prompt(argument);
+        argument->interlaceRows = argument->reqPerReq;
     }
 
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
@@ -413,7 +423,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         goto PARSE_OVER;
     }
     db = calloc(dbSize, sizeof(SDataBase));
-    g_args.dbCount = dbSize;
+    argument->dbCount = dbSize;
     for (int i = 0; i < dbSize; ++i) {
         cJSON *dbinfos = cJSON_GetArrayItem(dbs, i);
         if (dbinfos == NULL) continue;
@@ -441,7 +451,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 db[i].drop = false;
             }
         } else if (!drop) {
-            db[i].drop = g_args.drop_database;
+            db[i].drop = true;
         } else {
             errorPrint("%s", "failed to read json, drop input mistake\n");
             goto PARSE_OVER;
@@ -519,18 +529,6 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             goto PARSE_OVER;
         }
 
-        // cJSON* maxtablesPerVnode= cJSON_GetObjectItem(dbinfo,
-        // "maxtablesPerVnode"); if (maxtablesPerVnode &&
-        // maxtablesPerVnode->type
-        // == cJSON_Number) {
-        //  db[i].dbCfg.maxtablesPerVnode = maxtablesPerVnode->valueint;
-        //} else if (!maxtablesPerVnode) {
-        //  db[i].dbCfg.maxtablesPerVnode = TSDB_DEFAULT_TABLES;
-        //} else {
-        // printf("failed to read json, maxtablesPerVnode not found");
-        // goto PARSE_OVER;
-        //}
-
         cJSON *minRows = cJSON_GetObjectItem(dbinfo, "minRows");
         if (minRows && minRows->type == cJSON_Number) {
             db[i].dbCfg.minRows = (uint32_t)minRows->valueint;
@@ -585,7 +583,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
         if (quorum && quorum->type == cJSON_Number) {
             db[i].dbCfg.quorum = (int)quorum->valueint;
         } else if (!quorum) {
-            db[i].dbCfg.quorum = 1;
+            db[i].dbCfg.quorum = -1;
         } else {
             errorPrint("%s", "failed to read json, quorum input mistake");
             goto PARSE_OVER;
@@ -673,7 +671,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                            strncasecmp(autoCreateTbl->valuestring, "no", 2)) {
                     db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
                 } else {
-                    db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
+                    db[i].superTbls[j].autoCreateTable = AUTO_CREATE_SUBTBL;
                 }
             } else if (!autoCreateTbl) {
                 db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
@@ -732,7 +730,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 goto PARSE_OVER;
             }
             db[i].superTbls[j].childTblCount = count->valueint;
-            g_totalChildTables += db[i].superTbls[j].childTblCount;
+            argument->g_totalChildTables += db[i].superTbls[j].childTblCount;
 
             cJSON *dataSource = cJSON_GetObjectItem(stbInfo, "data_source");
             if (dataSource && dataSource->type == cJSON_String &&
@@ -768,7 +766,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                         goto PARSE_OVER;
                     }
                     db[i].superTbls[j].iface = SML_IFACE;
-                    g_args.iface = SML_IFACE;
+                    argument->iface = SML_IFACE;
                 } else {
                     errorPrint(
                         "failed to read json, insert_mode %s not recognized\n",
@@ -818,11 +816,18 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                     goto PARSE_OVER;
                 } else if (childTbl_limit->valueint < 0) {
                     infoPrint("childTbl_limit(%" PRId64
-                              ") less than 0, ignore it\n",
-                              childTbl_limit->valueint);
+                              ") less than 0, ignore it and set to "
+                              "%" PRId64 "\n",
+                              childTbl_limit->valueint,
+                              db[i].superTbls[j].childTblCount);
+                    db[i].superTbls[j].childTblLimit =
+                        db[i].superTbls[j].childTblCount;
                 } else {
-                    db[i].superTbls[j].childTblCount = childTbl_limit->valueint;
+                    db[i].superTbls[j].childTblLimit = childTbl_limit->valueint;
                 }
+            } else {
+                db[i].superTbls[j].childTblLimit =
+                    db[i].superTbls[j].childTblCount;
             }
 
             cJSON *childTbl_offset =
@@ -857,7 +862,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
             if (timestampStep && timestampStep->type == cJSON_Number) {
                 db[i].superTbls[j].timeStampStep = timestampStep->valueint;
             } else if (!timestampStep) {
-                db[i].superTbls[j].timeStampStep = g_args.timestamp_step;
+                db[i].superTbls[j].timeStampStep = argument->timestamp_step;
             } else {
                 errorPrint("%s",
                            "failed to read json, timestamp_step not found\n");
@@ -970,15 +975,16 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                         "        interlace rows value will be set to "
                         "insert_rows %" PRId64 "\n\n",
                         db[i].superTbls[j].insertRows);
-                    prompt();
+                    prompt(argument);
                     db[i].superTbls[j].interlaceRows =
                         (uint32_t)db[i].superTbls[j].insertRows;
                 }
             } else if (!stbInterlaceRows) {
                 db[i].superTbls[j].interlaceRows =
-                    g_args.interlaceRows;  // 0 means progressive mode, > 0 mean
-                                           // interlace mode. max value is less
-                                           // or equ num_of_records_per_req
+                    argument
+                        ->interlaceRows;  // 0 means progressive mode, > 0 mean
+                                          // interlace mode. max value is less
+                                          // or equ num_of_records_per_req
             } else {
                 errorPrint(
                     "%s",
@@ -1028,16 +1034,13 @@ int getMetaFromInsertJsonFile(cJSON *json) {
                 infoPrint(
                     "stable insert interval be overrode by global "
                     "%" PRIu64 ".\n",
-                    g_args.insert_interval);
-                db[i].superTbls[j].insertInterval = g_args.insert_interval;
+                    argument->insert_interval);
+                db[i].superTbls[j].insertInterval = argument->insert_interval;
             } else {
                 errorPrint(
                     "%s",
                     "failed to read json, insert_interval input mistake\n");
                 goto PARSE_OVER;
-            }
-            if (!db[i].drop) {
-                continue;
             }
 
             if (getColumnAndTagTypeFromInsertJsonFile(stbInfo,
@@ -1052,7 +1055,7 @@ int getMetaFromInsertJsonFile(cJSON *json) {
 PARSE_OVER:
     return code;
 }
-int getMetaFromQueryJsonFile(cJSON *json) {
+int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
     int32_t code = -1;
 
     cJSON *cfgdir = cJSON_GetObjectItem(json, "cfgdir");
@@ -1082,7 +1085,6 @@ int getMetaFromQueryJsonFile(cJSON *json) {
         tstrncpy(g_queryInfo.user, user->valuestring, MAX_USERNAME_SIZE);
     } else if (!user) {
         tstrncpy(g_queryInfo.user, TSDB_DEFAULT_USER, MAX_USERNAME_SIZE);
-        ;
     }
 
     cJSON *password = cJSON_GetObjectItem(json, "password");
@@ -1101,14 +1103,14 @@ int getMetaFromQueryJsonFile(cJSON *json) {
     if (answerPrompt && answerPrompt->type == cJSON_String &&
         answerPrompt->valuestring != NULL) {
         if (0 == strncasecmp(answerPrompt->valuestring, "yes", 3)) {
-            g_args.answer_yes = false;
+            argument->answer_yes = false;
         } else if (0 == strncasecmp(answerPrompt->valuestring, "no", 2)) {
-            g_args.answer_yes = true;
+            argument->answer_yes = true;
         } else {
-            g_args.answer_yes = false;
+            argument->answer_yes = false;
         }
     } else if (!answerPrompt) {
-        g_args.answer_yes = false;
+        argument->answer_yes = false;
     } else {
         errorPrint("%s",
                    "failed to read json, confirm_parameter_prompt not found\n");
@@ -1122,11 +1124,21 @@ int getMetaFromQueryJsonFile(cJSON *json) {
                        "failed to read json, query_times input mistake\n");
             goto PARSE_OVER;
         }
-        g_args.query_times = gQueryTimes->valueint;
+        g_queryInfo.query_times = gQueryTimes->valueint;
     } else if (!gQueryTimes) {
-        g_args.query_times = DEFAULT_QUERY_TIME;
+        g_queryInfo.query_times = DEFAULT_QUERY_TIME;
     } else {
         errorPrint("%s", "failed to read json, query_times input mistake\n");
+        goto PARSE_OVER;
+    }
+
+    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    if (threadspool && threadspool->type == cJSON_Number) {
+        argument->nthreads_pool = (uint32_t)threadspool->valueint;
+    } else if (!threadspool) {
+        argument->nthreads_pool = argument->nthreads + 5;
+    } else {
+        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
         goto PARSE_OVER;
     }
 
@@ -1137,9 +1149,9 @@ int getMetaFromQueryJsonFile(cJSON *json) {
                        "failed to read json, response_buffer input mistake\n");
             goto PARSE_OVER;
         }
-        g_args.response_buffer = respBuffer->valueint;
+        g_queryInfo.response_buffer = respBuffer->valueint;
     } else if (!respBuffer) {
-        g_args.response_buffer = RESP_BUF_LEN;
+        g_queryInfo.response_buffer = RESP_BUF_LEN;
     } else {
         errorPrint("%s", "failed to read json, query_times input mistake\n");
         goto PARSE_OVER;
@@ -1196,7 +1208,7 @@ int getMetaFromQueryJsonFile(cJSON *json) {
             g_queryInfo.specifiedQueryInfo.queryTimes =
                 specifiedQueryTimes->valueint;
         } else if (!specifiedQueryTimes) {
-            g_queryInfo.specifiedQueryInfo.queryTimes = g_args.query_times;
+            g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         } else {
             errorPrint(
                 "%s() LN%d, failed to read json, query_times input mistake\n",
@@ -1382,7 +1394,7 @@ int getMetaFromQueryJsonFile(cJSON *json) {
             }
             g_queryInfo.superQueryInfo.queryTimes = superQueryTimes->valueint;
         } else if (!superQueryTimes) {
-            g_queryInfo.superQueryInfo.queryTimes = g_args.query_times;
+            g_queryInfo.superQueryInfo.queryTimes = g_queryInfo.query_times;
         } else {
             errorPrint("%s",
                        "failed to read json, query_times input mistake\n");
@@ -1557,7 +1569,7 @@ PARSE_OVER:
     return code;
 }
 
-int getInfoFromJsonFile(char *file) {
+int getInfoFromJsonFile(char *file, SArguments *argument) {
     debugPrint("%s %d %s\n", __func__, __LINE__, file);
     int32_t code = -1;
     FILE *  fp = fopen(file, "r");
@@ -1587,29 +1599,29 @@ int getInfoFromJsonFile(char *file) {
     if (filetype && filetype->type == cJSON_String &&
         filetype->valuestring != NULL) {
         if (0 == strcasecmp("insert", filetype->valuestring)) {
-            g_args.test_mode = INSERT_TEST;
+            argument->test_mode = INSERT_TEST;
         } else if (0 == strcasecmp("query", filetype->valuestring)) {
-            g_args.test_mode = QUERY_TEST;
+            argument->test_mode = QUERY_TEST;
         } else if (0 == strcasecmp("subscribe", filetype->valuestring)) {
-            g_args.test_mode = SUBSCRIBE_TEST;
+            argument->test_mode = SUBSCRIBE_TEST;
         } else {
             errorPrint("%s", "failed to read json, filetype not support\n");
             goto PARSE_OVER;
         }
     } else if (!filetype) {
-        g_args.test_mode = INSERT_TEST;
+        argument->test_mode = INSERT_TEST;
     } else {
         errorPrint("%s", "failed to read json, filetype not found\n");
         goto PARSE_OVER;
     }
 
-    if (INSERT_TEST == g_args.test_mode) {
-        g_args.use_metric = g_args.use_metric;
-        code = getMetaFromInsertJsonFile(root);
-    } else if ((QUERY_TEST == g_args.test_mode) ||
-               (SUBSCRIBE_TEST == g_args.test_mode)) {
+    if (INSERT_TEST == argument->test_mode) {
+        argument->use_metric = argument->use_metric;
+        code = getMetaFromInsertJsonFile(root, argument);
+    } else if ((QUERY_TEST == argument->test_mode) ||
+               (SUBSCRIBE_TEST == argument->test_mode)) {
         memset(&g_queryInfo, 0, sizeof(SQueryMetaInfo));
-        code = getMetaFromQueryJsonFile(root);
+        code = getMetaFromQueryJsonFile(root, argument);
     } else {
         errorPrint("%s",
                    "input json file type error! please input correct file "

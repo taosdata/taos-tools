@@ -13,47 +13,30 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "demo.h"
-int64_t        g_totalChildTables = DEFAULT_CHILDTABLES;
-int64_t        g_actualChildTables = 0;
-int64_t        g_autoCreatedChildTables = 0;
-int64_t        g_existedChildTables = 0;
+#include "bench.h"
 FILE *         g_fpOfInsertResult = NULL;
 SDataBase *    db;
 SArguments     g_args;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
-bool           custom_col_num = false;
 cJSON *        root;
 
 int main(int argc, char *argv[]) {
-    init_g_args(&g_args);
-    if (parse_args(argc, argv, &g_args)) {
-        exit(EXIT_FAILURE);
-    }
-
+    init_argument(&g_args);
+    commandLineParseArgument(argc, argv, &g_args);
     if (g_args.metaFile) {
-        g_totalChildTables = 0;
-        if (getInfoFromJsonFile(g_args.metaFile)) {
+        g_args.g_totalChildTables = 0;
+        if (getInfoFromJsonFile(g_args.metaFile, &g_args)) {
             exit(EXIT_FAILURE);
         }
     } else {
         db = calloc(1, sizeof(SDataBase));
         db[0].superTbls = calloc(1, sizeof(SSuperTable));
-        setParaFromArg(&g_args);
-        if (NULL != g_args.sqlFile) {
-            TAOS *qtaos = taos_connect(g_args.host, g_args.user,
-                                       g_args.password, NULL, g_args.port);
-            if (querySqlFile(qtaos, g_args.sqlFile)) {
-                taos_close(qtaos);
-                exit(EXIT_FAILURE);
-            }
-            taos_close(qtaos);
-        }
+        setParaFromArg(&g_args, db);
     }
-    if (test(&g_args)) {
+    if (test(&g_args, db)) {
         exit(EXIT_FAILURE);
     }
-    postFreeResource();
+    postFreeResource(&g_args, db);
     return 0;
 }
