@@ -66,7 +66,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug > /dev/null
           make > /dev/null
           sudo make install > /dev/null
           ./build/bin/taosBenchmark --help
@@ -81,83 +81,84 @@ jobs:
 
           # test codec
           ./build/bin/taosBenchmark -t 2 -n 10 -y > /dev/null
-          ./build/bin/taosdump -D test -d null
+          ./build/bin/taosdump -D test -d null -gg > /dev/null
           rm -f *.sql *.avro*
-          ./build/bin/taosdump -D test -d snappy
+          ./build/bin/taosdump -D test -d snappy -gg > /dev/null
           rm -f *.sql *.avro*
-          ./build/bin/taosdump -D test -d deflate
+          ./build/bin/taosdump -D test -d deflate -gg > /dev/null
           rm -f *.sql *.avro*
-          ./build/bin/taosdump -D test -d lzma
+          ./build/bin/taosdump -D test -d lzma -gg > /dev/null
           rm -f *.sql *.avro*
-          ./build/bin/taosdump -D test -d lzma
+          ./build/bin/taosdump -D test -d lzma -gg > /dev/null
           rm -f *.sql *.avro*
-          ./build/bin/taosdump -D test -d unknown
+          ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
           # test human time
-          ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004'
+          ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004' -g > /dev/null
           rm -f *.sql *.avro*
 
           # test normal table
           ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
-          ./build/bin/taosdump -D test -gg
+          ./build/bin/taosdump -D test -gg > /dev/null
           rm -f *.sql *.avro*
 
           cd src/kit/taos-tools/
-          ctest --verbose
+          ctest --verbose > /dev/null
           cd ../../../../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
-          python3 ./test.py -f tools/taosdumpTest.py
-          python3 ./test.py -f tools/taosdumpTest2.py
-          python3 ./test.py -f tools/taosdumpTest3.py
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+          python3 ./test.py -f tools/taosdumpTest.py > /dev/null
+          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
+          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null
+          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null
 
-          python3 test.py -f tools/taosdemoTest.py
-          python3 test.py -f tools/taosdemoTestWithoutMetric.py
-          python3 test.py -f tools/taosdemoTestWithJson.py
-          python3 test.py -f tools/taosdemoTestLimitOffset.py
-          python3 test.py -f tools/taosdemoTestTblAlt.py
-          python3 test.py -f tools/taosdemoTestSampleData.py
+          python3 test.py -f tools/taosdemoTest.py > /dev/null
+          python3 test.py -f tools/taosdemoTestInterlace.py > /dev/null
+          python3 test.py -f tools/taosdemoTestWithoutMetric.py > /dev/null
+          python3 test.py -f tools/taosdemoTestWithJson.py > /dev/null
+          python3 test.py -f tools/taosdemoTestLimitOffset.py > /dev/null
+          python3 test.py -f tools/taosdemoTestTblAlt.py > /dev/null
+          python3 test.py -f tools/taosdemoTestSampleData.py > /dev/null
 
-          python3 test.py -f tools/taosdemoTestQuery.py
-          python3 ./test.py -f tools/taosdemoTestdatatype.py
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py
+          python3 test.py -f tools/taosdemoTestQuery.py > /dev/null
+          python3 ./test.py -f tools/taosdemoTestdatatype.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py > /dev/null
 
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py
-          python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insert4096columns_not_use_taosdemo.py
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonStmt.py
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertShell.py
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/TD-5213/insert4096columns_not_use_taosdemo.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonStmt.py  > /dev/null 
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py > /dev/null
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertShell.py > /dev/null
 
           cd ../develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
           cd ../system-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
           cd ../develop-test
           if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
           cd ../system-test
           if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: Generate report
