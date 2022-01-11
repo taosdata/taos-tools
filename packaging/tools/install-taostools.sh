@@ -80,17 +80,21 @@ function install_bin() {
     ${csudo} rm -f ${bin_link_dir}/taosdemo         || :
     ${csudo} rm -f ${bin_link_dir}/taosBenchmark    || :
     ${csudo} rm -f ${bin_link_dir}/taosdump         || :
+    ${csudo} rm -f ${bin_link_dir}/rmtaostools      || :
 
     ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosdump ${install_main_dir}/bin/taosdump
     ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosBenchmark
+    ${csudo} /usr/bin/install -c -m 755 ${script_dir}/uninstall-taostools.sh ${install_main_dir}/bin/uninstall-taostools.sh
     ${csudo} ln -sf ${install_main_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosdemo
     #Make link
     [[ -x ${install_main_dir}/bin/taosBenchmark ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark  || :
+        ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark        || :
     [[ -x ${install_main_dir}/bin/taosdemo ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo            || :
+        ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo                  || :
     [[ -x ${install_main_dir}/bin/taosdump ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump            || :
+        ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump                  || :
+    [[ -x ${install_main_dir}/bin/uninstall-taostools.sh ]] && \
+        ${csudo} ln -s ${install_main_dir}/bin/uninstall-taostools.sh ${bin_link_dir}/rmtaostools || :
 }
 
 function install_avro() {
@@ -134,35 +138,5 @@ function install_taostools() {
     echo -e "\033[44;32;1mtaos tools is installed successfully!${NC}"
 }
 
-function uninstall_bin() {
-    # Remove links
-    ${csudo} rm -f ${bin_link_dir}/taosdemo         || :
-    ${csudo} rm -f ${bin_link_dir}/taosBenchmark    || :
-    ${csudo} rm -f ${bin_link_dir}/taosdump         || :
-
-    ${csudo} rm -f ${install_main_dir}/bin/taosdemo         || :
-    ${csudo} rm -f ${install_main_dir}/bin/taosBenchmark    || :
-    ${csudo} rm -f ${install_main_dir}/bin/taosdump         || :
-}
-
-
-function uninstall_taostools() {
-    # Start to uninstall
-    echo -e "${GREEN}Start to uninstall taos tools ...${NC}"
-
-    kill_process taosdemo
-    kill_process taosBenchmark
-    kill_process taosdump
-    
-    uninstall_bin
-
-    echo
-    echo -e "\033[44;32;1mtaos tools is uninstalled successfully!${NC}"
-}
-
 ## ==============================Main program starts from here============================
-if [ "$1" == "uninstall" ]; then
-    uninstall_taostools
-else
-    install_taostools
-fi
+install_taostools
