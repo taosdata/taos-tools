@@ -247,7 +247,7 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
             arguments->nthreads);
     fprintf(fp, "number of records per req:  \033[33m%u\033[0m\n",
             arguments->reqPerReq);
-    fprintf(fp, "random prepare data size:        \033[33m%" PRId64 "\033[0m\n",
+    fprintf(fp, "random prepare data size:   \033[33m%" PRId64 "\033[0m\n",
             arguments->prepared_rand);
     fprintf(fp, "chinese:                    \033[33m%s\033[0m\n",
             arguments->chinese ? "yes" : "no");
@@ -361,6 +361,8 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                     database[i].superTbls[j].childTblOffset);
             fprintf(fp, "      childTblPrefix:    \033[33m%s\033[0m\n",
                     database[i].superTbls[j].childTblPrefix);
+            fprintf(fp, "      escapeCharacter:   \033[33m%s\033[0m\n",
+                    database[i].superTbls[j].escape_character ? "yes" : "no");
             if (database[i].superTbls[j].random_data_source) {
                 fprintf(fp, "      dataSource:        \033[33m%s\033[0m\n",
                         "random");
@@ -653,4 +655,3 @@ void printStatPerThread(threadInfo *pThreadInfo) {
               (double)(pThreadInfo->totalAffectedRows /
                        ((double)pThreadInfo->totalDelay / 1000000.0)));
 }
-

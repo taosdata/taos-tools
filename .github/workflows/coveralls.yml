@@ -85,7 +85,6 @@ jobs:
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py
 
           python3 test.py -f tools/taosdemoTest.py
-          python3 test.py -f tools/taosdemoTestWithoutMetric.py
           python3 test.py -f tools/taosdemoTestWithJson.py
           python3 test.py -f tools/taosdemoTestLimitOffset.py
           python3 test.py -f tools/taosdemoTestTblAlt.py
@@ -106,7 +105,6 @@ jobs:
           python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonStmt.py
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertShell.py
 
           cd ../develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
@@ -136,14 +134,14 @@ jobs:
           cd TDengine/debug/src/kit/taos-tools
           gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/taosdump.c -o src/CMakeFiles/taosdump.dir/taosdump.c.gcno
           gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchMain.c -o src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchData.c -o src/CMakeFiles/taosbench.dir/benchData.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchData.c -o src/CMakeFiles/taosBenchmark.dir/benchData.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosBenchmark.dir/benchInsert.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosBenchmark.dir/benchOutput.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosBenchmark.dir/benchQuery.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosBenchmark.dir/benchSubscribe.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
           mkdir ${topdir}/coverage || :
           lcov -c -d . -o ${topdir}/coverage/lcov.info
 

@@ -1384,6 +1384,10 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
                                       int stb_index) {
     SDataBase *  database = &(arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    if (stbInfo->iface == SML_IFACE && !stbInfo->use_metric) {
+        errorPrint("%s", "schemaless cannot work without stable\n");
+        return -1;
+    }
     if (arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
         infoPrint("number of records per request value %u > %d\n\n",
                   arguments->reqPerReq, MAX_RECORDS_PER_REQ);
@@ -1814,13 +1818,6 @@ int insertTestProcess(SArguments *arguments) {
     char *     cmdBuffer = calloc(1, BUFFER_SIZE);
     SDataBase *database = arguments->db;
     printfInsertMetaToFileStream(stdout, arguments, database);
-
-    tmfclose(arguments->fpOfInsertResult);
-    arguments->fpOfInsertResult = fopen(arguments->output_file, "a");
-    if (NULL == arguments->fpOfInsertResult) {
-        errorPrint("failed to open %s for save result\n",
-                   arguments->output_file);
-    }
 
     if (arguments->fpOfInsertResult) {
         printfInsertMetaToFileStream(arguments->fpOfInsertResult, arguments,

@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
             exit(EXIT_FAILURE);
         }
     } else {
-        resize_schema(g_arguments, g_arguments->db->superTbls);
+        modify_argument(g_arguments, g_arguments->db->superTbls);
     }
     if (start(g_arguments)) {
         exit(EXIT_FAILURE);

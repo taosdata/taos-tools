@@ -523,7 +523,7 @@ void commandLineParseArgument(int argc, char *argv[], SArguments *arguments);
 int  count_datatype(char *dataType, int32_t *number);
 int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                     bool is_tag);
-void resize_schema(SArguments *arguments, SSuperTable *superTable);
+void        modify_argument(SArguments *arguments, SSuperTable *superTable);
 SArguments *init_argument(SArguments *arguments);
 int         start(SArguments *arguments);
 /* demoJsonOpt.c */

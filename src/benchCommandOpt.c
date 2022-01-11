@@ -415,12 +415,7 @@ SArguments *init_argument(SArguments *arguments) {
     arguments->nthreads_pool = DEFAULT_NTHREADS + 5;
     arguments->binwidth = DEFAULT_BINWIDTH;
     arguments->prepared_rand = DEFAULT_PREPARED_RAND;
-    arguments->fpOfInsertResult = fopen(arguments->output_file, "a");
     arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
-    if (NULL == arguments->fpOfInsertResult) {
-        errorPrint("failed to open %s for save result\n",
-                   arguments->output_file);
-    }
     arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
     arguments->g_actualChildTables = 0;
     arguments->g_autoCreatedChildTables = 0;
@@ -492,13 +487,13 @@ int parse_datatype(char *dataType, char *data_type, int32_t *data_length,
             data_length[0] = sizeof(uint64_t);
         } else if (0 == strcasecmp(dataType, "nchar")) {
             data_type[0] = TSDB_DATA_TYPE_NCHAR;
-            data_length[0] = DEFAULT_BINWIDTH;
+            data_length[0] = 0;
         } else if (0 == strcasecmp(dataType, "binary")) {
             data_type[0] = TSDB_DATA_TYPE_BINARY;
-            data_length[0] = DEFAULT_BINWIDTH;
+            data_length[0] = 0;
         } else if (is_tag && 0 == strcasecmp(dataType, "json")) {
             data_type[0] = TSDB_DATA_TYPE_JSON;
-            data_length[0] = DEFAULT_BINWIDTH;
+            data_length[0] = 0;
         } else if (1 == regexMatch(dataType, "^(BINARY)(\\([1-9][0-9]*\\))$",
                                    REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
@@ -569,10 +564,10 @@ int parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                 data_length[index] = sizeof(uint64_t);
             } else if (0 == strcasecmp(token, "nchar")) {
                 data_type[index] = TSDB_DATA_TYPE_NCHAR;
-                data_length[index] = DEFAULT_BINWIDTH;
+                data_length[index] = 0;
             } else if (0 == strcasecmp(token, "binary")) {
                 data_type[index] = TSDB_DATA_TYPE_BINARY;
-                data_length[index] = DEFAULT_BINWIDTH;
+                data_length[index] = 0;
             } else if (1 == regexMatch(token, "^(BINARY)(\\([1-9][0-9]*\\))$",
                                        REG_ICASE | REG_EXTENDED)) {
                 char type[DATATYPE_BUFF_LEN];
@@ -612,10 +607,27 @@ void commandLineParseArgument(int argc, char *argv[], SArguments *arguments) {
     argp_parse(&argp, argc, argv, 0, 0, arguments);
 }
 
-void resize_schema(SArguments *arguments, SSuperTable *superTable) {
+void modify_argument(SArguments *arguments, SSuperTable *superTable) {
     if (init_taos_list(arguments)) {
         exit(EXIT_FAILURE);
     }
+    arguments->fpOfInsertResult = fopen(arguments->output_file, "a");
+    if (NULL == arguments->fpOfInsertResult) {
+        errorPrint("failed to open %s for save result\n",
+                   arguments->output_file);
+    }
+    for (int i = 0; i < superTable->columnCount; ++i) {
+        if (superTable->col_length[i] == 0) {
+            superTable->col_length[i] = arguments->binwidth;
+        }
+    }
+
+    for (int i = 0; i < superTable->tagCount; ++i) {
+        if (superTable->tag_length[i] == 0) {
+            superTable->tag_length[i] = arguments->binwidth;
+        }
+    }
+
     if (arguments->intColumnCount > superTable->columnCount) {
         char *tmp_type = (char *)realloc(
             superTable->col_type, arguments->intColumnCount * sizeof(char));
@@ -698,7 +710,6 @@ static void *queryStableAggrFunc(void *sarg) {
             if (code != 0) {
                 errorPrint("Failed to query:%s\n", taos_errstr(pSql));
                 taos_free_result(pSql);
-                fclose(fp);
                 free(command);
                 return NULL;
             }
@@ -716,7 +727,6 @@ static void *queryStableAggrFunc(void *sarg) {
             taos_free_result(pSql);
         }
     }
-    fclose(fp);
     free(command);
     return NULL;
 }
@@ -772,7 +782,6 @@ static void *queryNtableAggrFunc(void *sarg) {
                 errorPrint("Failed to query <%s>, reason:%s\n", command,
                            taos_errstr(pSql));
                 taos_free_result(pSql);
-                fclose(fp);
                 free(command);
                 return NULL;
             }
@@ -797,7 +806,6 @@ static void *queryNtableAggrFunc(void *sarg) {
         }
         infoPrint("<%s> took %.6f second(s)\n", command, totalT / 1000000);
     }
-    fclose(fp);
     free(command);
     return NULL;
 }

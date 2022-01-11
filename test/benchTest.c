@@ -27,7 +27,7 @@ int init_suite1(void) { return 0; }
 
 int clean_suite1(void) { return 0; }
 
-void testINITARGUMENT(void) {}
+void testInvalidOpt(void) {}
 /* The main() function for setting up and running the tests.
  * Returns a CUE_SUCCESS on successful running, another
  * CUnit error code on failure.
@@ -50,7 +50,7 @@ int main() {
 
     /* add the tests to the suite */
     if ((NULL ==
-         CU_add_test(benchCommandSuite, "init_argument()", testINITARGUMENT))) {
+         CU_add_test(benchCommandSuite, "invalid options", testInvalidOpt))) {
         CU_cleanup_registry();
         return CU_get_error();
     }
