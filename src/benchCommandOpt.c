@@ -228,15 +228,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                                arguments->db->superTbls->tag_length, true)) {
                 tmfree(arguments->db->superTbls->tag_type);
                 tmfree(arguments->db->superTbls->tag_length);
-                arguments->db->superTbls->tag_type =
-                    (char *)calloc(2, sizeof(char));
-                arguments->db->superTbls->tag_type[0] = TSDB_DATA_TYPE_INT;
-                arguments->db->superTbls->tag_type[1] = TSDB_DATA_TYPE_BINARY;
-                arguments->db->superTbls->tag_length =
-                    (int32_t *)calloc(2, sizeof(int32_t));
-                arguments->db->superTbls->tag_length[0] = sizeof(int32_t);
-                arguments->db->superTbls->tag_length[1] = 16;
-                arguments->db->superTbls->tagCount = 2;
+                exit(EXIT_FAILURE);
             }
             break;
         case 'b':
@@ -252,17 +244,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                                arguments->db->superTbls->col_length, false)) {
                 tmfree(arguments->db->superTbls->col_type);
                 tmfree(arguments->db->superTbls->col_length);
-                arguments->db->superTbls->col_type =
-                    (char *)calloc(3, sizeof(char));
-                arguments->db->superTbls->col_type[0] = TSDB_DATA_TYPE_FLOAT;
-                arguments->db->superTbls->col_type[1] = TSDB_DATA_TYPE_INT;
-                arguments->db->superTbls->col_type[2] = TSDB_DATA_TYPE_FLOAT;
-                arguments->db->superTbls->col_length =
-                    (int32_t *)calloc(3, sizeof(int32_t));
-                arguments->db->superTbls->col_length[0] = sizeof(float);
-                arguments->db->superTbls->col_length[1] = sizeof(int32_t);
-                arguments->db->superTbls->col_length[2] = sizeof(float);
-                arguments->db->superTbls->columnCount = 3;
+                exit(EXIT_FAILURE);
             }
             break;
         case 'w':
@@ -810,15 +792,11 @@ static void *queryNtableAggrFunc(void *sarg) {
     return NULL;
 }
 
-static int queryAggrFunc(SArguments *arguments, TAOS_POOL *pool) {
+static void queryAggrFunc(SArguments *arguments, TAOS_POOL *pool) {
     pthread_t   read_id;
     threadInfo *pThreadInfo = calloc(1, sizeof(threadInfo));
     pThreadInfo->arguments = arguments;
     pThreadInfo->taos = select_one_from_pool(pool, arguments->db->dbName);
-    if (pThreadInfo->taos == NULL) {
-        free(pThreadInfo);
-        return -1;
-    }
     if (arguments->db->superTbls->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {
@@ -826,7 +804,6 @@ static int queryAggrFunc(SArguments *arguments, TAOS_POOL *pool) {
     }
     pthread_join(read_id, NULL);
     free(pThreadInfo);
-    return 0;
 }
 
 int start(SArguments *arguments) {
@@ -856,14 +833,9 @@ int start(SArguments *arguments) {
         if (subscribeTestProcess(arguments)) {
             return -1;
         }
-    } else {
-        errorPrint("unknown test mode: %d\n", arguments->test_mode);
-        return -1;
     }
     if (arguments->aggr_func) {
-        if (queryAggrFunc(arguments, arguments->pool)) {
-            return -1;
-        }
+        queryAggrFunc(arguments, arguments->pool);
     }
     return 0;
 }

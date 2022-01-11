@@ -755,7 +755,19 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                                        rand_bigint_str(prepared_rand));
                     }
                     break;
-
+                case TSDB_DATA_TYPE_JSON: {
+                    pos += sprintf(sampleDataBuf + pos, "'{");
+                    for (int j = 0; j < count; ++j) {
+                        pos += sprintf(sampleDataBuf + pos, "\"k%d\":", j);
+                        char *buf = calloc(1, data_length[j] + 1);
+                        rand_string(buf, data_length[j], chinese);
+                        pos += sprintf(sampleDataBuf + pos, "\"%s\",", buf);
+                        tmfree(buf);
+                    }
+                    pos += sprintf(sampleDataBuf + pos - 1, "}'");
+                    goto skip;
+                    break;
+                }
                 case TSDB_DATA_TYPE_NULL:
                     break;
 
@@ -764,7 +776,7 @@ int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                     return -1;
             }
         }
-
+    skip:
         *(sampleDataBuf + pos - 1) = 0;
     }
     return 0;

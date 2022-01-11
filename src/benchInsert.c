@@ -109,6 +109,7 @@ int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 *plenOfTags += DOUBLE_BUFF_LEN;
                 break;
             case TSDB_DATA_TYPE_JSON:
+                *plenOfTags += JSON_BUFF_LEN + tag_length[tagIndex];
                 break;
             default:
                 errorPrint("unknown data type : %d\n", tag_type[tagIndex]);

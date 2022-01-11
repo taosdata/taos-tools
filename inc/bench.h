@@ -96,6 +96,7 @@
 #define BOOL_BUFF_LEN 6
 #define FLOAT_BUFF_LEN 22
 #define DOUBLE_BUFF_LEN 42
+#define JSON_BUFF_LEN 20
 #define TIMESTAMP_BUFF_LEN 21
 #define PRINT_STAT_INTERVAL 30 * 1000
 
@@ -523,7 +524,7 @@ void commandLineParseArgument(int argc, char *argv[], SArguments *arguments);
 int  count_datatype(char *dataType, int32_t *number);
 int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
                     bool is_tag);
-void        modify_argument(SArguments *arguments, SSuperTable *superTable);
+void modify_argument(SArguments *arguments, SSuperTable *superTable);
 SArguments *init_argument(SArguments *arguments);
 int         start(SArguments *arguments);
 /* demoJsonOpt.c */
@@ -564,7 +565,8 @@ int  insertTestProcess(SArguments *arguments);
 void postFreeResource(SArguments *arguments);
 int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 int32_t *col_length, int32_t tagCount, int32_t colCount,
-                int32_t *plenOfTags, int32_t *plenOfCols, int iface, int line_protocol);
+                int32_t *plenOfTags, int32_t *plenOfCols, int iface,
+                int line_protocol);
 /* demoOutput.c */
 void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                                   SDataBase *database);
