@@ -414,8 +414,6 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                     database[i].superTbls[j].timestamp_step);
             fprintf(fp, "      startTimestamp:    \033[33m%" PRIu64 "\033[0m\n",
                     database[i].superTbls[j].startTimestamp);
-            fprintf(fp, "      sampleFormat:      \033[33m%s\033[0m\n",
-                    database[i].superTbls[j].sampleFormat);
             fprintf(fp, "      sampleFile:        \033[33m%s\033[0m\n",
                     database[i].superTbls[j].sampleFile);
             fprintf(fp, "      useSampleTs:       \033[33m%s\033[0m\n",

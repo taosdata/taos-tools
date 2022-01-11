@@ -891,22 +891,6 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
                 goto PARSE_OVER;
             }
 
-            cJSON *sampleFormat = cJSON_GetObjectItem(stbInfo, "sample_format");
-            if (sampleFormat && sampleFormat->type == cJSON_String &&
-                sampleFormat->valuestring != NULL) {
-                tstrncpy(
-                    arguments->db[i].superTbls[j].sampleFormat,
-                    sampleFormat->valuestring,
-                    min(SMALL_BUFF_LEN, strlen(sampleFormat->valuestring) + 1));
-            } else if (!sampleFormat) {
-                tstrncpy(arguments->db[i].superTbls[j].sampleFormat, "csv",
-                         SMALL_BUFF_LEN);
-            } else {
-                errorPrint("%s",
-                           "failed to read json, sample_format not found\n");
-                goto PARSE_OVER;
-            }
-
             cJSON *sampleFile = cJSON_GetObjectItem(stbInfo, "sample_file");
             if (sampleFile && sampleFile->type == cJSON_String &&
                 sampleFile->valuestring != NULL) {

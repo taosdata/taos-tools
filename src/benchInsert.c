@@ -1242,11 +1242,24 @@ void *syncWriteProgressive(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (taos_stmt_set_tbname(pThreadInfo->stmt, tableName)) {
-                        errorPrint(
-                            "taos_stmt_set_tbname(%s) failed! reason: %s\n",
-                            tableName, taos_stmt_errstr(pThreadInfo->stmt));
-                        goto free_of_progressive;
+                    if (stbInfo->autoCreateTable) {
+                        if (taos_stmt_set_tbname_tags(
+                                pThreadInfo->stmt, tableName,
+                                stbInfo->tag_bind_array[tableSeq])) {
+                            errorPrint(
+                                "taos_stmt_set_tbname_tags(%s) failed, reason: "
+                                "%s\n",
+                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                            goto free_of_progressive;
+                        }
+                    } else {
+                        if (taos_stmt_set_tbname(pThreadInfo->stmt,
+                                                 tableName)) {
+                            errorPrint(
+                                "taos_stmt_set_tbname(%s) failed, reason: %s\n",
+                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                            goto free_of_progressive;
+                        }
                     }
                     generated = bindParamBatch(
                         pThreadInfo,
@@ -1502,6 +1515,9 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
         }
     } else if (stbInfo->iface == STMT_IFACE) {
         generateStmtBuffer(stmtBuffer, stbInfo, arguments);
+        if (stbInfo->autoCreateTable) {
+            generateStmtTagArray(arguments, stbInfo);
+        }
     }
 
     pthread_t * pids = calloc(1, threads * sizeof(pthread_t));

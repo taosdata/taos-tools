@@ -303,7 +303,6 @@ typedef struct SSuperTable_S {
     int64_t  timestamp_step;
     int      tsPrecision;
     int64_t  startTimestamp;
-    char     sampleFormat[SMALL_BUFF_LEN];  // csv, json
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
 
@@ -322,8 +321,9 @@ typedef struct SSuperTable_S {
     bool  useSampleTs;
     char *tagDataBuf;
     // bind param batch
-    char *buffer;
-    int   tagSource;
+    char *      buffer;
+    int         tagSource;
+    TAOS_BIND **tag_bind_array;
 } SSuperTable;
 
 typedef struct {

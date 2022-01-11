@@ -367,7 +367,16 @@ int init_rand_data(SArguments *argument) {
 void generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
                         SArguments *arguments) {
     int len = 0;
-    len += sprintf(stmtBuffer + len, "INSERT INTO ? VALUES(?");
+    if (stbInfo->autoCreateTable) {
+        len += sprintf(stmtBuffer + len, "INSERT INTO ? USING %s TAGS (?",
+                       stbInfo->stbName);
+        for (int i = 1; i < stbInfo->tagCount; ++i) {
+            len += sprintf(stmtBuffer + len, ",?");
+        }
+        len += sprintf(stmtBuffer + len, ") VALUES(?");
+    } else {
+        len += sprintf(stmtBuffer + len, "INSERT INTO ? VALUES(?");
+    }
 
     int      columnCount = stbInfo->columnCount;
     char *   col_type = stbInfo->col_type;
@@ -396,6 +405,64 @@ void generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
             arguments->reqPerReq, arguments->prepared_rand,
             arguments->prepared_rand);
         arguments->reqPerReq = arguments->prepared_rand;
+    }
+}
+
+void generateStmtTagArray(SArguments *arguments, SSuperTable *stbInfo) {
+    stbInfo->tag_bind_array =
+        calloc(stbInfo->childTblCount, sizeof(TAOS_BIND) * stbInfo->tagCount);
+    for (int i = 0; i < stbInfo->childTblCount; ++i) {
+        for (int j = 0; j < stbInfo->tagCount; ++j) {
+            TAOS_BIND *tag = stbInfo->tag_bind_array[i];
+            tag->buffer_type = stbInfo->tag_type[j];
+            tag->buffer_length = stbInfo->tag_length[j];
+            tag->length = &tag->buffer_length;
+            tag->is_null = NULL;
+            switch (tag->buffer_type) {
+                case TSDB_DATA_TYPE_BOOL:
+                    tag->buffer = g_randbool + i * sizeof(int8_t);
+                    break;
+                case TSDB_DATA_TYPE_TINYINT:
+                    tag->buffer = g_randtinyint + i * sizeof(int8_t);
+                    break;
+                case TSDB_DATA_TYPE_UTINYINT:
+                    tag->buffer = g_randutinyint + i * sizeof(uint8_t);
+                    break;
+                case TSDB_DATA_TYPE_SMALLINT:
+                    tag->buffer = g_randsmallint + i * sizeof(int16_t);
+                    break;
+                case TSDB_DATA_TYPE_USMALLINT:
+                    tag->buffer = g_randusmallint + i * sizeof(uint16_t);
+                    break;
+                case TSDB_DATA_TYPE_INT:
+                    tag->buffer = g_randint + i * sizeof(int32_t);
+                    break;
+                case TSDB_DATA_TYPE_UINT:
+                    tag->buffer = g_randuint + i * sizeof(uint32_t);
+                    break;
+                case TSDB_DATA_TYPE_TIMESTAMP:
+                case TSDB_DATA_TYPE_BIGINT:
+                    tag->buffer = g_randbigint + i * sizeof(int64_t);
+                    break;
+                case TSDB_DATA_TYPE_UBIGINT:
+                    tag->buffer = g_randubigint + i * sizeof(uint64_t);
+                    break;
+                case TSDB_DATA_TYPE_FLOAT:
+                    tag->buffer = g_randfloat + i * sizeof(float);
+                    break;
+                case TSDB_DATA_TYPE_DOUBLE:
+                    tag->buffer = g_randdouble + i * sizeof(double);
+                    break;
+                case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_NCHAR: {
+                    char *bind_buf = calloc(1, 1 + stbInfo->col_length[j]);
+                    rand_string(bind_buf, stbInfo->col_length[j],
+                                arguments->chinese);
+                    tag->buffer = bind_buf;
+                    break;
+                }
+            }
+        }
     }
 }
 
