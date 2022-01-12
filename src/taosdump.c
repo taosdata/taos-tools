@@ -4683,7 +4683,7 @@ static int64_t dumpNormalTable(
         totalRows = dumpTableData(
                 index,
                 fp, tbName, dbName, precision,
-            numColsAndTags, tableDes);
+                numColsAndTags, tableDes);
     }
 
     freeTbDes(tableDes);
@@ -5109,8 +5109,9 @@ static int createMTableAvroHead(
                             __func__, __LINE__, n64tmp);
                     avro_value_append(&value, &secondhalf, NULL);
                     avro_value_set_long(&secondhalf, (int64_t)LONG_MAX);
-                    debugPrint("second half is: %"PRId64"\n", LONG_MAX);
+                    debugPrint("second half is: %"PRId64"\n", (int64_t)LONG_MAX);
 
+                    break;
 
                 default:
                     errorPrint("Unknown type: %d\n", type);
