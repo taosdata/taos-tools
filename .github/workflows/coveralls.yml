@@ -54,6 +54,12 @@ jobs:
       - name: Install packages
         run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov -y > /dev/null
 
+      - name: Checkout TDengine's taos-tools to develop latest
+        run: |
+          cd TDengine/src/kit/taos-tools
+          git checkout develop
+          git pull
+          
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
         run: |
@@ -81,21 +87,34 @@ jobs:
 
           # test codec
           ./build/bin/taosBenchmark -t 2 -n 10 -y > /dev/null
+
           ./build/bin/taosdump -D test -d null -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d null -gg > /dev/null
           rm -f *.sql *.avro*
+
           ./build/bin/taosdump -D test -d snappy -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d snappy -gg > /dev/null
           rm -f *.sql *.avro*
+
           ./build/bin/taosdump -D test -d deflate -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d deflate -gg > /dev/null
           rm -f *.sql *.avro*
+
           ./build/bin/taosdump -D test -d lzma -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d lzma -gg > /dev/null
           rm -f *.sql *.avro*
-          ./build/bin/taosdump -D test -d lzma -gg > /dev/null
-          rm -f *.sql *.avro*
+
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
           # test human time
-          ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004' -g > /dev/null
+          ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004' -gg > /dev/null
           rm -f *.sql *.avro*
 
           # test normal table
@@ -104,7 +123,7 @@ jobs:
           rm -f *.sql *.avro*
 
           cd src/kit/taos-tools/
-          ctest --verbose > /dev/null
+          ctest --verbose > /dev/null 2>&1
           cd ../../../../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :

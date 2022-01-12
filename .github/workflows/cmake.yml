@@ -86,7 +86,6 @@ jobs:
           python3 ./test.py -f tools/taosdumpTest3.py
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py
 
-
           python3 test.py -f tools/taosdemoTest.py
           python3 test.py -f tools/taosdemoTestInterlace.py
           python3 test.py -f tools/taosdemoTestWithoutMetric.py

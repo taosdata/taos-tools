@@ -80,17 +80,21 @@ function install_bin() {
     ${csudo} rm -f ${bin_link_dir}/taosdemo         || :
     ${csudo} rm -f ${bin_link_dir}/taosBenchmark    || :
     ${csudo} rm -f ${bin_link_dir}/taosdump         || :
+    ${csudo} rm -f ${bin_link_dir}/rmtaostools      || :
 
     ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosdump ${install_main_dir}/bin/taosdump
     ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosBenchmark
+    ${csudo} /usr/bin/install -c -m 755 ${script_dir}/uninstall-taostools.sh ${install_main_dir}/bin/uninstall-taostools.sh
     ${csudo} ln -sf ${install_main_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosdemo
     #Make link
     [[ -x ${install_main_dir}/bin/taosBenchmark ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark  || :
+        ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark        || :
     [[ -x ${install_main_dir}/bin/taosdemo ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo            || :
+        ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo                  || :
     [[ -x ${install_main_dir}/bin/taosdump ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump            || :
+        ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump                  || :
+    [[ -x ${install_main_dir}/bin/uninstall-taostools.sh ]] && \
+        ${csudo} ln -s ${install_main_dir}/bin/uninstall-taostools.sh ${bin_link_dir}/rmtaostools || :
 }
 
 function install_avro() {
