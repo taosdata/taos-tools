@@ -412,9 +412,10 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
 int postProceSql(char *host, uint16_t port, char *sqlstr,
                  threadInfo *pThreadInfo) {
     SArguments *arguments = pThreadInfo->arguments;
+    SDataBase * database = &(arguments->db[pThreadInfo->db_index]);
     int32_t     code = -1;
     char *      req_fmt =
-        "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
+        "POST %s/%s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
 
@@ -480,14 +481,15 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
 
     char *auth = base64_buf;
 
-    int r = snprintf(request_buf, req_buf_len, req_fmt, url, host, rest_port,
-                     auth, strlen(sqlstr), sqlstr);
+    int r = snprintf(request_buf, req_buf_len, req_fmt, url, database->dbName,
+                     host, rest_port, auth, strlen(sqlstr), sqlstr);
     if (r >= req_buf_len) {
         free(request_buf);
         ERROR_EXIT("too long request");
     }
 
     req_str_len = (int)strlen(request_buf);
+    debugPrint("request buffer: %s\n", request_buf);
     sent = 0;
     do {
 #ifdef WINDOWS

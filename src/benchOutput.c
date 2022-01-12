@@ -371,14 +371,6 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                         "sample");
             }
 
-            fprintf(fp, "      iface:             \033[33m%s\033[0m\n",
-                    (database[i].superTbls[j].iface == TAOSC_IFACE)
-                        ? "taosc"
-                        : (database[i].superTbls[j].iface == REST_IFACE)
-                              ? "rest"
-                              : (database[i].superTbls[j].iface == STMT_IFACE)
-                                    ? "stmt"
-                                    : "sml");
             if (database[i].superTbls[j].iface == SML_IFACE) {
                 fprintf(fp, "      lineProtocol:      \033[33m%s\033[0m\n",
                         (database[i].superTbls[j].lineProtocol ==

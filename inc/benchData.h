@@ -44,14 +44,15 @@ extern char *    g_randfloat_buff;
 extern char *    g_rand_current_buff;
 extern char *    g_rand_phase_buff;
 extern char *    g_randdouble_buff;
-extern char **   g_string_grid;
+extern char **   g_stmt_col_string_grid;
+extern char **   g_stmt_tag_string_grid;
 /***** Declare functions *****/
 int     init_rand_data(SArguments *arguments);
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
 void    generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
                            SArguments *arguments);
-void    generateStmtTagArray(SArguments * arguments, SSuperTable *stbInfo);
+void    generateStmtTagArray(SArguments *arguments, SSuperTable *stbInfo);
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
                            char *data_type, int32_t *data_length, int64_t size,

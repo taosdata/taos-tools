@@ -137,7 +137,7 @@ int getSuperTableFromServer(SArguments *arguments, char *dbName,
         return -1;
     }
     // get schema use cmd: describe superTblName;
-    snprintf(command, SQL_BUFF_LEN, "describe %s.%s", dbName,
+    snprintf(command, SQL_BUFF_LEN, "describe %s.`%s`", dbName,
              superTbls->stbName);
     res = taos_query(taos, command);
     int32_t code = taos_errno(res);
@@ -872,6 +872,14 @@ void postFreeResource(SArguments *arguments) {
                     tmfree(database[i].superTbls[j].childTblName[k]);
                 }
             }
+            if (database[i].superTbls[j].iface == STMT_IFACE &&
+                database[i].superTbls[j].autoCreateTable) {
+                for (int k = 0; k < database[i].superTbls[j].childTblCount;
+                     ++k) {
+                    tmfree(database[i].superTbls[j].tag_bind_array[k]);
+                }
+                tmfree(database[i].superTbls[j].tag_bind_array);
+            }
             tmfree(database[i].superTbls[j].childTblName);
         }
         tmfree(database[i].superTbls);
@@ -1008,10 +1016,21 @@ void *syncWriteInterlace(void *sarg) {
                                        strlen(STR_INSERT_INTO) + 1, "%s",
                                        STR_INSERT_INTO);
                     }
-                    len +=
-                        snprintf(pThreadInfo->buffer + len,
-                                 pThreadInfo->max_sql_len - len, "%s.%s values",
-                                 database->dbName, tableName);
+                    if (stbInfo->autoCreateTable) {
+                        len += snprintf(pThreadInfo->buffer + len,
+                                        pThreadInfo->max_sql_len - len,
+                                        "%s.%s using `%s` tags (%s) values ",
+                                        database->dbName, tableName,
+                                        stbInfo->stbName,
+                                        stbInfo->tagDataBuf +
+                                            stbInfo->lenOfTags * tableSeq);
+                    } else {
+                        len += snprintf(pThreadInfo->buffer + len,
+                                        pThreadInfo->max_sql_len - len,
+                                        "%s.%s values", database->dbName,
+                                        tableName);
+                    }
+
                     for (int64_t j = 0; j < interlaceRows; ++j) {
                         len += snprintf(
                             pThreadInfo->buffer + len,
@@ -1028,11 +1047,24 @@ void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (taos_stmt_set_tbname(pThreadInfo->stmt, tableName)) {
-                        errorPrint(
-                            "taos_stmt_set_tbname(%s) failed! reason: %s\n",
-                            tableName, taos_stmt_errstr(pThreadInfo->stmt));
-                        goto free_of_interlace;
+                    if (stbInfo->autoCreateTable) {
+                        if (taos_stmt_set_tbname_tags(
+                                pThreadInfo->stmt, tableName,
+                                stbInfo->tag_bind_array[tableSeq])) {
+                            errorPrint(
+                                "taos_stmt_set_tbname_tags(%s) failed, reason: "
+                                "%s\n",
+                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                            goto free_of_interlace;
+                        }
+                    } else {
+                        if (taos_stmt_set_tbname(pThreadInfo->stmt,
+                                                 tableName)) {
+                            errorPrint(
+                                "taos_stmt_set_tbname(%s) failed, reason: %s\n",
+                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                            goto free_of_interlace;
+                        }
                     }
                     generated =
                         bindParamBatch(pThreadInfo, interlaceRows, timestamp);
@@ -1604,13 +1636,13 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
                 }
 
                 if (0 != taos_stmt_prepare(pThreadInfo->stmt, stmtBuffer, 0)) {
-                    tmfree(pids);
-                    tmfree(infos);
-                    tmfree(stmtBuffer);
                     errorPrint(
                         "failed to execute taos_stmt_prepare. "
                         "reason: %s\n",
                         taos_stmt_errstr(pThreadInfo->stmt));
+                    tmfree(pids);
+                    tmfree(infos);
+                    tmfree(stmtBuffer);
                     return -1;
                 }
                 pThreadInfo->bind_ts = malloc(sizeof(int64_t));
@@ -1776,9 +1808,15 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
     }
     if (stbInfo->iface == STMT_IFACE) {
         for (int i = 0; i < stbInfo->columnCount; ++i) {
-            tmfree(g_string_grid[i]);
+            tmfree(g_stmt_col_string_grid[i]);
         }
-        tmfree(g_string_grid);
+        tmfree(g_stmt_col_string_grid);
+        if (stbInfo->autoCreateTable) {
+            for (int i = 0; i < stbInfo->tagCount; ++i) {
+                tmfree(g_stmt_tag_string_grid[i]);
+            }
+            tmfree(g_stmt_tag_string_grid);
+        }
     }
 
     free(pids);

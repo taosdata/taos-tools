@@ -41,7 +41,8 @@ char *    g_randfloat_buff = NULL;
 char *    g_rand_current_buff = NULL;
 char *    g_rand_phase_buff = NULL;
 char *    g_randdouble_buff = NULL;
-char **   g_string_grid = NULL;
+char **   g_stmt_col_string_grid = NULL;
+char **   g_stmt_tag_string_grid = NULL;
 
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
@@ -366,12 +367,29 @@ int init_rand_data(SArguments *argument) {
 
 void generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
                         SArguments *arguments) {
-    int len = 0;
+    int      len = 0;
+    int      tagCount = stbInfo->tagCount;
+    char *   tag_type = stbInfo->tag_type;
+    int32_t *tag_length = stbInfo->tag_length;
     if (stbInfo->autoCreateTable) {
-        len += sprintf(stmtBuffer + len, "INSERT INTO ? USING %s TAGS (?",
+        g_stmt_tag_string_grid = calloc(tagCount, sizeof(char *));
+        len += sprintf(stmtBuffer + len, "INSERT INTO ? USING `%s` TAGS (",
                        stbInfo->stbName);
-        for (int i = 1; i < stbInfo->tagCount; ++i) {
-            len += sprintf(stmtBuffer + len, ",?");
+        for (int i = 0; i < stbInfo->tagCount; ++i) {
+            if (i == 0) {
+                len += sprintf(stmtBuffer + len, "?");
+            } else {
+                len += sprintf(stmtBuffer + len, ",?");
+            }
+            if (tag_type[i] == TSDB_DATA_TYPE_NCHAR ||
+                tag_type[i] == TSDB_DATA_TYPE_BINARY) {
+                g_stmt_tag_string_grid[i] =
+                    calloc(1, stbInfo->childTblCount * (tag_length[i] + 1));
+                for (int j = 0; j < stbInfo->childTblCount; ++j) {
+                    rand_string(g_stmt_tag_string_grid[i] + j * tag_length[i],
+                                tag_length[i], arguments->chinese);
+                }
+            }
         }
         len += sprintf(stmtBuffer + len, ") VALUES(?");
     } else {
@@ -381,15 +399,15 @@ void generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
     int      columnCount = stbInfo->columnCount;
     char *   col_type = stbInfo->col_type;
     int32_t *col_length = stbInfo->col_length;
-    g_string_grid = calloc(columnCount, sizeof(char *));
+    g_stmt_col_string_grid = calloc(columnCount, sizeof(char *));
     for (int col = 0; col < columnCount; col++) {
         len += sprintf(stmtBuffer + len, ",?");
         if (col_type[col] == TSDB_DATA_TYPE_NCHAR ||
             col_type[col] == TSDB_DATA_TYPE_BINARY) {
-            g_string_grid[col] =
+            g_stmt_col_string_grid[col] =
                 calloc(1, arguments->reqPerReq * (col_length[col] + 1));
             for (int i = 0; i < arguments->reqPerReq; ++i) {
-                rand_string(g_string_grid[col] + i * col_length[col],
+                rand_string(g_stmt_col_string_grid[col] + i * col_length[col],
                             col_length[col], arguments->chinese);
             }
         }
@@ -410,10 +428,12 @@ void generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
 
 void generateStmtTagArray(SArguments *arguments, SSuperTable *stbInfo) {
     stbInfo->tag_bind_array =
-        calloc(stbInfo->childTblCount, sizeof(TAOS_BIND) * stbInfo->tagCount);
+        calloc(stbInfo->childTblCount, sizeof(TAOS_BIND *));
     for (int i = 0; i < stbInfo->childTblCount; ++i) {
+        stbInfo->tag_bind_array[i] =
+            calloc(stbInfo->tagCount, sizeof(TAOS_BIND));
         for (int j = 0; j < stbInfo->tagCount; ++j) {
-            TAOS_BIND *tag = stbInfo->tag_bind_array[i];
+            TAOS_BIND *tag = &(stbInfo->tag_bind_array[i][j]);
             tag->buffer_type = stbInfo->tag_type[j];
             tag->buffer_length = stbInfo->tag_length[j];
             tag->length = &tag->buffer_length;
@@ -455,10 +475,8 @@ void generateStmtTagArray(SArguments *arguments, SSuperTable *stbInfo) {
                     break;
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
-                    char *bind_buf = calloc(1, 1 + stbInfo->col_length[j]);
-                    rand_string(bind_buf, stbInfo->col_length[j],
-                                arguments->chinese);
-                    tag->buffer = bind_buf;
+                    tag->buffer =
+                        g_stmt_tag_string_grid[j] + i * stbInfo->tag_length[j];
                     break;
                 }
             }
@@ -889,7 +907,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             switch (data_type) {
                 case TSDB_DATA_TYPE_NCHAR:
                 case TSDB_DATA_TYPE_BINARY: {
-                    param->buffer = g_string_grid[c - 1];
+                    param->buffer = g_stmt_col_string_grid[c - 1];
                     break;
                 }
                 case TSDB_DATA_TYPE_INT:
