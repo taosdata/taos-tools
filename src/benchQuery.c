@@ -224,10 +224,6 @@ int queryTestProcess(SArguments *argument) {
 
     prompt(argument);
 
-    if (argument->debug_print) {
-        printfQuerySystemInfo(taos);
-    }
-
     if (0 == strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
         if (convertHostToServAddr(g_queryInfo.host, g_queryInfo.port,
                                   &(g_queryInfo.serv_addr)) != 0) {

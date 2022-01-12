@@ -571,7 +571,6 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                                   SDataBase *database);
 void printStatPerThread(threadInfo *pThreadInfo);
 void printfQueryMeta(SArguments *arguments);
-void printfQuerySystemInfo(TAOS *taos);
 /* demoQuery.c */
 int queryTestProcess(SArguments *arguments);
 /* demoSubscribe.c */
