@@ -84,27 +84,27 @@ jobs:
           
           ./build/bin/taosdump -D test -d null -gg > /dev/null
           ./build/bin/taos -s "drop database test"
-          ./build/bin/taosdump -i -d null -gg > /dev/null
+          ./build/bin/taosdump -i . -d null -gg > /dev/null
           rm -f *.sql *.avro*
           
           ./build/bin/taosdump -D test -d snappy -gg > /dev/null
           ./build/bin/taos -s "drop database test"
-          ./build/bin/taosdump -i -d snappy -gg > /dev/null
+          ./build/bin/taosdump -i . -d snappy -gg > /dev/null
           rm -f *.sql *.avro*
           
           ./build/bin/taosdump -D test -d deflate -gg > /dev/null
           ./build/bin/taos -s "drop database test"
-          ./build/bin/taosdump -i -d deflate -gg > /dev/null
+          ./build/bin/taosdump -i . -d deflate -gg > /dev/null
           rm -f *.sql *.avro*
           
           ./build/bin/taosdump -D test -d lzma -gg > /dev/null
           ./build/bin/taos -s "drop database test"
-          ./build/bin/taosdump -i -d lzma -gg > /dev/null
+          ./build/bin/taosdump -i . -d lzma -gg > /dev/null
           rm -f *.sql *.avro*
 
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
-          ./build/bin/taosdump -i -d unknown -gg > /dev/null
+          ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
           # test human time
