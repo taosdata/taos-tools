@@ -5111,6 +5111,8 @@ static int createMTableAvroHead(
                     avro_value_set_long(&secondhalf, (int64_t)LONG_MAX);
                     debugPrint("second half is: %"PRId64"\n", (int64_t)LONG_MAX);
 
+                    break;
+
                 default:
                     errorPrint("Unknown type: %d\n", type);
                     break;
