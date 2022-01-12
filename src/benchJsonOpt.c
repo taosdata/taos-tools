@@ -62,12 +62,6 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
-            if (length > TSDB_MAX_BINARY_LEN) {
-                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
-                           ")\n",
-                           length, TSDB_MAX_BINARY_LEN);
-                goto PARSE_OVER;
-            }
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
                 case TSDB_DATA_TYPE_BOOL:
@@ -108,14 +102,6 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
     }
 
-    if ((index + 1 /* ts */) > MAX_NUM_COLUMNS) {
-        errorPrint(
-            "failed to read json, column size overflow, allowed max column "
-            "size is %d\n",
-            MAX_NUM_COLUMNS);
-        goto PARSE_OVER;
-    }
-
     superTbls->columnCount = index;
 
     count = 1;
@@ -152,12 +138,6 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         cJSON *dataLen = cJSON_GetObjectItem(tag, "len");
         if (dataLen && dataLen->type == cJSON_Number) {
             data_length = (int32_t)dataLen->valueint;
-            if (data_length > TSDB_MAX_BINARY_LEN) {
-                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
-                           ")\n",
-                           data_length, TSDB_MAX_BINARY_LEN);
-                goto PARSE_OVER;
-            }
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
                 case TSDB_DATA_TYPE_BOOL:
@@ -214,23 +194,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
     }
 
-    if (index > TSDB_MAX_TAGS) {
-        errorPrint(
-            "failed to read json, tags size overflow, allowed max tag count is "
-            "%d\n",
-            TSDB_MAX_TAGS);
-        goto PARSE_OVER;
-    }
-
     superTbls->tagCount = index;
-
-    if ((superTbls->columnCount + superTbls->tagCount + 1 /* ts */) >
-        TSDB_MAX_COLUMNS) {
-        errorPrint(
-            "columns + tags is more than allowed max columns count: %d\n",
-            TSDB_MAX_COLUMNS);
-        goto PARSE_OVER;
-    }
     code = 0;
 
 PARSE_OVER:
@@ -275,15 +239,11 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
     cJSON *threads = cJSON_GetObjectItem(json, "thread_count");
     if (threads && threads->type == cJSON_Number) {
         arguments->nthreads = (uint32_t)threads->valueint;
-    } else {
-        arguments->nthreads = DEFAULT_NTHREADS;
     }
 
     cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
         arguments->nthreads_pool = (uint32_t)threadspool->valueint;
-    } else {
-        arguments->nthreads_pool = arguments->nthreads + 5;
     }
 
     if (init_taos_list(arguments)) goto PARSE_OVER;
@@ -292,15 +252,11 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
     if (numRecPerReq && numRecPerReq->type == cJSON_Number) {
         arguments->reqPerReq = (uint32_t)numRecPerReq->valueint;
         if (arguments->reqPerReq <= 0) goto PARSE_OVER;
-    } else {
-        arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
     }
 
     cJSON *prepareRand = cJSON_GetObjectItem(json, "prepared_rand");
     if (prepareRand && prepareRand->type == cJSON_Number) {
         arguments->prepared_rand = prepareRand->valueint;
-    } else {
-        arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     }
 
     cJSON *chineseOpt = cJSON_GetObjectItem(json, "chinese");  // yes, no,
@@ -308,18 +264,12 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
         chineseOpt->valuestring != NULL) {
         if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
             arguments->chinese = true;
-        } else {
-            arguments->chinese = false;
         }
-    } else {
-        arguments->chinese = false;
     }
 
     cJSON *top_insertInterval = cJSON_GetObjectItem(json, "insert_interval");
     if (top_insertInterval && top_insertInterval->type == cJSON_Number) {
         arguments->insert_interval = top_insertInterval->valueint;
-    } else {
-        arguments->insert_interval = 0;
     }
 
     cJSON *answerPrompt =
@@ -328,11 +278,7 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
         answerPrompt->valuestring != NULL) {
         if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
             arguments->answer_yes = true;
-        } else {
-            arguments->answer_yes = false;
         }
-    } else {
-        arguments->answer_yes = true;
     }
 
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
@@ -363,10 +309,10 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
 
         cJSON *drop = cJSON_GetObjectItem(dbinfo, "drop");
         if (drop && drop->type == cJSON_String && drop->valuestring != NULL) {
-            if (0 == strncasecmp(drop->valuestring, "yes", strlen("yes"))) {
-                arguments->db[i].drop = true;
-            } else {
+            if (0 == strcasecmp(drop->valuestring, "no")) {
                 arguments->db[i].drop = false;
+            } else {
+                arguments->db[i].drop = true;
             }
         } else {
             arguments->db[i].drop = true;
@@ -567,6 +513,10 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
                 arguments->db[i].superTbls[j].childTblCount = count->valueint;
                 arguments->g_totalChildTables +=
                     arguments->db[i].superTbls[j].childTblCount;
+            } else {
+                arguments->db[i].superTbls[j].childTblCount = 10;
+                arguments->g_totalChildTables +=
+                    arguments->db[i].superTbls[j].childTblCount;
             }
 
             cJSON *dataSource = cJSON_GetObjectItem(stbInfo, "data_source");
@@ -721,7 +671,7 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
             if (insertRows && insertRows->type == cJSON_Number) {
                 arguments->db[i].superTbls[j].insertRows = insertRows->valueint;
             } else {
-                arguments->db[i].superTbls[j].insertRows = 0x7FFFFFFFFFFFFFFF;
+                arguments->db[i].superTbls[j].insertRows = 10;
             }
 
             cJSON *stbInterlaceRows =
