@@ -115,26 +115,6 @@ jobs:
           python3 ./test.py -f tools/taosdumpTest3.py > /dev/null
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null
 
-          python3 test.py -f tools/taosdemoTestWithJson.py > /dev/null
-          python3 test.py -f tools/taosdemoTestLimitOffset.py > /dev/null
-          python3 test.py -f tools/taosdemoTestTblAlt.py > /dev/null
-          python3 test.py -f tools/taosdemoTestSampleData.py > /dev/null
-
-          python3 test.py -f tools/taosdemoTestQuery.py > /dev/null
-          python3 ./test.py -f tools/taosdemoTestdatatype.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py > /dev/null
-
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insert4096columns_not_use_taosdemo.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonStmt.py  > /dev/null 
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py > /dev/null
-
           cd ../develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
