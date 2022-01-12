@@ -55,7 +55,6 @@ jobs:
         run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to develop latest
-        if: github.event_name == 'pull_request'
         run: |
           cd TDengine/src/kit/taos-tools
           git checkout develop
