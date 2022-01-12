@@ -291,6 +291,7 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
     cJSON *numRecPerReq = cJSON_GetObjectItem(json, "num_of_records_per_req");
     if (numRecPerReq && numRecPerReq->type == cJSON_Number) {
         arguments->reqPerReq = (uint32_t)numRecPerReq->valueint;
+        if (arguments->reqPerReq <= 0) goto PARSE_OVER;
     } else {
         arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
     }

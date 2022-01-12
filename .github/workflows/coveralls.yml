@@ -127,7 +127,6 @@ jobs:
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py > /dev/null
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py > /dev/null
 
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py > /dev/null
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py > /dev/null
           python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py > /dev/null
           python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py > /dev/null
