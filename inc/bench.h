@@ -322,7 +322,6 @@ typedef struct SSuperTable_S {
     char *tagDataBuf;
     // bind param batch
     char *      buffer;
-    int         tagSource;
     TAOS_BIND **tag_bind_array;
 } SSuperTable;
 
