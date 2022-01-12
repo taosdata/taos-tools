@@ -1090,7 +1090,6 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
     int32_t code = -1;
     cJSON * tags = cJSON_CreateObject();
     char *  tbName = calloc(1, TSDB_TABLE_NAME_LEN);
-    assert(tbName);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
              stbInfo->childTblPrefix, tbSeq + start_table_from);
     cJSON_AddStringToObject(tags, "id", tbName);

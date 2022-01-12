@@ -109,8 +109,9 @@ int calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
                 *plenOfTags += DOUBLE_BUFF_LEN;
                 break;
             case TSDB_DATA_TYPE_JSON:
-                *plenOfTags += JSON_BUFF_LEN + tag_length[tagIndex];
-                break;
+                *plenOfTags +=
+                    (JSON_BUFF_LEN + tag_length[tagIndex]) * tagCount;
+                return 0;
             default:
                 errorPrint("unknown data type : %d\n", tag_type[tagIndex]);
                 return -1;
@@ -801,12 +802,8 @@ int createChildTables(SArguments *arguments) {
 
     for (int i = 0; i < arguments->dbCount; i++) {
         for (int j = 0; j < database[i].superTblCount; j++) {
-            if (database[i].superTbls[j].autoCreateTable) {
-                arguments->g_autoCreatedChildTables +=
-                    database[i].superTbls[j].childTblCount;
-                continue;
-            }
-            if (database[i].superTbls[j].iface == SML_IFACE) {
+            if (database[i].superTbls[j].autoCreateTable ||
+                database[i].superTbls[j].iface == SML_IFACE) {
                 arguments->g_autoCreatedChildTables +=
                     database[i].superTbls[j].childTblCount;
                 continue;
@@ -1895,6 +1892,9 @@ int insertTestProcess(SArguments *arguments) {
     }
     for (int i = 0; i < arguments->dbCount; ++i) {
         for (int j = 0; j < database[i].superTblCount; ++j) {
+            if (database[i].superTbls[j].iface == SML_IFACE) {
+                continue;
+            }
             if (getSuperTableFromServer(arguments, database[i].dbName,
                                         &(database[i].superTbls[j]))) {
                 if (createSuperTable(arguments, database[i].dbName,
