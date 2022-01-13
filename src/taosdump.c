@@ -2630,6 +2630,7 @@ static void print_json_string(json_t *element, int indent) {
     printf("JSON String: \"%s\"\n", json_string_value(element));
 }
 
+/* not used so far
 static void print_json_integer(json_t *element, int indent) {
     print_json_indent(indent);
     printf("JSON Integer: \"%" JSON_INTEGER_FORMAT "\"\n", json_integer_value(element));
@@ -2657,6 +2658,7 @@ static void print_json_null(json_t *element, int indent) {
     print_json_indent(indent);
     printf("JSON Null\n");
 }
+*/
 
 static void print_json_aux(json_t *element, int indent)
 {
@@ -2672,7 +2674,7 @@ static void print_json_aux(json_t *element, int indent)
         case JSON_STRING:
             print_json_string(element, indent);
             break;
-
+/* not used so far
         case JSON_INTEGER:
             print_json_integer(element, indent);
             break;
@@ -2692,6 +2694,7 @@ static void print_json_aux(json_t *element, int indent)
         case JSON_NULL:
             print_json_null(element, indent);
             break;
+*/
 
         default:
             errorPrint("Unrecongnized JSON type %d\n", json_typeof(element));
@@ -4302,7 +4305,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                     okPrint("[%d] %"PRId64" normal table(s) from (%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows, avroFile);
                 } else {
-                    g_totalDumpInRecFailed += rows;
+                    g_totalDumpInNtbFailed += rows;
                     errorPrint("[%d] %"PRId64" normal tables from (%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows, avroFile);
                 }
@@ -5668,32 +5671,9 @@ static int dumpInSqlWorkThreads()
     }
 
     for (int t = 0; t < threads; ++t) {
-        switch (infos[t].which) {
-            case WHICH_AVRO_DATA:
-                g_totalDumpInRecSuccess += infos[t].recSuccess;
-                g_totalDumpInRecFailed += infos[t].recFailed;
-                break;
+        g_totalDumpInRecSuccess += infos[t].recSuccess;
+        g_totalDumpInRecFailed += infos[t].recFailed;
 
-            case WHICH_AVRO_TBTAGS:
-                g_totalDumpInStbSuccess += infos[t].stbSuccess;
-                g_totalDumpInStbFailed += infos[t].stbFailed;
-                break;
-
-            case WHICH_AVRO_NTB:
-                g_totalDumpInNtbSuccess += infos[t].ntbSuccess;
-                g_totalDumpInNtbFailed += infos[t].ntbFailed;
-                break;
-
-            case WHICH_UNKNOWN:
-                g_totalDumpInRecSuccess += infos[t].recSuccess;
-                g_totalDumpInRecFailed += infos[t].recFailed;
-                break;
-
-            default:
-                errorPrint("%s() LN%d input mistake list: %d\n",
-                        __func__, __LINE__, infos[t].which);
-                ret = -1;
-        }
         taos_close(infos[t].taos);
     }
 
