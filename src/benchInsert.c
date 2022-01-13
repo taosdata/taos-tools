@@ -134,9 +134,6 @@ int getSuperTableFromServer(SArguments *arguments, char *dbName,
     TAOS_RES *res;
     TAOS_ROW  row = NULL;
     TAOS *    taos = select_one_from_pool(arguments->pool, dbName);
-    if (taos == NULL) {
-        return -1;
-    }
     // get schema use cmd: describe superTblName;
     snprintf(command, SQL_BUFF_LEN, "describe %s.`%s`", dbName,
              superTbls->stbName);
@@ -557,9 +554,6 @@ skip:
 int createDatabase(SArguments *arguments, char *command, SDataBase *database) {
     TAOS *taos = NULL;
     taos = select_one_from_pool(arguments->pool, NULL);
-    if (taos == NULL) {
-        return -1;
-    }
     sprintf(command, "drop database if exists %s;", database->dbName);
     if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
         return -1;
@@ -585,7 +579,7 @@ int createDatabase(SArguments *arguments, char *command, SDataBase *database) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " KEEP %d", database->dbCfg.keep);
     }
-    if (database->dbCfg.quorum > 1) {
+    if (database->dbCfg.quorum > 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " QUORUM %d", database->dbCfg.quorum);
     }
@@ -954,7 +948,10 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             res = taos_schemaless_insert(
                 pThreadInfo->taos, pThreadInfo->lines,
                 stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
-                stbInfo->lineProtocol, database->dbCfg.sml_precision);
+                stbInfo->lineProtocol,
+                stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL
+                    ? database->dbCfg.sml_precision
+                    : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
             affectedRows = taos_affected_rows(res);
             if (code != TSDB_CODE_SUCCESS) {
@@ -1618,10 +1615,6 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
             case STMT_IFACE: {
                 pThreadInfo->taos =
                     select_one_from_pool(arguments->pool, database->dbName);
-                if (NULL == pThreadInfo->taos) {
-                    tmfree(infos);
-                    return -1;
-                }
                 pThreadInfo->stmt = taos_stmt_init(pThreadInfo->taos);
                 if (NULL == pThreadInfo->stmt) {
                     tmfree(pids);
@@ -1654,10 +1647,6 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
             case SML_IFACE: {
                 pThreadInfo->taos =
                     select_one_from_pool(arguments->pool, database->dbName);
-                if (NULL == pThreadInfo->taos) {
-                    tmfree(infos);
-                    return -1;
-                }
                 pThreadInfo->max_sql_len =
                     stbInfo->lenOfCols + stbInfo->lenOfTags;
                 if (stbInfo->lineProtocol != TSDB_SML_JSON_PROTOCOL) {
@@ -1709,10 +1698,6 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
 
                 pThreadInfo->taos =
                     select_one_from_pool(arguments->pool, database->dbName);
-                if (NULL == pThreadInfo->taos) {
-                    tmfree(infos);
-                    return -1;
-                }
                 pThreadInfo->buffer = calloc(1, pThreadInfo->max_sql_len);
                 break;
             }

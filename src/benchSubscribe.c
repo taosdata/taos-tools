@@ -109,9 +109,6 @@ void *specifiedSubscribe(void *sarg) {
             pThreadInfo->querySeq,
             g_queryInfo.specifiedQueryInfo
                 .endAfterConsume[pThreadInfo->querySeq]);
-        if (ASYNC_MODE == g_queryInfo.specifiedQueryInfo.asyncMode) {
-            continue;
-        }
 
         g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID] =
             taos_consume(
@@ -161,7 +158,6 @@ void *specifiedSubscribe(void *sarg) {
     *code = 0;
     taos_free_result(g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]);
 free_of_specified_subscribe:
-
     return code;
 }
 
@@ -297,7 +293,7 @@ int subscribeTestProcess(SArguments *argument) {
         return -1;
     }
 
-    TAOS *taos = select_one_from_pool(argument->pool, NULL);
+    TAOS *taos = select_one_from_pool(argument->pool, g_queryInfo.dbName);
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
         getAllChildNameOfSuperTable(taos, g_queryInfo.dbName,
@@ -313,14 +309,10 @@ int subscribeTestProcess(SArguments *argument) {
     threadInfo *infosOfStable = NULL;
 
     //==== create threads for query for specified table
-    if (g_queryInfo.specifiedQueryInfo.sqlCount <= 0) {
-        debugPrint("specified query sqlCount %d.\n",
-                   g_queryInfo.specifiedQueryInfo.sqlCount);
-    } else {
+    if (g_queryInfo.specifiedQueryInfo.sqlCount > 0) {
         pids = calloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
                              g_queryInfo.specifiedQueryInfo.concurrent *
                              sizeof(pthread_t));
-
         infos = calloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
                               g_queryInfo.specifiedQueryInfo.concurrent *
                               sizeof(threadInfo));
@@ -339,82 +331,79 @@ int subscribeTestProcess(SArguments *argument) {
                                pThreadInfo);
             }
         }
-    }
 
-    //==== create threads for super table query
-    if (g_queryInfo.superQueryInfo.sqlCount <= 0) {
-        debugPrint("super table query sqlCount %d.\n",
-                   g_queryInfo.superQueryInfo.sqlCount);
-    } else {
-        if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
-            (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-            pidsOfStable = calloc(1, g_queryInfo.superQueryInfo.sqlCount *
-                                         g_queryInfo.superQueryInfo.threadCnt *
-                                         sizeof(pthread_t));
-
-            infosOfStable = calloc(1, g_queryInfo.superQueryInfo.sqlCount *
-                                          g_queryInfo.superQueryInfo.threadCnt *
-                                          sizeof(threadInfo));
-
-            int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
-            int     threads = g_queryInfo.superQueryInfo.threadCnt;
-
-            int64_t a = ntables / threads;
-            if (a < 1) {
-                threads = (int)ntables;
-                a = 1;
-            }
-
-            int64_t b = 0;
-            if (threads != 0) {
-                b = ntables % threads;
-            }
-
-            for (uint64_t i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
-                uint64_t tableFrom = 0;
-                for (int j = 0; j < threads; j++) {
-                    uint64_t    seq = i * threads + j;
-                    threadInfo *pThreadInfo = infosOfStable + seq;
-                    pThreadInfo->threadID = (int)seq;
-                    pThreadInfo->querySeq = i;
-
-                    pThreadInfo->start_table_from = tableFrom;
-                    pThreadInfo->ntables = j < b ? a + 1 : a;
-                    pThreadInfo->end_table_to =
-                        j < b ? tableFrom + a : tableFrom + a - 1;
-                    tableFrom = pThreadInfo->end_table_to + 1;
-                    pThreadInfo->taos = select_one_from_pool(
-                        argument->pool, g_queryInfo.dbName);
-                    pthread_create(pidsOfStable + seq, NULL, superSubscribe,
-                                   pThreadInfo);
+        for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
+            for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent;
+                 j++) {
+                uint64_t seq =
+                    i * g_queryInfo.specifiedQueryInfo.concurrent + j;
+                void *result;
+                pthread_join(pids[seq], &result);
+                if (*(int32_t *)result) {
+                    g_fail = true;
                 }
-            }
-
-            g_queryInfo.superQueryInfo.threadCnt = threads;
-
-            for (int i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
-                for (int j = 0; j < threads; j++) {
-                    uint64_t seq = (uint64_t)i * threads + j;
-                    void *   result;
-                    pthread_join(pidsOfStable[seq], &result);
-                    if (*(int32_t *)result) {
-                        g_fail = true;
-                    }
-                    tmfree(result);
-                }
+                tmfree(result);
             }
         }
     }
 
-    for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
-        for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent; j++) {
-            uint64_t seq = i * g_queryInfo.specifiedQueryInfo.concurrent + j;
-            void *   result;
-            pthread_join(pids[seq], &result);
-            if (*(int32_t *)result) {
-                g_fail = true;
+    //==== create threads for super table query
+    if (g_queryInfo.superQueryInfo.sqlCount > 0 &&
+        g_queryInfo.superQueryInfo.threadCnt > 0) {
+        pidsOfStable = calloc(1, g_queryInfo.superQueryInfo.sqlCount *
+                                     g_queryInfo.superQueryInfo.threadCnt *
+                                     sizeof(pthread_t));
+
+        infosOfStable = calloc(1, g_queryInfo.superQueryInfo.sqlCount *
+                                      g_queryInfo.superQueryInfo.threadCnt *
+                                      sizeof(threadInfo));
+
+        int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
+        int     threads = g_queryInfo.superQueryInfo.threadCnt;
+
+        int64_t a = ntables / threads;
+        if (a < 1) {
+            threads = (int)ntables;
+            a = 1;
+        }
+
+        int64_t b = 0;
+        if (threads != 0) {
+            b = ntables % threads;
+        }
+
+        for (uint64_t i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
+            uint64_t tableFrom = 0;
+            for (int j = 0; j < threads; j++) {
+                uint64_t    seq = i * threads + j;
+                threadInfo *pThreadInfo = infosOfStable + seq;
+                pThreadInfo->threadID = (int)seq;
+                pThreadInfo->querySeq = i;
+
+                pThreadInfo->start_table_from = tableFrom;
+                pThreadInfo->ntables = j < b ? a + 1 : a;
+                pThreadInfo->end_table_to =
+                    j < b ? tableFrom + a : tableFrom + a - 1;
+                tableFrom = pThreadInfo->end_table_to + 1;
+                pThreadInfo->taos =
+                    select_one_from_pool(argument->pool, g_queryInfo.dbName);
+                pthread_create(pidsOfStable + seq, NULL, superSubscribe,
+                               pThreadInfo);
             }
-            tmfree(result);
+        }
+
+        g_queryInfo.superQueryInfo.threadCnt = threads;
+
+        for (int i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
+            for (int j = 0; j < threads; j++) {
+                uint64_t seq = (uint64_t)i * threads + j;
+                void *   result;
+                pthread_join(pidsOfStable[seq], &result);
+                if (*(int32_t *)result) {
+                    g_fail = true;
+                }
+                tmfree(result);
+            }
         }
     }
 

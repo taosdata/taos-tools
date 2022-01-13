@@ -101,42 +101,6 @@ int taosRandom() { return rand(); }
 
 #endif
 
-char *formatTimestamp(char *buf, int64_t val, int precision) {
-    time_t tt;
-    if (precision == TSDB_TIME_PRECISION_MICRO) {
-        tt = (time_t)(val / 1000000);
-    }
-    if (precision == TSDB_TIME_PRECISION_NANO) {
-        tt = (time_t)(val / 1000000000);
-    } else {
-        tt = (time_t)(val / 1000);
-    }
-
-    /* comment out as it make testcases like select_with_tags.sim fail.
-       but in windows, this may cause the call to localtime crash if tt < 0,
-       need to find a better solution.
-       if (tt < 0) {
-       tt = 0;
-       }
-       */
-
-#ifdef WINDOWS
-    if (tt < 0) tt = 0;
-#endif
-
-    struct tm *ptm = localtime(&tt);
-    size_t     pos = strftime(buf, 32, "%Y-%m-%d %H:%M:%S", ptm);
-
-    if (precision == TSDB_TIME_PRECISION_MICRO) {
-        sprintf(buf + pos, ".%06d", (int)(val % 1000000));
-    } else if (precision == TSDB_TIME_PRECISION_NANO) {
-        sprintf(buf + pos, ".%09d", (int)(val % 1000000000));
-    } else {
-        sprintf(buf + pos, ".%03d", (int)(val % 1000));
-    }
-
-    return buf;
-}
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                 char ** childTblNameOfSuperTbl,
                                 int64_t childTblCountOfSuperTbl) {
@@ -270,12 +234,6 @@ int64_t taosGetSelfPthreadId() {
     if (id != 0) return id;
     id = syscall(SYS_gettid);
     return id;
-}
-
-int isCommentLine(char *line) {
-    if (line == NULL) return 1;
-
-    return regexMatch(line, "^\\s*#.*", REG_EXTENDED);
 }
 
 int regexMatch(const char *s, const char *reg, int cflags) {
@@ -518,7 +476,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         char temp[HEAD_BUFF_LEN] = {0};
         int  len = taos_print_row(temp, row, fields, num_fields);
         len += sprintf(temp + len, "\n");
-        // printf("query result:%s\n", temp);
+        debugPrint("query result:%s\n", temp);
         memcpy(databuf + totalLen, temp, len);
         totalLen += len;
     }

@@ -555,7 +555,6 @@ int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
-char *  formatTimestamp(char *buf, int64_t val, int precision);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
