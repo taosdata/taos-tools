@@ -82,7 +82,7 @@ jobs:
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
           ./build/bin/taosdump --databases > /dev/null 2>&1 || :
 
-          nohup sudo taosd &
+          nohup sudo taosd > /dev/null &
           sleep 10
 
           # test codec
