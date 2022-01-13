@@ -60,7 +60,7 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-          
+
       - name: Install tdengine
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
@@ -91,7 +91,7 @@ jobs:
           python3 test.py -f tools/taosdemoTestLimitOffset.py
           python3 test.py -f tools/taosdemoTestTblAlt.py
           python3 test.py -f tools/taosdemoTestSampleData.py
-          
+
           python3 test.py -f tools/taosdemoTestQuery.py
           python3 ./test.py -f tools/taosdemoTestdatatype.py
           python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py
@@ -130,7 +130,7 @@ jobs:
           then
             for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
           fi
-          
+
       - name: Generate report
         run: |
           cd TDengine/debug

@@ -247,11 +247,11 @@ typedef struct {
 } SDbInfo;
 
 enum enWHICH {
-    WHICH_UNKNOWN = 0,
-    WHICH_SQL,
-    WHICH_AVRO_TBTAGS,
+    WHICH_AVRO_TBTAGS = 0,
     WHICH_AVRO_NTB,
-    WHICH_AVRO_DATA
+    WHICH_AVRO_DATA,
+    WHICH_UNKNOWN,
+    WHICH_INVALID
 };
 
 typedef struct {
@@ -513,6 +513,7 @@ void prompt() {
     }
 }
 
+/*
 char* strToLower(char *dst, const char *src) {
   int esc = 0;
   char quote = 0, *p = dst, c;
@@ -539,6 +540,7 @@ char* strToLower(char *dst, const char *src) {
   *p = 0;
   return dst;
 }
+*/
 
 int setConsoleEcho(bool on)
 {
@@ -2192,7 +2194,7 @@ static void freeFileList(enum enWHICH which, int64_t count)
             fileList = g_tsDumpInAvroNtbs;
             break;
 
-        case WHICH_SQL:
+        case WHICH_UNKNOWN:
             fileList = g_tsDumpInSqlFiles;
             break;
 
@@ -2210,9 +2212,9 @@ static void freeFileList(enum enWHICH which, int64_t count)
 
 static enum enWHICH createDumpinList(char *ext, int64_t count)
 {
-    enum enWHICH which = WHICH_UNKNOWN;
+    enum enWHICH which = WHICH_INVALID;
     if (0 == strcmp(ext, "sql")) {
-        which = WHICH_SQL;
+        which = WHICH_UNKNOWN;
     } else if (0 == strncmp(ext, "avro-ntb",
                 strlen("avro-ntb"))) {
         which = WHICH_AVRO_NTB;
@@ -2224,7 +2226,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
     }
 
     switch (which) {
-        case WHICH_SQL:
+        case WHICH_UNKNOWN:
             g_tsDumpInSqlFiles = (char **)calloc(count, sizeof(char *));
             assert(g_tsDumpInSqlFiles);
 
@@ -2286,7 +2288,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
                 if (strcmp (ext, &(pDirent->d_name[namelen - extlen])) == 0) {
                     verbosePrint("%s found\n", pDirent->d_name);
                     switch (which) {
-                        case WHICH_SQL:
+                        case WHICH_UNKNOWN:
                             if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                                 continue;
                             }
@@ -4427,7 +4429,7 @@ static int64_t writeResultToSql(TAOS_RES *res, FILE *fp,
             curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "(");
         }
 
-        for (int col = 0; col < numFields-1; col++) {
+        for (int col = 0; col < numFields; col++) {
             if (col != 0) curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, ", ");
 
             if (row[col] == NULL) {
@@ -4681,7 +4683,7 @@ static int64_t dumpNormalTable(
         totalRows = dumpTableData(
                 index,
                 fp, tbName, dbName, precision,
-            numColsAndTags, tableDes);
+                numColsAndTags, tableDes);
     }
 
     freeTbDes(tableDes);
@@ -5107,8 +5109,9 @@ static int createMTableAvroHead(
                             __func__, __LINE__, n64tmp);
                     avro_value_append(&value, &secondhalf, NULL);
                     avro_value_set_long(&secondhalf, (int64_t)LONG_MAX);
-                    debugPrint("second half is: %"PRId64"\n", LONG_MAX);
+                    debugPrint("second half is: %"PRId64"\n", (int64_t)LONG_MAX);
 
+                    break;
 
                 default:
                     errorPrint("Unknown type: %d\n", type);
@@ -5558,7 +5561,7 @@ static void* dumpInSqlWorkThreadFp(void *arg)
 {
     threadInfo *pThread = (threadInfo*)arg;
     SET_THREAD_NAME("dumpInSqlWorkThrd");
-    errorPrint("[%d] Start to process %"PRId64" files from %"PRId64"\n",
+    debugPrint2("[%d] Start to process %"PRId64" files from %"PRId64"\n",
                     pThread->threadIndex, pThread->count, pThread->from);
 
     for (int64_t i = 0; i < pThread->count; i++) {
@@ -5577,11 +5580,11 @@ static void* dumpInSqlWorkThreadFp(void *arg)
                 sqlFile);
         if (rows > 0) {
             pThread->recSuccess += rows;
-            okPrint("[%d] Total %"PRId64" row(s) be successfully dumped in file: %s\n",
+            okPrint("[%d] Total %"PRId64" line(s) command be successfully dumped in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
         } else if (rows < 0) {
             pThread->recFailed += rows;
-            errorPrint("[%d] Total %"PRId64" row(s) failed to dump in file: %s\n",
+            errorPrint("[%d] Total %"PRId64" line(s) command failed to dump in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
         }
         fclose(fp);
@@ -5679,6 +5682,11 @@ static int dumpInSqlWorkThreads()
             case WHICH_AVRO_NTB:
                 g_totalDumpInNtbSuccess += infos[t].ntbSuccess;
                 g_totalDumpInNtbFailed += infos[t].ntbFailed;
+                break;
+
+            case WHICH_UNKNOWN:
+                g_totalDumpInRecSuccess += infos[t].recSuccess;
+                g_totalDumpInRecFailed += infos[t].recFailed;
                 break;
 
             default:
@@ -6633,6 +6641,13 @@ int main(int argc, char *argv[]) {
 
     taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 
+    char *unit;
+    if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
+        unit = "line(s)";
+    } else {
+        unit = "row(s)";
+    }
+
     if (g_args.isDumpIn) {
         fprintf(g_fpOfResult, "============================== DUMP IN ============================== \n");
         fprintf(g_fpOfResult, "# DumpIn start time:                   %d-%02d-%02d %02d:%02d:%02d\n",
@@ -6641,17 +6656,22 @@ int main(int argc, char *argv[]) {
         int dumpInRet = dumpIn();
         if (dumpInRet) {
             errorPrint("%s\n", "dumpIn() failed!");
-            okPrint("%"PRId64" row(s) dumped in!\n", g_totalDumpInRecSuccess);
-            errorPrint("%"PRId64" rows(s) failed to dump in!\n", g_totalDumpInRecFailed);
+            okPrint("%"PRId64" %s dumped in!\n",
+                    g_totalDumpInRecSuccess, unit);
+            errorPrint("%"PRId64" %s failed to dump in!\n",
+                    g_totalDumpInRecFailed, unit);
             ret = -1;
         } else {
             if (g_totalDumpInRecFailed < 0) {
                 if (g_totalDumpInRecSuccess > 0) {
-                    okPrint("%"PRId64" row(s) dumped in!\n", g_totalDumpInRecSuccess);
+                    okPrint("%"PRId64" %s dumped in!\n",
+                            g_totalDumpInRecSuccess, unit);
                 }
-                errorPrint("%"PRId64" rows(s) failed to dump in!\n", g_totalDumpInRecFailed);
+                errorPrint("%"PRId64" %s failed to dump in!\n",
+                        g_totalDumpInRecFailed, unit);
             } else {
-                okPrint("%"PRId64" row(s) dumped in!\n", g_totalDumpInRecSuccess);
+                okPrint("%"PRId64" %s dumped in!\n",
+                        g_totalDumpInRecSuccess, unit);
             }
             ret = 0;
         }

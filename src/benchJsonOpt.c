@@ -74,7 +74,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             if (length > TSDB_MAX_BINARY_LEN) {
                 errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
                            ")\n",
-                           length, TSDB_MAX_BINARY_LEN);
+                           length, (uint64_t)TSDB_MAX_BINARY_LEN);
                 goto PARSE_OVER;
             }
         } else if (dataLen && dataLen->type != cJSON_Number) {
@@ -176,7 +176,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             if (data_length > TSDB_MAX_BINARY_LEN) {
                 errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
                            ")\n",
-                           data_length, TSDB_MAX_BINARY_LEN);
+                           data_length, (uint64_t)TSDB_MAX_BINARY_LEN);
                 goto PARSE_OVER;
             }
         } else if (dataLen && dataLen->type != cJSON_Number) {
