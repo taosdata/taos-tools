@@ -185,9 +185,7 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("inSql: %s\n", inSql);
 
     char *pos = strstr(inSql, sourceString);
-    if (0 == pos) {
-        return;
-    }
+    if (0 == pos) return;
 
     tstrncpy(outSql, inSql, pos - inSql + 1);
     // printf("1: %s\n", outSql);
@@ -241,9 +239,7 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     char    msgbuf[100] = {0};
 
     /* Compile regular expression */
-    if (regcomp(&regex, reg, cflags) != 0) {
-        ERROR_EXIT("Fail to compile regex\n");
-    }
+    if (regcomp(&regex, reg, cflags) != 0) ERROR_EXIT("Fail to regex\n");
 
     /* Execute regular expression */
     int reti = regexec(&regex, s, 0, NULL, 0);
@@ -416,9 +412,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
-        if (bytes == 0) {
-            break;
-        }
+
         received += bytes;
 
         if (arguments->test_mode == INSERT_TEST) {

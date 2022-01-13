@@ -103,10 +103,6 @@ void *superTableQuery(void *sarg) {
     int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     char *sqlstr = calloc(1, BUFFER_SIZE);
-    if (NULL == sqlstr) {
-        errorPrint("%s", "failed to allocate memory\n");
-        goto free_of_super_query;
-    }
 
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     prctl(PR_SET_NAME, "superTableQuery");
@@ -163,23 +159,17 @@ void *superTableQuery(void *sarg) {
             pThreadInfo->end_table_to, (double)(et - st) / 1000.0);
     }
     *code = 0;
-free_of_super_query:
     tmfree(sqlstr);
     return code;
 }
 
 int queryTestProcess(SArguments *argument) {
     printfQueryMeta(argument);
-    if (init_taos_list(argument)) {
-        return -1;
-    }
-    TAOS *taos = select_one_from_pool(argument->pool, g_queryInfo.dbName);
-    if (taos == NULL) {
-        return -1;
-    }
+    if (init_taos_list(argument)) return -1;
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        char cmd[SQL_BUFF_LEN] = "\0";
+        TAOS *taos = select_one_from_pool(argument->pool, g_queryInfo.dbName);
+        char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
                  g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
         TAOS_RES *res = taos_query(taos, cmd);

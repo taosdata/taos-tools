@@ -293,13 +293,45 @@ int subscribeTestProcess(SArguments *argument) {
         return -1;
     }
 
-    TAOS *taos = select_one_from_pool(argument->pool, g_queryInfo.dbName);
-
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        getAllChildNameOfSuperTable(taos, g_queryInfo.dbName,
-                                    g_queryInfo.superQueryInfo.stbName,
-                                    g_queryInfo.superQueryInfo.childTblName,
-                                    g_queryInfo.superQueryInfo.childTblCount);
+        TAOS *taos = select_one_from_pool(argument->pool, g_queryInfo.dbName);
+        char  cmd[SQL_BUFF_LEN] = "\0";
+        snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
+                 g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+        TAOS_RES *res = taos_query(taos, cmd);
+        int32_t   code = taos_errno(res);
+        if (code) {
+            errorPrint("failed to count child table name: %s. reason: %s\n",
+                       cmd, taos_errstr(res));
+            taos_free_result(res);
+
+            return -1;
+        }
+        TAOS_ROW    row = NULL;
+        int         num_fields = taos_num_fields(res);
+        TAOS_FIELD *fields = taos_fetch_fields(res);
+        while ((row = taos_fetch_row(res)) != NULL) {
+            if (0 == strlen((char *)(row[0]))) {
+                errorPrint("stable %s have no child table\n",
+                           g_queryInfo.superQueryInfo.stbName);
+                return -1;
+            }
+            char temp[256] = {0};
+            taos_print_row(temp, row, fields, num_fields);
+            g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
+        }
+        infoPrint("%s's childTblCount: %" PRId64 "\n",
+                  g_queryInfo.superQueryInfo.stbName,
+                  g_queryInfo.superQueryInfo.childTblCount);
+        taos_free_result(res);
+        g_queryInfo.superQueryInfo.childTblName =
+            calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *));
+        if (getAllChildNameOfSuperTable(
+                taos, g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName,
+                g_queryInfo.superQueryInfo.childTblName,
+                g_queryInfo.superQueryInfo.childTblCount)) {
+            return -1;
+        }
     }
 
     pthread_t * pids = NULL;
