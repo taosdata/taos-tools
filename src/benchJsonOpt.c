@@ -16,15 +16,13 @@
 #include "bench.h"
 
 int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
-                                          SSuperTable *superTbls) {
+                                          SSuperTable *superTbls,
+                                          SArguments * arguments) {
     int32_t code = -1;
 
     // columns
     cJSON *columns = cJSON_GetObjectItem(stbInfo, "columns");
-    if (!columns || columns->type != cJSON_Array) {
-        errorPrint("%s", "failed to read json, columns not found\n");
-        goto PARSE_OVER;
-    }
+    if (!columns || columns->type != cJSON_Array) goto PARSE_OVER;
 
     int columnSize = cJSON_GetArraySize(columns);
 
@@ -52,34 +50,18 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         cJSON *countObj = cJSON_GetObjectItem(column, "count");
         if (countObj && countObj->type == cJSON_Number) {
             count = (int)countObj->valueint;
-        } else if (countObj && countObj->type != cJSON_Number) {
-            errorPrint("%s", "failed to read json, column count not found\n");
-            goto PARSE_OVER;
         } else {
             count = 1;
         }
 
         // column info
         cJSON *dataType = cJSON_GetObjectItem(column, "type");
-        if (!dataType || dataType->type != cJSON_String ||
-            dataType->valuestring == NULL) {
-            errorPrint("%s", "failed to read json, column type not found\n");
-            goto PARSE_OVER;
-        }
+        if (!dataType || dataType->type != cJSON_String) goto PARSE_OVER;
 
         cJSON * dataLen = cJSON_GetObjectItem(column, "len");
         int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
-            if (length > TSDB_MAX_BINARY_LEN) {
-                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
-                           ")\n",
-                           length, (uint64_t)TSDB_MAX_BINARY_LEN);
-                goto PARSE_OVER;
-            }
-        } else if (dataLen && dataLen->type != cJSON_Number) {
-            errorPrint("%s", "failed to read json, column len not found\n");
-            goto PARSE_OVER;
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
                 case TSDB_DATA_TYPE_BOOL:
@@ -107,7 +89,7 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                     length = sizeof(double);
                     break;
                 default:
-                    length = SMALL_BUFF_LEN;
+                    length = arguments->binwidth;
                     break;
             }
         }
@@ -120,24 +102,13 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
     }
 
-    if ((index + 1 /* ts */) > MAX_NUM_COLUMNS) {
-        errorPrint(
-            "failed to read json, column size overflow, allowed max column "
-            "size is %d\n",
-            MAX_NUM_COLUMNS);
-        goto PARSE_OVER;
-    }
-
     superTbls->columnCount = index;
 
     count = 1;
     index = 0;
     // tags
     cJSON *tags = cJSON_GetObjectItem(stbInfo, "tags");
-    if (!tags || tags->type != cJSON_Array) {
-        errorPrint("%s", "failed to read json, tags not found\n");
-        goto PARSE_OVER;
-    }
+    if (!tags || tags->type != cJSON_Array) goto PARSE_OVER;
     int tag_count = 0;
     int tagSize = cJSON_GetArraySize(tags);
 
@@ -147,14 +118,12 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         if (countObj && countObj->type == cJSON_Number &&
             (int)countObj->valueint != 0) {
             tag_count += (int)countObj->valueint;
-        } else if (countObj && countObj->type != cJSON_Number) {
-            errorPrint("%s", "failed to read json, column count not found\n");
-            goto PARSE_OVER;
         } else {
             tag_count += 1;
         }
     }
 
+    superTbls->use_metric = true;
     superTbls->tag_type = calloc(tag_count, sizeof(char));
     superTbls->tag_length = calloc(tag_count, sizeof(int32_t));
 
@@ -164,32 +133,46 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         if (tag == NULL) continue;
 
         cJSON *dataType = cJSON_GetObjectItem(tag, "type");
-        if (!dataType || dataType->type != cJSON_String ||
-            dataType->valuestring == NULL) {
-            errorPrint("%s", "failed to read json, tag type not found\n");
-            goto PARSE_OVER;
-        }
-        int    data_length = SMALL_BUFF_LEN;
+        if (!dataType || dataType->type != cJSON_String) goto PARSE_OVER;
+        int    data_length = 0;
         cJSON *dataLen = cJSON_GetObjectItem(tag, "len");
         if (dataLen && dataLen->type == cJSON_Number) {
             data_length = (int32_t)dataLen->valueint;
-            if (data_length > TSDB_MAX_BINARY_LEN) {
-                errorPrint("data length (%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
-                           ")\n",
-                           data_length, (uint64_t)TSDB_MAX_BINARY_LEN);
-                goto PARSE_OVER;
+        } else {
+            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+                case TSDB_DATA_TYPE_BOOL:
+                case TSDB_DATA_TYPE_TINYINT:
+                case TSDB_DATA_TYPE_UTINYINT:
+                    data_length = sizeof(int8_t);
+                    break;
+                case TSDB_DATA_TYPE_SMALLINT:
+                case TSDB_DATA_TYPE_USMALLINT:
+                    data_length = sizeof(int16_t);
+                    break;
+                case TSDB_DATA_TYPE_INT:
+                case TSDB_DATA_TYPE_UINT:
+                    data_length = sizeof(int32_t);
+                    break;
+                case TSDB_DATA_TYPE_BIGINT:
+                case TSDB_DATA_TYPE_UBIGINT:
+                case TSDB_DATA_TYPE_TIMESTAMP:
+                    data_length = sizeof(int64_t);
+                    break;
+                case TSDB_DATA_TYPE_FLOAT:
+                    data_length = sizeof(float);
+                    break;
+                case TSDB_DATA_TYPE_DOUBLE:
+                    data_length = sizeof(double);
+                    break;
+                default:
+                    data_length = arguments->binwidth;
+                    break;
             }
-        } else if (dataLen && dataLen->type != cJSON_Number) {
-            errorPrint("%s", "failed to read json, column len not found\n");
-            goto PARSE_OVER;
         }
 
         cJSON *countObj = cJSON_GetObjectItem(tag, "count");
         if (countObj && countObj->type == cJSON_Number) {
             count = (int)countObj->valueint;
-        } else if (countObj && countObj->type != cJSON_Number) {
-            errorPrint("%s", "failed to read json, column count not found\n");
-            goto PARSE_OVER;
         } else {
             count = 1;
         }
@@ -211,30 +194,14 @@ int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
     }
 
-    if (index > TSDB_MAX_TAGS) {
-        errorPrint(
-            "failed to read json, tags size overflow, allowed max tag count is "
-            "%d\n",
-            TSDB_MAX_TAGS);
-        goto PARSE_OVER;
-    }
-
     superTbls->tagCount = index;
-
-    if ((superTbls->columnCount + superTbls->tagCount + 1 /* ts */) >
-        TSDB_MAX_COLUMNS) {
-        errorPrint(
-            "columns + tags is more than allowed max columns count: %d\n",
-            TSDB_MAX_COLUMNS);
-        goto PARSE_OVER;
-    }
     code = 0;
 
 PARSE_OVER:
     return code;
 }
 
-int getMetaFromInsertJsonFile(cJSON *json, SArguments *argument) {
+int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
     int32_t code = -1;
 
     cJSON *cfgdir = cJSON_GetObjectItem(json, "cfgdir");
@@ -244,420 +211,262 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *argument) {
 
     cJSON *host = cJSON_GetObjectItem(json, "host");
     if (host && host->type == cJSON_String && host->valuestring != NULL) {
-        argument->host = host->valuestring;
+        arguments->host = host->valuestring;
     }
 
     cJSON *port = cJSON_GetObjectItem(json, "port");
     if (port && port->type == cJSON_Number) {
-        argument->port = (uint16_t)port->valueint;
+        arguments->port = (uint16_t)port->valueint;
     }
 
     cJSON *user = cJSON_GetObjectItem(json, "user");
     if (user && user->type == cJSON_String && user->valuestring != NULL) {
-        argument->user = user->valuestring;
+        arguments->user = user->valuestring;
     }
 
     cJSON *password = cJSON_GetObjectItem(json, "password");
     if (password && password->type == cJSON_String &&
         password->valuestring != NULL) {
-        argument->password = password->valuestring;
+        arguments->password = password->valuestring;
     }
 
     cJSON *resultfile = cJSON_GetObjectItem(json, "result_file");
     if (resultfile && resultfile->type == cJSON_String &&
         resultfile->valuestring != NULL) {
-        argument->output_file = resultfile->valuestring;
+        arguments->output_file = resultfile->valuestring;
     }
 
     cJSON *threads = cJSON_GetObjectItem(json, "thread_count");
     if (threads && threads->type == cJSON_Number) {
-        argument->nthreads = (uint32_t)threads->valueint;
-    } else if (!threads) {
-        argument->nthreads = DEFAULT_NTHREADS;
-    } else {
-        errorPrint("%s", "failed to read json, threads not found\n");
-        goto PARSE_OVER;
+        arguments->nthreads = (uint32_t)threads->valueint;
     }
 
     cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
-        argument->nthreads_pool = (uint32_t)threadspool->valueint;
-    } else if (!threadspool) {
-        argument->nthreads_pool = argument->nthreads + 5;
-    } else {
-        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
-        goto PARSE_OVER;
+        arguments->nthreads_pool = (uint32_t)threadspool->valueint;
     }
 
-    cJSON *gInsertInterval = cJSON_GetObjectItem(json, "insert_interval");
-    if (gInsertInterval && gInsertInterval->type == cJSON_Number) {
-        if (gInsertInterval->valueint < 0) {
-            errorPrint("%s",
-                       "failed to read json, insert interval input mistake\n");
-            goto PARSE_OVER;
-        }
-        argument->insert_interval = gInsertInterval->valueint;
-    } else if (!gInsertInterval) {
-        argument->insert_interval = 0;
-    } else {
-        errorPrint("%s",
-                   "failed to read json, insert_interval input mistake\n");
-        goto PARSE_OVER;
-    }
-
-    cJSON *interlaceRows = cJSON_GetObjectItem(json, "interlace_rows");
-    if (interlaceRows && interlaceRows->type == cJSON_Number) {
-        if (interlaceRows->valueint < 0) {
-            errorPrint("%s",
-                       "failed to read json, interlaceRows input mistake\n");
-            goto PARSE_OVER;
-        }
-        argument->interlaceRows = (uint32_t)interlaceRows->valueint;
-    } else if (!interlaceRows) {
-        argument->interlaceRows = 0;  // 0 means progressive mode, > 0 mean
-                                      // interlace mode. max value is less or
-                                      // equ num_of_records_per_req
-    } else {
-        errorPrint("%s", "failed to read json, interlaceRows input mistake\n");
-        goto PARSE_OVER;
-    }
+    if (init_taos_list(arguments)) goto PARSE_OVER;
 
     cJSON *numRecPerReq = cJSON_GetObjectItem(json, "num_of_records_per_req");
     if (numRecPerReq && numRecPerReq->type == cJSON_Number) {
-        if (numRecPerReq->valueint <= 0) {
-            errorPrint(
-                "%s() LN%d, failed to read json, num_of_records_per_req input "
-                "mistake\n",
-                __func__, __LINE__);
-            goto PARSE_OVER;
-        }
-        argument->reqPerReq = (uint32_t)numRecPerReq->valueint;
-    } else if (!numRecPerReq) {
-        argument->reqPerReq = MAX_RECORDS_PER_REQ;
-    } else {
-        errorPrint(
-            "%s() LN%d, failed to read json, num_of_records_per_req not "
-            "found\n",
-            __func__, __LINE__);
-        goto PARSE_OVER;
+        arguments->reqPerReq = (uint32_t)numRecPerReq->valueint;
+        if (arguments->reqPerReq <= 0) goto PARSE_OVER;
     }
 
     cJSON *prepareRand = cJSON_GetObjectItem(json, "prepared_rand");
     if (prepareRand && prepareRand->type == cJSON_Number) {
-        if (prepareRand->valueint <= 0) {
-            errorPrint(
-                "%s() LN%d, failed to read json, prepared_rand input mistake\n",
-                __func__, __LINE__);
-            goto PARSE_OVER;
-        }
-        argument->prepared_rand = prepareRand->valueint;
-    } else if (!prepareRand) {
-        argument->prepared_rand = DEFAULT_PREPARED_RAND;
-    } else {
-        errorPrint("%s", "failed to read json, prepared_rand not found\n");
-        goto PARSE_OVER;
+        arguments->prepared_rand = prepareRand->valueint;
     }
 
     cJSON *chineseOpt = cJSON_GetObjectItem(json, "chinese");  // yes, no,
     if (chineseOpt && chineseOpt->type == cJSON_String &&
         chineseOpt->valuestring != NULL) {
         if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
-            argument->chinese = true;
-        } else if (0 == strncasecmp(chineseOpt->valuestring, "no", 2)) {
-            argument->chinese = false;
-        } else {
-            argument->chinese = false;
+            arguments->chinese = true;
         }
-    } else if (!chineseOpt) {
-        argument->chinese = false;
-    } else {
-        errorPrint("%s", "failed to read json, chinese input mistake\n");
-        goto PARSE_OVER;
+    }
+
+    cJSON *top_insertInterval = cJSON_GetObjectItem(json, "insert_interval");
+    if (top_insertInterval && top_insertInterval->type == cJSON_Number) {
+        arguments->insert_interval = top_insertInterval->valueint;
     }
 
     cJSON *answerPrompt =
         cJSON_GetObjectItem(json, "confirm_parameter_prompt");  // yes, no,
     if (answerPrompt && answerPrompt->type == cJSON_String &&
         answerPrompt->valuestring != NULL) {
-        if (0 == strncasecmp(answerPrompt->valuestring, "yes", 3)) {
-            argument->answer_yes = false;
-        } else if (0 == strncasecmp(answerPrompt->valuestring, "no", 2)) {
-            argument->answer_yes = true;
-        } else {
-            argument->answer_yes = false;
+        if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
+            arguments->answer_yes = true;
         }
-    } else if (!answerPrompt) {
-        argument->answer_yes = true;  // default is no, mean answer_yes.
-    } else {
-        errorPrint(
-            "%s",
-            "failed to read json, confirm_parameter_prompt input mistake\n");
-        goto PARSE_OVER;
-    }
-
-    // rows per table need be less than insert batch
-    if (argument->interlaceRows > argument->reqPerReq) {
-        printf(
-            "NOTICE: interlace rows value %u > num_of_records_per_req %u\n\n",
-            argument->interlaceRows, argument->reqPerReq);
-        printf(
-            "        interlace rows value will be set to "
-            "num_of_records_per_req %u\n\n",
-            argument->reqPerReq);
-        prompt(argument);
-        argument->interlaceRows = argument->reqPerReq;
     }
 
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
-    if (!dbs || dbs->type != cJSON_Array) {
-        errorPrint("%s", "failed to read json, databases not found\n");
-        goto PARSE_OVER;
-    }
+    if (!dbs || dbs->type != cJSON_Array) goto PARSE_OVER;
 
     int dbSize = cJSON_GetArraySize(dbs);
-    if (dbSize > MAX_DB_COUNT) {
-        errorPrint(
-            "failed to read json, databases size overflow, max database is "
-            "%d\n",
-            MAX_DB_COUNT);
-        goto PARSE_OVER;
-    }
-    db = calloc(dbSize, sizeof(SDataBase));
-    argument->dbCount = dbSize;
+    if (dbSize > MAX_DB_COUNT) goto PARSE_OVER;
+    tmfree(arguments->db->superTbls->col_length);
+    tmfree(arguments->db->superTbls->col_type);
+    tmfree(arguments->db->superTbls->tag_type);
+    tmfree(arguments->db->superTbls->tag_length);
+    tmfree(arguments->db->superTbls);
+    tmfree(arguments->db);
+    arguments->db = calloc(dbSize, sizeof(SDataBase));
+    arguments->dbCount = dbSize;
     for (int i = 0; i < dbSize; ++i) {
         cJSON *dbinfos = cJSON_GetArrayItem(dbs, i);
         if (dbinfos == NULL) continue;
 
         // dbinfo
         cJSON *dbinfo = cJSON_GetObjectItem(dbinfos, "dbinfo");
-        if (!dbinfo || dbinfo->type != cJSON_Object) {
-            errorPrint("%s", "failed to read json, dbinfo not found\n");
-            goto PARSE_OVER;
-        }
+        if (!dbinfo || dbinfo->type != cJSON_Object) goto PARSE_OVER;
 
         cJSON *dbName = cJSON_GetObjectItem(dbinfo, "name");
-        if (!dbName || dbName->type != cJSON_String ||
-            dbName->valuestring == NULL) {
-            errorPrint("%s", "failed to read json, db name not found\n");
-            goto PARSE_OVER;
+        if (dbName && dbName->type == cJSON_String) {
+            arguments->db[i].dbName = dbName->valuestring;
         }
-        tstrncpy(db[i].dbName, dbName->valuestring, TSDB_DB_NAME_LEN);
 
         cJSON *drop = cJSON_GetObjectItem(dbinfo, "drop");
         if (drop && drop->type == cJSON_String && drop->valuestring != NULL) {
-            if (0 == strncasecmp(drop->valuestring, "yes", strlen("yes"))) {
-                db[i].drop = true;
+            if (0 == strcasecmp(drop->valuestring, "no")) {
+                arguments->db[i].drop = false;
             } else {
-                db[i].drop = false;
+                arguments->db[i].drop = true;
             }
-        } else if (!drop) {
-            db[i].drop = true;
         } else {
-            errorPrint("%s", "failed to read json, drop input mistake\n");
-            goto PARSE_OVER;
+            arguments->db[i].drop = true;
         }
 
         cJSON *precision = cJSON_GetObjectItem(dbinfo, "precision");
         if (precision && precision->type == cJSON_String &&
             precision->valuestring != NULL) {
-            tstrncpy(db[i].dbCfg.precision, precision->valuestring,
-                     SMALL_BUFF_LEN);
-        } else if (!precision) {
-            memset(db[i].dbCfg.precision, 0, SMALL_BUFF_LEN);
+            if (0 == strcasecmp(precision->valuestring, "us")) {
+                arguments->db[i].dbCfg.precision = TSDB_TIME_PRECISION_MICRO;
+                arguments->db[i].dbCfg.sml_precision =
+                    TSDB_SML_TIMESTAMP_MICRO_SECONDS;
+            } else if (0 == strcasecmp(precision->valuestring, "ns")) {
+                arguments->db[i].dbCfg.precision = TSDB_TIME_PRECISION_NANO;
+                arguments->db[i].dbCfg.sml_precision =
+                    TSDB_SML_TIMESTAMP_NANO_SECONDS;
+            } else {
+                arguments->db[i].dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
+                arguments->db[i].dbCfg.sml_precision =
+                    TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+            }
         } else {
-            errorPrint("%s", "failed to read json, precision not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
+            arguments->db[i].dbCfg.sml_precision =
+                TSDB_SML_TIMESTAMP_MILLI_SECONDS;
         }
 
         cJSON *update = cJSON_GetObjectItem(dbinfo, "update");
         if (update && update->type == cJSON_Number) {
-            db[i].dbCfg.update = (int)update->valueint;
-        } else if (!update) {
-            db[i].dbCfg.update = -1;
+            arguments->db[i].dbCfg.update = (int)update->valueint;
         } else {
-            errorPrint("%s", "failed to read json, update not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.update = -1;
         }
 
         cJSON *replica = cJSON_GetObjectItem(dbinfo, "replica");
         if (replica && replica->type == cJSON_Number) {
-            db[i].dbCfg.replica = (int)replica->valueint;
-        } else if (!replica) {
-            db[i].dbCfg.replica = -1;
+            arguments->db[i].dbCfg.replica = (int)replica->valueint;
         } else {
-            errorPrint("%s", "failed to read json, replica not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.replica = -1;
         }
 
         cJSON *keep = cJSON_GetObjectItem(dbinfo, "keep");
         if (keep && keep->type == cJSON_Number) {
-            db[i].dbCfg.keep = (int)keep->valueint;
-        } else if (!keep) {
-            db[i].dbCfg.keep = -1;
+            arguments->db[i].dbCfg.keep = (int)keep->valueint;
         } else {
-            errorPrint("%s", "failed to read json, keep not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.keep = -1;
         }
 
         cJSON *days = cJSON_GetObjectItem(dbinfo, "days");
         if (days && days->type == cJSON_Number) {
-            db[i].dbCfg.days = (int)days->valueint;
-        } else if (!days) {
-            db[i].dbCfg.days = -1;
+            arguments->db[i].dbCfg.days = (int)days->valueint;
         } else {
-            errorPrint("%s", "failed to read json, days not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.days = -1;
         }
 
         cJSON *cache = cJSON_GetObjectItem(dbinfo, "cache");
         if (cache && cache->type == cJSON_Number) {
-            db[i].dbCfg.cache = (int)cache->valueint;
-        } else if (!cache) {
-            db[i].dbCfg.cache = -1;
+            arguments->db[i].dbCfg.cache = (int)cache->valueint;
         } else {
-            errorPrint("%s", "failed to read json, cache not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.cache = -1;
         }
 
         cJSON *blocks = cJSON_GetObjectItem(dbinfo, "blocks");
         if (blocks && blocks->type == cJSON_Number) {
-            db[i].dbCfg.blocks = (int)blocks->valueint;
-        } else if (!blocks) {
-            db[i].dbCfg.blocks = -1;
+            arguments->db[i].dbCfg.blocks = (int)blocks->valueint;
         } else {
-            errorPrint("%s", "failed to read json, block not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.blocks = -1;
         }
 
         cJSON *minRows = cJSON_GetObjectItem(dbinfo, "minRows");
         if (minRows && minRows->type == cJSON_Number) {
-            db[i].dbCfg.minRows = (uint32_t)minRows->valueint;
-        } else if (!minRows) {
-            db[i].dbCfg.minRows = 0;  // 0 means default
+            arguments->db[i].dbCfg.minRows = (uint32_t)minRows->valueint;
         } else {
-            errorPrint("%s", "failed to read json, minRows not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.minRows = 0;
         }
 
         cJSON *maxRows = cJSON_GetObjectItem(dbinfo, "maxRows");
         if (maxRows && maxRows->type == cJSON_Number) {
-            db[i].dbCfg.maxRows = (uint32_t)maxRows->valueint;
-        } else if (!maxRows) {
-            db[i].dbCfg.maxRows = 0;  // 0 means default
+            arguments->db[i].dbCfg.maxRows = (uint32_t)maxRows->valueint;
         } else {
-            errorPrint("%s", "failed to read json, maxRows not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.maxRows = 0;
         }
 
         cJSON *comp = cJSON_GetObjectItem(dbinfo, "comp");
         if (comp && comp->type == cJSON_Number) {
-            db[i].dbCfg.comp = (int)comp->valueint;
-        } else if (!comp) {
-            db[i].dbCfg.comp = -1;
+            arguments->db[i].dbCfg.comp = (int)comp->valueint;
         } else {
-            errorPrint("%s", "failed to read json, comp not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.comp = -1;
         }
 
         cJSON *walLevel = cJSON_GetObjectItem(dbinfo, "walLevel");
         if (walLevel && walLevel->type == cJSON_Number) {
-            db[i].dbCfg.walLevel = (int)walLevel->valueint;
-        } else if (!walLevel) {
-            db[i].dbCfg.walLevel = -1;
+            arguments->db[i].dbCfg.walLevel = (int)walLevel->valueint;
         } else {
-            errorPrint("%s", "failed to read json, walLevel not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.walLevel = -1;
         }
 
         cJSON *cacheLast = cJSON_GetObjectItem(dbinfo, "cachelast");
         if (cacheLast && cacheLast->type == cJSON_Number) {
-            db[i].dbCfg.cacheLast = (int)cacheLast->valueint;
-        } else if (!cacheLast) {
-            db[i].dbCfg.cacheLast = -1;
+            arguments->db[i].dbCfg.cacheLast = (int)cacheLast->valueint;
         } else {
-            errorPrint("%s", "failed to read json, cacheLast not found\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.cacheLast = -1;
         }
 
         cJSON *quorum = cJSON_GetObjectItem(dbinfo, "quorum");
         if (quorum && quorum->type == cJSON_Number) {
-            db[i].dbCfg.quorum = (int)quorum->valueint;
-        } else if (!quorum) {
-            db[i].dbCfg.quorum = -1;
+            arguments->db[i].dbCfg.quorum = (int)quorum->valueint;
         } else {
-            errorPrint("%s", "failed to read json, quorum input mistake");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.quorum = -1;
         }
 
         cJSON *fsync = cJSON_GetObjectItem(dbinfo, "fsync");
         if (fsync && fsync->type == cJSON_Number) {
-            db[i].dbCfg.fsync = (int)fsync->valueint;
-        } else if (!fsync) {
-            db[i].dbCfg.fsync = -1;
+            arguments->db[i].dbCfg.fsync = (int)fsync->valueint;
         } else {
-            errorPrint("%s", "failed to read json, fsync input mistake\n");
-            goto PARSE_OVER;
+            arguments->db[i].dbCfg.fsync = -1;
         }
 
         // super_tables
         cJSON *stables = cJSON_GetObjectItem(dbinfos, "super_tables");
-        if (!stables || stables->type != cJSON_Array) {
-            errorPrint("%s", "failed to read json, super_tables not found\n");
-            goto PARSE_OVER;
-        }
+        if (!stables || stables->type != cJSON_Array) goto PARSE_OVER;
 
         int stbSize = cJSON_GetArraySize(stables);
-        if (stbSize > MAX_SUPER_TABLE_COUNT) {
-            errorPrint(
-                "failed to read json, supertable size overflow, max supertable "
-                "is %d\n",
-                MAX_SUPER_TABLE_COUNT);
-            goto PARSE_OVER;
-        }
-        db[i].superTbls = calloc(1, stbSize * sizeof(SSuperTable));
-        assert(db[i].superTbls);
-        db[i].superTblCount = stbSize;
+        if (stbSize > MAX_SUPER_TABLE_COUNT) goto PARSE_OVER;
+        arguments->db[i].superTbls = calloc(1, stbSize * sizeof(SSuperTable));
+        assert(arguments->db[i].superTbls);
+        arguments->db[i].superTblCount = stbSize;
         for (int j = 0; j < stbSize; ++j) {
             cJSON *stbInfo = cJSON_GetArrayItem(stables, j);
             if (stbInfo == NULL) continue;
 
             // dbinfo
             cJSON *stbName = cJSON_GetObjectItem(stbInfo, "name");
-            if (!stbName || stbName->type != cJSON_String ||
-                stbName->valuestring == NULL) {
-                errorPrint("%s", "failed to read json, stb name not found\n");
-                goto PARSE_OVER;
+            if (stbName && stbName->type == cJSON_String) {
+                arguments->db[i].superTbls[j].stbName = stbName->valuestring;
             }
-            tstrncpy(db[i].superTbls[j].stbName, stbName->valuestring,
-                     TSDB_TABLE_NAME_LEN);
 
             cJSON *prefix = cJSON_GetObjectItem(stbInfo, "childtable_prefix");
-            if (!prefix || prefix->type != cJSON_String ||
-                prefix->valuestring == NULL) {
-                errorPrint(
-                    "%s", "failed to read json, childtable_prefix not found\n");
-                goto PARSE_OVER;
+            if (prefix && prefix->type == cJSON_String) {
+                arguments->db[i].superTbls[j].childTblPrefix =
+                    prefix->valuestring;
             }
-            tstrncpy(db[i].superTbls[j].childTblPrefix, prefix->valuestring,
-                     TBNAME_PREFIX_LEN);
 
             cJSON *escapeChar =
                 cJSON_GetObjectItem(stbInfo, "escape_character");
             if (escapeChar && escapeChar->type == cJSON_String &&
                 escapeChar->valuestring != NULL) {
                 if ((0 == strncasecmp(escapeChar->valuestring, "yes", 3))) {
-                    db[i].superTbls[j].escapeChar = true;
-                } else if (0 == strncasecmp(escapeChar->valuestring, "no", 2)) {
-                    db[i].superTbls[j].escapeChar = false;
+                    arguments->db[i].superTbls[j].escape_character = true;
                 } else {
-                    db[i].superTbls[j].escapeChar = false;
+                    arguments->db[i].superTbls[j].escape_character = false;
                 }
-            } else if (!escapeChar) {
-                db[i].superTbls[j].escapeChar = false;
             } else {
-                errorPrint("%s",
-                           "failed to read json, escape_character not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].escape_character = false;
             }
 
             cJSON *autoCreateTbl =
@@ -665,34 +474,23 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *argument) {
             if (autoCreateTbl && autoCreateTbl->type == cJSON_String &&
                 autoCreateTbl->valuestring != NULL) {
                 if ((0 == strncasecmp(autoCreateTbl->valuestring, "yes", 3)) &&
-                    (TBL_ALREADY_EXISTS != db[i].superTbls[j].childTblExists)) {
-                    db[i].superTbls[j].autoCreateTable = AUTO_CREATE_SUBTBL;
-                } else if (0 ==
-                           strncasecmp(autoCreateTbl->valuestring, "no", 2)) {
-                    db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
+                    (!arguments->db[i].superTbls[j].childTblExists)) {
+                    arguments->db[i].superTbls[j].autoCreateTable = true;
                 } else {
-                    db[i].superTbls[j].autoCreateTable = AUTO_CREATE_SUBTBL;
+                    arguments->db[i].superTbls[j].autoCreateTable = false;
                 }
-            } else if (!autoCreateTbl) {
-                db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
             } else {
-                errorPrint(
-                    "%s", "failed to read json, auto_create_table not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].autoCreateTable = false;
             }
 
             cJSON *batchCreateTbl =
                 cJSON_GetObjectItem(stbInfo, "batch_create_tbl_num");
             if (batchCreateTbl && batchCreateTbl->type == cJSON_Number) {
-                db[i].superTbls[j].batchCreateTableNum =
+                arguments->db[i].superTbls[j].batchCreateTableNum =
                     batchCreateTbl->valueint;
-            } else if (!batchCreateTbl) {
-                db[i].superTbls[j].batchCreateTableNum = DEFAULT_CREATE_BATCH;
             } else {
-                errorPrint(
-                    "%s",
-                    "failed to read json, batch_create_tbl_num not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].batchCreateTableNum =
+                    DEFAULT_CREATE_BATCH;
             }
 
             cJSON *childTblExists =
@@ -700,351 +498,219 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *argument) {
             if (childTblExists && childTblExists->type == cJSON_String &&
                 childTblExists->valuestring != NULL) {
                 if ((0 == strncasecmp(childTblExists->valuestring, "yes", 3)) &&
-                    (db[i].drop == false)) {
-                    db[i].superTbls[j].childTblExists = TBL_ALREADY_EXISTS;
-                } else if ((0 == strncasecmp(childTblExists->valuestring, "no",
-                                             2) ||
-                            (db[i].drop == true))) {
-                    db[i].superTbls[j].childTblExists = TBL_NO_EXISTS;
+                    (arguments->db[i].drop == false)) {
+                    arguments->db[i].superTbls[j].childTblExists = true;
+                    arguments->db[i].superTbls[j].autoCreateTable = false;
                 } else {
-                    db[i].superTbls[j].childTblExists = TBL_NO_EXISTS;
+                    arguments->db[i].superTbls[j].childTblExists = false;
                 }
-            } else if (!childTblExists) {
-                db[i].superTbls[j].childTblExists = TBL_NO_EXISTS;
             } else {
-                errorPrint(
-                    "%s",
-                    "failed to read json, child_table_exists not found\n");
-                goto PARSE_OVER;
-            }
-
-            if (TBL_ALREADY_EXISTS == db[i].superTbls[j].childTblExists) {
-                db[i].superTbls[j].autoCreateTable = PRE_CREATE_SUBTBL;
+                arguments->db[i].superTbls[j].childTblExists = false;
             }
 
             cJSON *count = cJSON_GetObjectItem(stbInfo, "childtable_count");
-            if (!count || count->type != cJSON_Number || 0 >= count->valueint) {
-                errorPrint(
-                    "%s",
-                    "failed to read json, childtable_count input mistake\n");
-                goto PARSE_OVER;
+            if (count && count->type == cJSON_Number) {
+                arguments->db[i].superTbls[j].childTblCount = count->valueint;
+                arguments->g_totalChildTables +=
+                    arguments->db[i].superTbls[j].childTblCount;
+            } else {
+                arguments->db[i].superTbls[j].childTblCount = 10;
+                arguments->g_totalChildTables +=
+                    arguments->db[i].superTbls[j].childTblCount;
             }
-            db[i].superTbls[j].childTblCount = count->valueint;
-            argument->g_totalChildTables += db[i].superTbls[j].childTblCount;
 
             cJSON *dataSource = cJSON_GetObjectItem(stbInfo, "data_source");
             if (dataSource && dataSource->type == cJSON_String &&
                 dataSource->valuestring != NULL) {
-                tstrncpy(
-                    db[i].superTbls[j].dataSource, dataSource->valuestring,
-                    min(SMALL_BUFF_LEN, strlen(dataSource->valuestring) + 1));
-            } else if (!dataSource) {
-                tstrncpy(db[i].superTbls[j].dataSource, "rand",
-                         min(SMALL_BUFF_LEN, strlen("rand") + 1));
+                if (0 == strcasecmp(dataSource->valuestring, "sample")) {
+                    arguments->db[i].superTbls[j].random_data_source = false;
+                } else {
+                    arguments->db[i].superTbls[j].random_data_source = true;
+                }
             } else {
-                errorPrint("%s",
-                           "failed to read json, data_source not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].random_data_source = true;
             }
 
             cJSON *stbIface = cJSON_GetObjectItem(
                 stbInfo, "insert_mode");  // taosc , rest, stmt
             if (stbIface && stbIface->type == cJSON_String &&
                 stbIface->valuestring != NULL) {
-                if (0 == strcasecmp(stbIface->valuestring, "taosc")) {
-                    db[i].superTbls[j].iface = TAOSC_IFACE;
-                } else if (0 == strcasecmp(stbIface->valuestring, "rest")) {
-                    db[i].superTbls[j].iface = REST_IFACE;
+                if (0 == strcasecmp(stbIface->valuestring, "rest")) {
+                    arguments->db[i].superTbls[j].iface = REST_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
-                    db[i].superTbls[j].iface = STMT_IFACE;
+                    arguments->db[i].superTbls[j].iface = STMT_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
-                    if (strcasecmp(db[i].superTbls[j].dataSource, "sample") ==
-                        0) {
-                        errorPrint("%s",
-                                   "sml insert mode currently does not support "
-                                   "sample as data source\n");
-                        goto PARSE_OVER;
-                    }
-                    db[i].superTbls[j].iface = SML_IFACE;
-                    argument->iface = SML_IFACE;
+                    arguments->db[i].superTbls[j].iface = SML_IFACE;
                 } else {
-                    errorPrint(
-                        "failed to read json, insert_mode %s not recognized\n",
-                        stbIface->valuestring);
-                    goto PARSE_OVER;
+                    arguments->db[i].superTbls[j].iface = TAOSC_IFACE;
                 }
-            } else if (!stbIface) {
-                db[i].superTbls[j].iface = TAOSC_IFACE;
             } else {
-                errorPrint("%s",
-                           "failed to read json, insert_mode not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].iface = TAOSC_IFACE;
             }
 
             cJSON *stbLineProtocol =
                 cJSON_GetObjectItem(stbInfo, "line_protocol");
             if (stbLineProtocol && stbLineProtocol->type == cJSON_String &&
                 stbLineProtocol->valuestring != NULL) {
-                if (0 == strcasecmp(stbLineProtocol->valuestring, "line")) {
-                    db[i].superTbls[j].lineProtocol = TSDB_SML_LINE_PROTOCOL;
-                } else if (0 ==
-                           strcasecmp(stbLineProtocol->valuestring, "telnet")) {
-                    db[i].superTbls[j].lineProtocol = TSDB_SML_TELNET_PROTOCOL;
+                if (0 == strcasecmp(stbLineProtocol->valuestring, "telnet")) {
+                    arguments->db[i].superTbls[j].lineProtocol =
+                        TSDB_SML_TELNET_PROTOCOL;
                 } else if (0 ==
                            strcasecmp(stbLineProtocol->valuestring, "json")) {
-                    db[i].superTbls[j].lineProtocol = TSDB_SML_JSON_PROTOCOL;
+                    arguments->db[i].superTbls[j].lineProtocol =
+                        TSDB_SML_JSON_PROTOCOL;
                 } else {
-                    errorPrint(
-                        "failed to read json, line_protocol %s not "
-                        "recognized\n",
-                        stbLineProtocol->valuestring);
-                    goto PARSE_OVER;
+                    arguments->db[i].superTbls[j].lineProtocol =
+                        TSDB_SML_LINE_PROTOCOL;
                 }
-            } else if (!stbLineProtocol) {
-                db[i].superTbls[j].lineProtocol = TSDB_SML_LINE_PROTOCOL;
             } else {
-                errorPrint("%s",
-                           "failed to read json, line_protocol not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].lineProtocol =
+                    TSDB_SML_LINE_PROTOCOL;
             }
 
             cJSON *childTbl_limit =
                 cJSON_GetObjectItem(stbInfo, "childtable_limit");
-            if (childTbl_limit) {
-                if (childTbl_limit->type != cJSON_Number) {
-                    errorPrint("%s", "failed to read json, childtable_limit\n");
-                    goto PARSE_OVER;
-                } else if (childTbl_limit->valueint < 0) {
+            if (childTbl_limit && childTbl_limit->type == cJSON_Number) {
+                if (childTbl_limit->valueint < 0) {
                     infoPrint("childTbl_limit(%" PRId64
                               ") less than 0, ignore it and set to "
                               "%" PRId64 "\n",
                               childTbl_limit->valueint,
-                              db[i].superTbls[j].childTblCount);
-                    db[i].superTbls[j].childTblLimit =
-                        db[i].superTbls[j].childTblCount;
+                              arguments->db[i].superTbls[j].childTblCount);
+                    arguments->db[i].superTbls[j].childTblLimit =
+                        arguments->db[i].superTbls[j].childTblCount;
                 } else {
-                    db[i].superTbls[j].childTblLimit = childTbl_limit->valueint;
+                    arguments->db[i].superTbls[j].childTblLimit =
+                        childTbl_limit->valueint;
                 }
             } else {
-                db[i].superTbls[j].childTblLimit =
-                    db[i].superTbls[j].childTblCount;
+                arguments->db[i].superTbls[j].childTblLimit =
+                    arguments->db[i].superTbls[j].childTblCount;
             }
 
             cJSON *childTbl_offset =
                 cJSON_GetObjectItem(stbInfo, "childtable_offset");
-            if ((childTbl_offset)) {
-                if ((childTbl_offset->type != cJSON_Number) ||
-                    (0 > childTbl_offset->valueint)) {
-                    errorPrint("%s",
-                               "failed to read json, childtable_offset\n");
-                    goto PARSE_OVER;
-                }
-                db[i].superTbls[j].childTblOffset = childTbl_offset->valueint;
+            if (childTbl_offset && childTbl_offset->type == cJSON_Number) {
+                arguments->db[i].superTbls[j].childTblOffset =
+                    childTbl_offset->valueint;
             } else {
-                db[i].superTbls[j].childTblOffset = 0;
+                arguments->db[i].superTbls[j].childTblOffset = 0;
             }
 
             cJSON *ts = cJSON_GetObjectItem(stbInfo, "start_timestamp");
             if (ts && ts->type == cJSON_String && ts->valuestring != NULL) {
-                tstrncpy(db[i].superTbls[j].startTimestamp, ts->valuestring,
-                         TSDB_DB_NAME_LEN);
-            } else if (!ts) {
-                tstrncpy(db[i].superTbls[j].startTimestamp, "now",
-                         TSDB_DB_NAME_LEN);
+                if (0 == strcasecmp(ts->valuestring, "now")) {
+                    arguments->db[i].superTbls[j].startTimestamp =
+                        taosGetTimestamp(arguments->db[i].dbCfg.precision);
+                } else {
+                    if (taos_parse_time(
+                            ts->valuestring,
+                            &(arguments->db[i].superTbls[j].startTimestamp),
+                            (int32_t)strlen(ts->valuestring),
+                            arguments->db[i].dbCfg.precision, 0)) {
+                        errorPrint("failed to parse time %s\n",
+                                   ts->valuestring);
+                        return -1;
+                    }
+                }
             } else {
-                errorPrint("%s",
-                           "failed to read json, start_timestamp not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].startTimestamp =
+                    taosGetTimestamp(arguments->db[i].dbCfg.precision);
             }
 
             cJSON *timestampStep =
                 cJSON_GetObjectItem(stbInfo, "timestamp_step");
             if (timestampStep && timestampStep->type == cJSON_Number) {
-                db[i].superTbls[j].timeStampStep = timestampStep->valueint;
-            } else if (!timestampStep) {
-                db[i].superTbls[j].timeStampStep = argument->timestamp_step;
+                arguments->db[i].superTbls[j].timestamp_step =
+                    timestampStep->valueint;
             } else {
-                errorPrint("%s",
-                           "failed to read json, timestamp_step not found\n");
-                goto PARSE_OVER;
-            }
-
-            cJSON *sampleFormat = cJSON_GetObjectItem(stbInfo, "sample_format");
-            if (sampleFormat && sampleFormat->type == cJSON_String &&
-                sampleFormat->valuestring != NULL) {
-                tstrncpy(
-                    db[i].superTbls[j].sampleFormat, sampleFormat->valuestring,
-                    min(SMALL_BUFF_LEN, strlen(sampleFormat->valuestring) + 1));
-            } else if (!sampleFormat) {
-                tstrncpy(db[i].superTbls[j].sampleFormat, "csv",
-                         SMALL_BUFF_LEN);
-            } else {
-                errorPrint("%s",
-                           "failed to read json, sample_format not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].timestamp_step = 1;
             }
 
             cJSON *sampleFile = cJSON_GetObjectItem(stbInfo, "sample_file");
             if (sampleFile && sampleFile->type == cJSON_String &&
                 sampleFile->valuestring != NULL) {
-                tstrncpy(db[i].superTbls[j].sampleFile, sampleFile->valuestring,
+                tstrncpy(arguments->db[i].superTbls[j].sampleFile,
+                         sampleFile->valuestring,
                          min(MAX_FILE_NAME_LEN,
                              strlen(sampleFile->valuestring) + 1));
-            } else if (!sampleFile) {
-                memset(db[i].superTbls[j].sampleFile, 0, MAX_FILE_NAME_LEN);
             } else {
-                errorPrint("%s",
-                           "failed to read json, sample_file not found\n");
-                goto PARSE_OVER;
+                memset(arguments->db[i].superTbls[j].sampleFile, 0,
+                       MAX_FILE_NAME_LEN);
             }
 
             cJSON *useSampleTs = cJSON_GetObjectItem(stbInfo, "use_sample_ts");
             if (useSampleTs && useSampleTs->type == cJSON_String &&
                 useSampleTs->valuestring != NULL) {
                 if (0 == strncasecmp(useSampleTs->valuestring, "yes", 3)) {
-                    db[i].superTbls[j].useSampleTs = true;
-                } else if (0 ==
-                           strncasecmp(useSampleTs->valuestring, "no", 2)) {
-                    db[i].superTbls[j].useSampleTs = false;
+                    arguments->db[i].superTbls[j].useSampleTs = true;
                 } else {
-                    db[i].superTbls[j].useSampleTs = false;
+                    arguments->db[i].superTbls[j].useSampleTs = false;
                 }
-            } else if (!useSampleTs) {
-                db[i].superTbls[j].useSampleTs = false;
             } else {
-                errorPrint("%s",
-                           "failed to read json, use_sample_ts not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].useSampleTs = false;
             }
 
             cJSON *tagsFile = cJSON_GetObjectItem(stbInfo, "tags_file");
             if ((tagsFile && tagsFile->type == cJSON_String) &&
                 (tagsFile->valuestring != NULL)) {
-                tstrncpy(db[i].superTbls[j].tagsFile, tagsFile->valuestring,
-                         MAX_FILE_NAME_LEN);
-                if (0 == db[i].superTbls[j].tagsFile[0]) {
-                    db[i].superTbls[j].tagSource = 0;
-                } else {
-                    db[i].superTbls[j].tagSource = 1;
-                }
-            } else if (!tagsFile) {
-                memset(db[i].superTbls[j].tagsFile, 0, MAX_FILE_NAME_LEN);
-                db[i].superTbls[j].tagSource = 0;
+                tstrncpy(arguments->db[i].superTbls[j].tagsFile,
+                         tagsFile->valuestring, MAX_FILE_NAME_LEN);
             } else {
-                errorPrint("%s", "failed to read json, tags_file not found\n");
-                goto PARSE_OVER;
+                memset(arguments->db[i].superTbls[j].tagsFile, 0,
+                       MAX_FILE_NAME_LEN);
             }
 
             cJSON *insertRows = cJSON_GetObjectItem(stbInfo, "insert_rows");
             if (insertRows && insertRows->type == cJSON_Number) {
-                if (insertRows->valueint < 0) {
-                    errorPrint(
-                        "%s",
-                        "failed to read json, insert_rows input mistake\n");
-                    goto PARSE_OVER;
-                }
-                db[i].superTbls[j].insertRows = insertRows->valueint;
-            } else if (!insertRows) {
-                db[i].superTbls[j].insertRows = 0x7FFFFFFFFFFFFFFF;
+                arguments->db[i].superTbls[j].insertRows = insertRows->valueint;
             } else {
-                errorPrint("%s",
-                           "failed to read json, insert_rows input mistake\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].insertRows = 10;
             }
 
             cJSON *stbInterlaceRows =
                 cJSON_GetObjectItem(stbInfo, "interlace_rows");
             if (stbInterlaceRows && stbInterlaceRows->type == cJSON_Number) {
-                if (stbInterlaceRows->valueint < 0) {
-                    errorPrint(
-                        "%s",
-                        "failed to read json, interlace rows input mistake\n");
-                    goto PARSE_OVER;
-                }
-                db[i].superTbls[j].interlaceRows =
+                arguments->db[i].superTbls[j].interlaceRows =
                     (uint32_t)stbInterlaceRows->valueint;
-
-                if (db[i].superTbls[j].interlaceRows >
-                    db[i].superTbls[j].insertRows) {
-                    printf(
-                        "NOTICE: db[%d].superTbl[%d]'s interlace rows value %u "
-                        "> insert_rows %" PRId64 "\n\n",
-                        i, j, db[i].superTbls[j].interlaceRows,
-                        db[i].superTbls[j].insertRows);
-                    printf(
-                        "        interlace rows value will be set to "
-                        "insert_rows %" PRId64 "\n\n",
-                        db[i].superTbls[j].insertRows);
-                    prompt(argument);
-                    db[i].superTbls[j].interlaceRows =
-                        (uint32_t)db[i].superTbls[j].insertRows;
-                }
-            } else if (!stbInterlaceRows) {
-                db[i].superTbls[j].interlaceRows =
-                    argument
-                        ->interlaceRows;  // 0 means progressive mode, > 0 mean
-                                          // interlace mode. max value is less
-                                          // or equ num_of_records_per_req
             } else {
-                errorPrint(
-                    "%s",
-                    "failed to read json, interlace rows input mistake\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].interlaceRows = 0;
             }
 
             cJSON *disorderRatio =
                 cJSON_GetObjectItem(stbInfo, "disorder_ratio");
             if (disorderRatio && disorderRatio->type == cJSON_Number) {
                 if (disorderRatio->valueint > 50) disorderRatio->valueint = 50;
-
                 if (disorderRatio->valueint < 0) disorderRatio->valueint = 0;
 
-                db[i].superTbls[j].disorderRatio = (int)disorderRatio->valueint;
-            } else if (!disorderRatio) {
-                db[i].superTbls[j].disorderRatio = 0;
+                arguments->db[i].superTbls[j].disorderRatio =
+                    (int)disorderRatio->valueint;
             } else {
-                errorPrint("%s",
-                           "failed to read json, disorderRatio not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].disorderRatio = 0;
             }
 
             cJSON *disorderRange =
                 cJSON_GetObjectItem(stbInfo, "disorder_range");
             if (disorderRange && disorderRange->type == cJSON_Number) {
-                db[i].superTbls[j].disorderRange = (int)disorderRange->valueint;
-            } else if (!disorderRange) {
-                db[i].superTbls[j].disorderRange = DEFAULT_DISORDER_RANGE;
+                arguments->db[i].superTbls[j].disorderRange =
+                    (int)disorderRange->valueint;
             } else {
-                errorPrint("%s",
-                           "failed to read json, disorderRange not found\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].disorderRange =
+                    DEFAULT_DISORDER_RANGE;
             }
 
             cJSON *insertInterval =
                 cJSON_GetObjectItem(stbInfo, "insert_interval");
             if (insertInterval && insertInterval->type == cJSON_Number) {
-                db[i].superTbls[j].insertInterval = insertInterval->valueint;
-                if (insertInterval->valueint < 0) {
-                    errorPrint(
-                        "%s",
-                        "failed to read json, insert_interval input mistake\n");
-                    goto PARSE_OVER;
-                }
-            } else if (!insertInterval) {
-                infoPrint(
-                    "stable insert interval be overrode by global "
-                    "%" PRIu64 ".\n",
-                    argument->insert_interval);
-                db[i].superTbls[j].insertInterval = argument->insert_interval;
+                arguments->db[i].superTbls[j].insert_interval =
+                    insertInterval->valueint;
             } else {
-                errorPrint(
-                    "%s",
-                    "failed to read json, insert_interval input mistake\n");
-                goto PARSE_OVER;
+                arguments->db[i].superTbls[j].insert_interval =
+                    arguments->insert_interval;
             }
 
-            if (getColumnAndTagTypeFromInsertJsonFile(stbInfo,
-                                                      &db[i].superTbls[j])) {
+            if (getColumnAndTagTypeFromInsertJsonFile(
+                    stbInfo, &arguments->db[i].superTbls[j], arguments)) {
                 goto PARSE_OVER;
             }
         }
@@ -1055,7 +721,7 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *argument) {
 PARSE_OVER:
     return code;
 }
-int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
+int getMetaFromQueryJsonFile(cJSON *json, SArguments *arguments) {
     int32_t code = -1;
 
     cJSON *cfgdir = cJSON_GetObjectItem(json, "cfgdir");
@@ -1066,24 +732,21 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
     cJSON *host = cJSON_GetObjectItem(json, "host");
     if (host && host->type == cJSON_String && host->valuestring != NULL) {
         tstrncpy(g_queryInfo.host, host->valuestring, MAX_HOSTNAME_SIZE);
-    } else if (!host) {
-        tstrncpy(g_queryInfo.host, DEFAULT_HOST, MAX_HOSTNAME_SIZE);
     } else {
-        errorPrint("%s", "failed to read json, host not found\n");
-        goto PARSE_OVER;
+        tstrncpy(g_queryInfo.host, DEFAULT_HOST, MAX_HOSTNAME_SIZE);
     }
 
     cJSON *port = cJSON_GetObjectItem(json, "port");
     if (port && port->type == cJSON_Number) {
         g_queryInfo.port = (uint16_t)port->valueint;
-    } else if (!port) {
+    } else {
         g_queryInfo.port = DEFAULT_PORT;
     }
 
     cJSON *user = cJSON_GetObjectItem(json, "user");
     if (user && user->type == cJSON_String && user->valuestring != NULL) {
         tstrncpy(g_queryInfo.user, user->valuestring, MAX_USERNAME_SIZE);
-    } else if (!user) {
+    } else {
         tstrncpy(g_queryInfo.user, TSDB_DEFAULT_USER, MAX_USERNAME_SIZE);
     }
 
@@ -1092,77 +755,44 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
         password->valuestring != NULL) {
         tstrncpy(g_queryInfo.password, password->valuestring,
                  SHELL_MAX_PASSWORD_LEN);
-    } else if (!password) {
+    } else {
         tstrncpy(g_queryInfo.password, TSDB_DEFAULT_PASS,
                  SHELL_MAX_PASSWORD_LEN);
-        ;
     }
 
     cJSON *answerPrompt =
         cJSON_GetObjectItem(json, "confirm_parameter_prompt");  // yes, no,
     if (answerPrompt && answerPrompt->type == cJSON_String &&
         answerPrompt->valuestring != NULL) {
-        if (0 == strncasecmp(answerPrompt->valuestring, "yes", 3)) {
-            argument->answer_yes = false;
-        } else if (0 == strncasecmp(answerPrompt->valuestring, "no", 2)) {
-            argument->answer_yes = true;
-        } else {
-            argument->answer_yes = false;
+        if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
+            arguments->answer_yes = true;
         }
-    } else if (!answerPrompt) {
-        argument->answer_yes = false;
-    } else {
-        errorPrint("%s",
-                   "failed to read json, confirm_parameter_prompt not found\n");
-        goto PARSE_OVER;
     }
 
     cJSON *gQueryTimes = cJSON_GetObjectItem(json, "query_times");
     if (gQueryTimes && gQueryTimes->type == cJSON_Number) {
-        if (gQueryTimes->valueint <= 0) {
-            errorPrint("%s",
-                       "failed to read json, query_times input mistake\n");
-            goto PARSE_OVER;
-        }
         g_queryInfo.query_times = gQueryTimes->valueint;
-    } else if (!gQueryTimes) {
-        g_queryInfo.query_times = DEFAULT_QUERY_TIME;
     } else {
-        errorPrint("%s", "failed to read json, query_times input mistake\n");
-        goto PARSE_OVER;
+        g_queryInfo.query_times = 1;
     }
 
     cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
-        argument->nthreads_pool = (uint32_t)threadspool->valueint;
-    } else if (!threadspool) {
-        argument->nthreads_pool = argument->nthreads + 5;
+        arguments->nthreads_pool = (uint32_t)threadspool->valueint;
     } else {
-        errorPrint("%s", "failed to read json, thread_pool_size not found\n");
-        goto PARSE_OVER;
+        arguments->nthreads_pool = arguments->nthreads + 5;
     }
 
     cJSON *respBuffer = cJSON_GetObjectItem(json, "response_buffer");
     if (respBuffer && respBuffer->type == cJSON_Number) {
-        if (respBuffer->valueint <= 0) {
-            errorPrint("%s",
-                       "failed to read json, response_buffer input mistake\n");
-            goto PARSE_OVER;
-        }
         g_queryInfo.response_buffer = respBuffer->valueint;
-    } else if (!respBuffer) {
-        g_queryInfo.response_buffer = RESP_BUF_LEN;
     } else {
-        errorPrint("%s", "failed to read json, query_times input mistake\n");
-        goto PARSE_OVER;
+        g_queryInfo.response_buffer = RESP_BUF_LEN;
     }
 
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
     if (dbs && dbs->type == cJSON_String && dbs->valuestring != NULL) {
         tstrncpy(g_queryInfo.dbName, dbs->valuestring, TSDB_DB_NAME_LEN);
-    } else if (!dbs) {
-        errorPrint("%s", "failed to read json, databases not found\n");
-        goto PARSE_OVER;
     }
 
     cJSON *queryMode = cJSON_GetObjectItem(json, "query_mode");
@@ -1170,78 +800,50 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
         queryMode->valuestring != NULL) {
         tstrncpy(g_queryInfo.queryMode, queryMode->valuestring,
                  min(SMALL_BUFF_LEN, strlen(queryMode->valuestring) + 1));
-    } else if (!queryMode) {
+    } else {
         tstrncpy(g_queryInfo.queryMode, "taosc",
                  min(SMALL_BUFF_LEN, strlen("taosc") + 1));
-    } else {
-        errorPrint("%s", "failed to read json, query_mode not found\n");
-        goto PARSE_OVER;
     }
 
     // specified_table_query
     cJSON *specifiedQuery = cJSON_GetObjectItem(json, "specified_table_query");
-    if (!specifiedQuery) {
+    if (!specifiedQuery || specifiedQuery->type != cJSON_Object) {
         g_queryInfo.specifiedQueryInfo.concurrent = 1;
         g_queryInfo.specifiedQueryInfo.sqlCount = 0;
-    } else if (specifiedQuery->type != cJSON_Object) {
-        errorPrint("%s", "failed to read json, super_table_query not found\n");
-        goto PARSE_OVER;
     } else {
         cJSON *queryInterval =
             cJSON_GetObjectItem(specifiedQuery, "query_interval");
         if (queryInterval && queryInterval->type == cJSON_Number) {
             g_queryInfo.specifiedQueryInfo.queryInterval =
                 queryInterval->valueint;
-        } else if (!queryInterval) {
+        } else {
             g_queryInfo.specifiedQueryInfo.queryInterval = 0;
         }
 
         cJSON *specifiedQueryTimes =
             cJSON_GetObjectItem(specifiedQuery, "query_times");
         if (specifiedQueryTimes && specifiedQueryTimes->type == cJSON_Number) {
-            if (specifiedQueryTimes->valueint <= 0) {
-                errorPrint("failed to read json, query_times: %" PRId64
-                           ", need be a valid (>0) number\n",
-                           specifiedQueryTimes->valueint);
-                goto PARSE_OVER;
-            }
             g_queryInfo.specifiedQueryInfo.queryTimes =
                 specifiedQueryTimes->valueint;
-        } else if (!specifiedQueryTimes) {
-            g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         } else {
-            errorPrint(
-                "%s() LN%d, failed to read json, query_times input mistake\n",
-                __func__, __LINE__);
-            goto PARSE_OVER;
+            g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         }
 
         cJSON *concurrent = cJSON_GetObjectItem(specifiedQuery, "concurrent");
         if (concurrent && concurrent->type == cJSON_Number) {
-            if (concurrent->valueint <= 0) {
-                errorPrint(
-                    "query sqlCount %d or concurrent %d is not correct.\n",
-                    g_queryInfo.specifiedQueryInfo.sqlCount,
-                    g_queryInfo.specifiedQueryInfo.concurrent);
-                goto PARSE_OVER;
-            }
             g_queryInfo.specifiedQueryInfo.concurrent =
                 (uint32_t)concurrent->valueint;
-        } else if (!concurrent) {
+        } else {
             g_queryInfo.specifiedQueryInfo.concurrent = 1;
         }
 
         cJSON *specifiedAsyncMode = cJSON_GetObjectItem(specifiedQuery, "mode");
         if (specifiedAsyncMode && specifiedAsyncMode->type == cJSON_String &&
             specifiedAsyncMode->valuestring != NULL) {
-            if (0 == strcmp("sync", specifiedAsyncMode->valuestring)) {
-                g_queryInfo.specifiedQueryInfo.asyncMode = SYNC_MODE;
-            } else if (0 == strcmp("async", specifiedAsyncMode->valuestring)) {
+            if (0 == strcmp("async", specifiedAsyncMode->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.asyncMode = ASYNC_MODE;
             } else {
-                errorPrint("%s",
-                           "failed to read json, async mode input error\n");
-                goto PARSE_OVER;
+                g_queryInfo.specifiedQueryInfo.asyncMode = SYNC_MODE;
             }
         } else {
             g_queryInfo.specifiedQueryInfo.asyncMode = SYNC_MODE;
@@ -1251,9 +853,7 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
         if (interval && interval->type == cJSON_Number) {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
                 interval->valueint;
-        } else if (!interval) {
-            // printf("failed to read json, subscribe interval no found\n");
-            // goto PARSE_OVER;
+        } else {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
                 DEFAULT_SUB_INTERVAL;
         }
@@ -1261,14 +861,10 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
         cJSON *restart = cJSON_GetObjectItem(specifiedQuery, "restart");
         if (restart && restart->type == cJSON_String &&
             restart->valuestring != NULL) {
-            if (0 == strcmp("yes", restart->valuestring)) {
-                g_queryInfo.specifiedQueryInfo.subscribeRestart = true;
-            } else if (0 == strcmp("no", restart->valuestring)) {
+            if (0 == strcmp("no", restart->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.subscribeRestart = false;
             } else {
-                errorPrint("%s",
-                           "failed to read json, subscribe restart error\n");
-                goto PARSE_OVER;
+                g_queryInfo.specifiedQueryInfo.subscribeRestart = true;
             }
         } else {
             g_queryInfo.specifiedQueryInfo.subscribeRestart = true;
@@ -1280,13 +876,8 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
             keepProgress->valuestring != NULL) {
             if (0 == strcmp("yes", keepProgress->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.subscribeKeepProgress = 1;
-            } else if (0 == strcmp("no", keepProgress->valuestring)) {
-                g_queryInfo.specifiedQueryInfo.subscribeKeepProgress = 0;
             } else {
-                errorPrint(
-                    "%s",
-                    "failed to read json, subscribe keepProgress error\n");
-                goto PARSE_OVER;
+                g_queryInfo.specifiedQueryInfo.subscribeKeepProgress = 0;
             }
         } else {
             g_queryInfo.specifiedQueryInfo.subscribeKeepProgress = 0;
@@ -1294,11 +885,8 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
 
         // sqls
         cJSON *specifiedSqls = cJSON_GetObjectItem(specifiedQuery, "sqls");
-        if (!specifiedSqls) {
+        if (!specifiedSqls || specifiedSqls->type != cJSON_Array) {
             g_queryInfo.specifiedQueryInfo.sqlCount = 0;
-        } else if (specifiedSqls->type != cJSON_Array) {
-            errorPrint("%s", "failed to read json, super sqls not found\n");
-            goto PARSE_OVER;
         } else {
             int superSqlSize = cJSON_GetArraySize(specifiedSqls);
             if (superSqlSize * g_queryInfo.specifiedQueryInfo.concurrent >
@@ -1317,14 +905,10 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
                 if (sql == NULL) continue;
 
                 cJSON *sqlStr = cJSON_GetObjectItem(sql, "sql");
-                if (!sqlStr || sqlStr->type != cJSON_String ||
-                    sqlStr->valuestring == NULL) {
-                    errorPrint("%s", "failed to read json, sql not found\n");
-                    goto PARSE_OVER;
+                if (sqlStr && sqlStr->type == cJSON_String) {
+                    tstrncpy(g_queryInfo.specifiedQueryInfo.sql[j],
+                             sqlStr->valuestring, BUFFER_SIZE);
                 }
-                tstrncpy(g_queryInfo.specifiedQueryInfo.sql[j],
-                         sqlStr->valuestring, BUFFER_SIZE);
-
                 // default value is -1, which mean infinite loop
                 g_queryInfo.specifiedQueryInfo.endAfterConsume[j] = -1;
                 cJSON *endAfterConsume =
@@ -1354,14 +938,9 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
                     (result->valuestring != NULL)) {
                     tstrncpy(g_queryInfo.specifiedQueryInfo.result[j],
                              result->valuestring, MAX_FILE_NAME_LEN);
-                } else if (NULL == result) {
+                } else {
                     memset(g_queryInfo.specifiedQueryInfo.result[j], 0,
                            MAX_FILE_NAME_LEN);
-                } else {
-                    errorPrint("%s",
-                               "failed to read json, super query result file "
-                               "not found\n");
-                    goto PARSE_OVER;
                 }
             }
         }
@@ -1369,48 +948,29 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
 
     // super_table_query
     cJSON *superQuery = cJSON_GetObjectItem(json, "super_table_query");
-    if (!superQuery) {
+    if (!superQuery || superQuery->type != cJSON_Object) {
         g_queryInfo.superQueryInfo.threadCnt = 1;
         g_queryInfo.superQueryInfo.sqlCount = 0;
-    } else if (superQuery->type != cJSON_Object) {
-        errorPrint("%s", "failed to read json, sub_table_query not found\n");
-        code = 0;
-        goto PARSE_OVER;
     } else {
         cJSON *subrate = cJSON_GetObjectItem(superQuery, "query_interval");
         if (subrate && subrate->type == cJSON_Number) {
             g_queryInfo.superQueryInfo.queryInterval = subrate->valueint;
-        } else if (!subrate) {
+        } else {
             g_queryInfo.superQueryInfo.queryInterval = 0;
         }
 
         cJSON *superQueryTimes = cJSON_GetObjectItem(superQuery, "query_times");
         if (superQueryTimes && superQueryTimes->type == cJSON_Number) {
-            if (superQueryTimes->valueint <= 0) {
-                errorPrint("failed to read json, query_times: %" PRId64
-                           ", need be a valid (>0) number\n",
-                           superQueryTimes->valueint);
-                goto PARSE_OVER;
-            }
             g_queryInfo.superQueryInfo.queryTimes = superQueryTimes->valueint;
-        } else if (!superQueryTimes) {
-            g_queryInfo.superQueryInfo.queryTimes = g_queryInfo.query_times;
         } else {
-            errorPrint("%s",
-                       "failed to read json, query_times input mistake\n");
-            goto PARSE_OVER;
+            g_queryInfo.superQueryInfo.queryTimes = g_queryInfo.query_times;
         }
 
         cJSON *threads = cJSON_GetObjectItem(superQuery, "threads");
         if (threads && threads->type == cJSON_Number) {
-            if (threads->valueint <= 0) {
-                errorPrint("%s",
-                           "failed to read json, threads input mistake\n");
-                goto PARSE_OVER;
-            }
             g_queryInfo.superQueryInfo.threadCnt = (uint32_t)threads->valueint;
-        } else if (!threads) {
-            g_queryInfo.superQueryInfo.threadCnt = DEFAULT_NTHREADS;
+        } else {
+            g_queryInfo.superQueryInfo.threadCnt = 1;
         }
 
         cJSON *stblname = cJSON_GetObjectItem(superQuery, "stblname");
@@ -1418,23 +978,15 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
             stblname->valuestring != NULL) {
             tstrncpy(g_queryInfo.superQueryInfo.stbName, stblname->valuestring,
                      TSDB_TABLE_NAME_LEN);
-        } else {
-            errorPrint("%s",
-                       "failed to read json, super table name input error\n");
-            goto PARSE_OVER;
         }
 
         cJSON *superAsyncMode = cJSON_GetObjectItem(superQuery, "mode");
         if (superAsyncMode && superAsyncMode->type == cJSON_String &&
             superAsyncMode->valuestring != NULL) {
-            if (0 == strcmp("sync", superAsyncMode->valuestring)) {
-                g_queryInfo.superQueryInfo.asyncMode = SYNC_MODE;
-            } else if (0 == strcmp("async", superAsyncMode->valuestring)) {
+            if (0 == strcmp("async", superAsyncMode->valuestring)) {
                 g_queryInfo.superQueryInfo.asyncMode = ASYNC_MODE;
             } else {
-                errorPrint("%s",
-                           "failed to read json, async mode input error\n");
-                goto PARSE_OVER;
+                g_queryInfo.superQueryInfo.asyncMode = SYNC_MODE;
             }
         } else {
             g_queryInfo.superQueryInfo.asyncMode = SYNC_MODE;
@@ -1442,16 +994,9 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
 
         cJSON *superInterval = cJSON_GetObjectItem(superQuery, "interval");
         if (superInterval && superInterval->type == cJSON_Number) {
-            if (superInterval->valueint < 0) {
-                errorPrint("%s",
-                           "failed to read json, interval input mistake\n");
-                goto PARSE_OVER;
-            }
             g_queryInfo.superQueryInfo.subscribeInterval =
                 superInterval->valueint;
-        } else if (!superInterval) {
-            // printf("failed to read json, subscribe interval no found\n");
-            // goto PARSE_OVER;
+        } else {
             g_queryInfo.superQueryInfo.subscribeInterval =
                 DEFAULT_QUERY_INTERVAL;
         }
@@ -1459,14 +1004,10 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
         cJSON *subrestart = cJSON_GetObjectItem(superQuery, "restart");
         if (subrestart && subrestart->type == cJSON_String &&
             subrestart->valuestring != NULL) {
-            if (0 == strcmp("yes", subrestart->valuestring)) {
-                g_queryInfo.superQueryInfo.subscribeRestart = true;
-            } else if (0 == strcmp("no", subrestart->valuestring)) {
+            if (0 == strcmp("no", subrestart->valuestring)) {
                 g_queryInfo.superQueryInfo.subscribeRestart = false;
             } else {
-                errorPrint("%s",
-                           "failed to read json, subscribe restart error\n");
-                goto PARSE_OVER;
+                g_queryInfo.superQueryInfo.subscribeRestart = true;
             }
         } else {
             g_queryInfo.superQueryInfo.subscribeRestart = true;
@@ -1478,13 +1019,8 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
             superkeepProgress->valuestring != NULL) {
             if (0 == strcmp("yes", superkeepProgress->valuestring)) {
                 g_queryInfo.superQueryInfo.subscribeKeepProgress = 1;
-            } else if (0 == strcmp("no", superkeepProgress->valuestring)) {
-                g_queryInfo.superQueryInfo.subscribeKeepProgress = 0;
             } else {
-                errorPrint("%s",
-                           "failed to read json, subscribe super table "
-                           "keepProgress error\n");
-                goto PARSE_OVER;
+                g_queryInfo.superQueryInfo.subscribeKeepProgress = 0;
             }
         } else {
             g_queryInfo.superQueryInfo.subscribeKeepProgress = 0;
@@ -1517,11 +1053,8 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
 
         // supert table sqls
         cJSON *superSqls = cJSON_GetObjectItem(superQuery, "sqls");
-        if (!superSqls) {
+        if (!superSqls || superSqls->type != cJSON_Array) {
             g_queryInfo.superQueryInfo.sqlCount = 0;
-        } else if (superSqls->type != cJSON_Array) {
-            errorPrint("%s", "failed to read json, super sqls not found\n");
-            goto PARSE_OVER;
         } else {
             int superSqlSize = cJSON_GetArraySize(superSqls);
             if (superSqlSize > MAX_QUERY_SQL_COUNT) {
@@ -1537,27 +1070,19 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *argument) {
                 if (sql == NULL) continue;
 
                 cJSON *sqlStr = cJSON_GetObjectItem(sql, "sql");
-                if (!sqlStr || sqlStr->type != cJSON_String ||
-                    sqlStr->valuestring == NULL) {
-                    errorPrint("%s", "failed to read json, sql not found\n");
-                    goto PARSE_OVER;
+                if (sqlStr && sqlStr->type == cJSON_String) {
+                    tstrncpy(g_queryInfo.superQueryInfo.sql[j],
+                             sqlStr->valuestring, BUFFER_SIZE);
                 }
-                tstrncpy(g_queryInfo.superQueryInfo.sql[j], sqlStr->valuestring,
-                         BUFFER_SIZE);
 
                 cJSON *result = cJSON_GetObjectItem(sql, "result");
                 if (result != NULL && result->type == cJSON_String &&
                     result->valuestring != NULL) {
                     tstrncpy(g_queryInfo.superQueryInfo.result[j],
                              result->valuestring, MAX_FILE_NAME_LEN);
-                } else if (NULL == result) {
+                } else {
                     memset(g_queryInfo.superQueryInfo.result[j], 0,
                            MAX_FILE_NAME_LEN);
-                } else {
-                    errorPrint("%s",
-                               "failed to read json, sub query result file not "
-                               "found\n");
-                    goto PARSE_OVER;
                 }
             }
         }
@@ -1570,7 +1095,6 @@ PARSE_OVER:
 }
 
 int getInfoFromJsonFile(char *file, SArguments *argument) {
-    debugPrint("%s %d %s\n", __func__, __LINE__, file);
     int32_t code = -1;
     FILE *  fp = fopen(file, "r");
     if (!fp) {
@@ -1582,10 +1106,8 @@ int getInfoFromJsonFile(char *file, SArguments *argument) {
     char *content = calloc(1, maxLen + 1);
     int   len = (int)fread(content, 1, maxLen, fp);
     if (len <= 0) {
-        free(content);
-        fclose(fp);
         errorPrint("failed to read %s, content is null", file);
-        return code;
+        goto PARSE_OVER;
     }
 
     content[len] = 0;
@@ -1608,25 +1130,15 @@ int getInfoFromJsonFile(char *file, SArguments *argument) {
             errorPrint("%s", "failed to read json, filetype not support\n");
             goto PARSE_OVER;
         }
-    } else if (!filetype) {
-        argument->test_mode = INSERT_TEST;
     } else {
-        errorPrint("%s", "failed to read json, filetype not found\n");
-        goto PARSE_OVER;
+        argument->test_mode = INSERT_TEST;
     }
 
     if (INSERT_TEST == argument->test_mode) {
-        argument->use_metric = argument->use_metric;
         code = getMetaFromInsertJsonFile(root, argument);
-    } else if ((QUERY_TEST == argument->test_mode) ||
-               (SUBSCRIBE_TEST == argument->test_mode)) {
+    } else {
         memset(&g_queryInfo, 0, sizeof(SQueryMetaInfo));
         code = getMetaFromQueryJsonFile(root, argument);
-    } else {
-        errorPrint("%s",
-                   "input json file type error! please input correct file "
-                   "type: insert or query or subscribe\n");
-        goto PARSE_OVER;
     }
 PARSE_OVER:
     free(content);
