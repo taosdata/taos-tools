@@ -540,12 +540,6 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
                 } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                     arguments->db[i].superTbls[j].iface = STMT_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
-                    if (!arguments->db[i].superTbls[j].random_data_source) {
-                        errorPrint("%s",
-                                   "sml insert mode currently does not support "
-                                   "sample as data source\n");
-                        goto PARSE_OVER;
-                    }
                     arguments->db[i].superTbls[j].iface = SML_IFACE;
                 } else {
                     arguments->db[i].superTbls[j].iface = TAOSC_IFACE;
@@ -772,18 +766,14 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *arguments) {
         answerPrompt->valuestring != NULL) {
         if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
             arguments->answer_yes = true;
-        } else {
-            arguments->answer_yes = false;
         }
-    } else {
-        arguments->answer_yes = false;
     }
 
     cJSON *gQueryTimes = cJSON_GetObjectItem(json, "query_times");
     if (gQueryTimes && gQueryTimes->type == cJSON_Number) {
         g_queryInfo.query_times = gQueryTimes->valueint;
     } else {
-        g_queryInfo.query_times = DEFAULT_QUERY_TIME;
+        g_queryInfo.query_times = 1;
     }
 
     cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
@@ -980,7 +970,7 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *arguments) {
         if (threads && threads->type == cJSON_Number) {
             g_queryInfo.superQueryInfo.threadCnt = (uint32_t)threads->valueint;
         } else {
-            g_queryInfo.superQueryInfo.threadCnt = DEFAULT_NTHREADS;
+            g_queryInfo.superQueryInfo.threadCnt = 1;
         }
 
         cJSON *stblname = cJSON_GetObjectItem(superQuery, "stblname");

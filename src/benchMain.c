@@ -30,9 +30,7 @@ int main(int argc, char* argv[]) {
     } else {
         modify_argument(g_arguments, g_arguments->db->superTbls);
     }
-    if (start(g_arguments)) {
-        exit(EXIT_FAILURE);
-    }
+    if (start(g_arguments)) exit(EXIT_FAILURE);
     postFreeResource(g_arguments);
     return 0;
 }

@@ -440,7 +440,20 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes = read(pThreadInfo->sockfd, response_buf + received,
                      resp_len - received);
 #endif
-        debugPrint("receive %d bytes from server\n", bytes);
+
+        if (arguments->test_mode == QUERY_TEST) {
+            int64_t index = strlen(response_buf) - 1;
+            while (response_buf[index] == '\n' || response_buf[index] == '\r') {
+                index--;
+            }
+            debugPrint("index: %" PRId64 "\n", index);
+            if (response_buf[index] == '0') {
+                break;
+            }
+            debugPrint("receive %d bytes from server: %c\n", bytes,
+                       response_buf[index]);
+        }
+
         if (bytes < 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
@@ -450,12 +463,14 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         }
         received += bytes;
 
-        if (strlen(response_buf)) {
-            if (((NULL != strstr(response_buf, resEncodingChunk)) &&
-                 (NULL != strstr(response_buf, resHttp))) ||
-                ((NULL != strstr(response_buf, resHttpOk)) &&
-                 (NULL != strstr(response_buf, "\"status\":")))) {
-                break;
+        if (arguments->test_mode == INSERT_TEST) {
+            if (strlen(response_buf)) {
+                if (((NULL != strstr(response_buf, resEncodingChunk)) &&
+                     (NULL != strstr(response_buf, resHttp))) ||
+                    ((NULL != strstr(response_buf, resHttpOk)) &&
+                     (NULL != strstr(response_buf, "\"status\":")))) {
+                    break;
+                }
             }
         }
     } while (received < resp_len);

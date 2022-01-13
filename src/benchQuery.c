@@ -13,10 +13,18 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <sys/ioctl.h>
 #include "bench.h"
 
 void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
-    if (0 == strncasecmp(g_queryInfo.queryMode, "taosc", strlen("taosc"))) {
+    if (0 == strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
+        int retCode = postProceSql(g_queryInfo.host, g_queryInfo.port, command,
+                                   pThreadInfo);
+        if (0 != retCode) {
+            errorPrint("====restful return fail, threadID[%d]\n",
+                       pThreadInfo->threadID);
+        }
+    } else {
         TAOS_RES *res = taos_query(pThreadInfo->taos, command);
         if (res == NULL || taos_errno(res) != 0) {
             errorPrint("failed to execute sql:%s, reason:%s\n", command,
@@ -27,18 +35,6 @@ void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
 
         fetchResult(res, pThreadInfo);
         taos_free_result(res);
-
-    } else if (0 ==
-               strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
-        int retCode = postProceSql(g_queryInfo.host, g_queryInfo.port, command,
-                                   pThreadInfo);
-        if (0 != retCode) {
-            printf("====restful return fail, threadID[%d]\n",
-                   pThreadInfo->threadID);
-        }
-
-    } else {
-        errorPrint("unknown query mode: %s\n", g_queryInfo.queryMode);
     }
 }
 
@@ -259,22 +255,33 @@ int queryTestProcess(SArguments *argument) {
 #else
                     int sockfd;
 #endif
+
                     sockfd = socket(AF_INET, SOCK_STREAM, 0);
+                    // int iMode = 1;
+                    // ioctl(sockfd, FIONBIO, &iMode);
+                    debugPrint("sockfd=%d\n", sockfd);
                     if (sockfd < 0) {
 #ifdef WINDOWS
                         errorPrint("Could not create socket : %d",
                                    WSAGetLastError());
 #endif
-                        debugPrint("%s() LN%d, sockfd=%d\n", __func__, __LINE__,
-                                   sockfd);
-                        ERROR_EXIT("opening socket");
+                        errorPrint("failed to create socket, reason: %s\n",
+                                   strerror(errno));
+                        tmfree((char *)pids);
+                        tmfree((char *)infos);
+                        return -1;
                     }
 
                     int retConn = connect(
                         sockfd, (struct sockaddr *)&(g_queryInfo.serv_addr),
                         sizeof(struct sockaddr));
                     if (retConn < 0) {
-                        ERROR_EXIT("connecting");
+                        errorPrint(
+                            "failed to connect with socket, reason: %s\n",
+                            strerror(errno));
+                        tmfree((char *)pids);
+                        tmfree((char *)infos);
+                        return -1;
                     }
                     pThreadInfo->sockfd = sockfd;
                 } else {

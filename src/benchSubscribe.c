@@ -38,8 +38,9 @@ void specified_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
     // tao_unsubscribe() will free result.
 }
 
-TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo, char *sql,
-                        char *topic, bool restart, uint64_t interval) {
+static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
+                               char *sql, char *topic, bool restart,
+                               uint64_t interval) {
     TAOS_SUB *tsub = NULL;
 
     if ((SPECIFIED_CLASS == class) &&
@@ -72,14 +73,7 @@ void *specifiedSubscribe(void *sarg) {
     int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    //  TAOS_SUB*  tsub = NULL;
-
     prctl(PR_SET_NAME, "specSub");
-    char sqlStr[TSDB_DB_NAME_LEN + 5];
-    sprintf(sqlStr, "USE %s", g_queryInfo.dbName);
-    if (0 != queryDbExec(pThreadInfo->taos, sqlStr, NO_INSERT_TYPE, false)) {
-        goto free_of_specified_subscribe;
-    }
 
     sprintf(g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
             "taosbenchmark-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
@@ -108,12 +102,13 @@ void *specifiedSubscribe(void *sarg) {
            (g_queryInfo.specifiedQueryInfo.consumed[pThreadInfo->threadID] <
             g_queryInfo.specifiedQueryInfo
                 .endAfterConsume[pThreadInfo->querySeq])) {
-        printf("consumed[%d]: %d, endAfterConsum[%" PRId64 "]: %d\n",
-               pThreadInfo->threadID,
-               g_queryInfo.specifiedQueryInfo.consumed[pThreadInfo->threadID],
-               pThreadInfo->querySeq,
-               g_queryInfo.specifiedQueryInfo
-                   .endAfterConsume[pThreadInfo->querySeq]);
+        infoPrint(
+            "consumed[%d]: %d, endAfterConsum[%" PRId64 "]: %d\n",
+            pThreadInfo->threadID,
+            g_queryInfo.specifiedQueryInfo.consumed[pThreadInfo->threadID],
+            pThreadInfo->querySeq,
+            g_queryInfo.specifiedQueryInfo
+                .endAfterConsume[pThreadInfo->querySeq]);
         if (ASYNC_MODE == g_queryInfo.specifiedQueryInfo.asyncMode) {
             continue;
         }
@@ -140,9 +135,10 @@ void *specifiedSubscribe(void *sarg) {
                      .consumed[pThreadInfo->threadID] >=
                  g_queryInfo.specifiedQueryInfo
                      .resubAfterConsume[pThreadInfo->querySeq])) {
-                printf("keepProgress:%d, resub specified query: %" PRIu64 "\n",
-                       g_queryInfo.specifiedQueryInfo.subscribeKeepProgress,
-                       pThreadInfo->querySeq);
+                infoPrint("keepProgress:%d, resub specified query: %" PRIu64
+                          "\n",
+                          g_queryInfo.specifiedQueryInfo.subscribeKeepProgress,
+                          pThreadInfo->querySeq);
                 g_queryInfo.specifiedQueryInfo.consumed[pThreadInfo->threadID] =
                     0;
                 taos_unsubscribe(
@@ -302,9 +298,6 @@ int subscribeTestProcess(SArguments *argument) {
     }
 
     TAOS *taos = select_one_from_pool(argument->pool, NULL);
-    if (taos == NULL) {
-        return -1;
-    }
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
         getAllChildNameOfSuperTable(taos, g_queryInfo.dbName,
@@ -321,15 +314,9 @@ int subscribeTestProcess(SArguments *argument) {
 
     //==== create threads for query for specified table
     if (g_queryInfo.specifiedQueryInfo.sqlCount <= 0) {
-        debugPrint("%s() LN%d, specified query sqlCount %d.\n", __func__,
-                   __LINE__, g_queryInfo.specifiedQueryInfo.sqlCount);
+        debugPrint("specified query sqlCount %d.\n",
+                   g_queryInfo.specifiedQueryInfo.sqlCount);
     } else {
-        if (g_queryInfo.specifiedQueryInfo.concurrent <= 0) {
-            errorPrint("specified query sqlCount %d.\n",
-                       g_queryInfo.specifiedQueryInfo.sqlCount);
-            exit(EXIT_FAILURE);
-        }
-
         pids = calloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
                              g_queryInfo.specifiedQueryInfo.concurrent *
                              sizeof(pthread_t));
@@ -356,8 +343,8 @@ int subscribeTestProcess(SArguments *argument) {
 
     //==== create threads for super table query
     if (g_queryInfo.superQueryInfo.sqlCount <= 0) {
-        debugPrint("%s() LN%d, super table query sqlCount %d.\n", __func__,
-                   __LINE__, g_queryInfo.superQueryInfo.sqlCount);
+        debugPrint("super table query sqlCount %d.\n",
+                   g_queryInfo.superQueryInfo.sqlCount);
     } else {
         if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
             (g_queryInfo.superQueryInfo.threadCnt > 0)) {
