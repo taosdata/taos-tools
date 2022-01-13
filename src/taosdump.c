@@ -4468,6 +4468,27 @@ static int64_t writeResultToSql(TAOS_RES *res, FILE *fp,
                             *((int64_t *)row[col]));
                     break;
 
+                case TSDB_DATA_TYPE_UTINYINT:
+                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
+                            *((uint8_t *)row[col]));
+                    break;
+
+                case TSDB_DATA_TYPE_USMALLINT:
+                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
+                            *((uint16_t *)row[col]));
+                    break;
+
+                case TSDB_DATA_TYPE_UINT:
+                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
+                            *((uint32_t *)row[col]));
+                    break;
+
+                case TSDB_DATA_TYPE_UBIGINT:
+                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len,
+                            "%" PRIu64 "",
+                            *((uint64_t *)row[col]));
+                    break;
+
                 case TSDB_DATA_TYPE_FLOAT:
                     curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%f",
                             GET_FLOAT_VAL(row[col]));
