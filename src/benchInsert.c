@@ -1893,7 +1893,7 @@ int insertTestProcess(SArguments *arguments) {
     for (int i = 0; i < arguments->dbCount; ++i) {
         for (int j = 0; j < database[i].superTblCount; ++j) {
             if (database[i].superTbls[j].iface == SML_IFACE) {
-                continue;
+                goto skip;
             }
             if (getSuperTableFromServer(arguments, database[i].dbName,
                                         &(database[i].superTbls[j]))) {
@@ -1902,6 +1902,7 @@ int insertTestProcess(SArguments *arguments) {
                     goto end_insert_process;
                 }
             }
+        skip:
             memset(cmdBuffer, 0, BUFFER_SIZE);
             prepare_sample_data(arguments, &(database[i].superTbls[j]));
         }
