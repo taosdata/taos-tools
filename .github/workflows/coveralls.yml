@@ -143,7 +143,7 @@ jobs:
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
-          cd tests/pytest
+          cd ../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
