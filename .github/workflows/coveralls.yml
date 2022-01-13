@@ -86,7 +86,9 @@ jobs:
           sleep 10
 
           # test codec
-          ./build/bin/taosBenchmark -t 2 -n 10 -y > /dev/null
+          # simple: ./build/bin/taosBenchmark -t 2 -n 10 -y > /dev/null
+          # complex:
+          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -B bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
 
           ./build/bin/taosdump -D test -d null -gg > /dev/null
           ./build/bin/taos -s "drop database test"
@@ -120,6 +122,25 @@ jobs:
           # test normal table
           ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -gg > /dev/null
+          rm -f *.sql *.avro*
+          
+          ./build/bin/taosdump -D test -d unknown -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d unknown -gg > /dev/null
+          rm -f *.sql *.avro*
+          
+          # complex with larger binary:
+          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -B bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          ./build/bin/taosdump -D test -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -gg > /dev/null
+          rm -f *.sql *.avro*
+
+          ./build/bin/taosdump -D test -d unknown -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
           cd src/kit/taos-tools/

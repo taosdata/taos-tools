@@ -257,7 +257,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             } else if (arguments->binwidth > TSDB_MAX_BINARY_LEN) {
                 errorPrint("-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
                            "), will auto set to default(64)\n",
-                           arguments->binwidth, TSDB_MAX_BINARY_LEN);
+                           arguments->binwidth, (uint64_t)TSDB_MAX_BINARY_LEN);
                 arguments->binwidth = DEFAULT_BINWIDTH;
             }
             break;
