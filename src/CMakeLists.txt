@@ -114,10 +114,10 @@ ENDIF ()
 
 IF (${BUILD_TYPE} MATCHES "Debug")
     MESSAGE("${Yellow} DEBUG mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0 ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0 ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
 ELSE ()
     MESSAGE("${Green} RELEASE mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
 ENDIF ()
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")

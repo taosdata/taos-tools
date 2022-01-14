@@ -19,8 +19,6 @@
 #include "bench.h"
 /***** Global variables ******/
 
-extern char *    g_sampleDataBuf;
-extern char *    g_sampleBindBatchArray;
 extern int8_t *  g_randbool;
 extern int8_t *  g_randtinyint;
 extern uint8_t * g_randutinyint;
@@ -46,52 +44,27 @@ extern char *    g_randfloat_buff;
 extern char *    g_rand_current_buff;
 extern char *    g_rand_phase_buff;
 extern char *    g_randdouble_buff;
-extern char **   g_string_grid;
+extern char **   g_stmt_col_string_grid;
+extern char **   g_stmt_tag_string_grid;
 /***** Declare functions *****/
-int     init_rand_data(SArguments* arguments);
-char *  rand_bool_str();
-int32_t rand_bool();
-char *  rand_tinyint_str();
-int32_t rand_tinyint();
-char *  rand_utinyint_str();
-int32_t rand_utinyint();
-char *  rand_smallint_str();
-int32_t rand_smallint();
-char *  rand_usmallint_str();
-int32_t rand_usmallint();
-char *  rand_int_str();
-int32_t rand_int();
-char *  rand_uint_str();
-int32_t rand_uint();
-char *  rand_bigint_str();
-int64_t rand_bigint();
-char *  rand_ubigint_str();
-int64_t rand_ubigint();
-char *  rand_float_str();
-float   rand_float();
-char *  demo_current_float_str();
-char *  demo_voltage_int_str();
-char *  demo_phase_float_str();
-void    rand_string(char *str, int size);
-char *  rand_double_str();
-double  rand_double();
-
-int     generateTagValuesForStb(SArguments * arguments, SSuperTable *stbInfo, int64_t tableSeq,
-                                char *tagsValBuf);
+int     init_rand_data(SArguments *arguments);
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
+void    generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
+                           SArguments *arguments);
+void    generateStmtTagArray(SArguments *arguments, SSuperTable *stbInfo);
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
-int32_t prepareStmtWithoutStb(threadInfo *pThreadInfo, char *tableName,
-                              uint32_t batch, int64_t startTime);
-
-int generateSampleFromRand(SArguments * arguments, char *sampleDataBuf, int32_t lenOfOneRow, int count,
-                           char *data_type, int32_t *data_length, int64_t size, uint16_t iface);
-int prepareSampleDataWithStb(SArguments *argument, SSuperTable *stbInfo) ;
-    int32_t generateSmlConstPart(char *sml, SSuperTable *stbInfo,
-                              int tbSeq);
-int32_t generateSmlTelnetColData(char *line, char *sml, SSuperTable *stbInfo, int64_t timestamp);
+int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
+                           char *data_type, int32_t *data_length, int64_t size,
+                           uint16_t iface, bool demo_mode, bool chinese,
+                           uint64_t prepared_rand, int32_t line_protocol);
+int prepare_sample_data(SArguments *argument, SSuperTable *stbInfo);
+int32_t generateSmlTags(char *sml, SSuperTable *stbInfo, uint64_t prepared_rand,
+                        bool chinese);
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
-                            uint64_t start_table_from, int tbSeq);
+                            uint64_t start_table_from, int tbSeq,
+                            uint64_t prepared_rand, bool chinese);
 int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
-                            uint32_t time_precision, int64_t timestamp);
+                            uint32_t time_precision, int64_t timestamp,
+                            uint64_t prepared_rand, bool chinese);
 #endif

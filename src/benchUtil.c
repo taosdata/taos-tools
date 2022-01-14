@@ -101,124 +101,6 @@ int taosRandom() { return rand(); }
 
 #endif
 
-char *formatTimestamp(char *buf, int64_t val, int precision) {
-    time_t tt;
-    if (precision == TSDB_TIME_PRECISION_MICRO) {
-        tt = (time_t)(val / 1000000);
-    }
-    if (precision == TSDB_TIME_PRECISION_NANO) {
-        tt = (time_t)(val / 1000000000);
-    } else {
-        tt = (time_t)(val / 1000);
-    }
-
-    /* comment out as it make testcases like select_with_tags.sim fail.
-       but in windows, this may cause the call to localtime crash if tt < 0,
-       need to find a better solution.
-       if (tt < 0) {
-       tt = 0;
-       }
-       */
-
-#ifdef WINDOWS
-    if (tt < 0) tt = 0;
-#endif
-
-    struct tm *ptm = localtime(&tt);
-    size_t     pos = strftime(buf, 32, "%Y-%m-%d %H:%M:%S", ptm);
-
-    if (precision == TSDB_TIME_PRECISION_MICRO) {
-        sprintf(buf + pos, ".%06d", (int)(val % 1000000));
-    } else if (precision == TSDB_TIME_PRECISION_NANO) {
-        sprintf(buf + pos, ".%09d", (int)(val % 1000000000));
-    } else {
-        sprintf(buf + pos, ".%03d", (int)(val % 1000));
-    }
-
-    return buf;
-}
-
-int getChildNameOfSuperTableWithLimitAndOffset(TAOS *taos, char *dbName,
-                                               char *   stbName,
-                                               char **  childTblNameOfSuperTbl,
-                                               int64_t *childTblCountOfSuperTbl,
-                                               int64_t limit, uint64_t offset,
-                                               bool escapChar) {
-    char command[SQL_BUFF_LEN] = "\0";
-    char limitBuf[100] = "\0";
-
-    TAOS_RES *res;
-    TAOS_ROW  row = NULL;
-    int64_t   childTblCount = (limit < 0) ? DEFAULT_CHILDTABLES : limit;
-    int64_t   count = 0;
-    char *    childTblName = *childTblNameOfSuperTbl;
-
-    if (childTblName == NULL) {
-        childTblName = (char *)calloc(1, childTblCount * TSDB_TABLE_NAME_LEN);
-    }
-    char *pTblName = childTblName;
-
-    snprintf(limitBuf, 100, " limit %" PRId64 " offset %" PRIu64 "", limit,
-             offset);
-
-    // get all child table name use cmd: select tbname from superTblName;
-    snprintf(command, SQL_BUFF_LEN,
-             escapChar ? "select tbname from %s.`%s` %s"
-                       : "select tbname from %s.%s %s",
-             dbName, stbName, limitBuf);
-
-    res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
-    if (code != 0) {
-        taos_free_result(res);
-
-        errorPrint("failed to run command %s, reason: %s\n", command,
-                   taos_errstr(res));
-        return -1;
-    }
-
-    while ((row = taos_fetch_row(res)) != NULL) {
-        int32_t *len = taos_fetch_lengths(res);
-
-        if (0 == strlen((char *)row[0])) {
-            errorPrint("No.%" PRId64 " table return empty name\n", count);
-            return -1;
-        }
-
-        tstrncpy(pTblName, (char *)row[0], len[0] + 1);
-        // printf("==== sub table name: %s\n", pTblName);
-        count++;
-        if (count >= childTblCount - 1) {
-            char *tmp = realloc(
-                childTblName,
-                (size_t)(childTblCount * 1.5 * TSDB_TABLE_NAME_LEN + 1));
-            if (tmp != NULL) {
-                childTblName = tmp;
-                childTblCount = (int)(childTblCount * 1.5);
-                memset(childTblName + count * TSDB_TABLE_NAME_LEN, 0,
-                       (size_t)((childTblCount - count) * TSDB_TABLE_NAME_LEN));
-            } else {
-                // exit, if allocate more memory failed
-                tmfree(childTblName);
-                taos_free_result(res);
-
-                errorPrint(
-                    "realloc fail for save child table name of "
-                    "%s.%s\n",
-                    dbName, stbName);
-                return -1;
-            }
-        }
-        pTblName = childTblName + count * TSDB_TABLE_NAME_LEN;
-    }
-
-    *childTblCountOfSuperTbl = count;
-    *childTblNameOfSuperTbl = childTblName;
-
-    taos_free_result(res);
-    return 0;
-}
-
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                 char ** childTblNameOfSuperTbl,
                                 int64_t childTblCountOfSuperTbl) {
@@ -279,6 +161,21 @@ void prompt(SArguments *arguments) {
     }
 }
 
+static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
+    pThreadInfo->fp = fopen(pThreadInfo->filePath, "at");
+    if (pThreadInfo->fp == NULL) {
+        errorPrint(
+            "failed to open result file: %s, result will not save "
+            "to file\n",
+            pThreadInfo->filePath);
+        return;
+    }
+
+    fprintf(pThreadInfo->fp, "%s", resultBuf);
+    tmfclose(pThreadInfo->fp);
+    pThreadInfo->fp = NULL;
+}
+
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
@@ -288,9 +185,7 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("inSql: %s\n", inSql);
 
     char *pos = strstr(inSql, sourceString);
-    if (0 == pos) {
-        return;
-    }
+    if (0 == pos) return;
 
     tstrncpy(outSql, inSql, pos - inSql + 1);
     // printf("1: %s\n", outSql);
@@ -339,20 +234,12 @@ int64_t taosGetSelfPthreadId() {
     return id;
 }
 
-int isCommentLine(char *line) {
-    if (line == NULL) return 1;
-
-    return regexMatch(line, "^\\s*#.*", REG_EXTENDED);
-}
-
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;
     char    msgbuf[100] = {0};
 
     /* Compile regular expression */
-    if (regcomp(&regex, reg, cflags) != 0) {
-        ERROR_EXIT("Fail to compile regex\n");
-    }
+    if (regcomp(&regex, reg, cflags) != 0) ERROR_EXIT("Fail to regex\n");
 
     /* Execute regular expression */
     int reti = regexec(&regex, s, 0, NULL, 0);
@@ -396,9 +283,11 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
 
 int postProceSql(char *host, uint16_t port, char *sqlstr,
                  threadInfo *pThreadInfo) {
-    int32_t code = -1;
-    char *  req_fmt =
-        "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
+    SArguments *arguments = pThreadInfo->arguments;
+    SDataBase * database = &(arguments->db[pThreadInfo->db_index]);
+    int32_t     code = -1;
+    char *      req_fmt =
+        "POST %s/%s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
 
@@ -413,7 +302,7 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
 
     request_buf = calloc(1, req_buf_len);
     uint64_t response_length;
-    if (g_args.test_mode == INSERT_TEST) {
+    if (arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
     } else {
         response_length = g_queryInfo.response_buffer;
@@ -429,9 +318,9 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
-    if (g_args.test_mode == INSERT_TEST) {
-        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_args.user,
-                 g_args.password);
+    if (arguments->test_mode == INSERT_TEST) {
+        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", arguments->user,
+                 arguments->password);
     } else {
         snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_queryInfo.user,
                  g_queryInfo.password);
@@ -464,14 +353,15 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
 
     char *auth = base64_buf;
 
-    int r = snprintf(request_buf, req_buf_len, req_fmt, url, host, rest_port,
-                     auth, strlen(sqlstr), sqlstr);
+    int r = snprintf(request_buf, req_buf_len, req_fmt, url, database->dbName,
+                     host, rest_port, auth, strlen(sqlstr), sqlstr);
     if (r >= req_buf_len) {
         free(request_buf);
         ERROR_EXIT("too long request");
     }
 
     req_str_len = (int)strlen(request_buf);
+    debugPrint("request buffer: %s\n", request_buf);
     sent = 0;
     do {
 #ifdef WINDOWS
@@ -504,22 +394,35 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         bytes = read(pThreadInfo->sockfd, response_buf + received,
                      resp_len - received);
 #endif
-        debugPrint("receive %d bytes from server\n", bytes);
+
+        if (arguments->test_mode == QUERY_TEST) {
+            int64_t index = strlen(response_buf) - 1;
+            while (response_buf[index] == '\n' || response_buf[index] == '\r') {
+                index--;
+            }
+            debugPrint("index: %" PRId64 "\n", index);
+            if (response_buf[index] == '0') {
+                break;
+            }
+            debugPrint("receive %d bytes from server: %c\n", bytes,
+                       response_buf[index]);
+        }
+
         if (bytes < 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
-        if (bytes == 0) {
-            break;
-        }
+
         received += bytes;
 
-        if (strlen(response_buf)) {
-            if (((NULL != strstr(response_buf, resEncodingChunk)) &&
-                 (NULL != strstr(response_buf, resHttp))) ||
-                ((NULL != strstr(response_buf, resHttpOk)) &&
-                 (NULL != strstr(response_buf, "\"status\":")))) {
-                break;
+        if (arguments->test_mode == INSERT_TEST) {
+            if (strlen(response_buf)) {
+                if (((NULL != strstr(response_buf, resEncodingChunk)) &&
+                     (NULL != strstr(response_buf, resHttp))) ||
+                    ((NULL != strstr(response_buf, resHttpOk)) &&
+                     (NULL != strstr(response_buf, "\"status\":")))) {
+                    break;
+                }
             }
         }
     } while (received < resp_len);
@@ -557,8 +460,9 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     // fetch the records row by row
     while ((row = taos_fetch_row(res))) {
         if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
-            if (strlen(pThreadInfo->filePath) > 0)
+            if (strlen(pThreadInfo->filePath) > 0) {
                 appendResultBufToFile(databuf, pThreadInfo);
+            }
             totalLen = 0;
             memset(databuf, 0, FETCH_BUFFER_SIZE);
         }
@@ -566,7 +470,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         char temp[HEAD_BUFF_LEN] = {0};
         int  len = taos_print_row(temp, row, fields, num_fields);
         len += sprintf(temp + len, "\n");
-        // printf("query result:%s\n", temp);
+        debugPrint("query result:%s\n", temp);
         memcpy(databuf + totalLen, temp, len);
         totalLen += len;
     }
@@ -651,13 +555,16 @@ int taos_convert_string_to_datatype(char *type) {
     }
 }
 
-int init_taos_list(TAOS_POOL *pool, int size) {
+int init_taos_list(SArguments *arguments) {
+    int        size = arguments->nthreads_pool;
+    TAOS_POOL *pool = arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
     pool->current = 0;
     pool->size = size;
     for (int i = 0; i < size; ++i) {
-        pool->taos_list[i] = taos_connect(g_args.host, g_args.user,
-                                          g_args.password, NULL, g_args.port);
+        pool->taos_list[i] =
+            taos_connect(arguments->host, arguments->user, arguments->password,
+                         NULL, arguments->port);
         if (pool->taos_list[i] == NULL) {
             errorPrint("Failed to connect to TDengine, reason:%s\n",
                        taos_errstr(NULL));

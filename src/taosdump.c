@@ -513,7 +513,6 @@ void prompt() {
     }
 }
 
-/*
 char* strToLower(char *dst, const char *src) {
   int esc = 0;
   char quote = 0, *p = dst, c;
@@ -540,7 +539,6 @@ char* strToLower(char *dst, const char *src) {
   *p = 0;
   return dst;
 }
-*/
 
 int setConsoleEcho(bool on)
 {

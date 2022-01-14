@@ -82,13 +82,13 @@ jobs:
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
           ./build/bin/taosdump --databases > /dev/null 2>&1 || :
 
-          nohup sudo taosd &
+          nohup sudo taosd > /dev/null &
           sleep 10
 
           # test codec
           # simple: ./build/bin/taosBenchmark -t 2 -n 10 -y > /dev/null
           # complex:
-          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -B bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
 
           ./build/bin/taosdump -D test -d null -gg > /dev/null
           ./build/bin/taos -s "drop database test"
@@ -130,9 +130,14 @@ jobs:
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
-          
+
+          ./build/bin/taosdump test d0 -d unknown -gg > /dev/null
+          ./build/bin/taos -s "drop database test"
+          ./build/bin/taosdump -i . -d unknown -gg > /dev/null
+          rm -f *.sql *.avro*
+
           # complex with larger binary:
-          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -B bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
@@ -143,41 +148,15 @@ jobs:
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
-          cd src/kit/taos-tools/
-          ctest --verbose > /dev/null 2>&1
-          cd ../../../../tests/pytest
+          cd ../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
-          python3 ./test.py -f tools/taosdumpTest.py > /dev/null 2>&1
-          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null 2>&1
-          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null 2>&1
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null 2>&1
 
-          python3 test.py -f tools/taosdemoTest.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoTestInterlace.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoTestWithoutMetric.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoTestWithJson.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoTestLimitOffset.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoTestTblAlt.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoTestSampleData.py > /dev/null 2>&1
-
-          python3 test.py -f tools/taosdemoTestQuery.py > /dev/null
-          python3 ./test.py -f tools/taosdemoTestdatatype.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py > /dev/null 2>&1
-
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insert4096columns_not_use_taosdemo.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonStmt.py  > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py > /dev/null 2>&1
-          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertShell.py > /dev/null 2>&1
+          python3 ./test.py -f tools/taosdumpTest.py > /dev/null
+          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
+          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null
+          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null
 
           cd ../develop-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
@@ -207,14 +186,14 @@ jobs:
           cd TDengine/debug/src/kit/taos-tools
           gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/taosdump.c -o src/CMakeFiles/taosdump.dir/taosdump.c.gcno
           gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchMain.c -o src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchData.c -o src/CMakeFiles/taosbench.dir/benchData.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
-          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchData.c -o src/CMakeFiles/taosBenchmark.dir/benchData.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosBenchmark.dir/benchInsert.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosBenchmark.dir/benchOutput.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosBenchmark.dir/benchQuery.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosBenchmark.dir/benchSubscribe.c.gcno
+          gcov -abcfu ${topdir}/TDengine/src/kit/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
           mkdir ${topdir}/coverage || :
           lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info
           lcov -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info

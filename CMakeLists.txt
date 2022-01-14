@@ -101,16 +101,6 @@ ENDIF ()
 ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
 
-if (${BUILD_TYPE} MATCHES "Debug")
-    MESSAGE("${Yellow} CUnit on ${ColourReset}")
-    enable_testing()
-    ADD_SUBDIRECTORY(test)
-    add_test(NAME benchTest COMMAND benchTest)
-else()
-    MESSAGE("${Green} Cunit off ${ColourReset}")
-endif ()
-
-
 ADD_DEPENDENCIES(taosdump apache-avro)
 ADD_DEPENDENCIES(taosBenchmark cJsonDemo)
 
