@@ -541,6 +541,8 @@ int getMetaFromInsertJsonFile(cJSON *json, SArguments *arguments) {
                     arguments->db[i].superTbls[j].iface = STMT_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                     arguments->db[i].superTbls[j].iface = SML_IFACE;
+                } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
+                    arguments->db[i].superTbls[j].iface = SML_REST_IFACE;
                 } else {
                     arguments->db[i].superTbls[j].iface = TAOSC_IFACE;
                 }
@@ -726,38 +728,28 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *arguments) {
 
     cJSON *cfgdir = cJSON_GetObjectItem(json, "cfgdir");
     if (cfgdir && cfgdir->type == cJSON_String && cfgdir->valuestring != NULL) {
-        tstrncpy(g_queryInfo.cfgDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+        tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     cJSON *host = cJSON_GetObjectItem(json, "host");
     if (host && host->type == cJSON_String && host->valuestring != NULL) {
-        tstrncpy(g_queryInfo.host, host->valuestring, MAX_HOSTNAME_SIZE);
-    } else {
-        tstrncpy(g_queryInfo.host, DEFAULT_HOST, MAX_HOSTNAME_SIZE);
+        arguments->host = host->valuestring;
     }
 
     cJSON *port = cJSON_GetObjectItem(json, "port");
     if (port && port->type == cJSON_Number) {
-        g_queryInfo.port = (uint16_t)port->valueint;
-    } else {
-        g_queryInfo.port = DEFAULT_PORT;
+        arguments->port = (uint16_t)port->valueint;
     }
 
     cJSON *user = cJSON_GetObjectItem(json, "user");
     if (user && user->type == cJSON_String && user->valuestring != NULL) {
-        tstrncpy(g_queryInfo.user, user->valuestring, MAX_USERNAME_SIZE);
-    } else {
-        tstrncpy(g_queryInfo.user, TSDB_DEFAULT_USER, MAX_USERNAME_SIZE);
+        arguments->user = user->valuestring;
     }
 
     cJSON *password = cJSON_GetObjectItem(json, "password");
     if (password && password->type == cJSON_String &&
         password->valuestring != NULL) {
-        tstrncpy(g_queryInfo.password, password->valuestring,
-                 SHELL_MAX_PASSWORD_LEN);
-    } else {
-        tstrncpy(g_queryInfo.password, TSDB_DEFAULT_PASS,
-                 SHELL_MAX_PASSWORD_LEN);
+        arguments->password = password->valuestring;
     }
 
     cJSON *answerPrompt =
@@ -792,17 +784,15 @@ int getMetaFromQueryJsonFile(cJSON *json, SArguments *arguments) {
 
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
     if (dbs && dbs->type == cJSON_String && dbs->valuestring != NULL) {
-        tstrncpy(g_queryInfo.dbName, dbs->valuestring, TSDB_DB_NAME_LEN);
+        arguments->db->dbName = dbs->valuestring;
     }
 
     cJSON *queryMode = cJSON_GetObjectItem(json, "query_mode");
     if (queryMode && queryMode->type == cJSON_String &&
         queryMode->valuestring != NULL) {
-        tstrncpy(g_queryInfo.queryMode, queryMode->valuestring,
-                 min(SMALL_BUFF_LEN, strlen(queryMode->valuestring) + 1));
-    } else {
-        tstrncpy(g_queryInfo.queryMode, "taosc",
-                 min(SMALL_BUFF_LEN, strlen("taosc") + 1));
+        if (0 == strcasecmp(queryMode->valuestring, "rest")) {
+            arguments->db->superTbls->iface = REST_IFACE;
+        }
     }
 
     // specified_table_query
