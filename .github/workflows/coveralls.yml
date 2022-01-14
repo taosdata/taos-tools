@@ -59,7 +59,7 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git checkout develop
           git pull
-          
+
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
         run: |
@@ -81,9 +81,6 @@ jobs:
           ./build/bin/taosdump --port 10000 > /dev/null 2>&1 || :
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
           ./build/bin/taosdump --databases > /dev/null 2>&1 || :
-          ./build/bin/taosdump --password &
-          sleep 5
-          pkill -9 taosdump
 
           nohup sudo taosd > /dev/null &
           sleep 10
@@ -128,7 +125,7 @@ jobs:
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
           rm -f *.sql *.avro*
-          
+
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
