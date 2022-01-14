@@ -86,8 +86,12 @@ jobs:
           sleep 10
 
           # test codec
-          # simple: ./build/bin/taosBenchmark -t 2 -n 10 -y > /dev/null
-          # complex:
+          # test simple and log database
+          ./build/bin/taosBenchmark -t 1 -n 1 -y
+          ./build/bin/taosdump -D test -a
+          rm -f *.sql *.avro*
+
+          # test complex:
           ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
 
           ./build/bin/taosdump -D test -d null -gg > /dev/null
