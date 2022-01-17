@@ -140,8 +140,8 @@ int getSuperTableFromServer(SArguments *arguments, char *dbName,
     res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        infoPrint("failed to run command %s, reason: %s\n", command,
-                  taos_errstr(res));
+        debugPrint("failed to run command %s, reason: %s\n", command,
+                   taos_errstr(res));
         infoPrint("stable %s does not exist\n", superTbls->stbName);
         taos_free_result(res);
         return -1;
@@ -547,7 +547,7 @@ skip:
         return -1;
     }
 
-    debugPrint("create supertable %s success!\n", superTbl->stbName);
+    infoPrint("create stable %s success!\n", superTbl->stbName);
     return 0;
 }
 
