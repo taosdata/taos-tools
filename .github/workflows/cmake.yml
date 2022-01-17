@@ -106,6 +106,12 @@ jobs:
               for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
             fi
           fi
-
-          [ -f taosdump-failed.txt ] && cat taosdump-failed.txt && exit 1
-          [ -f taosbenchmark-failed.txt ] && cat taosbenchmark-failed.txt && exit 1
+          
+          if [ -f taosdump-failed.txt ];then
+            cat taosdump-failed.txt;
+            exit 1;
+          fi
+          if [ -f taosbenchmark-failed.txt ];then
+            cat taosbenchmark-failed.txt;
+            exit 1;
+          fi
