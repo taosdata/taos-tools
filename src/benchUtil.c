@@ -397,6 +397,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     char resHttp[] = "HTTP/1.1 ";
     char resHttpOk[] = "HTTP/1.1 200 OK";
     char influxHttpOk[] = "HTTP/1.1 204";
+    bool chunked = false;
 
     do {
 #ifdef WINDOWS
@@ -408,16 +409,20 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
 #endif
 
         debugPrint("response_buffer: %s\n", response_buf);
+        if (NULL != strstr(response_buf, resEncodingChunk)) {
+            chunked = true;
+        }
         int64_t index = strlen(response_buf) - 1;
         while (response_buf[index] == '\n' || response_buf[index] == '\r') {
             index--;
         }
         debugPrint("index: %" PRId64 "\n", index);
-        if (response_buf[index] == '0' || response_buf[index] == '}') {
+        if (chunked && response_buf[index] == '0') {
             break;
         }
-        debugPrint("receive %d bytes from server: %c\n", bytes,
-                   response_buf[index]);
+        if (!chunked && response_buf[index] == '}') {
+            break;
+        }
 
         if (bytes <= 0) {
             errorPrint("%s", "reading no response from socket\n");
