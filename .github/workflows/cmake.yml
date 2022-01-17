@@ -59,15 +59,15 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
       - name: Install tdengine
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug && make && sudo make install
-
-      - name: Start tdengine
-        run: |
-          nohup sudo taosd &
-          sleep 10
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug -DBUILD_HTTP=false && make && sudo make install
 
       - name: Func Test
         run: |
