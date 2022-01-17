@@ -2736,7 +2736,7 @@ static int64_t writeResultToAvro(
             char tmpBuf[65] = {0};
 
             if (0 == col) {
-                sprintf(tmpBuf, "%s", fields[col].name);
+                sprintf(tmpBuf, "ts");
             } else {
                 sprintf(tmpBuf, "col%d", col-1);
             }
