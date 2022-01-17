@@ -513,33 +513,6 @@ void prompt() {
     }
 }
 
-char* strToLower(char *dst, const char *src) {
-  int esc = 0;
-  char quote = 0, *p = dst, c;
-
-  assert(dst != NULL);
-
-  for (c = *src++; c; c = *src++) {
-    if (esc) {
-      esc = 0;
-    } else if (quote) {
-      if (c == '\\') {
-        esc = 1;
-      } else if (c == quote) {
-        quote = 0;
-      }
-    } else if (c >= 'A' && c <= 'Z') {
-      c -= 'A' - 'a';
-    } else if (c == '\'' || c == '"') {
-      quote = c;
-    }
-    *p++ = c;
-  }
-
-  *p = 0;
-  return dst;
-}
-
 int setConsoleEcho(bool on)
 {
 #define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
@@ -1194,13 +1167,12 @@ static int getDumpDbCount()
 
     while ((row = taos_fetch_row(result)) != NULL) {
         // sys database name : 'log', but subsequent version changed to 'log'
-        if ((strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) == 0)
-                && (!g_args.allow_sys)) {
-            continue;
-        }
-
-        if (g_args.databases) {  // input multi dbs
+        if (strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
+                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) == 0) {
+            if (!g_args.allow_sys) {
+                continue;
+            }
+        } else if (g_args.databases) {  // input multi dbs
             if (inDatabasesSeq(
                         (char *)row[TSDB_SHOW_DB_NAME_INDEX],
                         fields[TSDB_SHOW_DB_NAME_INDEX].bytes) != 0)
@@ -6342,13 +6314,12 @@ static int dumpOut() {
     TAOS_FIELD *fields = taos_fetch_fields(result);
 
     while ((row = taos_fetch_row(result)) != NULL) {
-        if ((strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) == 0)
-                && (!g_args.allow_sys)) {
-            continue;
-        }
-
-        if (g_args.databases) {
+        if (strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
+                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) == 0) {
+            if (!g_args.allow_sys) {
+                continue;
+            }
+        } else if (g_args.databases) {
             if (inDatabasesSeq(
                         (char *)row[TSDB_SHOW_DB_NAME_INDEX],
                         fields[TSDB_SHOW_DB_NAME_INDEX].bytes) != 0) {
