@@ -100,7 +100,6 @@ jobs:
       - name: Develop Test
         run: |
           cd TDengine/tests/develop-test
-          
           python3 ./test.py -f 5-taos-tools/taosbenchmark/auto_create_table_json.py
           
 #          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
@@ -116,5 +115,5 @@ jobs:
 #            fi
 #          fi
 
-          [ -f taosdump-failed.txt ] && [ ! -s taosdump-failed.txt ] && exit 1
-          [ -f taosbenchmark-failed.txt ] && [ ! -s taosbenchmark-failed.txt ] && exit 1
+#          [ -f taosdump-failed.txt ] && [ ! -s taosdump-failed.txt ] && exit 1
+#          [ -f taosbenchmark-failed.txt ] && [ ! -s taosbenchmark-failed.txt ] && exit 1
