@@ -50,7 +50,6 @@ jobs:
           git pull
           git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
           git submodule update --init --recursive
-          cd src/plugins/taosadapter && git pull origin develop
         if: github.event_name == 'pull_request'
 
       - name: Checkout TDengine's taos-tools to PR number
