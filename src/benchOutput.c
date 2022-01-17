@@ -145,14 +145,17 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
             fprintf(fp, "      stbName:           \033[33m%s\033[0m\n",
                     database[i].superTbls[j].stbName);
 
-            fprintf(fp, "      interface:         \033[33m%s\033[0m\n",
-                    (database[i].superTbls[j].iface == TAOSC_IFACE)
-                        ? "taosc"
-                        : (database[i].superTbls[j].iface == REST_IFACE)
-                              ? "rest"
-                              : (database[i].superTbls[j].iface == STMT_IFACE)
-                                    ? "stmt"
-                                    : "sml");
+            fprintf(
+                fp, "      interface:         \033[33m%s\033[0m\n",
+                (database[i].superTbls[j].iface == TAOSC_IFACE)
+                    ? "taosc"
+                    : (database[i].superTbls[j].iface == REST_IFACE)
+                          ? "rest"
+                          : (database[i].superTbls[j].iface == STMT_IFACE)
+                                ? "stmt"
+                                : (database[i].superTbls[j].iface == SML_IFACE)
+                                      ? "sml"
+                                      : "sml-rest");
 
             if (database[i].superTbls[j].autoCreateTable) {
                 fprintf(fp, "      autoCreateTable:   \033[33m%s\033[0m\n",
@@ -188,7 +191,7 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
                         "sample");
             }
 
-            if (database[i].superTbls[j].iface == SML_IFACE) {
+            if (database[i].superTbls[j].iface == SML_IFACE || database[i].superTbls[j].iface == SML_REST_IFACE) {
                 fprintf(fp, "      lineProtocol:      \033[33m%s\033[0m\n",
                         (database[i].superTbls[j].lineProtocol ==
                          TSDB_SML_LINE_PROTOCOL)
@@ -285,24 +288,24 @@ void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
     SHOW_PARSE_RESULT_END_TO_FILE(fp, arguments);
 }
 
-void printfQueryMeta(SArguments *argument) {
+void printfQueryMeta(SArguments *arguments) {
     setupForAnsiEscape();
-    SHOW_PARSE_RESULT_START_TO_FILE(stdout, argument);
+    SHOW_PARSE_RESULT_START_TO_FILE(stdout, arguments);
 
     printf("host:                           \033[33m%s:%u\033[0m\n",
-           g_queryInfo.host, g_queryInfo.port);
+           arguments->host, arguments->port);
     printf("user:                           \033[33m%s\033[0m\n",
-           g_queryInfo.user);
+           arguments->user);
     printf("database name:                  \033[33m%s\033[0m\n",
-           g_queryInfo.dbName);
+           arguments->db->dbName);
     printf("query Mode:                     \033[33m%s\033[0m\n",
-           g_queryInfo.queryMode);
+           arguments->db->superTbls->iface == REST_IFACE ? "rest" : "taosc");
     printf("response buffer for restful:    \033[33m%" PRIu64 "\033[0m\n",
            g_queryInfo.response_buffer);
     printf("\n");
 
-    if ((SUBSCRIBE_TEST == argument->test_mode) ||
-        (QUERY_TEST == argument->test_mode)) {
+    if ((SUBSCRIBE_TEST == arguments->test_mode) ||
+        (QUERY_TEST == arguments->test_mode)) {
         printf("specified table query info:                   \n");
         printf("    sqlCount:       \033[33m%d\033[0m\n",
                g_queryInfo.specifiedQueryInfo.sqlCount);
@@ -362,7 +365,7 @@ void printfQueryMeta(SArguments *argument) {
         }
     }
 
-    SHOW_PARSE_RESULT_END_TO_FILE(stdout, argument);
+    SHOW_PARSE_RESULT_END_TO_FILE(stdout, arguments);
 }
 
 void printStatPerThread(threadInfo *pThreadInfo) {

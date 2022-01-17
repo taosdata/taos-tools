@@ -222,6 +222,7 @@ enum enum_TAOS_INTERFACE {
     REST_IFACE,
     STMT_IFACE,
     SML_IFACE,
+    SML_REST_IFACE,
     INTERFACE_BUT
 };
 
@@ -415,14 +416,6 @@ typedef struct SuperQueryInfo_S {
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
-    char               cfgDir[MAX_FILE_NAME_LEN];
-    char               host[MAX_HOSTNAME_SIZE];
-    uint16_t           port;
-    struct sockaddr_in serv_addr;
-    char               user[MAX_USERNAME_SIZE];
-    char               password[SHELL_MAX_PASSWORD_LEN];
-    char               dbName[TSDB_DB_NAME_LEN];
-    char               queryMode[SMALL_BUFF_LEN];  // taosc, rest
     SpecifiedQueryInfo specifiedQueryInfo;
     SuperQueryInfo     superQueryInfo;
     uint64_t           totalQueried;
@@ -460,6 +453,7 @@ typedef struct SArguments_S {
     int64_t            g_existedChildTables;
     FILE *             fpOfInsertResult;
     SDataBase *        db;
+    char *             base64_buf;
 } SArguments;
 
 typedef struct SThreadInfo_S {
@@ -529,6 +523,7 @@ int         start(SArguments *arguments);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile(char *file, SArguments *argument);
 /* demoUtil.c */
+void    encode_base_64(SArguments *arguments);
 int     isCommentLine(char *line);
 int     init_taos_list(SArguments *arguments);
 TAOS *  select_one_from_pool(TAOS_POOL *pool, char *db_name);
@@ -538,7 +533,8 @@ int64_t taosGetTimestampUs();
 int64_t taosGetTimestampNs();
 int64_t taosGetTimestamp(int32_t precision);
 void    taosMsleep(int32_t mseconds);
-void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
+void    replaceChildTblName(SArguments *arguments, char *inSql, char *outSql,
+                            int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
 char *  taos_convert_datatype_to_string(int type);
@@ -549,8 +545,7 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(SArguments *arguments);
 void    ERROR_EXIT(const char *msg);
-int     postProceSql(char *host, uint16_t port, char *sqlstr,
-                     threadInfo *pThreadInfo);
+int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
 int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,

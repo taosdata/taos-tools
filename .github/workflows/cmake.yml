@@ -15,13 +15,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout taos-tools
-        uses: actions/checkout@v2
-        with:
-          ref: develop
-          submodules: recursive
-          path: 'taos-tools'
-
       - name: Step that prints name of pull request's base branch
         run: |
           echo "Pull request's base branch is: ${BASE_BRANCH}"
@@ -59,15 +52,15 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
       - name: Install tdengine
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug && make && sudo make install
-
-      - name: Start tdengine
-        run: |
-          nohup sudo taosd &
-          sleep 10
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug -DBUILD_HTTP=false && make && sudo make install
 
       - name: Func Test
         run: |
@@ -100,6 +93,7 @@ jobs:
       - name: Develop Test
         run: |
           cd TDengine/tests/develop-test
+          
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
             for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
@@ -112,6 +106,12 @@ jobs:
               for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
             fi
           fi
-
-          #[ -f taosdump-failed.txt ] && [ ! -s taosdump-failed.txt ] && exit 1
-          #[ -f taosbenchmark-failed.txt ] && [ ! -s taosbenchmark-failed.txt ] && exit 1
+          
+          if [ -f taosdump-failed.txt ];then
+            cat taosdump-failed.txt;
+            exit 1;
+          fi
+          if [ -f taosbenchmark-failed.txt ];then
+            cat taosbenchmark-failed.txt;
+            exit 1;
+          fi

@@ -17,9 +17,8 @@
 #include "bench.h"
 
 void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
-    if (0 == strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
-        int retCode = postProceSql(g_queryInfo.host, g_queryInfo.port, command,
-                                   pThreadInfo);
+    if (pThreadInfo->arguments->db->superTbls->iface == REST_IFACE) {
+        int retCode = postProceSql(command, pThreadInfo);
         if (0 != retCode) {
             errorPrint("====restful return fail, threadID[%d]\n",
                        pThreadInfo->threadID);
@@ -74,8 +73,8 @@ void *specifiedTableQuery(void *sarg) {
             g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq]);
 
         et = taosGetTimestampMs();
-        infoPrint("thread[%d] use %s complete <%s>, Spent %10.3f s\n",
-                  pThreadInfo->threadID, g_queryInfo.queryMode,
+        infoPrint("thread[%d] complete <%s>, Spent %10.3f s\n",
+                  pThreadInfo->threadID,
                   g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
                   (et - st) / 1000.0);
 
@@ -127,7 +126,8 @@ void *superTableQuery(void *sarg) {
              i <= pThreadInfo->end_table_to; i++) {
             for (int j = 0; j < g_queryInfo.superQueryInfo.sqlCount; j++) {
                 memset(sqlstr, 0, BUFFER_SIZE);
-                replaceChildTblName(g_queryInfo.superQueryInfo.sql[j], sqlstr,
+                replaceChildTblName(pThreadInfo->arguments,
+                                    g_queryInfo.superQueryInfo.sql[j], sqlstr,
                                     i);
                 if (g_queryInfo.superQueryInfo.result[j][0] != '\0') {
                     sprintf(pThreadInfo->filePath, "%s-%d",
@@ -163,15 +163,16 @@ void *superTableQuery(void *sarg) {
     return code;
 }
 
-int queryTestProcess(SArguments *argument) {
-    printfQueryMeta(argument);
-    if (init_taos_list(argument)) return -1;
-
+int queryTestProcess(SArguments *arguments) {
+    printfQueryMeta(arguments);
+    if (init_taos_list(arguments)) return -1;
+    encode_base_64(arguments);
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        TAOS *taos = select_one_from_pool(argument->pool, g_queryInfo.dbName);
-        char  cmd[SQL_BUFF_LEN] = "\0";
+        TAOS *taos =
+            select_one_from_pool(arguments->pool, arguments->db->dbName);
+        char cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
-                 g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+                 arguments->db->dbName, g_queryInfo.superQueryInfo.stbName);
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
@@ -201,18 +202,18 @@ int queryTestProcess(SArguments *argument) {
         g_queryInfo.superQueryInfo.childTblName =
             calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *));
         if (getAllChildNameOfSuperTable(
-                taos, g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName,
+                taos, arguments->db->dbName, g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
             return -1;
         }
     }
 
-    prompt(argument);
+    prompt(arguments);
 
-    if (0 == strncasecmp(g_queryInfo.queryMode, "rest", strlen("rest"))) {
-        if (convertHostToServAddr(g_queryInfo.host, g_queryInfo.port,
-                                  &(g_queryInfo.serv_addr)) != 0) {
+    if (arguments->db->superTbls->iface == REST_IFACE) {
+        if (convertHostToServAddr(arguments->host, arguments->port,
+                                  &(arguments->serv_addr)) != 0) {
             errorPrint("%s", "convert host to server address\n");
             return -1;
         }
@@ -235,9 +236,11 @@ int queryTestProcess(SArguments *argument) {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->arguments = argument;
+                pThreadInfo->arguments = arguments;
+                pThreadInfo->db_index = 0;
+                pThreadInfo->stb_index = 0;
 
-                if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
+                if (arguments->db->superTbls->iface == REST_IFACE) {
 #ifdef WINDOWS
                     WSADATA wsaData;
                     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -263,7 +266,7 @@ int queryTestProcess(SArguments *argument) {
                     }
 
                     int retConn = connect(
-                        sockfd, (struct sockaddr *)&(g_queryInfo.serv_addr),
+                        sockfd, (struct sockaddr *)&(arguments->serv_addr),
                         sizeof(struct sockaddr));
                     if (retConn < 0) {
                         errorPrint(
@@ -276,7 +279,7 @@ int queryTestProcess(SArguments *argument) {
                     pThreadInfo->sockfd = sockfd;
                 } else {
                     pThreadInfo->taos = select_one_from_pool(
-                        argument->pool, g_queryInfo.dbName);
+                        arguments->pool, arguments->db->dbName);
                 }
 
                 pthread_create(pids + seq, NULL, specifiedTableQuery,
@@ -295,7 +298,7 @@ int queryTestProcess(SArguments *argument) {
                     g_fail = true;
                 }
                 tmfree(result);
-                if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
+                if (arguments->db->superTbls->iface == REST_IFACE) {
                     threadInfo *pThreadInfo = infos + i * nSqlCount + j;
 #ifdef WINDOWS
                     closesocket(pThreadInfo->sockfd);
@@ -339,13 +342,15 @@ int queryTestProcess(SArguments *argument) {
         for (int i = 0; i < threads; i++) {
             threadInfo *pThreadInfo = infosOfSub + i;
             pThreadInfo->threadID = i;
-            pThreadInfo->arguments = argument;
+            pThreadInfo->arguments = arguments;
+            pThreadInfo->db_index = 0;
+            pThreadInfo->stb_index = 0;
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
             pThreadInfo->end_table_to =
                 i < b ? tableFrom + a : tableFrom + a - 1;
             tableFrom = pThreadInfo->end_table_to + 1;
-            if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
+            if (arguments->db->superTbls->iface == REST_IFACE) {
 #ifdef WINDOWS
                 WSADATA wsaData;
                 WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -365,7 +370,7 @@ int queryTestProcess(SArguments *argument) {
                 }
 
                 int retConn =
-                    connect(sockfd, (struct sockaddr *)&(g_queryInfo.serv_addr),
+                    connect(sockfd, (struct sockaddr *)&(arguments->serv_addr),
                             sizeof(struct sockaddr));
                 debugPrint("%s() LN%d connect() return %d\n", __func__,
                            __LINE__, retConn);
@@ -374,8 +379,8 @@ int queryTestProcess(SArguments *argument) {
                 }
                 pThreadInfo->sockfd = sockfd;
             } else {
-                pThreadInfo->taos =
-                    select_one_from_pool(argument->pool, g_queryInfo.dbName);
+                pThreadInfo->taos = select_one_from_pool(arguments->pool,
+                                                         arguments->db->dbName);
             }
             pthread_create(pidsOfSub + i, NULL, superTableQuery, pThreadInfo);
         }
@@ -392,7 +397,7 @@ int queryTestProcess(SArguments *argument) {
             g_fail = true;
         }
         tmfree(result);
-        if (0 == strncasecmp(g_queryInfo.queryMode, "rest", 4)) {
+        if (arguments->db->superTbls->iface == REST_IFACE) {
             threadInfo *pThreadInfo = infosOfSub + i;
 #ifdef WINDOWS
             closesocket(pThreadInfo->sockfd);

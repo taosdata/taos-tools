@@ -140,8 +140,8 @@ int getSuperTableFromServer(SArguments *arguments, char *dbName,
     res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        infoPrint("failed to run command %s, reason: %s\n", command,
-                  taos_errstr(res));
+        debugPrint("failed to run command %s, reason: %s\n", command,
+                   taos_errstr(res));
         infoPrint("stable %s does not exist\n", superTbls->stbName);
         taos_free_result(res);
         return -1;
@@ -547,7 +547,7 @@ skip:
         return -1;
     }
 
-    debugPrint("create supertable %s success!\n", superTbl->stbName);
+    infoPrint("create stable %s success!\n", superTbl->stbName);
     return 0;
 }
 
@@ -797,7 +797,8 @@ int createChildTables(SArguments *arguments) {
     for (int i = 0; i < arguments->dbCount; i++) {
         for (int j = 0; j < database[i].superTblCount; j++) {
             if (database[i].superTbls[j].autoCreateTable ||
-                database[i].superTbls[j].iface == SML_IFACE) {
+                database[i].superTbls[j].iface == SML_IFACE ||
+                database[i].superTbls[j].iface == SML_REST_IFACE) {
                 arguments->g_autoCreatedChildTables +=
                     database[i].superTbls[j].childTblCount;
                 continue;
@@ -845,6 +846,7 @@ int createChildTables(SArguments *arguments) {
 }
 
 void postFreeResource(SArguments *arguments) {
+    tmfree(arguments->base64_buf);
     tmfclose(arguments->fpOfInsertResult);
     SDataBase *database = arguments->db;
     for (int i = 0; i < arguments->dbCount; i++) {
@@ -924,8 +926,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case REST_IFACE:
 
-            if (0 != postProceSql(arguments->host, arguments->port,
-                                  pThreadInfo->buffer, pThreadInfo)) {
+            if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo)) {
                 affectedRows = -1;
             } else {
                 affectedRows = arguments->reqPerReq;
@@ -962,9 +963,32 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 affectedRows = -1;
             }
             break;
-        default:
-            errorPrint("Unknown insert mode: %d\n", iface);
-            affectedRows = -1;
+        case SML_REST_IFACE: {
+            if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+                pThreadInfo->lines[0] = cJSON_Print(pThreadInfo->json_array);
+                if (0 != postProceSql(pThreadInfo->lines[0], pThreadInfo)) {
+                    affectedRows = -1;
+                } else {
+                    affectedRows = arguments->reqPerReq;
+                }
+            } else {
+                int len = 0;
+                for (int i = 0; i < arguments->reqPerReq; ++i) {
+                    if (strlen(pThreadInfo->lines[i]) != 0) {
+                        len += sprintf(pThreadInfo->buffer + len, "%s\n",
+                                       pThreadInfo->lines[i]);
+                    } else {
+                        break;
+                    }
+                }
+                if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo)) {
+                    affectedRows = -1;
+                } else {
+                    affectedRows = arguments->reqPerReq;
+                }
+            }
+            break;
+        }
     }
     return affectedRows;
 }
@@ -1064,6 +1088,7 @@ void *syncWriteInterlace(void *sarg) {
                         bindParamBatch(pThreadInfo, interlaceRows, timestamp);
                     break;
                 }
+                case SML_REST_IFACE:
                 case SML_IFACE: {
                     for (int64_t j = 0; j < interlaceRows; ++j) {
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
@@ -1136,6 +1161,9 @@ void *syncWriteInterlace(void *sarg) {
                 memset(pThreadInfo->buffer, 0, pThreadInfo->max_sql_len);
                 pThreadInfo->totalAffectedRows += affectedRows;
                 break;
+            case SML_REST_IFACE:
+                memset(pThreadInfo->buffer, 0,
+                       arguments->reqPerReq * (pThreadInfo->max_sql_len + 1));
             case SML_IFACE:
                 if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                     debugPrint("pThreadInfo->lines[0]: %s\n",
@@ -1296,6 +1324,7 @@ void *syncWriteProgressive(void *sarg) {
                     timestamp += generated * stbInfo->timestamp_step;
                     break;
                 }
+                case SML_REST_IFACE:
                 case SML_IFACE: {
                     for (int j = 0; j < arguments->reqPerReq; ++j) {
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
@@ -1367,6 +1396,10 @@ void *syncWriteProgressive(void *sarg) {
                     memset(pThreadInfo->buffer, 0, pThreadInfo->max_sql_len);
                     pThreadInfo->totalAffectedRows += affectedRows;
                     break;
+                case SML_REST_IFACE:
+                    memset(
+                        pThreadInfo->buffer, 0,
+                        arguments->reqPerReq * (pThreadInfo->max_sql_len + 1));
                 case SML_IFACE:
                     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                         cJSON_Delete(pThreadInfo->json_array);
@@ -1424,7 +1457,8 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
                                       int stb_index) {
     SDataBase *  database = &(arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
-    if (stbInfo->iface == SML_IFACE && !stbInfo->use_metric) {
+    if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) &&
+        !stbInfo->use_metric) {
         errorPrint("%s", "schemaless cannot work without stable\n");
         return -1;
     }
@@ -1460,7 +1494,8 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
         stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
     }
 
-    if (stbInfo->iface != SML_IFACE && stbInfo->childTblExists) {
+    if ((stbInfo->iface != SML_IFACE || stbInfo->iface != SML_REST_IFACE) &&
+        stbInfo->childTblExists) {
         TAOS *taos = select_one_from_pool(arguments->pool, database->dbName);
         if (taos == NULL) {
             return -1;
@@ -1533,7 +1568,7 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
     if (threads != 0) {
         b = ntables % threads;
     }
-    if (stbInfo->iface == REST_IFACE) {
+    if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
         if (convertHostToServAddr(arguments->host, arguments->port,
                                   &(arguments->serv_addr)) != 0) {
             errorPrint("%s\n", "convert host to server address");
@@ -1644,11 +1679,53 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
 
                 break;
             }
+            case SML_REST_IFACE: {
+#ifdef WINDOWS
+                WSADATA wsaData;
+                WSAStartup(MAKEWORD(2, 2), &wsaData);
+                SOCKET sockfd;
+#else
+                int sockfd;
+#endif
+                sockfd = socket(AF_INET, SOCK_STREAM, 0);
+                if (sockfd < 0) {
+#ifdef WINDOWS
+                    errorPrint("Could not create socket : %d",
+                               WSAGetLastError());
+#endif
+                    debugPrint("%s() LN%d, sockfd=%d\n", __func__, __LINE__,
+                               sockfd);
+                    errorPrint("%s\n", "failed to create socket");
+                    return -1;
+                }
+
+                int retConn =
+                    connect(sockfd, (struct sockaddr *)&(arguments->serv_addr),
+                            sizeof(struct sockaddr));
+                if (retConn < 0) {
+                    errorPrint("%s\n", "failed to connect");
+#ifdef WINDOWS
+                    closesocket(pThreadInfo->sockfd);
+                    WSACleanup();
+#else
+                    close(pThreadInfo->sockfd);
+#endif
+                    return -1;
+                }
+                pThreadInfo->sockfd = sockfd;
+            }
             case SML_IFACE: {
-                pThreadInfo->taos =
-                    select_one_from_pool(arguments->pool, database->dbName);
+                if (stbInfo->iface == SML_IFACE) {
+                    pThreadInfo->taos =
+                        select_one_from_pool(arguments->pool, database->dbName);
+                }
                 pThreadInfo->max_sql_len =
                     stbInfo->lenOfCols + stbInfo->lenOfTags;
+                if (stbInfo->iface == SML_REST_IFACE) {
+                    pThreadInfo->buffer =
+                        calloc(1, arguments->reqPerReq *
+                                      (1 + pThreadInfo->max_sql_len));
+                }
                 if (stbInfo->lineProtocol != TSDB_SML_JSON_PROTOCOL) {
                     pThreadInfo->sml_tags =
                         (char **)calloc(pThreadInfo->ntables, sizeof(char *));
@@ -1744,8 +1821,9 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
 #endif
                 tmfree(pThreadInfo->buffer);
                 break;
+            case SML_REST_IFACE:
+                tmfree(pThreadInfo->buffer);
             case SML_IFACE:
-
                 if (stbInfo->lineProtocol != TSDB_SML_JSON_PROTOCOL) {
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         tmfree(pThreadInfo->sml_tags[t]);
@@ -1762,7 +1840,6 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
                 tmfree(pThreadInfo->lines);
                 break;
             case STMT_IFACE:
-
                 taos_stmt_close(pThreadInfo->stmt);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
@@ -1770,7 +1847,6 @@ static int startMultiThreadInsertData(SArguments *arguments, int db_index,
                 tmfree(pThreadInfo->is_null);
                 break;
             case TAOSC_IFACE:
-
                 tmfree(pThreadInfo->buffer);
                 break;
             default:
@@ -1866,6 +1942,7 @@ int insertTestProcess(SArguments *arguments) {
     if (init_rand_data(arguments)) {
         goto end_insert_process;
     }
+    encode_base_64(arguments);
 
     for (int i = 0; i < arguments->dbCount; ++i) {
         if (database[i].drop) {
@@ -1877,7 +1954,8 @@ int insertTestProcess(SArguments *arguments) {
     }
     for (int i = 0; i < arguments->dbCount; ++i) {
         for (int j = 0; j < database[i].superTblCount; ++j) {
-            if (database[i].superTbls[j].iface == SML_IFACE) {
+            if (database[i].superTbls[j].iface == SML_IFACE ||
+                database[i].superTbls[j].iface == SML_REST_IFACE) {
                 goto skip;
             }
             if (getSuperTableFromServer(arguments, database[i].dbName,

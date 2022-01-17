@@ -176,10 +176,11 @@ static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
     pThreadInfo->fp = NULL;
 }
 
-void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
+void replaceChildTblName(SArguments *arguments, char *inSql, char *outSql,
+                         int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    sprintf(subTblName, "%s.%s", g_queryInfo.dbName,
+    sprintf(subTblName, "%s.%s", arguments->db->dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
@@ -281,22 +282,75 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
     return 0;
 }
 
-int postProceSql(char *host, uint16_t port, char *sqlstr,
-                 threadInfo *pThreadInfo) {
-    SArguments *arguments = pThreadInfo->arguments;
-    SDataBase * database = &(arguments->db[pThreadInfo->db_index]);
-    int32_t     code = -1;
-    char *      req_fmt =
-        "POST %s/%s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
+void encode_base_64(SArguments *arguments) {
+    char        userpass_buf[INPUT_BUF_LEN];
+    static char base64[] = {
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+        'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+    snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", arguments->user,
+             arguments->password);
+
+    int mod_table[] = {0, 2, 1};
+
+    size_t userpass_buf_len = strlen(userpass_buf);
+    size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
+
+    arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
+
+    for (int n = 0, m = 0; n < userpass_buf_len;) {
+        uint32_t oct_a =
+            n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
+        uint32_t oct_b =
+            n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
+        uint32_t oct_c =
+            n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
+        uint32_t triple = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
+
+        arguments->base64_buf[m++] = base64[(triple >> 3 * 6) & 0x3f];
+        arguments->base64_buf[m++] = base64[(triple >> 2 * 6) & 0x3f];
+        arguments->base64_buf[m++] = base64[(triple >> 1 * 6) & 0x3f];
+        arguments->base64_buf[m++] = base64[(triple >> 0 * 6) & 0x3f];
+    }
+
+    for (int l = 0; l < mod_table[userpass_buf_len % 3]; l++)
+        arguments->base64_buf[encoded_len - 1 - l] = '=';
+}
+
+int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
+    SArguments * arguments = pThreadInfo->arguments;
+    SDataBase *  database = &(arguments->db[pThreadInfo->db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    int32_t      code = -1;
+    char *       req_fmt =
+        "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
-
-    char *url = "/rest/sql";
+    char url[1024];
+    if (stbInfo->iface == REST_IFACE) {
+        sprintf(url, "/rest/sql/%s", database->dbName);
+    } else if (stbInfo->iface == SML_REST_IFACE &&
+               stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
+        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", database->dbName,
+                database->dbCfg.precision == TSDB_TIME_PRECISION_MILLI
+                    ? "ms"
+                    : database->dbCfg.precision == TSDB_TIME_PRECISION_NANO
+                          ? "ns"
+                          : "u");
+    } else if (stbInfo->iface == SML_REST_IFACE &&
+               stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/telnet/%s", database->dbName);
+    } else if (stbInfo->iface == SML_REST_IFACE &&
+               stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/json/%s", database->dbName);
+    }
 
     int      bytes, sent, received, req_str_len, resp_len;
     char *   request_buf;
     char *   response_buf;
-    uint16_t rest_port = port + TSDB_PORT_HTTP;
+    uint16_t rest_port = arguments->port + TSDB_PORT_HTTP;
 
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
@@ -308,53 +362,9 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         response_length = g_queryInfo.response_buffer;
     }
     response_buf = calloc(1, response_length);
-    char userpass_buf[INPUT_BUF_LEN];
-    int  mod_table[] = {0, 2, 1};
 
-    static char base64[] = {
-        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-        'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
-
-    if (arguments->test_mode == INSERT_TEST) {
-        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", arguments->user,
-                 arguments->password);
-    } else {
-        snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_queryInfo.user,
-                 g_queryInfo.password);
-    }
-
-    size_t userpass_buf_len = strlen(userpass_buf);
-    size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
-
-    char base64_buf[INPUT_BUF_LEN];
-
-    memset(base64_buf, 0, INPUT_BUF_LEN);
-
-    for (int n = 0, m = 0; n < userpass_buf_len;) {
-        uint32_t oct_a =
-            n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
-        uint32_t oct_b =
-            n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
-        uint32_t oct_c =
-            n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
-        uint32_t triple = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
-
-        base64_buf[m++] = base64[(triple >> 3 * 6) & 0x3f];
-        base64_buf[m++] = base64[(triple >> 2 * 6) & 0x3f];
-        base64_buf[m++] = base64[(triple >> 1 * 6) & 0x3f];
-        base64_buf[m++] = base64[(triple >> 0 * 6) & 0x3f];
-    }
-
-    for (int l = 0; l < mod_table[userpass_buf_len % 3]; l++)
-        base64_buf[encoded_len - 1 - l] = '=';
-
-    char *auth = base64_buf;
-
-    int r = snprintf(request_buf, req_buf_len, req_fmt, url, database->dbName,
-                     host, rest_port, auth, strlen(sqlstr), sqlstr);
+    int r = snprintf(request_buf, req_buf_len, req_fmt, url, arguments->host,
+                     rest_port, arguments->base64_buf, strlen(sqlstr), sqlstr);
     if (r >= req_buf_len) {
         free(request_buf);
         ERROR_EXIT("too long request");
@@ -383,8 +393,11 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
+    char succMessage[] = "succ";
     char resHttp[] = "HTTP/1.1 ";
     char resHttpOk[] = "HTTP/1.1 200 OK";
+    char influxHttpOk[] = "HTTP/1.1 204";
+    bool chunked = false;
 
     do {
 #ifdef WINDOWS
@@ -395,20 +408,23 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
                      resp_len - received);
 #endif
 
-        if (arguments->test_mode == QUERY_TEST) {
-            int64_t index = strlen(response_buf) - 1;
-            while (response_buf[index] == '\n' || response_buf[index] == '\r') {
-                index--;
-            }
-            debugPrint("index: %" PRId64 "\n", index);
-            if (response_buf[index] == '0') {
-                break;
-            }
-            debugPrint("receive %d bytes from server: %c\n", bytes,
-                       response_buf[index]);
+        debugPrint("response_buffer: %s\n", response_buf);
+        if (NULL != strstr(response_buf, resEncodingChunk)) {
+            chunked = true;
+        }
+        int64_t index = strlen(response_buf) - 1;
+        while (response_buf[index] == '\n' || response_buf[index] == '\r') {
+            index--;
+        }
+        debugPrint("index: %" PRId64 "\n", index);
+        if (chunked && response_buf[index] == '0') {
+            break;
+        }
+        if (!chunked && response_buf[index] == '}') {
+            break;
         }
 
-        if (bytes < 0) {
+        if (bytes <= 0) {
             errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
@@ -419,8 +435,8 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
             if (strlen(response_buf)) {
                 if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                      (NULL != strstr(response_buf, resHttp))) ||
-                    ((NULL != strstr(response_buf, resHttpOk)) &&
-                     (NULL != strstr(response_buf, "\"status\":")))) {
+                    ((NULL != strstr(response_buf, resHttpOk)) ||
+                     (NULL != strstr(response_buf, influxHttpOk)))) {
                     break;
                 }
             }
@@ -432,7 +448,9 @@ int postProceSql(char *host, uint16_t port, char *sqlstr,
         goto free_of_post;
     }
 
-    if (NULL == strstr(response_buf, resHttpOk)) {
+    if (NULL == strstr(response_buf, resHttpOk) &&
+        NULL == strstr(response_buf, influxHttpOk) &&
+        NULL == strstr(response_buf, succMessage)) {
         errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
     }
