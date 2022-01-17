@@ -1088,6 +1088,7 @@ void *syncWriteInterlace(void *sarg) {
                         bindParamBatch(pThreadInfo, interlaceRows, timestamp);
                     break;
                 }
+                case SML_REST_IFACE:
                 case SML_IFACE: {
                     for (int64_t j = 0; j < interlaceRows; ++j) {
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
@@ -1160,6 +1161,9 @@ void *syncWriteInterlace(void *sarg) {
                 memset(pThreadInfo->buffer, 0, pThreadInfo->max_sql_len);
                 pThreadInfo->totalAffectedRows += affectedRows;
                 break;
+            case SML_REST_IFACE:
+                memset(pThreadInfo->buffer, 0,
+                       arguments->reqPerReq * (pThreadInfo->max_sql_len + 1));
             case SML_IFACE:
                 if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                     debugPrint("pThreadInfo->lines[0]: %s\n",
