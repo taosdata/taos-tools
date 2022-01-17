@@ -347,7 +347,7 @@
 
 "query_times": 每种查询类型的查询次数
 
-"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“resetful”：使用restfule接口。可选项。缺省是“taosc”。
+"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“rest”：使用restful接口。可选项。缺省是“taosc”。
 
 "specified_table_query": { 指定表的查询
 
