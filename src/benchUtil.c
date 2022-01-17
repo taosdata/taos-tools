@@ -393,6 +393,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     received = 0;
 
     char resEncodingChunk[] = "Encoding: chunked";
+    char succMessage[] = "succ";
     char resHttp[] = "HTTP/1.1 ";
     char resHttpOk[] = "HTTP/1.1 200 OK";
     char influxHttpOk[] = "HTTP/1.1 204";
@@ -443,7 +444,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
 
     if (NULL == strstr(response_buf, resHttpOk) &&
-        NULL == strstr(response_buf, influxHttpOk)) {
+        NULL == strstr(response_buf, influxHttpOk) &&
+        NULL == strstr(response_buf, succMessage)) {
         errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
     }
