@@ -70,10 +70,10 @@ jobs:
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug -DBUILD_HTTP=false && make && sudo make install
 
       - name: step 1
-        run: nohup taosadapter &
+        run: nohup sudo taosadapter &
 
       - name: step 1
-        run: nohup taosd &
+        run: nohup sudo taosd &
 
       - name: step 1
         run: "curl -H 'Authorization: Basic cm9vdDp0YW9zZGF0YQ==' -d 'show databases;' 127.0.0.1:6041/rest/sql"
