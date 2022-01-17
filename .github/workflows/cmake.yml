@@ -67,7 +67,7 @@ jobs:
       - name: Install tdengine
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug -DBUILD_HTTP=false && make && sudo make install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug -DBUILD_HTTP=true && make && sudo make install
 
       - name: Func Test
         run: |
