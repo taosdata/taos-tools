@@ -20,10 +20,9 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     char         command[SQL_BUFF_LEN] = "\0";
     TAOS_RES *   res;
     TAOS_ROW     row = NULL;
-    SDataBase *  database = g_arguments->db + db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + stb_index * sizeof(SSuperTable);
-    TAOS *taos = select_one_from_pool(NULL);
+    SDataBase *  database = &(g_arguments->db[db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    TAOS *       taos = select_one_from_pool(NULL);
     snprintf(command, SQL_BUFF_LEN, "describe %s.`%s`", database->dbName,
              stbInfo->stbName);
     res = taos_query(taos, command);
@@ -221,9 +220,8 @@ static int createSuperTable(int db_index, int stb_index) {
     char         cols[COL_BUFFER_LEN] = "\0";
     char         command[BUFFER_SIZE] = "\0";
     int          len = 0;
-    SDataBase *  database = g_arguments->db + db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + stb_index * sizeof(SSuperTable);
+    SDataBase *  database = &(g_arguments->db[db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
 
     for (int colIndex = 0; colIndex < stbInfo->columnCount; colIndex++) {
         switch (stbInfo->col_type[colIndex]) {
@@ -614,13 +612,12 @@ create_table_end:
 
 static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
     int          threads = g_arguments->nthreads;
-    SDataBase *  database = g_arguments->db + db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + stb_index * sizeof(SSuperTable);
-    int64_t     ntables = stbInfo->childTblCount;
-    pthread_t * pids = calloc(1, threads * sizeof(pthread_t));
-    threadInfo *infos = calloc(1, threads * sizeof(threadInfo));
-    uint64_t    tableFrom = 0;
+    SDataBase *  database = &(g_arguments->db[db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    int64_t      ntables = stbInfo->childTblCount;
+    pthread_t *  pids = calloc(1, threads * sizeof(pthread_t));
+    threadInfo * infos = calloc(1, threads * sizeof(threadInfo));
+    uint64_t     tableFrom = 0;
     if (threads < 1) {
         threads = 1;
     }
@@ -792,19 +789,17 @@ void postFreeResource() {
     tmfree(g_randfloat);
     tmfree(g_randdouble);
     cJSON_Delete(root);
-    cleanup_taos_list(g_arguments->pool);
+    cleanup_taos_list();
     tmfree(g_arguments->pool);
 }
 
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
-    SDataBase *database =
-        g_arguments->db + pThreadInfo->db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + pThreadInfo->stb_index * sizeof(SSuperTable);
-    int32_t   affectedRows;
-    TAOS_RES *res;
-    int32_t   code;
-    uint16_t  iface = stbInfo->iface;
+    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    int32_t      affectedRows;
+    TAOS_RES *   res;
+    int32_t      code;
+    uint16_t     iface = stbInfo->iface;
 
     switch (iface) {
         case TAOSC_IFACE:
@@ -883,11 +878,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 }
 
 static void *syncWriteInterlace(void *sarg) {
-    threadInfo *pThreadInfo = (threadInfo *)sarg;
-    SDataBase * database =
-        g_arguments->db + pThreadInfo->db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + pThreadInfo->stb_index * sizeof(SSuperTable);
+    threadInfo * pThreadInfo = (threadInfo *)sarg;
+    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     debugPrint(
         "thread[%d]: start interlace inserting into table from "
         "%" PRIu64 " to %" PRIu64 "\n",
@@ -1121,11 +1114,9 @@ free_of_interlace:
 }
 
 void *syncWriteProgressive(void *sarg) {
-    threadInfo *pThreadInfo = (threadInfo *)sarg;
-    SDataBase * database =
-        g_arguments->db + pThreadInfo->db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + pThreadInfo->stb_index * sizeof(SSuperTable);
+    threadInfo * pThreadInfo = (threadInfo *)sarg;
+    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     debugPrint(
         "thread[%d]: start progressive inserting into table from "
         "%" PRIu64 " to %" PRIu64 "\n",
@@ -1357,9 +1348,8 @@ free_of_progressive:
 }
 
 static int startMultiThreadInsertData(int db_index, int stb_index) {
-    SDataBase *  database = g_arguments->db + db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + stb_index * sizeof(SSuperTable);
+    SDataBase *  database = &(g_arguments->db[db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) &&
         !stbInfo->use_metric) {
         errorPrint("%s", "schemaless cannot work without stable\n");
@@ -1393,10 +1383,11 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
 
     uint64_t tableFrom = 0;
     uint64_t ntables = stbInfo->childTblCount;
-    stbInfo->childTblName = calloc(1, stbInfo->childTblCount * sizeof(char *));
+    stbInfo->childTblName = calloc(stbInfo->childTblCount, sizeof(char *));
+    g_memoryUsage += stbInfo->childTblCount * sizeof(char *);
     for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
-        *(stbInfo->childTblName + i * sizeof(char *)) =
-            calloc(1, TSDB_TABLE_NAME_LEN);
+        stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
+        g_memoryUsage += TSDB_TABLE_NAME_LEN;
     }
 
     if ((stbInfo->iface != SML_IFACE || stbInfo->iface != SML_REST_IFACE) &&

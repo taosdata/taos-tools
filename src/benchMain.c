@@ -17,6 +17,7 @@
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
+uint64_t       g_memoryUsage = 0;
 cJSON*         root;
 
 int main(int argc, char* argv[]) {

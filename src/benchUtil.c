@@ -319,13 +319,10 @@ void encode_base_64() {
 }
 
 int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SDataBase *database =
-        g_arguments->db + pThreadInfo->db_index * sizeof(SDataBase);
-
-    SSuperTable *stbInfo =
-        database->superTbls + pThreadInfo->stb_index * sizeof(SSuperTable);
-    int32_t code = -1;
-    char *  req_fmt =
+    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    int32_t      code = -1;
+    char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
@@ -597,7 +594,7 @@ int init_taos_list() {
 
 TAOS *select_one_from_pool(char *db_name) {
     TAOS_POOL *pool = g_arguments->pool;
-    TAOS *     taos = *(pool->taos_list + pool->current * sizeof(TAOS *));
+    TAOS *     taos = pool->taos_list[pool->current];
     if (db_name != NULL) {
         int code = taos_select_db(taos, db_name);
         if (code) {
@@ -613,9 +610,9 @@ TAOS *select_one_from_pool(char *db_name) {
     return taos;
 }
 
-void cleanup_taos_list(TAOS_POOL *pool) {
-    for (int i = 0; i < pool->size; ++i) {
-        taos_close(*(pool->taos_list + i * sizeof(TAOS *)));
+void cleanup_taos_list() {
+    for (int i = 0; i < g_arguments->pool->size; ++i) {
+        taos_close(g_arguments->pool->taos_list[i]);
     }
-    tmfree(pool->taos_list);
+    tmfree(g_arguments->pool->taos_list);
 }

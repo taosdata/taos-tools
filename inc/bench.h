@@ -503,6 +503,7 @@ extern SQueryMetaInfo g_queryInfo;
 extern bool           g_fail;
 extern char           configDir[];
 extern cJSON *        root;
+extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \

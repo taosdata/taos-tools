@@ -915,9 +915,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
 }
 
 int prepare_sample_data(int db_index, int stb_index) {
-    SDataBase *  database = g_arguments->db + db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + stb_index * sizeof(SSuperTable);
+    SDataBase *  database = &(g_arguments->db[db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
     calcRowLen(stbInfo);
     debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n", stbInfo->stbName,
                stbInfo->tagCount, stbInfo->lenOfTags);
@@ -925,6 +924,8 @@ int prepare_sample_data(int db_index, int stb_index) {
                stbInfo->columnCount, stbInfo->lenOfCols);
     stbInfo->sampleDataBuf =
         calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
+    g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
+    infoPrint("memory usage increased to: %" PRIu64 "\n", g_memoryUsage);
     if (stbInfo->random_data_source) {
         generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
                                stbInfo->columnCount, stbInfo->col_type,
