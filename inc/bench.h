@@ -322,8 +322,8 @@ typedef struct SSuperTable_S {
     bool  useSampleTs;
     char *tagDataBuf;
     // bind param batch
-    char *      buffer;
     TAOS_BIND **tag_bind_array;
+    char *      stmt_buffer;
 } SSuperTable;
 
 typedef struct {
@@ -457,43 +457,42 @@ typedef struct SArguments_S {
 } SArguments;
 
 typedef struct SThreadInfo_S {
-    TAOS *      taos;
-    TAOS_STMT * stmt;
-    int64_t *   bind_ts;
-    int64_t *   bind_ts_array;
-    char *      bindParams;
-    char *      is_null;
-    int         threadID;
-    uint64_t    start_table_from;
-    uint64_t    end_table_to;
-    int64_t     ntables;
-    int64_t     tables_created;
-    char *      buffer;
-    int64_t     counter;
-    uint64_t    st;
-    uint64_t    et;
-    uint64_t    lastTs;
-    int64_t     samplePos;
-    uint64_t    totalInsertRows;
-    uint64_t    totalAffectedRows;
-    uint64_t    cntDelay;
-    uint64_t    totalDelay;
-    uint64_t    maxDelay;
-    uint64_t    minDelay;
-    uint64_t    querySeq;
-    TAOS_SUB *  tsub;
-    char **     lines;
-    int32_t     sockfd;
-    SArguments *arguments;
-    int32_t     db_index;
-    int32_t     stb_index;
-    char **     sml_tags;
-    cJSON *     json_array;
-    cJSON *     sml_json_tags;
-    int64_t     start_time;
-    int64_t     max_sql_len;
-    FILE *      fp;
-    char        filePath[MAX_PATH_LEN];
+    TAOS *     taos;
+    TAOS_STMT *stmt;
+    int64_t *  bind_ts;
+    int64_t *  bind_ts_array;
+    char *     bindParams;
+    char *     is_null;
+    int        threadID;
+    uint64_t   start_table_from;
+    uint64_t   end_table_to;
+    int64_t    ntables;
+    int64_t    tables_created;
+    char *     buffer;
+    int64_t    counter;
+    uint64_t   st;
+    uint64_t   et;
+    uint64_t   lastTs;
+    int64_t    samplePos;
+    uint64_t   totalInsertRows;
+    uint64_t   totalAffectedRows;
+    uint64_t   cntDelay;
+    uint64_t   totalDelay;
+    uint64_t   maxDelay;
+    uint64_t   minDelay;
+    uint64_t   querySeq;
+    TAOS_SUB * tsub;
+    char **    lines;
+    int32_t    sockfd;
+    int32_t    db_index;
+    int32_t    stb_index;
+    char **    sml_tags;
+    cJSON *    json_array;
+    cJSON *    sml_json_tags;
+    int64_t    start_time;
+    int64_t    max_sql_len;
+    FILE *     fp;
+    char       filePath[MAX_PATH_LEN];
 } threadInfo;
 
 /* ************ Global variables ************  */
@@ -513,28 +512,23 @@ extern cJSON *        root;
     } while (0)
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
-void commandLineParseArgument(int argc, char *argv[], SArguments *arguments);
-int  count_datatype(char *dataType, int32_t *number);
-int  parse_datatype(char *dataType, char *data_type, int32_t *data_length,
-                    bool is_tag);
-void modify_argument(SArguments *arguments, SSuperTable *superTable);
-SArguments *init_argument(SArguments *arguments);
-int         start(SArguments *arguments);
+void commandLineParseArgument(int argc, char *argv[]);
+void modify_argument();
+void init_argument();
+void queryAggrFunc();
 /* demoJsonOpt.c */
-int getInfoFromJsonFile(char *file, SArguments *argument);
+int getInfoFromJsonFile();
 /* demoUtil.c */
-void    encode_base_64(SArguments *arguments);
-int     isCommentLine(char *line);
-int     init_taos_list(SArguments *arguments);
-TAOS *  select_one_from_pool(TAOS_POOL *pool, char *db_name);
-void    cleanup_taos_list(TAOS_POOL *pool);
+void    encode_base_64();
+int     init_taos_list();
+TAOS *  select_one_from_pool(char *db_name);
+void    cleanup_taos_list();
 int64_t taosGetTimestampMs();
 int64_t taosGetTimestampUs();
 int64_t taosGetTimestampNs();
 int64_t taosGetTimestamp(int32_t precision);
 void    taosMsleep(int32_t mseconds);
-void    replaceChildTblName(SArguments *arguments, char *inSql, char *outSql,
-                            int tblIndex);
+void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
 char *  taos_convert_datatype_to_string(int type);
@@ -543,7 +537,7 @@ int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
-void    prompt(SArguments *arguments);
+void    prompt();
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
 int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
@@ -554,19 +548,14 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
 /* demoInsert.c */
-int  insertTestProcess(SArguments *arguments);
-void postFreeResource(SArguments *arguments);
-int  calcRowLen(char *tag_type, char *col_type, int32_t *tag_length,
-                int32_t *col_length, int32_t tagCount, int32_t colCount,
-                int32_t *plenOfTags, int32_t *plenOfCols, int iface,
-                int line_protocol);
+int  insertTestProcess();
+void postFreeResource();
 /* demoOutput.c */
-void printfInsertMetaToFileStream(FILE *fp, SArguments *arguments,
-                                  SDataBase *database);
+void printfInsertMetaToFileStream(FILE *fp);
 void printStatPerThread(threadInfo *pThreadInfo);
-void printfQueryMeta(SArguments *arguments);
+void printfQueryMeta();
 /* demoQuery.c */
-int queryTestProcess(SArguments *arguments);
+int queryTestProcess();
 /* demoSubscribe.c */
-int subscribeTestProcess(SArguments *arguments);
+int subscribeTestProcess();
 #endif

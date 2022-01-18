@@ -47,24 +47,15 @@ extern char *    g_randdouble_buff;
 extern char **   g_stmt_col_string_grid;
 extern char **   g_stmt_tag_string_grid;
 /***** Declare functions *****/
-int     init_rand_data(SArguments *arguments);
+int     init_rand_data();
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
-void    generateStmtBuffer(char *stmtBuffer, SSuperTable *stbInfo,
-                           SArguments *arguments);
-void    generateStmtTagArray(SArguments *arguments, SSuperTable *stbInfo);
+void    generateStmtBuffer(SSuperTable *stbInfo);
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
-int generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow, int count,
-                           char *data_type, int32_t *data_length, int64_t size,
-                           uint16_t iface, bool demo_mode, bool chinese,
-                           uint64_t prepared_rand, int32_t line_protocol);
-int prepare_sample_data(SArguments *argument, SSuperTable *stbInfo);
-int32_t generateSmlTags(char *sml, SSuperTable *stbInfo, uint64_t prepared_rand,
-                        bool chinese);
+int prepare_sample_data(int a, int b);
+int32_t generateSmlTags(char *sml, SSuperTable *stbInfo);
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
-                            uint64_t start_table_from, int tbSeq,
-                            uint64_t prepared_rand, bool chinese);
+                            uint64_t start_table_from, int tbSeq);
 int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
-                            uint32_t time_precision, int64_t timestamp,
-                            uint64_t prepared_rand, bool chinese);
+                            uint32_t time_precision, int64_t timestamp);
 #endif

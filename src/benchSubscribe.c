@@ -15,7 +15,8 @@
 
 #include "bench.h"
 
-void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param, int code) {
+static void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
+                                int code) {
     if (res == NULL || taos_errno(res) != 0) {
         errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
                    taos_errstr(res));
@@ -26,8 +27,8 @@ void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param, int code) {
     // tao_unsubscribe() will free result.
 }
 
-void specified_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
-                            int code) {
+static void specified_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
+                                   int code) {
     if (res == NULL || taos_errno(res) != 0) {
         errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
                    taos_errstr(res));
@@ -69,7 +70,7 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
     return tsub;
 }
 
-void *specifiedSubscribe(void *sarg) {
+static void *specifiedSubscribe(void *sarg) {
     int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
@@ -186,7 +187,6 @@ static void *superSubscribe(void *sarg) {
                 pThreadInfo->querySeq);
         memset(subSqlStr, 0, BUFFER_SIZE);
         replaceChildTblName(
-            pThreadInfo->arguments,
             g_queryInfo.superQueryInfo.sql[pThreadInfo->querySeq], subSqlStr,
             (int)i);
         if (g_queryInfo.superQueryInfo.result[pThreadInfo->querySeq][0] != 0) {
@@ -276,22 +276,21 @@ free_of_super_subscribe:
     return code;
 }
 
-int subscribeTestProcess(SArguments *arguments) {
+int subscribeTestProcess() {
     setupForAnsiEscape();
-    printfQueryMeta(arguments);
+    printfQueryMeta();
     resetAfterAnsiEscape();
 
-    prompt(arguments);
+    prompt();
 
-    if (init_taos_list(arguments)) return -1;
-    encode_base_64(arguments);
+    if (init_taos_list()) return -1;
+    encode_base_64();
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        TAOS *taos =
-            select_one_from_pool(arguments->pool, arguments->db->dbName);
-        char cmd[SQL_BUFF_LEN] = "\0";
+        TAOS *taos = select_one_from_pool(g_arguments->db->dbName);
+        char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
-                 arguments->db->dbName, g_queryInfo.superQueryInfo.stbName);
+                 g_arguments->db->dbName, g_queryInfo.superQueryInfo.stbName);
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
@@ -321,7 +320,8 @@ int subscribeTestProcess(SArguments *arguments) {
         g_queryInfo.superQueryInfo.childTblName =
             calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *));
         if (getAllChildNameOfSuperTable(
-                taos, arguments->db->dbName, g_queryInfo.superQueryInfo.stbName,
+                taos, g_arguments->db->dbName,
+                g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
             return -1;
@@ -351,10 +351,9 @@ int subscribeTestProcess(SArguments *arguments) {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->arguments = arguments;
                 pThreadInfo->db_index = 0;
-                pThreadInfo->taos = select_one_from_pool(arguments->pool,
-                                                         arguments->db->dbName);
+                pThreadInfo->taos =
+                    select_one_from_pool(g_arguments->db->dbName);
                 pthread_create(pids + seq, NULL, specifiedSubscribe,
                                pThreadInfo);
             }
@@ -407,15 +406,14 @@ int subscribeTestProcess(SArguments *arguments) {
                 threadInfo *pThreadInfo = infosOfStable + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->arguments = arguments;
                 pThreadInfo->db_index = 0;
                 pThreadInfo->start_table_from = tableFrom;
                 pThreadInfo->ntables = j < b ? a + 1 : a;
                 pThreadInfo->end_table_to =
                     j < b ? tableFrom + a : tableFrom + a - 1;
                 tableFrom = pThreadInfo->end_table_to + 1;
-                pThreadInfo->taos = select_one_from_pool(arguments->pool,
-                                                         arguments->db->dbName);
+                pThreadInfo->taos =
+                    select_one_from_pool(g_arguments->db->dbName);
                 pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                pThreadInfo);
             }
