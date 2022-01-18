@@ -124,6 +124,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
+        g_memoryUsage += TSDB_TABLE_NAME_LEN;
         snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
                  (char *)row[0]);
         debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
@@ -577,6 +578,7 @@ int init_taos_list() {
     int        size = g_arguments->nthreads_pool;
     TAOS_POOL *pool = g_arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
+    g_memoryUsage += size * sizeof(TAOS *);
     pool->current = 0;
     pool->size = size;
     for (int i = 0; i < size; ++i) {

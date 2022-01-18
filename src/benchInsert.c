@@ -1558,7 +1558,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     tmfree(infos);
                     return -1;
                 }
-                pThreadInfo->bind_ts = malloc(sizeof(int64_t));
+                pThreadInfo->bind_ts = calloc(1, sizeof(int64_t));
                 pThreadInfo->bind_ts_array =
                     calloc(1, sizeof(int64_t) * g_arguments->reqPerReq);
                 pThreadInfo->bindParams = calloc(
