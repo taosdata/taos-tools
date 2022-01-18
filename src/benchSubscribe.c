@@ -240,8 +240,8 @@ static void *superSubscribe(void *sarg) {
                             g_queryInfo.superQueryInfo
                                 .result[pThreadInfo->querySeq],
                             pThreadInfo->threadID);
-                    fetchResult(res, pThreadInfo);
                 }
+                fetchResult(res, pThreadInfo);
                 consumed[tsubSeq]++;
 
                 if ((g_queryInfo.superQueryInfo.resubAfterConsume != -1) &&
