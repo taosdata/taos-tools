@@ -937,19 +937,38 @@ static void *syncWriteInterlace(void *sarg) {
                                        strlen(STR_INSERT_INTO) + 1, "%s",
                                        STR_INSERT_INTO);
                     }
-                    if (stbInfo->autoCreateTable) {
-                        len += snprintf(pThreadInfo->buffer + len,
-                                        pThreadInfo->max_sql_len - len,
-                                        "%s.%s using `%s` tags (%s) values ",
-                                        database->dbName, tableName,
-                                        stbInfo->stbName,
-                                        stbInfo->tagDataBuf +
-                                            stbInfo->lenOfTags * tableSeq);
+                    if (stbInfo->partialColumnNum == stbInfo->columnCount) {
+                        if (stbInfo->autoCreateTable) {
+                            len += snprintf(
+                                pThreadInfo->buffer + len,
+                                pThreadInfo->max_sql_len - len,
+                                "%s.%s using `%s` tags (%s) values ",
+                                database->dbName, tableName, stbInfo->stbName,
+                                stbInfo->tagDataBuf +
+                                    stbInfo->lenOfTags * tableSeq);
+                        } else {
+                            len += snprintf(pThreadInfo->buffer + len,
+                                            pThreadInfo->max_sql_len - len,
+                                            "%s.%s values", database->dbName,
+                                            tableName);
+                        }
                     } else {
-                        len += snprintf(pThreadInfo->buffer + len,
-                                        pThreadInfo->max_sql_len - len,
-                                        "%s.%s values", database->dbName,
-                                        tableName);
+                        if (stbInfo->autoCreateTable) {
+                            len += snprintf(
+                                pThreadInfo->buffer + len,
+                                pThreadInfo->max_sql_len - len,
+                                "%s.%s (%s) using `%s` tags (%s) values ",
+                                database->dbName, tableName,
+                                stbInfo->partialColumnNameBuf, stbInfo->stbName,
+                                stbInfo->tagDataBuf +
+                                    stbInfo->lenOfTags * tableSeq);
+                        } else {
+                            len += snprintf(pThreadInfo->buffer + len,
+                                            pThreadInfo->max_sql_len - len,
+                                            "%s.%s (%s) values",
+                                            database->dbName, tableName,
+                                            stbInfo->partialColumnNameBuf);
+                        }
                     }
 
                     for (int64_t j = 0; j < interlaceRows; ++j) {
