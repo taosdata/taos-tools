@@ -22,27 +22,27 @@ NC='\033[0m'
 
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 
 function kill_process() {
   pid=$(ps -ef | grep "$1" | grep -v "grep" | awk '{print $2}')
   if [ -n "$pid" ]; then
-    ${csudo} kill -9 $pid   || :
+    ${csudo}kill -9 $pid   || :
   fi
 }
 
 function uninstall_bin() {
     # Remove links
-    ${csudo} rm -f ${bin_link_dir}/taosdemo         || :
-    ${csudo} rm -f ${bin_link_dir}/taosBenchmark    || :
-    ${csudo} rm -f ${bin_link_dir}/taosdump         || :
-    ${csudo} rm -f ${bin_link_dir}/rmtaostools      || :
+    ${csudo}rm -f ${bin_link_dir}/taosdemo         || :
+    ${csudo}rm -f ${bin_link_dir}/taosBenchmark    || :
+    ${csudo}rm -f ${bin_link_dir}/taosdump         || :
+    ${csudo}rm -f ${bin_link_dir}/rmtaostools      || :
 
-    ${csudo} rm -f ${install_main_dir}/bin/taosdemo                  || :
-    ${csudo} rm -f ${install_main_dir}/bin/taosBenchmark             || :
-    ${csudo} rm -f ${install_main_dir}/bin/taosdump                  || :
-    ${csudo} rm -f ${install_main_dir}/bin/uninstall-taostools.sh    || :
+    ${csudo}rm -f ${install_main_dir}/bin/taosdemo                  || :
+    ${csudo}rm -f ${install_main_dir}/bin/taosBenchmark             || :
+    ${csudo}rm -f ${install_main_dir}/bin/taosdump                  || :
+    ${csudo}rm -f ${install_main_dir}/bin/uninstall-taostools.sh    || :
 }
 
 
@@ -53,7 +53,7 @@ function uninstall_taostools() {
     kill_process taosdemo
     kill_process taosBenchmark
     kill_process taosdump
-    
+
     uninstall_bin
 
     echo
