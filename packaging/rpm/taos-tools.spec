@@ -62,36 +62,36 @@ fi
 %pre
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 
 #Scripts executed after installation
 %post
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 
-${csudo} mkdir -p /usr/local/bin || :
-${csudo} ln -sf /usr/local/taos/bin/taosdump          /usr/local/bin/taosdump
-${csudo} ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosBenchmark
-${csudo} ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosdemo
+${csudo}mkdir -p /usr/local/bin || :
+${csudo}ln -sf /usr/local/taos/bin/taosdump          /usr/local/bin/taosdump
+${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosBenchmark
+${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosdemo
 
 if [[ -d /usr/local/lib64 ]]; then
-    ${csudo} ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23.0.0 || :
-    ${csudo} ln -sf /usr/local/lib64/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23 || :
-    ${csudo} ln -sf /usr/local/lib64/libavro.so.23 /usr/local/lib64/libavro.so || :
+    ${csudo}ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23.0.0 || :
+    ${csudo}ln -sf /usr/local/lib64/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23 || :
+    ${csudo}ln -sf /usr/local/lib64/libavro.so.23 /usr/local/lib64/libavro.so || :
 
     if [ -d /etc/ld.so.conf.d ]; then
-        ${csudo} echo "/usr/local/lib64" > /etc/ld.so.conf.d/libavro.conf
-        ${csudo} ldconfig
+        ${csudo}echo "/usr/local/lib64" > /etc/ld.so.conf.d/libavro.conf
+        ${csudo}ldconfig
     else
         echo "/etc/ld.so.conf.d not found!"
     fi
 else
     if [ -d /etc/ld.so.conf.d ]; then
-        ${csudo} echo "/usr/local/lib" > /etc/ld.so.conf.d/libavro.conf
-        ${csudo} ldconfig
+        ${csudo}echo "/usr/local/lib" > /etc/ld.so.conf.d/libavro.conf
+        ${csudo}ldconfig
     else
         echo "/etc/ld.so.conf.d not found!"
     fi
@@ -101,12 +101,12 @@ fi
 %preun
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 # only remove package to call preun.sh, not but update(2)
-${csudo} rm -f /usr/local/bin/taosdump      || :
-${csudo} rm -f /usr/local/bin/taosBenchmark || :
-${csudo} rm -f /usr/local/bin/taosdemo      || :
+${csudo}rm -f /usr/local/bin/taosdump      || :
+${csudo}rm -f /usr/local/bin/taosBenchmark || :
+${csudo}rm -f /usr/local/bin/taosdemo      || :
 
 # Scripts executed after uninstall
 %postun
@@ -115,9 +115,9 @@ ${csudo} rm -f /usr/local/bin/taosdemo      || :
 %clean
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
-${csudo} rm -rf %{buildroot}
+${csudo}rm -rf %{buildroot}
 
 #Specify the files to be packaged
 %files
