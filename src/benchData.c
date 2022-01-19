@@ -269,36 +269,61 @@ static void check_randomness(char *buffer_name, int buffer_length,
 
 int init_rand_data() {
     g_randint_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += INT_BUFF_LEN * g_arguments->prepared_rand;
     g_rand_voltage_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += INT_BUFF_LEN * g_arguments->prepared_rand;
     g_randbigint_buff = calloc(1, BIGINT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += BIGINT_BUFF_LEN * g_arguments->prepared_rand;
     g_randsmallint_buff =
         calloc(1, SMALLINT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += SMALLINT_BUFF_LEN * g_arguments->prepared_rand;
     g_randtinyint_buff =
         calloc(1, TINYINT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += TINYINT_BUFF_LEN * g_arguments->prepared_rand;
     g_randbool_buff = calloc(1, BOOL_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += BOOL_BUFF_LEN * g_arguments->prepared_rand;
     g_randfloat_buff = calloc(1, FLOAT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += FLOAT_BUFF_LEN * g_arguments->prepared_rand;
     g_rand_current_buff =
         calloc(1, FLOAT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += FLOAT_BUFF_LEN * g_arguments->prepared_rand;
     g_rand_phase_buff = calloc(1, FLOAT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += FLOAT_BUFF_LEN * g_arguments->prepared_rand;
     g_randdouble_buff = calloc(1, DOUBLE_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += DOUBLE_BUFF_LEN * g_arguments->prepared_rand;
     g_randuint_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += INT_BUFF_LEN * g_arguments->prepared_rand;
     g_randutinyint_buff =
         calloc(1, TINYINT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += TINYINT_BUFF_LEN * g_arguments->prepared_rand;
     g_randusmallint_buff =
         calloc(1, SMALLINT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += SMALLINT_BUFF_LEN * g_arguments->prepared_rand;
     g_randubigint_buff =
         calloc(1, BIGINT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += BIGINT_BUFF_LEN * g_arguments->prepared_rand;
     g_randbool = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(int8_t) * g_arguments->prepared_rand;
     g_randtinyint = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(int8_t) * g_arguments->prepared_rand;
     g_randutinyint = calloc(1, sizeof(uint8_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(uint8_t) * g_arguments->prepared_rand;
     g_randsmallint = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(int16_t) * g_arguments->prepared_rand;
     g_randusmallint = calloc(1, sizeof(uint16_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(uint16_t) * g_arguments->prepared_rand;
     g_randint = calloc(1, sizeof(int32_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(int32_t) * g_arguments->prepared_rand;
     g_randuint = calloc(1, sizeof(uint32_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(uint32_t) * g_arguments->prepared_rand;
     g_randbigint = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(int64_t) * g_arguments->prepared_rand;
     g_randubigint = calloc(1, sizeof(uint64_t) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(uint64_t) * g_arguments->prepared_rand;
     g_randfloat = calloc(1, sizeof(float) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(float) * g_arguments->prepared_rand;
     g_randdouble = calloc(1, sizeof(double) * g_arguments->prepared_rand);
+    g_memoryUsage += sizeof(double) * g_arguments->prepared_rand;
 
     for (int i = 0; i < g_arguments->prepared_rand; i++) {
         g_randint[i] = (int)(taosRandom() % RAND_MAX - (RAND_MAX >> 1));
@@ -433,8 +458,10 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
     char *   tag_type = stbInfo->tag_type;
     int32_t *tag_length = stbInfo->tag_length;
     stbInfo->stmt_buffer = calloc(1, BUFFER_SIZE);
+    g_memoryUsage += BUFFER_SIZE;
     if (stbInfo->autoCreateTable) {
         g_stmt_tag_string_grid = calloc(tagCount, sizeof(char *));
+        g_memoryUsage += tagCount * sizeof(char *);
         len += sprintf(stbInfo->stmt_buffer + len,
                        "INSERT INTO ? USING `%s` TAGS (", stbInfo->stbName);
         for (int i = 0; i < stbInfo->tagCount; ++i) {
@@ -447,6 +474,7 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
                 tag_type[i] == TSDB_DATA_TYPE_BINARY) {
                 g_stmt_tag_string_grid[i] =
                     calloc(1, stbInfo->childTblCount * (tag_length[i] + 1));
+                g_memoryUsage += stbInfo->childTblCount * (tag_length[i] + 1);
                 for (int j = 0; j < stbInfo->childTblCount; ++j) {
                     rand_string(g_stmt_tag_string_grid[i] + j * tag_length[i],
                                 tag_length[i], g_arguments->chinese);
@@ -463,12 +491,14 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
     char *   col_type = stbInfo->col_type;
     int32_t *col_length = stbInfo->col_length;
     g_stmt_col_string_grid = calloc(columnCount, sizeof(char *));
+    g_memoryUsage += columnCount * sizeof(char *);
     for (int col = 0; col < columnCount; col++) {
         len += sprintf(stbInfo->stmt_buffer + len, ",?");
         if (col_type[col] == TSDB_DATA_TYPE_NCHAR ||
             col_type[col] == TSDB_DATA_TYPE_BINARY) {
             g_stmt_col_string_grid[col] =
                 calloc(1, g_arguments->reqPerReq * (col_length[col] + 1));
+            g_memoryUsage += g_arguments->reqPerReq * (col_length[col] + 1);
             for (int i = 0; i < g_arguments->reqPerReq; ++i) {
                 rand_string(g_stmt_col_string_grid[col] + i * col_length[col],
                             col_length[col], g_arguments->chinese);
@@ -917,47 +947,87 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
 int prepare_sample_data(int db_index, int stb_index) {
     SDataBase *  database = &(g_arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
-    calcRowLen(stbInfo);
-    debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n", stbInfo->stbName,
-               stbInfo->tagCount, stbInfo->lenOfTags);
-    debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n", stbInfo->stbName,
-               stbInfo->columnCount, stbInfo->lenOfCols);
-    stbInfo->sampleDataBuf =
-        calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
-    g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
-    infoPrint("memory usage increased to: %" PRIu64 "\n", g_memoryUsage);
-    if (stbInfo->random_data_source) {
-        generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
-                               stbInfo->columnCount, stbInfo->col_type,
-                               stbInfo->col_length, g_arguments->prepared_rand,
-                               stbInfo->iface, stbInfo->lineProtocol);
-    } else {
-        if (stbInfo->useSampleTs) {
-            if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
+    if (stbInfo->iface != STMT_IFACE) {
+        calcRowLen(stbInfo);
+        debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n",
+                   stbInfo->stbName, stbInfo->tagCount, stbInfo->lenOfTags);
+        debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n",
+                   stbInfo->stbName, stbInfo->columnCount, stbInfo->lenOfCols);
+        stbInfo->sampleDataBuf =
+            calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
+        g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
+        if (stbInfo->random_data_source) {
+            generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
+                                   stbInfo->columnCount, stbInfo->col_type,
+                                   stbInfo->col_length,
+                                   g_arguments->prepared_rand, stbInfo->iface,
+                                   stbInfo->lineProtocol);
+        } else {
+            if (stbInfo->useSampleTs) {
+                if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
+            }
+            if (generateSampleFromCsvForStb(
+                    stbInfo->sampleDataBuf, stbInfo->sampleFile,
+                    stbInfo->lenOfCols, g_arguments->prepared_rand)) {
+                return -1;
+            }
         }
-        if (generateSampleFromCsvForStb(stbInfo->sampleDataBuf,
-                                        stbInfo->sampleFile, stbInfo->lenOfCols,
-                                        g_arguments->prepared_rand)) {
+        debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
+        if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
+            stbInfo->tagDataBuf =
+                calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
+            g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
+            if (stbInfo->tagsFile[0] != 0) {
+                if (generateSampleFromCsvForStb(
+                        stbInfo->tagDataBuf, stbInfo->tagsFile,
+                        stbInfo->lenOfTags, stbInfo->childTblCount)) {
+                    return -1;
+                }
+            } else {
+                generateSampleFromRand(
+                    stbInfo->tagDataBuf, stbInfo->lenOfTags, stbInfo->tagCount,
+                    stbInfo->tag_type, stbInfo->tag_length,
+                    stbInfo->childTblCount, stbInfo->iface, 0);
+            }
+            debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
+        }
+    } else {
+        generateStmtBuffer(stbInfo);
+    }
+
+    if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
+        if (convertHostToServAddr(g_arguments->host, g_arguments->port,
+                                  &(g_arguments->serv_addr))) {
+            errorPrint("%s\n", "convert host to server address");
             return -1;
         }
     }
-    debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
-    if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
-        stbInfo->tagDataBuf =
-            calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
-        if (stbInfo->tagsFile[0] != 0) {
-            if (generateSampleFromCsvForStb(
-                    stbInfo->tagDataBuf, stbInfo->tagsFile, stbInfo->lenOfTags,
-                    stbInfo->childTblCount)) {
-                return -1;
+    switch (stbInfo->iface) {
+        case REST_IFACE:
+        case TAOSC_IFACE:
+            if (stbInfo->autoCreateTable) {
+                g_memoryUsage += g_arguments->nthreads *
+                                 ((stbInfo->lenOfCols + stbInfo->lenOfTags) *
+                                      g_arguments->reqPerReq +
+                                  1024);
+            } else {
+                g_memoryUsage +=
+                    g_arguments->nthreads *
+                    (stbInfo->lenOfCols * g_arguments->reqPerReq + 1024);
             }
-        } else {
-            generateSampleFromRand(stbInfo->tagDataBuf, stbInfo->lenOfTags,
-                                   stbInfo->tagCount, stbInfo->tag_type,
-                                   stbInfo->tag_length, stbInfo->childTblCount,
-                                   stbInfo->iface, 0);
-        }
-        debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
+            break;
+        case SML_REST_IFACE:
+            g_memoryUsage += (stbInfo->lenOfCols + stbInfo->lenOfTags + 1) *
+                             g_arguments->reqPerReq * g_arguments->nthreads;
+        case SML_IFACE:
+            g_memoryUsage += stbInfo->childTblCount * sizeof(char *);
+            g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
+            g_memoryUsage += g_arguments->reqPerReq * sizeof(char *);
+            g_memoryUsage += g_arguments->reqPerReq *
+                             (stbInfo->lenOfTags + stbInfo->lenOfCols);
+            break;
+        default:
+            break;
     }
     return 0;
 }

@@ -557,7 +557,9 @@ static SDataBase *init_database() {
 }
 void init_argument() {
     g_arguments = calloc(1, sizeof(SArguments));
+    g_memoryUsage += sizeof(SArguments);
     g_arguments->pool = calloc(1, sizeof(TAOS_POOL));
+    g_memoryUsage += sizeof(TAOS_POOL);
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
     g_arguments->dbCount = 1;
@@ -580,8 +582,8 @@ void init_argument() {
     g_arguments->g_existedChildTables = 0;
     g_arguments->chinese = 0;
     g_arguments->aggr_func = 0;
-    g_arguments->db = init_database(g_arguments);
-    g_arguments->db->superTbls = init_stable(g_arguments->db);
+    g_arguments->db = init_database();
+    g_arguments->db->superTbls = init_stable();
 }
 
 void commandLineParseArgument(int argc, char *argv[]) {

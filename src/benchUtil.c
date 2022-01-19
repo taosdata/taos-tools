@@ -124,7 +124,6 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
-        g_memoryUsage += TSDB_TABLE_NAME_LEN;
         snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
                  (char *)row[0]);
         debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,

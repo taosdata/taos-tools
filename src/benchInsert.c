@@ -1384,10 +1384,8 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     uint64_t tableFrom = 0;
     uint64_t ntables = stbInfo->childTblCount;
     stbInfo->childTblName = calloc(stbInfo->childTblCount, sizeof(char *));
-    g_memoryUsage += stbInfo->childTblCount * sizeof(char *);
     for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
         stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
-        g_memoryUsage += TSDB_TABLE_NAME_LEN;
     }
 
     if ((stbInfo->iface != SML_IFACE || stbInfo->iface != SML_REST_IFACE) &&
@@ -1461,15 +1459,6 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     int64_t b = 0;
     if (threads != 0) {
         b = ntables % threads;
-    }
-    if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
-        if (convertHostToServAddr(g_arguments->host, g_arguments->port,
-                                  &(g_arguments->serv_addr))) {
-            errorPrint("%s\n", "convert host to server address");
-            return -1;
-        }
-    } else if (stbInfo->iface == STMT_IFACE) {
-        generateStmtBuffer(stbInfo);
     }
 
     pthread_t * pids = calloc(1, threads * sizeof(pthread_t));
@@ -1838,6 +1827,9 @@ int insertTestProcess() {
             prepare_sample_data(i, j);
         }
     }
+    infoPrint("Estimate memory usage: %.2fG\n",
+              (double)g_memoryUsage / 1048576);
+    prompt();
 
     if (createChildTables()) return -1;
 

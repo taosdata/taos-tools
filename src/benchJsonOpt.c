@@ -293,7 +293,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     tmfree(g_arguments->db);
     g_arguments->db = calloc(dbSize, sizeof(SDataBase));
     g_memoryUsage += dbSize * sizeof(SDataBase);
-    infoPrint("memory usage increased to: %" PRIu64 "\n", g_memoryUsage);
     g_arguments->dbCount = dbSize;
     for (int i = 0; i < dbSize; ++i) {
         SDataBase *database = &(g_arguments->db[i]);
@@ -439,7 +438,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         if (stbSize > MAX_SUPER_TABLE_COUNT) goto PARSE_OVER;
         database->superTbls = calloc(stbSize, sizeof(SSuperTable));
         g_memoryUsage += stbSize * sizeof(SSuperTable);
-        infoPrint("memory usage increased to: %" PRIu64 "\n", g_memoryUsage);
         database->superTblCount = stbSize;
         for (int j = 0; j < stbSize; ++j) {
             SSuperTable *superTable = &(database->superTbls[j]);
