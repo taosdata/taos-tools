@@ -702,11 +702,18 @@ static void calcRowLen(SSuperTable *stbInfo) {
 static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                                    int count, char *data_type,
                                    int32_t *data_length, int64_t size,
-                                   uint16_t iface, int32_t line_protocol) {
+                                   uint16_t iface, int32_t line_protocol,
+                                   bool *data_null) {
     for (int64_t i = 0; i < size; i++) {
         int32_t pos = i * lenOfOneRow;
         for (int c = 0; c < count; c++) {
             char *tmp = NULL;
+            if (iface == TAOSC_IFACE || iface == REST_IFACE) {
+                if (data_null[c]) {
+                    pos += sprintf(sampleDataBuf + pos, "null,");
+                    continue;
+                }
+            }
             switch (data_type[c]) {
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
@@ -952,16 +959,34 @@ int prepare_sample_data(int db_index, int stb_index) {
                stbInfo->tagCount, stbInfo->lenOfTags);
     debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n", stbInfo->stbName,
                stbInfo->columnCount, stbInfo->lenOfCols);
+    if (stbInfo->partialColumnNum != 0 &&
+        (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
+        if (stbInfo->partialColumnNum > stbInfo->columnCount) {
+            stbInfo->partialColumnNum = stbInfo->columnCount;
+        } else {
+            stbInfo->partialColumnNameBuf = calloc(1, BUFFER_SIZE);
+            g_memoryUsage += BUFFER_SIZE;
+            int pos = 0;
+            pos += sprintf(stbInfo->partialColumnNameBuf + pos, "ts");
+            for (int i = 0; i < stbInfo->partialColumnNum; ++i) {
+                pos += sprintf(stbInfo->partialColumnNameBuf + pos, ",c%d", i);
+            }
+            debugPrint("partialColumnNameBuf: %s\n",
+                       stbInfo->partialColumnNameBuf);
+        }
+    } else {
+        stbInfo->partialColumnNum = stbInfo->columnCount;
+    }
     if (stbInfo->iface != STMT_IFACE) {
         stbInfo->sampleDataBuf =
             calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
         g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
         if (stbInfo->random_data_source) {
             generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
-                                   stbInfo->columnCount, stbInfo->col_type,
+                                   stbInfo->partialColumnNum, stbInfo->col_type,
                                    stbInfo->col_length,
                                    g_arguments->prepared_rand, stbInfo->iface,
-                                   stbInfo->lineProtocol);
+                                   stbInfo->lineProtocol, stbInfo->col_null);
         } else {
             if (stbInfo->useSampleTs) {
                 if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
@@ -990,7 +1015,7 @@ int prepare_sample_data(int db_index, int stb_index) {
             generateSampleFromRand(stbInfo->tagDataBuf, stbInfo->lenOfTags,
                                    stbInfo->tagCount, stbInfo->tag_type,
                                    stbInfo->tag_length, stbInfo->childTblCount,
-                                   stbInfo->iface, 0);
+                                   stbInfo->iface, 0, stbInfo->tag_null);
         }
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }

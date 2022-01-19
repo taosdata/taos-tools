@@ -739,11 +739,14 @@ void postFreeResource() {
             tmfree(database[i].superTbls[j].colsOfCreateChildTable);
             tmfree(database[i].superTbls[j].sampleDataBuf);
             tmfree(database[i].superTbls[j].col_type);
+            tmfree(database[i].superTbls[j].col_null);
             tmfree(database[i].superTbls[j].col_length);
             tmfree(database[i].superTbls[j].tag_type);
+            tmfree(database[i].superTbls[j].tag_null);
             tmfree(database[i].superTbls[j].tag_length);
             tmfree(database[i].superTbls[j].tagDataBuf);
             tmfree(database[i].superTbls[j].stmt_buffer);
+            tmfree(database[i].superTbls[j].partialColumnNameBuf);
             if (g_arguments->test_mode == INSERT_TEST) {
                 for (int64_t k = 0; k < database[i].superTbls[j].childTblCount;
                      ++k) {
@@ -1152,18 +1155,38 @@ void *syncWriteProgressive(void *sarg) {
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE: {
-                    if (stbInfo->autoCreateTable) {
-                        len = snprintf(pstr, pThreadInfo->max_sql_len,
-                                       "%s %s.%s using %s tags (%s) values ",
-                                       STR_INSERT_INTO, database->dbName,
-                                       tableName, stbInfo->stbName,
-                                       stbInfo->tagDataBuf +
-                                           stbInfo->lenOfTags * tableSeq);
+                    if (stbInfo->partialColumnNum == stbInfo->columnCount) {
+                        if (stbInfo->autoCreateTable) {
+                            len =
+                                snprintf(pstr, pThreadInfo->max_sql_len,
+                                         "%s %s.%s using %s tags (%s) values ",
+                                         STR_INSERT_INTO, database->dbName,
+                                         tableName, stbInfo->stbName,
+                                         stbInfo->tagDataBuf +
+                                             stbInfo->lenOfTags * tableSeq);
+                        } else {
+                            len = snprintf(pstr, pThreadInfo->max_sql_len,
+                                           "%s %s.%s values ", STR_INSERT_INTO,
+                                           database->dbName, tableName);
+                        }
                     } else {
-                        len = snprintf(pstr, pThreadInfo->max_sql_len,
-                                       "%s %s.%s values ", STR_INSERT_INTO,
-                                       database->dbName, tableName);
+                        if (stbInfo->autoCreateTable) {
+                            len = snprintf(
+                                pstr, pThreadInfo->max_sql_len,
+                                "%s %s.%s (%s) using %s tags (%s) values ",
+                                STR_INSERT_INTO, database->dbName, tableName,
+                                stbInfo->partialColumnNameBuf, stbInfo->stbName,
+                                stbInfo->tagDataBuf +
+                                    stbInfo->lenOfTags * tableSeq);
+                        } else {
+                            len = snprintf(pstr, pThreadInfo->max_sql_len,
+                                           "%s %s.%s (%s) values ",
+                                           STR_INSERT_INTO, database->dbName,
+                                           tableName,
+                                           stbInfo->partialColumnNameBuf);
+                        }
                     }
+
                     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
                         if (stbInfo && stbInfo->useSampleTs &&
                             !stbInfo->random_data_source) {

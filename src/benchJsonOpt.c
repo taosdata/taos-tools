@@ -41,6 +41,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
     }
     superTbls->col_type = (char *)calloc(col_count, sizeof(char));
     superTbls->col_length = (int32_t *)calloc(col_count, sizeof(int32_t));
+    superTbls->col_null = (bool *)calloc(col_count, sizeof(bool));
     for (int k = 0; k < columnSize; ++k) {
         cJSON *column = cJSON_GetArrayItem(columns, k);
         if (column == NULL) continue;
@@ -61,6 +62,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
+            if (length == 0) {
+                superTbls->col_null[index] = true;
+            }
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
                 case TSDB_DATA_TYPE_BOOL:
@@ -124,6 +128,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
     superTbls->use_metric = true;
     superTbls->tag_type = calloc(tag_count, sizeof(char));
+    superTbls->tag_null = calloc(tag_count, sizeof(bool));
     superTbls->tag_length = calloc(tag_count, sizeof(int32_t));
 
     // superTbls->tagCount = tagSize;
@@ -686,6 +691,13 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->insert_interval = insertInterval->valueint;
             } else {
                 superTable->insert_interval = g_arguments->insert_interval;
+            }
+
+            cJSON *pCoumnNum = cJSON_GetObjectItem(stbInfo, "partial_col_num");
+            if (pCoumnNum && pCoumnNum->type == cJSON_Number) {
+                superTable->partialColumnNum = pCoumnNum->valueint;
+            } else {
+                superTable->partialColumnNum = 0;
             }
 
             if (getColumnAndTagTypeFromInsertJsonFile(
