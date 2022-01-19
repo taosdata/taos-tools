@@ -93,6 +93,181 @@ static struct argp_option options[] = {
      "Random data source size, default is 10000."},
     {0}};
 
+static int count_datatype(char *dataType, int32_t *number) {
+    char *dup_str;
+    *number = 0;
+    if (strstr(dataType, ",") == NULL) {
+        *number = 1;
+        return 0;
+    } else {
+        dup_str = strdup(dataType);
+        char *running = dup_str;
+        char *token = strsep(&running, ",");
+        while (token != NULL) {
+            (*number)++;
+            token = strsep(&running, ",");
+        }
+    }
+    tmfree(dup_str);
+    return 0;
+}
+static int parse_datatype(char *dataType, char *data_type, int32_t *data_length,
+                          bool is_tag) {
+    char *dup_str;
+    if (strstr(dataType, ",") == NULL) {
+        if (0 == strcasecmp(dataType, "int")) {
+            data_type[0] = TSDB_DATA_TYPE_INT;
+            data_length[0] = sizeof(int32_t);
+        } else if (0 == strcasecmp(dataType, "float")) {
+            data_type[0] = TSDB_DATA_TYPE_FLOAT;
+            data_length[0] = sizeof(float);
+        } else if (0 == strcasecmp(dataType, "double")) {
+            data_type[0] = TSDB_DATA_TYPE_DOUBLE;
+            data_length[0] = sizeof(double);
+        } else if (0 == strcasecmp(dataType, "tinyint")) {
+            data_type[0] = TSDB_DATA_TYPE_TINYINT;
+            data_length[0] = sizeof(int8_t);
+        } else if (0 == strcasecmp(dataType, "bool")) {
+            data_type[0] = TSDB_DATA_TYPE_BOOL;
+            data_length[0] = sizeof(char);
+        } else if (0 == strcasecmp(dataType, "smallint")) {
+            data_type[0] = TSDB_DATA_TYPE_SMALLINT;
+            data_length[0] = sizeof(int16_t);
+        } else if (0 == strcasecmp(dataType, "bigint")) {
+            data_type[0] = TSDB_DATA_TYPE_BIGINT;
+            data_length[0] = sizeof(int64_t);
+        } else if (0 == strcasecmp(dataType, "timestamp")) {
+            data_type[0] = TSDB_DATA_TYPE_TIMESTAMP;
+            data_length[0] = sizeof(int64_t);
+        } else if (0 == strcasecmp(dataType, "utinyint")) {
+            data_type[0] = TSDB_DATA_TYPE_UTINYINT;
+            data_length[0] = sizeof(uint8_t);
+        } else if (0 == strcasecmp(dataType, "usmallint")) {
+            data_type[0] = TSDB_DATA_TYPE_USMALLINT;
+            data_length[0] = sizeof(uint16_t);
+        } else if (0 == strcasecmp(dataType, "uint")) {
+            data_type[0] = TSDB_DATA_TYPE_UINT;
+            data_length[0] = sizeof(uint32_t);
+        } else if (0 == strcasecmp(dataType, "ubigint")) {
+            data_type[0] = TSDB_DATA_TYPE_UBIGINT;
+            data_length[0] = sizeof(uint64_t);
+        } else if (0 == strcasecmp(dataType, "nchar")) {
+            data_type[0] = TSDB_DATA_TYPE_NCHAR;
+            data_length[0] = 0;
+        } else if (0 == strcasecmp(dataType, "binary")) {
+            data_type[0] = TSDB_DATA_TYPE_BINARY;
+            data_length[0] = 0;
+        } else if (is_tag && 0 == strcasecmp(dataType, "json")) {
+            data_type[0] = TSDB_DATA_TYPE_JSON;
+            data_length[0] = 0;
+        } else if (1 == regexMatch(dataType, "^(BINARY)(\\([1-9][0-9]*\\))$",
+                                   REG_ICASE | REG_EXTENDED)) {
+            char type[DATATYPE_BUFF_LEN];
+            char length[BIGINT_BUFF_LEN];
+            sscanf(dataType, "%[^(](%[^)]", type, length);
+            data_type[0] = TSDB_DATA_TYPE_BINARY;
+            data_length[0] = atoi(length);
+        } else if (1 == regexMatch(dataType, "^(NCHAR)(\\([1-9][0-9]*\\))$",
+                                   REG_ICASE | REG_EXTENDED)) {
+            char type[DATATYPE_BUFF_LEN];
+            char length[BIGINT_BUFF_LEN];
+            sscanf(dataType, "%[^(](%[^)]", type, length);
+            data_type[0] = TSDB_DATA_TYPE_NCHAR;
+            data_length[0] = atoi(length);
+        } else if (is_tag &&
+                   1 == regexMatch(dataType, "^(json)(\\([1-9][0-9]*\\))$",
+                                   REG_ICASE | REG_EXTENDED)) {
+            char type[DATATYPE_BUFF_LEN];
+            char length[BIGINT_BUFF_LEN];
+            sscanf(dataType, "%[^(](%[^)]", type, length);
+            data_type[0] = TSDB_DATA_TYPE_JSON;
+            data_length[0] = atoi(length);
+        } else {
+            errorPrint("Invalid data type: %s\n", dataType);
+            return -1;
+        }
+    } else {
+        dup_str = strdup(dataType);
+        char *running = dup_str;
+        char *token = strsep(&running, ",");
+        int   index = 0;
+        while (token != NULL) {
+            if (0 == strcasecmp(token, "int")) {
+                data_type[index] = TSDB_DATA_TYPE_INT;
+                data_length[index] = sizeof(int32_t);
+            } else if (0 == strcasecmp(token, "float")) {
+                data_type[index] = TSDB_DATA_TYPE_FLOAT;
+                data_length[index] = sizeof(float);
+            } else if (0 == strcasecmp(token, "double")) {
+                data_type[index] = TSDB_DATA_TYPE_DOUBLE;
+                data_length[index] = sizeof(double);
+            } else if (0 == strcasecmp(token, "tinyint")) {
+                data_type[index] = TSDB_DATA_TYPE_TINYINT;
+                data_length[index] = sizeof(int8_t);
+            } else if (0 == strcasecmp(token, "bool")) {
+                data_type[index] = TSDB_DATA_TYPE_BOOL;
+                data_length[index] = sizeof(char);
+            } else if (0 == strcasecmp(token, "smallint")) {
+                data_type[index] = TSDB_DATA_TYPE_SMALLINT;
+                data_length[index] = sizeof(int16_t);
+            } else if (0 == strcasecmp(token, "bigint")) {
+                data_type[index] = TSDB_DATA_TYPE_BIGINT;
+                data_length[index] = sizeof(int64_t);
+            } else if (0 == strcasecmp(token, "timestamp")) {
+                data_type[index] = TSDB_DATA_TYPE_TIMESTAMP;
+                data_length[index] = sizeof(int64_t);
+            } else if (0 == strcasecmp(token, "utinyint")) {
+                data_type[index] = TSDB_DATA_TYPE_UTINYINT;
+                data_length[index] = sizeof(uint8_t);
+            } else if (0 == strcasecmp(token, "usmallint")) {
+                data_type[index] = TSDB_DATA_TYPE_USMALLINT;
+                data_length[index] = sizeof(uint16_t);
+            } else if (0 == strcasecmp(token, "uint")) {
+                data_type[index] = TSDB_DATA_TYPE_UINT;
+                data_length[index] = sizeof(uint32_t);
+            } else if (0 == strcasecmp(token, "ubigint")) {
+                data_type[index] = TSDB_DATA_TYPE_UBIGINT;
+                data_length[index] = sizeof(uint64_t);
+            } else if (0 == strcasecmp(token, "nchar")) {
+                data_type[index] = TSDB_DATA_TYPE_NCHAR;
+                data_length[index] = 0;
+            } else if (0 == strcasecmp(token, "binary")) {
+                data_type[index] = TSDB_DATA_TYPE_BINARY;
+                data_length[index] = 0;
+            } else if (1 == regexMatch(token, "^(BINARY)(\\([1-9][0-9]*\\))$",
+                                       REG_ICASE | REG_EXTENDED)) {
+                char type[DATATYPE_BUFF_LEN];
+                char length[BIGINT_BUFF_LEN];
+                sscanf(token, "%[^(](%[^)]", type, length);
+                data_type[index] = TSDB_DATA_TYPE_BINARY;
+                data_length[index] = atoi(length);
+            } else if (1 == regexMatch(token, "^(NCHAR)(\\([1-9][0-9]*\\))$",
+                                       REG_ICASE | REG_EXTENDED)) {
+                char type[DATATYPE_BUFF_LEN];
+                char length[BIGINT_BUFF_LEN];
+                sscanf(token, "%[^(](%[^)]", type, length);
+                data_type[index] = TSDB_DATA_TYPE_NCHAR;
+                data_length[index] = atoi(length);
+            } else if (is_tag &&
+                       1 == regexMatch(token, "^(JSON)(\\([1-9][0-9]*\\))?$",
+                                       REG_ICASE | REG_EXTENDED)) {
+                errorPrint("%s",
+                           "Json tag type cannot use with other type tags\n");
+                tmfree(dup_str);
+                return -1;
+            } else {
+                errorPrint("Invalid data type <%s>\n", token);
+                tmfree(dup_str);
+                return -1;
+            }
+            index++;
+            token = strsep(&running, ",");
+        }
+        tmfree(dup_str);
+    }
+    return 0;
+}
+
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     SArguments *arguments = state->input;
     switch (key) {
@@ -326,7 +501,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-static SSuperTable *init_stable(SDataBase *database) {
+static SSuperTable *init_stable() {
+    SDataBase *database = g_arguments->db;
     database->superTbls = calloc(1, sizeof(SSuperTable));
     SSuperTable *stbInfo = database->superTbls;
     stbInfo->iface = TAOSC_IFACE;
@@ -368,9 +544,9 @@ static SSuperTable *init_stable(SDataBase *database) {
     return stbInfo;
 }
 
-static SDataBase *init_database(SArguments *arguments) {
-    arguments->db = calloc(1, sizeof(SDataBase));
-    SDataBase *database = arguments->db;
+static SDataBase *init_database() {
+    g_arguments->db = calloc(1, sizeof(SDataBase));
+    SDataBase *database = g_arguments->db;
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
     database->superTblCount = 1;
@@ -379,270 +555,95 @@ static SDataBase *init_database(SArguments *arguments) {
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     return database;
 }
-SArguments *init_argument(SArguments *arguments) {
-    arguments = calloc(1, sizeof(SArguments));
-    arguments->pool = calloc(1, sizeof(TAOS_POOL));
-    arguments->test_mode = INSERT_TEST;
-    arguments->demo_mode = 1;
-    arguments->dbCount = 1;
-    arguments->host = DEFAULT_HOST;
-    arguments->port = DEFAULT_PORT;
-    arguments->user = TSDB_DEFAULT_USER;
-    arguments->password = TSDB_DEFAULT_PASS;
-    arguments->answer_yes = 0;
-    arguments->debug_print = 0;
-    arguments->performance_print = 0;
-    arguments->output_file = DEFAULT_OUTPUT;
-    arguments->nthreads = DEFAULT_NTHREADS;
-    arguments->nthreads_pool = DEFAULT_NTHREADS + 5;
-    arguments->binwidth = DEFAULT_BINWIDTH;
-    arguments->prepared_rand = DEFAULT_PREPARED_RAND;
-    arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
-    arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
-    arguments->g_actualChildTables = 0;
-    arguments->g_autoCreatedChildTables = 0;
-    arguments->g_existedChildTables = 0;
-    arguments->chinese = 0;
-    arguments->aggr_func = 0;
-    arguments->db = init_database(arguments);
-    arguments->db->superTbls = init_stable(arguments->db);
-    return arguments;
+void init_argument() {
+    g_arguments = calloc(1, sizeof(SArguments));
+    g_memoryUsage += sizeof(SArguments);
+    g_arguments->pool = calloc(1, sizeof(TAOS_POOL));
+    g_memoryUsage += sizeof(TAOS_POOL);
+    g_arguments->test_mode = INSERT_TEST;
+    g_arguments->demo_mode = 1;
+    g_arguments->dbCount = 1;
+    g_arguments->host = DEFAULT_HOST;
+    g_arguments->port = DEFAULT_PORT;
+    g_arguments->user = TSDB_DEFAULT_USER;
+    g_arguments->password = TSDB_DEFAULT_PASS;
+    g_arguments->answer_yes = 0;
+    g_arguments->debug_print = 0;
+    g_arguments->performance_print = 0;
+    g_arguments->output_file = DEFAULT_OUTPUT;
+    g_arguments->nthreads = DEFAULT_NTHREADS;
+    g_arguments->nthreads_pool = DEFAULT_NTHREADS + 5;
+    g_arguments->binwidth = DEFAULT_BINWIDTH;
+    g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
+    g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
+    g_arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
+    g_arguments->g_actualChildTables = 0;
+    g_arguments->g_autoCreatedChildTables = 0;
+    g_arguments->g_existedChildTables = 0;
+    g_arguments->chinese = 0;
+    g_arguments->aggr_func = 0;
+    g_arguments->db = init_database();
+    g_arguments->db->superTbls = init_stable();
 }
 
-int count_datatype(char *dataType, int32_t *number) {
-    char *dup_str;
-    *number = 0;
-    if (strstr(dataType, ",") == NULL) {
-        *number = 1;
-        return 0;
-    } else {
-        dup_str = strdup(dataType);
-        char *running = dup_str;
-        char *token = strsep(&running, ",");
-        while (token != NULL) {
-            (*number)++;
-            token = strsep(&running, ",");
-        }
-    }
-    tmfree(dup_str);
-    return 0;
-}
-int parse_datatype(char *dataType, char *data_type, int32_t *data_length,
-                   bool is_tag) {
-    char *dup_str;
-    if (strstr(dataType, ",") == NULL) {
-        if (0 == strcasecmp(dataType, "int")) {
-            data_type[0] = TSDB_DATA_TYPE_INT;
-            data_length[0] = sizeof(int32_t);
-        } else if (0 == strcasecmp(dataType, "float")) {
-            data_type[0] = TSDB_DATA_TYPE_FLOAT;
-            data_length[0] = sizeof(float);
-        } else if (0 == strcasecmp(dataType, "double")) {
-            data_type[0] = TSDB_DATA_TYPE_DOUBLE;
-            data_length[0] = sizeof(double);
-        } else if (0 == strcasecmp(dataType, "tinyint")) {
-            data_type[0] = TSDB_DATA_TYPE_TINYINT;
-            data_length[0] = sizeof(int8_t);
-        } else if (0 == strcasecmp(dataType, "bool")) {
-            data_type[0] = TSDB_DATA_TYPE_BOOL;
-            data_length[0] = sizeof(char);
-        } else if (0 == strcasecmp(dataType, "smallint")) {
-            data_type[0] = TSDB_DATA_TYPE_SMALLINT;
-            data_length[0] = sizeof(int16_t);
-        } else if (0 == strcasecmp(dataType, "bigint")) {
-            data_type[0] = TSDB_DATA_TYPE_BIGINT;
-            data_length[0] = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "timestamp")) {
-            data_type[0] = TSDB_DATA_TYPE_TIMESTAMP;
-            data_length[0] = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "utinyint")) {
-            data_type[0] = TSDB_DATA_TYPE_UTINYINT;
-            data_length[0] = sizeof(uint8_t);
-        } else if (0 == strcasecmp(dataType, "usmallint")) {
-            data_type[0] = TSDB_DATA_TYPE_USMALLINT;
-            data_length[0] = sizeof(uint16_t);
-        } else if (0 == strcasecmp(dataType, "uint")) {
-            data_type[0] = TSDB_DATA_TYPE_UINT;
-            data_length[0] = sizeof(uint32_t);
-        } else if (0 == strcasecmp(dataType, "ubigint")) {
-            data_type[0] = TSDB_DATA_TYPE_UBIGINT;
-            data_length[0] = sizeof(uint64_t);
-        } else if (0 == strcasecmp(dataType, "nchar")) {
-            data_type[0] = TSDB_DATA_TYPE_NCHAR;
-            data_length[0] = 0;
-        } else if (0 == strcasecmp(dataType, "binary")) {
-            data_type[0] = TSDB_DATA_TYPE_BINARY;
-            data_length[0] = 0;
-        } else if (is_tag && 0 == strcasecmp(dataType, "json")) {
-            data_type[0] = TSDB_DATA_TYPE_JSON;
-            data_length[0] = 0;
-        } else if (1 == regexMatch(dataType, "^(BINARY)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            data_type[0] = TSDB_DATA_TYPE_BINARY;
-            data_length[0] = atoi(length);
-        } else if (1 == regexMatch(dataType, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            data_type[0] = TSDB_DATA_TYPE_NCHAR;
-            data_length[0] = atoi(length);
-        } else if (is_tag &&
-                   1 == regexMatch(dataType, "^(json)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            data_type[0] = TSDB_DATA_TYPE_JSON;
-            data_length[0] = atoi(length);
-        } else {
-            errorPrint("Invalid data type: %s\n", dataType);
-            return -1;
-        }
-    } else {
-        dup_str = strdup(dataType);
-        char *running = dup_str;
-        char *token = strsep(&running, ",");
-        int   index = 0;
-        while (token != NULL) {
-            if (0 == strcasecmp(token, "int")) {
-                data_type[index] = TSDB_DATA_TYPE_INT;
-                data_length[index] = sizeof(int32_t);
-            } else if (0 == strcasecmp(token, "float")) {
-                data_type[index] = TSDB_DATA_TYPE_FLOAT;
-                data_length[index] = sizeof(float);
-            } else if (0 == strcasecmp(token, "double")) {
-                data_type[index] = TSDB_DATA_TYPE_DOUBLE;
-                data_length[index] = sizeof(double);
-            } else if (0 == strcasecmp(token, "tinyint")) {
-                data_type[index] = TSDB_DATA_TYPE_TINYINT;
-                data_length[index] = sizeof(int8_t);
-            } else if (0 == strcasecmp(token, "bool")) {
-                data_type[index] = TSDB_DATA_TYPE_BOOL;
-                data_length[index] = sizeof(char);
-            } else if (0 == strcasecmp(token, "smallint")) {
-                data_type[index] = TSDB_DATA_TYPE_SMALLINT;
-                data_length[index] = sizeof(int16_t);
-            } else if (0 == strcasecmp(token, "bigint")) {
-                data_type[index] = TSDB_DATA_TYPE_BIGINT;
-                data_length[index] = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "timestamp")) {
-                data_type[index] = TSDB_DATA_TYPE_TIMESTAMP;
-                data_length[index] = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "utinyint")) {
-                data_type[index] = TSDB_DATA_TYPE_UTINYINT;
-                data_length[index] = sizeof(uint8_t);
-            } else if (0 == strcasecmp(token, "usmallint")) {
-                data_type[index] = TSDB_DATA_TYPE_USMALLINT;
-                data_length[index] = sizeof(uint16_t);
-            } else if (0 == strcasecmp(token, "uint")) {
-                data_type[index] = TSDB_DATA_TYPE_UINT;
-                data_length[index] = sizeof(uint32_t);
-            } else if (0 == strcasecmp(token, "ubigint")) {
-                data_type[index] = TSDB_DATA_TYPE_UBIGINT;
-                data_length[index] = sizeof(uint64_t);
-            } else if (0 == strcasecmp(token, "nchar")) {
-                data_type[index] = TSDB_DATA_TYPE_NCHAR;
-                data_length[index] = 0;
-            } else if (0 == strcasecmp(token, "binary")) {
-                data_type[index] = TSDB_DATA_TYPE_BINARY;
-                data_length[index] = 0;
-            } else if (1 == regexMatch(token, "^(BINARY)(\\([1-9][0-9]*\\))$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                char type[DATATYPE_BUFF_LEN];
-                char length[BIGINT_BUFF_LEN];
-                sscanf(token, "%[^(](%[^)]", type, length);
-                data_type[index] = TSDB_DATA_TYPE_BINARY;
-                data_length[index] = atoi(length);
-            } else if (1 == regexMatch(token, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                char type[DATATYPE_BUFF_LEN];
-                char length[BIGINT_BUFF_LEN];
-                sscanf(token, "%[^(](%[^)]", type, length);
-                data_type[index] = TSDB_DATA_TYPE_NCHAR;
-                data_length[index] = atoi(length);
-            } else if (is_tag &&
-                       1 == regexMatch(token, "^(JSON)(\\([1-9][0-9]*\\))?$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                errorPrint("%s",
-                           "Json tag type cannot use with other type tags\n");
-                tmfree(dup_str);
-                return -1;
-            } else {
-                errorPrint("Invalid data type <%s>\n", token);
-                tmfree(dup_str);
-                return -1;
-            }
-            index++;
-            token = strsep(&running, ",");
-        }
-        tmfree(dup_str);
-    }
-    return 0;
-}
-
-void commandLineParseArgument(int argc, char *argv[], SArguments *arguments) {
+void commandLineParseArgument(int argc, char *argv[]) {
     argp_program_version = taos_get_client_info();
-    argp_parse(&argp, argc, argv, 0, 0, arguments);
+    argp_parse(&argp, argc, argv, 0, 0, g_arguments);
 }
 
-void modify_argument(SArguments *arguments, SSuperTable *superTable) {
-    if (init_taos_list(arguments)) {
-        exit(EXIT_FAILURE);
-    }
-    arguments->fpOfInsertResult = fopen(arguments->output_file, "a");
-    if (NULL == arguments->fpOfInsertResult) {
+void modify_argument() {
+    SSuperTable *superTable = g_arguments->db->superTbls;
+    if (init_taos_list()) exit(EXIT_FAILURE);
+
+    g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
+    if (NULL == g_arguments->fpOfInsertResult) {
         errorPrint("failed to open %s for save result\n",
-                   arguments->output_file);
+                   g_arguments->output_file);
     }
     for (int i = 0; i < superTable->columnCount; ++i) {
         if (superTable->col_length[i] == 0) {
-            superTable->col_length[i] = arguments->binwidth;
+            superTable->col_length[i] = g_arguments->binwidth;
         }
     }
 
     for (int i = 0; i < superTable->tagCount; ++i) {
         if (superTable->tag_length[i] == 0) {
-            superTable->tag_length[i] = arguments->binwidth;
+            superTable->tag_length[i] = g_arguments->binwidth;
         }
     }
 
-    if (arguments->intColumnCount > superTable->columnCount) {
+    if (g_arguments->intColumnCount > superTable->columnCount) {
         char *tmp_type = (char *)realloc(
-            superTable->col_type, arguments->intColumnCount * sizeof(char));
+            superTable->col_type, g_arguments->intColumnCount * sizeof(char));
         int32_t *tmp_length =
             (int32_t *)realloc(superTable->col_length,
-                               arguments->intColumnCount * sizeof(int32_t));
+                               g_arguments->intColumnCount * sizeof(int32_t));
         if (tmp_type != NULL && tmp_length != NULL) {
             superTable->col_type = tmp_type;
             superTable->col_length = tmp_length;
-            for (int i = superTable->columnCount; i < arguments->intColumnCount;
-                 ++i) {
+            for (int i = superTable->columnCount;
+                 i < g_arguments->intColumnCount; ++i) {
                 superTable->col_type[i] = TSDB_DATA_TYPE_INT;
                 superTable->col_length[i] = sizeof(int32_t);
             }
         }
-        superTable->columnCount = arguments->intColumnCount;
+        superTable->columnCount = g_arguments->intColumnCount;
     }
 }
 
 static void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    SArguments *arguments = pThreadInfo->arguments;
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryStableAggrFunc");
     char *command = calloc(1, BUFFER_SIZE);
 
-    FILE *  fp = arguments->fpOfInsertResult;
-    int64_t totalData = arguments->db->superTbls->insertRows *
-                        arguments->db->superTbls->childTblCount;
+    FILE *  fp = g_arguments->fpOfInsertResult;
+    int64_t totalData = g_arguments->db->superTbls->insertRows *
+                        g_arguments->db->superTbls->childTblCount;
     char **aggreFunc;
     int    n;
 
-    if (arguments->demo_mode) {
+    if (g_arguments->demo_mode) {
         aggreFunc = g_aggreFuncDemo;
         n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
@@ -658,19 +659,19 @@ static void *queryStableAggrFunc(void *sarg) {
         char condition[COND_BUF_LEN] = "\0";
         char tempS[64] = "\0";
 
-        int64_t m = 10 < arguments->db->superTbls->childTblCount
+        int64_t m = 10 < g_arguments->db->superTbls->childTblCount
                         ? 10
-                        : arguments->db->superTbls->childTblCount;
+                        : g_arguments->db->superTbls->childTblCount;
 
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
-                if (arguments->demo_mode) {
+                if (g_arguments->demo_mode) {
                     sprintf(tempS, "groupid = %" PRId64 "", i);
                 } else {
                     sprintf(tempS, "t0 = %" PRId64 "", i);
                 }
             } else {
-                if (arguments->demo_mode) {
+                if (g_arguments->demo_mode) {
                     sprintf(tempS, " or groupid = %" PRId64 " ", i);
                 } else {
                     sprintf(tempS, " or t0 = %" PRId64 " ", i);
@@ -715,17 +716,16 @@ static void *queryStableAggrFunc(void *sarg) {
 
 static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    SArguments *arguments = pThreadInfo->arguments;
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
     char *  command = calloc(1, BUFFER_SIZE);
-    FILE *  fp = arguments->fpOfInsertResult;
-    int64_t totalData = arguments->db->superTbls->childTblCount *
-                        arguments->db->superTbls->insertRows;
+    FILE *  fp = g_arguments->fpOfInsertResult;
+    int64_t totalData = g_arguments->db->superTbls->childTblCount *
+                        g_arguments->db->superTbls->insertRows;
     char **aggreFunc;
     int    n;
 
-    if (arguments->demo_mode) {
+    if (g_arguments->demo_mode) {
         aggreFunc = g_aggreFuncDemo;
         n = sizeof(g_aggreFuncDemo) / sizeof(g_aggreFuncDemo[0]);
     } else {
@@ -743,17 +743,19 @@ static void *queryNtableAggrFunc(void *sarg) {
     for (int j = 0; j < n; j++) {
         double   totalT = 0;
         uint64_t count = 0;
-        for (int64_t i = 0; i < arguments->db->superTbls->childTblCount; i++) {
-            if (arguments->db->superTbls->escape_character) {
+        for (int64_t i = 0; i < g_arguments->db->superTbls->childTblCount;
+             i++) {
+            if (g_arguments->db->superTbls->escape_character) {
                 sprintf(command,
                         "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
-                        aggreFunc[j], arguments->db->superTbls->childTblPrefix,
-                        i, DEFAULT_START_TIME);
+                        aggreFunc[j],
+                        g_arguments->db->superTbls->childTblPrefix, i,
+                        DEFAULT_START_TIME);
             } else {
-                sprintf(command,
-                        "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
-                        aggreFunc[j], arguments->db->superTbls->childTblPrefix,
-                        i, DEFAULT_START_TIME);
+                sprintf(
+                    command, "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
+                    aggreFunc[j], g_arguments->db->superTbls->childTblPrefix, i,
+                    DEFAULT_START_TIME);
             }
 
             double    t = (double)taosGetTimestampUs();
@@ -781,8 +783,8 @@ static void *queryNtableAggrFunc(void *sarg) {
             fprintf(fp, "|%10s  |   %" PRId64 "   |  %12.2f   |   %10.2f  |\n",
                     aggreFunc[j][0] == '*' ? "   *   " : aggreFunc[j],
                     totalData,
-                    (double)(arguments->db->superTbls->childTblCount *
-                             arguments->db->superTbls->insertRows) /
+                    (double)(g_arguments->db->superTbls->childTblCount *
+                             g_arguments->db->superTbls->insertRows) /
                         totalT,
                     totalT / 1000000);
         }
@@ -792,50 +794,15 @@ static void *queryNtableAggrFunc(void *sarg) {
     return NULL;
 }
 
-static void queryAggrFunc(SArguments *arguments, TAOS_POOL *pool) {
+void queryAggrFunc() {
     pthread_t   read_id;
     threadInfo *pThreadInfo = calloc(1, sizeof(threadInfo));
-    pThreadInfo->arguments = arguments;
-    pThreadInfo->taos = select_one_from_pool(pool, arguments->db->dbName);
-    if (arguments->db->superTbls->use_metric) {
+    pThreadInfo->taos = select_one_from_pool(g_arguments->db->dbName);
+    if (g_arguments->db->superTbls->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
     free(pThreadInfo);
-}
-
-int start(SArguments *arguments) {
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
-            return -1;
-        }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
-
-    if (arguments->test_mode == INSERT_TEST) {
-        if (insertTestProcess(arguments)) {
-            return -1;
-        }
-    } else if (arguments->test_mode == QUERY_TEST) {
-        if (queryTestProcess(arguments)) {
-            return -1;
-        }
-        for (int64_t i = 0; i < g_queryInfo.superQueryInfo.childTblCount; ++i) {
-            tmfree(g_queryInfo.superQueryInfo.childTblName[i]);
-        }
-        tmfree(g_queryInfo.superQueryInfo.childTblName);
-    } else if (arguments->test_mode == SUBSCRIBE_TEST) {
-        if (subscribeTestProcess(arguments)) {
-            return -1;
-        }
-    }
-    if (arguments->aggr_func) {
-        queryAggrFunc(arguments, arguments->pool);
-    }
-    return 0;
 }

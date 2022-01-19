@@ -153,8 +153,8 @@ int convertHostToServAddr(char *host, uint16_t port,
     return 0;
 }
 
-void prompt(SArguments *arguments) {
-    if (!arguments->answer_yes) {
+void prompt() {
+    if (!g_arguments->answer_yes) {
         printf(
             "\n\n         Press enter key to continue or Ctrl-C to stop\n\n");
         (void)getchar();
@@ -176,11 +176,10 @@ static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
     pThreadInfo->fp = NULL;
 }
 
-void replaceChildTblName(SArguments *arguments, char *inSql, char *outSql,
-                         int tblIndex) {
+void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    sprintf(subTblName, "%s.%s", arguments->db->dbName,
+    sprintf(subTblName, "%s.%s", g_arguments->db->dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
@@ -282,7 +281,7 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
     return 0;
 }
 
-void encode_base_64(SArguments *arguments) {
+void encode_base_64() {
     char        userpass_buf[INPUT_BUF_LEN];
     static char base64[] = {
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
@@ -290,15 +289,15 @@ void encode_base_64(SArguments *arguments) {
         'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
         'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
-    snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", arguments->user,
-             arguments->password);
+    snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_arguments->user,
+             g_arguments->password);
 
     int mod_table[] = {0, 2, 1};
 
     size_t userpass_buf_len = strlen(userpass_buf);
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
-    arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
+    g_arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
 
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
@@ -309,19 +308,18 @@ void encode_base_64(SArguments *arguments) {
             n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
         uint32_t triple = (oct_a << 0x10) + (oct_b << 0x08) + oct_c;
 
-        arguments->base64_buf[m++] = base64[(triple >> 3 * 6) & 0x3f];
-        arguments->base64_buf[m++] = base64[(triple >> 2 * 6) & 0x3f];
-        arguments->base64_buf[m++] = base64[(triple >> 1 * 6) & 0x3f];
-        arguments->base64_buf[m++] = base64[(triple >> 0 * 6) & 0x3f];
+        g_arguments->base64_buf[m++] = base64[(triple >> 3 * 6) & 0x3f];
+        g_arguments->base64_buf[m++] = base64[(triple >> 2 * 6) & 0x3f];
+        g_arguments->base64_buf[m++] = base64[(triple >> 1 * 6) & 0x3f];
+        g_arguments->base64_buf[m++] = base64[(triple >> 0 * 6) & 0x3f];
     }
 
     for (int l = 0; l < mod_table[userpass_buf_len % 3]; l++)
-        arguments->base64_buf[encoded_len - 1 - l] = '=';
+        g_arguments->base64_buf[encoded_len - 1 - l] = '=';
 }
 
 int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SArguments * arguments = pThreadInfo->arguments;
-    SDataBase *  database = &(arguments->db[pThreadInfo->db_index]);
+    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     int32_t      code = -1;
     char *       req_fmt =
@@ -350,21 +348,22 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     int      bytes, sent, received, req_str_len, resp_len;
     char *   request_buf;
     char *   response_buf;
-    uint16_t rest_port = arguments->port + TSDB_PORT_HTTP;
+    uint16_t rest_port = g_arguments->port + TSDB_PORT_HTTP;
 
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = calloc(1, req_buf_len);
     uint64_t response_length;
-    if (arguments->test_mode == INSERT_TEST) {
+    if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
     } else {
         response_length = g_queryInfo.response_buffer;
     }
     response_buf = calloc(1, response_length);
 
-    int r = snprintf(request_buf, req_buf_len, req_fmt, url, arguments->host,
-                     rest_port, arguments->base64_buf, strlen(sqlstr), sqlstr);
+    int r =
+        snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
+                 rest_port, g_arguments->base64_buf, strlen(sqlstr), sqlstr);
     if (r >= req_buf_len) {
         free(request_buf);
         ERROR_EXIT("too long request");
@@ -431,7 +430,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
 
         received += bytes;
 
-        if (arguments->test_mode == INSERT_TEST) {
+        if (g_arguments->test_mode == INSERT_TEST) {
             if (strlen(response_buf)) {
                 if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                      (NULL != strstr(response_buf, resHttp))) ||
@@ -569,20 +568,22 @@ int taos_convert_string_to_datatype(char *type) {
     } else if (0 == strcasecmp(type, "json")) {
         return TSDB_DATA_TYPE_JSON;
     } else {
-        return TSDB_DATA_TYPE_NULL;
+        errorPrint("unknown data type: %s\n", type);
+        exit(EXIT_FAILURE);
     }
 }
 
-int init_taos_list(SArguments *arguments) {
-    int        size = arguments->nthreads_pool;
-    TAOS_POOL *pool = arguments->pool;
+int init_taos_list() {
+    int        size = g_arguments->nthreads_pool;
+    TAOS_POOL *pool = g_arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
+    g_memoryUsage += size * sizeof(TAOS *);
     pool->current = 0;
     pool->size = size;
     for (int i = 0; i < size; ++i) {
         pool->taos_list[i] =
-            taos_connect(arguments->host, arguments->user, arguments->password,
-                         NULL, arguments->port);
+            taos_connect(g_arguments->host, g_arguments->user,
+                         g_arguments->password, NULL, g_arguments->port);
         if (pool->taos_list[i] == NULL) {
             errorPrint("Failed to connect to TDengine, reason:%s\n",
                        taos_errstr(NULL));
@@ -592,8 +593,9 @@ int init_taos_list(SArguments *arguments) {
     return 0;
 }
 
-TAOS *select_one_from_pool(TAOS_POOL *pool, char *db_name) {
-    TAOS *taos = pool->taos_list[pool->current];
+TAOS *select_one_from_pool(char *db_name) {
+    TAOS_POOL *pool = g_arguments->pool;
+    TAOS *     taos = pool->taos_list[pool->current];
     if (db_name != NULL) {
         int code = taos_select_db(taos, db_name);
         if (code) {
@@ -609,9 +611,9 @@ TAOS *select_one_from_pool(TAOS_POOL *pool, char *db_name) {
     return taos;
 }
 
-void cleanup_taos_list(TAOS_POOL *pool) {
-    for (int i = 0; i < pool->size; ++i) {
-        taos_close(pool->taos_list[i]);
+void cleanup_taos_list() {
+    for (int i = 0; i < g_arguments->pool->size; ++i) {
+        taos_close(g_arguments->pool->taos_list[i]);
     }
-    tmfree(pool->taos_list);
+    tmfree(g_arguments->pool->taos_list);
 }
