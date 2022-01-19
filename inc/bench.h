@@ -324,6 +324,8 @@ typedef struct SSuperTable_S {
     // bind param batch
     TAOS_BIND **tag_bind_array;
     char *      stmt_buffer;
+    char **     stmt_col_string_grid;
+    char **     stmt_tag_string_grid;
 } SSuperTable;
 
 typedef struct {

@@ -44,8 +44,6 @@ extern char *    g_randfloat_buff;
 extern char *    g_rand_current_buff;
 extern char *    g_rand_phase_buff;
 extern char *    g_randdouble_buff;
-extern char **   g_stmt_col_string_grid;
-extern char **   g_stmt_tag_string_grid;
 /***** Declare functions *****/
 int     init_rand_data();
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,

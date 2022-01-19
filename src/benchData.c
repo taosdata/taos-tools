@@ -41,8 +41,6 @@ char *    g_randfloat_buff = NULL;
 char *    g_rand_current_buff = NULL;
 char *    g_rand_phase_buff = NULL;
 char *    g_randdouble_buff = NULL;
-char **   g_stmt_col_string_grid = NULL;
-char **   g_stmt_tag_string_grid = NULL;
 
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
@@ -443,8 +441,8 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
                     break;
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
-                    tag->buffer =
-                        g_stmt_tag_string_grid[j] + i * stbInfo->tag_length[j];
+                    tag->buffer = stbInfo->stmt_tag_string_grid[j] +
+                                  i * stbInfo->tag_length[j];
                     break;
                 }
             }
@@ -460,7 +458,7 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
     stbInfo->stmt_buffer = calloc(1, BUFFER_SIZE);
     g_memoryUsage += BUFFER_SIZE;
     if (stbInfo->autoCreateTable) {
-        g_stmt_tag_string_grid = calloc(tagCount, sizeof(char *));
+        stbInfo->stmt_tag_string_grid = calloc(tagCount, sizeof(char *));
         g_memoryUsage += tagCount * sizeof(char *);
         len += sprintf(stbInfo->stmt_buffer + len,
                        "INSERT INTO ? USING `%s` TAGS (", stbInfo->stbName);
@@ -472,12 +470,13 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
             }
             if (tag_type[i] == TSDB_DATA_TYPE_NCHAR ||
                 tag_type[i] == TSDB_DATA_TYPE_BINARY) {
-                g_stmt_tag_string_grid[i] =
+                stbInfo->stmt_tag_string_grid[i] =
                     calloc(1, stbInfo->childTblCount * (tag_length[i] + 1));
                 g_memoryUsage += stbInfo->childTblCount * (tag_length[i] + 1);
                 for (int j = 0; j < stbInfo->childTblCount; ++j) {
-                    rand_string(g_stmt_tag_string_grid[i] + j * tag_length[i],
-                                tag_length[i], g_arguments->chinese);
+                    rand_string(
+                        stbInfo->stmt_tag_string_grid[i] + j * tag_length[i],
+                        tag_length[i], g_arguments->chinese);
                 }
             }
         }
@@ -490,18 +489,19 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
     int      columnCount = stbInfo->columnCount;
     char *   col_type = stbInfo->col_type;
     int32_t *col_length = stbInfo->col_length;
-    g_stmt_col_string_grid = calloc(columnCount, sizeof(char *));
+    stbInfo->stmt_col_string_grid = calloc(columnCount, sizeof(char *));
     g_memoryUsage += columnCount * sizeof(char *);
     for (int col = 0; col < columnCount; col++) {
         len += sprintf(stbInfo->stmt_buffer + len, ",?");
         if (col_type[col] == TSDB_DATA_TYPE_NCHAR ||
             col_type[col] == TSDB_DATA_TYPE_BINARY) {
-            g_stmt_col_string_grid[col] =
+            stbInfo->stmt_col_string_grid[col] =
                 calloc(1, g_arguments->reqPerReq * (col_length[col] + 1));
             g_memoryUsage += g_arguments->reqPerReq * (col_length[col] + 1);
             for (int i = 0; i < g_arguments->reqPerReq; ++i) {
-                rand_string(g_stmt_col_string_grid[col] + i * col_length[col],
-                            col_length[col], g_arguments->chinese);
+                rand_string(
+                    stbInfo->stmt_col_string_grid[col] + i * col_length[col],
+                    col_length[col], g_arguments->chinese);
             }
         }
     }
@@ -947,12 +947,12 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
 int prepare_sample_data(int db_index, int stb_index) {
     SDataBase *  database = &(g_arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    calcRowLen(stbInfo);
+    debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n", stbInfo->stbName,
+               stbInfo->tagCount, stbInfo->lenOfTags);
+    debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n", stbInfo->stbName,
+               stbInfo->columnCount, stbInfo->lenOfCols);
     if (stbInfo->iface != STMT_IFACE) {
-        calcRowLen(stbInfo);
-        debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n",
-                   stbInfo->stbName, stbInfo->tagCount, stbInfo->lenOfTags);
-        debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n",
-                   stbInfo->stbName, stbInfo->columnCount, stbInfo->lenOfCols);
         stbInfo->sampleDataBuf =
             calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
         g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
@@ -973,26 +973,26 @@ int prepare_sample_data(int db_index, int stb_index) {
             }
         }
         debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
-        if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
-            stbInfo->tagDataBuf =
-                calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
-            g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
-            if (stbInfo->tagsFile[0] != 0) {
-                if (generateSampleFromCsvForStb(
-                        stbInfo->tagDataBuf, stbInfo->tagsFile,
-                        stbInfo->lenOfTags, stbInfo->childTblCount)) {
-                    return -1;
-                }
-            } else {
-                generateSampleFromRand(
-                    stbInfo->tagDataBuf, stbInfo->lenOfTags, stbInfo->tagCount,
-                    stbInfo->tag_type, stbInfo->tag_length,
-                    stbInfo->childTblCount, stbInfo->iface, 0);
-            }
-            debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
-        }
     } else {
         generateStmtBuffer(stbInfo);
+    }
+    if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
+        stbInfo->tagDataBuf =
+            calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
+        g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
+        if (stbInfo->tagsFile[0] != 0) {
+            if (generateSampleFromCsvForStb(
+                    stbInfo->tagDataBuf, stbInfo->tagsFile, stbInfo->lenOfTags,
+                    stbInfo->childTblCount)) {
+                return -1;
+            }
+        } else {
+            generateSampleFromRand(stbInfo->tagDataBuf, stbInfo->lenOfTags,
+                                   stbInfo->tagCount, stbInfo->tag_type,
+                                   stbInfo->tag_length, stbInfo->childTblCount,
+                                   stbInfo->iface, 0);
+        }
+        debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
@@ -1070,7 +1070,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             switch (data_type) {
                 case TSDB_DATA_TYPE_NCHAR:
                 case TSDB_DATA_TYPE_BINARY: {
-                    param->buffer = g_stmt_col_string_grid[c - 1];
+                    param->buffer = stbInfo->stmt_col_string_grid[c - 1];
                     break;
                 }
                 case TSDB_DATA_TYPE_INT:
