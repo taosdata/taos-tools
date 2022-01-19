@@ -308,10 +308,14 @@ typedef struct SSuperTable_S {
     char     tagsFile[MAX_FILE_NAME_LEN];
 
     int32_t  columnCount;
+    int32_t  partialColumnNum;
+    char *   partialColumnNameBuf;
     char *   col_type;
+    bool *   col_null;
     int32_t *col_length;
     int32_t  tagCount;
     char *   tag_type;
+    bool *   tag_null;
     int32_t *tag_length;
     char **  childTblName;
     char *   colsOfCreateChildTable;
