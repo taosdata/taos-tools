@@ -43,14 +43,20 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             columnIndex++;
         }
     }
-    stbInfo->columnCount = columnIndex - 1;
+    if (stbInfo->columnCount != columnIndex - 1) {
+        stbInfo->columnCount = columnIndex - 1;
+        tmfree(stbInfo->col_null);
+        stbInfo->col_null = calloc(stbInfo->columnCount, sizeof(bool));
+    }
     stbInfo->tagCount = tagIndex;
     tmfree(stbInfo->col_type);
-    stbInfo->col_type = calloc(columnIndex, sizeof(char));
+    stbInfo->col_type = calloc(stbInfo->columnCount, sizeof(char));
     tmfree(stbInfo->tag_type);
     stbInfo->tag_type = calloc(tagIndex, sizeof(char));
+    tmfree(stbInfo->tag_null);
+    stbInfo->tag_null = calloc(tagIndex, sizeof(bool));
     tmfree(stbInfo->col_length);
-    stbInfo->col_length = calloc(columnIndex, sizeof(int32_t));
+    stbInfo->col_length = calloc(stbInfo->columnCount, sizeof(int32_t));
     tmfree(stbInfo->tag_length);
     stbInfo->tag_length = calloc(tagIndex, sizeof(int32_t));
     taos_free_result(res);

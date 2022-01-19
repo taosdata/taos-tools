@@ -292,8 +292,10 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     if (dbSize > MAX_DB_COUNT) goto PARSE_OVER;
     tmfree(g_arguments->db->superTbls->col_length);
     tmfree(g_arguments->db->superTbls->col_type);
+    tmfree(g_arguments->db->superTbls->col_null);
     tmfree(g_arguments->db->superTbls->tag_type);
     tmfree(g_arguments->db->superTbls->tag_length);
+    tmfree(g_arguments->db->superTbls->tag_null);
     tmfree(g_arguments->db->superTbls);
     tmfree(g_arguments->db);
     g_arguments->db = calloc(dbSize, sizeof(SDataBase));

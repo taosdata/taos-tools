@@ -395,14 +395,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             count_datatype(arg, &(arguments->db->superTbls->tagCount));
             tmfree(arguments->db->superTbls->tag_type);
             tmfree(arguments->db->superTbls->tag_length);
+            tmfree(arguments->db->superTbls->tag_null);
             arguments->db->superTbls->tag_type =
                 calloc(arguments->db->superTbls->tagCount, sizeof(char));
+            arguments->db->superTbls->tag_null =
+                calloc(arguments->db->superTbls->tagCount, sizeof(bool));
             arguments->db->superTbls->tag_length =
                 calloc(arguments->db->superTbls->tagCount, sizeof(int32_t));
             if (parse_datatype(arg, arguments->db->superTbls->tag_type,
                                arguments->db->superTbls->tag_length, true)) {
                 tmfree(arguments->db->superTbls->tag_type);
                 tmfree(arguments->db->superTbls->tag_length);
+                tmfree(arguments->db->superTbls->tag_null);
                 exit(EXIT_FAILURE);
             }
             break;
@@ -410,14 +414,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             arguments->demo_mode = false;
             tmfree(arguments->db->superTbls->col_type);
             tmfree(arguments->db->superTbls->col_length);
+            tmfree(arguments->db->superTbls->col_null);
             count_datatype(arg, &(arguments->db->superTbls->columnCount));
             arguments->db->superTbls->col_type =
                 calloc(arguments->db->superTbls->columnCount, sizeof(char));
+            arguments->db->superTbls->col_null =
+                calloc(arguments->db->superTbls->columnCount, sizeof(bool));
             arguments->db->superTbls->col_length =
                 calloc(arguments->db->superTbls->columnCount, sizeof(int32_t));
             if (parse_datatype(arg, arguments->db->superTbls->col_type,
                                arguments->db->superTbls->col_length, false)) {
                 tmfree(arguments->db->superTbls->col_type);
+                tmfree(arguments->db->superTbls->col_null);
                 tmfree(arguments->db->superTbls->col_length);
                 exit(EXIT_FAILURE);
             }
@@ -511,6 +519,7 @@ static SSuperTable *init_stable() {
     stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
     stbInfo->col_type = (char *)calloc(3, sizeof(char));
+    stbInfo->col_null = (bool *)calloc(3, sizeof(bool));
     stbInfo->col_type[0] = TSDB_DATA_TYPE_FLOAT;
     stbInfo->col_type[1] = TSDB_DATA_TYPE_INT;
     stbInfo->col_type[2] = TSDB_DATA_TYPE_FLOAT;
@@ -519,6 +528,7 @@ static SSuperTable *init_stable() {
     stbInfo->col_length[1] = sizeof(int32_t);
     stbInfo->col_length[2] = sizeof(float);
     stbInfo->tag_type = (char *)calloc(2, sizeof(char));
+    stbInfo->tag_null = (bool *)calloc(2, sizeof(bool));
     stbInfo->tag_type[0] = TSDB_DATA_TYPE_INT;
     stbInfo->tag_type[1] = TSDB_DATA_TYPE_BINARY;
     stbInfo->tag_length = (int32_t *)calloc(2, sizeof(int32_t));
@@ -628,6 +638,8 @@ void modify_argument() {
             }
         }
         superTable->columnCount = g_arguments->intColumnCount;
+        tmfree(superTable->col_null);
+        superTable->col_null = calloc(superTable->columnCount, sizeof(bool));
     }
 }
 
