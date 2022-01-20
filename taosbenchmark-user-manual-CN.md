@@ -1,14 +1,12 @@
-### taosBenchmark是TDengine进行性能测试的工具应用程序。
+## taosBenchmark
 
-##### taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。
-
-##### taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。
-
-##### taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。
-
-##### 原为taosdemo，现在更名为taosBenchmark，并且安装包也提供了作为 taosBenchmark 软连接的 taosdemo。
+### 简介
+taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。原为taosdemo，现在更名为taosBenchmark，并且安装包也提供了作为 taosBenchmark 软连接的 taosdemo。
 
 ### taosBenchmark 命令行参数：
+```
+
+-f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
 
 -c：配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。缺省值路径是 "/etc/taos"
 
@@ -32,7 +30,7 @@
 
 -B：子表交错写入的行数，若为0，则按子表顺序依次写入，缺省值为0。
 
--r：每条插入请求包含的记录条数，等同于批次数，缺省值为10000。
+-r：每条插入请求包含的记录条数，等同于批次数，缺省值为30000。
 
 -t：子表的个数，缺省值为10000。
 
@@ -72,13 +70,11 @@
 
 --help：打印命令行参数介绍。
 
+```
+
 ### taosBenchmark json配置文件：
 
-##### -f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
-
-##### taosBenchmark支持三种格式的json配置文件，分别为写入，查询与订阅：
-
-#### 一、写入性能测试json配置文件：
+#### 写入性能测试json配置文件：
 
 ```json
 {
@@ -144,9 +140,12 @@
       }]
 }
 ```
+
 #### 参数说明：
 
-- **"filetype"**: taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
+```
+
+"filetype": taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
 
 "cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
 
@@ -158,8 +157,6 @@
 
 "password": 密码。可选项，缺省是"taosdata"。
 
-"thread_pool_count": 插入
-
 "thread_count": 插入数据和建表时的并发线程数。可选项，缺省是8。
 
 "result_file": 测试完成后结果保存文件。可选项，缺省是本实例启动目录下的"./output.txt"。
@@ -170,7 +167,7 @@
 
 "interlace_rows": 设置轮询插入每个单表数据的条目数，可选项，缺省是0。
 
-"num_of_records_per_req": 每条请求数据内容包含的插入数据记录数目，可选项，缺省值为10000。
+"num_of_records_per_req": 每条请求数据内容包含的插入数据记录数目，可选项，缺省值为30000。
 
 "prepared_rand": 随机生成的数据的个数，取值范围为大于1的正整数，缺省值为10000。调小可以控制taosBenchmark占用内存。
 
@@ -280,13 +277,12 @@
 
 "count": 该类型的连续列个数，可选项，缺省是1。
 
-##### 注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度
-
 }]
+```
+**注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度**
 
 
-
-#### 二、查询性能测试json配置文件：
+#### 查询性能测试json配置文件：
 
 ```json
 {
@@ -328,6 +324,7 @@
 }
 ```
 #### 参数说明：
+```
 
 "filetype": 本taosBenchmark实例进行哪种功能测试。"query"表示数据查询功能。必选项。
 
@@ -347,7 +344,7 @@
 
 "query_times": 每种查询类型的查询次数
 
-"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“rest”：使用restful接口。可选项。缺省是“taosc”。
+"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“resetful”：使用restfule接口。可选项。缺省是“taosc”。
 
 "specified_table_query": { 指定表的查询
 
@@ -373,13 +370,13 @@
 
 "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。
 
-##### 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
+```
+**注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。**
 
-##### 查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。
+**查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。**
 
 
-
-#### 三、订阅性能测试json文件配置：
+#### 订阅性能测试json文件配置：
 
 ```json
 {
@@ -422,6 +419,7 @@
 }
 ```
 #### 参数说明：
+```
 
 "filetype": 本taosBenchmark实例进行哪种功能测试。"subscribe"表示数据查询功能。必选项。
 
@@ -476,4 +474,4 @@
 "sql": " select count(*) from xxxx "。查询语句，其中表名必须写成 “xxxx”，实例会自动替换成子表名。
 
  "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
-
+```
