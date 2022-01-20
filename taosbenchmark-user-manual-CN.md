@@ -1,7 +1,9 @@
 ## taosBenchmark
 
 ### 简介
-taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark可以进行TDengine的写入、查询和订阅功能的性能测试。taosBenchmark可以模拟大量设备产生海量数据的场景，可以通过taosBenchmark参数灵活控制表的列数、数据类型、并发线程数量等。taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。原为taosdemo，现在更名为taosBenchmark，并且安装包也提供了作为 taosBenchmark 软连接的 taosdemo。
+taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行TDengine的写入、查询和订阅功能的性能测试；也可以模拟大量设备产生海量数据的场景，能通过参数灵活控制表的列数、数据类型、并发线程数量等。taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。
+
+原来的taosdemo现在已经更名为taosBenchmark ，安装包同时提供了作为 taosBenchmark 软连接的 taosdemo，以兼容之前的用户习惯，建议后续使用 taosBenchmark。
 
 ### taosBenchmark 命令行参数：
 ```
@@ -344,7 +346,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序。taosBenchmark
 
 "query_times": 每种查询类型的查询次数
 
-"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“resetful”：使用restfule接口。可选项。缺省是“taosc”。
+"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“reset”：使用restfule接口。可选项。缺省是“taosc”。
 
 "specified_table_query": { 指定表的查询
 
