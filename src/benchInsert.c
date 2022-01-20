@@ -1874,7 +1874,7 @@ int insertTestProcess() {
             prepare_sample_data(i, j);
         }
     }
-    infoPrint("Estimate memory usage: %.2fG\n",
+    infoPrint("Estimate memory usage: %.2fMB\n",
               (double)g_memoryUsage / 1048576);
     prompt();
 
