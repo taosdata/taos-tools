@@ -146,7 +146,7 @@
 ```
 #### 参数说明：
 
-"filetype": taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
+- **"filetype"**: taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
 
 "cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
 
@@ -347,7 +347,7 @@
 
 "query_times": 每种查询类型的查询次数
 
-"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“resetful”：使用restfule接口。可选项。缺省是“taosc”。
+"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“rest”：使用restful接口。可选项。缺省是“taosc”。
 
 "specified_table_query": { 指定表的查询
 

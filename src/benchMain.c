@@ -14,35 +14,45 @@
  */
 
 #include "bench.h"
-int64_t        g_totalChildTables = DEFAULT_CHILDTABLES;
-int64_t        g_actualChildTables = 0;
-int64_t        g_autoCreatedChildTables = 0;
-int64_t        g_existedChildTables = 0;
-FILE *         g_fpOfInsertResult = NULL;
-SDataBase *    db;
-SArguments     g_args;
+SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
-cJSON *        root;
-TAOS_POOL      g_taos_pool;
+uint64_t       g_memoryUsage = 0;
+cJSON*         root;
 
-int main(int argc, char *argv[]) {
-    init_g_args(&g_args);
-    if (parse_args(argc, argv, &g_args)) {
-        exit(EXIT_FAILURE);
-    }
-    if (g_args.metaFile) {
-        g_totalChildTables = 0;
-        if (getInfoFromJsonFile(g_args.metaFile)) {
-            exit(EXIT_FAILURE);
-        }
+int main(int argc, char* argv[]) {
+    init_argument();
+    commandLineParseArgument(argc, argv);
+    if (g_arguments->metaFile) {
+        g_arguments->g_totalChildTables = 0;
+        if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
     } else {
-        db = calloc(1, sizeof(SDataBase));
-        db[0].superTbls = calloc(1, sizeof(SSuperTable));
-        setParaFromArg(&g_args);
+        modify_argument();
     }
-    if (test(&g_args)) {
-        exit(EXIT_FAILURE);
+
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint("Invalid path %s\n", configDir);
+            return -1;
+        }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
+
+    if (g_arguments->test_mode == INSERT_TEST) {
+        if (insertTestProcess()) exit(EXIT_FAILURE);
+    } else if (g_arguments->test_mode == QUERY_TEST) {
+        if (queryTestProcess(g_arguments)) exit(EXIT_FAILURE);
+        for (int64_t i = 0; i < g_queryInfo.superQueryInfo.childTblCount; ++i) {
+            tmfree(g_queryInfo.superQueryInfo.childTblName[i]);
+        }
+        tmfree(g_queryInfo.superQueryInfo.childTblName);
+    } else if (g_arguments->test_mode == SUBSCRIBE_TEST) {
+        if (subscribeTestProcess(g_arguments)) exit(EXIT_FAILURE);
+    }
+    if (g_arguments->aggr_func) {
+        queryAggrFunc(g_arguments, g_arguments->pool);
     }
     postFreeResource();
     return 0;

@@ -24,7 +24,7 @@ NC='\033[0m'
 
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 
 # get the operating system type for using the corresponding init file
@@ -66,49 +66,53 @@ fi
 function kill_process() {
   pid=$(ps -ef | grep "$1" | grep -v "grep" | awk '{print $2}')
   if [ -n "$pid" ]; then
-    ${csudo} kill -9 $pid   || :
+    ${csudo}kill -9 $pid   || :
   fi
 }
 
 function install_main_path() {
     #create install main dir and all sub dir
-    [[ ! -d ${install_main_dir}/bin ]] && ${csudo} mkdir -p ${install_main_dir}/bin || :
+    [[ ! -d ${install_main_dir}/bin ]] && ${csudo}mkdir -p ${install_main_dir}/bin || :
 }
 
 function install_bin() {
     # Remove links
-    ${csudo} rm -f ${bin_link_dir}/taosdemo         || :
-    ${csudo} rm -f ${bin_link_dir}/taosBenchmark    || :
-    ${csudo} rm -f ${bin_link_dir}/taosdump         || :
+    ${csudo}rm -f ${bin_link_dir}/taosdemo         || :
+    ${csudo}rm -f ${bin_link_dir}/taosBenchmark    || :
+    ${csudo}rm -f ${bin_link_dir}/taosdump         || :
+    ${csudo}rm -f ${bin_link_dir}/rmtaostools      || :
 
-    ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosdump ${install_main_dir}/bin/taosdump
-    ${csudo} /usr/bin/install -c -m 755 ${script_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosBenchmark
-    ${csudo} ln -sf ${install_main_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosdemo
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/taosdump ${install_main_dir}/bin/taosdump
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosBenchmark
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/uninstall-taostools.sh ${install_main_dir}/bin/uninstall-taostools.sh
+    ${csudo}ln -sf ${install_main_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosdemo
     #Make link
     [[ -x ${install_main_dir}/bin/taosBenchmark ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark  || :
+        ${csudo}ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark        || :
     [[ -x ${install_main_dir}/bin/taosdemo ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo            || :
+        ${csudo}ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo                  || :
     [[ -x ${install_main_dir}/bin/taosdump ]] && \
-        ${csudo} ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump            || :
+        ${csudo}ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump                  || :
+    [[ -x ${install_main_dir}/bin/uninstall-taostools.sh ]] && \
+        ${csudo}ln -s ${install_main_dir}/bin/uninstall-taostools.sh ${bin_link_dir}/rmtaostools || :
 }
 
 function install_avro() {
     if [ "$osType" != "Darwin" ]; then
         avro_dir=${script_dir}/avro
         if [ -f "${avro_dir}/lib/libavro.so.23.0.0" ] && [ -d /usr/local/$1 ]; then
-            ${csudo} /usr/bin/install -c -d /usr/local/$1
-            ${csudo} /usr/bin/install -c -m 755 ${avro_dir}/lib/libavro.so.23.0.0 /usr/local/$1
-            ${csudo} ln -sf /usr/local/$1/libavro.so.23.0.0 /usr/local/$1/libavro.so.23
-            ${csudo} ln -sf /usr/local/$1/libavro.so.23 /usr/local/$1/libavro.so
+            ${csudo}/usr/bin/install -c -d /usr/local/$1
+            ${csudo}/usr/bin/install -c -m 755 ${avro_dir}/lib/libavro.so.23.0.0 /usr/local/$1
+            ${csudo}ln -sf /usr/local/$1/libavro.so.23.0.0 /usr/local/$1/libavro.so.23
+            ${csudo}ln -sf /usr/local/$1/libavro.so.23 /usr/local/$1/libavro.so
 
-            ${csudo} /usr/bin/install -c -d /usr/local/$1
+            ${csudo}/usr/bin/install -c -d /usr/local/$1
             [ -f ${avro_dir}/lib/libavro.a ] &&
-                ${csudo} /usr/bin/install -c -m 755 ${avro_dir}/lib/libavro.a /usr/local/$1
+                ${csudo}/usr/bin/install -c -m 755 ${avro_dir}/lib/libavro.a /usr/local/$1
 
             if [ -d /etc/ld.so.conf.d ]; then
-                echo "/usr/local/$1" | ${csudo} tee /etc/ld.so.conf.d/libavro.conf > /dev/null || echo -e "failed to write /etc/ld.so.conf.d/libavro.conf"
-                ${csudo} ldconfig
+                echo "/usr/local/$1" | ${csudo}tee /etc/ld.so.conf.d/libavro.conf > /dev/null || echo -e "failed to write /etc/ld.so.conf.d/libavro.conf"
+                ${csudo}ldconfig
             else
                 echo "/etc/ld.so.conf.d not found!"
             fi
