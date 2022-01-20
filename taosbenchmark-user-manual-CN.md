@@ -346,7 +346,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
 
 "query_times": 每种查询类型的查询次数
 
-"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“reset”：使用restfule接口。可选项。缺省是“taosc”。
+"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“rest”：使用restfule接口。可选项。缺省是“taosc”。
 
 "specified_table_query": { 指定表的查询
 
