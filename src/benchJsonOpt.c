@@ -743,6 +743,11 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
         g_arguments->port = (uint16_t)port->valueint;
     }
 
+    cJSON *telnet_tcp_port = cJSON_GetObjectItem(json, "telnet_tcp_port");
+    if (telnet_tcp_port && telnet_tcp_port->type == cJSON_Number) {
+        g_arguments->telnet_tcp_port = (uint16_t)telnet_tcp_port->valueint;
+    }
+
     cJSON *user = cJSON_GetObjectItem(json, "user");
     if (user && user->type == cJSON_String && user->valuestring != NULL) {
         g_arguments->user = user->valuestring;

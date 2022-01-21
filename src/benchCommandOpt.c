@@ -577,6 +577,7 @@ void init_argument() {
     g_arguments->dbCount = 1;
     g_arguments->host = DEFAULT_HOST;
     g_arguments->port = DEFAULT_PORT;
+    g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;
     g_arguments->password = TSDB_DEFAULT_PASS;
     g_arguments->answer_yes = 0;

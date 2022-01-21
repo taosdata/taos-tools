@@ -47,9 +47,12 @@ void printfInsertMetaToFileStream(FILE *fp) {
             fp,
             "\ntaosBenchmark is simulating random data as you request..\n\n");
     }
-
-    fprintf(fp, "host:                       \033[33m%s:%u\033[0m\n",
-            g_arguments->host, g_arguments->port);
+    fprintf(fp, "host:                       \033[33m%s\033[0m\n",
+            g_arguments->host);
+    fprintf(fp, "port:                       \033[33m%u\033[0m\n",
+            g_arguments->port);
+    fprintf(fp, "telnet_tcp_port:            \033[33m%u\033[0m\n",
+            g_arguments->telnet_tcp_port);
     fprintf(fp, "user:                       \033[33m%s\033[0m\n",
             g_arguments->user);
     fprintf(fp, "password:                   \033[33m%s\033[0m\n",

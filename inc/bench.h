@@ -423,6 +423,7 @@ typedef struct SArguments_S {
     int32_t            test_mode;
     char *             host;
     int16_t            port;
+    int16_t            telnet_tcp_port;
     char *             user;
     char *             password;
     bool               answer_yes;
