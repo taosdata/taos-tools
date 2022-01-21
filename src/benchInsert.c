@@ -915,12 +915,13 @@ static void *syncWriteInterlace(void *sarg) {
 
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
 
-    uint64_t lastPrintTime = taosGetTimestampMs();
-    uint64_t startTs = taosGetTimestampMs();
-    uint64_t endTs;
-    int32_t  generated = 0;
-    int      len = 0;
-    uint64_t tableSeq = pThreadInfo->start_table_from;
+    uint64_t   lastPrintTime = taosGetTimestampMs();
+    uint64_t   startTs = taosGetTimestampMs();
+    uint64_t   endTs;
+    delayNode *current_delay_node;
+    int32_t    generated = 0;
+    int        len = 0;
+    uint64_t   tableSeq = pThreadInfo->start_table_from;
     while (insertRows > 0) {
         generated = 0;
         if (insertRows <= interlaceRows) {
@@ -1129,6 +1130,17 @@ static void *syncWriteInterlace(void *sarg) {
 
         if (delay > pThreadInfo->maxDelay) pThreadInfo->maxDelay = delay;
         if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
+        current_delay_node = calloc(1, sizeof(delayNode));
+        current_delay_node->value = delay;
+        if (pThreadInfo->delayList.size == 0) {
+            pThreadInfo->delayList.head = current_delay_node;
+            pThreadInfo->delayList.tail = current_delay_node;
+            pThreadInfo->delayList.size++;
+        } else {
+            pThreadInfo->delayList.tail->next = current_delay_node;
+            pThreadInfo->delayList.tail = current_delay_node;
+            pThreadInfo->delayList.size++;
+        }
         pThreadInfo->cntDelay++;
         pThreadInfo->totalDelay += delay;
 
