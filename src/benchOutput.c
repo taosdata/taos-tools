@@ -203,7 +203,15 @@ void printfInsertMetaToFileStream(FILE *fp) {
                                TSDB_SML_TELNET_PROTOCOL)
                                   ? "telnet"
                                   : "json");
+                if (g_arguments->db[i].superTbls[j].iface == SML_REST_IFACE &&
+                    g_arguments->db[i].superTbls[j].lineProtocol ==
+                        TSDB_SML_TELNET_PROTOCOL) {
+                    fprintf(fp, "      tcpTransfer:       \033[33m%s\033[0m\n",
+                            g_arguments->db[i].superTbls[j].tcpTransfer ? "yes"
+                                                                        : "no");
+                }
             }
+
             if (g_arguments->db[i].superTbls[j].childTblOffset > 0) {
                 fprintf(fp,
                         "      childTblOffset:    \033[33m%" PRIu64 "\033[0m\n",

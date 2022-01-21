@@ -211,7 +211,8 @@ int queryTestProcess() {
     prompt();
 
     if (g_arguments->db->superTbls->iface == REST_IFACE) {
-        if (convertHostToServAddr(g_arguments->host, g_arguments->port,
+        if (convertHostToServAddr(g_arguments->host,
+                                  g_arguments->port + TSDB_PORT_HTTP,
                                   &(g_arguments->serv_addr)) != 0) {
             errorPrint("%s", "convert host to server address\n");
             return -1;

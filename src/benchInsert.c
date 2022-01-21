@@ -879,8 +879,14 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 int len = 0;
                 for (int i = 0; i < k; ++i) {
                     if (strlen(pThreadInfo->lines[i]) != 0) {
-                        len += sprintf(pThreadInfo->buffer + len, "%s\n",
-                                       pThreadInfo->lines[i]);
+                        if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
+                            stbInfo->tcpTransfer) {
+                            len += sprintf(pThreadInfo->buffer + len,
+                                           "put %s\n", pThreadInfo->lines[i]);
+                        } else {
+                            len += sprintf(pThreadInfo->buffer + len, "%s\n",
+                                           pThreadInfo->lines[i]);
+                        }
                     } else {
                         break;
                     }
@@ -1649,17 +1655,16 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                 int sockfd;
 #endif
                 sockfd = socket(AF_INET, SOCK_STREAM, 0);
+                debugPrint("sockfd=%d\n", sockfd);
                 if (sockfd < 0) {
 #ifdef WINDOWS
                     errorPrint("Could not create socket : %d",
                                WSAGetLastError());
 #endif
-                    debugPrint("%s() LN%d, sockfd=%d\n", __func__, __LINE__,
-                               sockfd);
+
                     errorPrint("%s\n", "failed to create socket");
                     return -1;
                 }
-
                 int retConn = connect(
                     sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
                     sizeof(struct sockaddr));
@@ -1671,6 +1676,8 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
 #else
                     close(pThreadInfo->sockfd);
 #endif
+                    free(pids);
+                    free(infos);
                     return -1;
                 }
                 pThreadInfo->sockfd = sockfd;

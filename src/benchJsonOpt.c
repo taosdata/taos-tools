@@ -568,6 +568,17 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->lineProtocol = TSDB_SML_LINE_PROTOCOL;
             }
 
+            cJSON *transferProtocol =
+                cJSON_GetObjectItem(stbInfo, "tcp_transfer");
+            if (transferProtocol && transferProtocol->type == cJSON_String &&
+                transferProtocol->valuestring != NULL) {
+                if (0 == strcasecmp(transferProtocol->valuestring, "yes")) {
+                    superTable->tcpTransfer = true;
+                }
+            } else {
+                superTable->tcpTransfer = false;
+            }
+
             cJSON *childTbl_limit =
                 cJSON_GetObjectItem(stbInfo, "childtable_limit");
             if (childTbl_limit && childTbl_limit->type == cJSON_Number) {

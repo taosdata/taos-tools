@@ -330,6 +330,7 @@ typedef struct SSuperTable_S {
     char *      stmt_buffer;
     char **     stmt_col_string_grid;
     char **     stmt_tag_string_grid;
+    bool        tcpTransfer;
 } SSuperTable;
 
 typedef struct {
