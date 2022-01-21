@@ -1022,7 +1022,7 @@ int prepare_sample_data(int db_index, int stb_index) {
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
         if (stbInfo->tcpTransfer && stbInfo->iface == SML_REST_IFACE) {
-            if (convertHostToServAddr(g_arguments->host, 6046,
+            if (convertHostToServAddr(g_arguments->host, TELNET_TCP_PORT,
                                       &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
                 return -1;
