@@ -384,3 +384,12 @@ void printStatPerThread(threadInfo *pThreadInfo) {
               (double)(pThreadInfo->totalAffectedRows /
                        ((double)pThreadInfo->totalDelay / 1000000.0)));
 }
+
+void display_delay_list(delayList *list) {
+    delayNode *index_node = list->head;
+    for (uint64_t i = 0; i < list->size; ++i) {
+        debugPrint("delayList[%" PRIu64 "]: %" PRIu64 "\n", i,
+                   index_node->value);
+        index_node = index_node->next;
+    }
+}

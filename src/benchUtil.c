@@ -617,3 +617,69 @@ void cleanup_taos_list() {
     }
     tmfree(g_arguments->pool->taos_list);
 }
+void delay_list_init(delayList *list) {
+    list->size = 0;
+    list->head = NULL;
+    list->tail = NULL;
+}
+
+void delay_list_destroy(delayList *list) {
+    while (list->size > 0) {
+        delayNode *current = list->head;
+        list->head = list->head->next;
+        tmfree(current);
+        list->size--;
+    }
+}
+
+void sorted_insert_delay_list(delayList *target_list, delayList *source_list) {
+    uint64_t   size = source_list->size;
+    delayNode *node = source_list->head;
+    delayNode *compare_node;
+    delayNode *previous_node;
+    while (size > 0) {
+        delayNode *new_node = calloc(1, sizeof(delayNode));
+        new_node->value = node->value;
+        if (target_list->head == NULL) {
+            target_list->head = new_node;
+            target_list->tail = new_node;
+        } else {
+            compare_node = target_list->head;
+            uint64_t i;
+            for (i = 0; i < target_list->size; ++i) {
+                if (new_node->value <= compare_node->value) {
+                    if (i == 0) {
+                        new_node->next = target_list->head;
+                        target_list->head = new_node;
+                    } else {
+                        new_node->next = previous_node->next;
+                        previous_node->next = new_node;
+                    }
+                    break;
+                }
+                previous_node = compare_node;
+                compare_node = compare_node->next;
+            }
+            if (i == target_list->size) {
+                target_list->tail->next = new_node;
+                target_list->tail = new_node;
+            }
+        }
+        node = node->next;
+        target_list->size++;
+        size--;
+    }
+}
+
+uint64_t get_percentile_delay(delayList *list, int percentile) {
+    if (percentile > 100) {
+        percentile = 100;
+    }
+    int        rank = list->size * percentile / 100;
+    delayNode *node = list->head;
+    while (rank > 0) {
+        node = node->next;
+        rank--;
+    }
+    return node->value;
+}
