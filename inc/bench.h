@@ -462,6 +462,17 @@ typedef struct SArguments_S {
     char *             base64_buf;
 } SArguments;
 
+typedef struct delayNode_S {
+    uint64_t            value;
+    struct delayNode_S *next;
+} delayNode;
+
+typedef struct delayList_S {
+    uint64_t   size;
+    delayNode *head;
+    delayNode *tail;
+} delayList;
+
 typedef struct SThreadInfo_S {
     TAOS *     taos;
     TAOS_STMT *stmt;
@@ -499,6 +510,7 @@ typedef struct SThreadInfo_S {
     int64_t    max_sql_len;
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
+    delayList  delayList;
 } threadInfo;
 
 /* ************ Global variables ************  */
@@ -554,6 +566,10 @@ int     convertHostToServAddr(char *host, uint16_t port,
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
+void    delay_list_init(delayList *list);
+void    delay_list_destroy(delayList *list);
+void sorted_insert_delay_list(delayList *target_list, delayList *source_list);
+uint64_t get_percentile_delay(delayList *list, int percentile);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
@@ -561,6 +577,7 @@ void postFreeResource();
 void printfInsertMetaToFileStream(FILE *fp);
 void printStatPerThread(threadInfo *pThreadInfo);
 void printfQueryMeta();
+void display_delay_list(delayList *list);
 /* demoQuery.c */
 int queryTestProcess();
 /* demoSubscribe.c */

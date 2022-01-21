@@ -1163,9 +1163,10 @@ void *syncWriteProgressive(void *sarg) {
         pThreadInfo->end_table_to);
     int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
-    uint64_t lastPrintTime = taosGetTimestampMs();
-    uint64_t startTs = taosGetTimestampMs();
-    uint64_t endTs;
+    uint64_t   lastPrintTime = taosGetTimestampMs();
+    uint64_t   startTs = taosGetTimestampMs();
+    uint64_t   endTs;
+    delayNode *current_delay_node;
 
     char *  pstr = pThreadInfo->buffer;
     int32_t pos = 0;
@@ -1380,6 +1381,17 @@ void *syncWriteProgressive(void *sarg) {
             if (delay > pThreadInfo->maxDelay) pThreadInfo->maxDelay = delay;
             if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
             pThreadInfo->cntDelay++;
+            current_delay_node = calloc(1, sizeof(delayNode));
+            current_delay_node->value = delay;
+            if (pThreadInfo->delayList.size == 0) {
+                pThreadInfo->delayList.head = current_delay_node;
+                pThreadInfo->delayList.tail = current_delay_node;
+                pThreadInfo->delayList.size++;
+            } else {
+                pThreadInfo->delayList.tail->next = current_delay_node;
+                pThreadInfo->delayList.tail = current_delay_node;
+                pThreadInfo->delayList.size++;
+            }
             pThreadInfo->totalDelay += delay;
 
             int64_t currentPrintTime = taosGetTimestampMs();
@@ -1538,6 +1550,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         pThreadInfo->ntables = i < b ? a + 1 : a;
         pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
         tableFrom = pThreadInfo->end_table_to + 1;
+        delay_list_init(&(pThreadInfo->delayList));
         switch (stbInfo->iface) {
             case REST_IFACE: {
                 if (stbInfo->autoCreateTable) {
@@ -1731,10 +1744,12 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
 
     int64_t end = taosGetTimestampUs();
 
-    uint64_t totalDelay = 0;
-    uint64_t maxDelay = 0;
-    uint64_t minDelay = UINT64_MAX;
-    uint64_t cntDelay = 0;
+    uint64_t  totalDelay = 0;
+    uint64_t  maxDelay = 0;
+    uint64_t  minDelay = UINT64_MAX;
+    uint64_t  cntDelay = 0;
+    delayList total_delay_list;
+    delay_list_init(&total_delay_list);
     double   avgDelay = 0;
     uint64_t totalInsertRows = 0;
     uint64_t totalAffectedRows = 0;
@@ -1786,6 +1801,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
         cntDelay += pThreadInfo->cntDelay;
+        display_delay_list(&(pThreadInfo->delayList));
+        sorted_insert_delay_list(&total_delay_list, &(pThreadInfo->delayList));
+        delay_list_destroy(&(pThreadInfo->delayList));
         if (pThreadInfo->maxDelay > maxDelay) {
             maxDelay = pThreadInfo->maxDelay;
         }
@@ -1794,6 +1812,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
             minDelay = pThreadInfo->minDelay;
         }
     }
+    display_delay_list(&total_delay_list);
 
     free(pids);
     free(infos);
@@ -1827,19 +1846,27 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
 
     if (minDelay != UINT64_MAX) {
         infoPrint(
-            "insert delay, avg: %10.2fms, max: %10.2fms, min: "
-            "%10.2fms\n\n",
-            (double)avgDelay / 1000.0, (double)maxDelay / 1000.0,
-            (double)minDelay / 1000.0);
+            "insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, p95: "
+            "%5.2fms, p99: %5.2fms, max: %5.2fms\n\n",
+            (double)minDelay / 1000.0, (double)avgDelay / 1000.0,
+            (double)get_percentile_delay(&total_delay_list, 90) / 1000.0,
+            (double)get_percentile_delay(&total_delay_list, 95) / 1000.0,
+            (double)get_percentile_delay(&total_delay_list, 99) / 1000.0,
+            (double)maxDelay / 1000.0);
 
         if (g_arguments->fpOfInsertResult) {
-            fprintf(g_arguments->fpOfInsertResult,
-                    "insert delay, avg:%10.2fms, max: %10.2fms, min: "
-                    "%10.2fms\n\n",
-                    (double)avgDelay / 1000.0, (double)maxDelay / 1000.0,
-                    (double)minDelay / 1000.0);
+            fprintf(
+                g_arguments->fpOfInsertResult,
+                "insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, p95: "
+                "%5.2fms, p99: %5.2fms, max: %5.2fms\n\n",
+                (double)minDelay / 1000.0, (double)avgDelay / 1000.0,
+                (double)get_percentile_delay(&total_delay_list, 90) / 1000.0,
+                (double)get_percentile_delay(&total_delay_list, 95) / 1000.0,
+                (double)get_percentile_delay(&total_delay_list, 99) / 1000.0,
+                (double)maxDelay / 1000.0);
         }
     }
+    delay_list_destroy(&total_delay_list);
 
     return 0;
 }
