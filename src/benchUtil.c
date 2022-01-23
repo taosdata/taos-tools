@@ -136,7 +136,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 
 int convertHostToServAddr(char *host, uint16_t port,
                           struct sockaddr_in *serv_addr) {
-    uint16_t        rest_port = port + TSDB_PORT_HTTP;
+    debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host, port);
     struct hostent *server = gethostbyname(host);
     if ((server == NULL) || (server->h_addr == NULL)) {
         errorPrint("%s", "no such host");
@@ -144,7 +144,7 @@ int convertHostToServAddr(char *host, uint16_t port,
     }
     memset(serv_addr, 0, sizeof(struct sockaddr_in));
     serv_addr->sin_family = AF_INET;
-    serv_addr->sin_port = htons(rest_port);
+    serv_addr->sin_port = htons(port);
 #ifdef WINDOWS
     serv_addr->sin_addr.s_addr = inet_addr(host);
 #else
@@ -361,9 +361,15 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
     response_buf = calloc(1, response_length);
 
-    int r =
-        snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
-                 rest_port, g_arguments->base64_buf, strlen(sqlstr), sqlstr);
+    int r;
+    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
+        stbInfo->tcpTransfer) {
+        r = snprintf(request_buf, req_buf_len, "%s", sqlstr);
+    } else {
+        r = snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
+                     rest_port, g_arguments->base64_buf, strlen(sqlstr),
+                     sqlstr);
+    }
     if (r >= req_buf_len) {
         free(request_buf);
         ERROR_EXIT("too long request");
@@ -387,6 +393,12 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         if (bytes == 0) break;
         sent += bytes;
     } while (sent < req_str_len);
+
+    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
+        stbInfo->iface == SML_REST_IFACE && stbInfo->tcpTransfer) {
+        code = 0;
+        goto free_of_post;
+    }
 
     resp_len = response_length - 1;
     received = 0;

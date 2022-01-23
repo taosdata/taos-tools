@@ -568,6 +568,17 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->lineProtocol = TSDB_SML_LINE_PROTOCOL;
             }
 
+            cJSON *transferProtocol =
+                cJSON_GetObjectItem(stbInfo, "tcp_transfer");
+            if (transferProtocol && transferProtocol->type == cJSON_String &&
+                transferProtocol->valuestring != NULL) {
+                if (0 == strcasecmp(transferProtocol->valuestring, "yes")) {
+                    superTable->tcpTransfer = true;
+                }
+            } else {
+                superTable->tcpTransfer = false;
+            }
+
             cJSON *childTbl_limit =
                 cJSON_GetObjectItem(stbInfo, "childtable_limit");
             if (childTbl_limit && childTbl_limit->type == cJSON_Number) {
@@ -730,6 +741,11 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
     cJSON *port = cJSON_GetObjectItem(json, "port");
     if (port && port->type == cJSON_Number) {
         g_arguments->port = (uint16_t)port->valueint;
+    }
+
+    cJSON *telnet_tcp_port = cJSON_GetObjectItem(json, "telnet_tcp_port");
+    if (telnet_tcp_port && telnet_tcp_port->type == cJSON_Number) {
+        g_arguments->telnet_tcp_port = (uint16_t)telnet_tcp_port->valueint;
     }
 
     cJSON *user = cJSON_GetObjectItem(json, "user");

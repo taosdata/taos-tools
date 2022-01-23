@@ -78,17 +78,12 @@
 #define COND_BUF_LEN (BUFFER_SIZE - 30)
 #define COL_BUFFER_LEN ((TSDB_COL_NAME_LEN + 15) * TSDB_MAX_COLUMNS)
 
-#define MAX_USERNAME_SIZE 64
-#define MAX_HOSTNAME_SIZE \
-    253  // https://man7.org/linux/man-pages/man7/hostname.7.html
-#define MAX_TB_NAME_SIZE 64
 #define OPT_ABORT 1            /* –abort */
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
 #define MAX_PATH_LEN 4096
 
 #define DEFAULT_START_TIME 1500000000000
-
-#define MAX_PREPARED_RAND 1000000
+#define TELNET_TCP_PORT 6046
 #define INT_BUFF_LEN 12
 #define BIGINT_BUFF_LEN 21
 #define SMALLINT_BUFF_LEN 8
@@ -100,21 +95,15 @@
 #define TIMESTAMP_BUFF_LEN 21
 #define PRINT_STAT_INTERVAL 30 * 1000
 
-#define MAX_NUM_COLUMNS \
-    (TSDB_MAX_COLUMNS - 1)  // exclude first column timestamp
-
 #define MAX_DB_COUNT 8
 #define MAX_SUPER_TABLE_COUNT 200
 
 #define MAX_QUERY_SQL_COUNT 100
 
-#define MAX_DATABASE_COUNT 256
 #define MAX_JSON_BUFF 6400000
 
 #define INPUT_BUF_LEN 256
 #define EXTRA_SQL_LEN 256
-#define TBNAME_PREFIX_LEN \
-    (TSDB_TABLE_NAME_LEN - 20)  // 20 characters reserved for seq
 #define SMALL_BUFF_LEN 8
 #define DATATYPE_BUFF_LEN (SMALL_BUFF_LEN * 3)
 
@@ -126,7 +115,6 @@
 #define DEFAULT_TB_PREFIX "d"
 #define DEFAULT_OUTPUT "./output.txt"
 #define DEFAULT_BINWIDTH 64
-#define DEFAULT_QUERY_TIME 1
 #define DEFAULT_PREPARED_RAND 10000
 #define DEFAULT_REQ_PER_REQ 30000
 #define DEFAULT_INSERT_ROWS 10000
@@ -330,6 +318,7 @@ typedef struct SSuperTable_S {
     char *      stmt_buffer;
     char **     stmt_col_string_grid;
     char **     stmt_tag_string_grid;
+    bool        tcpTransfer;
 } SSuperTable;
 
 typedef struct {
@@ -434,6 +423,7 @@ typedef struct SArguments_S {
     int32_t            test_mode;
     char *             host;
     int16_t            port;
+    int16_t            telnet_tcp_port;
     char *             user;
     char *             password;
     bool               answer_yes;
