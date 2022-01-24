@@ -666,10 +666,12 @@ static int32_t partition(uint64_t list[], int32_t left, int32_t right) {
     return left;
 }
 
-void qksort(uint64_t list[], uint64_t left, uint64_t right) {
+void qksort(uint64_t list[], int32_t left, int32_t right) {
     if (left < right) {
         int32_t index = partition(list, left, right);
+        debugPrint("qksort(list, %d, %d)\n", left, index - 1);
         qksort(list, left, index - 1);
+        debugPrint("qksort(list, %d, %d)\n", index + 1, right);
         qksort(list, index + 1, right);
     }
 }
