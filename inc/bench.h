@@ -558,8 +558,7 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     int64_t childTblCountOfSuperTbl);
 void    delay_list_init(delayList *list);
 void    delay_list_destroy(delayList *list);
-void sorted_insert_delay_list(delayList *target_list, delayList *source_list);
-uint64_t get_percentile_delay(delayList *list, int percentile);
+void    qksort(uint64_t list[], uint64_t left, uint64_t right);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

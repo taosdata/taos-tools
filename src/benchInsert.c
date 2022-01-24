@@ -1767,11 +1767,10 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     uint64_t  maxDelay = 0;
     uint64_t  minDelay = UINT64_MAX;
     uint64_t  cntDelay = 0;
-    delayList total_delay_list;
-    delay_list_init(&total_delay_list);
-    double   avgDelay = 0;
-    uint64_t totalInsertRows = 0;
-    uint64_t totalAffectedRows = 0;
+    uint64_t *total_delay_list;
+    double    avgDelay = 0;
+    uint64_t  totalInsertRows = 0;
+    uint64_t  totalAffectedRows = 0;
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
@@ -1820,9 +1819,10 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
         cntDelay += pThreadInfo->cntDelay;
-        display_delay_list(&(pThreadInfo->delayList));
-        sorted_insert_delay_list(&total_delay_list, &(pThreadInfo->delayList));
-        delay_list_destroy(&(pThreadInfo->delayList));
+        if (g_arguments->debug_print) {
+            display_delay_list(&(pThreadInfo->delayList));
+        }
+
         if (pThreadInfo->maxDelay > maxDelay) {
             maxDelay = pThreadInfo->maxDelay;
         }
@@ -1831,8 +1831,28 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
             minDelay = pThreadInfo->minDelay;
         }
     }
-    display_delay_list(&total_delay_list);
 
+    total_delay_list = calloc(cntDelay, sizeof(uint64_t));
+    uint64_t index = 0;
+    for (int i = 0; i < threads; ++i) {
+        threadInfo *pThreadInfo = infos + i;
+        delayNode * node = pThreadInfo->delayList.head;
+        for (int j = 0; j < pThreadInfo->delayList.size; ++j) {
+            total_delay_list[index] = node->value;
+            node = node->next;
+            index++;
+        }
+        delay_list_destroy(&(pThreadInfo->delayList));
+    }
+
+    if (g_arguments->debug_print) {
+        for (int i = 0; i < cntDelay; ++i) {
+            debugPrint("total_delay_list[%d]: %" PRIu64 "\n", i,
+                       total_delay_list[i]);
+        }
+    }
+
+    qksort(total_delay_list, 0, (int32_t)(cntDelay - 1));
     free(pids);
     free(infos);
 
@@ -1868,9 +1888,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
             "insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, p95: "
             "%5.2fms, p99: %5.2fms, max: %5.2fms\n\n",
             (double)minDelay / 1000.0, (double)avgDelay / 1000.0,
-            (double)get_percentile_delay(&total_delay_list, 90) / 1000.0,
-            (double)get_percentile_delay(&total_delay_list, 95) / 1000.0,
-            (double)get_percentile_delay(&total_delay_list, 99) / 1000.0,
+            (double)total_delay_list[(int32_t)(cntDelay * 0.9)] / 1000.0,
+            (double)total_delay_list[(int32_t)(cntDelay * 0.95)] / 1000.0,
+            (double)total_delay_list[(int32_t)(cntDelay * 0.99)] / 1000.0,
             (double)maxDelay / 1000.0);
 
         if (g_arguments->fpOfInsertResult) {
@@ -1879,14 +1899,13 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                 "insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, p95: "
                 "%5.2fms, p99: %5.2fms, max: %5.2fms\n\n",
                 (double)minDelay / 1000.0, (double)avgDelay / 1000.0,
-                (double)get_percentile_delay(&total_delay_list, 90) / 1000.0,
-                (double)get_percentile_delay(&total_delay_list, 95) / 1000.0,
-                (double)get_percentile_delay(&total_delay_list, 99) / 1000.0,
+                (double)total_delay_list[(int32_t)(cntDelay * 0.9)] / 1000.0,
+                (double)total_delay_list[(int32_t)(cntDelay * 0.95)] / 1000.0,
+                (double)total_delay_list[(int32_t)(cntDelay * 0.99)] / 1000.0,
                 (double)maxDelay / 1000.0);
         }
     }
-    delay_list_destroy(&total_delay_list);
-
+    tmfree(total_delay_list);
     return 0;
 }
 
