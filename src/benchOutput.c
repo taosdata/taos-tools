@@ -249,7 +249,7 @@ void printfInsertMetaToFileStream(FILE *fp) {
                         : "no");
             fprintf(fp, "      tagsFile:          \033[33m%s\033[0m\n",
                     g_arguments->db[i].superTbls[j].tagsFile);
-            fprintf(fp, "      partialColCount:   \033[33m%d\033[0m\n        ",
+            fprintf(fp, "      partialColCount:   \033[33m%d\033[0m\n",
                     g_arguments->db[i].superTbls[j].partialColumnNum);
             fprintf(fp, "      columnCount:       \033[33m%d\033[0m\n        ",
                     g_arguments->db[i].superTbls[j].columnCount);

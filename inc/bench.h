@@ -122,7 +122,6 @@
 #define DEFAULT_CREATE_BATCH 10
 #define DEFAULT_SUB_INTERVAL 10000
 #define DEFAULT_QUERY_INTERVAL 10000
-
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
 #if _MSC_VER <= 1900
@@ -482,6 +481,7 @@ typedef struct SThreadInfo_S {
     uint64_t   lastTs;
     int64_t    samplePos;
     uint64_t   totalInsertRows;
+    uint64_t   totalRows;
     uint64_t   totalAffectedRows;
     uint64_t   cntDelay;
     uint64_t   totalDelay;
@@ -501,17 +501,18 @@ typedef struct SThreadInfo_S {
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
     delayList  delayList;
+    int32_t    progress;
 } threadInfo;
 
 /* ************ Global variables ************  */
-extern char *         g_aggreFuncDemo[];
-extern char *         g_aggreFunc[];
-extern SArguments *   g_arguments;
-extern SQueryMetaInfo g_queryInfo;
-extern bool           g_fail;
-extern char           configDir[];
-extern cJSON *        root;
-extern uint64_t       g_memoryUsage;
+extern char *          g_aggreFuncDemo[];
+extern char *          g_aggreFunc[];
+extern SArguments *    g_arguments;
+extern SQueryMetaInfo  g_queryInfo;
+extern bool            g_fail;
+extern char            configDir[];
+extern cJSON *         root;
+extern uint64_t        g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
@@ -528,6 +529,7 @@ void queryAggrFunc();
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
+void    print_progress_bar(threadInfo *pThreadInfo, bool records);
 void    encode_base_64();
 int     init_taos_list();
 TAOS *  select_one_from_pool(char *db_name);
@@ -558,8 +560,7 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     int64_t childTblCountOfSuperTbl);
 void    delay_list_init(delayList *list);
 void    delay_list_destroy(delayList *list);
-void sorted_insert_delay_list(delayList *target_list, delayList *source_list);
-uint64_t get_percentile_delay(delayList *list, int percentile);
+void    qksort(uint64_t list[], int32_t left, int32_t right);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
