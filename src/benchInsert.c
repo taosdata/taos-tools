@@ -756,7 +756,8 @@ void postFreeResource() {
             tmfree(database[i].superTbls[j].tagDataBuf);
             tmfree(database[i].superTbls[j].stmt_buffer);
             tmfree(database[i].superTbls[j].partialColumnNameBuf);
-            if (g_arguments->test_mode == INSERT_TEST) {
+            if (g_arguments->test_mode == INSERT_TEST &&
+                database[i].superTbls[j].insertRows != 0) {
                 for (int64_t k = 0; k < database[i].superTbls[j].childTblCount;
                      ++k) {
                     tmfree(database[i].superTbls[j].childTblName[k]);
@@ -1941,6 +1942,9 @@ int insertTestProcess() {
     // create sub threads for inserting data
     for (int i = 0; i < g_arguments->dbCount; i++) {
         for (uint64_t j = 0; j < database[i].superTblCount; j++) {
+            if (database[i].superTbls[j].insertRows == 0) {
+                continue;
+            }
             if (startMultiThreadInsertData(i, j)) {
                 return -1;
             }
