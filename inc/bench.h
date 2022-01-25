@@ -436,7 +436,7 @@ typedef struct SArguments_S {
     int32_t            nthreads_pool;
     int32_t            nthreads;
     int64_t            prepared_rand;
-    int32_t            reqPerReq;
+    uint32_t           reqPerReq;
     int64_t            insert_interval;
     bool               demo_mode;
     bool               aggr_func;
