@@ -356,7 +356,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'r':
             arguments->reqPerReq = atoi(arg);
-            if (arguments->reqPerReq <= 0) {
+            if (arguments->reqPerReq <= 0 ||
+                arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
                 errorPrint("Invalid -r: %s, will auto set to default(30000)\n",
                            arg);
                 arguments->reqPerReq = DEFAULT_REQ_PER_REQ;

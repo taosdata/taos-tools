@@ -435,7 +435,7 @@ typedef struct SArguments_S {
     int32_t            nthreads_pool;
     int32_t            nthreads;
     int64_t            prepared_rand;
-    int32_t            reqPerReq;
+    uint32_t           reqPerReq;
     int64_t            insert_interval;
     bool               demo_mode;
     bool               aggr_func;
@@ -505,14 +505,14 @@ typedef struct SThreadInfo_S {
 } threadInfo;
 
 /* ************ Global variables ************  */
-extern char *          g_aggreFuncDemo[];
-extern char *          g_aggreFunc[];
-extern SArguments *    g_arguments;
-extern SQueryMetaInfo  g_queryInfo;
-extern bool            g_fail;
-extern char            configDir[];
-extern cJSON *         root;
-extern uint64_t        g_memoryUsage;
+extern char *         g_aggreFuncDemo[];
+extern char *         g_aggreFunc[];
+extern SArguments *   g_arguments;
+extern SQueryMetaInfo g_queryInfo;
+extern bool           g_fail;
+extern char           configDir[];
+extern cJSON *        root;
+extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \

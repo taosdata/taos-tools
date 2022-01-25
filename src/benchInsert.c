@@ -1427,15 +1427,6 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         errorPrint("%s", "schemaless cannot work without stable\n");
         return -1;
     }
-    if (g_arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
-        infoPrint("number of records per request value %u > %d\n\n",
-                  g_arguments->reqPerReq, MAX_RECORDS_PER_REQ);
-        infoPrint(
-            "        number of records per request value will be set to "
-            "%d\n\n",
-            MAX_RECORDS_PER_REQ);
-        g_arguments->reqPerReq = MAX_RECORDS_PER_REQ;
-    }
 
     if (stbInfo->interlaceRows > g_arguments->reqPerReq) {
         infoPrint(
