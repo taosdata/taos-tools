@@ -46,7 +46,7 @@
 #define COMMAND_SIZE            65536
 #define MAX_RECORDS_PER_REQ     32766
 
-static char    **g_tsDumpInSqlFiles     = NULL;
+static char    **g_tsDumpInDebugFiles     = NULL;
 static char      g_tsCharset[63] = {0};
 static char      g_configDir[MAX_FILE_NAME_LEN] = "/etc/taos";
 
@@ -2165,7 +2165,7 @@ static void freeFileList(enum enWHICH which, int64_t count)
             break;
 
         case WHICH_UNKNOWN:
-            fileList = g_tsDumpInSqlFiles;
+            fileList = g_tsDumpInDebugFiles;
             break;
 
         default:
@@ -2197,12 +2197,12 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
 
     switch (which) {
         case WHICH_UNKNOWN:
-            g_tsDumpInSqlFiles = (char **)calloc(count, sizeof(char *));
-            assert(g_tsDumpInSqlFiles);
+            g_tsDumpInDebugFiles = (char **)calloc(count, sizeof(char *));
+            assert(g_tsDumpInDebugFiles);
 
             for (int64_t i = 0; i < count; i++) {
-                g_tsDumpInSqlFiles[i] = calloc(1, MAX_FILE_NAME_LEN);
-                assert(g_tsDumpInSqlFiles[i]);
+                g_tsDumpInDebugFiles[i] = calloc(1, MAX_FILE_NAME_LEN);
+                assert(g_tsDumpInDebugFiles[i]);
             }
             break;
 
@@ -2262,7 +2262,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
                             if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                                 continue;
                             }
-                            tstrncpy(g_tsDumpInSqlFiles[nCount],
+                            tstrncpy(g_tsDumpInDebugFiles[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
@@ -2712,6 +2712,7 @@ static int64_t writeResultToAvro(
     int64_t count = 0;
 
     bool printDot = true;
+
     while ((row = taos_fetch_row(res)) != NULL) {
         int32_t *length = taos_fetch_lengths(res);
 
@@ -2900,9 +2901,7 @@ static int64_t writeResultToAvro(
                         avro_value_set_branch(&value, 1, &branch);
                         char *binTemp = calloc(1, 1+fields[col].bytes);
                         assert(binTemp);
-                        strncpy(binTemp, (char*)row[col],
-                                min(fields[col].bytes, length[col]));
-                        *((char*)row[col] + fields[col].bytes) = '\0';
+                        strncpy(binTemp, (char*)row[col], length[col]);
                         avro_value_set_string(&branch, binTemp);
                         free(binTemp);
                     }
@@ -4368,7 +4367,7 @@ static int dumpInAvroWorkThreads(char *whichExt)
     return 0;
 }
 
-static int64_t writeResultToSql(TAOS_RES *res, FILE *fp,
+static int64_t writeResultDebug(TAOS_RES *res, FILE *fp,
         char *dbName, char *tbName)
 {
     int64_t    totalRows     = 0;
@@ -4614,7 +4613,7 @@ static int64_t dumpTableData(
 
         totalRows = writeResultToAvro(avroFilename, tbName, jsonSchema, res);
     } else {
-        totalRows = writeResultToSql(res, fp, dbName, tbName);
+        totalRows = writeResultDebug(res, fp, dbName, tbName);
     }
 
     taos_free_result(res);
@@ -5481,7 +5480,7 @@ _exit_no_charset:
 }
 
 // ========  dumpIn support multi threads functions ================================//
-static int64_t dumpInOneSqlFile(
+static int64_t dumpInOneDebugFile(
         TAOS* taos, FILE* fp, char* fcharset,
         char* fileName) {
     int       read_len = 0;
@@ -5551,16 +5550,16 @@ static int64_t dumpInOneSqlFile(
     return failed;
 }
 
-static void* dumpInSqlWorkThreadFp(void *arg)
+static void* dumpInDebugWorkThreadFp(void *arg)
 {
     threadInfo *pThread = (threadInfo*)arg;
-    SET_THREAD_NAME("dumpInSqlWorkThrd");
+    SET_THREAD_NAME("dumpInDebugWorkThrd");
     debugPrint2("[%d] Start to process %"PRId64" files from %"PRId64"\n",
                     pThread->threadIndex, pThread->count, pThread->from);
 
     for (int64_t i = 0; i < pThread->count; i++) {
         char sqlFile[MAX_PATH_LEN];
-        sprintf(sqlFile, "%s/%s", g_args.inpath, g_tsDumpInSqlFiles[pThread->from + i]);
+        sprintf(sqlFile, "%s/%s", g_args.inpath, g_tsDumpInDebugFiles[pThread->from + i]);
 
         FILE* fp = openDumpInFile(sqlFile);
         if (NULL == fp) {
@@ -5569,7 +5568,7 @@ static void* dumpInSqlWorkThreadFp(void *arg)
             continue;
         }
 
-        int64_t rows = dumpInOneSqlFile(
+        int64_t rows = dumpInOneDebugFile(
                 pThread->taos, fp, g_tsCharset,
                 sqlFile);
         if (rows > 0) {
@@ -5587,7 +5586,7 @@ static void* dumpInSqlWorkThreadFp(void *arg)
     return NULL;
 }
 
-static int dumpInSqlWorkThreads()
+static int dumpInDebugWorkThreads()
 {
     int ret = 0;
     int32_t threads = g_args.thread_num;
@@ -5650,7 +5649,7 @@ static int dumpInSqlWorkThreads()
         }
 
         if (pthread_create(pids + t, NULL,
-                    dumpInSqlWorkThreadFp, (void*)pThread) != 0) {
+                    dumpInDebugWorkThreadFp, (void*)pThread) != 0) {
             errorPrint("%s() LN%d, thread[%d] failed to start\n",
                     __func__, __LINE__, pThread->threadIndex);
             exit(EXIT_FAILURE);
@@ -5700,7 +5699,7 @@ static int dumpInDbs()
     debugPrint("Success Open input file: %s\n", dbsSql);
     loadFileCharset(fp, g_tsCharset);
 
-    int64_t rows = dumpInOneSqlFile(
+    int64_t rows = dumpInOneDebugFile(
             taos, fp, g_tsCharset, dbsSql);
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
@@ -5736,7 +5735,7 @@ static int dumpIn() {
             }
         }
     } else {
-        ret = dumpInSqlWorkThreads();
+        ret = dumpInDebugWorkThreads();
     }
 
     return ret;
