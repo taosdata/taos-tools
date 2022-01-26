@@ -446,7 +446,7 @@ skip:
 
 static int createDatabase(int db_index) {
     char       command[BUFFER_SIZE] = "\0";
-    SDataBase *database = g_arguments->db + db_index * sizeof(SDataBase);
+    SDataBase *database = &(g_arguments->db[db_index]);
     TAOS *     taos = NULL;
     taos = select_one_from_pool(NULL);
     sprintf(command, "drop database if exists %s;", database->dbName);
@@ -534,13 +534,11 @@ static int createDatabase(int db_index) {
 }
 
 static void *createTable(void *sarg) {
-    threadInfo *pThreadInfo = (threadInfo *)sarg;
-    SDataBase * database =
-        g_arguments->db + pThreadInfo->db_index * sizeof(SDataBase);
-    SSuperTable *stbInfo =
-        database->superTbls + pThreadInfo->stb_index * sizeof(SSuperTable);
     int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
+    threadInfo * pThreadInfo = (threadInfo *)sarg;
+    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
+    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     prctl(PR_SET_NAME, "createTable");
     uint64_t lastPrintTime = taosGetTimestampMs();
     pThreadInfo->buffer = calloc(1, TSDB_MAX_SQL_LEN);
