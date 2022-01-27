@@ -644,54 +644,53 @@ void delay_list_destroy(delayList *list) {
     }
 }
 
-void sorted_insert_delay_list(delayList *target_list, delayList *source_list) {
-    uint64_t   size = source_list->size;
-    delayNode *node = source_list->head;
-    delayNode *compare_node;
-    delayNode *previous_node;
-    while (size > 0) {
-        delayNode *new_node = calloc(1, sizeof(delayNode));
-        new_node->value = node->value;
-        if (target_list->head == NULL) {
-            target_list->head = new_node;
-            target_list->tail = new_node;
-        } else {
-            compare_node = target_list->head;
-            uint64_t i;
-            for (i = 0; i < target_list->size; ++i) {
-                if (new_node->value <= compare_node->value) {
-                    if (i == 0) {
-                        new_node->next = target_list->head;
-                        target_list->head = new_node;
-                    } else {
-                        new_node->next = previous_node->next;
-                        previous_node->next = new_node;
-                    }
-                    break;
-                }
-                previous_node = compare_node;
-                compare_node = compare_node->next;
-            }
-            if (i == target_list->size) {
-                target_list->tail->next = new_node;
-                target_list->tail = new_node;
-            }
+static int32_t partition(uint64_t list[], int32_t left, int32_t right) {
+    uint64_t x = list[left];
+    while (left < right) {
+        while (left < right && list[right] >= x) {
+            right--;
         }
-        node = node->next;
-        target_list->size++;
-        size--;
+        if (left < right) {
+            list[left] = list[right];
+            left++;
+        }
+        while (left < right && list[left] < x) {
+            left++;
+        }
+        if (left < right) {
+            list[right] = list[left];
+            right--;
+        }
+    }
+    list[left] = x;
+    return left;
+}
+
+void qksort(uint64_t list[], int32_t left, int32_t right) {
+    if (left < right) {
+        int32_t index = partition(list, left, right);
+        debugPrint("qksort(list, %d, %d)\n", left, index - 1);
+        qksort(list, left, index - 1);
+        debugPrint("qksort(list, %d, %d)\n", index + 1, right);
+        qksort(list, index + 1, right);
     }
 }
 
-uint64_t get_percentile_delay(delayList *list, int percentile) {
-    if (percentile > 100) {
-        percentile = 100;
+void print_progress_bar(threadInfo *pThreadInfo, bool records) {
+    printf("Thread[%d]: [", pThreadInfo->threadID);
+    for (int i = 0; i < pThreadInfo->progress; ++i) {
+        printf("#");
     }
-    int        rank = list->size * percentile / 100;
-    delayNode *node = list->head;
-    while (rank > 0) {
-        node = node->next;
-        rank--;
+    for (int i = 0; i < 100 - pThreadInfo->progress; ++i) {
+        printf(" ");
     }
-    return node->value;
+    if (records) {
+        printf("][%d%%][%" PRIu64 "/%" PRIu64 "(rows)]\n",
+               pThreadInfo->progress, pThreadInfo->totalInsertRows,
+               pThreadInfo->totalRows);
+    } else {
+        printf("][%d%%][%" PRId64 "/%" PRId64 "(tables)]\n",
+               pThreadInfo->progress, pThreadInfo->tables_created,
+               pThreadInfo->ntables);
+    }
 }
