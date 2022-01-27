@@ -1,6 +1,8 @@
 # taosTools
 
-[![codecov](https://codecov.io/gh/taosdata/taos-tools/branch/develop/graph/badge.svg?token=W7Z6XKIKV9)](https://codecov.io/gh/taosdata/taos-tools)
+[![CI](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml)
+[![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
+
 taosTools 是用于 TDengine 的辅助工具软件集合。目前它包含 taosBenchmark 和 taosdump 两个工具软件。
 
 taosBenchmark （曾命名为 taosdemo）可以用于对 TDengine 进行全功能的写入、查询、订阅等功能的压力测试。详细使用方法请参考[taosBenchmark用户手册](https://github.com/taosdata/taos-tools/blob/develop/taosbenchmark-user-manual-CN.md)。
