@@ -122,6 +122,7 @@
 #define DEFAULT_CREATE_BATCH 10
 #define DEFAULT_SUB_INTERVAL 10000
 #define DEFAULT_QUERY_INTERVAL 10000
+
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
 #if _MSC_VER <= 1900
@@ -481,7 +482,6 @@ typedef struct SThreadInfo_S {
     uint64_t   lastTs;
     int64_t    samplePos;
     uint64_t   totalInsertRows;
-    uint64_t   totalRows;
     uint64_t   totalAffectedRows;
     uint64_t   cntDelay;
     uint64_t   totalDelay;
@@ -501,7 +501,6 @@ typedef struct SThreadInfo_S {
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
     delayList  delayList;
-    int32_t    progress;
 } threadInfo;
 
 /* ************ Global variables ************  */
@@ -529,7 +528,6 @@ void queryAggrFunc();
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
-void    print_progress_bar(threadInfo *pThreadInfo, bool records);
 void    encode_base_64();
 int     init_taos_list();
 TAOS *  select_one_from_pool(char *db_name);
