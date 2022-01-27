@@ -675,22 +675,3 @@ void qksort(uint64_t list[], int32_t left, int32_t right) {
         qksort(list, index + 1, right);
     }
 }
-
-void print_progress_bar(threadInfo *pThreadInfo, bool records) {
-    printf("Thread[%d]: [", pThreadInfo->threadID);
-    for (int i = 0; i < pThreadInfo->progress; ++i) {
-        printf("#");
-    }
-    for (int i = 0; i < 100 - pThreadInfo->progress; ++i) {
-        printf(" ");
-    }
-    if (records) {
-        printf("][%d%%][%" PRIu64 "/%" PRIu64 "(rows)]\n",
-               pThreadInfo->progress, pThreadInfo->totalInsertRows,
-               pThreadInfo->totalRows);
-    } else {
-        printf("][%d%%][%" PRId64 "/%" PRId64 "(tables)]\n",
-               pThreadInfo->progress, pThreadInfo->tables_created,
-               pThreadInfo->ntables);
-    }
-}
