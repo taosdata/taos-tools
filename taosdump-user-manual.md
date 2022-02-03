@@ -1,33 +1,45 @@
-## taosdump
+# taosdump
 
-### Introduction
+## Introduction
 
-taosdump is a tool application to support dump out data from the running TDengine server or cluster and restore the dumped data into a running TDengine server or cluster.
+taosdump is a tool application to support dump out data from the running
+TDengine server or cluster and restore the dumped data into a running
+TDengine server or cluster.
 
-taosdump can be used to dump the database(s), super table(s), or normal table(s) as the logical unit to backup. taosdump can backup specified data records of the database(s), super table(s) or normal table(s) with a specified time period. taosdump can backup data to the specified directory. If no location is specified, taosdump will back up the data to the current directory by default. If the specified location already has data files, taosdump will prompt the user that the backup action may be overwritten again. If you see the prompt, please proceed with caution.
+taosdump can be used to dump the database(s), super table(s), or normal
+table(s) as the logical unit to backup. taosdump can backup specified data
+records of the database(s), super table(s) or normal table(s) with a specified
+time period. taosdump can backup data to the specified directory. If no
+location is specified, taosdump will back up the data to the current directory
+by default. If the specified location already has data files, taosdump will
+prompt the user that the backup action may be overwritten again. If you see
+the prompt, please proceed with caution.
 
-taosdump is a logical backup tool. It does not intend to or to be expected to back up any raw data, the environment settings, hardware information, the configuration of server, or the topology of the cluster.
+taosdump is a logical backup tool. It does not intend to or to be expected to
+back up any raw data, the environment settings, hardware information, the
+configuration of server, or the topology of the cluster.
 
-taosdump uses the [Apache AVRO](https://avro.apache.org/) as the data file format to store the backup data.
+taosdump uses the [Apache AVRO](https://avro.apache.org/) as the data file
+format to store the backup data.
 
+## Common scenarios
 
-### Common scenarios
-
-#### backup
+### backup
 
 1. taosdump backups can specify all databases with the -A or --all-databases parameter;
-2. or use the `-D db1,db2,... ` parameter; or `-D db1, db2, ... `
+2. or use the `-D db1,db2,...` parameter; or `-D db1, db2, ...`
 3. use `dbname stbname1 stbname2 tbname1 tbname2 ...` parameters sequence, note that the first parameter of this input sequence must be the database name and only the database name can be specified here, and the second and subsequent parameters are the names of the super or normal tables in the database, separated by spaces.
 4. TDengine servers or clusters usually contain a system database named log, the data in this database is the data that TDengine runs itself, and taosdump does not back up the log library by default. If you have a specific need to back up the log database, you can use the `-a` or `--allow-sys` command line parameter.
 
-#### restore
+### restore
 
 1. taosdump restores data using `-i` and the path where the data file is located as an argument to backup the data file under the specified path. As mentioned earlier, you should not use the same directory to backup different data sets, nor should you backup the same data set multiple times in the same path, otherwise the backup data will be overwritten or backed up multiple times.
 2. taosdump uses the TDengine stmt binding API internally for writing recovery data, and currently uses 16384 as a write batch to improve data recovery performance. If the backup data has more columns of data, it may cause WAL size exceeds limit error, you can try by adjusting to a smaller value with `-B` parameter.
 
-### Details of command line arguments
+## Details of command line arguments
 
 Following is the list of taosdump command line arguments in details:
+
 ```
 Usage: taosdump [OPTION...] dbname [tbname ...]
   or:  taosdump [OPTION...] --databases db1,db2,...

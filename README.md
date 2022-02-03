@@ -1,28 +1,47 @@
 # taosTools
+
 [![CI](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml)
 [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
 
 taosTools are some useful tool collections for TDengine.
+ It includes `taosBenchmark` and `taosdump` right now.
 
-# How to build from source?
+taosBenchmark (once named taosdemo) can be used to stress test TDengine
+ for full-featured writes, queries, subscriptions, etc. Please refer to
+ the [taosBenchmark User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosbenchmark-user-manual.md)
+ for details on how to use it.
 
-## install dependencies
+taosdump is a tool for backing up and restoring TDengine data to/from local directory.
+ Please refer to the [taosdump User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosdump-user-manual.md)
+ for details on how to use it.
 
-### For Ubuntu/Debian system
+## How to build from source
+
+### install dependencies
+
+#### For Ubuntu/Debian system
+
 ```
 sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 ```
 
-### For CentOS
+#### For CentOS
+
 ```
 sudo yum install zlib-devel xz-devel snappy-devel jansson-devel pkgconfig libatomic
 ```
-Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)), it lead a cmake prompt libsnappy not found. But snappy will works well.
 
-## install TDengine client
-Please download TDengine client package from [taosdata.com](https://www.taosdata.com/cn/all-downloads/) or compile TDengine source from [github](github.com/taosdata/TDengine) and install to your system.
+Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)),
+ it lead a cmake prompt libsnappy not found. But snappy will works well.
 
-## clone source code and compile
+### install TDengine client
+
+Please download TDengine client package from [taosdata.com](https://www.taosdata.com/cn/all-downloads/)
+ or compile TDengine source from [github](github.com/taosdata/TDengine)
+ and install to your system.
+
+### clone source code and compile
+
 ```
 git clone https://github.com/taosdata/taos-tools
 cd taos-tools
@@ -33,7 +52,8 @@ cmake ..
 make
 ```
 
-## install
+### install
+
 ```
 sudo make install
 ```

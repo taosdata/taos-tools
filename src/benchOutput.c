@@ -47,9 +47,12 @@ void printfInsertMetaToFileStream(FILE *fp) {
             fp,
             "\ntaosBenchmark is simulating random data as you request..\n\n");
     }
-
-    fprintf(fp, "host:                       \033[33m%s:%u\033[0m\n",
-            g_arguments->host, g_arguments->port);
+    fprintf(fp, "host:                       \033[33m%s\033[0m\n",
+            g_arguments->host);
+    fprintf(fp, "port:                       \033[33m%u\033[0m\n",
+            g_arguments->port);
+    fprintf(fp, "telnet_tcp_port:            \033[33m%u\033[0m\n",
+            g_arguments->telnet_tcp_port);
     fprintf(fp, "user:                       \033[33m%s\033[0m\n",
             g_arguments->user);
     fprintf(fp, "password:                   \033[33m%s\033[0m\n",
@@ -203,7 +206,15 @@ void printfInsertMetaToFileStream(FILE *fp) {
                                TSDB_SML_TELNET_PROTOCOL)
                                   ? "telnet"
                                   : "json");
+                if (g_arguments->db[i].superTbls[j].iface == SML_REST_IFACE &&
+                    g_arguments->db[i].superTbls[j].lineProtocol ==
+                        TSDB_SML_TELNET_PROTOCOL) {
+                    fprintf(fp, "      tcpTransfer:       \033[33m%s\033[0m\n",
+                            g_arguments->db[i].superTbls[j].tcpTransfer ? "yes"
+                                                                        : "no");
+                }
             }
+
             if (g_arguments->db[i].superTbls[j].childTblOffset > 0) {
                 fprintf(fp,
                         "      childTblOffset:    \033[33m%" PRIu64 "\033[0m\n",
@@ -238,7 +249,7 @@ void printfInsertMetaToFileStream(FILE *fp) {
                         : "no");
             fprintf(fp, "      tagsFile:          \033[33m%s\033[0m\n",
                     g_arguments->db[i].superTbls[j].tagsFile);
-            fprintf(fp, "      partialColCount:   \033[33m%d\033[0m\n        ",
+            fprintf(fp, "      partialColCount:   \033[33m%d\033[0m\n",
                     g_arguments->db[i].superTbls[j].partialColumnNum);
             fprintf(fp, "      columnCount:       \033[33m%d\033[0m\n        ",
                     g_arguments->db[i].superTbls[j].columnCount);
@@ -383,4 +394,13 @@ void printStatPerThread(threadInfo *pThreadInfo) {
               pThreadInfo->totalAffectedRows,
               (double)(pThreadInfo->totalAffectedRows /
                        ((double)pThreadInfo->totalDelay / 1000000.0)));
+}
+
+void display_delay_list(delayList *list) {
+    delayNode *index_node = list->head;
+    for (uint64_t i = 0; i < list->size; ++i) {
+        debugPrint("delayList[%" PRIu64 "]: %" PRIu64 "\n", i,
+                   index_node->value);
+        index_node = index_node->next;
+    }
 }

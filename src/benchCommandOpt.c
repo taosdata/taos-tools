@@ -356,7 +356,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
         case 'r':
             arguments->reqPerReq = atoi(arg);
-            if (arguments->reqPerReq <= 0) {
+            if (arguments->reqPerReq <= 0 ||
+                arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
                 errorPrint("Invalid -r: %s, will auto set to default(30000)\n",
                            arg);
                 arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
@@ -369,6 +370,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                            arg);
                 arguments->db->superTbls->childTblCount = DEFAULT_CHILDTABLES;
             }
+            g_arguments->g_totalChildTables =
+                arguments->db->superTbls->childTblCount;
             break;
         case 'n':
             arguments->db->superTbls->insertRows = atol(arg);
@@ -575,6 +578,7 @@ void init_argument() {
     g_arguments->dbCount = 1;
     g_arguments->host = DEFAULT_HOST;
     g_arguments->port = DEFAULT_PORT;
+    g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;
     g_arguments->password = TSDB_DEFAULT_PASS;
     g_arguments->answer_yes = 0;
