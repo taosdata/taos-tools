@@ -2,6 +2,11 @@
 
 #set -x
 
+installDir="/usr/local/taos"
+dumpName="taosdump"
+benchmarkName="taosBenchmark"
+demoName="taosdemo"
+
 source_dir=$1
 
 csudo=""
@@ -10,12 +15,12 @@ if command -v sudo > /dev/null; then
     csudo="sudo "
 fi
 
-[ ! -d /usr/local/taos/bin ] && mkdir -p /usr/local/taos/bin
-${csudo}cp ${source_dir}/build/bin/taosdump /usr/local/taos/bin || echo -e "failed to copy taosdump"
-${csudo}cp ${source_dir}/build/bin/taosBenchmark /usr/local/taos/bin || echo -e "failed to copy taosBenchmark"
-${csudo}ln -sf /usr/local/taos/bin/taosdump /usr/local/bin/taosdump || echo -e "failed to link taosdump"
-${csudo}ln -sf /usr/local/taos/bin/taosBenchmark /usr/local/bin/taosBenchmark || echo -e "failed to link taosBenchmark"
-${csudo}ln -sf /usr/local/taos/bin/taosBenchmark /usr/local/bin/taosdemo || echo -e "failed to link taosBenchmark as taosdemo"
+[ ! -d ${installDir}/bin ] && mkdir -p ${installDir}/bin
+${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin || echo -e "failed to copy ${dumpName}"
+${csudo}cp ${source_dir}/build/bin/${benchmarkName} ${installDir}/bin || echo -e "failed to copy ${benchmarkName}"
+${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} || echo -e "failed to link ${dumpName}"
+${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${benchmarkName} || echo -e "failed to link ${benchmarkName}"
+${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${demoName} || echo -e "failed to link ${benchmarkName} as ${demoName}"
 
 if [ -f ${source_dir}/build/lib/libavro.so.23.0.0 ]; then
     ${csudo}cp -rf ${source_dir}/build/lib/libavro* /usr/local/lib > /dev/null || echo -e "failed to copy avro libraries"
