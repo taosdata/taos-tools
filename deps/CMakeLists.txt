@@ -1,4 +1,11 @@
 
+OPTION(JANSSON_BUILD_DOCS "turn jansson build docs off" OFF)
+ADD_SUBDIRECTORY(jansson)
+
+OPTION(SNAPPY_BUILD_TESTS "turn snappy build tests off" OFF)
+OPTION(SNAPPY_BUILD_BENCHMARKS "turn snappy build benchmarks off" OFF)
+ADD_SUBDIRECTORY(snappy)
+
 INCLUDE(ExternalProject)
 ExternalProject_Add(
     apache-avro
@@ -9,3 +16,4 @@ ExternalProject_Add(
 
 ADD_SUBDIRECTORY(cJsonDemo)
 ADD_SUBDIRECTORY(CUnit)
+

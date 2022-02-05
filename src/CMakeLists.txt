@@ -129,10 +129,13 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         OUTPUT_VARIABLE OS_ID
     )
     MESSAGE(DEBUG "Linux os ID: ${OD_ID}")
+
+    ADD_LIBRARY(avro STATIC IMPORTED)
+    SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
     IF (${OS_ID} MATCHES "alpine")
-        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp)
     ELSE()
-        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread)
     ENDIF()
 
     target_link_libraries(taosBenchmark taos pthread cJsonDemo)
