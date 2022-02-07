@@ -528,6 +528,7 @@ void queryAggrFunc();
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
+int     compare(const void *a, const void *b);
 void    encode_base_64();
 int     init_taos_list();
 TAOS *  select_one_from_pool(char *db_name);
