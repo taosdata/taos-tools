@@ -146,6 +146,16 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
         ENDIF()
 
+        EXECUTE_PROCESS (
+            COMMAND gcc -print-file-name=libstdc++.a
+            OUTPUT_VARIABLE LIBSTDCXX_PATH
+        )
+
+        STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
+        MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
+        ADD_LIBRARY(stdc++ STATIC IMPORTED)
+        SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
+
         IF (${OS_ID} MATCHES "alpine")
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp)
         ELSE()

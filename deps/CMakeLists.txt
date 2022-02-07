@@ -6,6 +6,7 @@ ELSE ()
     OPTION(JANSSON_INSTALL "turn jansson install off" OFF)
     ADD_SUBDIRECTORY(jansson)
 
+    OPTION(BUILD_SHARED_LIBS "turn snappy build shared lib off" OFF)
     OPTION(SNAPPY_BUILD_TESTS "turn snappy build tests off" OFF)
     OPTION(SNAPPY_BUILD_BENCHMARKS "turn snappy build benchmarks off" OFF)
     OPTION(SNAPPY_INSTALL "turn snappy install off" OFF)
