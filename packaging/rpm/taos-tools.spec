@@ -18,7 +18,7 @@ BuildRoot:   %{_tmppath}/%{name}-%{version}-%{release}-root
 #Prefix: /usr/local/taos
 
 #BuildRequires:
-Requires: tdengine jansson snappy
+Requires: tdengine
 
 %description
 Big Data Platform Designed and Optimized for IoT

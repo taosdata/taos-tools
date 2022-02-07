@@ -70,7 +70,7 @@ jobs:
           echo "The uname output was ${{ steps.setup.outputs.uname }}"
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
-          
+
       - name: Checkout TDengine with same branch of taos-tools
         run: |
           echo "The uname output was ${{ steps.setup.outputs.uname }}"
@@ -87,7 +87,8 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-          
+          git submodule update --init --recursive
+
       - name: Build tdengine
         run: |
           echo "The uname output was ${{ steps.setup.outputs.uname }}"

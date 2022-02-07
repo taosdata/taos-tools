@@ -106,36 +106,62 @@ INCLUDE_DIRECTORIES(/usr/local/taos/include)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/avro/lang/c/src)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/cJsonDemo/src)
 
-IF (${COVER} MATCHES "true")
-    MESSAGE("${Green} build with coverage ${ColourReSET}")
-    SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
-    SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov --coverage")
-ENDIF ()
-
-IF (${BUILD_TYPE} MATCHES "Debug")
-    MESSAGE("${Yellow} DEBUG mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0 ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
-ELSE ()
-    MESSAGE("${Green} RELEASE mode ${ColourReset}")
-    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
-ENDIF ()
-
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     SET(OS_ID "")
     ADD_EXECUTABLE(taosdump taosdump.c)
     ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchOutput.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c)
-    execute_process (
+    EXECUTE_PROCESS (
         COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
         OUTPUT_VARIABLE OS_ID
     )
-    MESSAGE(DEBUG "Linux os ID: ${OD_ID}")
-    IF (${OS_ID} MATCHES "alpine")
-        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
-    ELSE()
-        TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
-    ENDIF()
 
-    target_link_libraries(taosBenchmark taos pthread cJsonDemo)
+    IF (${COVER} MATCHES "true")
+        MESSAGE("${Green} build with coverage ${ColourReSET}")
+        SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
+        SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov --coverage")
+    ENDIF ()
 
+    IF (${BUILD_TYPE} MATCHES "Debug")
+        MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
+        IF(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.8.5)
+            SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0 ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+        ELSE()
+            MESSAGE("${Yellow} GCC version is equal or less than 4.8.5, which does not support memory sanitizer. Please upgrade to a higher version if you want to use it. ${ColourReset}")
+            SET(CMAKE_C_FLAGS "-std=c99 -O0 -g3 -DDEBUG")
+        ENDIF()
+
+        IF (${OS_ID} MATCHES "alpine")
+            TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
+        ELSE()
+            TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+        ENDIF()
+    ELSE ()
+        MESSAGE("${Green} RELEASE mode use static avro library to link for release ${ColourReset}")
+        SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+        ADD_LIBRARY(avro STATIC IMPORTED)
+
+        IF(${OS_ID} MATCHES "centos")
+            SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
+        ELSE()
+            SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
+        ENDIF()
+
+        EXECUTE_PROCESS (
+            COMMAND gcc -print-file-name=libstdc++.a
+            OUTPUT_VARIABLE LIBSTDCXX_PATH
+        )
+
+        STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
+        MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
+        ADD_LIBRARY(stdc++ STATIC IMPORTED)
+        SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
+
+        IF (${OS_ID} MATCHES "alpine")
+            TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp)
+        ELSE()
+            TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread)
+        ENDIF()
+    ENDIF ()
+    TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo)
 ENDIF ()
 
