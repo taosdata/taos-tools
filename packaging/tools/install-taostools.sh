@@ -6,6 +6,13 @@
 set -e
 #set -x
 
+demoName="taosdemo"
+benchmarkName="taosBenchmark"
+dumpName="taosdump"
+emailName="taosdata.com"
+taosName="taos"
+toolsName="taostools"
+
 # -----------------------Variables definition---------------------
 script_dir=$(dirname $(readlink -f "$0"))
 # Dynamic directory
@@ -59,7 +66,7 @@ else
     echo " osinfo: ${osinfo}"
     echo " This is an officially unverified linux system,"
     echo " if there are any problems with the installation and operation, "
-    echo " please feel free to contact taosdata.com for support."
+    echo " please feel free to contact ${emailName} for support."
     os_type=1
 fi
 
@@ -77,24 +84,24 @@ function install_main_path() {
 
 function install_bin() {
     # Remove links
-    ${csudo}rm -f ${bin_link_dir}/taosdemo         || :
-    ${csudo}rm -f ${bin_link_dir}/taosBenchmark    || :
-    ${csudo}rm -f ${bin_link_dir}/taosdump         || :
-    ${csudo}rm -f ${bin_link_dir}/rmtaostools      || :
+    ${csudo}rm -f ${bin_link_dir}/${demoName}         || :
+    ${csudo}rm -f ${bin_link_dir}/${benchmarkName}    || :
+    ${csudo}rm -f ${bin_link_dir}/${dumpName}         || :
+    ${csudo}rm -f ${bin_link_dir}/rm${toolsName}      || :
 
-    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/taosdump ${install_main_dir}/bin/taosdump
-    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosBenchmark
-    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/uninstall-taostools.sh ${install_main_dir}/bin/uninstall-taostools.sh
-    ${csudo}ln -sf ${install_main_dir}/bin/taosBenchmark ${install_main_dir}/bin/taosdemo
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/${dumpName} ${install_main_dir}/bin/${dumpName}
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/${benchmarkName} ${install_main_dir}/bin/${benchmarkName}
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/uninstall-${toolsName}.sh ${install_main_dir}/bin/uninstall-${toolsName}.sh
+    ${csudo}ln -sf ${install_main_dir}/bin/${benchmarkName} ${install_main_dir}/bin/${demoName}
     #Make link
-    [[ -x ${install_main_dir}/bin/taosBenchmark ]] && \
-        ${csudo}ln -s ${install_main_dir}/bin/taosBenchmark ${bin_link_dir}/taosBenchmark        || :
-    [[ -x ${install_main_dir}/bin/taosdemo ]] && \
-        ${csudo}ln -s ${install_main_dir}/bin/taosdemo ${bin_link_dir}/taosdemo                  || :
-    [[ -x ${install_main_dir}/bin/taosdump ]] && \
-        ${csudo}ln -s ${install_main_dir}/bin/taosdump ${bin_link_dir}/taosdump                  || :
-    [[ -x ${install_main_dir}/bin/uninstall-taostools.sh ]] && \
-        ${csudo}ln -s ${install_main_dir}/bin/uninstall-taostools.sh ${bin_link_dir}/rmtaostools || :
+    [[ -x ${install_main_dir}/bin/${benchmarkName} ]] && \
+        ${csudo}ln -s ${install_main_dir}/bin/${benchmarkName} ${bin_link_dir}/${benchmarkName}        || :
+    [[ -x ${install_main_dir}/bin/${demoName} ]] && \
+        ${csudo}ln -s ${install_main_dir}/bin/${demoName} ${bin_link_dir}/${demoName}                  || :
+    [[ -x ${install_main_dir}/bin/${dumpName} ]] && \
+        ${csudo}ln -s ${install_main_dir}/bin/${dumpName} ${bin_link_dir}/${dumpName}                  || :
+    [[ -x ${install_main_dir}/bin/uninstall-${toolsName}.sh ]] && \
+        ${csudo}ln -s ${install_main_dir}/bin/uninstall-${toolsName}.sh ${bin_link_dir}/rm${toolsName} || :
 }
 
 function install_avro() {
@@ -123,7 +130,7 @@ function install_avro() {
 
 function install_taostools() {
     # Start to install
-    echo -e "${GREEN}Start to install taos tools ...${NC}"
+    echo -e "${GREEN}Start to install ${taosName} tools ...${NC}"
 
     install_main_path
 
@@ -135,7 +142,7 @@ function install_taostools() {
     install_bin
 
     echo
-    echo -e "\033[44;32;1mtaos tools is installed successfully!${NC}"
+    echo -e "\033[44;32;1m${taosName} tools is installed successfully!${NC}"
 }
 
 ## ==============================Main program starts from here============================
