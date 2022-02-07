@@ -644,34 +644,6 @@ void delay_list_destroy(delayList *list) {
     }
 }
 
-static int32_t partition(uint64_t list[], int32_t left, int32_t right) {
-    uint64_t x = list[left];
-    while (left < right) {
-        while (left < right && list[right] >= x) {
-            right--;
-        }
-        if (left < right) {
-            list[left] = list[right];
-            left++;
-        }
-        while (left < right && list[left] < x) {
-            left++;
-        }
-        if (left < right) {
-            list[right] = list[left];
-            right--;
-        }
-    }
-    list[left] = x;
-    return left;
-}
-
-void qksort(uint64_t list[], int32_t left, int32_t right) {
-    if (left < right) {
-        int32_t index = partition(list, left, right);
-        debugPrint("qksort(list, %d, %d)\n", left, index - 1);
-        qksort(list, left, index - 1);
-        debugPrint("qksort(list, %d, %d)\n", index + 1, right);
-        qksort(list, index + 1, right);
-    }
+int compare(const void *a, const void *b) {
+    return *(uint64_t *)a - *(uint64_t *)b;
 }
