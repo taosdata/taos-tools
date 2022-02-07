@@ -1,4 +1,4 @@
-name: CI (Debug)
+name: CI (Release)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ develop ]
 
 env:
-  BUILD_TYPE: Debug
+  BUILD_TYPE: Release
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
@@ -61,7 +61,7 @@ jobs:
       - name: Install tdengine
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug -DBUILD_HTTP=false && make && sudo make install
+          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Release -DBUILD_HTTP=false && make && sudo make install
 
       - name: Func Test
         run: |
