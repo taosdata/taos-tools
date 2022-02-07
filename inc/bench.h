@@ -559,7 +559,6 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     int64_t childTblCountOfSuperTbl);
 void    delay_list_init(delayList *list);
 void    delay_list_destroy(delayList *list);
-void    qksort(uint64_t list[], int32_t left, int32_t right);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

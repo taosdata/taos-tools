@@ -644,37 +644,6 @@ void delay_list_destroy(delayList *list) {
     }
 }
 
-static void swap(uint64_t *pa, uint64_t *pb) {
-    int64_t tmp = *pa;
-    *pa = *pb;
-    *pb = tmp;
-}
-
-static int32_t partition(uint64_t *list, int32_t left, int32_t right) {
-    uint64_t pivot = list[right];
-    int32_t  small = left - 1;
-    for (int i = left; i < right; ++i) {
-        if (list[i] <= pivot) {
-            ++small;
-            if (small != i) {
-                swap(&list[small], &list[i]);
-            }
-        }
-    }
-    swap(&list[++small], &list[right]);
-    return small;
-}
-
-void qksort(uint64_t *list, int32_t left, int32_t right) {
-    int32_t index = partition(list, left, right);
-    if (index > left) {
-        qksort(list, left, index - 1);
-    }
-    if (right > index) {
-        qksort(list, index + 1, right);
-    }
-}
-
 int compare(const void *a, const void *b) {
     return *(uint64_t *)a - *(uint64_t *)b;
 }
