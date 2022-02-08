@@ -22,7 +22,7 @@ sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 #### 对于 CentOS/RHEL 系统
 
 ```
-sudo yum install xz-devel snappy-devel jansson-devel pkgconfig libatomic
+sudo yum install xz-devel snappy-devel jansson-devel pkgconfig libatomic libstdc++-static
 ```
 
 注意：由于 snappy 缺乏 pkg-config 支持
