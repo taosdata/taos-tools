@@ -6,6 +6,12 @@
 set -e
 #set -x
 
+demoName="taosdemo"
+benchmarkName="taosBenchmark"
+dumpName="taosdump"
+taosName="taos"
+toolsName="taostools"
+
 # -----------------------Variables definition---------------------
 # Dynamic directory
 bin_link_dir="/usr/bin"
@@ -34,30 +40,30 @@ function kill_process() {
 
 function uninstall_bin() {
     # Remove links
-    ${csudo}rm -f ${bin_link_dir}/taosdemo         || :
-    ${csudo}rm -f ${bin_link_dir}/taosBenchmark    || :
-    ${csudo}rm -f ${bin_link_dir}/taosdump         || :
-    ${csudo}rm -f ${bin_link_dir}/rmtaostools      || :
+    ${csudo}rm -f ${bin_link_dir}/${demoName}         || :
+    ${csudo}rm -f ${bin_link_dir}/${benchmarkName}    || :
+    ${csudo}rm -f ${bin_link_dir}/${dumpName}         || :
+    ${csudo}rm -f ${bin_link_dir}/rm${toolsName}      || :
 
-    ${csudo}rm -f ${install_main_dir}/bin/taosdemo                  || :
-    ${csudo}rm -f ${install_main_dir}/bin/taosBenchmark             || :
-    ${csudo}rm -f ${install_main_dir}/bin/taosdump                  || :
-    ${csudo}rm -f ${install_main_dir}/bin/uninstall-taostools.sh    || :
+    ${csudo}rm -f ${install_main_dir}/bin/${demoName}                  || :
+    ${csudo}rm -f ${install_main_dir}/bin/${benchmarkName}             || :
+    ${csudo}rm -f ${install_main_dir}/bin/${dumpName}                  || :
+    ${csudo}rm -f ${install_main_dir}/bin/uninstall-${toolsName}.sh    || :
 }
 
 
 function uninstall_taostools() {
     # Start to uninstall
-    echo -e "${GREEN}Start to uninstall taos tools ...${NC}"
+    echo -e "${GREEN}Start to uninstall ${taosName} tools ...${NC}"
 
-    kill_process taosdemo
-    kill_process taosBenchmark
-    kill_process taosdump
+    kill_process ${demoName}
+    kill_process ${benchmarkName}
+    kill_process ${dumpName}
 
     uninstall_bin
 
     echo
-    echo -e "\033[44;32;1mtaos tools is uninstalled successfully!${NC}"
+    echo -e "\033[44;32;1m${taosName} tools is uninstalled successfully!${NC}"
 }
 
 ## ==============================Main program starts from here============================
