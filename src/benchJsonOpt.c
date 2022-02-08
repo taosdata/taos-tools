@@ -775,6 +775,16 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
         g_queryInfo.query_times = 1;
     }
 
+    cJSON *resetCache = cJSON_GetObjectItem(json, "reset_query_cache");
+    if (resetCache && resetCache->type == cJSON_String &&
+        resetCache->valuestring != NULL) {
+        if (0 == strcasecmp(resetCache->valuestring, "yes")) {
+            g_queryInfo.reset_query_cache = true;
+        }
+    } else {
+        g_queryInfo.reset_query_cache = false;
+    }
+
     cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
         g_arguments->nthreads_pool = (uint32_t)threadspool->valueint;

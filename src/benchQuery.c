@@ -45,12 +45,16 @@ static void *specifiedTableQuery(void *sarg) {
 
     uint64_t st = 0;
     uint64_t et = 0;
+    uint64_t minDelay = UINT64_MAX;
+    uint64_t maxDelay = 0;
+    uint64_t totalDelay = 0;
+    int32_t  index = 0;
 
-    uint64_t queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
-
-    uint64_t totalQueried = 0;
-    uint64_t lastPrintTime = taosGetTimestampMs();
-    uint64_t startTs = taosGetTimestampMs();
+    uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
+    uint64_t *total_delay_list = calloc(queryTimes, sizeof(uint64_t));
+    uint64_t  totalQueried = 0;
+    uint64_t  lastPrintTime = taosGetTimestampMs();
+    uint64_t  startTs = taosGetTimestampMs();
 
     if (g_queryInfo.specifiedQueryInfo.result[pThreadInfo->querySeq][0] !=
         '\0') {
@@ -59,11 +63,15 @@ static void *specifiedTableQuery(void *sarg) {
                 pThreadInfo->threadID);
     }
 
-    while (queryTimes--) {
+    while (index < queryTimes) {
         if (g_queryInfo.specifiedQueryInfo.queryInterval &&
             (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval) {
             taosMsleep((int32_t)(g_queryInfo.specifiedQueryInfo.queryInterval -
                                  (et - st)));  // ms
+        }
+        if (g_queryInfo.reset_query_cache) {
+            queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE,
+                        false);
         }
 
         st = taosGetTimestampMs();
@@ -73,10 +81,16 @@ static void *specifiedTableQuery(void *sarg) {
             g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq]);
 
         et = taosGetTimestampMs();
-        infoPrint("thread[%d] complete <%s>, Spent %10.3f s\n",
-                  pThreadInfo->threadID,
-                  g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
-                  (et - st) / 1000.0);
+        uint64_t delay = et - st;
+        total_delay_list[index] = delay;
+        index++;
+        totalDelay += delay;
+        if (delay > maxDelay) {
+            maxDelay = delay;
+        }
+        if (delay < minDelay) {
+            minDelay = delay;
+        }
 
         totalQueried++;
         g_queryInfo.specifiedQueryInfo.totalQueried++;
@@ -84,9 +98,6 @@ static void *specifiedTableQuery(void *sarg) {
         uint64_t currentPrintTime = taosGetTimestampMs();
         uint64_t endTs = taosGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
-            debugPrint("%s() LN%d, endTs=%" PRIu64 " ms, startTs=%" PRIu64
-                       " ms\n",
-                       __func__, __LINE__, endTs, startTs);
             infoPrint("thread[%d] has currently completed queries: %" PRIu64
                       ", QPS: %10.6f\n",
                       pThreadInfo->threadID, totalQueried,
@@ -94,6 +105,31 @@ static void *specifiedTableQuery(void *sarg) {
             lastPrintTime = currentPrintTime;
         }
     }
+    if (g_arguments->debug_print) {
+        for (int i = 0; i < queryTimes; ++i) {
+            debugPrint("total_delay_list[%d]: %" PRIu64 "\n", i,
+                       total_delay_list[i]);
+        }
+    }
+    qsort(total_delay_list, queryTimes, sizeof(uint64_t), compare);
+    if (g_arguments->debug_print) {
+        for (int i = 0; i < queryTimes; ++i) {
+            debugPrint("total_delay_list[%d]: %" PRIu64 "\n", i,
+                       total_delay_list[i]);
+        }
+    }
+    infoPrint("thread[%d] complete query <%s> %" PRIu64
+              " times, insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, "
+              "p95:% 5.2fms,p99: % 5.2fms, max: % 5.2fms\n\n ",
+              pThreadInfo->threadID,
+              g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
+              queryTimes, (double)minDelay / 1000.0,
+              (double)totalDelay / queryTimes / 1000.0,
+              (double)total_delay_list[(int32_t)(queryTimes * 0.9)] / 1000.0,
+              (double)total_delay_list[(int32_t)(queryTimes * 0.95)] / 1000.0,
+              (double)total_delay_list[(int32_t)(queryTimes * 0.99)] / 1000.0,
+              (double)maxDelay / 1000.0);
+    tmfree(total_delay_list);
     *code = 0;
     return code;
 }
