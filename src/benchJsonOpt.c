@@ -303,7 +303,20 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     g_arguments->dbCount = dbSize;
     for (int i = 0; i < dbSize; ++i) {
         SDataBase *database = &(g_arguments->db[i]);
-        cJSON *    dbinfos = cJSON_GetArrayItem(dbs, i);
+        database->dbCfg.minRows = -1;
+        database->dbCfg.maxRows = -1;
+        database->dbCfg.comp = -1;
+        database->dbCfg.walLevel = -1;
+        database->dbCfg.cacheLast = -1;
+        database->dbCfg.fsync = -1;
+        database->dbCfg.replica = -1;
+        database->dbCfg.update = -1;
+        database->dbCfg.keep = -1;
+        database->dbCfg.days = -1;
+        database->dbCfg.cache = -1;
+        database->dbCfg.blocks = -1;
+        database->dbCfg.quorum = -1;
+        cJSON *dbinfos = cJSON_GetArrayItem(dbs, i);
         if (dbinfos == NULL) continue;
 
         // dbinfo
