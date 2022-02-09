@@ -100,7 +100,7 @@ void printfInsertMetaToFileStream(FILE *fp) {
             fprintf(fp, "  keep:                  \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.keep);
         }
-        if (g_arguments->db[i].dbCfg.replica >= 0) {
+        if (g_arguments->db[i].dbCfg.replica > 0) {
             fprintf(fp, "  replica:               \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.replica);
         }
@@ -128,7 +128,7 @@ void printfInsertMetaToFileStream(FILE *fp) {
             fprintf(fp, "  fsync:                 \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.fsync);
         }
-        if (g_arguments->db[i].dbCfg.quorum >= 0) {
+        if (g_arguments->db[i].dbCfg.quorum > 0) {
             fprintf(fp, "  quorum:                \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.quorum);
         }

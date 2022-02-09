@@ -474,11 +474,11 @@ static int createDatabase(int db_index) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " KEEP %d", database->dbCfg.keep);
     }
-    if (database->dbCfg.quorum >= 0) {
+    if (database->dbCfg.quorum > 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " QUORUM %d", database->dbCfg.quorum);
     }
-    if (database->dbCfg.replica >= 0) {
+    if (database->dbCfg.replica > 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " REPLICA %d", database->dbCfg.replica);
     }
