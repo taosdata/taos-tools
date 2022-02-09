@@ -345,21 +345,21 @@ typedef struct {
 
 typedef struct SDbCfg_S {
     //  int       maxtablesPerVnode;
-    uint32_t minRows;  // 0 means default
-    uint32_t maxRows;  // 0 means default
-    int      comp;
-    int      walLevel;
-    int      cacheLast;
-    int      fsync;
-    int      replica;
-    int      update;
-    int      keep;
-    int      days;
-    int      cache;
-    int      blocks;
-    int      quorum;
-    int      precision;
-    int      sml_precision;
+    int32_t minRows;  // 0 means default
+    int32_t maxRows;  // 0 means default
+    int     comp;
+    int     walLevel;
+    int     cacheLast;
+    int     fsync;
+    int     replica;
+    int     update;
+    int     keep;
+    int     days;
+    int     cache;
+    int     blocks;
+    int     quorum;
+    int     precision;
+    int     sml_precision;
 } SDbCfg;
 
 typedef struct SDataBase_S {

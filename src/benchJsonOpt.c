@@ -390,16 +390,16 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
 
         cJSON *minRows = cJSON_GetObjectItem(dbinfo, "minRows");
         if (minRows && minRows->type == cJSON_Number) {
-            database->dbCfg.minRows = (uint32_t)minRows->valueint;
+            database->dbCfg.minRows = minRows->valueint;
         } else {
-            database->dbCfg.minRows = 0;
+            database->dbCfg.minRows = -1;
         }
 
         cJSON *maxRows = cJSON_GetObjectItem(dbinfo, "maxRows");
         if (maxRows && maxRows->type == cJSON_Number) {
-            database->dbCfg.maxRows = (uint32_t)maxRows->valueint;
+            database->dbCfg.maxRows = maxRows->valueint;
         } else {
-            database->dbCfg.maxRows = 0;
+            database->dbCfg.maxRows = -1;
         }
 
         cJSON *comp = cJSON_GetObjectItem(dbinfo, "comp");

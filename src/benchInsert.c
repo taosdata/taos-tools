@@ -458,55 +458,55 @@ static int createDatabase(int db_index) {
     dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 
-    if (database->dbCfg.blocks > 0) {
+    if (database->dbCfg.blocks >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " BLOCKS %d", database->dbCfg.blocks);
     }
-    if (database->dbCfg.cache > 0) {
+    if (database->dbCfg.cache >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " CACHE %d", database->dbCfg.cache);
     }
-    if (database->dbCfg.days > 0) {
+    if (database->dbCfg.days >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " DAYS %d", database->dbCfg.days);
     }
-    if (database->dbCfg.keep > 0) {
+    if (database->dbCfg.keep >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " KEEP %d", database->dbCfg.keep);
     }
-    if (database->dbCfg.quorum > 0) {
+    if (database->dbCfg.quorum >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " QUORUM %d", database->dbCfg.quorum);
     }
-    if (database->dbCfg.replica > 0) {
+    if (database->dbCfg.replica >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " REPLICA %d", database->dbCfg.replica);
     }
-    if (database->dbCfg.update > 0) {
+    if (database->dbCfg.update >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " UPDATE %d", database->dbCfg.update);
     }
-    if (database->dbCfg.minRows > 0) {
+    if (database->dbCfg.minRows >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " MINROWS %d", database->dbCfg.minRows);
     }
-    if (database->dbCfg.maxRows > 0) {
+    if (database->dbCfg.maxRows >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " MAXROWS %d", database->dbCfg.maxRows);
     }
-    if (database->dbCfg.comp > 0) {
+    if (database->dbCfg.comp >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " COMP %d", database->dbCfg.comp);
     }
-    if (database->dbCfg.walLevel > 0) {
+    if (database->dbCfg.walLevel >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal %d",
                             database->dbCfg.walLevel);
     }
-    if (database->dbCfg.cacheLast > 0) {
+    if (database->dbCfg.cacheLast >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " CACHELAST %d", database->dbCfg.cacheLast);
     }
-    if (database->dbCfg.fsync > 0) {
+    if (database->dbCfg.fsync >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " FSYNC %d", database->dbCfg.fsync);
     }
