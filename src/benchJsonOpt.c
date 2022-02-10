@@ -303,7 +303,20 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     g_arguments->dbCount = dbSize;
     for (int i = 0; i < dbSize; ++i) {
         SDataBase *database = &(g_arguments->db[i]);
-        cJSON *    dbinfos = cJSON_GetArrayItem(dbs, i);
+        database->dbCfg.minRows = -1;
+        database->dbCfg.maxRows = -1;
+        database->dbCfg.comp = -1;
+        database->dbCfg.walLevel = -1;
+        database->dbCfg.cacheLast = -1;
+        database->dbCfg.fsync = -1;
+        database->dbCfg.replica = -1;
+        database->dbCfg.update = -1;
+        database->dbCfg.keep = -1;
+        database->dbCfg.days = -1;
+        database->dbCfg.cache = -1;
+        database->dbCfg.blocks = -1;
+        database->dbCfg.quorum = -1;
+        cJSON *dbinfos = cJSON_GetArrayItem(dbs, i);
         if (dbinfos == NULL) continue;
 
         // dbinfo
@@ -349,92 +362,66 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         cJSON *update = cJSON_GetObjectItem(dbinfo, "update");
         if (update && update->type == cJSON_Number) {
             database->dbCfg.update = (int)update->valueint;
-        } else {
-            database->dbCfg.update = -1;
         }
 
         cJSON *replica = cJSON_GetObjectItem(dbinfo, "replica");
         if (replica && replica->type == cJSON_Number) {
             database->dbCfg.replica = (int)replica->valueint;
-        } else {
-            database->dbCfg.replica = -1;
         }
 
         cJSON *keep = cJSON_GetObjectItem(dbinfo, "keep");
         if (keep && keep->type == cJSON_Number) {
             database->dbCfg.keep = (int)keep->valueint;
-        } else {
-            database->dbCfg.keep = -1;
         }
 
         cJSON *days = cJSON_GetObjectItem(dbinfo, "days");
         if (days && days->type == cJSON_Number) {
             database->dbCfg.days = (int)days->valueint;
-        } else {
-            database->dbCfg.days = -1;
         }
 
         cJSON *cache = cJSON_GetObjectItem(dbinfo, "cache");
         if (cache && cache->type == cJSON_Number) {
             database->dbCfg.cache = (int)cache->valueint;
-        } else {
-            database->dbCfg.cache = -1;
         }
 
         cJSON *blocks = cJSON_GetObjectItem(dbinfo, "blocks");
         if (blocks && blocks->type == cJSON_Number) {
             database->dbCfg.blocks = (int)blocks->valueint;
-        } else {
-            database->dbCfg.blocks = -1;
         }
 
         cJSON *minRows = cJSON_GetObjectItem(dbinfo, "minRows");
         if (minRows && minRows->type == cJSON_Number) {
-            database->dbCfg.minRows = (uint32_t)minRows->valueint;
-        } else {
-            database->dbCfg.minRows = 0;
+            database->dbCfg.minRows = minRows->valueint;
         }
 
         cJSON *maxRows = cJSON_GetObjectItem(dbinfo, "maxRows");
         if (maxRows && maxRows->type == cJSON_Number) {
-            database->dbCfg.maxRows = (uint32_t)maxRows->valueint;
-        } else {
-            database->dbCfg.maxRows = 0;
+            database->dbCfg.maxRows = maxRows->valueint;
         }
 
         cJSON *comp = cJSON_GetObjectItem(dbinfo, "comp");
         if (comp && comp->type == cJSON_Number) {
             database->dbCfg.comp = (int)comp->valueint;
-        } else {
-            database->dbCfg.comp = -1;
         }
 
         cJSON *walLevel = cJSON_GetObjectItem(dbinfo, "walLevel");
         if (walLevel && walLevel->type == cJSON_Number) {
             database->dbCfg.walLevel = (int)walLevel->valueint;
-        } else {
-            database->dbCfg.walLevel = -1;
         }
 
         cJSON *cacheLast = cJSON_GetObjectItem(dbinfo, "cachelast");
         if (cacheLast && cacheLast->type == cJSON_Number) {
             database->dbCfg.cacheLast = (int)cacheLast->valueint;
-        } else {
-            database->dbCfg.cacheLast = -1;
         }
 
         cJSON *quorum = cJSON_GetObjectItem(dbinfo, "quorum");
         if (quorum && quorum->type == cJSON_Number) {
             database->dbCfg.quorum = (int)quorum->valueint;
-        } else {
-            database->dbCfg.quorum = -1;
         }
 
         cJSON *fsync = cJSON_GetObjectItem(dbinfo, "fsync");
         if (fsync && fsync->type == cJSON_Number) {
             database->dbCfg.fsync = (int)fsync->valueint;
-        } else {
-            database->dbCfg.fsync = -1;
         }
 
         // super_tables

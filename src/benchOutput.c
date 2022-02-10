@@ -84,19 +84,19 @@ void printfInsertMetaToFileStream(FILE *fp) {
             fprintf(fp, "  drop:                 \033[33m yes\033[0m\n");
         }
 
-        if (g_arguments->db[i].dbCfg.blocks > 0) {
+        if (g_arguments->db[i].dbCfg.blocks >= 0) {
             fprintf(fp, "  blocks:                \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.blocks);
         }
-        if (g_arguments->db[i].dbCfg.cache > 0) {
+        if (g_arguments->db[i].dbCfg.cache >= 0) {
             fprintf(fp, "  cache:                 \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.cache);
         }
-        if (g_arguments->db[i].dbCfg.days > 0) {
+        if (g_arguments->db[i].dbCfg.days >= 0) {
             fprintf(fp, "  days:                  \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.days);
         }
-        if (g_arguments->db[i].dbCfg.keep > 0) {
+        if (g_arguments->db[i].dbCfg.keep >= 0) {
             fprintf(fp, "  keep:                  \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.keep);
         }
@@ -104,27 +104,27 @@ void printfInsertMetaToFileStream(FILE *fp) {
             fprintf(fp, "  replica:               \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.replica);
         }
-        if (g_arguments->db[i].dbCfg.update > 0) {
+        if (g_arguments->db[i].dbCfg.update >= 0) {
             fprintf(fp, "  update:                \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.update);
         }
-        if (g_arguments->db[i].dbCfg.minRows > 0) {
+        if (g_arguments->db[i].dbCfg.minRows >= 0) {
             fprintf(fp, "  minRows:               \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.minRows);
         }
-        if (g_arguments->db[i].dbCfg.maxRows > 0) {
+        if (g_arguments->db[i].dbCfg.maxRows >= 0) {
             fprintf(fp, "  maxRows:               \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.maxRows);
         }
-        if (g_arguments->db[i].dbCfg.comp > 0) {
+        if (g_arguments->db[i].dbCfg.comp >= 0) {
             fprintf(fp, "  comp:                  \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.comp);
         }
-        if (g_arguments->db[i].dbCfg.walLevel > 0) {
+        if (g_arguments->db[i].dbCfg.walLevel >= 0) {
             fprintf(fp, "  walLevel:              \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.walLevel);
         }
-        if (g_arguments->db[i].dbCfg.fsync > 0) {
+        if (g_arguments->db[i].dbCfg.fsync >= 0) {
             fprintf(fp, "  fsync:                 \033[33m%d\033[0m\n",
                     g_arguments->db[i].dbCfg.fsync);
         }
