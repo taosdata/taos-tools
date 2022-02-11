@@ -1,8 +1,10 @@
+IF (TD_ARM_32)
+    SET(COMMON_FLAGS "-Wall -Werror -fPIC -fsigned-char -fpack-struct=8 -D_FILE_OFFSET_BITS=64 -D_LARGE_FILE -Wno-int-to-pointer-cast")
+ENDIF ()
 
 IF (${BUILD_TYPE} MATCHES "Debug")
     MESSAGE("will not build jansson and snappy, use system's")
 ELSE ()
-    SET(COMMON_FLAGS "-Wall -Werror -fPIC -fsigned-char -fpack-struct=8 -D_FILE_OFFSET_BITS=64 -D_LARGE_FILE")
     OPTION(JANSSON_BUILD_DOCS "turn jansson build docs off" OFF)
     OPTION(JANSSON_INSTALL "turn jansson install off" OFF)
     ADD_SUBDIRECTORY(jansson)
