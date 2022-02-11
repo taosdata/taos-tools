@@ -96,6 +96,6 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_TYPE=Debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true
           make
           sudo make install
