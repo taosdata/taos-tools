@@ -433,6 +433,9 @@ static resultStatistics g_resultStatistics = {0};
 static FILE *g_fpOfResult = NULL;
 static int g_numOfCores = 1;
 
+#define DEFAULT_START_TIME    (-INT64_MAX + 1) // start_time
+#define DEFAULT_END_TIME    (INT64_MAX)  // end_time
+
 struct arguments g_args = {
     // connection option
     NULL,
@@ -453,9 +456,9 @@ struct arguments g_args = {
     false,      // answer_yes
     true,       // avro
     AVRO_CODEC_SNAPPY,  // avro_codec
-    -INT64_MAX + 1, // start_time
+    DEFAULT_START_TIME, // start_time
     {0},        // humanStartTime
-    INT64_MAX,  // end_time
+    DEFAULT_END_TIME,   // end_time
     {0},        // humanEndTime
     "ms",       // precision
     MAX_RECORDS_PER_REQ / 2,    // data_batch
@@ -538,16 +541,16 @@ int setConsoleEcho(bool on)
     return 0;
 }
 
-static void printVersion() {
+static void printVersion(FILE *file) {
     char taostools_ver[] = TAOSTOOLS_TAG;
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
     char taosdump_status[] = TAOSDUMP_STATUS;
 
     if (strlen(taosdump_status) == 0) {
-        printf("taosdump version %s_%s\n",
+        fprintf(file, "taosdump version %s_%s\n",
                 taostools_ver, taosdump_commit);
     } else {
-        printf("taosdump version %s_%s, status:%s\n",
+        fprintf(file, "taosdump version %s_%s, status:%s\n",
                 taostools_ver, taosdump_commit, taosdump_status);
     }
 }
@@ -823,9 +826,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
             g_args.thread_num = atoi((const char *)arg);
             break;
+
         case OPT_ABORT:
             g_args.abort = 1;
             break;
+
         case ARGP_KEY_ARG:
             if (strlen(state->argv[state->next - 1])) {
                 g_args.arg_list     = &state->argv[state->next - 1];
@@ -910,8 +915,10 @@ static void parse_args(
                     exit(EXIT_FAILURE);
                 }
                 arguments->databasesSeq = argv[++i];
-            } else if (0 == strncmp(argv[i], "--databases=", strlen("--databases="))) {
-                arguments->databasesSeq = (char *)(argv[i] + strlen("--databases="));
+            } else if (0 == strncmp(argv[i], "--databases=",
+                        strlen("--databases="))) {
+                arguments->databasesSeq = (char *)(argv[i]
+                        + strlen("--databases="));
             } else if (0 == strncmp(argv[i], "-D", strlen("-D"))) {
                 arguments->databasesSeq = (char *)(argv[i] + strlen("-D"));
             } else if (strlen("--databases") == strlen(argv[i])) {
@@ -927,7 +934,7 @@ static void parse_args(
             g_args.databases = true;
         } else if (0 == strncmp(argv[i], "--version", strlen("--version")) ||
             0 == strncmp(argv[i], "-V", strlen("-V"))) {
-                printVersion();
+                printVersion(stdout);
                 exit(EXIT_SUCCESS);
         } else {
             continue;
@@ -938,10 +945,11 @@ static void parse_args(
 
 static void copyHumanTimeToArg(char *timeStr, bool isStartTime)
 {
-    if (isStartTime)
+    if (isStartTime) {
         tstrncpy(g_args.humanStartTime, timeStr, HUMAN_TIME_LEN);
-    else
+    } else {
         tstrncpy(g_args.humanEndTime, timeStr, HUMAN_TIME_LEN);
+    }
 }
 
 static void copyTimestampToArg(char *timeStr, bool isStartTime)
@@ -5479,7 +5487,7 @@ _exit_no_charset:
     return;
 }
 
-// ========  dumpIn support multi threads functions ================================//
+// dumpIn support multi threads functions
 static int64_t dumpInOneDebugFile(
         TAOS* taos, FILE* fp, char* fcharset,
         char* fileName) {
@@ -6495,7 +6503,55 @@ _exit_failure:
     return -1;
 }
 
-int main(int argc, char *argv[]) {
+void printArgs(FILE *file)
+{
+
+    fprintf(file, "========== arguments config =========\n");
+
+    printVersion(file);
+
+    fprintf(file, "host: %s\n", g_args.host);
+    fprintf(file, "user: %s\n", g_args.user);
+    fprintf(file, "password: %s\n", g_args.password);
+    fprintf(file, "port: %u\n", g_args.port);
+    fprintf(file, "outpath: %s\n", g_args.outpath);
+    fprintf(file, "inpath: %s\n", g_args.inpath);
+    fprintf(file, "resultFile: %s\n", g_args.resultFile);
+    fprintf(file, "all_databases: %s\n", g_args.all_databases?"true":"false");
+    fprintf(file, "databases: %d\n", g_args.databases);
+    fprintf(file, "databasesSeq: %s\n", g_args.databasesSeq);
+    fprintf(file, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
+    fprintf(file, "with_property: %s\n", g_args.with_property?"true":"false");
+    fprintf(file, "answer_yes: %s\n", g_args.answer_yes?"true":"false");
+    fprintf(file, "avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
+
+    if (strlen(g_args.humanStartTime)) {
+        fprintf(file, "human readable start time: %s \n", g_args.humanStartTime);
+    } else if (DEFAULT_START_TIME != g_args.start_time) {
+        fprintf(file, "start_time: %" PRId64 "\n", g_args.start_time);
+    }
+    if (strlen(g_args.humanEndTime)) {
+        fprintf(file, "human readable end time: %s \n", g_args.humanEndTime);
+    } else if (DEFAULT_END_TIME != g_args.end_time) {
+        fprintf(file, "end_time: %" PRId64 "\n", g_args.end_time);
+    }
+    // use database's precision, should not print default precision
+    // fprintf(file, "precision: %s\n", g_args.precision);
+    fprintf(file, "data_batch: %d\n", g_args.data_batch);
+    // use max_sql_len, should not print max_sql_len
+    // fprintf(file, "max_sql_len: %d\n", g_args.max_sql_len);
+    fprintf(file, "thread_num: %d\n", g_args.thread_num);
+    fprintf(file, "allow_sys: %d\n", g_args.allow_sys);
+    // should not print abort
+    // fprintf(file, "abort: %d\n", g_args.abort);
+    fprintf(file, "isDumpIn: %d\n", g_args.isDumpIn);
+    fprintf(file, "arg_list_len: %d\n", g_args.arg_list_len);
+
+    fflush(file);
+}
+
+int main(int argc, char *argv[])
+{
     static char verType[32] = {0};
     sprintf(verType, "version: %s\n", version);
     argp_program_version = verType;
@@ -6516,36 +6572,7 @@ int main(int argc, char *argv[]) {
         abort();
     }
 
-    printf("====== arguments config ======\n");
-
-    printf("host: %s\n", g_args.host);
-    printf("user: %s\n", g_args.user);
-    printf("password: %s\n", g_args.password);
-    printf("port: %u\n", g_args.port);
-    printf("outpath: %s\n", g_args.outpath);
-    printf("inpath: %s\n", g_args.inpath);
-    printf("resultFile: %s\n", g_args.resultFile);
-    printf("all_databases: %s\n", g_args.all_databases?"true":"false");
-    printf("databases: %d\n", g_args.databases);
-    printf("databasesSeq: %s\n", g_args.databasesSeq);
-    printf("schemaonly: %s\n", g_args.schemaonly?"true":"false");
-    printf("with_property: %s\n", g_args.with_property?"true":"false");
-    printf("answer_yes: %s\n", g_args.answer_yes?"true":"false");
-    printf("avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
-    printf("start_time: %" PRId64 "\n", g_args.start_time);
-    printf("human readable start time: %s \n", g_args.humanStartTime);
-    printf("end_time: %" PRId64 "\n", g_args.end_time);
-    printf("human readable end time: %s \n", g_args.humanEndTime);
-    printf("precision: %s\n", g_args.precision);
-    printf("data_batch: %d\n", g_args.data_batch);
-    printf("max_sql_len: %d\n", g_args.max_sql_len);
-    printf("thread_num: %d\n", g_args.thread_num);
-    printf("allow_sys: %d\n", g_args.allow_sys);
-    printf("abort: %d\n", g_args.abort);
-    printf("isDumpIn: %d\n", g_args.isDumpIn);
-    printf("arg_list_len: %d\n", g_args.arg_list_len);
-    printf("debug_print: %d\n", g_args.debug_print);
-    fflush(stdout);
+    printArgs(stdout);
 
     for (int32_t i = 0; i < g_args.arg_list_len; i++) {
         if (g_args.databases || g_args.all_databases) {
@@ -6568,35 +6595,7 @@ int main(int argc, char *argv[]) {
         exit(-1);
     };
 
-    fprintf(g_fpOfResult, "#############################################################################\n");
-    fprintf(g_fpOfResult, "============================== arguments config =============================\n");
-
-    fprintf(g_fpOfResult, "host: %s\n", g_args.host);
-    fprintf(g_fpOfResult, "user: %s\n", g_args.user);
-    fprintf(g_fpOfResult, "password: %s\n", g_args.password);
-    fprintf(g_fpOfResult, "port: %u\n", g_args.port);
-    fprintf(g_fpOfResult, "outpath: %s\n", g_args.outpath);
-    fprintf(g_fpOfResult, "inpath: %s\n", g_args.inpath);
-    fprintf(g_fpOfResult, "resultFile: %s\n", g_args.resultFile);
-    fprintf(g_fpOfResult, "all_databases: %s\n", g_args.all_databases?"true":"false");
-    fprintf(g_fpOfResult, "databases: %d\n", g_args.databases);
-    fprintf(g_fpOfResult, "databasesSeq: %s\n", g_args.databasesSeq);
-    fprintf(g_fpOfResult, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
-    fprintf(g_fpOfResult, "with_property: %s\n", g_args.with_property?"true":"false");
-    fprintf(g_fpOfResult, "answer_yes: %s\n", g_args.answer_yes?"true":"false");
-    fprintf(g_fpOfResult, "avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
-    fprintf(g_fpOfResult, "start_time: %" PRId64 "\n", g_args.start_time);
-    fprintf(g_fpOfResult, "human readable start time: %s \n", g_args.humanStartTime);
-    fprintf(g_fpOfResult, "end_time: %" PRId64 "\n", g_args.end_time);
-    fprintf(g_fpOfResult, "human readable end time: %s \n", g_args.humanEndTime);
-    fprintf(g_fpOfResult, "precision: %s\n", g_args.precision);
-    fprintf(g_fpOfResult, "data_batch: %d\n", g_args.data_batch);
-    fprintf(g_fpOfResult, "max_sql_len: %d\n", g_args.max_sql_len);
-    fprintf(g_fpOfResult, "thread_num: %d\n", g_args.thread_num);
-    fprintf(g_fpOfResult, "allow_sys: %d\n", g_args.allow_sys);
-    fprintf(g_fpOfResult, "abort: %d\n", g_args.abort);
-    fprintf(g_fpOfResult, "isDumpIn: %d\n", g_args.isDumpIn);
-    fprintf(g_fpOfResult, "arg_list_len: %d\n", g_args.arg_list_len);
+    printArgs(g_fpOfResult);
 
     for (int32_t i = 0; i < g_args.arg_list_len; i++) {
         fprintf(g_fpOfResult, "arg_list[%d]: %s\n", i, g_args.arg_list[i]);
@@ -6618,7 +6617,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (g_args.isDumpIn) {
-        fprintf(g_fpOfResult, "============================== DUMP IN ============================== \n");
+        fprintf(g_fpOfResult, "========== DUMP IN ========== \n");
         fprintf(g_fpOfResult, "# DumpIn start time:                   %d-%02d-%02d %02d:%02d:%02d\n",
                 tm.tm_year + 1900, tm.tm_mon + 1,
                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
@@ -6645,7 +6644,7 @@ int main(int argc, char *argv[]) {
             ret = 0;
         }
     } else {
-        fprintf(g_fpOfResult, "============================== DUMP OUT ============================== \n");
+        fprintf(g_fpOfResult, "========== DUMP OUT ========== \n");
         fprintf(g_fpOfResult, "# DumpOut start time:                   %d-%02d-%02d %02d:%02d:%02d\n",
                 tm.tm_year + 1900, tm.tm_mon + 1,
                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
