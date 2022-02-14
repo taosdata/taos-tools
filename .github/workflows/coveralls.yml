@@ -125,6 +125,10 @@ jobs:
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
+          # test epoch time
+          ./build/bin/taosdump -D test -S 1500000000000 -E 1500000000004 -gg > /dev/null
+          rm -f *.sql *.avro*
+
           # test human time
           ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004' -gg > /dev/null
           rm -f *.sql *.avro*
