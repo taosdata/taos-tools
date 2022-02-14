@@ -1,7 +1,3 @@
-IF (TD_ARM_32)
-    SET(COMMON_FLAGS "-Wall -Werror -fPIC -fsigned-char -fpack-struct=8 -D_FILE_OFFSET_BITS=64 -D_LARGE_FILE -Wno-int-to-pointer-cast")
-ENDIF ()
-
 IF (${BUILD_TYPE} MATCHES "Debug")
     MESSAGE("will not build jansson and snappy, use system's")
 ELSE ()
