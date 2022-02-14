@@ -319,6 +319,8 @@ void printfQueryMeta() {
            g_arguments->db->superTbls->iface == REST_IFACE ? "rest" : "taosc");
     printf("response buffer for restful:    \033[33m%" PRIu64 "\033[0m\n",
            g_queryInfo.response_buffer);
+    printf("reset query cache:              \033[33m%s\033[0m\n",
+           g_queryInfo.reset_query_cache ? "yes" : "no");
     printf("\n");
 
     if ((SUBSCRIBE_TEST == g_arguments->test_mode) ||

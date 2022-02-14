@@ -416,6 +416,7 @@ typedef struct SQueryMetaInfo_S {
     uint64_t           totalQueried;
     int64_t            query_times;
     uint64_t           response_buffer;
+    bool               reset_query_cache;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
