@@ -30,6 +30,12 @@ int main(int argc, char* argv[]) {
         modify_argument();
     }
 
+    g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
+    if (NULL == g_arguments->fpOfInsertResult) {
+        errorPrint("failed to open %s for save result\n",
+                   g_arguments->output_file);
+    }
+
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
