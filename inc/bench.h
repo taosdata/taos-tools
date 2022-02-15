@@ -95,9 +95,6 @@
 #define TIMESTAMP_BUFF_LEN 21
 #define PRINT_STAT_INTERVAL 30 * 1000
 
-#define MAX_DB_COUNT 8
-#define MAX_SUPER_TABLE_COUNT 200
-
 #define MAX_QUERY_SQL_COUNT 100
 
 #define MAX_JSON_BUFF 6400000
@@ -423,7 +420,7 @@ typedef struct SArguments_S {
     char *             metaFile;
     int32_t            test_mode;
     char *             host;
-    int16_t            port;
+    uint32_t           port;
     int16_t            telnet_tcp_port;
     char *             user;
     char *             password;
@@ -438,7 +435,7 @@ typedef struct SArguments_S {
     int32_t            nthreads;
     int64_t            prepared_rand;
     uint32_t           reqPerReq;
-    int64_t            insert_interval;
+    uint32_t           insert_interval;
     bool               demo_mode;
     bool               aggr_func;
     int32_t            dbCount;

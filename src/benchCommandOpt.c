@@ -621,11 +621,6 @@ void modify_argument() {
     SSuperTable *superTable = g_arguments->db->superTbls;
     if (init_taos_list()) exit(EXIT_FAILURE);
 
-    g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
-    if (NULL == g_arguments->fpOfInsertResult) {
-        errorPrint("failed to open %s for save result\n",
-                   g_arguments->output_file);
-    }
     for (int i = 0; i < superTable->columnCount; ++i) {
         if (superTable->col_length[i] == 0) {
             superTable->col_length[i] = g_arguments->binwidth;

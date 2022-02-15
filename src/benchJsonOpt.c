@@ -15,6 +15,43 @@
 
 #include "bench.h"
 
+static int parseStringParameter(char *name, cJSON *src, char *target) {
+    cJSON *item = cJSON_GetObjectItem(src, name);
+    if (item) {
+        if (cJSON_IsString(item) && item->valuestring != NULL) {
+            target = item->valuestring;
+        } else {
+            errorPrint("Invalid %s value\n", name);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int parseNumberParameter(char *name, cJSON *src, int64_t target,
+                                bool can_be_zero) {
+    cJSON *item = cJSON_GetObjectItem(src, name);
+    if (item) {
+        if (cJSON_IsNumber(item)) {
+            if (!can_be_zero && item->valueint <= 0) {
+                errorPrint("Invalid %s value: %" PRId64 "\n", name,
+                           item->valueint);
+                return -1;
+            } else if (can_be_zero && item->valueint < 0) {
+                errorPrint("Invalid %s value: %" PRId64 "\n", name,
+                           item->valueint);
+                return -1;
+            } else {
+                target = item->valueint;
+            }
+        } else {
+            errorPrint("Invalid %s value\n", name);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                                                  SSuperTable *superTbls) {
     int32_t code = -1;
@@ -212,55 +249,25 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     if (cfgdir && cfgdir->type == cJSON_String && cfgdir->valuestring != NULL) {
         tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
+    if (parseStringParameter("host", json, g_arguments->host) ||
+        parseStringParameter("user", json, g_arguments->user) ||
+        parseStringParameter("password", json, g_arguments->password) ||
+        parseStringParameter("result_file", json, g_arguments->output_file) ||
+        parseNumberParameter("port", json, g_arguments->port, false) ||
+        parseNumberParameter("thread_count", json, g_arguments->nthreads,
+                             false) ||
+        parseNumberParameter("thread_pool_size", json,
+                             g_arguments->nthreads_pool, false) ||
+        init_taos_list() ||
+        parseNumberParameter("num_of_records_per_req", json,
+                             g_arguments->reqPerReq, false) ||
+        parseNumberParameter("prepared_rand", json, g_arguments->prepared_rand,
+                             false) ||
+        parseNumberParameter("insert_interval", json,
+                             g_arguments->insert_interval, true)
 
-    cJSON *host = cJSON_GetObjectItem(json, "host");
-    if (host && host->type == cJSON_String && host->valuestring != NULL) {
-        g_arguments->host = host->valuestring;
-    }
-
-    cJSON *port = cJSON_GetObjectItem(json, "port");
-    if (port && port->type == cJSON_Number) {
-        g_arguments->port = (uint16_t)port->valueint;
-    }
-
-    cJSON *user = cJSON_GetObjectItem(json, "user");
-    if (user && user->type == cJSON_String && user->valuestring != NULL) {
-        g_arguments->user = user->valuestring;
-    }
-
-    cJSON *password = cJSON_GetObjectItem(json, "password");
-    if (password && password->type == cJSON_String &&
-        password->valuestring != NULL) {
-        g_arguments->password = password->valuestring;
-    }
-
-    cJSON *resultfile = cJSON_GetObjectItem(json, "result_file");
-    if (resultfile && resultfile->type == cJSON_String &&
-        resultfile->valuestring != NULL) {
-        g_arguments->output_file = resultfile->valuestring;
-    }
-
-    cJSON *threads = cJSON_GetObjectItem(json, "thread_count");
-    if (threads && threads->type == cJSON_Number) {
-        g_arguments->nthreads = (uint32_t)threads->valueint;
-    }
-
-    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
-    if (threadspool && threadspool->type == cJSON_Number) {
-        g_arguments->nthreads_pool = (uint32_t)threadspool->valueint;
-    }
-
-    if (init_taos_list()) goto PARSE_OVER;
-
-    cJSON *numRecPerReq = cJSON_GetObjectItem(json, "num_of_records_per_req");
-    if (numRecPerReq && numRecPerReq->type == cJSON_Number) {
-        g_arguments->reqPerReq = (uint32_t)numRecPerReq->valueint;
-        if (g_arguments->reqPerReq <= 0) goto PARSE_OVER;
-    }
-
-    cJSON *prepareRand = cJSON_GetObjectItem(json, "prepared_rand");
-    if (prepareRand && prepareRand->type == cJSON_Number) {
-        g_arguments->prepared_rand = prepareRand->valueint;
+    ) {
+        goto PARSE_OVER;
     }
 
     cJSON *chineseOpt = cJSON_GetObjectItem(json, "chinese");  // yes, no,
@@ -269,11 +276,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
             g_arguments->chinese = true;
         }
-    }
-
-    cJSON *top_insertInterval = cJSON_GetObjectItem(json, "insert_interval");
-    if (top_insertInterval && top_insertInterval->type == cJSON_Number) {
-        g_arguments->insert_interval = top_insertInterval->valueint;
     }
 
     cJSON *answerPrompt =
@@ -286,10 +288,12 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     }
 
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
-    if (!dbs || dbs->type != cJSON_Array) goto PARSE_OVER;
+    if (!dbs || dbs->type != cJSON_Array) {
+        errorPrint("%s", "Invalid databases object\n");
+        goto PARSE_OVER;
+    }
 
     int dbSize = cJSON_GetArraySize(dbs);
-    if (dbSize > MAX_DB_COUNT) goto PARSE_OVER;
     tmfree(g_arguments->db->superTbls->col_length);
     tmfree(g_arguments->db->superTbls->col_type);
     tmfree(g_arguments->db->superTbls->col_null);
@@ -321,11 +325,36 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
 
         // dbinfo
         cJSON *dbinfo = cJSON_GetObjectItem(dbinfos, "dbinfo");
-        if (!dbinfo || dbinfo->type != cJSON_Object) goto PARSE_OVER;
+        if (!dbinfo || dbinfo->type != cJSON_Object) {
+            errorPrint("%s", "Cannot find dbinfo\n");
+            goto PARSE_OVER;
+        }
 
-        cJSON *dbName = cJSON_GetObjectItem(dbinfo, "name");
-        if (dbName && dbName->type == cJSON_String) {
-            database->dbName = dbName->valuestring;
+        if (parseStringParameter("name", dbinfo, database->dbName) ||
+            parseNumberParameter("update", dbinfo, database->dbCfg.update,
+                                 true) ||
+            parseNumberParameter("replica", dbinfo, database->dbCfg.replica,
+                                 true) ||
+            parseNumberParameter("keep", dbinfo, database->dbCfg.keep, true) ||
+            parseNumberParameter("days", dbinfo, database->dbCfg.days, true) ||
+            parseNumberParameter("cache", dbinfo, database->dbCfg.cache,
+                                 true) ||
+            parseNumberParameter("blocks", dbinfo, database->dbCfg.blocks,
+                                 true) ||
+            parseNumberParameter("minRows", dbinfo, database->dbCfg.minRows,
+                                 true) ||
+            parseNumberParameter("maxRows", dbinfo, database->dbCfg.maxRows,
+                                 true) ||
+            parseNumberParameter("comp", dbinfo, database->dbCfg.comp, true) ||
+            parseNumberParameter("walLevel", dbinfo, database->dbCfg.walLevel,
+                                 true) ||
+            parseNumberParameter("cachelast", dbinfo, database->dbCfg.cacheLast,
+                                 true) ||
+            parseNumberParameter("quorum", dbinfo, database->dbCfg.quorum,
+                                 true) ||
+            parseNumberParameter("fsync", dbinfo, database->dbCfg.fsync,
+                                 true)) {
+            goto PARSE_OVER;
         }
 
         cJSON *drop = cJSON_GetObjectItem(dbinfo, "drop");
@@ -359,95 +388,53 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
             database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
         }
 
-        cJSON *update = cJSON_GetObjectItem(dbinfo, "update");
-        if (update && update->type == cJSON_Number) {
-            database->dbCfg.update = (int)update->valueint;
-        }
-
-        cJSON *replica = cJSON_GetObjectItem(dbinfo, "replica");
-        if (replica && replica->type == cJSON_Number) {
-            database->dbCfg.replica = (int)replica->valueint;
-        }
-
-        cJSON *keep = cJSON_GetObjectItem(dbinfo, "keep");
-        if (keep && keep->type == cJSON_Number) {
-            database->dbCfg.keep = (int)keep->valueint;
-        }
-
-        cJSON *days = cJSON_GetObjectItem(dbinfo, "days");
-        if (days && days->type == cJSON_Number) {
-            database->dbCfg.days = (int)days->valueint;
-        }
-
-        cJSON *cache = cJSON_GetObjectItem(dbinfo, "cache");
-        if (cache && cache->type == cJSON_Number) {
-            database->dbCfg.cache = (int)cache->valueint;
-        }
-
-        cJSON *blocks = cJSON_GetObjectItem(dbinfo, "blocks");
-        if (blocks && blocks->type == cJSON_Number) {
-            database->dbCfg.blocks = (int)blocks->valueint;
-        }
-
-        cJSON *minRows = cJSON_GetObjectItem(dbinfo, "minRows");
-        if (minRows && minRows->type == cJSON_Number) {
-            database->dbCfg.minRows = minRows->valueint;
-        }
-
-        cJSON *maxRows = cJSON_GetObjectItem(dbinfo, "maxRows");
-        if (maxRows && maxRows->type == cJSON_Number) {
-            database->dbCfg.maxRows = maxRows->valueint;
-        }
-
-        cJSON *comp = cJSON_GetObjectItem(dbinfo, "comp");
-        if (comp && comp->type == cJSON_Number) {
-            database->dbCfg.comp = (int)comp->valueint;
-        }
-
-        cJSON *walLevel = cJSON_GetObjectItem(dbinfo, "walLevel");
-        if (walLevel && walLevel->type == cJSON_Number) {
-            database->dbCfg.walLevel = (int)walLevel->valueint;
-        }
-
-        cJSON *cacheLast = cJSON_GetObjectItem(dbinfo, "cachelast");
-        if (cacheLast && cacheLast->type == cJSON_Number) {
-            database->dbCfg.cacheLast = (int)cacheLast->valueint;
-        }
-
-        cJSON *quorum = cJSON_GetObjectItem(dbinfo, "quorum");
-        if (quorum && quorum->type == cJSON_Number) {
-            database->dbCfg.quorum = (int)quorum->valueint;
-        }
-
-        cJSON *fsync = cJSON_GetObjectItem(dbinfo, "fsync");
-        if (fsync && fsync->type == cJSON_Number) {
-            database->dbCfg.fsync = (int)fsync->valueint;
-        }
-
         // super_tables
         cJSON *stables = cJSON_GetObjectItem(dbinfos, "super_tables");
-        if (!stables || stables->type != cJSON_Array) goto PARSE_OVER;
+        if (!stables || stables->type != cJSON_Array) {
+            errorPrint("%s", "Cannot find super_tables\n");
+            goto PARSE_OVER;
+        }
 
         int stbSize = cJSON_GetArraySize(stables);
-        if (stbSize > MAX_SUPER_TABLE_COUNT) goto PARSE_OVER;
         database->superTbls = calloc(stbSize, sizeof(SSuperTable));
         g_memoryUsage += stbSize * sizeof(SSuperTable);
         database->superTblCount = stbSize;
         for (int j = 0; j < stbSize; ++j) {
             SSuperTable *superTable = &(database->superTbls[j]);
-            cJSON *      stbInfo = cJSON_GetArrayItem(stables, j);
+            superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
+            superTable->childTblCount = DEFAULT_CHILDTABLES;
+            superTable->insertRows = DEFAULT_INSERT_ROWS;
+            superTable->disorderRange = DEFAULT_DISORDER_RANGE;
+            superTable->insert_interval = g_arguments->insert_interval;
+            cJSON *stbInfo = cJSON_GetArrayItem(stables, j);
             if (stbInfo == NULL) continue;
 
-            // dbinfo
-            cJSON *stbName = cJSON_GetObjectItem(stbInfo, "name");
-            if (stbName && stbName->type == cJSON_String) {
-                superTable->stbName = stbName->valuestring;
+            if (parseStringParameter("name", stbInfo, superTable->stbName) ||
+                parseStringParameter("childtable_prefix", stbInfo,
+                                     superTable->childTblPrefix) ||
+                parseNumberParameter("batch_create_tbl_num", stbInfo,
+                                     superTable->batchCreateTableNum, false) ||
+                parseNumberParameter("childtable_count", stbInfo,
+                                     superTable->childTblCount, true) ||
+                parseNumberParameter("childtable_limit", stbInfo,
+                                     superTable->childTblLimit, true) ||
+                parseNumberParameter("childtable_offset", stbInfo,
+                                     superTable->childTblOffset, true) ||
+                parseNumberParameter("timestamp_step", stbInfo,
+                                     superTable->timestamp_step, false) ||
+                parseNumberParameter("insert_rows", stbInfo,
+                                     superTable->insertRows, true) ||
+                parseNumberParameter("interlace_rows", stbInfo,
+                                     superTable->interlaceRows, true) ||
+                parseNumberParameter("disorder_range", stbInfo,
+                                     superTable->disorderRange, true) ||
+                parseNumberParameter("insert_interval", stbInfo,
+                                     superTable->insert_interval, true) ||
+                parseNumberParameter("partial_col_num", stbInfo,
+                                     superTable->partialColumnNum, true)) {
+                goto PARSE_OVER;
             }
-
-            cJSON *prefix = cJSON_GetObjectItem(stbInfo, "childtable_prefix");
-            if (prefix && prefix->type == cJSON_String) {
-                superTable->childTblPrefix = prefix->valuestring;
-            }
+            g_arguments->g_totalChildTables += superTable->childTblCount;
 
             cJSON *escapeChar =
                 cJSON_GetObjectItem(stbInfo, "escape_character");
@@ -476,14 +463,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->autoCreateTable = false;
             }
 
-            cJSON *batchCreateTbl =
-                cJSON_GetObjectItem(stbInfo, "batch_create_tbl_num");
-            if (batchCreateTbl && batchCreateTbl->type == cJSON_Number) {
-                superTable->batchCreateTableNum = batchCreateTbl->valueint;
-            } else {
-                superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
-            }
-
             cJSON *childTblExists =
                 cJSON_GetObjectItem(stbInfo, "child_table_exists");  // yes, no
             if (childTblExists && childTblExists->type == cJSON_String &&
@@ -497,15 +476,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 }
             } else {
                 superTable->childTblExists = false;
-            }
-
-            cJSON *count = cJSON_GetObjectItem(stbInfo, "childtable_count");
-            if (count && count->type == cJSON_Number) {
-                superTable->childTblCount = count->valueint;
-                g_arguments->g_totalChildTables += superTable->childTblCount;
-            } else {
-                superTable->childTblCount = 10;
-                g_arguments->g_totalChildTables += superTable->childTblCount;
             }
 
             cJSON *dataSource = cJSON_GetObjectItem(stbInfo, "data_source");
@@ -566,31 +536,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->tcpTransfer = false;
             }
 
-            cJSON *childTbl_limit =
-                cJSON_GetObjectItem(stbInfo, "childtable_limit");
-            if (childTbl_limit && childTbl_limit->type == cJSON_Number) {
-                if (childTbl_limit->valueint < 0) {
-                    infoPrint("childTbl_limit(%" PRId64
-                              ") less than 0, ignore it and set to "
-                              "%" PRId64 "\n",
-                              childTbl_limit->valueint,
-                              superTable->childTblCount);
-                    superTable->childTblLimit = superTable->childTblCount;
-                } else {
-                    superTable->childTblLimit = childTbl_limit->valueint;
-                }
-            } else {
-                superTable->childTblLimit = superTable->childTblCount;
-            }
-
-            cJSON *childTbl_offset =
-                cJSON_GetObjectItem(stbInfo, "childtable_offset");
-            if (childTbl_offset && childTbl_offset->type == cJSON_Number) {
-                superTable->childTblOffset = childTbl_offset->valueint;
-            } else {
-                superTable->childTblOffset = 0;
-            }
-
             cJSON *ts = cJSON_GetObjectItem(stbInfo, "start_timestamp");
             if (ts && ts->type == cJSON_String && ts->valuestring != NULL) {
                 if (0 == strcasecmp(ts->valuestring, "now")) {
@@ -609,14 +554,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
             } else {
                 superTable->startTimestamp =
                     taosGetTimestamp(database->dbCfg.precision);
-            }
-
-            cJSON *timestampStep =
-                cJSON_GetObjectItem(stbInfo, "timestamp_step");
-            if (timestampStep && timestampStep->type == cJSON_Number) {
-                superTable->timestamp_step = timestampStep->valueint;
-            } else {
-                superTable->timestamp_step = 1;
             }
 
             cJSON *sampleFile = cJSON_GetObjectItem(stbInfo, "sample_file");
@@ -650,22 +587,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 memset(superTable->tagsFile, 0, MAX_FILE_NAME_LEN);
             }
 
-            cJSON *insertRows = cJSON_GetObjectItem(stbInfo, "insert_rows");
-            if (insertRows && insertRows->type == cJSON_Number) {
-                superTable->insertRows = insertRows->valueint;
-            } else {
-                superTable->insertRows = 10;
-            }
-
-            cJSON *stbInterlaceRows =
-                cJSON_GetObjectItem(stbInfo, "interlace_rows");
-            if (stbInterlaceRows && stbInterlaceRows->type == cJSON_Number) {
-                superTable->interlaceRows =
-                    (uint32_t)stbInterlaceRows->valueint;
-            } else {
-                superTable->interlaceRows = 0;
-            }
-
             cJSON *disorderRatio =
                 cJSON_GetObjectItem(stbInfo, "disorder_ratio");
             if (disorderRatio && disorderRatio->type == cJSON_Number) {
@@ -675,29 +596,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->disorderRatio = (int)disorderRatio->valueint;
             } else {
                 superTable->disorderRatio = 0;
-            }
-
-            cJSON *disorderRange =
-                cJSON_GetObjectItem(stbInfo, "disorder_range");
-            if (disorderRange && disorderRange->type == cJSON_Number) {
-                superTable->disorderRange = (int)disorderRange->valueint;
-            } else {
-                superTable->disorderRange = DEFAULT_DISORDER_RANGE;
-            }
-
-            cJSON *insertInterval =
-                cJSON_GetObjectItem(stbInfo, "insert_interval");
-            if (insertInterval && insertInterval->type == cJSON_Number) {
-                superTable->insert_interval = insertInterval->valueint;
-            } else {
-                superTable->insert_interval = g_arguments->insert_interval;
-            }
-
-            cJSON *pCoumnNum = cJSON_GetObjectItem(stbInfo, "partial_col_num");
-            if (pCoumnNum && pCoumnNum->type == cJSON_Number) {
-                superTable->partialColumnNum = pCoumnNum->valueint;
-            } else {
-                superTable->partialColumnNum = 0;
             }
 
             if (getColumnAndTagTypeFromInsertJsonFile(
@@ -1101,7 +999,7 @@ int getInfoFromJsonFile() {
     char *content = calloc(1, maxLen + 1);
     int   len = (int)fread(content, 1, maxLen, fp);
     if (len <= 0) {
-        errorPrint("failed to read %s, content is null", file);
+        errorPrint("failed to read %s, content is null\n", file);
         goto PARSE_OVER;
     }
 
