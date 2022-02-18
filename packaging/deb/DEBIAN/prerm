@@ -6,6 +6,12 @@ if command -v sudo > /dev/null; then
 fi
 
 # only remove package to call preun.sh, not but update(2)
+${csudo}rm -f /usr/bin/taosdump      || :
+${csudo}rm -f /usr/bin/taosBenchmark || :
+${csudo}rm -f /usr/bin/taosdemo      || :
+${csudo}rm -f /usr/bin/TDinsight.sh  || :
+
 ${csudo}rm -f /usr/local/bin/taosdump      || :
 ${csudo}rm -f /usr/local/bin/taosBenchmark || :
 ${csudo}rm -f /usr/local/bin/taosdemo      || :
+${csudo}rm -f /usr/local/bin/TDinsight.sh  || :
