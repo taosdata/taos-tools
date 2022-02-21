@@ -9,6 +9,10 @@ taosBenchmark （曾命名为 taosdemo）可以用于对 TDengine 进行全功�
 
 taosdump 是用于备份 TDengine 数据到本地目录和从本地目录恢复数据到 TDengine 的工具。详细使用方法请参考[taosdump用户手册](https://github.com/taosdata/taos-tools/blob/develop/taosdump-user-manual-CN.md)。
 
+## 安装 taosTools
+
+<ul id="taos-tools" class="package-list"></ul>
+
 ## 如何通过源代码构建？
 
 ### 安装依赖软件包
@@ -53,3 +57,4 @@ make
 sudo make install
 ```
 
+<script src="/wp-includes/js/quick-start.js?v=1"></script>

@@ -15,6 +15,10 @@ taosdump is a tool for backing up and restoring TDengine data to/from local dire
  Please refer to the [taosdump User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosdump-user-manual.md)
  for details on how to use it.
 
+## Install taosTools
+
+<ul id="taos-tools" class="package-list"></ul>
+
 ## How to build from source
 
 ### install dependencies
@@ -58,3 +62,4 @@ make
 sudo make install
 ```
 
+<script src="/wp-includes/js/quick-start.js?v=1"></script>
