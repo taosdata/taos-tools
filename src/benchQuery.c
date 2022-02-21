@@ -118,17 +118,18 @@ static void *specifiedTableQuery(void *sarg) {
                        total_delay_list[i]);
         }
     }
-    infoPrint("thread[%d] complete query <%s> %" PRIu64
-              " times, insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, "
-              "p95:% 5.2fms,p99: % 5.2fms, max: % 5.2fms\n\n ",
+	infoPrint("thread[%d] complete query <%s> %" PRIu64" times,"
+		      "insert delay, min: %5"PRIu64"us, avg: %5.2us,"
+			  " p90: %5"PRIu64"us, p95:%5"PRIu64"us, p99: %5"PRIu64"us,"
+			  " max: %5"PRIu64"us\n\n ",
               pThreadInfo->threadID,
               g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
-              queryTimes, (double)minDelay / 1000.0,
-              (double)totalDelay / queryTimes / 1000.0,
-              (double)total_delay_list[(int32_t)(queryTimes * 0.9)] / 1000.0,
-              (double)total_delay_list[(int32_t)(queryTimes * 0.95)] / 1000.0,
-              (double)total_delay_list[(int32_t)(queryTimes * 0.99)] / 1000.0,
-              (double)maxDelay / 1000.0);
+              queryTimes, minDelay,
+              (double)totalDelay / queryTimes,
+              total_delay_list[(int32_t)(queryTimes * 0.9)],
+              total_delay_list[(int32_t)(queryTimes * 0.95)],
+              total_delay_list[(int32_t)(queryTimes * 0.99)],
+              maxDelay);
     tmfree(total_delay_list);
     *code = 0;
     return code;
