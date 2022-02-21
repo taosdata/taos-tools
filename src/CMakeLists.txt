@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.0...3.20)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 
 INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR}/build/include)
 INCLUDE_DIRECTORIES(../inc)
@@ -123,7 +123,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
     IF (${BUILD_TYPE} MATCHES "Debug")
         MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
-        IF(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 4.8.5)
+        IF(CMAKE_C_COMPILER_VERSION VERSION_GREATER 4.8.5)
+            MESSAGE("${Green} GCC version is ${CMAKE_C_COMPILER_VERSION}, so full features of memory sanitizer is enabled.${ColourReset}")
             SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -static-libasan -fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment -O0 -g3 -DDEBUG0ww0 ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
         ELSE()
             MESSAGE("${Yellow} GCC version is equal or less than 4.8.5, which does not support memory sanitizer. Please upgrade to a higher version if you want to use it. ${ColourReset}")
