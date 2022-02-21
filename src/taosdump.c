@@ -261,7 +261,6 @@ typedef struct {
     char      stbName[TSDB_TABLE_NAME_LEN];
     int       precision;
     TAOS      *taos;
-    int64_t   rowsOfDumpOut;
     int64_t   count;
     int64_t   from;
     int64_t   stbSuccess;
@@ -4736,6 +4735,7 @@ static int64_t dumpNormalTableWithoutStb(
     }
     if (count > 0) {
         atomic_add_fetch_64(&g_totalDumpOutRows, count);
+        return 0;
     }
 
     return count;
@@ -5194,12 +5194,14 @@ static int64_t dumpNormalTableBelongStb(
             getPrecisionByString(dbInfo->precision),
             dumpFilename,
             fp);
-    if (count > 0) {
-        atomic_add_fetch_64(&g_totalDumpOutRows, count);
-    }
 
     if (!g_args.avro) {
         fclose(fp);
+    }
+
+    if (count > 0) {
+        atomic_add_fetch_64(&g_totalDumpOutRows, count);
+        return 0;
     }
 
     return count;
@@ -6068,17 +6070,15 @@ static int64_t dumpNtbOfStbByThreads(
         pthread_join(pids[i], NULL);
     }
 
-    int64_t records = 0;
     for (int64_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-        records += pThreadInfo->rowsOfDumpOut;
         taos_close(pThreadInfo->taos);
     }
 
     free(pids);
     free(infos);
 
-    return records;
+    return 0;
 }
 
 static int dumpTbTagsToAvro(
@@ -6440,16 +6440,16 @@ static int dumpOut() {
                 continue;
             }
 
-            int64_t records = 0;
+            int ret = 0;
             if (tableRecordInfo.isStb) {  // dump all table of this stable
-                int ret = dumpStableClasuse(
+                ret = dumpStableClasuse(
                         taos,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         fp);
                 if (ret >= 0) {
                     superTblCnt++;
-                    records = dumpNtbOfStbByThreads(g_dbInfos[0], g_args.arg_list[i]);
+                    ret = dumpNtbOfStbByThreads(g_dbInfos[0], g_args.arg_list[i]);
                 }
             } else if (tableRecordInfo.belongStb){
                 dumpStableClasuse(
@@ -6466,21 +6466,20 @@ static int dumpOut() {
                             tableRecordInfo.tableRecord.stable,
                             g_args.arg_list[i]);
                 }
-                records = dumpNormalTableBelongStb(
+                ret = dumpNormalTableBelongStb(
                         i,
                         taos,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         g_args.arg_list[i]);
             } else {
-                records = dumpNormalTableWithoutStb(
+                ret = dumpNormalTableWithoutStb(
                         i,
                         taos, g_dbInfos[0], g_args.arg_list[i]);
             }
 
-            if (records >= 0) {
+            if (ret >= 0) {
                 okPrint("table: %s dumped\n", g_args.arg_list[i]);
-                g_totalDumpOutRows += records;
             }
         }
     }

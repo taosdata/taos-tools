@@ -71,14 +71,14 @@ jobs:
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
 
-      - name: Checkout TDengine with same branch of taos-tools
-        run: |
-          echo "The uname output was ${{ steps.setup.outputs.uname }}"
-          cd TDengine
-          git pull
-          git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
-          git submodule update --init --recursive
-        if: github.event_name == 'pull_request'
+          #- name: Checkout TDengine with same branch of taos-tools
+          #run: |
+          #echo "The uname output was ${{ steps.setup.outputs.uname }}"
+          #cd TDengine
+          #git pull
+          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
+          #git submodule update --init --recursive
+          #if: github.event_name == 'pull_request'
 
       - name: Checkout TDengine's taos-tools to PR number
         if: github.event_name == 'pull_request'
