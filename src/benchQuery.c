@@ -91,14 +91,15 @@ static void *specifiedTableQuery(void *sarg) {
             minDelay = delay;
         }
 
-		pThreadInfo->totalQueried++;
+        pThreadInfo->totalQueried++;
         uint64_t currentPrintTime = taosGetTimestampMs();
         uint64_t endTs = taosGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
             infoPrint("thread[%d] has currently completed queries: %" PRIu64
                       ", QPS: %10.6f\n",
                       pThreadInfo->threadID, pThreadInfo->totalQueried,
-                      (double)(pThreadInfo->totalQueried / ((endTs - startTs) / 1000.0)));
+                      (double)(pThreadInfo->totalQueried /
+                               ((endTs - startTs) / 1000.0)));
             lastPrintTime = currentPrintTime;
         }
     }
@@ -115,18 +116,19 @@ static void *specifiedTableQuery(void *sarg) {
                        total_delay_list[i]);
         }
     }
-	infoPrint("thread[%d] complete query <%s> %" PRIu64" times,"
-		      "insert delay, min: %5"PRIu64"us, avg: %5.2fus,"
-			  " p90: %5"PRIu64"us, p95:%5"PRIu64"us, p99: %5"PRIu64"us,"
-			  " max: %5"PRIu64"us\n\n ",
+    infoPrint("thread[%d] complete query <%s> %" PRIu64
+              " times,"
+              "insert delay, min: %5" PRIu64
+              "us, avg: %5.2fus,"
+              " p90: %5" PRIu64 "us, p95:%5" PRIu64 "us, p99: %5" PRIu64
+              "us,"
+              " max: %5" PRIu64 "us\n\n ",
               pThreadInfo->threadID,
               g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
-              queryTimes, minDelay,
-              (double)totalDelay / queryTimes,
+              queryTimes, minDelay, (double)totalDelay / queryTimes,
               total_delay_list[(int32_t)(queryTimes * 0.9)],
               total_delay_list[(int32_t)(queryTimes * 0.95)],
-              total_delay_list[(int32_t)(queryTimes * 0.99)],
-              maxDelay);
+              total_delay_list[(int32_t)(queryTimes * 0.99)], maxDelay);
     tmfree(total_delay_list);
     *code = 0;
     return code;
@@ -177,7 +179,8 @@ static void *superTableQuery(void *sarg) {
                         "thread[%d] has currently completed queries: %" PRIu64
                         ", QPS: %10.3f\n",
                         pThreadInfo->threadID, pThreadInfo->totalQueried,
-                        (double)(pThreadInfo->totalQueried / ((endTs - startTs) / 1000.0)));
+                        (double)(pThreadInfo->totalQueried /
+                                 ((endTs - startTs) / 1000.0)));
                     lastPrintTime = currentPrintTime;
                 }
             }
@@ -324,8 +327,6 @@ int queryTestProcess() {
         for (int i = 0; i < nConcurrent; i++) {
             for (int j = 0; j < nSqlCount; j++) {
                 void *result;
-				debugPrint("Thread[%"PRIu64"]'s totalQueried: %"PRIu64"\n", i*nSqlCount + j, infos[i*nSqlCount+j].totalQueried);
-				g_queryInfo.specifiedQueryInfo.totalQueried += infos[i*nSqlCount + j].totalQueried;
                 pthread_join(pids[i * nSqlCount + j], &result);
                 if (*(int32_t *)result) {
                     g_fail = true;
@@ -340,6 +341,12 @@ int queryTestProcess() {
                     close(pThreadInfo->sockfd);
 #endif
                 }
+            }
+        }
+        for (int i = 0; i < nConcurrent; i++) {
+            for (int j = 0; j < nSqlCount; j++) {
+                g_queryInfo.specifiedQueryInfo.totalQueried +=
+                    infos[i * nSqlCount + j].totalQueried;
             }
         }
     }
@@ -422,7 +429,6 @@ int queryTestProcess() {
 
     for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
         void *result;
-		g_queryInfo.superQueryInfo.totalQueried += infosOfSub[i].totalQueried;
         pthread_join(pidsOfSub[i], &result);
         if (*(int32_t *)result) {
             g_fail = true;
@@ -438,6 +444,9 @@ int queryTestProcess() {
 #endif
         }
     }
+    for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; ++i) {
+        g_queryInfo.superQueryInfo.totalQueried += infosOfSub[i].totalQueried;
+    }
 
     tmfree((char *)pidsOfSub);
     tmfree((char *)infosOfSub);
@@ -451,8 +460,10 @@ int queryTestProcess() {
 
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +
                             g_queryInfo.superQueryInfo.totalQueried;
-	debugPrint("g_queryInfo.specifiedQueryInfo.totalQueried: %"PRIu64", superQueryInfo.totalQueried: %"PRIu64"\n",
-		g_queryInfo.specifiedQueryInfo.totalQueried, g_queryInfo.superQueryInfo.totalQueried);
+    debugPrint("g_queryInfo.specifiedQueryInfo.totalQueried: %" PRIu64
+               ", superQueryInfo.totalQueried: %" PRIu64 "\n",
+               g_queryInfo.specifiedQueryInfo.totalQueried,
+               g_queryInfo.superQueryInfo.totalQueried);
     infoPrint("completed total queries: %" PRIu64
               ", the QPS of all threads: %10.3f\n\n",
               totalQueried,
