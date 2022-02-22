@@ -45,18 +45,19 @@ echo buildroot: %{buildroot}
 mkdir -p %{buildroot}%{homepath}/bin
 
 cp %{_compiledir}/build/bin/taosdump                %{buildroot}%{homepath}/bin
-cp %{_compiledir}/build/bin/taosBenchmark           %{buildroot}%{homepath}/bin
+#cp %{_compiledir}/build/bin/taosBenchmark           %{buildroot}%{homepath}/bin
+cp %{_compiledir}/build/bin/TDinsight.sh            %{buildroot}%{homepath}/bin
 
-if [ -f %{_compiledir}/build/lib/libavro.so.23.0.0 ]; then
-    mkdir -p %{buildroot}%{userlocalpath}/lib
-    cp %{_compiledir}/build/lib/libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib
-    ln -sf libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib/libavro.so.23
-    ln -sf libavro.so.23 %{buildroot}%{userlocalpath}/lib/libavro.so
-fi
+#if [ -f %{_compiledir}/build/lib/libavro.so.23.0.0 ]; then
+#    mkdir -p %{buildroot}%{userlocalpath}/lib
+#    cp %{_compiledir}/build/lib/libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib
+#    ln -sf libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib/libavro.so.23
+#    ln -sf libavro.so.23 %{buildroot}%{userlocalpath}/lib/libavro.so
+#fi
 
-if [ -f %{_compiledir}/build/lib/libavro.a ]; then
-    cp %{_compiledir}/build/lib/libavro.a %{buildroot}%{userlocalpath}/lib
-fi
+#if [ -f %{_compiledir}/build/lib/libavro.a ]; then
+#    cp %{_compiledir}/build/lib/libavro.a %{buildroot}%{userlocalpath}/lib
+#fi
 
 #Scripts executed before installation
 %pre
