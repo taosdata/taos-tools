@@ -61,4 +61,8 @@ make
 sudo make install
 ```
 
+<div class="hide">
+
 <script src="/wp-includes/js/quick-start.js?v=1"></script>
+
+</div>
