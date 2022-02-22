@@ -324,6 +324,7 @@ int queryTestProcess() {
         for (int i = 0; i < nConcurrent; i++) {
             for (int j = 0; j < nSqlCount; j++) {
                 void *result;
+				debugPrint("Thread[%"PRIu64"]'s totalQueried: %"PRIu64"\n", i*nSqlCount + j, infos[i*nSqlCount+j].totalQueried);
 				g_queryInfo.specifiedQueryInfo.totalQueried += infos[i*nSqlCount + j].totalQueried;
                 pthread_join(pids[i * nSqlCount + j], &result);
                 if (*(int32_t *)result) {
@@ -450,7 +451,8 @@ int queryTestProcess() {
 
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +
                             g_queryInfo.superQueryInfo.totalQueried;
-
+	debugPrint("g_queryInfo.specifiedQueryInfo.totalQueried: %"PRIu64", superQueryInfo.totalQueried: %"PRIu64"\n",
+		g_queryInfo.specifiedQueryInfo.totalQueried, g_queryInfo.superQueryInfo.totalQueried);
     infoPrint("completed total queries: %" PRIu64
               ", the QPS of all threads: %10.3f\n\n",
               totalQueried,
