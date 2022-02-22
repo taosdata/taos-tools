@@ -1,9 +1,11 @@
 # taosTools
 
 <div class="hide">
+ 
  [![CI](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml)
 [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
- </div>
+ 
+</div>
 
 taosTools 是用于 TDengine 的辅助工具软件集合。目前它包含 taosBenchmark 和 taosdump 两个工具软件。
 
