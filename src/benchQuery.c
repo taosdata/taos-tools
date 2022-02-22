@@ -460,13 +460,12 @@ int queryTestProcess() {
 
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +
                             g_queryInfo.superQueryInfo.totalQueried;
-    debugPrint("g_queryInfo.specifiedQueryInfo.totalQueried: %" PRIu64
-               ", superQueryInfo.totalQueried: %" PRIu64 "\n",
-               g_queryInfo.specifiedQueryInfo.totalQueried,
-               g_queryInfo.superQueryInfo.totalQueried);
-    infoPrint("completed total queries: %" PRIu64
+
+    int64_t t = endTs - startTs;
+    double  tInS = (double)t / 1000.0;
+
+    infoPrint("Spend %.4f second completed total queries: %" PRIu64
               ", the QPS of all threads: %10.3f\n\n",
-              totalQueried,
-              (double)(totalQueried / ((endTs - startTs) / 1000.0)));
+              tInS, totalQueried, (double)totalQueried / tInS);
     return 0;
 }
