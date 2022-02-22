@@ -455,7 +455,7 @@ int queryTestProcess() {
 
     infoPrint("Spend %.4f second completed total queries: %" PRIu64
               ", the QPS of all threads: %10.3f\n\n",
-              (double)(endTs - startTs) / 1000.0, totalQueried,
+              ((double)(endTs - startTs)) / 1000.0, totalQueried,
               (double)(totalQueried / ((endTs - startTs) / 1000.0)));
     return 0;
 }
