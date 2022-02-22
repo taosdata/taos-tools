@@ -4,10 +4,9 @@
 [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
 
 taosTools are some useful tool collections for TDengine.
- It includes `taosBenchmark` and `taosdump` right now.
 
 taosBenchmark (once named taosdemo) can be used to stress test TDengine
- for full-featured writes, queries, subscriptions, etc. Please refer to
+ for full-featured writes, queries, subscriptions, etc. In 2.4.0.7 and early release, taosBenchmark is distributed within taosTools package. In later release, taosBenchmark will be included within TDengine again.  Please refer to
  the [taosBenchmark User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosbenchmark-user-manual.md)
  for details on how to use it.
 
