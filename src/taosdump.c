@@ -54,6 +54,8 @@ static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
 
+static char      g_escapeChar[2] = "`";
+
 static void print_json_aux(json_t *element, int indent);
 
 // for tstrncpy buffer overflow
@@ -373,7 +375,8 @@ static struct argp_option options[] = {
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
     {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement when restore back. Default value is 16384. If you see 'WAL size exceeds limit' error, please adjust the value to a smaller one and try. The workable value is related to the length of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
-    {"thread_num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
+    {"thread-num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
+    {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
 };
@@ -412,6 +415,7 @@ typedef struct arguments {
     bool     data_batch_input;
     int32_t  max_sql_len;
     bool     allow_sys;
+    bool     escape_char;
     // other options
     int32_t  thread_num;
     int      abort;
@@ -465,6 +469,7 @@ struct arguments g_args = {
     false,      // data_batch_input
     TSDB_MAX_SQL_LEN,   // max_sql_len
     false,      // allow_sys
+    true,       // escape_char
     // other options
     8,          // thread_num
     0,          // abort
@@ -689,14 +694,22 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'a':
             g_args.allow_sys = true;
             break;
+
+        case 'n':
+            g_args.escape_char = false;
+            break;
+
         case 'h':
             g_args.host = arg;
             break;
+
         case 'u':
             g_args.user = arg;
             break;
+
         case 'p':
             break;
+
         case 'P':
             if (!isStringNumber(arg)) {
                 errorPrintReqArg2("taosdump", "P");
@@ -1233,8 +1246,9 @@ static int dumpCreateMTableClause(
     pstr = tmpBuf;
 
     pstr += sprintf(tmpBuf,
-            "CREATE TABLE IF NOT EXISTS %s.`%s` USING %s.`%s` TAGS(",
-            dbName, tableDes->name, dbName, stable);
+            "CREATE TABLE IF NOT EXISTS %s.%s%s%s USING %s.%s%s%s TAGS(",
+            dbName, g_escapeChar, tableDes->name, g_escapeChar,
+            dbName, g_escapeChar, stable, g_escapeChar);
 
     for (; counter < numColsAndTags; counter++) {
         if (tableDes->cols[counter].note[0] != '\0') break;
@@ -1299,7 +1313,8 @@ static int64_t getNtbCountOfStb(char *dbName, char *stbName)
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.`%s`", dbName, stbName);
+    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+            dbName, g_escapeChar, stbName, g_escapeChar);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
@@ -1333,7 +1348,8 @@ static int getTableDes(
     int colCount = 0;
 
     char sqlstr[COMMAND_SIZE];
-    sprintf(sqlstr, "DESCRIBE %s.`%s`", dbName, table);
+    sprintf(sqlstr, "DESCRIBE %s.%s%s%s",
+            dbName, g_escapeChar, table, g_escapeChar);
 
     res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
@@ -1384,8 +1400,9 @@ static int getTableDes(
     for (int i = 0 ; i < colCount; i++) {
         if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
 
-        sprintf(sqlstr, "SELECT %s FROM %s.`%s`",
-                tableDes->cols[i].field, dbName, table);
+        sprintf(sqlstr, "SELECT %s FROM %s.%s%s%s",
+                tableDes->cols[i].field,
+                dbName, g_escapeChar, table, g_escapeChar);
 
         res = taos_query(taos, sqlstr);
         code = taos_errno(res);
@@ -1663,19 +1680,23 @@ static int convertTableDesToSql(char *dbName,
 
     char* pstr = *buffer;
 
-    pstr += sprintf(pstr, "CREATE TABLE IF NOT EXISTS %s.`%s`",
-            dbName, tableDes->name);
+    pstr += sprintf(pstr, "CREATE TABLE IF NOT EXISTS %s.%s%s%s",
+            dbName, g_escapeChar, tableDes->name, g_escapeChar);
 
     for (; counter < tableDes->columns; counter++) {
         if (tableDes->cols[counter].note[0] != '\0') break;
 
         if (counter == 0) {
-            pstr += sprintf(pstr, "(`%s` %s",
+            pstr += sprintf(pstr, "(%s%s%s %s",
+                    g_escapeChar,
                     tableDes->cols[counter].field,
+                    g_escapeChar,
                     typeToStr(tableDes->cols[counter].type));
         } else {
-            pstr += sprintf(pstr, ",`%s` %s",
+            pstr += sprintf(pstr, ",%s%s%s %s",
+                    g_escapeChar,
                     tableDes->cols[counter].field,
+                    g_escapeChar,
                     typeToStr(tableDes->cols[counter].type));
         }
 
@@ -1690,12 +1711,16 @@ static int convertTableDesToSql(char *dbName,
 
     for (; counter < (tableDes->columns + tableDes->tags); counter++) {
         if (counter == count_temp) {
-            pstr += sprintf(pstr, ") TAGS(`%s` %s",
+            pstr += sprintf(pstr, ") TAGS(%s%s%s %s",
+                    g_escapeChar,
                     tableDes->cols[counter].field,
+                    g_escapeChar,
                     typeToStr(tableDes->cols[counter].type));
         } else {
-            pstr += sprintf(pstr, ",`%s` %s",
+            pstr += sprintf(pstr, ",%s%s%s %s",
+                    g_escapeChar,
                     tableDes->cols[counter].field,
+                    g_escapeChar,
                     typeToStr(tableDes->cols[counter].type));
         }
 
@@ -3044,8 +3069,9 @@ static int dumpInAvroTbTagsImpl(
                         (const char **)&tbName, &size);
 
                 curr_sqlstr_len = sprintf(tbuf,
-                        "CREATE TABLE %s.`%s` USING %s.`%s` TAGS(?",
-                        namespace, tbName, namespace, stbName);
+                        "CREATE TABLE %s.%s%s%s USING %s.%s%s%s TAGS(?",
+                        namespace, g_escapeChar, tbName, g_escapeChar,
+                        namespace, g_escapeChar, stbName, g_escapeChar);
                 for (int j = 0; j < recordSchema->num_fields-3; j ++) {
                     curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ",?");
                 }
@@ -3614,7 +3640,7 @@ static int dumpInAvroDataImpl(
 
         char *escapedTbName = calloc(1, strlen(tbName) + 3);
         assert(escapedTbName);
-        sprintf(escapedTbName, "`%s`", tbName);
+        sprintf(escapedTbName, "%s%s%s", g_escapeChar, tbName, g_escapeChar);
 
         if (0 != taos_stmt_set_tbname(stmt, escapedTbName)) {
             errorPrint("Failed to execute taos_stmt_set_tbname(%s). reason: %s\n",
@@ -4570,8 +4596,9 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
     }
 
     sprintf(sqlstr,
-            "SELECT * FROM %s.`%s` WHERE _c0 >= %" PRId64 " AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
-            dbName, tbName, start_time, end_time);
+            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
+            dbName, g_escapeChar, tbName, g_escapeChar,
+            start_time, end_time);
 
     TAOS_RES* res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
@@ -4787,8 +4814,8 @@ static int createMTableAvroHead(
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT TBNAME FROM %s.`%s` LIMIT %"PRId64" OFFSET %"PRId64"",
-            dbName, stable,
+    sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+            dbName, g_escapeChar, stable, g_escapeChar,
             limit, offset);
 
     debugPrint("%s() LN%d, failed to run command <%s>.\n",
@@ -5818,8 +5845,9 @@ static void *dumpNormalTablesOfStb(void *arg) {
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT TBNAME FROM %s.`%s` LIMIT %"PRId64" OFFSET %"PRId64"",
-            pThreadInfo->dbName, pThreadInfo->stbName,
+    sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+            pThreadInfo->dbName,
+            g_escapeChar, pThreadInfo->stbName, g_escapeChar,
             pThreadInfo->count, pThreadInfo->from);
 
     TAOS_RES *res = taos_query(pThreadInfo->taos, command);
@@ -6557,7 +6585,8 @@ void printArgs(FILE *file)
     // use max_sql_len, should not print max_sql_len
     // fprintf(file, "max_sql_len: %d\n", g_args.max_sql_len);
     fprintf(file, "thread_num: %d\n", g_args.thread_num);
-    fprintf(file, "allow_sys: %d\n", g_args.allow_sys);
+    fprintf(file, "allow_sys: %s\n", g_args.allow_sys?"true":"false");
+    fprintf(file, "escape_char: %s\n", g_args.escape_char?"true":"false");
     // should not print abort
     // fprintf(file, "abort: %d\n", g_args.abort);
     fprintf(file, "isDumpIn: %d\n", g_args.isDumpIn);
@@ -6588,6 +6617,11 @@ int main(int argc, char *argv[])
         abort();
     }
 
+    if (!g_args.escape_char) {
+        sprintf(g_escapeChar, "%s", "");
+    }
+
+    printf("==============================\n");
     printArgs(stdout);
 
     for (int32_t i = 0; i < g_args.arg_list_len; i++) {
@@ -6600,7 +6634,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    printf("==============================\n");
     if (checkParam(&g_args) < 0) {
         exit(EXIT_FAILURE);
     }
