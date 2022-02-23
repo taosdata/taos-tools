@@ -90,12 +90,17 @@ jobs:
           git submodule update --init --recursive
 
       - name: Build tdengine
-        run: |
-          echo "The uname output was ${{ steps.setup.outputs.uname }}"
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine
-          mkdir debug
-          cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true
-          make
-          sudo make install
+        uses: uraimo/run-on-arch-action@v2.1.1
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+          run: |
+            echo "The uname output was ${{ steps.setup.outputs.uname }}"
+            apt update -y
+            apt install cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+            cd TDengine
+            mkdir debug
+            cd debug
+            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true
+            make
+            make install
