@@ -371,7 +371,7 @@ static struct argp_option options[] = {
     {"avro-codec", 'd', "snappy", 0,  "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
     {"start-time",    'S', "START_TIME",  0,  "Start time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",  8},
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
-    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement. Default value is 16384.", 10},
+    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement when restore back. Default value is 16384. If you see 'WAL size exceeds limit' error, please adjust the value to a smaller one and try. The workable value is related to the length of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread_num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
@@ -409,6 +409,7 @@ typedef struct arguments {
     char     precision[8];
 
     int32_t  data_batch;
+    bool     data_batch_input;
     int32_t  max_sql_len;
     bool     allow_sys;
     // other options
@@ -461,6 +462,7 @@ struct arguments g_args = {
     {0},        // humanEndTime
     "ms",       // precision
     MAX_RECORDS_PER_REQ / 2,    // data_batch
+    false,      // data_batch_input
     TSDB_MAX_SQL_LEN,   // max_sql_len
     false,      // allow_sys
     // other options
@@ -781,25 +783,33 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
         case 'A':
             break;
+
         case 'D':
             g_args.databases = true;
             break;
+
             // dump format option
         case 's':
             g_args.schemaonly = true;
             break;
+
         case 'N':
             g_args.with_property = false;
             break;
+
         case 'y':
             g_args.answer_yes = true;
             break;
+
         case 'S':
             // parse time here.
             break;
+
         case 'E':
             break;
+
         case 'B':
+            g_args.data_batch_input = true;
             g_args.data_batch = atoi((const char *)arg);
             if (g_args.data_batch > MAX_RECORDS_PER_REQ/2) {
                 g_args.data_batch = MAX_RECORDS_PER_REQ/2;
@@ -5317,7 +5327,9 @@ static int checkParam() {
     }
 
     if (g_args.arg_list_len == 0) {
-        if ((!g_args.all_databases) && (!g_args.databases) && (!g_args.isDumpIn)) {
+        if ((!g_args.all_databases)
+                && (!g_args.databases)
+                && (!g_args.isDumpIn)) {
             errorPrint("%s", "taosdump requires parameters\n");
             return -1;
         }
@@ -5329,6 +5341,11 @@ static int checkParam() {
             && (0 == g_args.arg_list_len)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
+    }
+
+    if ((!g_args.isDumpIn) && (g_args.data_batch_input)) {
+        warnPrint("%s", "Data batch option '-B' is not used for dump out\n");
+        prompt();
     }
 
     return 0;
