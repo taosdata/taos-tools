@@ -1,19 +1,26 @@
 # taosTools
 
+<div class="hide">
+
 [![CI](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/cmake.yml)
 [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
 
+</div>
+
 taosTools are some useful tool collections for TDengine.
- It includes `taosBenchmark` and `taosdump` right now.
 
 taosBenchmark (once named taosdemo) can be used to stress test TDengine
- for full-featured writes, queries, subscriptions, etc. Please refer to
+ for full-featured writes, queries, subscriptions, etc. In 2.4.0.7 and early release, taosBenchmark is distributed within taosTools package. In later release, taosBenchmark will be included within TDengine again.  Please refer to
  the [taosBenchmark User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosbenchmark-user-manual.md)
  for details on how to use it.
 
 taosdump is a tool for backing up and restoring TDengine data to/from local directory.
  Please refer to the [taosdump User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosdump-user-manual.md)
  for details on how to use it.
+
+## Install taosTools
+
+<ul id="taos-tools" class="package-list"></ul>
 
 ## How to build from source
 
@@ -58,3 +65,4 @@ make
 sudo make install
 ```
 
+<script src="/wp-includes/js/quick-start.js?v=1"></script>

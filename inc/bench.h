@@ -480,6 +480,7 @@ typedef struct SThreadInfo_S {
     uint64_t   lastTs;
     int64_t    samplePos;
     uint64_t   totalInsertRows;
+    uint64_t   totalQueried;
     uint64_t   totalAffectedRows;
     uint64_t   cntDelay;
     uint64_t   totalDelay;

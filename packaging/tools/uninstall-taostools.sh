@@ -17,7 +17,7 @@ toolsName="taostools"
 bin_link_dir="/usr/bin"
 
 #install main path
-install_main_dir="/usr/local"
+install_main_dir="/usr/local/taos"
 
 # Color setting
 RED='\033[0;31m'

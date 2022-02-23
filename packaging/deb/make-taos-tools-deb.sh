@@ -6,6 +6,7 @@ set -e
 
 dumpName="taosdump"
 benchmarkName="taosBenchmark"
+TDinsight="TDinsight.sh"
 
 #curr_dir=$(pwd)
 top_dir=$1
@@ -38,7 +39,15 @@ mkdir -p ${pkg_dir}${install_home_path}
 mkdir -p ${pkg_dir}${install_home_path}/bin || :
 
 cp ${compile_dir}/build/bin/${dumpName}                     ${pkg_dir}${install_home_path}/bin
-cp ${compile_dir}/build/bin/${benchmarkName}                ${pkg_dir}${install_home_path}/bin
+#cp ${compile_dir}/build/bin/${benchmarkName}                ${pkg_dir}${install_home_path}/bin
+
+wget https://github.com/taosdata/grafanaplugin/releases/latest/download/TDinsight.sh -O ${compile_dir}/build/bin/${TDinsight} && \
+    echo "TDinsight.sh downloaded!" || \
+    echo "failed to download TDinsight.sh"
+
+[ -f ${compile_dir}/build/bin/${TDinsight} ] && \
+    chmod +x ${compile_dir}/build/bin/${TDinsight} && \
+    cp ${compile_dir}/build/bin/${TDinsight}                    ${pkg_dir}${install_home_path}/bin
 
 install_user_local_path="/usr/local"
 

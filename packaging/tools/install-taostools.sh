@@ -20,7 +20,7 @@ script_dir=$(dirname $(readlink -f "$0"))
 bin_link_dir="/usr/bin"
 
 #install main path
-install_main_dir="/usr/local"
+install_main_dir="/usr/local/taos"
 
 # Color setting
 RED='\033[0;31m'
@@ -134,8 +134,8 @@ function install_taostools() {
 
     install_main_path
 
-    install_avro lib
-    install_avro lib64
+#    install_avro lib
+#    install_avro lib64
 
 
     # For installing new

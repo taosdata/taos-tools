@@ -261,7 +261,6 @@ typedef struct {
     char      stbName[TSDB_TABLE_NAME_LEN];
     int       precision;
     TAOS      *taos;
-    int64_t   rowsOfDumpOut;
     int64_t   count;
     int64_t   from;
     int64_t   stbSuccess;
@@ -372,7 +371,7 @@ static struct argp_option options[] = {
     {"avro-codec", 'd', "snappy", 0,  "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
     {"start-time",    'S', "START_TIME",  0,  "Start time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",  8},
     {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
-    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement. Default value is 16384.", 10},
+    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement when restore back. Default value is 16384. If you see 'WAL size exceeds limit' error, please adjust the value to a smaller one and try. The workable value is related to the length of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread_num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
@@ -410,6 +409,7 @@ typedef struct arguments {
     char     precision[8];
 
     int32_t  data_batch;
+    bool     data_batch_input;
     int32_t  max_sql_len;
     bool     allow_sys;
     // other options
@@ -462,6 +462,7 @@ struct arguments g_args = {
     {0},        // humanEndTime
     "ms",       // precision
     MAX_RECORDS_PER_REQ / 2,    // data_batch
+    false,      // data_batch_input
     TSDB_MAX_SQL_LEN,   // max_sql_len
     false,      // allow_sys
     // other options
@@ -782,25 +783,33 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
         case 'A':
             break;
+
         case 'D':
             g_args.databases = true;
             break;
+
             // dump format option
         case 's':
             g_args.schemaonly = true;
             break;
+
         case 'N':
             g_args.with_property = false;
             break;
+
         case 'y':
             g_args.answer_yes = true;
             break;
+
         case 'S':
             // parse time here.
             break;
+
         case 'E':
             break;
+
         case 'B':
+            g_args.data_batch_input = true;
             g_args.data_batch = atoi((const char *)arg);
             if (g_args.data_batch > MAX_RECORDS_PER_REQ/2) {
                 g_args.data_batch = MAX_RECORDS_PER_REQ/2;
@@ -4736,6 +4745,7 @@ static int64_t dumpNormalTableWithoutStb(
     }
     if (count > 0) {
         atomic_add_fetch_64(&g_totalDumpOutRows, count);
+        return 0;
     }
 
     return count;
@@ -5194,12 +5204,14 @@ static int64_t dumpNormalTableBelongStb(
             getPrecisionByString(dbInfo->precision),
             dumpFilename,
             fp);
-    if (count > 0) {
-        atomic_add_fetch_64(&g_totalDumpOutRows, count);
-    }
 
     if (!g_args.avro) {
         fclose(fp);
+    }
+
+    if (count > 0) {
+        atomic_add_fetch_64(&g_totalDumpOutRows, count);
+        return 0;
     }
 
     return count;
@@ -5315,7 +5327,9 @@ static int checkParam() {
     }
 
     if (g_args.arg_list_len == 0) {
-        if ((!g_args.all_databases) && (!g_args.databases) && (!g_args.isDumpIn)) {
+        if ((!g_args.all_databases)
+                && (!g_args.databases)
+                && (!g_args.isDumpIn)) {
             errorPrint("%s", "taosdump requires parameters\n");
             return -1;
         }
@@ -5327,6 +5341,11 @@ static int checkParam() {
             && (0 == g_args.arg_list_len)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
+    }
+
+    if ((!g_args.isDumpIn) && (g_args.data_batch_input)) {
+        warnPrint("%s", "Data batch option '-B' is not used for dump out\n");
+        prompt();
     }
 
     return 0;
@@ -6068,17 +6087,15 @@ static int64_t dumpNtbOfStbByThreads(
         pthread_join(pids[i], NULL);
     }
 
-    int64_t records = 0;
     for (int64_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-        records += pThreadInfo->rowsOfDumpOut;
         taos_close(pThreadInfo->taos);
     }
 
     free(pids);
     free(infos);
 
-    return records;
+    return 0;
 }
 
 static int dumpTbTagsToAvro(
@@ -6440,16 +6457,16 @@ static int dumpOut() {
                 continue;
             }
 
-            int64_t records = 0;
+            int ret = 0;
             if (tableRecordInfo.isStb) {  // dump all table of this stable
-                int ret = dumpStableClasuse(
+                ret = dumpStableClasuse(
                         taos,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         fp);
                 if (ret >= 0) {
                     superTblCnt++;
-                    records = dumpNtbOfStbByThreads(g_dbInfos[0], g_args.arg_list[i]);
+                    ret = dumpNtbOfStbByThreads(g_dbInfos[0], g_args.arg_list[i]);
                 }
             } else if (tableRecordInfo.belongStb){
                 dumpStableClasuse(
@@ -6466,21 +6483,20 @@ static int dumpOut() {
                             tableRecordInfo.tableRecord.stable,
                             g_args.arg_list[i]);
                 }
-                records = dumpNormalTableBelongStb(
+                ret = dumpNormalTableBelongStb(
                         i,
                         taos,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         g_args.arg_list[i]);
             } else {
-                records = dumpNormalTableWithoutStb(
+                ret = dumpNormalTableWithoutStb(
                         i,
                         taos, g_dbInfos[0], g_args.arg_list[i]);
             }
 
-            if (records >= 0) {
+            if (ret >= 0) {
                 okPrint("table: %s dumped\n", g_args.arg_list[i]);
-                g_totalDumpOutRows += records;
             }
         }
     }

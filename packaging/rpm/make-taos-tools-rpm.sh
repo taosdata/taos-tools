@@ -56,12 +56,15 @@ cd ${pkg_dir}
 
 ${csudo}mkdir -p BUILD BUILDROOT RPMS SOURCES SPECS SRPMS
 
+wget https://github.com/taosdata/grafanaplugin/releases/latest/download/TDinsight.sh -O ${compile_dir}/build/bin/TDinsight.sh && \
+    echo "TDinsight.sh downloaded!" || \
+    echo "failed to download TDinsight.sh"
+
 ${csudo}rpmbuild --define="_version ${taos_tools_ver}" --define="_topdir ${pkg_dir}" --define="_compiledir ${compile_dir}" -bb ${spec_file}
 
 # copy rpm package to output_dir, and modify package name, then clean temp dir
 #${csudo}cp -rf RPMS/* ${output_dir}
 cp_rpm_package ${pkg_dir}/RPMS
-
 
 rpmname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
 
