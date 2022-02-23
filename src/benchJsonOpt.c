@@ -28,6 +28,28 @@ static int parseStringParameter(char *name, cJSON *src, char *target) {
     return 0;
 }
 
+static int parseBoolParameter(char *name, cJSON *src, bool target) {
+    cJSON *item = cJSON_GetObjectItem(src, name);
+    if (item) {
+        if (cJSON_IsString(item) && item->valuestring != NULL) {
+            if (0 == strcasecmp(item->valuestring, "yes")) {
+                target = true;
+                return 0;
+            } else if (0 == strcasecmp(item->valuestring, "no")) {
+                target = false;
+                return 0;
+            } else {
+                errorPrint("Invalid %s value\n", name);
+                return -1;
+            }
+        } else {
+            errorPrint("Invalid %s value\n", name);
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static int parseNumberParameter(char *name, cJSON *src, int64_t target,
                                 bool can_be_zero) {
     cJSON *item = cJSON_GetObjectItem(src, name);
@@ -264,18 +286,9 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         parseNumberParameter("prepared_rand", json, g_arguments->prepared_rand,
                              false) ||
         parseNumberParameter("insert_interval", json,
-                             g_arguments->insert_interval, true)
-
-    ) {
+                             g_arguments->insert_interval, true) ||
+        parseBoolParameter("chinese", json, g_arguments->chinese)) {
         goto PARSE_OVER;
-    }
-
-    cJSON *chineseOpt = cJSON_GetObjectItem(json, "chinese");  // yes, no,
-    if (chineseOpt && chineseOpt->type == cJSON_String &&
-        chineseOpt->valuestring != NULL) {
-        if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
-            g_arguments->chinese = true;
-        }
     }
 
     cJSON *answerPrompt =
@@ -320,6 +333,7 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         database->dbCfg.cache = -1;
         database->dbCfg.blocks = -1;
         database->dbCfg.quorum = -1;
+        database->drop = true;
         cJSON *dbinfos = cJSON_GetArrayItem(dbs, i);
         if (dbinfos == NULL) continue;
 
@@ -353,19 +367,9 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
             parseNumberParameter("quorum", dbinfo, database->dbCfg.quorum,
                                  true) ||
             parseNumberParameter("fsync", dbinfo, database->dbCfg.fsync,
-                                 true)) {
+                                 true) ||
+            parseBoolParameter("drop", dbinfo, database->drop)) {
             goto PARSE_OVER;
-        }
-
-        cJSON *drop = cJSON_GetObjectItem(dbinfo, "drop");
-        if (drop && drop->type == cJSON_String && drop->valuestring != NULL) {
-            if (0 == strcasecmp(drop->valuestring, "no")) {
-                database->drop = false;
-            } else {
-                database->drop = true;
-            }
-        } else {
-            database->drop = true;
         }
 
         cJSON *precision = cJSON_GetObjectItem(dbinfo, "precision");
@@ -431,52 +435,20 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 parseNumberParameter("insert_interval", stbInfo,
                                      superTable->insert_interval, true) ||
                 parseNumberParameter("partial_col_num", stbInfo,
-                                     superTable->partialColumnNum, true)) {
+                                     superTable->partialColumnNum, true) ||
+                parseBoolParameter("escape_character", stbInfo,
+                                   superTable->escape_character) ||
+                parseBoolParameter("auto_create_table", stbInfo,
+                                   superTable->autoCreateTable) ||
+                parseBoolParameter("child_table_exists", stbInfo,
+                                   superTable->childTblExists) ||
+                parseBoolParameter("tcp_transfer", stbInfo,
+                                   superTable->tcpTransfer) ||
+                parseBoolParameter("use_sample_ts", stbInfo,
+                                   superTable->useSampleTs)) {
                 goto PARSE_OVER;
             }
             g_arguments->g_totalChildTables += superTable->childTblCount;
-
-            cJSON *escapeChar =
-                cJSON_GetObjectItem(stbInfo, "escape_character");
-            if (escapeChar && escapeChar->type == cJSON_String &&
-                escapeChar->valuestring != NULL) {
-                if ((0 == strncasecmp(escapeChar->valuestring, "yes", 3))) {
-                    superTable->escape_character = true;
-                } else {
-                    superTable->escape_character = false;
-                }
-            } else {
-                superTable->escape_character = false;
-            }
-
-            cJSON *autoCreateTbl =
-                cJSON_GetObjectItem(stbInfo, "auto_create_table");
-            if (autoCreateTbl && autoCreateTbl->type == cJSON_String &&
-                autoCreateTbl->valuestring != NULL) {
-                if ((0 == strncasecmp(autoCreateTbl->valuestring, "yes", 3)) &&
-                    (!superTable->childTblExists)) {
-                    superTable->autoCreateTable = true;
-                } else {
-                    superTable->autoCreateTable = false;
-                }
-            } else {
-                superTable->autoCreateTable = false;
-            }
-
-            cJSON *childTblExists =
-                cJSON_GetObjectItem(stbInfo, "child_table_exists");  // yes, no
-            if (childTblExists && childTblExists->type == cJSON_String &&
-                childTblExists->valuestring != NULL) {
-                if ((0 == strncasecmp(childTblExists->valuestring, "yes", 3)) &&
-                    (database->drop == false)) {
-                    superTable->childTblExists = true;
-                    superTable->autoCreateTable = false;
-                } else {
-                    superTable->childTblExists = false;
-                }
-            } else {
-                superTable->childTblExists = false;
-            }
 
             cJSON *dataSource = cJSON_GetObjectItem(stbInfo, "data_source");
             if (dataSource && dataSource->type == cJSON_String &&
@@ -525,17 +497,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->lineProtocol = TSDB_SML_LINE_PROTOCOL;
             }
 
-            cJSON *transferProtocol =
-                cJSON_GetObjectItem(stbInfo, "tcp_transfer");
-            if (transferProtocol && transferProtocol->type == cJSON_String &&
-                transferProtocol->valuestring != NULL) {
-                if (0 == strcasecmp(transferProtocol->valuestring, "yes")) {
-                    superTable->tcpTransfer = true;
-                }
-            } else {
-                superTable->tcpTransfer = false;
-            }
-
             cJSON *ts = cJSON_GetObjectItem(stbInfo, "start_timestamp");
             if (ts && ts->type == cJSON_String && ts->valuestring != NULL) {
                 if (0 == strcasecmp(ts->valuestring, "now")) {
@@ -564,18 +525,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                              strlen(sampleFile->valuestring) + 1));
             } else {
                 memset(superTable->sampleFile, 0, MAX_FILE_NAME_LEN);
-            }
-
-            cJSON *useSampleTs = cJSON_GetObjectItem(stbInfo, "use_sample_ts");
-            if (useSampleTs && useSampleTs->type == cJSON_String &&
-                useSampleTs->valuestring != NULL) {
-                if (0 == strncasecmp(useSampleTs->valuestring, "yes", 3)) {
-                    superTable->useSampleTs = true;
-                } else {
-                    superTable->useSampleTs = false;
-                }
-            } else {
-                superTable->useSampleTs = false;
             }
 
             cJSON *tagsFile = cJSON_GetObjectItem(stbInfo, "tags_file");
