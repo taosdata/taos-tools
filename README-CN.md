@@ -48,7 +48,7 @@ sudo yum install xz-devel snappy-devel jansson-devel pkgconfig libatomic libstdc
 ```
 git clone https://github.com/taosdata/taos-tools
 cd taos-tools
-git submodule update --init
+git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
@@ -61,4 +61,8 @@ make
 sudo make install
 ```
 
+<div class="hide">
+
 <script src="/wp-includes/js/quick-start.js?v=1"></script>
+
+</div>
