@@ -52,7 +52,7 @@ Please download TDengine client package from [taosdata.com](https://www.taosdata
 ```
 git clone https://github.com/taosdata/taos-tools
 cd taos-tools
-git submodule update --init
+git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
