@@ -303,7 +303,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
   "query_mode": "taosc",
   "specified_table_query": {
     "query_interval": 1,
-    "concurrent": 3,
+    "threads": 3,
     "sqls": [
       {
         "sql": "select last_row(*) from stb0 ",
@@ -357,7 +357,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
 
 "query_interval": 执行sqls的间隔，单位是秒。可选项，缺省是0。
 
-"concurrent": 并发执行sqls的线程数，可选项，缺省是1。每个线程都执行所有的sqls。
+"threads": 并发执行sqls的线程数，可选项，缺省是1。每个线程都执行所有的sqls。
 
 "sqls": 可以添加多个sql语句，最多支持100条。
 
@@ -395,7 +395,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
   "confirm_parameter_prompt": "no",
   "specified_table_query":
     {
-      "concurrent":1,
+      "threads":1,
       "mode":"sync",
       "interval":0,
       "restart":"yes",
@@ -446,7 +446,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
 
 "specified_table_query": 指定表的订阅。
 
-"concurrent": 并发执行sqls的线程数，可选项，缺省是1。每个线程都执行所有的sqls。
+"threads": 并发执行sqls的线程数，可选项，缺省是1。每个线程都执行所有的sqls。
 
 "mode": 订阅模式。目前支持同步和异步订阅，缺省是sync。
 

@@ -195,7 +195,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
   "query_mode": "taosc",
   "specified_table_query": {
     "query_interval": 1,
-    "concurrent": 3,
+    "threads": 3,
     "sqls": [
       {
         "sql": "select last_row(*) from stb0 ",
@@ -236,7 +236,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 |                                         | query_times              | number of query times                                        |
 |                                         | query_mode               | query mode, options: taosc and rest, default is taosc        |
 | specified_table_query/super_table_query | query_interval           | query interval, unit is second, default is 0                 |
-| specified_table_query/super_table_query | concurrent/threads       | number of thread to execute sql, default is 1                |
+| specified_table_query/super_table_query | threads                  | number of thread to execute sql, default is 1                |
 | super_table_query                       | stblname                 | supertable name, required                                    |
 | sqls                                    | [sql](#sql)              | sql command, required                                        |
 | sqls                                    | result                   | result file for query result, empty for none                 |
@@ -255,7 +255,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
   "confirm_parameter_prompt": "no",
   "specified_table_query":
     {
-      "concurrent":1,
+      "threads":1,
       "interval":0,
       "restart":"yes",
       "keepProgress":"yes",
@@ -294,7 +294,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 |                                         | password                 | password to connect taosd server, default is taosdata        |
 |                                         | databases                | database name, required                                      |
 |                                         | confirm_parameter_prompt | whether pass the confirmation prompt during execution        |
-| specified_table_query/super_table_query | concurrent/threads       | number of thread to execute sqls, default is 1               |
+| specified_table_query/super_table_query | threads                  | number of thread to execute sqls, default is 1               |
 | specified_table_query/super_table_query | interval                 | interval to execute subscribe, default is 0                  |
 | specified_table_query/super_table_query | restart                  | no: continue previous subscription, yes: start a new subscription |
 | specified_table_query/super_table_query | keepProgress             | whether keep the subscribe progress                          |
