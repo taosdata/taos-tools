@@ -823,7 +823,7 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         }
 
-        cJSON *concurrent = cJSON_GetObjectItem(specifiedQuery, "concurrent");
+        cJSON *concurrent = cJSON_GetObjectItem(specifiedQuery, "threads");
         if (concurrent && concurrent->type == cJSON_Number) {
             g_queryInfo.specifiedQueryInfo.concurrent =
                 (uint32_t)concurrent->valueint;
