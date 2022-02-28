@@ -801,8 +801,8 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
 
     // specified_table_query
     cJSON *specifiedQuery = cJSON_GetObjectItem(json, "specified_table_query");
+    g_queryInfo.specifiedQueryInfo.concurrent = 1;
     if (!specifiedQuery || specifiedQuery->type != cJSON_Object) {
-        g_queryInfo.specifiedQueryInfo.concurrent = 1;
         g_queryInfo.specifiedQueryInfo.sqlCount = 0;
     } else {
         cJSON *queryInterval =
@@ -827,8 +827,12 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
         if (concurrent && concurrent->type == cJSON_Number) {
             g_queryInfo.specifiedQueryInfo.concurrent =
                 (uint32_t)concurrent->valueint;
-        } else {
-            g_queryInfo.specifiedQueryInfo.concurrent = 1;
+        }
+
+        cJSON *threads = cJSON_GetObjectItem(specifiedQuery, "threads");
+        if (threads && threads->type == cJSON_Number) {
+            g_queryInfo.specifiedQueryInfo.concurrent =
+                (uint32_t)threads->valueint;
         }
 
         cJSON *specifiedAsyncMode = cJSON_GetObjectItem(specifiedQuery, "mode");
@@ -942,8 +946,8 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
 
     // super_table_query
     cJSON *superQuery = cJSON_GetObjectItem(json, "super_table_query");
+    g_queryInfo.superQueryInfo.threadCnt = 1;
     if (!superQuery || superQuery->type != cJSON_Object) {
-        g_queryInfo.superQueryInfo.threadCnt = 1;
         g_queryInfo.superQueryInfo.sqlCount = 0;
     } else {
         cJSON *subrate = cJSON_GetObjectItem(superQuery, "query_interval");
@@ -960,11 +964,15 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             g_queryInfo.superQueryInfo.queryTimes = g_queryInfo.query_times;
         }
 
+        cJSON *concurrent = cJSON_GetObjectItem(superQuery, "concurrent");
+        if (concurrent && concurrent->type == cJSON_Number) {
+            g_queryInfo.superQueryInfo.threadCnt =
+                (uint32_t)concurrent->valueint;
+        }
+
         cJSON *threads = cJSON_GetObjectItem(superQuery, "threads");
         if (threads && threads->type == cJSON_Number) {
             g_queryInfo.superQueryInfo.threadCnt = (uint32_t)threads->valueint;
-        } else {
-            g_queryInfo.superQueryInfo.threadCnt = 1;
         }
 
         cJSON *stblname = cJSON_GetObjectItem(superQuery, "stblname");
