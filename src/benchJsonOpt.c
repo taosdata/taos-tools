@@ -973,8 +973,6 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
         cJSON *threads = cJSON_GetObjectItem(superQuery, "threads");
         if (threads && threads->type == cJSON_Number) {
             g_queryInfo.superQueryInfo.threadCnt = (uint32_t)threads->valueint;
-        } else {
-            g_queryInfo.superQueryInfo.threadCnt = 1;
         }
 
         cJSON *stblname = cJSON_GetObjectItem(superQuery, "stblname");
