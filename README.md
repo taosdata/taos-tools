@@ -65,8 +65,4 @@ make
 sudo make install
 ```
 
-<!-- hide for GitHub
-
 <script src="/wp-includes/js/quick-start.js?v=1"></script>
-
--->
