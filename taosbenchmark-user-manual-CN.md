@@ -137,7 +137,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
         "start_timestamp": "2020-10-01 00:00:00.000",
         "sample_format": "csv",
         "sample_file": "./sample.csv",
-        "use_sameple_ts": "no",
+        "use_sample_ts": "no",
         "tags_file": "",
         "columns": [{"type": "INT"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
         "tags": [{"type": "TINYINT", "count":2}, {"type": "BINARY", "len": 16, "count":5}]
@@ -230,7 +230,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
 
 "data_source": 插入数据来源，"rand"：实例随机生成；"sample"：从样例文件中读取，近当insert_mode为taosc和rest时有效。可选项。缺省是"rand"。
 
-"insert_mode": 插入数据接口，"taosc"：调用TDengine的c接口；"rest"：使用restful接口；"stmt"：使用 stmt （参数绑定）接口; "sml": 使用schemaless 。可选项。缺省是“taosc”。
+"insert_mode": 插入数据接口，"taosc"：调用TDengine的c接口；"rest"：使用 RESTful 接口；"stmt"：使用 stmt （参数绑定）接口; "sml": 使用schemaless 。可选项。缺省是“taosc”。
 
 "line_protocol": 只有在insert_mode为sml时生效，可选项为"line", "telnet", "json", 默认为"line"。
 
@@ -351,7 +351,7 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
 
 "query_times": 每种查询类型的查询次数
 
-"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“rest”：使用restfule接口。可选项。缺省是“taosc”。
+"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“rest”：使用 RESTful 接口。可选项。缺省是“taosc”。
 
 "specified_table_query": { 指定表的查询
 
