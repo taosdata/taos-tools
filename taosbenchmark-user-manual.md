@@ -24,7 +24,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 | -I/--interface                                       | how taosBenchmark insert data, the options are taosc, rest, stmt, sml, the default value is taosc |
 | -u/--user                                            | user name used to connect taosd server, the default value is root |
 | -p/--password                                        | password used to connect taosd server, the default value is taosdata |
-| -o/--ouput                                           | specify the path of the result output file, the default value is ./output.txt |
+| -o/--output                                           | specify the path of the result output file, the default value is ./output.txt |
 | -T/--threads                                         | specify the number of thread to insert data, the default value is 8 |
 | [-i/--insert-interval](#-i--insert-interval)       | the insert interval for interlace insert mode, unit is ms, default value is 0 |
 | -S/--time-step                                       | insert timestamp step for each record in each sub-table, unit is ms, the default value is 1 |
@@ -39,7 +39,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 | -w/--binwidth                                        | the default length of nchar and binary data type, the default value is 64 |
 | -m/--table-prefix                                    | the prefix of child tables' name, the default value is d     |
 | -E/--escape-character                                | use escape character in stable and sub-table name, optional. |
-| -C/--chinese                                         | nchar and binary are basic unicode chinese characters, optional. |
+| -C/--chinese                                         | nchar and binary are basic Unicode chinese characters, optional. |
 | [-N/--normal-table](#-n--normal-table)             | only create normal table without super table, optional       |
 | -M/--random                                          | the data source is random, optional                          |
 | -x/--aggr-func                                       | query  aggregation function after insertion, optional        |
@@ -110,7 +110,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
         "start_timestamp": "2020-10-01 00:00:00.000",
         "sample_format": "csv",
         "sample_file": "./sample.csv",
-        "use_sameple_ts": "no",
+        "use_sample_ts": "no",
         "tags_file": "",
         "columns": [{"type": "INT"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
         "tags": [{"type": "TINYINT", "count":2}, {"type": "BINARY", "len": 16, "count":5}]
@@ -152,7 +152,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 | dbinfo       | cachelast                               | whether allow the last record of each table to be kept in memory, default is 0 |
 | dbinfo       | quorum                                  | number of acknowledgement required for asynchronous write, default is 1 |
 | dbinfo       | fsync                                   | interval for fsync when wal is set to 2, unit is ms, default value is 3000 |
-| dbinfo       | update                                  | wheter support data update, default value is 0               |
+| dbinfo       | update                                  | whether support data update, default value is 0               |
 | super_tables | name                                    | name of super table, required                                |
 | super_tables | child_table_exists                      | whether child table already exists, default is no            |
 | super_tables | childtable_count                        | number of child table, required                              |
@@ -195,7 +195,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
   "query_mode": "taosc",
   "specified_table_query": {
     "query_interval": 1,
-    "threads": 3,
+    "concurrent": 3,
     "sqls": [
       {
         "sql": "select last_row(*) from stb0 ",
@@ -236,12 +236,12 @@ taosBenchmark can test TDengine's insertion, query and subscription
 |                                         | query_times              | number of query times                                        |
 |                                         | query_mode               | query mode, options: taosc and rest, default is taosc        |
 | specified_table_query/super_table_query | query_interval           | query interval, unit is second, default is 0                 |
-| specified_table_query/super_table_query | threads                  | number of thread to execute sql, default is 1                |
+| specified_table_query/super_table_query | concurrent/threads       | number of thread to execute sql, default is 1                |
 | super_table_query                       | stblname                 | supertable name, required                                    |
 | sqls                                    | [sql](#sql)              | sql command, required                                        |
 | sqls                                    | result                   | result file for query result, empty for none                 |
 
-### 3、Subscribe json configuraion file
+### 3、Subscribe json configuration file
 
 ```json
 {
@@ -255,7 +255,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
   "confirm_parameter_prompt": "no",
   "specified_table_query":
     {
-      "threads":1,
+      "concurrent":1,
       "interval":0,
       "restart":"yes",
       "keepProgress":"yes",
@@ -286,7 +286,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 
 | Group                                   | Options                  | Description                                                  |
 | --------------------------------------- | ------------------------ | ------------------------------------------------------------ |
-|                                         | filetype                 | file type to specify which kind of test, for subsribe test, required |
+|                                         | filetype                 | file type to specify which kind of test, for subscribe test, required |
 |                                         | cfgdir                   | the directory of taos configuration file                     |
 |                                         | host                     | FQDN of taosd server, default is localhost                   |
 |                                         | port                     | port number of taosd server, default is 6030                 |
@@ -294,7 +294,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 |                                         | password                 | password to connect taosd server, default is taosdata        |
 |                                         | databases                | database name, required                                      |
 |                                         | confirm_parameter_prompt | whether pass the confirmation prompt during execution        |
-| specified_table_query/super_table_query | threads                  | number of thread to execute sqls, default is 1               |
+| specified_table_query/super_table_query | concurrent/threads       | number of thread to execute sqls, default is 1               |
 | specified_table_query/super_table_query | interval                 | interval to execute subscribe, default is 0                  |
 | specified_table_query/super_table_query | restart                  | no: continue previous subscription, yes: start a new subscription |
 | specified_table_query/super_table_query | keepProgress             | whether keep the subscribe progress                          |
