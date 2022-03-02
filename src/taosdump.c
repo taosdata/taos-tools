@@ -41,6 +41,7 @@
 #include <avro.h>
 #include <jansson.h>
 
+#define BUFFER_LEN              256             // use 256 as normal buffer length
 #define MAX_FILE_NAME_LEN       256             // max file name length on linux is 255
 #define MAX_PATH_LEN            4096            // max path length on linux is 4095
 #define COMMAND_SIZE            65536
@@ -5496,32 +5497,77 @@ static int convertNCharToReadable(char *str, int size, char *buf, int bufsize) {
     return 0;
 }
 
-static void dumpCharset(FILE *fp) {
-    char charsetline[256];
+static int dumpExtraInfo(TAOS *taos, FILE *fp) {
+    int ret = 0;
 
-    (void)fseek(fp, 0, SEEK_SET);
-    sprintf(charsetline, "#!%s\n", g_tsCharset);
-    (void)fwrite(charsetline, strlen(charsetline), 1, fp);
+    char buffer[BUFFER_LEN];
+    char sqlstr[COMMAND_SIZE];
+
+    if (fseek(fp, 0, SEEK_SET) != 0) {
+        return -1;
+    }
+
+    snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", taos_get_server_info(taos));
+    fwrite(buffer, strlen(buffer), 1, fp);
+
+    char taostools_ver[] = TAOSTOOLS_TAG;
+    char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
+
+    snprintf(buffer, BUFFER_LEN, "#!taosdump_ver: %s_%s\n",
+                taostools_ver, taosdump_commit);
+    fwrite(buffer, strlen(buffer), 1, fp);
+
+    strcpy(sqlstr, "SHOW VARIABLES");
+
+    TAOS_RES* res = taos_query(taos, sqlstr);
+
+    int32_t code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("failed to run command %s, reason: %s\n",
+                sqlstr, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    TAOS_ROW row;
+
+    while ((row = taos_fetch_row(res)) != NULL) {
+        debugPrint("row[0]=%s, row[1]=%s\n",
+                (char *)row[0], (char *)row[1]);
+        if (0 == strcmp((char *)row[0], "charset")) {
+            snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
+            fwrite(buffer, strlen(buffer), 1, fp);
+        }
+    }
+
+    ret = ferror(fp);
+
+    return ret;
 }
 
 static void loadFileCharset(FILE *fp, char *fcharset) {
-    char * line = NULL;
+    char *line = NULL;
+    ssize_t size;
     size_t line_size = 0;
+    char *charSetMark = "#!charset: ";
+    int charSetMarkLen = strlen(charSetMark);
 
     (void)fseek(fp, 0, SEEK_SET);
-    ssize_t size = getline(&line, &line_size, fp);
-    if (size <= 2) {
-        goto _exit_no_charset;
-    }
 
-    if (strncmp(line, "#!", 2) != 0) {
-        goto _exit_no_charset;
-    }
-    if (line[size - 1] == '\n') {
-        line[size - 1] = '\0';
-        size--;
-    }
-    strcpy(fcharset, line + 2);
+    do {
+        size = getline(&line, &line_size, fp);
+        if (size <= 2) {
+            goto _exit_no_charset;
+        }
+
+        if (strncmp(line, charSetMark, charSetMarkLen) == 0) {
+            strncpy(fcharset, line + charSetMarkLen,
+                    (strlen(line) - (charSetMarkLen+1))); // remove '\n'
+            break;
+        }
+
+        tfree(line);
+    } while (1);
 
     tfree(line);
     return;
@@ -6351,7 +6397,10 @@ static int dumpOut() {
     }
 
     /* --------------------------------- Main Code -------------------------------- */
-    dumpCharset(fp);
+    int ret = dumpExtraInfo(taos, fp);
+    if (ret < 0) {
+        goto _exit_failure;
+    }
 
     sprintf(command, "show databases");
     result = taos_query(taos, command);
@@ -6485,7 +6534,6 @@ static int dumpOut() {
                 continue;
             }
 
-            int ret = 0;
             if (tableRecordInfo.isStb) {  // dump all table of this stable
                 ret = dumpStableClasuse(
                         taos,
