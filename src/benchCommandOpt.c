@@ -618,6 +618,15 @@ void commandLineParseArgument(int argc, char *argv[]) {
 }
 
 void modify_argument() {
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint("Invalid path %s\n", configDir);
+            exit(EXIT_FAILURE);
+        }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
     SSuperTable *superTable = g_arguments->db->superTbls;
     if (init_taos_list()) exit(EXIT_FAILURE);
 
