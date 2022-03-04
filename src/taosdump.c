@@ -2942,11 +2942,8 @@ static int64_t writeResultToAvro(
                         avro_value_set_null(&branch);
                     } else {
                         avro_value_set_branch(&value, 1, &branch);
-                        char *binTemp = calloc(1, 1+fields[col].bytes);
-                        assert(binTemp);
-                        strncpy(binTemp, (char*)row[col], length[col]);
-                        avro_value_set_string(&branch, binTemp);
-                        free(binTemp);
+                        avro_value_set_bytes(&branch, (void*)(row[col]),
+                                length[col]);
                     }
                     break;
 
