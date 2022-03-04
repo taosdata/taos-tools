@@ -718,7 +718,23 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *data = calloc(1, 1 + data_length[c]);
-                    rand_string(data, data_length[c], g_arguments->chinese);
+                    if (g_arguments->demo_mode) {
+                        if (taosRandom() % 2 == 1) {
+                            if (g_arguments->chinese) {
+                                sprintf(data, "上海");
+                            } else {
+                                sprintf(data, "beijing");
+                            }
+                        } else {
+                            if (g_arguments->chinese) {
+                                sprintf(data, "北京");
+                            } else {
+                                sprintf(data, "shanghai");
+                            }
+                        }
+                    } else {
+                        rand_string(data, data_length[c], g_arguments->chinese);
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         data_type[c] == TSDB_DATA_TYPE_BINARY &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -749,6 +765,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_INT:
                     if ((g_arguments->demo_mode) && (c == 1)) {
                         tmp = demo_voltage_int_str();
+                    } else if ((g_arguments->demo_mode) && (c == 0)) {
+                        tmp = rand_utinyint_str();
                     } else {
                         tmp = rand_int_str();
                     }
