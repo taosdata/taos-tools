@@ -250,16 +250,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         g_arguments->nthreads_pool = (uint32_t)threadspool->valueint;
     }
 
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
-            goto PARSE_OVER;
-        }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
-
     if (init_taos_list()) goto PARSE_OVER;
 
     cJSON *numRecPerReq = cJSON_GetObjectItem(json, "num_of_records_per_req");
