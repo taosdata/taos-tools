@@ -602,6 +602,8 @@ int init_taos_list() {
             return -1;
         }
     }
+    infoPrint("%s", "Waiting 2 seconds for the cluster to be ready...\n");
+    taosMsleep(2000);
     return 0;
 }
 
