@@ -1386,7 +1386,7 @@ static int getTableDes(
             tableDes->columns ++;
         } else {
             tableDes->tags ++;
-        }
+	}
         colCount++;
     }
 
@@ -2381,7 +2381,7 @@ static int convertTbDesToJsonImpl(
                 case TSDB_DATA_TYPE_BINARY:
                     pstr += sprintf(pstr,
                             "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                            colOrTag, i-2, "string");
+                            colOrTag, i-2, "bytes");
                     break;
 
                 case TSDB_DATA_TYPE_NCHAR:
@@ -2937,13 +2937,13 @@ static int64_t writeResultToAvro(
                     break;
 
                 case TSDB_DATA_TYPE_BINARY:
-                    if (NULL == row[col]) {
+		    if (NULL == row[col]) {
                         avro_value_set_branch(&value, 0, &branch);
                         avro_value_set_null(&branch);
                     } else {
                         avro_value_set_branch(&value, 1, &branch);
                         avro_value_set_bytes(&branch, (void*)(row[col]),
-                                length[col]);
+				length[col]);
                     }
                     break;
 
@@ -3245,22 +3245,28 @@ static int dumpInAvroTbTagsImpl(
                         case TSDB_DATA_TYPE_BINARY:
                             {
                                 avro_value_t branch;
-                                avro_value_get_current_branch(
-                                        &field_value, &branch);
 
                                 char *buf = NULL;
                                 size_t bin_size;
 
-                                avro_value_get_string(&branch,
-                                        (const char **)&buf, &bin_size);
+                                avro_value_get_current_branch(
+                                        &field_value, &branch);
+
+                                avro_value_get_bytes(&branch,
+                                        (const void **)&buf, &bin_size);
 
                                 if (NULL == buf) {
                                     debugPrint2("%s | ", "NULL");
                                     bind->is_null = &is_null;
                                     bind->buffer_length = 0;
                                 } else {
-                                    debugPrint2("%s | ", (char *)buf);
-                                    bind->buffer_length = strlen(buf);
+				    if (g_args.debug_print || g_args.verbose_print) {
+					char *debugStr = (char *)calloc(1, bin_size + 1);
+					strncpy(debugStr, (char *)buf, bin_size);
+					debugPrint2("%s | ", debugStr);
+					free(debugStr);
+				    }
+                                    bind->buffer_length = bin_size;
                                 }
                                 bind->buffer = buf;
                             }
@@ -3827,15 +3833,21 @@ static int dumpInAvroDataImpl(
                             avro_value_get_current_branch(&field_value, &branch);
 
                             char *buf = NULL;
-                            size_t size;
-                            avro_value_get_string(&branch, (const char **)&buf, &size);
+                            size_t bin_size;
+
+			    avro_value_get_bytes(&branch, (const void **)&buf, &bin_size);
 
                             if (NULL == buf) {
                                 debugPrint2("%s | ", "NULL");
                                 bind->is_null = &is_null;
                             } else {
-                                debugPrint2("%s | ", (char *)buf);
-                                bind->buffer_length = strlen(buf);
+			    	if (g_args.debug_print || g_args.verbose_print) {
+					char *debugStr = (char *)calloc(1, bin_size + 1);
+					strncpy(debugStr, (const char *)buf, bin_size);
+                                        debugPrint2("%s | ", debugStr);
+					free(debugStr);
+				}
+                                bind->buffer_length = bin_size;
                             }
                             bind->buffer = buf;
                         }
@@ -5014,11 +5026,13 @@ static int createMTableAvroHead(
                     } else {
                         avro_value_set_branch(&value, 1, &branch);
                         if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                            avro_value_set_string(&branch,
-                                    subTableDes->cols[subTableDes->columns + tag].var_value);
+				avro_value_set_bytes(&branch,
+                                    subTableDes->cols[subTableDes->columns + tag].var_value,
+                                    strlen(subTableDes->cols[subTableDes->columns + tag].var_value));
                         } else {
-                            avro_value_set_string(&branch,
-                                    subTableDes->cols[subTableDes->columns + tag].value);
+				avro_value_set_bytes(&branch,
+                                    subTableDes->cols[subTableDes->columns + tag].value,
+                                    strlen(subTableDes->cols[subTableDes->columns + tag].value));
                         }
                     }
                     break;
