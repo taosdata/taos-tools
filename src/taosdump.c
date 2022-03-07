@@ -1965,7 +1965,8 @@ static avro_value_iface_t* prepareAvroWface(
     }
 
     int rval = avro_file_writer_create_with_codec
-        (avroFilename, *schema, db, g_avro_codec[g_args.avro_codec], 0);
+        (avroFilename, *schema, db, g_avro_codec[g_args.avro_codec], 50*1024);
+        //(avroFilename, *schema, db, g_avro_codec[g_args.avro_codec], 0);
     if (rval) {
         errorPrint("There was an error creating %s. reason: %s\n",
                 avroFilename, avro_strerror());
