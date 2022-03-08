@@ -791,6 +791,7 @@ void postFreeResource() {
     tmfree(g_randfloat_buff);
     tmfree(g_rand_current_buff);
     tmfree(g_rand_phase_buff);
+    tmfree(g_rand_groupid_buff);
     tmfree(g_randdouble_buff);
     tmfree(g_randuint_buff);
     tmfree(g_randutinyint_buff);
