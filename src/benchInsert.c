@@ -540,7 +540,7 @@ static void *createTable(void *sarg) {
     SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     prctl(PR_SET_NAME, "createTable");
-    uint64_t lastPrintTime = taosGetTimestampMs();
+    uint64_t lastPrintTime = toolsGetTimestampMs();
     pThreadInfo->buffer = calloc(1, TSDB_MAX_SQL_LEN);
     int len = 0;
     int batchNum = 0;
@@ -591,7 +591,7 @@ static void *createTable(void *sarg) {
         }
         pThreadInfo->tables_created += batchNum;
         batchNum = 0;
-        uint64_t currentPrintTime = taosGetTimestampMs();
+        uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
             infoPrint("thread[%d] already created %" PRId64 " tables\n",
                       pThreadInfo->threadID, pThreadInfo->tables_created);
@@ -681,7 +681,7 @@ static int createChildTables() {
                 "creating %" PRId64 " table(s) with %d thread(s)\n",
                 g_arguments->g_totalChildTables, g_arguments->nthreads);
     }
-    double start = (double)taosGetTimestampMs();
+    double start = (double)toolsGetTimestampMs();
 
     for (int i = 0; i < g_arguments->dbCount; i++) {
         for (int j = 0; j < database[i].superTblCount; j++) {
@@ -711,7 +711,7 @@ static int createChildTables() {
         }
     }
 
-    double end = (double)taosGetTimestampMs();
+    double end = (double)toolsGetTimestampMs();
     infoPrint("Spent %.4f seconds to create %" PRId64
               " table(s) with %d thread(s), already exist %" PRId64
               " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
@@ -921,8 +921,8 @@ static void *syncWriteInterlace(void *sarg) {
 
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
 
-    uint64_t   lastPrintTime = taosGetTimestampMs();
-    uint64_t   startTs = taosGetTimestampMs();
+    uint64_t   lastPrintTime = toolsGetTimestampMs();
+    uint64_t   startTs = toolsGetTimestampMs();
     uint64_t   endTs;
     delayNode *current_delay_node;
     int32_t    generated = 0;
@@ -1091,11 +1091,11 @@ static void *syncWriteInterlace(void *sarg) {
             }
         }
 
-        startTs = taosGetTimestampUs();
+        startTs = toolsGetTimestampUs();
 
         int64_t affectedRows = execInsert(pThreadInfo, generated);
 
-        endTs = taosGetTimestampUs();
+        endTs = toolsGetTimestampUs();
         switch (stbInfo->iface) {
             case TAOSC_IFACE:
             case REST_IFACE:
@@ -1150,7 +1150,7 @@ static void *syncWriteInterlace(void *sarg) {
         pThreadInfo->cntDelay++;
         pThreadInfo->totalDelay += delay;
 
-        int64_t currentPrintTime = taosGetTimestampMs();
+        int64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
             infoPrint("thread[%d] has currently inserted rows: %" PRIu64
                       ", affected rows: %" PRIu64 "\n",
@@ -1181,8 +1181,8 @@ void *syncWriteProgressive(void *sarg) {
         pThreadInfo->end_table_to);
     int32_t *code = calloc(1, sizeof(int32_t));
     *code = -1;
-    uint64_t   lastPrintTime = taosGetTimestampMs();
-    uint64_t   startTs = taosGetTimestampMs();
+    uint64_t   lastPrintTime = toolsGetTimestampMs();
+    uint64_t   startTs = toolsGetTimestampMs();
     uint64_t   endTs;
     delayNode *current_delay_node;
 
@@ -1355,10 +1355,10 @@ void *syncWriteProgressive(void *sarg) {
             i += generated;
             pThreadInfo->totalInsertRows += generated;
             // only measure insert
-            startTs = taosGetTimestampUs();
+            startTs = toolsGetTimestampUs();
             int32_t affectedRows = execInsert(pThreadInfo, generated);
 
-            endTs = taosGetTimestampUs();
+            endTs = toolsGetTimestampUs();
             if (affectedRows < 0) {
                 goto free_of_progressive;
             }
@@ -1412,7 +1412,7 @@ void *syncWriteProgressive(void *sarg) {
             }
             pThreadInfo->totalDelay += delay;
 
-            int64_t currentPrintTime = taosGetTimestampMs();
+            int64_t currentPrintTime = toolsGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
                 infoPrint(
                     "thread[%d] has currently inserted rows: "
@@ -1741,7 +1741,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
             pthread_create(pids + i, NULL, syncWriteProgressive, pThreadInfo);
         }
     }
-    int64_t start = taosGetTimestampUs();
+    int64_t start = toolsGetTimestampUs();
 
     for (int i = 0; i < threads; i++) {
         void *result;
@@ -1752,7 +1752,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         tmfree(result);
     }
 
-    int64_t end = taosGetTimestampUs();
+    int64_t end = toolsGetTimestampUs();
 
     uint64_t  totalDelay = 0;
     uint64_t  maxDelay = 0;

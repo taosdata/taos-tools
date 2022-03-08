@@ -595,7 +595,7 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
             if (ts && ts->type == cJSON_String && ts->valuestring != NULL) {
                 if (0 == strcasecmp(ts->valuestring, "now")) {
                     superTable->startTimestamp =
-                        taosGetTimestamp(database->dbCfg.precision);
+                        toolsGetTimestamp(database->dbCfg.precision);
                 } else {
                     if (taos_parse_time(ts->valuestring,
                                         &(superTable->startTimestamp),
@@ -608,7 +608,7 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 }
             } else {
                 superTable->startTimestamp =
-                    taosGetTimestamp(database->dbCfg.precision);
+                    toolsGetTimestamp(database->dbCfg.precision);
             }
 
             cJSON *timestampStep =

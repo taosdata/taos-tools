@@ -708,7 +708,7 @@ static void *queryStableAggrFunc(void *sarg) {
                 fprintf(fp, "%s\n", command);
             }
 
-            double t = (double)taosGetTimestampUs();
+            double t = (double)toolsGetTimestampUs();
 
             TAOS_RES *pSql = taos_query(taos, command);
             int32_t   code = taos_errno(pSql);
@@ -723,7 +723,7 @@ static void *queryStableAggrFunc(void *sarg) {
             while (taos_fetch_row(pSql) != NULL) {
                 count++;
             }
-            t = taosGetTimestampUs() - t;
+            t = toolsGetTimestampUs() - t;
             if (fp) {
                 fprintf(fp, "| Speed: %12.2f(per s) | Latency: %.4f(ms) |\n",
                         totalData / (t / 1000), t);
@@ -781,7 +781,7 @@ static void *queryNtableAggrFunc(void *sarg) {
                     DEFAULT_START_TIME);
             }
 
-            double    t = (double)taosGetTimestampUs();
+            double    t = (double)toolsGetTimestampUs();
             TAOS_RES *pSql = taos_query(taos, command);
             int32_t   code = taos_errno(pSql);
 
@@ -797,7 +797,7 @@ static void *queryNtableAggrFunc(void *sarg) {
                 count++;
             }
 
-            t = taosGetTimestampUs() - t;
+            t = toolsGetTimestampUs() - t;
             totalT += t;
 
             taos_free_result(pSql);
