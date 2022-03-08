@@ -223,12 +223,12 @@ static void *superSubscribe(void *sarg) {
                 continue;
             }
 
-            st = taosGetTimestampMs();
+            st = toolsGetTimestampMs();
             performancePrint("st: %" PRIu64 " et: %" PRIu64 " st-et: %" PRIu64
                              "\n",
                              st, et, (st - et));
             res = taos_consume(tsub[tsubSeq]);
-            et = taosGetTimestampMs();
+            et = toolsGetTimestampMs();
             performancePrint("st: %" PRIu64 " et: %" PRIu64 " delta: %" PRIu64
                              "\n",
                              st, et, (et - st));

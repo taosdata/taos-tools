@@ -52,8 +52,8 @@ static void *specifiedTableQuery(void *sarg) {
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
     uint64_t *total_delay_list = calloc(queryTimes, sizeof(uint64_t));
-    uint64_t  lastPrintTime = taosGetTimestampMs();
-    uint64_t  startTs = taosGetTimestampMs();
+    uint64_t  lastPrintTime = toolsGetTimestampMs();
+    uint64_t  startTs = toolsGetTimestampMs();
 
     if (g_queryInfo.specifiedQueryInfo.result[pThreadInfo->querySeq][0] !=
         '\0') {
@@ -73,13 +73,13 @@ static void *specifiedTableQuery(void *sarg) {
                         false);
         }
 
-        st = taosGetTimestampMs();
+        st = toolsGetTimestampMs();
 
         selectAndGetResult(
             pThreadInfo,
             g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq]);
 
-        et = taosGetTimestampMs();
+        et = toolsGetTimestampMs();
         uint64_t delay = et - st;
         total_delay_list[index] = delay;
         index++;
@@ -92,8 +92,8 @@ static void *specifiedTableQuery(void *sarg) {
         }
 
         pThreadInfo->totalQueried++;
-        uint64_t currentPrintTime = taosGetTimestampMs();
-        uint64_t endTs = taosGetTimestampMs();
+        uint64_t currentPrintTime = toolsGetTimestampMs();
+        uint64_t endTs = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
             infoPrint("thread[%d] has currently completed queries: %" PRIu64
                       ", QPS: %10.6f\n",
@@ -146,9 +146,9 @@ static void *superTableQuery(void *sarg) {
     uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval;
 
     uint64_t queryTimes = g_queryInfo.superQueryInfo.queryTimes;
-    uint64_t startTs = taosGetTimestampMs();
+    uint64_t startTs = toolsGetTimestampMs();
 
-    uint64_t lastPrintTime = taosGetTimestampMs();
+    uint64_t lastPrintTime = toolsGetTimestampMs();
     while (queryTimes--) {
         if (g_queryInfo.superQueryInfo.queryInterval &&
             (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval) {
@@ -156,7 +156,7 @@ static void *superTableQuery(void *sarg) {
                                  (et - st)));
         }
 
-        st = taosGetTimestampMs();
+        st = toolsGetTimestampMs();
         for (int i = (int)pThreadInfo->start_table_from;
              i <= pThreadInfo->end_table_to; i++) {
             for (int j = 0; j < g_queryInfo.superQueryInfo.sqlCount; j++) {
@@ -172,8 +172,8 @@ static void *superTableQuery(void *sarg) {
 
                 pThreadInfo->totalQueried++;
 
-                int64_t currentPrintTime = taosGetTimestampMs();
-                int64_t endTs = taosGetTimestampMs();
+                int64_t currentPrintTime = toolsGetTimestampMs();
+                int64_t endTs = toolsGetTimestampMs();
                 if (currentPrintTime - lastPrintTime > 30 * 1000) {
                     infoPrint(
                         "thread[%d] has currently completed queries: %" PRIu64
@@ -185,7 +185,7 @@ static void *superTableQuery(void *sarg) {
                 }
             }
         }
-        et = taosGetTimestampMs();
+        et = toolsGetTimestampMs();
         infoPrint(
             "thread[%d] complete all sqls to allocate all sub-tables[%" PRIu64
             " - %" PRIu64 "] once queries duration:%.4fs\n",
@@ -260,7 +260,7 @@ int queryTestProcess() {
     int      nConcurrent = g_queryInfo.specifiedQueryInfo.concurrent;
     uint64_t nSqlCount = g_queryInfo.specifiedQueryInfo.sqlCount;
 
-    uint64_t startTs = taosGetTimestampMs();
+    uint64_t startTs = toolsGetTimestampMs();
 
     if ((nSqlCount > 0) && (nConcurrent > 0)) {
         pids = calloc(1, nConcurrent * nSqlCount * sizeof(pthread_t));
@@ -456,7 +456,7 @@ int queryTestProcess() {
     }
 
     //  // workaround to use separate taos connection;
-    uint64_t endTs = taosGetTimestampMs();
+    uint64_t endTs = toolsGetTimestampMs();
 
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +
                             g_queryInfo.superQueryInfo.totalQueried;

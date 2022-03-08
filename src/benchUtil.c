@@ -195,33 +195,33 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("3: %s\n", outSql);
 }
 
-int64_t taosGetTimestampMs() {
+int64_t toolsGetTimestampMs() {
     struct timeval systemTime;
     gettimeofday(&systemTime, NULL);
     return (int64_t)systemTime.tv_sec * 1000L +
            (int64_t)systemTime.tv_usec / 1000;
 }
 
-int64_t taosGetTimestampUs() {
+int64_t toolsGetTimestampUs() {
     struct timeval systemTime;
     gettimeofday(&systemTime, NULL);
     return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
 }
 
-int64_t taosGetTimestampNs() {
+int64_t toolsGetTimestampNs() {
     struct timespec systemTime = {0};
     clock_gettime(CLOCK_REALTIME, &systemTime);
     return (int64_t)systemTime.tv_sec * 1000000000L +
            (int64_t)systemTime.tv_nsec;
 }
 
-int64_t taosGetTimestamp(int32_t precision) {
+int64_t toolsGetTimestamp(int32_t precision) {
     if (precision == TSDB_TIME_PRECISION_MICRO) {
-        return taosGetTimestampUs();
+        return toolsGetTimestampUs();
     } else if (precision == TSDB_TIME_PRECISION_NANO) {
-        return taosGetTimestampNs();
+        return toolsGetTimestampNs();
     } else {
-        return taosGetTimestampMs();
+        return toolsGetTimestampMs();
     }
 }
 
