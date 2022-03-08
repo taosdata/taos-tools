@@ -40,6 +40,7 @@ char *    g_randutinyint_buff = NULL;
 char *    g_randfloat_buff = NULL;
 char *    g_rand_current_buff = NULL;
 char *    g_rand_phase_buff = NULL;
+char *    g_rand_groupid_buff = NULL;
 char *    g_randdouble_buff = NULL;
 
 const char charset[] =
@@ -171,6 +172,13 @@ static char *demo_voltage_int_str() {
     return g_rand_voltage_buff + ((cursor)*INT_BUFF_LEN);
 }
 
+static char *demo_groupid_str() {
+  static int cursor;
+  cursor++;
+  if ( cursor> (g_arguments->prepared_rand - 1)) cursor = 0;
+  return g_rand_groupid_buff + ((cursor) * TINYINT_BUFF_LEN);
+}
+
 static char *demo_phase_float_str() {
     static int cursor;
     cursor++;
@@ -294,6 +302,9 @@ int init_rand_data() {
     g_randutinyint_buff =
         calloc(1, TINYINT_BUFF_LEN * g_arguments->prepared_rand);
     g_memoryUsage += TINYINT_BUFF_LEN * g_arguments->prepared_rand;
+    g_rand_groupid_buff =
+        calloc(1, TINYINT_BUFF_LEN * g_arguments->prepared_rand);
+    g_memoryUsage += TINYINT_BUFF_LEN * g_arguments->prepared_rand;
     g_randusmallint_buff =
         calloc(1, SMALLINT_BUFF_LEN * g_arguments->prepared_rand);
     g_memoryUsage += SMALLINT_BUFF_LEN * g_arguments->prepared_rand;
@@ -347,6 +358,9 @@ int init_rand_data() {
         sprintf(g_randutinyint_buff + i * TINYINT_BUFF_LEN, "%u",
                 g_randutinyint[i]);
 
+        sprintf(g_rand_groupid_buff + i * TINYINT_BUFF_LEN, "%u",
+                g_randutinyint[i] % 10 + 1);
+
         g_randbigint[i] = (int64_t)(taosRandom() % RAND_MAX - (RAND_MAX >> 1));
         g_randubigint[i] = (uint64_t)(taosRandom());
         sprintf(g_randbigint_buff + i * BIGINT_BUFF_LEN, "%" PRId64 "",
@@ -379,6 +393,7 @@ int init_rand_data() {
     check_randomness("g_rand_current_buff", FLOAT_BUFF_LEN,
                      g_rand_current_buff);
     check_randomness("g_rand_phase_buff", FLOAT_BUFF_LEN, g_rand_phase_buff);
+    check_randomness("g_rand_groupid_buff", TINYINT_BUFF_LEN, g_rand_groupid_buff);
     check_randomness("g_randdouble_buff", DOUBLE_BUFF_LEN, g_randdouble_buff);
     check_randomness("g_randuint_buff", INT_BUFF_LEN, g_randuint_buff);
     check_randomness("g_randutinyint_buff", TINYINT_BUFF_LEN,
@@ -766,7 +781,7 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                     if ((g_arguments->demo_mode) && (c == 1)) {
                         tmp = demo_voltage_int_str();
                     } else if ((g_arguments->demo_mode) && (c == 0)) {
-                        tmp = rand_utinyint_str();
+                        tmp = demo_groupid_str();
                     } else {
                         tmp = rand_int_str();
                     }
