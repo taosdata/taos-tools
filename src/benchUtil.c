@@ -136,6 +136,9 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 
 int convertHostToServAddr(char *host, uint16_t port,
                           struct sockaddr_in *serv_addr) {
+    if (!host) {
+      host = "localhost";
+    }
     debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host, port);
     struct hostent *server = gethostbyname(host);
     if ((server == NULL) || (server->h_addr == NULL)) {
