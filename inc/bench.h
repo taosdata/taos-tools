@@ -58,6 +58,10 @@
 #include <time.h>
 #include <unistd.h>
 #include <wordexp.h>
+
+// temporary flag for 3.0 development TODO need to remove in future
+#define ALLOW_FORBID_FUNC
+
 #include "taos.h"
 #include "taosdef.h"
 #include "taoserror.h"

@@ -35,8 +35,9 @@
 #include <limits.h>
 
 #include "taos.h"
-#include "taosdef.h"
 #include "taoserror.h"
+
+#include "toolsdef.h"
 
 #include <avro.h>
 #include <jansson.h>
