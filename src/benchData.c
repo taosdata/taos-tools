@@ -1053,23 +1053,39 @@ int prepare_sample_data(int db_index, int stb_index) {
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
+    char *host = NULL;
+    if (g_arguments->host == NULL) {
+      host = get_host_from_ep();
+    }
+
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
         if (stbInfo->tcpTransfer && stbInfo->iface == SML_REST_IFACE) {
-            if (convertHostToServAddr(g_arguments->host,
+            if (convertHostToServAddr(g_arguments->host ? g_arguments->host : host,
                                       g_arguments->telnet_tcp_port,
                                       &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
+                if (host) {
+                  free(host);
+                }
                 return -1;
             }
         } else {
-            if (convertHostToServAddr(g_arguments->host,
+            if (convertHostToServAddr(g_arguments->host ? g_arguments->host : host,
                                       g_arguments->port + TSDB_PORT_HTTP,
                                       &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
+                if (host) {
+                  free(host);
+                }
                 return -1;
             }
         }
     }
+
+    if (host) {
+      free(host);
+    }
+
     switch (stbInfo->iface) {
         case REST_IFACE:
         case TAOSC_IFACE:

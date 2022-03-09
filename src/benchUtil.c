@@ -366,9 +366,17 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         stbInfo->tcpTransfer) {
         r = snprintf(request_buf, req_buf_len, "%s", sqlstr);
     } else {
-        r = snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
+        char *host = NULL;
+        if (g_arguments->host == NULL) {
+          host = get_host_from_ep();
+	}
+
+        r = snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host ? g_arguments->host : host,
                      rest_port, g_arguments->base64_buf, strlen(sqlstr),
                      sqlstr);
+        if (host) {
+          free(host);
+        }
     }
     if (r >= req_buf_len) {
         free(request_buf);
@@ -646,4 +654,23 @@ void delay_list_destroy(delayList *list) {
 
 int compare(const void *a, const void *b) {
     return *(uint64_t *)a - *(uint64_t *)b;
+}
+
+char *get_host_from_ep() {
+  char *fqdn = NULL;
+
+  if (g_arguments->host == NULL || g_arguments->host[0] == '\0') {
+    if (pEpFirst[0] != '\0') {
+      fqdn = strdup(pEpFirst);
+    } else {
+      fqdn = strdup(pEpSecond);
+    }
+
+    char *p = strchr(fqdn, ':');
+    if (p) {
+      *p = '\0';
+    }
+  }
+
+  return fqdn;
 }

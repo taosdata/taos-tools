@@ -573,4 +573,5 @@ void display_delay_list(delayList *list);
 int queryTestProcess();
 /* demoSubscribe.c */
 int subscribeTestProcess();
+char *get_host_from_ep();
 #endif

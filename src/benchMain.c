@@ -26,6 +26,9 @@ int main(int argc, char* argv[]) {
     if (g_arguments->metaFile) {
         g_arguments->g_totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
+	if (g_arguments->host == NULL || g_arguments->host[0] == '\0')  {
+          g_arguments->host = "localhost";
+	}
     } else {
         modify_argument();
     }
