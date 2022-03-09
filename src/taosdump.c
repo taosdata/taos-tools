@@ -4779,6 +4779,336 @@ static int64_t dumpNormalTableWithoutStb(
     return count;
 }
 
+static int createMTableAvroHeadImp(
+        TAOS *taos,
+        char *dbName,
+        char *stable,
+        char *tbName,
+        int colCount,
+        avro_file_writer_t db,
+        avro_value_iface_t *wface)
+{
+    avro_value_t record;
+    avro_generic_value_new(wface, &record);
+
+    avro_value_t value, branch;
+
+    if (0 != avro_value_get_by_name(
+                &record, "stbname", &value, NULL)) {
+        errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
+                __func__, __LINE__, "stbname");
+        return -1;
+    }
+
+    avro_value_set_branch(&value, 1, &branch);
+    avro_value_set_string(&branch, stable);
+
+    if (0 != avro_value_get_by_name(
+                &record, "tbname", &value, NULL)) {
+        errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
+                __func__, __LINE__, "tbname");
+        return -1;
+    }
+
+    avro_value_set_branch(&value, 1, &branch);
+    avro_value_set_string(&branch,
+            tbName);
+
+    TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
+            + sizeof(ColDes) * colCount);
+    assert(subTableDes);
+
+    getTableDes(taos, dbName,
+            tbName,
+            subTableDes, false);
+
+    for (int tag = 0; tag < subTableDes->tags; tag ++) {
+        debugPrint("sub table %s no. %d tags is %s, type is %d, value is %s\n",
+                tbName,
+                tag,
+                subTableDes->cols[subTableDes->columns + tag].field,
+                subTableDes->cols[subTableDes->columns + tag].type,
+                subTableDes->cols[subTableDes->columns + tag].value
+                );
+
+        char tmpBuf[20] = {0};
+        sprintf(tmpBuf, "tag%d", tag);
+
+        if (0 != avro_value_get_by_name(
+                    &record,
+                    tmpBuf,
+                    &value, NULL)) {
+            errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed\n",
+                    __func__, __LINE__,
+                    subTableDes->cols[subTableDes->columns + tag].field);
+        }
+
+        avro_value_t firsthalf, secondhalf;
+        uint8_t u8Temp = 0;
+        uint16_t u16Temp = 0;
+        uint32_t u32Temp = 0;
+        uint64_t u64Temp = 0;
+
+        int type = subTableDes->cols[subTableDes->columns + tag].type;
+        switch (type) {
+            case TSDB_DATA_TYPE_BOOL:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
+                } else {
+                    avro_value_set_branch(&value, 1, &branch);
+                    int tmp = atoi((const char *)
+                            subTableDes->cols[subTableDes->columns+tag].value);
+                    verbosePrint("%s() LN%d, before set_bool() tmp=%d\n",
+                            __func__, __LINE__, (int)tmp);
+                    avro_value_set_boolean(&branch, (tmp)?1:0);
+                }
+                break;
+
+            case TSDB_DATA_TYPE_TINYINT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_int(&value, TSDB_DATA_TINYINT_NULL);
+                } else {
+                    avro_value_set_int(&value,
+                            (int8_t)atoi((const char *)
+                                subTableDes->cols[subTableDes->columns + tag].value));
+                }
+                break;
+
+            case TSDB_DATA_TYPE_SMALLINT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_int(&value, TSDB_DATA_SMALLINT_NULL);
+                } else {
+                    avro_value_set_int(&value,
+                            (int16_t)atoi((const char *)
+                                subTableDes->cols[subTableDes->columns + tag].value));
+                }
+                break;
+
+            case TSDB_DATA_TYPE_INT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_int(&value, TSDB_DATA_INT_NULL);
+                } else {
+                    avro_value_set_int(&value,
+                            (int32_t)atoi((const char *)
+                                subTableDes->cols[subTableDes->columns + tag].value));
+
+                }
+                break;
+
+            case TSDB_DATA_TYPE_BIGINT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
+                } else {
+                    avro_value_set_long(&value,
+                            (int64_t)atoll((const char *)
+                                subTableDes->cols[subTableDes->columns + tag].value));
+                }
+                break;
+
+            case TSDB_DATA_TYPE_FLOAT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_float(&value, TSDB_DATA_FLOAT_NULL);
+                } else {
+                    if (subTableDes->cols[subTableDes->columns + tag].var_value) {
+                        avro_value_set_float(&value,
+                                atof(subTableDes->cols[subTableDes->columns + tag].var_value));
+                    } else {
+                        avro_value_set_float(&value,
+                                atof(subTableDes->cols[subTableDes->columns + tag].value));
+                    }
+                }
+                break;
+
+            case TSDB_DATA_TYPE_DOUBLE:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_double(&value, TSDB_DATA_DOUBLE_NULL);
+                } else {
+                    if (subTableDes->cols[subTableDes->columns + tag].var_value) {
+                        avro_value_set_double(&value,
+                                atof(subTableDes->cols[subTableDes->columns + tag].var_value));
+                    } else {
+                        avro_value_set_double(&value,
+                                atof(subTableDes->cols[subTableDes->columns + tag].value));
+                    }
+                }
+                break;
+
+            case TSDB_DATA_TYPE_BINARY:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
+                } else {
+                    avro_value_set_branch(&value, 1, &branch);
+                    if (subTableDes->cols[subTableDes->columns + tag].var_value) {
+                        avro_value_set_string(&branch,
+                                subTableDes->cols[subTableDes->columns + tag].var_value);
+                    } else {
+                        avro_value_set_string(&branch,
+                                subTableDes->cols[subTableDes->columns + tag].value);
+                    }
+                }
+                break;
+
+            case TSDB_DATA_TYPE_NCHAR:
+            case TSDB_DATA_TYPE_JSON:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
+                } else {
+                    avro_value_set_branch(&value, 1, &branch);
+                    if (subTableDes->cols[subTableDes->columns + tag].var_value) {
+                        size_t nlen = strlen(subTableDes->cols[subTableDes->columns + tag].var_value);
+                        char *bytes = malloc(nlen+1);
+                        assert(bytes);
+
+                        strncpy(bytes,
+                                subTableDes->cols[subTableDes->columns + tag].var_value,
+                                nlen);
+                        avro_value_set_bytes(&branch, bytes, nlen);
+                        free(bytes);
+                    } else {
+                        avro_value_set_bytes(&branch,
+                                subTableDes->cols[subTableDes->columns + tag].value,
+                                strlen(subTableDes->cols[subTableDes->columns + tag].value)
+                                );
+                    }
+                }
+                break;
+
+            case TSDB_DATA_TYPE_TIMESTAMP:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
+                } else {
+                    avro_value_set_long(&value,
+                            (int64_t)atoll((const char *)
+                                subTableDes->cols[subTableDes->columns + tag].value));
+                }
+                break;
+
+            case TSDB_DATA_TYPE_UTINYINT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    u8Temp = TSDB_DATA_UTINYINT_NULL;
+                } else {
+                    u8Temp = (int8_t)atoi((const char *)
+                            subTableDes->cols[subTableDes->columns + tag].value);
+                }
+
+                int8_t n8tmp = (int8_t)(u8Temp - SCHAR_MAX);
+                avro_value_append(&value, &firsthalf, NULL);
+                avro_value_set_int(&firsthalf, n8tmp);
+                debugPrint("%s() LN%d, first half is: %d, ",
+                        __func__, __LINE__, n8tmp);
+                avro_value_append(&value, &secondhalf, NULL);
+                avro_value_set_int(&secondhalf, (int32_t)SCHAR_MAX);
+                debugPrint("second half is: %d\n", SCHAR_MAX);
+
+                break;
+
+            case TSDB_DATA_TYPE_USMALLINT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    u16Temp = TSDB_DATA_USMALLINT_NULL;
+                } else {
+                    u16Temp = (int16_t)atoi((const char *)
+                            subTableDes->cols[subTableDes->columns + tag].value);
+                }
+
+                int16_t n16tmp = (int16_t)(u16Temp - SHRT_MAX);
+                avro_value_append(&value, &firsthalf, NULL);
+                avro_value_set_int(&firsthalf, n16tmp);
+                debugPrint("%s() LN%d, first half is: %d, ",
+                        __func__, __LINE__, n16tmp);
+                avro_value_append(&value, &secondhalf, NULL);
+                avro_value_set_int(&secondhalf, (int32_t)SHRT_MAX);
+                debugPrint("second half is: %d\n", SHRT_MAX);
+
+                break;
+
+            case TSDB_DATA_TYPE_UINT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    u32Temp = TSDB_DATA_UINT_NULL;
+                } else {
+                    u32Temp = (int32_t)atoi((const char *)
+                            subTableDes->cols[subTableDes->columns + tag].value);
+                }
+
+                int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
+                avro_value_append(&value, &firsthalf, NULL);
+                avro_value_set_int(&firsthalf, n32tmp);
+                debugPrint("%s() LN%d, first half is: %d, ",
+                        __func__, __LINE__, n32tmp);
+                avro_value_append(&value, &secondhalf, NULL);
+                avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
+                debugPrint("second half is: %d\n", INT_MAX);
+
+                break;
+
+            case TSDB_DATA_TYPE_UBIGINT:
+                if (0 == strncmp(
+                            subTableDes->cols[subTableDes->columns+tag].note,
+                            "NUL", 3)) {
+                    u64Temp = TSDB_DATA_UBIGINT_NULL;
+                } else {
+                    char *eptr;
+                    u64Temp = strtoull((const char *)
+                            subTableDes->cols[subTableDes->columns + tag].value,
+                            &eptr, 10);
+                }
+
+                int64_t n64tmp = (int64_t)(u64Temp - LONG_MAX);
+                avro_value_append(&value, &firsthalf, NULL);
+                avro_value_set_long(&firsthalf, n64tmp);
+                debugPrint("%s() LN%d, first half is: %"PRId64", ",
+                        __func__, __LINE__, n64tmp);
+                avro_value_append(&value, &secondhalf, NULL);
+                avro_value_set_long(&secondhalf, (int64_t)LONG_MAX);
+                debugPrint("second half is: %"PRId64"\n", (int64_t)LONG_MAX);
+
+                break;
+
+            default:
+                errorPrint("Unknown type: %d\n", type);
+                break;
+        }
+    }
+
+    if (0 != avro_file_writer_append_value(db, &record)) {
+        errorPrint("%s() LN%d, Unable to write record to file. Message: %s\n",
+                __func__, __LINE__,
+                avro_strerror());
+    }
+    avro_value_decref(&record);
+    freeTbDes(subTableDes);
+
+    return 0;
+}
+
 static int createMTableAvroHead(
         TAOS *taos,
         char *dumpFilename,
@@ -4835,340 +5165,22 @@ static int createMTableAvroHead(
     TAOS_ROW row = NULL;
     int64_t ntbCount = 0;
 
-    while((row = taos_fetch_row(res)) != NULL) {
-        int32_t *length = taos_fetch_lengths(res);
-        char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
+    if (specifiedTb) {
+        createMTableAvroHeadImp(
+                taos, dbName, stable, specifiedTb, colCount, db, wface);
+    } else {
+        while((row = taos_fetch_row(res)) != NULL) {
+            int32_t *length = taos_fetch_lengths(res);
+            char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
 
-        strncpy(tbName,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
-        if (specifiedTb) {
-            if(0 != strcmp(specifiedTb, tbName)) {
-                continue;
-            }
-        }
-        debugPrint("sub table %"PRId64": name: %s\n", ++ntbCount, tbName);
-        avro_value_t record;
-        avro_generic_value_new(wface, &record);
+            strncpy(tbName,
+                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                    min(TSDB_TABLE_NAME_LEN,
+                        length[TSDB_SHOW_TABLES_NAME_INDEX]));
 
-        avro_value_t value, branch;
-
-        if (0 != avro_value_get_by_name(
-                    &record, "stbname", &value, NULL)) {
-            errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
-                    __func__, __LINE__, "stbname");
-            continue;
-        }
-
-        avro_value_set_branch(&value, 1, &branch);
-        avro_value_set_string(&branch, stable);
-
-        if (0 != avro_value_get_by_name(
-                    &record, "tbname", &value, NULL)) {
-            errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
-                    __func__, __LINE__, "tbname");
-            continue;
-        }
-
-        avro_value_set_branch(&value, 1, &branch);
-        avro_value_set_string(&branch,
-                tbName);
-
-        TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
-                + sizeof(ColDes) * colCount);
-        assert(subTableDes);
-
-        getTableDes(taos, dbName,
-                    tbName,
-                    subTableDes, false);
-
-        for (int tag = 0; tag < subTableDes->tags; tag ++) {
-            debugPrint("sub table %s no. %d tags is %s, type is %d, value is %s\n",
-                tbName,
-                tag,
-                subTableDes->cols[subTableDes->columns + tag].field,
-                subTableDes->cols[subTableDes->columns + tag].type,
-                subTableDes->cols[subTableDes->columns + tag].value
-                );
-
-            char tmpBuf[20] = {0};
-            sprintf(tmpBuf, "tag%d", tag);
-
-            if (0 != avro_value_get_by_name(
-                        &record,
-                        tmpBuf,
-                        &value, NULL)) {
-                errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed\n",
-                        __func__, __LINE__,
-                        subTableDes->cols[subTableDes->columns + tag].field);
-            }
-
-            avro_value_t firsthalf, secondhalf;
-            uint8_t u8Temp = 0;
-            uint16_t u16Temp = 0;
-            uint32_t u32Temp = 0;
-            uint64_t u64Temp = 0;
-
-            int type = subTableDes->cols[subTableDes->columns + tag].type;
-            switch (type) {
-                case TSDB_DATA_TYPE_BOOL:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_branch(&value, 0, &branch);
-                        avro_value_set_null(&branch);
-                    } else {
-                        avro_value_set_branch(&value, 1, &branch);
-                        int tmp = atoi((const char *)
-                                subTableDes->cols[subTableDes->columns+tag].value);
-                        verbosePrint("%s() LN%d, before set_bool() tmp=%d\n",
-                                __func__, __LINE__, (int)tmp);
-                        avro_value_set_boolean(&branch, (tmp)?1:0);
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_TINYINT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_int(&value, TSDB_DATA_TINYINT_NULL);
-                    } else {
-                        avro_value_set_int(&value,
-                                (int8_t)atoi((const char *)
-                                    subTableDes->cols[subTableDes->columns + tag].value));
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_SMALLINT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_int(&value, TSDB_DATA_SMALLINT_NULL);
-                    } else {
-                        avro_value_set_int(&value,
-                                (int16_t)atoi((const char *)
-                                    subTableDes->cols[subTableDes->columns + tag].value));
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_INT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_int(&value, TSDB_DATA_INT_NULL);
-                    } else {
-                        avro_value_set_int(&value,
-                                (int32_t)atoi((const char *)
-                                    subTableDes->cols[subTableDes->columns + tag].value));
-
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_BIGINT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
-                    } else {
-                        avro_value_set_long(&value,
-                                (int64_t)atoll((const char *)
-                                    subTableDes->cols[subTableDes->columns + tag].value));
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_FLOAT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_float(&value, TSDB_DATA_FLOAT_NULL);
-                    } else {
-                        if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                            avro_value_set_float(&value,
-                                    atof(subTableDes->cols[subTableDes->columns + tag].var_value));
-                        } else {
-                            avro_value_set_float(&value,
-                                    atof(subTableDes->cols[subTableDes->columns + tag].value));
-                        }
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_DOUBLE:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_double(&value, TSDB_DATA_DOUBLE_NULL);
-                    } else {
-                        if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                            avro_value_set_double(&value,
-                                    atof(subTableDes->cols[subTableDes->columns + tag].var_value));
-                        } else {
-                            avro_value_set_double(&value,
-                                    atof(subTableDes->cols[subTableDes->columns + tag].value));
-                        }
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_BINARY:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_branch(&value, 0, &branch);
-                        avro_value_set_null(&branch);
-                    } else {
-                        avro_value_set_branch(&value, 1, &branch);
-                        if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                            avro_value_set_string(&branch,
-                                    subTableDes->cols[subTableDes->columns + tag].var_value);
-                        } else {
-                            avro_value_set_string(&branch,
-                                    subTableDes->cols[subTableDes->columns + tag].value);
-                        }
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_NCHAR:
-                case TSDB_DATA_TYPE_JSON:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_branch(&value, 0, &branch);
-                        avro_value_set_null(&branch);
-                    } else {
-                        avro_value_set_branch(&value, 1, &branch);
-                        if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                            size_t nlen = strlen(subTableDes->cols[subTableDes->columns + tag].var_value);
-                            char *bytes = malloc(nlen+1);
-                            assert(bytes);
-
-                            strncpy(bytes,
-                                    subTableDes->cols[subTableDes->columns + tag].var_value,
-                                    nlen);
-                            avro_value_set_bytes(&branch, bytes, nlen);
-                            free(bytes);
-                        } else {
-                            avro_value_set_bytes(&branch,
-                                    subTableDes->cols[subTableDes->columns + tag].value,
-                                    strlen(subTableDes->cols[subTableDes->columns + tag].value)
-                                    );
-                        }
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
-                    } else {
-                        avro_value_set_long(&value,
-                                (int64_t)atoll((const char *)
-                                    subTableDes->cols[subTableDes->columns + tag].value));
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_UTINYINT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        u8Temp = TSDB_DATA_UTINYINT_NULL;
-                    } else {
-                        u8Temp = (int8_t)atoi((const char *)
-                                subTableDes->cols[subTableDes->columns + tag].value);
-                    }
-
-                    int8_t n8tmp = (int8_t)(u8Temp - SCHAR_MAX);
-                    avro_value_append(&value, &firsthalf, NULL);
-                    avro_value_set_int(&firsthalf, n8tmp);
-                    debugPrint("%s() LN%d, first half is: %d, ",
-                            __func__, __LINE__, n8tmp);
-                    avro_value_append(&value, &secondhalf, NULL);
-                    avro_value_set_int(&secondhalf, (int32_t)SCHAR_MAX);
-                    debugPrint("second half is: %d\n", SCHAR_MAX);
-
-                    break;
-
-                case TSDB_DATA_TYPE_USMALLINT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        u16Temp = TSDB_DATA_USMALLINT_NULL;
-                    } else {
-                        u16Temp = (int16_t)atoi((const char *)
-                                subTableDes->cols[subTableDes->columns + tag].value);
-                    }
-
-                    int16_t n16tmp = (int16_t)(u16Temp - SHRT_MAX);
-                    avro_value_append(&value, &firsthalf, NULL);
-                    avro_value_set_int(&firsthalf, n16tmp);
-                    debugPrint("%s() LN%d, first half is: %d, ",
-                            __func__, __LINE__, n16tmp);
-                    avro_value_append(&value, &secondhalf, NULL);
-                    avro_value_set_int(&secondhalf, (int32_t)SHRT_MAX);
-                    debugPrint("second half is: %d\n", SHRT_MAX);
-
-                    break;
-
-                case TSDB_DATA_TYPE_UINT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        u32Temp = TSDB_DATA_UINT_NULL;
-                    } else {
-                        u32Temp = (int32_t)atoi((const char *)
-                                subTableDes->cols[subTableDes->columns + tag].value);
-                    }
-
-                    int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
-                    avro_value_append(&value, &firsthalf, NULL);
-                    avro_value_set_int(&firsthalf, n32tmp);
-                    debugPrint("%s() LN%d, first half is: %d, ",
-                            __func__, __LINE__, n32tmp);
-                    avro_value_append(&value, &secondhalf, NULL);
-                    avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
-                    debugPrint("second half is: %d\n", INT_MAX);
-
-                    break;
-
-                case TSDB_DATA_TYPE_UBIGINT:
-                    if (0 == strncmp(
-                                subTableDes->cols[subTableDes->columns+tag].note,
-                                "NUL", 3)) {
-                        u64Temp = TSDB_DATA_UBIGINT_NULL;
-                    } else {
-                        char *eptr;
-                        u64Temp = strtoull((const char *)
-                                subTableDes->cols[subTableDes->columns + tag].value,
-                                &eptr, 10);
-                    }
-
-                    int64_t n64tmp = (int64_t)(u64Temp - LONG_MAX);
-                    avro_value_append(&value, &firsthalf, NULL);
-                    avro_value_set_long(&firsthalf, n64tmp);
-                    debugPrint("%s() LN%d, first half is: %"PRId64", ",
-                            __func__, __LINE__, n64tmp);
-                    avro_value_append(&value, &secondhalf, NULL);
-                    avro_value_set_long(&secondhalf, (int64_t)LONG_MAX);
-                    debugPrint("second half is: %"PRId64"\n", (int64_t)LONG_MAX);
-
-                    break;
-
-                default:
-                    errorPrint("Unknown type: %d\n", type);
-                    break;
-            }
-        }
-
-        if (0 != avro_file_writer_append_value(db, &record)) {
-                errorPrint("%s() LN%d, Unable to write record to file. Message: %s\n",
-                        __func__, __LINE__,
-                        avro_strerror());
-        }
-        avro_value_decref(&record);
-
-        freeTbDes(subTableDes);
-
-        if (specifiedTb) {
-            break;
+            debugPrint("sub table %"PRId64": name: %s\n", ++ntbCount, tbName);
+            createMTableAvroHeadImp(
+                    taos, dbName, stable, tbName, colCount, db, wface);
         }
     }
 
@@ -5207,7 +5219,7 @@ static int64_t dumpNormalTableBelongStb(
                 dumpFilename,
                 dbInfo->name,
                 stbName, -1, 0,
-                NULL);
+                ntbName);
         if (-1 == ret) {
             errorPrint("%s() LN%d, failed to open file %s\n",
                     __func__, __LINE__, dumpFilename);
