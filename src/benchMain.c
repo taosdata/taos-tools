@@ -36,16 +36,6 @@ int main(int argc, char* argv[]) {
                    g_arguments->output_file);
     }
 
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
-            return -1;
-        }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
-
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) exit(EXIT_FAILURE);
     } else if (g_arguments->test_mode == QUERY_TEST) {
