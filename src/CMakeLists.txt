@@ -108,7 +108,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/cJsonDemo/src)
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     SET(OS_ID "")
-    ADD_EXECUTABLE(taosdump taosdump.c)
+    ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
     ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchOutput.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c)
     EXECUTE_PROCESS (
         COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"

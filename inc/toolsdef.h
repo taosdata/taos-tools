@@ -48,6 +48,9 @@
 #define GET_UINT32_VAL(x)  (*(uint32_t *)(x))
 #define GET_UINT64_VAL(x)  (*(uint64_t *)(x))
 
+#define TSDB_DEFAULT_USER               "root"
+#define TSDB_DEFAULT_PASS               "taosdata"
+
 #define TSDB_PASS_LEN                   129
 #define SHELL_MAX_PASSWORD_LEN          TSDB_PASS_LEN
 
@@ -64,12 +67,26 @@
 #define TSDB_MAX_ALLOWED_SQL_LEN  (1*1024*1024u)          // sql length should be less than 1mb
 
 #define TSDB_MAX_BYTES_PER_ROW    49151
+#define TSDB_MAX_TAGS_LEN         16384
 #define TSDB_MAX_TAGS             128
 
 #define TSDB_DEFAULT_PKT_SIZE     65480  //same as RPC_MAX_UDP_SIZE
 
 #define TSDB_PAYLOAD_SIZE         TSDB_DEFAULT_PKT_SIZE
 #define TSDB_MAX_SQL_LEN          TSDB_PAYLOAD_SIZE
+
+#ifdef TSKEY32
+#define TSKEY int32_t;
+#else
+#define TSKEY int64_t
+#endif
+
+#define TSDB_KEYSIZE            sizeof(TSKEY)
+#define TSDB_MAX_FIELD_LEN              16384
+#define TSDB_MAX_BINARY_LEN            (TSDB_MAX_FIELD_LEN-TSDB_KEYSIZE) // keep 16384
+#define TSDB_FILENAME_LEN         128
+
+#define TSDB_PORT_HTTP                         11
 
 #ifdef _TD_ARM_32
   float  taos_align_get_float(const char* pBuf);
@@ -91,5 +108,7 @@
   #define SET_FLOAT_PTR(x, y)     { (*(float *)(x))  = (*(float *)(y));  }
   #define SET_DOUBLE_PTR(x, y)    { (*(double *)(x)) = (*(double *)(y)); }
 #endif
+
+int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePrec, int8_t day_light);
 
 #endif // __TOOLSTYPES_H_
