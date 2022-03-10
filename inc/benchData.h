@@ -46,7 +46,7 @@ extern char *    g_rand_phase_buff;
 extern char *    g_rand_groupid_buff;
 extern char *    g_randdouble_buff;
 /***** Declare functions *****/
-int     init_rand_data();
+int     init_global_rand_data();
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
 void    generateStmtBuffer(SSuperTable *stbInfo);

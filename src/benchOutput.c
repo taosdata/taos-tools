@@ -255,47 +255,49 @@ void printfInsertMetaToFileStream(FILE *fp) {
                     g_arguments->db[i].superTbls[j].columnCount);
             for (int k = 0; k < g_arguments->db[i].superTbls[j].columnCount;
                  k++) {
-                if ((g_arguments->db[i].superTbls[j].col_type[k] ==
+                if ((g_arguments->db[i].superTbls[j].columns[k].type ==
                      TSDB_DATA_TYPE_NCHAR) ||
-                    (g_arguments->db[i].superTbls[j].col_type[k] ==
+                    (g_arguments->db[i].superTbls[j].columns[k].type ==
                      TSDB_DATA_TYPE_BINARY)) {
-                    fprintf(fp, "%s:\033[33m%s(%d)\033[0m ",
-                            g_arguments->db[i].superTbls[j].col_names[k],
-                            taos_convert_datatype_to_string(
-                                g_arguments->db[i].superTbls[j].col_type[k]),
-                            g_arguments->db[i].superTbls[j].col_length[k]);
+                    fprintf(
+                        fp, "%s:\033[33m%s(%d)\033[0m ",
+                        g_arguments->db[i].superTbls[j].columns[k].name,
+                        taos_convert_datatype_to_string(
+                            g_arguments->db[i].superTbls[j].columns[k].type),
+                        g_arguments->db[i].superTbls[j].columns[k].length);
                 } else {
-                    fprintf(fp, "%s:\033[33m%s\033[0m ",
-                            g_arguments->db[i].superTbls[j].col_names[k],
-                            taos_convert_datatype_to_string(
-                                g_arguments->db[i].superTbls[j].col_type[k]));
+                    fprintf(
+                        fp, "%s:\033[33m%s\033[0m ",
+                        g_arguments->db[i].superTbls[j].columns[k].name,
+                        taos_convert_datatype_to_string(
+                            g_arguments->db[i].superTbls[j].columns[k].type));
                 }
             }
             fprintf(fp, "\n");
             fprintf(fp, "      tagCount:          \033[33m%d\033[0m\n        ",
                     g_arguments->db[i].superTbls[j].tagCount);
             for (int k = 0; k < g_arguments->db[i].superTbls[j].tagCount; k++) {
-                if ((g_arguments->db[i].superTbls[j].tag_type[k] ==
+                if ((g_arguments->db[i].superTbls[j].tags[k].type ==
                      TSDB_DATA_TYPE_BINARY) ||
-                    (g_arguments->db[i].superTbls[j].tag_type[k] ==
+                    (g_arguments->db[i].superTbls[j].tags[k].type ==
                      TSDB_DATA_TYPE_NCHAR)) {
                     fprintf(fp, "%s:\033[33m%s(%d)\033[0m ",
-                            g_arguments->db[i].superTbls[j].tag_names[k],
+                            g_arguments->db[i].superTbls[j].tags[k].name,
                             taos_convert_datatype_to_string(
-                                g_arguments->db[i].superTbls[j].tag_type[k]),
-                            g_arguments->db[i].superTbls[j].tag_length[k]);
-                } else if (g_arguments->db[i].superTbls[j].tag_type[k] ==
+                                g_arguments->db[i].superTbls[j].tags[k].type),
+                            g_arguments->db[i].superTbls[j].tags[k].length);
+                } else if (g_arguments->db[i].superTbls[j].tags[k].type ==
                            TSDB_DATA_TYPE_JSON) {
                     fprintf(fp, "%s:\033[33mjson{key(%d):value(%d)}\033[0m ",
-                            g_arguments->db[i].superTbls[j].tag_names[k],
+                            g_arguments->db[i].superTbls[j].tags[k].name,
                             g_arguments->db[i].superTbls[j].tagCount,
-                            g_arguments->db[i].superTbls[j].tag_length[k]);
+                            g_arguments->db[i].superTbls[j].tags[k].length);
                     break;
                 } else {
                     fprintf(fp, "%s:\033[33m%s\033[0m ",
-                            g_arguments->db[i].superTbls[j].tag_names[k],
+                            g_arguments->db[i].superTbls[j].tags[k].name,
                             taos_convert_datatype_to_string(
-                                g_arguments->db[i].superTbls[j].tag_type[k]));
+                                g_arguments->db[i].superTbls[j].tags[k].type));
                 }
             }
             fprintf(fp, "\n");

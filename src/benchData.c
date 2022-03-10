@@ -273,7 +273,9 @@ static void check_randomness(char *buffer_name, int buffer_length,
                buffer + buffer_length, buffer + 2 * buffer_length);
 }
 
-int init_rand_data() {
+inline int init_rand_data(char type, int64_t max, int64_t min) {}
+
+int init_global_rand_data() {
     g_randint_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
     g_memoryUsage += INT_BUFF_LEN * g_arguments->prepared_rand;
     g_rand_voltage_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
@@ -416,8 +418,8 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
             calloc(stbInfo->tagCount, sizeof(TAOS_BIND));
         for (int j = 0; j < stbInfo->tagCount; ++j) {
             TAOS_BIND *tag = &(stbInfo->tag_bind_array[i][j]);
-            tag->buffer_type = stbInfo->tag_type[j];
-            tag->buffer_length = stbInfo->tag_length[j];
+            tag->buffer_type = stbInfo->tags[j].type;
+            tag->buffer_length = stbInfo->tags[j].length;
             tag->length = &tag->buffer_length;
             tag->is_null = NULL;
             switch (tag->buffer_type) {
@@ -458,7 +460,7 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     tag->buffer = stbInfo->stmt_tag_string_grid[j] +
-                                  i * stbInfo->tag_length[j];
+                                  i * stbInfo->tags[j].length;
                     break;
                 }
             }
@@ -467,10 +469,8 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
 }
 
 void generateStmtBuffer(SSuperTable *stbInfo) {
-    int      len = 0;
-    int      tagCount = stbInfo->tagCount;
-    char *   tag_type = stbInfo->tag_type;
-    int32_t *tag_length = stbInfo->tag_length;
+    int len = 0;
+    int tagCount = stbInfo->tagCount;
     stbInfo->stmt_buffer = calloc(1, BUFFER_SIZE);
     g_memoryUsage += BUFFER_SIZE;
     if (stbInfo->autoCreateTable) {
@@ -484,15 +484,16 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
             } else {
                 len += sprintf(stbInfo->stmt_buffer + len, ",?");
             }
-            if (tag_type[i] == TSDB_DATA_TYPE_NCHAR ||
-                tag_type[i] == TSDB_DATA_TYPE_BINARY) {
-                stbInfo->stmt_tag_string_grid[i] =
-                    calloc(1, stbInfo->childTblCount * (tag_length[i] + 1));
-                g_memoryUsage += stbInfo->childTblCount * (tag_length[i] + 1);
+            if (stbInfo->tags[i].type == TSDB_DATA_TYPE_NCHAR ||
+                stbInfo->tags[i].type == TSDB_DATA_TYPE_BINARY) {
+                stbInfo->stmt_tag_string_grid[i] = calloc(
+                    1, stbInfo->childTblCount * (stbInfo->tags[i].length + 1));
+                g_memoryUsage +=
+                    stbInfo->childTblCount * (stbInfo->tags[i].length + 1);
                 for (int j = 0; j < stbInfo->childTblCount; ++j) {
-                    rand_string(
-                        stbInfo->stmt_tag_string_grid[i] + j * tag_length[i],
-                        tag_length[i], g_arguments->chinese);
+                    rand_string(stbInfo->stmt_tag_string_grid[i] +
+                                    j * stbInfo->tags[i].length,
+                                stbInfo->tags[i].length, g_arguments->chinese);
                 }
             }
         }
@@ -502,22 +503,21 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
         len += sprintf(stbInfo->stmt_buffer + len, "INSERT INTO ? VALUES(?");
     }
 
-    int      columnCount = stbInfo->columnCount;
-    char *   col_type = stbInfo->col_type;
-    int32_t *col_length = stbInfo->col_length;
+    int columnCount = stbInfo->columnCount;
     stbInfo->stmt_col_string_grid = calloc(columnCount, sizeof(char *));
     g_memoryUsage += columnCount * sizeof(char *);
     for (int col = 0; col < columnCount; col++) {
         len += sprintf(stbInfo->stmt_buffer + len, ",?");
-        if (col_type[col] == TSDB_DATA_TYPE_NCHAR ||
-            col_type[col] == TSDB_DATA_TYPE_BINARY) {
-            stbInfo->stmt_col_string_grid[col] =
-                calloc(1, g_arguments->reqPerReq * (col_length[col] + 1));
-            g_memoryUsage += g_arguments->reqPerReq * (col_length[col] + 1);
+        if (stbInfo->columns[col].type == TSDB_DATA_TYPE_NCHAR ||
+            stbInfo->columns[col].type == TSDB_DATA_TYPE_BINARY) {
+            stbInfo->stmt_col_string_grid[col] = calloc(
+                1, g_arguments->reqPerReq * (stbInfo->columns[col].length + 1));
+            g_memoryUsage +=
+                g_arguments->reqPerReq * (stbInfo->columns[col].length + 1);
             for (int i = 0; i < g_arguments->reqPerReq; ++i) {
-                rand_string(
-                    stbInfo->stmt_col_string_grid[col] + i * col_length[col],
-                    col_length[col], g_arguments->chinese);
+                rand_string(stbInfo->stmt_col_string_grid[col] +
+                                i * stbInfo->columns[col].length,
+                            stbInfo->columns[col].length, g_arguments->chinese);
             }
         }
     }
@@ -615,10 +615,10 @@ static void calcRowLen(SSuperTable *stbInfo) {
     stbInfo->lenOfCols = 0;
     stbInfo->lenOfTags = 0;
     for (int colIndex = 0; colIndex < stbInfo->columnCount; colIndex++) {
-        switch (stbInfo->col_type[colIndex]) {
+        switch (stbInfo->columns[colIndex].type) {
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
-                stbInfo->lenOfCols += stbInfo->col_length[colIndex] + 3;
+                stbInfo->lenOfCols += stbInfo->columns[colIndex].length + 3;
                 break;
 
             case TSDB_DATA_TYPE_INT:
@@ -665,10 +665,10 @@ static void calcRowLen(SSuperTable *stbInfo) {
     stbInfo->lenOfCols += TIMESTAMP_BUFF_LEN;
 
     for (int tagIndex = 0; tagIndex < stbInfo->tagCount; tagIndex++) {
-        switch (stbInfo->tag_type[tagIndex]) {
+        switch (stbInfo->tags[tagIndex].type) {
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
-                stbInfo->lenOfTags += stbInfo->tag_length[tagIndex] + 4;
+                stbInfo->lenOfTags += stbInfo->tags[tagIndex].length + 4;
                 break;
             case TSDB_DATA_TYPE_INT:
             case TSDB_DATA_TYPE_UINT:
@@ -698,7 +698,7 @@ static void calcRowLen(SSuperTable *stbInfo) {
                 break;
             case TSDB_DATA_TYPE_JSON:
                 stbInfo->lenOfTags +=
-                    (JSON_BUFF_LEN + stbInfo->tag_length[tagIndex]) *
+                    (JSON_BUFF_LEN + stbInfo->tags[tagIndex].length) *
                     stbInfo->tagCount;
                 return;
         }
@@ -1135,7 +1135,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             param->buffer = pThreadInfo->bind_ts_array;
 
         } else {
-            data_type = stbInfo->col_type[c - 1];
+            data_type = stbInfo->columns[c - 1].type;
             switch (data_type) {
                 case TSDB_DATA_TYPE_NCHAR:
                 case TSDB_DATA_TYPE_BINARY: {
@@ -1186,10 +1186,10 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
                     errorPrint("wrong data type: %d\n", data_type);
                     return -1;
             }
-            param->buffer_length = stbInfo->col_length[c - 1];
+            param->buffer_length = stbInfo->columns[c - 1].length;
             debugPrint("col[%d]: type: %s, len: %d\n", c,
                        taos_convert_datatype_to_string(data_type),
-                       stbInfo->col_length[c - 1]);
+                       stbInfo->columns[c - 1].length);
         }
         param->buffer_type = data_type;
         param->length = calloc(batch, sizeof(int32_t));
@@ -1250,7 +1250,7 @@ int32_t generateSmlTags(char *sml, SSuperTable *stbInfo) {
                  (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) ? "," : " ",
                  2);
         dataLen += 1;
-        switch (stbInfo->tag_type[j]) {
+        switch (stbInfo->tags[j].type) {
             case TSDB_DATA_TYPE_TIMESTAMP:
                 errorPrint("%s", "Does not support timestamp as tag\n");
                 return -1;
@@ -1300,15 +1300,15 @@ int32_t generateSmlTags(char *sml, SSuperTable *stbInfo) {
                 break;
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR: {
-                char *buf = (char *)calloc(stbInfo->tag_length[j] + 1, 1);
-                rand_string(buf, stbInfo->tag_length[j], g_arguments->chinese);
+                char *buf = (char *)calloc(stbInfo->tags[j].length + 1, 1);
+                rand_string(buf, stbInfo->tags[j].length, g_arguments->chinese);
                 dataLen +=
                     snprintf(sml + dataLen, length - dataLen, "t%d=%s", j, buf);
                 tmfree(buf);
                 break;
             }
             default:
-                errorPrint("unknown data type %d\n", stbInfo->tag_type[j]);
+                errorPrint("unknown data type %d\n", stbInfo->tags[j].type);
                 return -1;
         }
     }
@@ -1328,7 +1328,7 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
     for (int i = 0; i < stbInfo->tagCount; i++) {
         cJSON *tag = cJSON_CreateObject();
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
-        switch (stbInfo->tag_type[i]) {
+        switch (stbInfo->tags[i].type) {
             case TSDB_DATA_TYPE_BOOL:
                 cJSON_AddBoolToObject(tag, "value", rand_bool());
                 cJSON_AddStringToObject(tag, "type", "bool");
@@ -1359,9 +1359,9 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                 break;
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR: {
-                char *buf = (char *)calloc(stbInfo->tag_length[i] + 1, 1);
-                rand_string(buf, stbInfo->tag_length[i], g_arguments->chinese);
-                if (stbInfo->tag_type[i] == TSDB_DATA_TYPE_BINARY) {
+                char *buf = (char *)calloc(stbInfo->tags[i].length + 1, 1);
+                rand_string(buf, stbInfo->tags[i].length, g_arguments->chinese);
+                if (stbInfo->tags[i].type == TSDB_DATA_TYPE_BINARY) {
                     cJSON_AddStringToObject(tag, "value", buf);
                     cJSON_AddStringToObject(tag, "type", "binary");
                 } else {
@@ -1374,7 +1374,7 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             default:
                 errorPrint(
                     "unknown data type (%d) for schemaless json protocol\n",
-                    stbInfo->tag_type[i]);
+                    stbInfo->tags[i].type);
                 goto free_of_generate_sml_json_tag;
         }
         cJSON_AddItemToObject(tags, tagName, tag);
@@ -1403,7 +1403,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
         return -1;
     }
     cJSON *value = cJSON_CreateObject();
-    switch (stbInfo->col_type[0]) {
+    switch (stbInfo->columns[0].type) {
         case TSDB_DATA_TYPE_BOOL:
             cJSON_AddBoolToObject(value, "value", rand_bool());
             cJSON_AddStringToObject(value, "type", "bool");
@@ -1434,9 +1434,9 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
             break;
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR: {
-            char *buf = (char *)calloc(stbInfo->col_length[0] + 1, 1);
-            rand_string(buf, stbInfo->col_length[0], g_arguments->chinese);
-            if (stbInfo->col_type[0] == TSDB_DATA_TYPE_BINARY) {
+            char *buf = (char *)calloc(stbInfo->columns[0].length + 1, 1);
+            rand_string(buf, stbInfo->columns[0].length, g_arguments->chinese);
+            if (stbInfo->columns[0].type == TSDB_DATA_TYPE_BINARY) {
                 cJSON_AddStringToObject(value, "value", buf);
                 cJSON_AddStringToObject(value, "type", "binary");
             } else {
@@ -1448,7 +1448,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
         }
         default:
             errorPrint("unknown data type (%d) for schemaless json protocol\n",
-                       stbInfo->col_type[0]);
+                       stbInfo->columns[0].type);
             return -1;
     }
     cJSON_AddItemToObject(record, "timestamp", ts);

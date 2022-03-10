@@ -265,6 +265,22 @@ typedef struct TAOS_POOL_S {
     TAOS **taos_list;
 } TAOS_POOL;
 
+typedef struct COLUMN_S {
+    char    type;
+    char *  name;
+    int32_t length;
+    bool    null;
+    char *  data;
+} Column;
+
+typedef struct TAG_S {
+    char    type;
+    char *  name;
+    int32_t length;
+    bool    null;
+    char *  data;
+} Tag;
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -294,22 +310,16 @@ typedef struct SSuperTable_S {
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
 
-    int32_t  columnCount;
-    int32_t  partialColumnNum;
-    char *   partialColumnNameBuf;
-    char *   col_type;
-    char **  col_names;
-    bool *   col_null;
-    int32_t *col_length;
-    int32_t  tagCount;
-    char *   tag_type;
-    char **  tag_names;
-    bool *   tag_null;
-    int32_t *tag_length;
-    char **  childTblName;
-    char *   colsOfCreateChildTable;
-    int32_t  lenOfTags;
-    int32_t  lenOfCols;
+    int32_t columnCount;
+    int32_t partialColumnNum;
+    char *  partialColumnNameBuf;
+    Column *columns;
+    Tag *   tags;
+    int32_t tagCount;
+    char ** childTblName;
+    char *  colsOfCreateChildTable;
+    int32_t lenOfTags;
+    int32_t lenOfCols;
 
     char *sampleDataBuf;
     bool  useSampleTs;
