@@ -35,7 +35,6 @@
 #include <limits.h>
 
 #include "taos.h"
-#include "taoserror.h"
 
 #include "toolsdef.h"
 

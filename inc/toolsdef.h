@@ -16,6 +16,9 @@
 #ifndef __TOOLSTYPES_H_
 #define __TOOLSTYPES_H_
 
+#define TSDB_CODE_SUCCESS                   0
+#define TSDB_CODE_FAILED                    -1   // unknown or needn't tell detail error
+
 // NULL definition
 #define TSDB_DATA_BOOL_NULL             0x02
 #define TSDB_DATA_TINYINT_NULL          0x80

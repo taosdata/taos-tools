@@ -63,7 +63,6 @@
 #define ALLOW_FORBID_FUNC
 
 #include "taos.h"
-#include "taoserror.h"
 #include "toolsdef.h"
 
 #define REQ_EXTRA_BUF_LEN 1024
