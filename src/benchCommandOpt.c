@@ -32,8 +32,8 @@ static char               doc[] = "";
 static char               args_doc[] = "";
 static struct argp_option options[] = {
     {"file", 'f', "FILE", 0,
-     "(**IMPORTANT**) Set json configuration file(all options are going to "
-     "read from this json file), which is mutually exclusive with other "
+     "(**IMPORTANT**) Set JSON configuration file(all options are going to "
+     "read from this JSON file), which is mutually exclusive with other "
      "commandline options",
      0},
     {"config-dir", 'c', "CONFIG_DIR", 0, "Configuration directory.", 1},
@@ -628,6 +628,30 @@ void modify_argument() {
     for (int i = 0; i < superTable->columnCount; ++i) {
         if (superTable->col_length[i] == 0) {
             superTable->col_length[i] = g_arguments->binwidth;
+        }
+    }
+
+    superTable->tag_names = calloc(superTable->tagCount, sizeof(char *));
+    superTable->col_names = calloc(superTable->columnCount, sizeof(char *));
+    if (g_arguments->demo_mode) {
+        superTable->tag_names[0] = calloc(1, TSDB_COL_NAME_LEN);
+        sprintf(superTable->tag_names[0], "groupid");
+        superTable->tag_names[1] = calloc(1, TSDB_COL_NAME_LEN);
+        sprintf(superTable->tag_names[1], "location");
+        superTable->col_names[0] = calloc(1, TSDB_COL_NAME_LEN);
+        sprintf(superTable->col_names[0], "current");
+        superTable->col_names[1] = calloc(1, TSDB_COL_NAME_LEN);
+        sprintf(superTable->col_names[1], "voltage");
+        superTable->col_names[2] = calloc(1, TSDB_COL_NAME_LEN);
+        sprintf(superTable->col_names[2], "phase");
+    } else {
+        for (int i = 0; i < superTable->tagCount; ++i) {
+            superTable->tag_names[i] = calloc(1, TSDB_COL_NAME_LEN);
+            sprintf(superTable->tag_names[i], "t%d", i);
+        }
+        for (int i = 0; i < superTable->columnCount; ++i) {
+            superTable->col_names[i] = calloc(1, TSDB_COL_NAME_LEN);
+            sprintf(superTable->col_names[i], "c%d", i);
         }
     }
 

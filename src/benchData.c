@@ -173,10 +173,10 @@ static char *demo_voltage_int_str() {
 }
 
 static char *demo_groupid_str() {
-  static int cursor;
-  cursor++;
-  if ( cursor> (g_arguments->prepared_rand - 1)) cursor = 0;
-  return g_rand_groupid_buff + ((cursor) * TINYINT_BUFF_LEN);
+    static int cursor;
+    cursor++;
+    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
+    return g_rand_groupid_buff + ((cursor)*TINYINT_BUFF_LEN);
 }
 
 static char *demo_phase_float_str() {
@@ -393,7 +393,8 @@ int init_rand_data() {
     check_randomness("g_rand_current_buff", FLOAT_BUFF_LEN,
                      g_rand_current_buff);
     check_randomness("g_rand_phase_buff", FLOAT_BUFF_LEN, g_rand_phase_buff);
-    check_randomness("g_rand_groupid_buff", TINYINT_BUFF_LEN, g_rand_groupid_buff);
+    check_randomness("g_rand_groupid_buff", TINYINT_BUFF_LEN,
+                     g_rand_groupid_buff);
     check_randomness("g_randdouble_buff", DOUBLE_BUFF_LEN, g_randdouble_buff);
     check_randomness("g_randuint_buff", INT_BUFF_LEN, g_randuint_buff);
     check_randomness("g_randutinyint_buff", TINYINT_BUFF_LEN,
@@ -718,7 +719,7 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                                    int count, char *data_type,
                                    int32_t *data_length, int64_t size,
                                    uint16_t iface, int32_t line_protocol,
-                                   bool *data_null) {
+                                   bool *data_null, char **names) {
     for (int64_t i = 0; i < size; i++) {
         int32_t pos = i * lenOfOneRow;
         for (int c = 0; c < count; c++) {
@@ -753,14 +754,14 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         data_type[c] == TSDB_DATA_TYPE_BINARY &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=\"%s\",", c,
-                                       data);
+                        pos += sprintf(sampleDataBuf + pos, "%s=\"%s\",",
+                                       names[c], data);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                data_type[c] == TSDB_DATA_TYPE_NCHAR &&
                                line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=L\"%s\",", c,
-                                       data);
+                        pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\",",
+                                       names[c], data);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                data_type[c] == TSDB_DATA_TYPE_BINARY &&
@@ -787,8 +788,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos +=
-                            sprintf(sampleDataBuf + pos, "c%d=%si32,", c, tmp);
+                        pos += sprintf(sampleDataBuf + pos, "%s=%si32,",
+                                       names[c], tmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -801,8 +802,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_UINT:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%su32,", c,
-                                       rand_uint_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%su32,",
+                                       names[c], rand_uint_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -817,8 +818,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_BIGINT:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%si64,", c,
-                                       rand_bigint_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%si64,",
+                                       names[c], rand_bigint_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -834,8 +835,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_UBIGINT:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%su64,", c,
-                                       rand_ubigint_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%su64,",
+                                       names[c], rand_ubigint_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -857,8 +858,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos +=
-                            sprintf(sampleDataBuf + pos, "c%d=%sf32,", c, tmp);
+                        pos += sprintf(sampleDataBuf + pos, "%s=%sf32,",
+                                       names[c], tmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -870,8 +871,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_DOUBLE:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%sf64,", c,
-                                       rand_double_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%sf64,",
+                                       names[c], rand_double_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -886,8 +887,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_SMALLINT:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%si16,", c,
-                                       rand_smallint_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%si16,",
+                                       names[c], rand_smallint_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -903,8 +904,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_USMALLINT:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%su16,", c,
-                                       rand_usmallint_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%su16,",
+                                       names[c], rand_usmallint_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -919,8 +920,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_TINYINT:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%si8,", c,
-                                       rand_tinyint_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%si8,",
+                                       names[c], rand_tinyint_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -936,8 +937,8 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_UTINYINT:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%su8,", c,
-                                       rand_utinyint_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%su8,",
+                                       names[c], rand_utinyint_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
@@ -952,7 +953,7 @@ static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
                 case TSDB_DATA_TYPE_BOOL:
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "c%d=%s,", c,
+                        pos += sprintf(sampleDataBuf + pos, "%s=%s,", names[c],
                                        rand_bool_str());
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
@@ -1015,11 +1016,11 @@ int prepare_sample_data(int db_index, int stb_index) {
             calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
         g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
         if (stbInfo->random_data_source) {
-            generateSampleFromRand(stbInfo->sampleDataBuf, stbInfo->lenOfCols,
-                                   stbInfo->partialColumnNum, stbInfo->col_type,
-                                   stbInfo->col_length,
-                                   g_arguments->prepared_rand, stbInfo->iface,
-                                   stbInfo->lineProtocol, stbInfo->col_null);
+            generateSampleFromRand(
+                stbInfo->sampleDataBuf, stbInfo->lenOfCols,
+                stbInfo->partialColumnNum, stbInfo->col_type,
+                stbInfo->col_length, g_arguments->prepared_rand, stbInfo->iface,
+                stbInfo->lineProtocol, stbInfo->col_null, stbInfo->col_names);
         } else {
             if (stbInfo->useSampleTs) {
                 if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
@@ -1045,10 +1046,10 @@ int prepare_sample_data(int db_index, int stb_index) {
                 return -1;
             }
         } else {
-            generateSampleFromRand(stbInfo->tagDataBuf, stbInfo->lenOfTags,
-                                   stbInfo->tagCount, stbInfo->tag_type,
-                                   stbInfo->tag_length, stbInfo->childTblCount,
-                                   stbInfo->iface, 0, stbInfo->tag_null);
+            generateSampleFromRand(
+                stbInfo->tagDataBuf, stbInfo->lenOfTags, stbInfo->tagCount,
+                stbInfo->tag_type, stbInfo->tag_length, stbInfo->childTblCount,
+                stbInfo->iface, 0, stbInfo->tag_null, stbInfo->tag_names);
         }
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }

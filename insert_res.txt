@@ -1,0 +1,396 @@
+[1m[40;32m================ example/insert.json parse result START ================[0m
+
+taosBenchmark is simulating random data as you request..
+
+host:                       [33m127.0.0.1[0m
+port:                       [33m6030[0m
+telnet_tcp_port:            [33m6046[0m
+user:                       [33mroot[0m
+password:                   [33mtaosdata[0m
+configDir:                  [33m/etc/taos[0m
+resultFile:                 [33m./insert_res.txt[0m
+thread num of insert data:  [33m4[0m
+thread num of create table: [33m4[0m
+number of records per req:  [33m10[0m
+random prepare data size:   [33m10[0m
+chinese:                    [33mno[0m
+database count:             [33m1[0m
+database[[33m0[0m]:
+  database[0] name:      [33mdb[0m
+  drop:                 [33m yes[0m
+  blocks:                [33m8[0m
+  cache:                 [33m16[0m
+  days:                  [33m10[0m
+  keep:                  [33m36500[0m
+  replica:               [33m1[0m
+  update:                [33m1[0m
+  minRows:               [33m100[0m
+  maxRows:               [33m4096[0m
+  comp:                  [33m2[0m
+  walLevel:              [33m1[0m
+  fsync:                 [33m3000[0m
+  quorum:                [33m1[0m
+  precision:             [33mms[0m
+  super table count:     [33m1[0m
+  super table[[33m0[0m]:
+      stbName:           [33mstb[0m
+      interface:         [33mtaosc[0m
+      autoCreateTable:   [33mno[0m
+      childTblExists:    [33mno[0m
+      childTblCount:     [33m8[0m
+      childTblLimit:     [33m8[0m
+      childTblOffset:    [33m10[0m
+      childTblPrefix:    [33mstb_[0m
+      escapeCharacter:   [33myes[0m
+      dataSource:        [33mrandom[0m
+      childTblOffset:    [33m10[0m
+      insertRows:        [33m20[0m
+      interlaceRows:     [33m0[0m
+      disorderRange:     [33m1000[0m
+      disorderRatio:     [33m0[0m
+      timeStampStep:     [33m1[0m
+      startTimestamp:    [33m1601481600000[0m
+      sampleFile:        [33m./sample.csv[0m
+      useSampleTs:       [33mno[0m
+      tagsFile:          [33m[0m
+      partialColCount:   [33m0[0m
+      columnCount:       [33m6[0m
+        int:[33mint[0m uint:[33munsigned int[0m uint_1:[33munsigned int[0m uint_2:[33munsigned int[0m uint_3:[33munsigned int[0m uint_4:[33munsigned int[0m 
+      tagCount:          [33m14[0m
+        t0:[33mtimestamp[0m t1:[33mint[0m t2:[33mbigint[0m t3:[33mfloat[0m t4:[33mdouble[0m t5:[33msmallint[0m t6:[33mtinyint[0m t7:[33mbool[0m tag[8]:[33mnchar(17)[0m t9:[33munsigned int[0m t10:[33munsigned bigint[0m t11:[33munsigned tinyint[0m t12:[33munsigned smallint[0m tag[13]:[33mbinary(19)[0m 
+
+[1m[40;32m================ example/insert.json parse result END================[0m
+creating 8 table(s) with 4 thread(s)
+Spent 0.3320 seconds to create 8 table(s) with 4 thread(s), already exist 0 table(s), actual 8 table(s) pre created, 0 table(s) will be auto created
+Spent 0.0138 seconds to insert rows: 160, affected rows: 160 with 4 thread(s) into db 11628.75 records/second
+
+insert delay, min:  0.54ms, avg:  3.77ms, p90:  8.87ms, p95:  9.36ms, p99:  9.36ms, max:  9.36ms
+
+[1m[40;32m================ example/insert.json parse result START ================[0m
+
+taosBenchmark is simulating random data as you request..
+
+host:                       [33m127.0.0.1[0m
+port:                       [33m6030[0m
+telnet_tcp_port:            [33m6046[0m
+user:                       [33mroot[0m
+password:                   [33mtaosdata[0m
+configDir:                  [33m/etc/taos[0m
+resultFile:                 [33m./insert_res.txt[0m
+thread num of insert data:  [33m4[0m
+thread num of create table: [33m4[0m
+number of records per req:  [33m10[0m
+random prepare data size:   [33m10[0m
+chinese:                    [33mno[0m
+database count:             [33m1[0m
+database[[33m0[0m]:
+  database[0] name:      [33mdb[0m
+  drop:                 [33m yes[0m
+  blocks:                [33m8[0m
+  cache:                 [33m16[0m
+  days:                  [33m10[0m
+  keep:                  [33m36500[0m
+  replica:               [33m1[0m
+  update:                [33m1[0m
+  minRows:               [33m100[0m
+  maxRows:               [33m4096[0m
+  comp:                  [33m2[0m
+  walLevel:              [33m1[0m
+  fsync:                 [33m3000[0m
+  quorum:                [33m1[0m
+  precision:             [33mms[0m
+  super table count:     [33m1[0m
+  super table[[33m0[0m]:
+      stbName:           [33mstb[0m
+      interface:         [33mtaosc[0m
+      autoCreateTable:   [33mno[0m
+      childTblExists:    [33mno[0m
+      childTblCount:     [33m8[0m
+      childTblLimit:     [33m8[0m
+      childTblOffset:    [33m10[0m
+      childTblPrefix:    [33mstb_[0m
+      escapeCharacter:   [33myes[0m
+      dataSource:        [33mrandom[0m
+      childTblOffset:    [33m10[0m
+      insertRows:        [33m20[0m
+      interlaceRows:     [33m0[0m
+      disorderRange:     [33m1000[0m
+      disorderRatio:     [33m0[0m
+      timeStampStep:     [33m1[0m
+      startTimestamp:    [33m1601481600000[0m
+      sampleFile:        [33m./sample.csv[0m
+      useSampleTs:       [33mno[0m
+      tagsFile:          [33m[0m
+      partialColCount:   [33m0[0m
+      columnCount:       [33m7[0m
+        int:[33mint[0m uint:[33munsigned int[0m uint_1:[33munsigned int[0m uint_2:[33munsigned int[0m uint_3:[33munsigned int[0m uint_4:[33munsigned int[0m double:[33mdouble[0m 
+      tagCount:          [33m7[0m
+        int:[33mint[0m uint:[33munsigned int[0m uint_1:[33munsigned int[0m uint_2:[33munsigned int[0m uint_3:[33munsigned int[0m uint_4:[33munsigned int[0m double:[33mdouble[0m 
+
+[1m[40;32m================ example/insert.json parse result END================[0m
+creating 8 table(s) with 4 thread(s)
+Spent 0.3660 seconds to create 8 table(s) with 4 thread(s), already exist 0 table(s), actual 8 table(s) pre created, 0 table(s) will be auto created
+Spent 0.0035 seconds to insert rows: 160, affected rows: 160 with 4 thread(s) into db 45597.04 records/second
+
+insert delay, min:  0.39ms, avg:  1.40ms, p90:  3.70ms, p95:  4.52ms, p99:  4.52ms, max:  4.52ms
+
+[1m[40;32m================ example/insert.json parse result START ================[0m
+
+taosBenchmark is simulating random data as you request..
+
+host:                       [33m127.0.0.1[0m
+port:                       [33m6030[0m
+telnet_tcp_port:            [33m6046[0m
+user:                       [33mroot[0m
+password:                   [33mtaosdata[0m
+configDir:                  [33m/etc/taos[0m
+resultFile:                 [33m./insert_res.txt[0m
+thread num of insert data:  [33m4[0m
+thread num of create table: [33m4[0m
+number of records per req:  [33m10[0m
+random prepare data size:   [33m10[0m
+chinese:                    [33mno[0m
+database count:             [33m1[0m
+database[[33m0[0m]:
+  database[0] name:      [33mdb[0m
+  drop:                 [33m yes[0m
+  blocks:                [33m8[0m
+  cache:                 [33m16[0m
+  days:                  [33m10[0m
+  keep:                  [33m36500[0m
+  replica:               [33m1[0m
+  update:                [33m1[0m
+  minRows:               [33m100[0m
+  maxRows:               [33m4096[0m
+  comp:                  [33m2[0m
+  walLevel:              [33m1[0m
+  fsync:                 [33m3000[0m
+  quorum:                [33m1[0m
+  precision:             [33mms[0m
+  super table count:     [33m1[0m
+  super table[[33m0[0m]:
+      stbName:           [33mstb[0m
+      interface:         [33mtaosc[0m
+      autoCreateTable:   [33mno[0m
+      childTblExists:    [33mno[0m
+      childTblCount:     [33m8[0m
+      childTblLimit:     [33m8[0m
+      childTblOffset:    [33m10[0m
+      childTblPrefix:    [33mstb_[0m
+      escapeCharacter:   [33myes[0m
+      dataSource:        [33mrandom[0m
+      childTblOffset:    [33m10[0m
+      insertRows:        [33m20[0m
+      interlaceRows:     [33m0[0m
+      disorderRange:     [33m1000[0m
+      disorderRatio:     [33m0[0m
+      timeStampStep:     [33m1[0m
+      startTimestamp:    [33m1601481600000[0m
+      sampleFile:        [33m./sample.csv[0m
+      useSampleTs:       [33mno[0m
+      tagsFile:          [33m[0m
+      partialColCount:   [33m0[0m
+      columnCount:       [33m10[0m
+        int:[33mint[0m uint:[33munsigned int[0m uint_1:[33munsigned int[0m uint_2:[33munsigned int[0m uint_3:[33munsigned int[0m uint_4:[33munsigned int[0m double:[33mdouble[0m float:[33mfloat[0m float_1:[33mfloat[0m float_2:[33mfloat[0m 
+      tagCount:          [33m10[0m
+        int:[33mint[0m uint:[33munsigned int[0m uint_1:[33munsigned int[0m uint_2:[33munsigned int[0m uint_3:[33munsigned int[0m uint_4:[33munsigned int[0m double:[33mdouble[0m float:[33mfloat[0m float_1:[33mfloat[0m float_2:[33mfloat[0m 
+
+[1m[40;32m================ example/insert.json parse result END================[0m
+creating 8 table(s) with 4 thread(s)
+Spent 0.3350 seconds to create 8 table(s) with 4 thread(s), already exist 0 table(s), actual 8 table(s) pre created, 0 table(s) will be auto created
+Spent 0.0043 seconds to insert rows: 160, affected rows: 160 with 4 thread(s) into db 37097.15 records/second
+
+insert delay, min:  0.31ms, avg:  3.33ms, p90:  8.12ms, p95:  9.53ms, p99:  9.53ms, max:  9.53ms
+
+[1m[40;32m================ example/insert.json parse result START ================[0m
+
+taosBenchmark is simulating random data as you request..
+
+host:                       [33m127.0.0.1[0m
+port:                       [33m6030[0m
+telnet_tcp_port:            [33m6046[0m
+user:                       [33mroot[0m
+password:                   [33mtaosdata[0m
+configDir:                  [33m/etc/taos[0m
+resultFile:                 [33m./insert_res.txt[0m
+thread num of insert data:  [33m4[0m
+thread num of create table: [33m4[0m
+number of records per req:  [33m10[0m
+random prepare data size:   [33m10[0m
+chinese:                    [33mno[0m
+database count:             [33m1[0m
+database[[33m0[0m]:
+  database[0] name:      [33mdb[0m
+  drop:                 [33m yes[0m
+  blocks:                [33m8[0m
+  cache:                 [33m16[0m
+  days:                  [33m10[0m
+  keep:                  [33m36500[0m
+  replica:               [33m1[0m
+  update:                [33m1[0m
+  minRows:               [33m100[0m
+  maxRows:               [33m4096[0m
+  comp:                  [33m2[0m
+  walLevel:              [33m1[0m
+  fsync:                 [33m3000[0m
+  quorum:                [33m1[0m
+  precision:             [33mms[0m
+  super table count:     [33m1[0m
+  super table[[33m0[0m]:
+      stbName:           [33mstb[0m
+      interface:         [33mtaosc[0m
+      autoCreateTable:   [33mno[0m
+      childTblExists:    [33mno[0m
+      childTblCount:     [33m8[0m
+      childTblLimit:     [33m8[0m
+      childTblOffset:    [33m10[0m
+      childTblPrefix:    [33mstb_[0m
+      escapeCharacter:   [33myes[0m
+      dataSource:        [33mrandom[0m
+      childTblOffset:    [33m10[0m
+      insertRows:        [33m20[0m
+      interlaceRows:     [33m0[0m
+      disorderRange:     [33m1000[0m
+      disorderRatio:     [33m0[0m
+      timeStampStep:     [33m1[0m
+      startTimestamp:    [33m1601481600000[0m
+      sampleFile:        [33m./sample.csv[0m
+      useSampleTs:       [33mno[0m
+      tagsFile:          [33m[0m
+      partialColCount:   [33m0[0m
+      columnCount:       [33m10[0m
+        int:[33mint[0m uint:[33munsigned int[0m uint_1:[33munsigned int[0m uint_2:[33munsigned int[0m uint_3:[33munsigned int[0m uint_4:[33munsigned int[0m double:[33mdouble[0m float:[33mfloat[0m float_1:[33mfloat[0m float_2:[33mfloat[0m 
+      tagCount:          [33m10[0m
+        int:[33mint[0m uint:[33munsigned int[0m uint_1:[33munsigned int[0m uint_2:[33munsigned int[0m uint_3:[33munsigned int[0m uint_4:[33munsigned int[0m double:[33mdouble[0m float:[33mfloat[0m float_1:[33mfloat[0m float_2:[33mfloat[0m 
+
+[1m[40;32m================ example/insert.json parse result END================[0m
+[1m[40;32m================ ../../../tests/develop-test/5-taos-tools/taosbenchmark/json/custom_col_name.json parse result START ================[0m
+
+taosBenchmark is simulating random data as you request..
+
+host:                       [33m127.0.0.1[0m
+port:                       [33m6030[0m
+telnet_tcp_port:            [33m6046[0m
+user:                       [33mroot[0m
+password:                   [33mtaosdata[0m
+configDir:                  [33m/etc/taos[0m
+resultFile:                 [33m./insert_res.txt[0m
+thread num of insert data:  [33m4[0m
+thread num of create table: [33m4[0m
+number of records per req:  [33m10[0m
+random prepare data size:   [33m10[0m
+chinese:                    [33mno[0m
+database count:             [33m1[0m
+database[[33m0[0m]:
+  database[0] name:      [33mdb[0m
+  drop:                 [33m yes[0m
+  blocks:                [33m8[0m
+  cache:                 [33m16[0m
+  days:                  [33m10[0m
+  keep:                  [33m36500[0m
+  replica:               [33m1[0m
+  update:                [33m1[0m
+  minRows:               [33m100[0m
+  maxRows:               [33m4096[0m
+  comp:                  [33m2[0m
+  walLevel:              [33m1[0m
+  fsync:                 [33m3000[0m
+  quorum:                [33m1[0m
+  precision:             [33mms[0m
+  super table count:     [33m1[0m
+  super table[[33m0[0m]:
+      stbName:           [33mstb[0m
+      interface:         [33mtaosc[0m
+      autoCreateTable:   [33mno[0m
+      childTblExists:    [33mno[0m
+      childTblCount:     [33m8[0m
+      childTblLimit:     [33m8[0m
+      childTblOffset:    [33m10[0m
+      childTblPrefix:    [33mstb_[0m
+      escapeCharacter:   [33myes[0m
+      dataSource:        [33mrandom[0m
+      childTblOffset:    [33m10[0m
+      insertRows:        [33m20[0m
+      interlaceRows:     [33m0[0m
+      disorderRange:     [33m1000[0m
+      disorderRatio:     [33m0[0m
+      timeStampStep:     [33m1[0m
+      startTimestamp:    [33m1601481600000[0m
+      sampleFile:        [33m./sample.csv[0m
+      useSampleTs:       [33mno[0m
+      tagsFile:          [33m[0m
+      partialColCount:   [33m0[0m
+      columnCount:       [33m10[0m
+        first:[33mint[0m second:[33munsigned int[0m second_1:[33munsigned int[0m second_2:[33munsigned int[0m second_3:[33munsigned int[0m second_4:[33munsigned int[0m third:[33mdouble[0m forth:[33mfloat[0m forth_1:[33mfloat[0m forth_2:[33mfloat[0m 
+      tagCount:          [33m10[0m
+        first:[33mint[0m second:[33munsigned int[0m second_1:[33munsigned int[0m second_2:[33munsigned int[0m second_3:[33munsigned int[0m second_4:[33munsigned int[0m third:[33mdouble[0m forth:[33mfloat[0m forth_1:[33mfloat[0m forth_2:[33mfloat[0m 
+
+[1m[40;32m================ ../../../tests/develop-test/5-taos-tools/taosbenchmark/json/custom_col_name.json parse result END================[0m
+[1m[40;32m================ ../../../tests/develop-test/5-taos-tools/taosbenchmark/json/custom_col_name.json parse result START ================[0m
+
+taosBenchmark is simulating random data as you request..
+
+host:                       [33m127.0.0.1[0m
+port:                       [33m6030[0m
+telnet_tcp_port:            [33m6046[0m
+user:                       [33mroot[0m
+password:                   [33mtaosdata[0m
+configDir:                  [33m/etc/taos[0m
+resultFile:                 [33m./insert_res.txt[0m
+thread num of insert data:  [33m4[0m
+thread num of create table: [33m4[0m
+number of records per req:  [33m10[0m
+random prepare data size:   [33m10[0m
+chinese:                    [33mno[0m
+database count:             [33m1[0m
+database[[33m0[0m]:
+  database[0] name:      [33mdb[0m
+  drop:                 [33m yes[0m
+  blocks:                [33m8[0m
+  cache:                 [33m16[0m
+  days:                  [33m10[0m
+  keep:                  [33m36500[0m
+  replica:               [33m1[0m
+  update:                [33m1[0m
+  minRows:               [33m100[0m
+  maxRows:               [33m4096[0m
+  comp:                  [33m2[0m
+  walLevel:              [33m1[0m
+  fsync:                 [33m3000[0m
+  quorum:                [33m1[0m
+  precision:             [33mms[0m
+  super table count:     [33m1[0m
+  super table[[33m0[0m]:
+      stbName:           [33mstb[0m
+      interface:         [33mtaosc[0m
+      autoCreateTable:   [33mno[0m
+      childTblExists:    [33mno[0m
+      childTblCount:     [33m8[0m
+      childTblLimit:     [33m8[0m
+      childTblOffset:    [33m10[0m
+      childTblPrefix:    [33mstb_[0m
+      escapeCharacter:   [33myes[0m
+      dataSource:        [33mrandom[0m
+      childTblOffset:    [33m10[0m
+      insertRows:        [33m20[0m
+      interlaceRows:     [33m0[0m
+      disorderRange:     [33m1000[0m
+      disorderRatio:     [33m0[0m
+      timeStampStep:     [33m1[0m
+      startTimestamp:    [33m1601481600000[0m
+      sampleFile:        [33m./sample.csv[0m
+      useSampleTs:       [33mno[0m
+      tagsFile:          [33m[0m
+      partialColCount:   [33m0[0m
+      columnCount:       [33m10[0m
+        first:[33mint[0m second:[33munsigned int[0m second_1:[33munsigned int[0m second_2:[33munsigned int[0m second_3:[33munsigned int[0m second_4:[33munsigned int[0m third:[33mdouble[0m forth:[33mfloat[0m forth_1:[33mfloat[0m forth_2:[33mfloat[0m 
+      tagCount:          [33m10[0m
+        single:[33mint[0m multiple:[33munsigned int[0m multiple_1:[33munsigned int[0m multiple_2:[33munsigned int[0m multiple_3:[33munsigned int[0m multiple_4:[33munsigned int[0m thensingle:[33mdouble[0m thenmultiple:[33mfloat[0m thenmultiple_1:[33mfloat[0m thenmultiple_2:[33mfloat[0m 
+
+[1m[40;32m================ ../../../tests/develop-test/5-taos-tools/taosbenchmark/json/custom_col_name.json parse result END================[0m
+creating 8 table(s) with 4 thread(s)
+Spent 0.3210 seconds to create 8 table(s) with 4 thread(s), already exist 0 table(s), actual 8 table(s) pre created, 0 table(s) will be auto created
+Spent 0.0192 seconds to insert rows: 160, affected rows: 160 with 4 thread(s) into db 8313.42 records/second
+
+insert delay, min:  0.37ms, avg:  3.44ms, p90:  9.58ms, p95: 11.26ms, p99: 11.26ms, max: 11.26ms
+

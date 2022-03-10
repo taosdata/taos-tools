@@ -109,7 +109,6 @@
 
 #define DEFAULT_NTHREADS 8
 #define DEFAULT_CHILDTABLES 10000
-#define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 6030
 #define DEFAULT_DATABASE "test"
 #define DEFAULT_TB_PREFIX "d"
@@ -299,10 +298,12 @@ typedef struct SSuperTable_S {
     int32_t  partialColumnNum;
     char *   partialColumnNameBuf;
     char *   col_type;
+    char **  col_names;
     bool *   col_null;
     int32_t *col_length;
     int32_t  tagCount;
     char *   tag_type;
+    char **  tag_names;
     bool *   tag_null;
     int32_t *tag_length;
     char **  childTblName;

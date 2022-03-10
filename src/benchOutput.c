@@ -259,39 +259,41 @@ void printfInsertMetaToFileStream(FILE *fp) {
                      TSDB_DATA_TYPE_NCHAR) ||
                     (g_arguments->db[i].superTbls[j].col_type[k] ==
                      TSDB_DATA_TYPE_BINARY)) {
-                    fprintf(fp, "column[%d]:\033[33m%s(%d)\033[0m ", k,
+                    fprintf(fp, "%s:\033[33m%s(%d)\033[0m ",
+                            g_arguments->db[i].superTbls[j].col_names[k],
                             taos_convert_datatype_to_string(
                                 g_arguments->db[i].superTbls[j].col_type[k]),
                             g_arguments->db[i].superTbls[j].col_length[k]);
                 } else {
-                    fprintf(fp, "column[%d]:\033[33m%s\033[0m ", k,
+                    fprintf(fp, "%s:\033[33m%s\033[0m ",
+                            g_arguments->db[i].superTbls[j].col_names[k],
                             taos_convert_datatype_to_string(
                                 g_arguments->db[i].superTbls[j].col_type[k]));
                 }
             }
             fprintf(fp, "\n");
-
-            fprintf(fp,
-                    "      tagCount:            \033[33m%d\033[0m\n        ",
+            fprintf(fp, "      tagCount:          \033[33m%d\033[0m\n        ",
                     g_arguments->db[i].superTbls[j].tagCount);
             for (int k = 0; k < g_arguments->db[i].superTbls[j].tagCount; k++) {
                 if ((g_arguments->db[i].superTbls[j].tag_type[k] ==
                      TSDB_DATA_TYPE_BINARY) ||
                     (g_arguments->db[i].superTbls[j].tag_type[k] ==
                      TSDB_DATA_TYPE_NCHAR)) {
-                    fprintf(fp, "tag[%d]:\033[33m%s(%d)\033[0m ", k,
+                    fprintf(fp, "%s:\033[33m%s(%d)\033[0m ",
+                            g_arguments->db[i].superTbls[j].tag_names[k],
                             taos_convert_datatype_to_string(
                                 g_arguments->db[i].superTbls[j].tag_type[k]),
                             g_arguments->db[i].superTbls[j].tag_length[k]);
                 } else if (g_arguments->db[i].superTbls[j].tag_type[k] ==
                            TSDB_DATA_TYPE_JSON) {
-                    fprintf(fp,
-                            "tag[%d]:\033[33mjson{key(%d):value(%d)}\033[0m ",
-                            k, g_arguments->db[i].superTbls[j].tagCount,
+                    fprintf(fp, "%s:\033[33mjson{key(%d):value(%d)}\033[0m ",
+                            g_arguments->db[i].superTbls[j].tag_names[k],
+                            g_arguments->db[i].superTbls[j].tagCount,
                             g_arguments->db[i].superTbls[j].tag_length[k]);
                     break;
                 } else {
-                    fprintf(fp, "tag[%d]:\033[33m%s\033[0m ", k,
+                    fprintf(fp, "%s:\033[33m%s\033[0m ",
+                            g_arguments->db[i].superTbls[j].tag_names[k],
                             taos_convert_datatype_to_string(
                                 g_arguments->db[i].superTbls[j].tag_type[k]));
                 }
