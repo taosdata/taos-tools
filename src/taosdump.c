@@ -35,8 +35,8 @@
 #include <limits.h>
 
 #include "taos.h"
-#include "taosdef.h"
-#include "taoserror.h"
+
+#include "toolsdef.h"
 
 #include <avro.h>
 #include <jansson.h>
@@ -4573,7 +4573,7 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
 
     int64_t start_time, end_time;
     if (strlen(g_args.humanStartTime)) {
-        if (TSDB_CODE_SUCCESS != taos_parse_time(
+        if (TSDB_CODE_SUCCESS != toolsParseTime(
                 g_args.humanStartTime, &start_time,
                 strlen(g_args.humanStartTime),
                 precision, 0)) {
@@ -4586,7 +4586,7 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
     }
 
     if (strlen(g_args.humanEndTime)) {
-        if (TSDB_CODE_SUCCESS != taos_parse_time(
+        if (TSDB_CODE_SUCCESS != toolsParseTime(
                 g_args.humanEndTime, &end_time, strlen(g_args.humanEndTime),
                 precision, 0)) {
             errorPrint("Input %s, time format error!\n", g_args.humanEndTime);

@@ -597,7 +597,7 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                     superTable->startTimestamp =
                         toolsGetTimestamp(database->dbCfg.precision);
                 } else {
-                    if (taos_parse_time(ts->valuestring,
+                    if (toolsParseTime(ts->valuestring,
                                         &(superTable->startTimestamp),
                                         (int32_t)strlen(ts->valuestring),
                                         database->dbCfg.precision, 0)) {
