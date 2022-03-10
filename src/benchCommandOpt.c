@@ -31,8 +31,8 @@ const char *              argp_program_bug_address = "<support@taosdata.com>";
 static char               doc[] = "";
 static char               args_doc[] = "";
 static struct argp_option options[] = {
-    {"file", 'f', "FILE", 0, "Json configuration file."},
-    {"config-dir", 'c', "CONFIG_DIR", 0, "Configuration directory."},
+    {"file", 'f', "FILE", 0, "Json configuration file.", 0},
+    {"config-dir", 'c', "CONFIG_DIR", 0, "Configuration directory.", 1},
     {"host", 'h', "HOST", 0,
      "TDengine server FQDN to connect, default is localhost."},
     {"port", 'P', "PORT", 0,
