@@ -461,6 +461,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             arguments->chinese = true;
             break;
         case 'N':
+            arguments->demo_mode = false;
             arguments->db->superTbls->use_metric = false;
             arguments->db->superTbls->tagCount = 0;
             break;
@@ -631,9 +632,9 @@ void modify_argument() {
         }
     }
 
-    superTable->tag_names = calloc(superTable->tagCount, sizeof(char *));
-    superTable->col_names = calloc(superTable->columnCount, sizeof(char *));
     if (g_arguments->demo_mode) {
+        superTable->tag_names = calloc(superTable->tagCount, sizeof(char *));
+        superTable->col_names = calloc(superTable->columnCount, sizeof(char *));
         superTable->tag_names[0] = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->tag_names[0], "groupid");
         superTable->tag_names[1] = calloc(1, TSDB_COL_NAME_LEN);
@@ -645,13 +646,10 @@ void modify_argument() {
         superTable->col_names[2] = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->col_names[2], "phase");
     } else {
+        superTable->tag_names = calloc(superTable->tagCount, sizeof(char *));
         for (int i = 0; i < superTable->tagCount; ++i) {
             superTable->tag_names[i] = calloc(1, TSDB_COL_NAME_LEN);
             sprintf(superTable->tag_names[i], "t%d", i);
-        }
-        for (int i = 0; i < superTable->columnCount; ++i) {
-            superTable->col_names[i] = calloc(1, TSDB_COL_NAME_LEN);
-            sprintf(superTable->col_names[i], "c%d", i);
         }
     }
 
@@ -679,6 +677,13 @@ void modify_argument() {
         superTable->columnCount = g_arguments->intColumnCount;
         tmfree(superTable->col_null);
         superTable->col_null = calloc(superTable->columnCount, sizeof(bool));
+    }
+    if (!g_arguments->demo_mode) {
+        superTable->col_names = calloc(superTable->columnCount, sizeof(char *));
+        for (int i = 0; i < superTable->columnCount; ++i) {
+            superTable->col_names[i] = calloc(1, TSDB_COL_NAME_LEN);
+            sprintf(superTable->col_names[i], "c%d", i);
+        }
     }
 }
 

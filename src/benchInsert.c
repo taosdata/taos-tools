@@ -731,16 +731,18 @@ void postFreeResource() {
             tmfree(database[i].superTbls[j].tagDataBuf);
             tmfree(database[i].superTbls[j].stmt_buffer);
             tmfree(database[i].superTbls[j].partialColumnNameBuf);
-            for (int k = 0; k < database[i].superTbls[j].tagCount; ++k) {
-                tmfree(database[i].superTbls[j].tag_names[k]);
+            if (database[i].superTbls[j].tag_names) {
+                for (int k = 0; k < database[i].superTbls[j].tagCount; ++k) {
+                    tmfree(database[i].superTbls[j].tag_names[k]);
+                }
+                tmfree(database[i].superTbls[j].tag_names);
             }
-            tmfree(database[i].superTbls[j].tag_names);
-
-            for (int k = 0; k < database[i].superTbls[j].columnCount; ++k) {
-                tmfree(database[i].superTbls[j].col_names[k]);
+            if (database[i].superTbls[j].col_names) {
+                for (int k = 0; k < database[i].superTbls[j].columnCount; ++k) {
+                    tmfree(database[i].superTbls[j].col_names[k]);
+                }
+                tmfree(database[i].superTbls[j].col_names);
             }
-            tmfree(database[i].superTbls[j].col_names);
-
             if (g_arguments->test_mode == INSERT_TEST &&
                 database[i].superTbls[j].insertRows != 0) {
                 for (int64_t k = 0; k < database[i].superTbls[j].childTblCount;

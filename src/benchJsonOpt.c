@@ -208,6 +208,12 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         if ((tagSize == 1) &&
             (0 == strcasecmp(dataType->valuestring, "JSON"))) {
+            superTbls->tag_names[0] = calloc(1, TSDB_COL_NAME_LEN);
+            if (customName) {
+                sprintf(superTbls->tag_names[0], "%s", dataName->valuestring);
+            } else {
+                sprintf(superTbls->tag_names[0], "jtag");
+            }
             superTbls->tag_type[0] = TSDB_DATA_TYPE_JSON;
             superTbls->tag_length[0] = data_length;
             superTbls->tagCount = count;
