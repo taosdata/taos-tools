@@ -116,7 +116,7 @@ static int count_datatype(char *dataType, int32_t *number) {
     return 0;
 }
 
-static int parse_tag_datatype(char *dataType, Tag *tags) {
+static int parse_tag_datatype(char *dataType, Column *tags) {
     char *dup_str;
     if (strstr(dataType, ",") == NULL) {
         if (0 == strcasecmp(dataType, "int")) {
@@ -538,7 +538,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             count_datatype(arg, &(arguments->db->superTbls->tagCount));
             tmfree(arguments->db->superTbls->tags);
             arguments->db->superTbls->tags =
-                calloc(arguments->db->superTbls->tagCount, sizeof(Tag));
+                calloc(arguments->db->superTbls->tagCount, sizeof(Column));
             if (parse_tag_datatype(arg, arguments->db->superTbls->tags)) {
                 tmfree(arguments->db->superTbls->tags);
                 exit(EXIT_FAILURE);
@@ -652,7 +652,7 @@ static SSuperTable *init_stable() {
     stbInfo->columns[0].length = sizeof(float);
     stbInfo->columns[1].length = sizeof(int32_t);
     stbInfo->columns[2].length = sizeof(float);
-    stbInfo->tags = calloc(3, sizeof(Tag));
+    stbInfo->tags = calloc(3, sizeof(Column));
     stbInfo->tags[0].type = TSDB_DATA_TYPE_INT;
     stbInfo->tags[1].type = TSDB_DATA_TYPE_BINARY;
     stbInfo->tags[0].length = sizeof(int32_t);
@@ -750,6 +750,10 @@ void modify_argument() {
     if (g_arguments->demo_mode) {
         superTable->tags[0].name = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->tags[0].name, "groupid");
+        superTable->tags[0].min = -1 * (RAND_MAX >> 1);
+        superTable->tags[1].min = -1 * (RAND_MAX >> 1);
+        superTable->tags[0].max = RAND_MAX >> 1;
+        superTable->tags[1].max = RAND_MAX >> 1;
         superTable->tags[1].name = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->tags[1].name, "location");
         superTable->columns[0].name = calloc(1, TSDB_COL_NAME_LEN);
@@ -758,10 +762,18 @@ void modify_argument() {
         sprintf(superTable->columns[1].name, "voltage");
         superTable->columns[2].name = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->columns[2].name, "phase");
+        superTable->columns[0].min = -1 * (RAND_MAX >> 1);
+        superTable->columns[0].max = RAND_MAX >> 1;
+        superTable->columns[1].min = -1 * (RAND_MAX >> 1);
+        superTable->columns[1].max = RAND_MAX >> 1;
+        superTable->columns[2].min = -1 * (RAND_MAX >> 1);
+        superTable->columns[2].max = RAND_MAX >> 1;
     } else {
         for (int i = 0; i < superTable->tagCount; ++i) {
             superTable->tags[i].name = calloc(1, TSDB_COL_NAME_LEN);
             sprintf(superTable->tags[i].name, "t%d", i);
+            superTable->tags[i].min = -1 * (RAND_MAX >> 1);
+            superTable->tags[i].max = RAND_MAX >> 1;
         }
     }
 
@@ -788,6 +800,8 @@ void modify_argument() {
         for (int i = 0; i < superTable->columnCount; ++i) {
             superTable->columns[i].name = calloc(1, TSDB_COL_NAME_LEN);
             sprintf(superTable->columns[i].name, "c%d", i);
+            superTable->columns[i].min = -1 * (RAND_MAX >> 1);
+            superTable->columns[i].max = RAND_MAX >> 1;
         }
     }
 }

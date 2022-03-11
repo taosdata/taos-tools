@@ -45,7 +45,7 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     }
     stbInfo->tagCount = tagIndex;
     tmfree(stbInfo->tags);
-    stbInfo->tags = calloc(tagIndex, sizeof(Tag));
+    stbInfo->tags = calloc(tagIndex, sizeof(Column));
     tmfree(stbInfo->columns);
     stbInfo->columns = calloc(stbInfo->columnCount, sizeof(Column));
     taos_free_result(res);
@@ -758,32 +758,6 @@ void postFreeResource() {
         tmfree(database[i].superTbls);
     }
     tmfree(database);
-    tmfree(g_randbool_buff);
-    tmfree(g_randint_buff);
-    tmfree(g_rand_voltage_buff);
-    tmfree(g_randbigint_buff);
-    tmfree(g_randsmallint_buff);
-    tmfree(g_randtinyint_buff);
-    tmfree(g_randfloat_buff);
-    tmfree(g_rand_current_buff);
-    tmfree(g_rand_phase_buff);
-    tmfree(g_rand_groupid_buff);
-    tmfree(g_randdouble_buff);
-    tmfree(g_randuint_buff);
-    tmfree(g_randutinyint_buff);
-    tmfree(g_randusmallint_buff);
-    tmfree(g_randubigint_buff);
-    tmfree(g_randbool);
-    tmfree(g_randtinyint);
-    tmfree(g_randutinyint);
-    tmfree(g_randsmallint);
-    tmfree(g_randusmallint);
-    tmfree(g_randint);
-    tmfree(g_randuint);
-    tmfree(g_randbigint);
-    tmfree(g_randubigint);
-    tmfree(g_randfloat);
-    tmfree(g_randdouble);
     cJSON_Delete(root);
     cleanup_taos_list();
     tmfree(g_arguments->pool);
@@ -1669,7 +1643,10 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     }
 
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
-                        generateSmlTags(pThreadInfo->sml_tags[t], stbInfo);
+                        generateRandData(
+                            stbInfo, pThreadInfo->sml_tags[t],
+                            stbInfo->lenOfCols + stbInfo->lenOfTags,
+                            stbInfo->tags, stbInfo->tagCount, 1);
                         debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }
@@ -1884,8 +1861,6 @@ int insertTestProcess() {
     }
 
     prompt();
-
-    if (init_global_rand_data()) return -1;
 
     encode_base_64();
 

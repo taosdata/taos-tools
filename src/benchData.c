@@ -16,175 +16,8 @@
 #include "benchData.h"
 #include "bench.h"
 
-int8_t *  g_randbool = NULL;
-int8_t *  g_randtinyint = NULL;
-uint8_t * g_randutinyint = NULL;
-int16_t * g_randsmallint = NULL;
-uint16_t *g_randusmallint = NULL;
-int32_t * g_randint = NULL;
-uint32_t *g_randuint = NULL;
-int64_t * g_randbigint = NULL;
-uint64_t *g_randubigint = NULL;
-float *   g_randfloat = NULL;
-double *  g_randdouble = NULL;
-char *    g_randbool_buff = NULL;
-char *    g_randint_buff = NULL;
-char *    g_randuint_buff = NULL;
-char *    g_rand_voltage_buff = NULL;
-char *    g_randbigint_buff = NULL;
-char *    g_randubigint_buff = NULL;
-char *    g_randsmallint_buff = NULL;
-char *    g_randusmallint_buff = NULL;
-char *    g_randtinyint_buff = NULL;
-char *    g_randutinyint_buff = NULL;
-char *    g_randfloat_buff = NULL;
-char *    g_rand_current_buff = NULL;
-char *    g_rand_phase_buff = NULL;
-char *    g_rand_groupid_buff = NULL;
-char *    g_randdouble_buff = NULL;
-
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-
-static char *rand_bool_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randbool_buff + ((cursor)*BOOL_BUFF_LEN);
-}
-
-static int32_t rand_bool() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randbool[cursor];
-}
-
-static char *rand_tinyint_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randtinyint_buff + ((cursor)*TINYINT_BUFF_LEN);
-}
-
-static int32_t rand_tinyint() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randtinyint[cursor];
-}
-
-static char *rand_utinyint_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randutinyint_buff + ((cursor)*TINYINT_BUFF_LEN);
-}
-
-static char *rand_smallint_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randsmallint_buff + ((cursor)*SMALLINT_BUFF_LEN);
-}
-
-static int32_t rand_smallint() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randsmallint[cursor];
-}
-
-static char *rand_usmallint_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randusmallint_buff + ((cursor)*SMALLINT_BUFF_LEN);
-}
-
-static char *rand_int_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randint_buff + ((cursor)*INT_BUFF_LEN);
-}
-
-static int32_t rand_int() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randint[cursor];
-}
-
-static char *rand_uint_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randuint_buff + ((cursor)*INT_BUFF_LEN);
-}
-
-static char *rand_bigint_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randbigint_buff + ((cursor)*BIGINT_BUFF_LEN);
-}
-
-static int64_t rand_bigint() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randbigint[cursor];
-}
-
-static char *rand_ubigint_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randubigint_buff + ((cursor)*BIGINT_BUFF_LEN);
-}
-
-static char *rand_float_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randfloat_buff + ((cursor)*FLOAT_BUFF_LEN);
-}
-
-static float rand_float() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randfloat[cursor];
-}
-
-static char *demo_current_float_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_rand_current_buff + ((cursor)*FLOAT_BUFF_LEN);
-}
-
-static char *demo_voltage_int_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_rand_voltage_buff + ((cursor)*INT_BUFF_LEN);
-}
-
-static char *demo_groupid_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_rand_groupid_buff + ((cursor)*TINYINT_BUFF_LEN);
-}
-
-static char *demo_phase_float_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_rand_phase_buff + ((cursor)*FLOAT_BUFF_LEN);
-}
 
 static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
@@ -253,163 +86,6 @@ static void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-static char *rand_double_str() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randdouble_buff + (cursor * DOUBLE_BUFF_LEN);
-}
-
-static double rand_double() {
-    static int cursor;
-    cursor++;
-    if (cursor > (g_arguments->prepared_rand - 1)) cursor = 0;
-    return g_randdouble[cursor];
-}
-
-static void check_randomness(char *buffer_name, int buffer_length,
-                             char *buffer) {
-    debugPrint("%s: %s, %s, %s, ...\n", buffer_name, buffer,
-               buffer + buffer_length, buffer + 2 * buffer_length);
-}
-
-inline int init_rand_data(char type, int64_t max, int64_t min) {}
-
-int init_global_rand_data() {
-    g_randint_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += INT_BUFF_LEN * g_arguments->prepared_rand;
-    g_rand_voltage_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += INT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randbigint_buff = calloc(1, BIGINT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += BIGINT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randsmallint_buff =
-        calloc(1, SMALLINT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += SMALLINT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randtinyint_buff =
-        calloc(1, TINYINT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += TINYINT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randbool_buff = calloc(1, BOOL_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += BOOL_BUFF_LEN * g_arguments->prepared_rand;
-    g_randfloat_buff = calloc(1, FLOAT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += FLOAT_BUFF_LEN * g_arguments->prepared_rand;
-    g_rand_current_buff =
-        calloc(1, FLOAT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += FLOAT_BUFF_LEN * g_arguments->prepared_rand;
-    g_rand_phase_buff = calloc(1, FLOAT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += FLOAT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randdouble_buff = calloc(1, DOUBLE_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += DOUBLE_BUFF_LEN * g_arguments->prepared_rand;
-    g_randuint_buff = calloc(1, INT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += INT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randutinyint_buff =
-        calloc(1, TINYINT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += TINYINT_BUFF_LEN * g_arguments->prepared_rand;
-    g_rand_groupid_buff =
-        calloc(1, TINYINT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += TINYINT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randusmallint_buff =
-        calloc(1, SMALLINT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += SMALLINT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randubigint_buff =
-        calloc(1, BIGINT_BUFF_LEN * g_arguments->prepared_rand);
-    g_memoryUsage += BIGINT_BUFF_LEN * g_arguments->prepared_rand;
-    g_randbool = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(int8_t) * g_arguments->prepared_rand;
-    g_randtinyint = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(int8_t) * g_arguments->prepared_rand;
-    g_randutinyint = calloc(1, sizeof(uint8_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(uint8_t) * g_arguments->prepared_rand;
-    g_randsmallint = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(int16_t) * g_arguments->prepared_rand;
-    g_randusmallint = calloc(1, sizeof(uint16_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(uint16_t) * g_arguments->prepared_rand;
-    g_randint = calloc(1, sizeof(int32_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(int32_t) * g_arguments->prepared_rand;
-    g_randuint = calloc(1, sizeof(uint32_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(uint32_t) * g_arguments->prepared_rand;
-    g_randbigint = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(int64_t) * g_arguments->prepared_rand;
-    g_randubigint = calloc(1, sizeof(uint64_t) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(uint64_t) * g_arguments->prepared_rand;
-    g_randfloat = calloc(1, sizeof(float) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(float) * g_arguments->prepared_rand;
-    g_randdouble = calloc(1, sizeof(double) * g_arguments->prepared_rand);
-    g_memoryUsage += sizeof(double) * g_arguments->prepared_rand;
-
-    for (int i = 0; i < g_arguments->prepared_rand; i++) {
-        g_randint[i] = (int)(taosRandom() % RAND_MAX - (RAND_MAX >> 1));
-        g_randuint[i] = (int)(taosRandom());
-        g_randbool[i] = (g_randint[i] % 2) & 1;
-        g_randtinyint[i] = g_randint[i] % 128;
-        g_randutinyint[i] = g_randuint[i] % 255;
-        g_randsmallint[i] = g_randint[i] % 32768;
-        g_randusmallint[i] = g_randuint[i] % 65535;
-        sprintf(g_randint_buff + i * INT_BUFF_LEN, "%d", g_randint[i]);
-        sprintf(g_rand_voltage_buff + i * INT_BUFF_LEN, "%d",
-                215 + g_randint[i] % 10);
-
-        sprintf(g_randbool_buff + i * BOOL_BUFF_LEN, "%s",
-                (g_randbool[i]) ? "true" : "false");
-        sprintf(g_randsmallint_buff + i * SMALLINT_BUFF_LEN, "%d",
-                g_randsmallint[i]);
-        sprintf(g_randtinyint_buff + i * TINYINT_BUFF_LEN, "%d",
-                g_randtinyint[i]);
-        sprintf(g_randuint_buff + i * INT_BUFF_LEN, "%u", g_randuint[i]);
-        sprintf(g_randusmallint_buff + i * SMALLINT_BUFF_LEN, "%u",
-                g_randusmallint[i]);
-        sprintf(g_randutinyint_buff + i * TINYINT_BUFF_LEN, "%u",
-                g_randutinyint[i]);
-
-        sprintf(g_rand_groupid_buff + i * TINYINT_BUFF_LEN, "%u",
-                g_randutinyint[i] % 10 + 1);
-
-        g_randbigint[i] = (int64_t)(taosRandom() % RAND_MAX - (RAND_MAX >> 1));
-        g_randubigint[i] = (uint64_t)(taosRandom());
-        sprintf(g_randbigint_buff + i * BIGINT_BUFF_LEN, "%" PRId64 "",
-                g_randbigint[i]);
-        sprintf(g_randubigint_buff + i * BIGINT_BUFF_LEN, "%" PRIu64 "",
-                g_randubigint[i]);
-
-        g_randfloat[i] =
-            (float)(taosRandom() / 1000.0) * (taosRandom() % 2 > 0.5 ? 1 : -1);
-        sprintf(g_randfloat_buff + i * FLOAT_BUFF_LEN, "%f", g_randfloat[i]);
-        sprintf(g_rand_current_buff + i * FLOAT_BUFF_LEN, "%f",
-                (float)(9.8 + 0.04 * (g_randint[i] % 10) +
-                        g_randfloat[i] / 1000000000));
-        sprintf(
-            g_rand_phase_buff + i * FLOAT_BUFF_LEN, "%f",
-            (float)((115 + g_randint[i] % 10 + g_randfloat[i] / 1000000000) /
-                    360));
-
-        g_randdouble[i] = (double)(taosRandom() / 1000000.0) *
-                          (taosRandom() % 2 > 0.5 ? 1 : -1);
-        sprintf(g_randdouble_buff + i * DOUBLE_BUFF_LEN, "%f", g_randdouble[i]);
-    }
-    check_randomness("g_randint_buff", INT_BUFF_LEN, g_randint_buff);
-    check_randomness("g_rand_voltage_buff", INT_BUFF_LEN, g_rand_voltage_buff);
-    check_randomness("g_randbigint_buff", BIGINT_BUFF_LEN, g_randbigint_buff);
-    check_randomness("g_randsmallint_buff", SMALL_BUFF_LEN,
-                     g_randsmallint_buff);
-    check_randomness("g_randbool_buff", BOOL_BUFF_LEN, g_randbool_buff);
-    check_randomness("g_randfloat_buff", FLOAT_BUFF_LEN, g_randfloat_buff);
-    check_randomness("g_rand_current_buff", FLOAT_BUFF_LEN,
-                     g_rand_current_buff);
-    check_randomness("g_rand_phase_buff", FLOAT_BUFF_LEN, g_rand_phase_buff);
-    check_randomness("g_rand_groupid_buff", TINYINT_BUFF_LEN,
-                     g_rand_groupid_buff);
-    check_randomness("g_randdouble_buff", DOUBLE_BUFF_LEN, g_randdouble_buff);
-    check_randomness("g_randuint_buff", INT_BUFF_LEN, g_randuint_buff);
-    check_randomness("g_randutinyint_buff", TINYINT_BUFF_LEN,
-                     g_randutinyint_buff);
-    check_randomness("g_randusmallint_buff", SMALL_BUFF_LEN,
-                     g_randusmallint_buff);
-    check_randomness("g_randubigint_buff", BIGINT_BUFF_LEN, g_randubigint_buff);
-    check_randomness("g_randtinyint_buff", TINYINT_BUFF_LEN,
-                     g_randtinyint_buff);
-
-    return 0;
-}
-
 static void generateStmtTagArray(SSuperTable *stbInfo) {
     stbInfo->tag_bind_array =
         calloc(stbInfo->childTblCount, sizeof(TAOS_BIND *));
@@ -422,48 +98,7 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
             tag->buffer_length = stbInfo->tags[j].length;
             tag->length = &tag->buffer_length;
             tag->is_null = NULL;
-            switch (tag->buffer_type) {
-                case TSDB_DATA_TYPE_BOOL:
-                    tag->buffer = g_randbool + i * sizeof(int8_t);
-                    break;
-                case TSDB_DATA_TYPE_TINYINT:
-                    tag->buffer = g_randtinyint + i * sizeof(int8_t);
-                    break;
-                case TSDB_DATA_TYPE_UTINYINT:
-                    tag->buffer = g_randutinyint + i * sizeof(uint8_t);
-                    break;
-                case TSDB_DATA_TYPE_SMALLINT:
-                    tag->buffer = g_randsmallint + i * sizeof(int16_t);
-                    break;
-                case TSDB_DATA_TYPE_USMALLINT:
-                    tag->buffer = g_randusmallint + i * sizeof(uint16_t);
-                    break;
-                case TSDB_DATA_TYPE_INT:
-                    tag->buffer = g_randint + i * sizeof(int32_t);
-                    break;
-                case TSDB_DATA_TYPE_UINT:
-                    tag->buffer = g_randuint + i * sizeof(uint32_t);
-                    break;
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                case TSDB_DATA_TYPE_BIGINT:
-                    tag->buffer = g_randbigint + i * sizeof(int64_t);
-                    break;
-                case TSDB_DATA_TYPE_UBIGINT:
-                    tag->buffer = g_randubigint + i * sizeof(uint64_t);
-                    break;
-                case TSDB_DATA_TYPE_FLOAT:
-                    tag->buffer = g_randfloat + i * sizeof(float);
-                    break;
-                case TSDB_DATA_TYPE_DOUBLE:
-                    tag->buffer = g_randdouble + i * sizeof(double);
-                    break;
-                case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR: {
-                    tag->buffer = stbInfo->stmt_tag_string_grid[j] +
-                                  i * stbInfo->tags[j].length;
-                    break;
-                }
-            }
+            tag->buffer = stbInfo->tags[j].data + i * stbInfo->tags[j].length;
         }
     }
 }
@@ -715,263 +350,334 @@ static void calcRowLen(SSuperTable *stbInfo) {
     return;
 }
 
-static void generateSampleFromRand(char *sampleDataBuf, int32_t lenOfOneRow,
-                                   int count, char *data_type,
-                                   int32_t *data_length, int64_t size,
-                                   uint16_t iface, int32_t line_protocol,
-                                   bool *data_null, char **names) {
-    for (int64_t i = 0; i < size; i++) {
-        int32_t pos = i * lenOfOneRow;
-        for (int c = 0; c < count; c++) {
-            char *tmp = NULL;
+void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
+                      int lenOfOneRow, Column *columns, int count, int loop) {
+    int     iface = stbInfo->iface;
+    int     line_protocol = stbInfo->lineProtocol;
+    int32_t pos = 0;
+    for (int k = 0; k < loop; ++k) {
+        pos = k * lenOfOneRow;
+        if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
+            (iface == SML_IFACE || iface == SML_REST_IFACE)) {
+            pos += sprintf(sampleDataBuf + pos, "%s", stbInfo->stbName);
+        }
+        for (int i = 0; i < count; ++i) {
             if (iface == TAOSC_IFACE || iface == REST_IFACE) {
-                if (data_null[c]) {
+                if (columns[i].null) {
                     pos += sprintf(sampleDataBuf + pos, "null,");
                     continue;
                 }
             }
-            switch (data_type[c]) {
-                case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR: {
-                    char *data = calloc(1, 1 + data_length[c]);
-                    if (g_arguments->demo_mode) {
-                        if (taosRandom() % 2 == 1) {
-                            if (g_arguments->chinese) {
-                                sprintf(data, "上海");
-                            } else {
-                                sprintf(data, "beijing");
-                            }
-                        } else {
-                            if (g_arguments->chinese) {
-                                sprintf(data, "北京");
-                            } else {
-                                sprintf(data, "shanghai");
-                            }
-                        }
-                    } else {
-                        rand_string(data, data_length[c], g_arguments->chinese);
-                    }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        data_type[c] == TSDB_DATA_TYPE_BINARY &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=\"%s\",",
-                                       names[c], data);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               data_type[c] == TSDB_DATA_TYPE_NCHAR &&
-                               line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\",",
-                                       names[c], data);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               data_type[c] == TSDB_DATA_TYPE_BINARY &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "\"%s\" ", data);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               data_type[c] == TSDB_DATA_TYPE_NCHAR &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "L\"%s\" ", data);
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "'%s',", data);
-                    }
-                    tmfree(data);
-                    break;
-                }
-                case TSDB_DATA_TYPE_INT:
-                    if ((g_arguments->demo_mode) && (c == 1)) {
-                        tmp = demo_voltage_int_str();
-                    } else if ((g_arguments->demo_mode) && (c == 0)) {
-                        tmp = demo_groupid_str();
-                    } else {
-                        tmp = rand_int_str();
-                    }
+            switch (columns[i].type) {
+                case TSDB_DATA_TYPE_BOOL: {
+                    bool rand_bool = (taosRandom() % 2) & 1;
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%si32,",
-                                       names[c], tmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%si32 ", tmp);
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,", tmp);
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_UINT:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%su32,",
-                                       names[c], rand_uint_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%su32 ",
-                                       rand_uint_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_uint_str());
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_BIGINT:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%si64,",
-                                       names[c], rand_bigint_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%si64 ",
-                                       rand_bigint_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_bigint_str());
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                case TSDB_DATA_TYPE_UBIGINT:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%su64,",
-                                       names[c], rand_ubigint_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%su64 ",
-                                       rand_ubigint_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_ubigint_str());
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_FLOAT:
-                    if (g_arguments->demo_mode && c == 0) {
-                        tmp = demo_current_float_str();
-                    } else if (g_arguments->demo_mode && c == 2) {
-                        tmp = demo_phase_float_str();
-                    } else {
-                        tmp = rand_float_str();
-                    }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%sf32,",
-                                       names[c], tmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%sf32 ", tmp);
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,", tmp);
-                    }
-                    break;
-                case TSDB_DATA_TYPE_DOUBLE:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%sf64,",
-                                       names[c], rand_double_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%sf64 ",
-                                       rand_double_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_double_str());
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_SMALLINT:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%si16,",
-                                       names[c], rand_smallint_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%si16,",
-                                       rand_smallint_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_smallint_str());
-                    }
-
-                    break;
-
-                case TSDB_DATA_TYPE_USMALLINT:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%su16,",
-                                       names[c], rand_usmallint_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%su16 ",
-                                       rand_usmallint_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_usmallint_str());
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_TINYINT:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%si8,",
-                                       names[c], rand_tinyint_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%si8 ",
-                                       rand_tinyint_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_tinyint_str());
-                    }
-
-                    break;
-
-                case TSDB_DATA_TYPE_UTINYINT:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%su8,",
-                                       names[c], rand_utinyint_str());
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%su8 ",
-                                       rand_utinyint_str());
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_utinyint_str());
-                    }
-                    break;
-
-                case TSDB_DATA_TYPE_BOOL:
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%s,", names[c],
-                                       rand_bool_str());
+                        pos += sprintf(sampleDataBuf + pos, "%s=%s,",
+                                       columns[i].name,
+                                       rand_bool ? "true" : "false");
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s ",
-                                       rand_bool_str());
+                                       rand_bool ? "true" : "false");
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_bool_str());
+                                       rand_bool ? "true" : "false");
                     }
                     break;
-
+                }
+                case TSDB_DATA_TYPE_TINYINT: {
+                    if (columns[i].min < -127) {
+                        columns[i].min = -127;
+                    }
+                    if (columns[i].max > 128) {
+                        columns[i].max = 128;
+                    }
+                    int8_t tinyint =
+                        columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%di8,",
+                                       columns[i].name, tinyint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%di8 ", tinyint);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%d,", tinyint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_UTINYINT: {
+                    if (columns[i].min < 0) {
+                        columns[i].min = 0;
+                    }
+                    if (columns[i].max > 254) {
+                        columns[i].max = 254;
+                    }
+                    uint8_t utinyint =
+                        columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%uu8,",
+                                       columns[i].name, utinyint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%uu8 ", utinyint);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%u,", utinyint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_SMALLINT: {
+                    if (columns[i].min < -32767) {
+                        columns[i].min = -32767;
+                    }
+                    if (columns[i].max > 32767) {
+                        columns[i].max = 32767;
+                    }
+                    int16_t smallint =
+                        columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%di16,",
+                                       columns[i].name, smallint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%di16,", smallint);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%d,", smallint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_USMALLINT: {
+                    if (columns[i].min < 0) {
+                        columns[i].min = 0;
+                    }
+                    if (columns[i].max > 65534) {
+                        columns[i].max = 65534;
+                    }
+                    uint16_t usmallint =
+                        columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%uu16,",
+                                       columns[i].name, usmallint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos +=
+                            sprintf(sampleDataBuf + pos, "%uu16 ", usmallint);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%u,", usmallint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_INT: {
+                    int32_t int_;
+                    if ((g_arguments->demo_mode) && (i == 0)) {
+                        int_ = taosRandom() % 10 + 1;
+                    } else if ((g_arguments->demo_mode) && (i == 1)) {
+                        int_ = 215 + taosRandom() % 10;
+                    } else {
+                        if (columns[i].min < (-1 * (RAND_MAX >> 1))) {
+                            columns[i].min = -1 * (RAND_MAX >> 1);
+                        }
+                        if (columns[i].max > (RAND_MAX >> 1)) {
+                            columns[i].max = RAND_MAX >> 1;
+                        }
+                        int_ =
+                            columns[i].min +
+                            (taosRandom() % (columns[i].max - columns[i].min));
+                    }
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%di32,",
+                                       columns[i].name, int_);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%di32 ", int_);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%d,", int_);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_BIGINT: {
+                    int32_t int_;
+                    if (columns[i].min < (-1 * (RAND_MAX >> 1))) {
+                        columns[i].min = -1 * (RAND_MAX >> 1);
+                    }
+                    if (columns[i].max > (RAND_MAX >> 1)) {
+                        columns[i].max = RAND_MAX >> 1;
+                    }
+                    int_ = columns[i].min +
+                           (taosRandom() % (columns[i].max - columns[i].min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%di64,",
+                                       columns[i].name, int_);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%di64 ", int_);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%d,", int_);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_UINT:
+                    if (columns[i].min < 0) {
+                        columns[i].min = 0;
+                    }
+                    if (columns[i].max > RAND_MAX) {
+                        columns[i].max = RAND_MAX;
+                    }
+                    uint32_t uint =
+                        columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%uu32,",
+                                       columns[i].name, uint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%uu32 ", uint);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%u,", uint);
+                    }
+                    break;
+                case TSDB_DATA_TYPE_UBIGINT:
+                case TSDB_DATA_TYPE_TIMESTAMP: {
+                    if (columns[i].min < 0) {
+                        columns[i].min = 0;
+                    }
+                    if (columns[i].max > RAND_MAX) {
+                        columns[i].max = RAND_MAX;
+                    }
+                    uint32_t ubigint =
+                        columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
+                                       columns[i].name, ubigint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%uu64 ", ubigint);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%u,", ubigint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_FLOAT: {
+                    if (columns[i].min < ((RAND_MAX >> 1) * -1)) {
+                        columns[i].min = (RAND_MAX >> 1) * -1;
+                    }
+                    if (columns[i].max > RAND_MAX >> 1) {
+                        columns[i].max = RAND_MAX >> 1;
+                    }
+                    float float_ = (float)(columns[i].min +
+                                           (taosRandom() %
+                                            (columns[i].max - columns[i].min)) +
+                                           (taosRandom() % 1000) / 1000.0);
+                    if (g_arguments->demo_mode && i == 0) {
+                        float_ = (float)(9.8 + 0.04 * (taosRandom() % 10) +
+                                         float_ / 1000000000);
+                    } else if (g_arguments->demo_mode && i == 2) {
+                        float_ = (float)((115 + taosRandom() % 10 +
+                                          float_ / 1000000000) /
+                                         360);
+                    }
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%ff32,",
+                                       columns[i].name, float_);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%ff32 ", float_);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%f,", float_);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_DOUBLE: {
+                    if (columns[i].min < ((RAND_MAX >> 1) * -1)) {
+                        columns[i].min = (RAND_MAX >> 1) * -1;
+                    }
+                    if (columns[i].max > RAND_MAX >> 1) {
+                        columns[i].max = RAND_MAX >> 1;
+                    }
+                    double double_ =
+                        (double)(columns[i].min +
+                                 (taosRandom() %
+                                  (columns[i].max - columns[i].min)) +
+                                 taosRandom() % 1000000 / 1000000.0);
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=%ff64,",
+                                       columns[i].name, double_);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%ff64 ", double_);
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "%f,", double_);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_NCHAR: {
+                    if (g_arguments->demo_mode) {
+                        if (taosRandom() % 2 == 1) {
+                            if (g_arguments->chinese) {
+                                pos +=
+                                    sprintf(sampleDataBuf + pos, "\'上海\',");
+                            } else {
+                                pos += sprintf(sampleDataBuf + pos,
+                                               "\'shanghai\',");
+                            }
+                        } else {
+                            if (g_arguments->chinese) {
+                                pos +=
+                                    sprintf(sampleDataBuf + pos, "\'北京\',");
+                            } else {
+                                pos += sprintf(sampleDataBuf + pos,
+                                               "\'beijing\',");
+                            }
+                        }
+                    } else if (columns[i].values) {
+                        cJSON *buf = cJSON_GetArrayItem(
+                            columns[i].values,
+                            taosRandom() %
+                                cJSON_GetArraySize(columns[i].values));
+                        pos += sprintf(sampleDataBuf + pos, "\'%s\',",
+                                       buf->valuestring);
+                    } else {
+                        char *buf = calloc(1, columns->length + 1);
+                        rand_string(buf, columns->length, g_arguments->chinese);
+                        pos += sprintf(sampleDataBuf + pos, "\'%s\',", buf);
+                        tmfree(buf);
+                    }
+                    break;
+                }
                 case TSDB_DATA_TYPE_JSON: {
                     pos += sprintf(sampleDataBuf + pos, "'{");
                     for (int j = 0; j < count; ++j) {
                         pos += sprintf(sampleDataBuf + pos, "\"k%d\":", j);
-                        char *buf = calloc(1, data_length[j] + 1);
-                        rand_string(buf, data_length[j], g_arguments->chinese);
+                        char *buf = calloc(1, columns[j].length + 1);
+                        rand_string(buf, columns[j].length,
+                                    g_arguments->chinese);
                         pos += sprintf(sampleDataBuf + pos, "\"%s\",", buf);
                         tmfree(buf);
                     }
@@ -1016,11 +722,9 @@ int prepare_sample_data(int db_index, int stb_index) {
             calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
         g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
         if (stbInfo->random_data_source) {
-            generateSampleFromRand(
-                stbInfo->sampleDataBuf, stbInfo->lenOfCols,
-                stbInfo->partialColumnNum, stbInfo->col_type,
-                stbInfo->col_length, g_arguments->prepared_rand, stbInfo->iface,
-                stbInfo->lineProtocol, stbInfo->col_null, stbInfo->col_names);
+            generateRandData(stbInfo, stbInfo->sampleDataBuf,
+                             stbInfo->lenOfCols, stbInfo->columns,
+                             stbInfo->columnCount, g_arguments->prepared_rand);
         } else {
             if (stbInfo->useSampleTs) {
                 if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
@@ -1046,10 +750,9 @@ int prepare_sample_data(int db_index, int stb_index) {
                 return -1;
             }
         } else {
-            generateSampleFromRand(
-                stbInfo->tagDataBuf, stbInfo->lenOfTags, stbInfo->tagCount,
-                stbInfo->tag_type, stbInfo->tag_length, stbInfo->childTblCount,
-                stbInfo->iface, 0, stbInfo->tag_null, stbInfo->tag_names);
+            generateRandData(stbInfo, stbInfo->tagDataBuf, stbInfo->lenOfTags,
+                             stbInfo->tags, stbInfo->tagCount,
+                             stbInfo->childTblCount);
         }
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
@@ -1136,56 +839,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
 
         } else {
             data_type = stbInfo->columns[c - 1].type;
-            switch (data_type) {
-                case TSDB_DATA_TYPE_NCHAR:
-                case TSDB_DATA_TYPE_BINARY: {
-                    param->buffer = stbInfo->stmt_col_string_grid[c - 1];
-                    break;
-                }
-                case TSDB_DATA_TYPE_INT:
-                    param->buffer = g_randint;
-                    break;
-                case TSDB_DATA_TYPE_UINT:
-                    param->buffer = g_randuint;
-                    break;
-                case TSDB_DATA_TYPE_TINYINT:
-                    param->buffer = g_randtinyint;
-                    break;
-                case TSDB_DATA_TYPE_UTINYINT:
-                    param->buffer = g_randutinyint;
-                    break;
-                case TSDB_DATA_TYPE_SMALLINT:
-                    param->buffer = g_randsmallint;
-                    break;
-                case TSDB_DATA_TYPE_USMALLINT:
-                    param->buffer = g_randusmallint;
-                    break;
-                case TSDB_DATA_TYPE_BIGINT:
-                    param->buffer = g_randbigint;
-                    break;
-                case TSDB_DATA_TYPE_UBIGINT:
-                    param->buffer = g_randubigint;
-                    break;
-                case TSDB_DATA_TYPE_BOOL:
-                    param->buffer = g_randbool;
-                    break;
-
-                case TSDB_DATA_TYPE_FLOAT:
-                    param->buffer = g_randfloat;
-                    break;
-
-                case TSDB_DATA_TYPE_DOUBLE:
-                    param->buffer = g_randdouble;
-                    break;
-
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    param->buffer = g_randubigint;
-                    break;
-
-                default:
-                    errorPrint("wrong data type: %d\n", data_type);
-                    return -1;
-            }
+            param->buffer = stbInfo->columns[c - 1].data;
             param->buffer_length = stbInfo->columns[c - 1].length;
             debugPrint("col[%d]: type: %s, len: %d\n", c,
                        taos_convert_datatype_to_string(data_type),
@@ -1237,87 +891,10 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     return batch;
 }
 
-int32_t generateSmlTags(char *sml, SSuperTable *stbInfo) {
-    int64_t  dataLen = 0;
-    uint64_t length = (stbInfo->lenOfTags + stbInfo->lenOfCols);
-    if (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
-        dataLen +=
-            snprintf(sml + dataLen, length - dataLen, "%s", stbInfo->stbName);
-    }
-
-    for (int j = 0; j < stbInfo->tagCount; j++) {
-        tstrncpy(sml + dataLen,
-                 (stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) ? "," : " ",
-                 2);
-        dataLen += 1;
-        switch (stbInfo->tags[j].type) {
-            case TSDB_DATA_TYPE_TIMESTAMP:
-                errorPrint("%s", "Does not support timestamp as tag\n");
-                return -1;
-            case TSDB_DATA_TYPE_BOOL:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_bool_str());
-                break;
-            case TSDB_DATA_TYPE_TINYINT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_tinyint_str());
-                break;
-            case TSDB_DATA_TYPE_UTINYINT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_utinyint_str());
-                break;
-            case TSDB_DATA_TYPE_SMALLINT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_smallint_str());
-                break;
-            case TSDB_DATA_TYPE_USMALLINT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_usmallint_str());
-                break;
-            case TSDB_DATA_TYPE_INT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_int_str());
-                break;
-            case TSDB_DATA_TYPE_UINT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_uint_str());
-                break;
-            case TSDB_DATA_TYPE_BIGINT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_bigint_str());
-                break;
-            case TSDB_DATA_TYPE_UBIGINT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_ubigint_str());
-                break;
-            case TSDB_DATA_TYPE_FLOAT:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_float_str());
-                break;
-            case TSDB_DATA_TYPE_DOUBLE:
-                dataLen += snprintf(sml + dataLen, length - dataLen, "t%d=%s",
-                                    j, rand_double_str());
-                break;
-            case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR: {
-                char *buf = (char *)calloc(stbInfo->tags[j].length + 1, 1);
-                rand_string(buf, stbInfo->tags[j].length, g_arguments->chinese);
-                dataLen +=
-                    snprintf(sml + dataLen, length - dataLen, "t%d=%s", j, buf);
-                tmfree(buf);
-                break;
-            }
-            default:
-                errorPrint("unknown data type %d\n", stbInfo->tags[j].type);
-                return -1;
-        }
-    }
-    return 0;
-}
-
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq) {
     int32_t code = -1;
+    Column *columns = stbInfo->tags;
     cJSON * tags = cJSON_CreateObject();
     char *  tbName = calloc(1, TSDB_TABLE_NAME_LEN);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
@@ -1329,34 +906,69 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
         cJSON *tag = cJSON_CreateObject();
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
         switch (stbInfo->tags[i].type) {
-            case TSDB_DATA_TYPE_BOOL:
-                cJSON_AddBoolToObject(tag, "value", rand_bool());
+            case TSDB_DATA_TYPE_BOOL: {
+                cJSON_AddBoolToObject(tag, "value", (taosRandom() % 2) & 1);
                 cJSON_AddStringToObject(tag, "type", "bool");
                 break;
-            case TSDB_DATA_TYPE_TINYINT:
-                cJSON_AddNumberToObject(tag, "value", rand_tinyint());
+            }
+
+            case TSDB_DATA_TYPE_TINYINT: {
+                cJSON_AddNumberToObject(
+                    tag, "value",
+                    columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min)));
                 cJSON_AddStringToObject(tag, "type", "tinyint");
                 break;
-            case TSDB_DATA_TYPE_SMALLINT:
-                cJSON_AddNumberToObject(tag, "value", rand_smallint());
+            }
+
+            case TSDB_DATA_TYPE_SMALLINT: {
+                cJSON_AddNumberToObject(
+                    tag, "value",
+                    columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min)));
                 cJSON_AddStringToObject(tag, "type", "smallint");
                 break;
-            case TSDB_DATA_TYPE_INT:
-                cJSON_AddNumberToObject(tag, "value", rand_int());
+            }
+
+            case TSDB_DATA_TYPE_INT: {
+                cJSON_AddNumberToObject(
+                    tag, "value",
+                    columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min)));
                 cJSON_AddStringToObject(tag, "type", "int");
                 break;
-            case TSDB_DATA_TYPE_BIGINT:
-                cJSON_AddNumberToObject(tag, "value", (double)rand_bigint());
+            }
+
+            case TSDB_DATA_TYPE_BIGINT: {
+                cJSON_AddNumberToObject(
+                    tag, "value",
+                    (double)columns[i].min +
+                        (taosRandom() % (columns[i].max - columns[i].min)));
                 cJSON_AddStringToObject(tag, "type", "bigint");
                 break;
-            case TSDB_DATA_TYPE_FLOAT:
-                cJSON_AddNumberToObject(tag, "value", rand_float());
+            }
+
+            case TSDB_DATA_TYPE_FLOAT: {
+                cJSON_AddNumberToObject(
+                    tag, "value",
+                    (float)(columns[i].min +
+                            (taosRandom() % (columns[i].max - columns[i].min)) +
+                            taosRandom() % 1000 / 1000.0));
                 cJSON_AddStringToObject(tag, "type", "float");
                 break;
-            case TSDB_DATA_TYPE_DOUBLE:
-                cJSON_AddNumberToObject(tag, "value", rand_double());
+            }
+
+            case TSDB_DATA_TYPE_DOUBLE: {
+                cJSON_AddNumberToObject(
+                    tag, "value",
+                    (double)(columns[i].min +
+                             (taosRandom() %
+                              (columns[i].max - columns[i].min)) +
+                             taosRandom() % 1000000 / 1000000.0));
                 cJSON_AddStringToObject(tag, "type", "double");
                 break;
+            }
+
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)calloc(stbInfo->tags[i].length + 1, 1);
@@ -1389,8 +1001,9 @@ free_of_generate_sml_json_tag:
 
 int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
                             uint32_t time_precision, int64_t timestamp) {
-    cJSON *record = cJSON_CreateObject();
-    cJSON *ts = cJSON_CreateObject();
+    cJSON * record = cJSON_CreateObject();
+    cJSON * ts = cJSON_CreateObject();
+    Column *columns = stbInfo->columns;
     cJSON_AddNumberToObject(ts, "value", (double)timestamp);
     if (time_precision == TSDB_SML_TIMESTAMP_MILLI_SECONDS) {
         cJSON_AddStringToObject(ts, "type", "ms");
@@ -1405,31 +1018,51 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
     cJSON *value = cJSON_CreateObject();
     switch (stbInfo->columns[0].type) {
         case TSDB_DATA_TYPE_BOOL:
-            cJSON_AddBoolToObject(value, "value", rand_bool());
+            cJSON_AddBoolToObject(value, "value", (taosRandom() % 2) & 1);
             cJSON_AddStringToObject(value, "type", "bool");
             break;
         case TSDB_DATA_TYPE_TINYINT:
-            cJSON_AddNumberToObject(value, "value", rand_tinyint());
+            cJSON_AddNumberToObject(
+                value, "value",
+                columns[0].min +
+                    (taosRandom() % (columns[0].max - columns[0].min)));
             cJSON_AddStringToObject(value, "type", "tinyint");
             break;
         case TSDB_DATA_TYPE_SMALLINT:
-            cJSON_AddNumberToObject(value, "value", rand_smallint());
+            cJSON_AddNumberToObject(
+                value, "value",
+                columns[0].min +
+                    (taosRandom() % (columns[0].max - columns[0].min)));
             cJSON_AddStringToObject(value, "type", "smallint");
             break;
         case TSDB_DATA_TYPE_INT:
-            cJSON_AddNumberToObject(value, "value", rand_int());
+            cJSON_AddNumberToObject(
+                value, "value",
+                columns[0].min +
+                    (taosRandom() % (columns[0].max - columns[0].min)));
             cJSON_AddStringToObject(value, "type", "int");
             break;
         case TSDB_DATA_TYPE_BIGINT:
-            cJSON_AddNumberToObject(value, "value", (double)rand_bigint());
+            cJSON_AddNumberToObject(
+                value, "value",
+                (double)columns[0].min +
+                    (taosRandom() % (columns[0].max - columns[0].min)));
             cJSON_AddStringToObject(value, "type", "bigint");
             break;
         case TSDB_DATA_TYPE_FLOAT:
-            cJSON_AddNumberToObject(value, "value", rand_float());
+            cJSON_AddNumberToObject(
+                value, "value",
+                (float)(columns[0].min +
+                        (taosRandom() % (columns[0].max - columns[0].min)) +
+                        taosRandom() % 1000 / 1000.0));
             cJSON_AddStringToObject(value, "type", "float");
             break;
         case TSDB_DATA_TYPE_DOUBLE:
-            cJSON_AddNumberToObject(value, "value", rand_double());
+            cJSON_AddNumberToObject(
+                value, "value",
+                (double)(columns[0].min +
+                         (taosRandom() % (columns[0].max - columns[0].min)) +
+                         taosRandom() % 1000000 / 1000000.0));
             cJSON_AddStringToObject(value, "type", "double");
             break;
         case TSDB_DATA_TYPE_BINARY:

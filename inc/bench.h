@@ -270,16 +270,11 @@ typedef struct COLUMN_S {
     char *  name;
     int32_t length;
     bool    null;
-    char *  data;
+    void *  data;
+    int64_t max;
+    int64_t min;
+    cJSON * values;
 } Column;
-
-typedef struct TAG_S {
-    char    type;
-    char *  name;
-    int32_t length;
-    bool    null;
-    char *  data;
-} Tag;
 
 typedef struct SSuperTable_S {
     char *   stbName;
@@ -314,7 +309,7 @@ typedef struct SSuperTable_S {
     int32_t partialColumnNum;
     char *  partialColumnNameBuf;
     Column *columns;
-    Tag *   tags;
+    Column *tags;
     int32_t tagCount;
     char ** childTblName;
     char *  colsOfCreateChildTable;
