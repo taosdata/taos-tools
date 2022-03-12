@@ -112,7 +112,6 @@
 
 #define DEFAULT_NTHREADS 8
 #define DEFAULT_CHILDTABLES 10000
-#define DEFAULT_HOST "localhost"
 #define DEFAULT_PORT 6030
 #define DEFAULT_DATABASE "test"
 #define DEFAULT_TB_PREFIX "d"
@@ -269,6 +268,17 @@ typedef struct TAOS_POOL_S {
     TAOS **taos_list;
 } TAOS_POOL;
 
+typedef struct COLUMN_S {
+    char    type;
+    char *  name;
+    int32_t length;
+    bool    null;
+    void *  data;
+    int64_t max;
+    int64_t min;
+    cJSON * values;
+} Column;
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -298,20 +308,16 @@ typedef struct SSuperTable_S {
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
 
-    int32_t  columnCount;
-    int32_t  partialColumnNum;
-    char *   partialColumnNameBuf;
-    char *   col_type;
-    bool *   col_null;
-    int32_t *col_length;
-    int32_t  tagCount;
-    char *   tag_type;
-    bool *   tag_null;
-    int32_t *tag_length;
-    char **  childTblName;
-    char *   colsOfCreateChildTable;
-    int32_t  lenOfTags;
-    int32_t  lenOfCols;
+    int32_t columnCount;
+    int32_t partialColumnNum;
+    char *  partialColumnNameBuf;
+    Column *columns;
+    Column *tags;
+    int32_t tagCount;
+    char ** childTblName;
+    char *  colsOfCreateChildTable;
+    int32_t lenOfTags;
+    int32_t lenOfCols;
 
     char *sampleDataBuf;
     bool  useSampleTs;
