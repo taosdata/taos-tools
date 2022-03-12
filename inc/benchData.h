@@ -22,7 +22,8 @@
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
 void    generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-                         int lenOfOneRow, Column *columns, int count, int loop);
+                         int lenOfOneRow, Column *columns, int count, int loop,
+                         bool tag);
 void    generateStmtBuffer(SSuperTable *stbInfo);
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int prepare_sample_data(int a, int b);

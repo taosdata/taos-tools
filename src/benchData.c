@@ -98,7 +98,14 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
             tag->buffer_length = stbInfo->tags[j].length;
             tag->length = &tag->buffer_length;
             tag->is_null = NULL;
-            tag->buffer = stbInfo->tags[j].data + i * stbInfo->tags[j].length;
+            if (stbInfo->tags[j].type == TSDB_DATA_TYPE_BINARY ||
+                stbInfo->tags[j].type == TSDB_DATA_TYPE_NCHAR) {
+                tag->buffer = stbInfo->stmt_tag_string_grid[j] +
+                              i * stbInfo->tags[j].length;
+            } else {
+                tag->buffer =
+                    stbInfo->tags[j].data + i * stbInfo->tags[j].length;
+            }
         }
     }
 }
@@ -293,8 +300,9 @@ static void calcRowLen(SSuperTable *stbInfo) {
                 break;
         }
         stbInfo->lenOfCols += 1;
-        if (stbInfo->iface == SML_IFACE) {
-            stbInfo->lenOfCols += SML_LINE_SQL_SYNTAX_OFFSET;
+        if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
+            stbInfo->lenOfCols += SML_LINE_SQL_SYNTAX_OFFSET +
+                                  strlen(stbInfo->columns[colIndex].name);
         }
     }
     stbInfo->lenOfCols += TIMESTAMP_BUFF_LEN;
@@ -338,12 +346,13 @@ static void calcRowLen(SSuperTable *stbInfo) {
                 return;
         }
         stbInfo->lenOfTags += 1;
-        if (stbInfo->iface == SML_IFACE) {
-            stbInfo->lenOfTags += SML_LINE_SQL_SYNTAX_OFFSET;
+        if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
+            stbInfo->lenOfTags += SML_LINE_SQL_SYNTAX_OFFSET +
+                                  strlen(stbInfo->tags[tagIndex].name);
         }
     }
 
-    if (stbInfo->iface == SML_IFACE) {
+    if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
         stbInfo->lenOfTags +=
             2 * TSDB_TABLE_NAME_LEN * 2 + SML_LINE_SQL_SYNTAX_OFFSET;
     }
@@ -351,19 +360,28 @@ static void calcRowLen(SSuperTable *stbInfo) {
 }
 
 void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-                      int lenOfOneRow, Column *columns, int count, int loop) {
+                      int lenOfOneRow, Column *columns, int count, int loop,
+                      bool tag) {
     int     iface = stbInfo->iface;
     int     line_protocol = stbInfo->lineProtocol;
     int32_t pos = 0;
+    if (iface == STMT_IFACE) {
+        for (int i = 0; i < count; ++i) {
+            columns[i].data = calloc(1, loop * columns[i].length);
+        }
+    }
     for (int k = 0; k < loop; ++k) {
         pos = k * lenOfOneRow;
         if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
-            (iface == SML_IFACE || iface == SML_REST_IFACE)) {
-            pos += sprintf(sampleDataBuf + pos, "%s", stbInfo->stbName);
+            (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
+            pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
         }
         for (int i = 0; i < count; ++i) {
             if (iface == TAOSC_IFACE || iface == REST_IFACE) {
                 if (columns[i].null) {
+                    continue;
+                }
+                if (columns[i].length == 0) {
                     pos += sprintf(sampleDataBuf + pos, "null,");
                     continue;
                 }
@@ -371,6 +389,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
             switch (columns[i].type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
+                    if (iface == STMT_IFACE) {
+                        *(bool *)(columns[i].data + k * columns[i].length) =
+                            rand_bool;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%s,",
@@ -379,8 +401,14 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s ",
-                                       rand_bool ? "true" : "false");
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%s ",
+                                           columns[i].name,
+                                           rand_bool ? "true" : "false");
+                        } else {
+                            pos += sprintf(sampleDataBuf + pos, "%s ",
+                                           rand_bool ? "true" : "false");
+                        }
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%s,",
                                        rand_bool ? "true" : "false");
@@ -397,6 +425,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     int8_t tinyint =
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
+                    if (iface == STMT_IFACE) {
+                        *(int8_t *)(columns[i].data + k * columns[i].length) =
+                            tinyint;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di8,",
@@ -404,7 +436,14 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%di8 ", tinyint);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%di8 ",
+                                           columns[i].name, tinyint);
+                        } else {
+                            pos +=
+                                sprintf(sampleDataBuf + pos, "%di8 ", tinyint);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%d,", tinyint);
                     }
@@ -420,6 +459,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     uint8_t utinyint =
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
+                    if (iface == STMT_IFACE) {
+                        *(uint8_t *)(columns[i].data + k * columns[i].length) =
+                            utinyint;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu8,",
@@ -427,7 +470,14 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%uu8 ", utinyint);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%uu8 ",
+                                           columns[i].name, utinyint);
+                        } else {
+                            pos +=
+                                sprintf(sampleDataBuf + pos, "%uu8 ", utinyint);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%u,", utinyint);
                     }
@@ -443,6 +493,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     int16_t smallint =
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
+                    if (iface == STMT_IFACE) {
+                        *(int16_t *)(columns[i].data + k * columns[i].length) =
+                            smallint;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di16,",
@@ -450,7 +504,14 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%di16,", smallint);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%di16 ",
+                                           columns[i].name, smallint);
+                        } else {
+                            pos += sprintf(sampleDataBuf + pos, "%di16 ",
+                                           smallint);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%d,", smallint);
                     }
@@ -466,6 +527,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     uint16_t usmallint =
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
+                    if (iface == STMT_IFACE) {
+                        *(uint16_t *)(columns[i].data + k * columns[i].length) =
+                            usmallint;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu16,",
@@ -473,8 +538,14 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos +=
-                            sprintf(sampleDataBuf + pos, "%uu16 ", usmallint);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%uu16 ",
+                                           columns[i].name, usmallint);
+                        } else {
+                            pos += sprintf(sampleDataBuf + pos, "%uu16 ",
+                                           usmallint);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%u,", usmallint);
                     }
@@ -497,6 +568,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                             columns[i].min +
                             (taosRandom() % (columns[i].max - columns[i].min));
                     }
+                    if (iface == STMT_IFACE) {
+                        *(int32_t *)(columns[i].data + k * columns[i].length) =
+                            int_;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di32,",
@@ -504,7 +579,13 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%di32 ", int_);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%di32 ",
+                                           columns[i].name, int_);
+                        } else {
+                            pos += sprintf(sampleDataBuf + pos, "%di32 ", int_);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%d,", int_);
                     }
@@ -520,6 +601,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     }
                     int_ = columns[i].min +
                            (taosRandom() % (columns[i].max - columns[i].min));
+                    if (iface == STMT_IFACE) {
+                        *(int64_t *)(columns[i].data + k * columns[i].length) =
+                            (int64_t)int_;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di64,",
@@ -527,13 +612,19 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%di64 ", int_);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%di64 ",
+                                           columns[i].name, int_);
+                        } else {
+                            pos += sprintf(sampleDataBuf + pos, "%di64 ", int_);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%d,", int_);
                     }
                     break;
                 }
-                case TSDB_DATA_TYPE_UINT:
+                case TSDB_DATA_TYPE_UINT: {
                     if (columns[i].min < 0) {
                         columns[i].min = 0;
                     }
@@ -543,6 +634,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     uint32_t uint =
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
+                    if (iface == STMT_IFACE) {
+                        *(uint32_t *)(columns[i].data + k * columns[i].length) =
+                            uint;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu32,",
@@ -550,11 +645,18 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%uu32 ", uint);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%uu32 ",
+                                           columns[i].name, uint);
+                        } else {
+                            pos += sprintf(sampleDataBuf + pos, "%uu32 ", uint);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%u,", uint);
                     }
                     break;
+                }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
                     if (columns[i].min < 0) {
@@ -566,14 +668,26 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     uint32_t ubigint =
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
+                    if (iface == STMT_IFACE) {
+                        *(uint64_t *)(columns[i].data + k * columns[i].length) =
+                            (uint64_t)ubigint;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        (line_protocol == TSDB_SML_LINE_PROTOCOL ||
+                         (tag && line_protocol == TSDB_SML_TELNET_PROTOCOL))) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
                                        columns[i].name, ubigint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%uu64 ", ubigint);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%uu64 ",
+                                           columns[i].name, ubigint);
+                        } else {
+                            pos +=
+                                sprintf(sampleDataBuf + pos, "%uu64 ", ubigint);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%u,", ubigint);
                     }
@@ -598,6 +712,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                           float_ / 1000000000) /
                                          360);
                     }
+                    if (iface == STMT_IFACE) {
+                        *(float *)(columns[i].data + k * columns[i].length) =
+                            float_;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%ff32,",
@@ -605,7 +723,14 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%ff32 ", float_);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%ff32 ",
+                                           columns[i].name, float_);
+                        } else {
+                            pos +=
+                                sprintf(sampleDataBuf + pos, "%ff32 ", float_);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%f,", float_);
                     }
@@ -623,6 +748,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                  (taosRandom() %
                                   (columns[i].max - columns[i].min)) +
                                  taosRandom() % 1000000 / 1000000.0);
+                    if (iface == STMT_IFACE) {
+                        *(double *)(columns[i].data + k * columns[i].length) =
+                            double_;
+                    }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%ff64,",
@@ -630,7 +759,14 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%ff64 ", double_);
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=%ff64 ",
+                                           columns[i].name, double_);
+                        } else {
+                            pos +=
+                                sprintf(sampleDataBuf + pos, "%ff64 ", double_);
+                        }
+
                     } else {
                         pos += sprintf(sampleDataBuf + pos, "%f,", double_);
                     }
@@ -638,22 +774,19 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
+                    char *tmp = calloc(1, columns[i].length + 1);
                     if (g_arguments->demo_mode) {
                         if (taosRandom() % 2 == 1) {
                             if (g_arguments->chinese) {
-                                pos +=
-                                    sprintf(sampleDataBuf + pos, "\'上海\',");
+                                sprintf(tmp, "上海");
                             } else {
-                                pos += sprintf(sampleDataBuf + pos,
-                                               "\'shanghai\',");
+                                sprintf(tmp, "shanghai");
                             }
                         } else {
                             if (g_arguments->chinese) {
-                                pos +=
-                                    sprintf(sampleDataBuf + pos, "\'北京\',");
+                                sprintf(tmp, "北京");
                             } else {
-                                pos += sprintf(sampleDataBuf + pos,
-                                               "\'beijing\',");
+                                sprintf(tmp, "beijing");
                             }
                         }
                     } else if (columns[i].values) {
@@ -661,14 +794,49 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                             columns[i].values,
                             taosRandom() %
                                 cJSON_GetArraySize(columns[i].values));
-                        pos += sprintf(sampleDataBuf + pos, "\'%s\',",
-                                       buf->valuestring);
+                        sprintf(tmp, "%s", buf->valuestring);
                     } else {
-                        char *buf = calloc(1, columns->length + 1);
-                        rand_string(buf, columns->length, g_arguments->chinese);
-                        pos += sprintf(sampleDataBuf + pos, "\'%s\',", buf);
-                        tmfree(buf);
+                        rand_string(tmp, columns[i].length,
+                                    g_arguments->chinese);
                     }
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        columns[i].type == TSDB_DATA_TYPE_BINARY &&
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=\"%s\",",
+                                       columns[i].name, tmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               columns[i].type == TSDB_DATA_TYPE_NCHAR &&
+                               line_protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\",",
+                                       columns[i].name, tmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               columns[i].type == TSDB_DATA_TYPE_BINARY &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\" ",
+                                           columns[i].name, tmp);
+                        } else {
+                            pos += sprintf(sampleDataBuf + pos, "\"%s\" ", tmp);
+                        }
+
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               columns[i].type == TSDB_DATA_TYPE_NCHAR &&
+                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\" ",
+                                           columns[i].name, tmp);
+                        } else {
+                            pos +=
+                                sprintf(sampleDataBuf + pos, "L\"%s\" ", tmp);
+                        }
+
+                    } else {
+                        pos += sprintf(sampleDataBuf + pos, "'%s',", tmp);
+                    }
+                    tmfree(tmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_JSON: {
@@ -709,7 +877,12 @@ int prepare_sample_data(int db_index, int stb_index) {
             int pos = 0;
             pos += sprintf(stbInfo->partialColumnNameBuf + pos, "ts");
             for (int i = 0; i < stbInfo->partialColumnNum; ++i) {
-                pos += sprintf(stbInfo->partialColumnNameBuf + pos, ",c%d", i);
+                pos += sprintf(stbInfo->partialColumnNameBuf + pos, ",%s",
+                               stbInfo->columns[i].name);
+            }
+            for (int i = stbInfo->partialColumnNum; i < stbInfo->columnCount;
+                 ++i) {
+                stbInfo->columns[i].null = true;
             }
             debugPrint("partialColumnNameBuf: %s\n",
                        stbInfo->partialColumnNameBuf);
@@ -717,28 +890,25 @@ int prepare_sample_data(int db_index, int stb_index) {
     } else {
         stbInfo->partialColumnNum = stbInfo->columnCount;
     }
-    if (stbInfo->iface != STMT_IFACE) {
-        stbInfo->sampleDataBuf =
-            calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
-        g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
-        if (stbInfo->random_data_source) {
-            generateRandData(stbInfo, stbInfo->sampleDataBuf,
-                             stbInfo->lenOfCols, stbInfo->columns,
-                             stbInfo->columnCount, g_arguments->prepared_rand);
-        } else {
-            if (stbInfo->useSampleTs) {
-                if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
-            }
-            if (generateSampleFromCsvForStb(
-                    stbInfo->sampleDataBuf, stbInfo->sampleFile,
-                    stbInfo->lenOfCols, g_arguments->prepared_rand)) {
-                return -1;
-            }
-        }
-        debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
+    stbInfo->sampleDataBuf =
+        calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
+    g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
+    if (stbInfo->random_data_source) {
+        generateRandData(stbInfo, stbInfo->sampleDataBuf, stbInfo->lenOfCols,
+                         stbInfo->columns, stbInfo->columnCount,
+                         g_arguments->prepared_rand, false);
     } else {
-        generateStmtBuffer(stbInfo);
+        if (stbInfo->useSampleTs) {
+            if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
+        }
+        if (generateSampleFromCsvForStb(stbInfo->sampleDataBuf,
+                                        stbInfo->sampleFile, stbInfo->lenOfCols,
+                                        g_arguments->prepared_rand)) {
+            return -1;
+        }
     }
+    debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
+
     if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
         stbInfo->tagDataBuf =
             calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
@@ -752,9 +922,12 @@ int prepare_sample_data(int db_index, int stb_index) {
         } else {
             generateRandData(stbInfo, stbInfo->tagDataBuf, stbInfo->lenOfTags,
                              stbInfo->tags, stbInfo->tagCount,
-                             stbInfo->childTblCount);
+                             stbInfo->childTblCount, true);
         }
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
+    }
+    if (stbInfo->iface == STMT_IFACE) {
+        generateStmtBuffer(stbInfo);
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {

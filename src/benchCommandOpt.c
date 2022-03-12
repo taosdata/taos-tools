@@ -790,6 +790,7 @@ void modify_argument() {
             superTable->columns = tmp_col;
             for (int i = superTable->columnCount;
                  i < g_arguments->intColumnCount; ++i) {
+                memset(&superTable->columns[i], 0, sizeof(Column));
                 superTable->columns[i].type = TSDB_DATA_TYPE_INT;
                 superTable->columns[i].length = sizeof(int32_t);
             }

@@ -89,9 +89,6 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
-            if (length == 0) {
-                superTbls->columns[index].null = true;
-            }
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
                 case TSDB_DATA_TYPE_BOOL:

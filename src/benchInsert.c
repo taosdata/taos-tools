@@ -43,6 +43,22 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             columnIndex++;
         }
     }
+    int32_t *tmp_length_list = calloc(columnIndex, sizeof(int32_t));
+    if (columnIndex == stbInfo->columnCount) {
+        for (int i = 0; i < stbInfo->columnCount; ++i) {
+            if (stbInfo->columns[i].length == 0) {
+                tmp_length_list[i] = 0;
+            } else {
+                tmp_length_list[i] = 1;
+            }
+        }
+    }
+    for (int i = 0; i < stbInfo->tagCount; ++i) {
+        tmfree(stbInfo->tags[i].name);
+    }
+    for (int i = 0; i < stbInfo->columnCount; ++i) {
+        tmfree(stbInfo->columns[i].name);
+    }
     stbInfo->tagCount = tagIndex;
     tmfree(stbInfo->tags);
     stbInfo->tags = calloc(tagIndex, sizeof(Column));
@@ -128,6 +144,9 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             }
             stbInfo->tags[tagIndex].length =
                 *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
+            stbInfo->tags[tagIndex].max = RAND_MAX >> 1;
+            stbInfo->tags[tagIndex].min = (RAND_MAX >> 1) * -1;
+
             tagIndex++;
         } else {
             if (0 == strncasecmp((char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
@@ -198,13 +217,25 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             } else {
                 stbInfo->columns[columnIndex].type = TSDB_DATA_TYPE_NULL;
             }
-            stbInfo->columns[columnIndex].length =
-                *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-
+            if (tmp_length_list[columnIndex] != 0) {
+                stbInfo->columns[columnIndex].length =
+                    *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
+            } else {
+                stbInfo->columns[columnIndex].length = 0;
+            }
+            stbInfo->columns[columnIndex].max = RAND_MAX >> 1;
+            stbInfo->columns[columnIndex].min = (RAND_MAX >> 1) * -1;
+            stbInfo->columns[columnIndex].name = calloc(
+                1,
+                sizeof(strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX])) +
+                    1);
+            tstrncpy(stbInfo->columns[columnIndex].name,
+                     (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
             columnIndex++;
         }
     }
-
+    tmfree(tmp_length_list);
     taos_free_result(res);
 
     return 0;
@@ -715,18 +746,17 @@ void postFreeResource() {
             tmfree(database[i].superTbls[j].tagDataBuf);
             tmfree(database[i].superTbls[j].stmt_buffer);
             tmfree(database[i].superTbls[j].partialColumnNameBuf);
-            if (database[i].superTbls[j].tags) {
-                for (int k = 0; k < database[i].superTbls[j].tagCount; ++k) {
-                    tmfree(database[i].superTbls[j].tags[k].name);
-                }
-                tmfree(database[i].superTbls[j].tags);
+            for (int k = 0; k < database[i].superTbls[j].tagCount; ++k) {
+                tmfree(database[i].superTbls[j].tags[k].name);
+                tmfree(database[i].superTbls[j].tags[k].data);
             }
-            if (database[i].superTbls[j].columns) {
-                for (int k = 0; k < database[i].superTbls[j].columnCount; ++k) {
-                    tmfree(database[i].superTbls[j].columns[k].name);
-                }
-                tmfree(database[i].superTbls[j].columns);
+            tmfree(database[i].superTbls[j].tags);
+
+            for (int k = 0; k < database[i].superTbls[j].columnCount; ++k) {
+                tmfree(database[i].superTbls[j].columns[k].name);
+                tmfree(database[i].superTbls[j].columns[k].data);
             }
+            tmfree(database[i].superTbls[j].columns);
             if (g_arguments->test_mode == INSERT_TEST &&
                 database[i].superTbls[j].insertRows != 0) {
                 for (int64_t k = 0; k < database[i].superTbls[j].childTblCount;
@@ -1003,7 +1033,7 @@ static void *syncWriteInterlace(void *sarg) {
                             snprintf(
                                 pThreadInfo->lines[generated],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
-                                "%s %" PRId64 " %s%s", stbInfo->stbName,
+                                "%s %" PRId64 " %s %s", stbInfo->stbName,
                                 timestamp,
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
@@ -1276,7 +1306,7 @@ void *syncWriteProgressive(void *sarg) {
                             snprintf(
                                 pThreadInfo->lines[j],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
-                                "%s %" PRId64 " %s%s", stbInfo->stbName,
+                                "%s %" PRId64 " %s %s", stbInfo->stbName,
                                 timestamp,
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
@@ -1646,7 +1676,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                         generateRandData(
                             stbInfo, pThreadInfo->sml_tags[t],
                             stbInfo->lenOfCols + stbInfo->lenOfTags,
-                            stbInfo->tags, stbInfo->tagCount, 1);
+                            stbInfo->tags, stbInfo->tagCount, 1, true);
                         debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }
