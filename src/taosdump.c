@@ -1263,7 +1263,7 @@ static int dumpCreateMTableClause(
                     pstr += sprintf(pstr, ",\'%s\'", tableDes->cols[counter].value);
                 }
             } else {
-                pstr += sprintf(pstr, ",\'%s\'", tableDes->cols[counter].value);
+                pstr += sprintf(pstr, ",%s", tableDes->cols[counter].value);
             }
         } else {
             if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
@@ -1275,7 +1275,7 @@ static int dumpCreateMTableClause(
                     pstr += sprintf(pstr,"\'%s\'", tableDes->cols[counter].value);
                 }
             } else {
-                pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].value);
+                pstr += sprintf(pstr, "%s", tableDes->cols[counter].value);
             }
             /* pstr += sprintf(pstr, "%s", tableDes->cols[counter].note); */
         }
