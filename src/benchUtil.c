@@ -15,13 +15,13 @@
 
 #include "bench.h"
 
-void tmfclose(FILE *fp) {
+inline void tmfclose(FILE *fp) {
     if (NULL != fp) {
         fclose(fp);
     }
 }
 
-void tmfree(void *buf) {
+inline void tmfree(void *buf) {
     if (NULL != buf) {
         free(buf);
         buf = NULL;
@@ -137,7 +137,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 int convertHostToServAddr(char *host, uint16_t port,
                           struct sockaddr_in *serv_addr) {
     if (!host) {
-      host = "localhost";
+        host = "localhost";
     }
     debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host, port);
     struct hostent *server = gethostbyname(host);

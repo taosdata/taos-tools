@@ -18,41 +18,15 @@
 
 #include "bench.h"
 /***** Global variables ******/
-
-extern int8_t *  g_randbool;
-extern int8_t *  g_randtinyint;
-extern uint8_t * g_randutinyint;
-extern int16_t * g_randsmallint;
-extern uint16_t *g_randusmallint;
-extern int32_t * g_randint;
-extern uint32_t *g_randuint;
-extern int64_t * g_randbigint;
-extern uint64_t *g_randubigint;
-extern float *   g_randfloat;
-extern double *  g_randdouble;
-extern char *    g_randbool_buff;
-extern char *    g_randint_buff;
-extern char *    g_randuint_buff;
-extern char *    g_rand_voltage_buff;
-extern char *    g_randbigint_buff;
-extern char *    g_randubigint_buff;
-extern char *    g_randsmallint_buff;
-extern char *    g_randusmallint_buff;
-extern char *    g_randtinyint_buff;
-extern char *    g_randutinyint_buff;
-extern char *    g_randfloat_buff;
-extern char *    g_rand_current_buff;
-extern char *    g_rand_phase_buff;
-extern char *    g_rand_groupid_buff;
-extern char *    g_randdouble_buff;
 /***** Declare functions *****/
-int     init_rand_data();
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
+void    generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
+                         int lenOfOneRow, Column *columns, int count, int loop,
+                         bool tag);
 void    generateStmtBuffer(SSuperTable *stbInfo);
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int prepare_sample_data(int a, int b);
-int32_t generateSmlTags(char *sml, SSuperTable *stbInfo);
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq);
 int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,

@@ -39,10 +39,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             col_count++;
         }
     }
-    superTbls->col_type = (char *)calloc(col_count, sizeof(char));
-    superTbls->col_length = (int32_t *)calloc(col_count, sizeof(int32_t));
-    superTbls->col_null = (bool *)calloc(col_count, sizeof(bool));
+    superTbls->columns = calloc(col_count, sizeof(Column));
     for (int k = 0; k < columnSize; ++k) {
+        bool   customName = false;
+        bool   customMax = false;
+        bool   customMin = false;
         cJSON *column = cJSON_GetArrayItem(columns, k);
         if (column == NULL) continue;
 
@@ -54,17 +55,40 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             count = 1;
         }
 
+        cJSON *dataName = cJSON_GetObjectItem(column, "name");
+        if (dataName && dataName->type == cJSON_String &&
+            dataName->valuestring != NULL) {
+            customName = true;
+        }
+
         // column info
         cJSON *dataType = cJSON_GetObjectItem(column, "type");
         if (!dataType || dataType->type != cJSON_String) goto PARSE_OVER;
+
+        cJSON *dataMax = cJSON_GetObjectItem(column, "max");
+        if (dataMax && cJSON_IsNumber(dataMax) &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_BINARY &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_NCHAR) {
+            customMax = true;
+        }
+
+        cJSON *dataMin = cJSON_GetObjectItem(column, "min");
+        if (dataMin && cJSON_IsNumber(dataMin) &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_BINARY &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_NCHAR) {
+            customMin = true;
+        }
+
+        cJSON *dataValues = cJSON_GetObjectItem(column, "values");
 
         cJSON * dataLen = cJSON_GetObjectItem(column, "len");
         int32_t length;
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
-            if (length == 0) {
-                superTbls->col_null[index] = true;
-            }
         } else {
             switch (taos_convert_string_to_datatype(dataType->valuestring)) {
                 case TSDB_DATA_TYPE_BOOL:
@@ -98,9 +122,33 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
 
         for (int n = 0; n < count; ++n) {
-            superTbls->col_type[index] =
+            superTbls->columns[index].name = calloc(1, TSDB_COL_NAME_LEN);
+            superTbls->columns[index].type =
                 taos_convert_string_to_datatype(dataType->valuestring);
-            superTbls->col_length[index] = length;
+            superTbls->columns[index].length = length;
+            if (customMax) {
+                superTbls->columns[index].max = dataMax->valueint;
+            } else {
+                superTbls->columns[index].max = RAND_MAX >> 1;
+            }
+            if (customMin) {
+                superTbls->columns[index].min = dataMin->valueint;
+            } else {
+                superTbls->columns[index].min = (RAND_MAX >> 1) * -1;
+            }
+            superTbls->columns[index].values = dataValues;
+
+            if (customName) {
+                if (n >= 1) {
+                    sprintf(superTbls->columns[index].name, "%s_%d",
+                            dataName->valuestring, n);
+                } else {
+                    sprintf(superTbls->columns[index].name, "%s",
+                            dataName->valuestring);
+                }
+            } else {
+                sprintf(superTbls->columns[index].name, "c%d", index);
+            }
             index++;
         }
     }
@@ -127,15 +175,14 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
     }
 
     superTbls->use_metric = true;
-    superTbls->tag_type = calloc(tag_count, sizeof(char));
-    superTbls->tag_null = calloc(tag_count, sizeof(bool));
-    superTbls->tag_length = calloc(tag_count, sizeof(int32_t));
-
+    superTbls->tags = calloc(tag_count, sizeof(Column));
     // superTbls->tagCount = tagSize;
     for (int k = 0; k < tagSize; ++k) {
         cJSON *tag = cJSON_GetArrayItem(tags, k);
         if (tag == NULL) continue;
-
+        bool   customMax = false;
+        bool   customMin = false;
+        bool   customName = false;
         cJSON *dataType = cJSON_GetObjectItem(tag, "type");
         if (!dataType || dataType->type != cJSON_String) goto PARSE_OVER;
         int    data_length = 0;
@@ -174,6 +221,31 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             }
         }
 
+        cJSON *dataMax = cJSON_GetObjectItem(tag, "max");
+        if (dataMax && cJSON_IsNumber(dataMax) &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_BINARY &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_NCHAR) {
+            customMax = true;
+        }
+
+        cJSON *dataMin = cJSON_GetObjectItem(tag, "min");
+        if (dataMin && cJSON_IsNumber(dataMin) &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_BINARY &&
+            taos_convert_string_to_datatype(dataType->valuestring) !=
+                TSDB_DATA_TYPE_NCHAR) {
+            customMin = true;
+        }
+
+        cJSON *dataValues = cJSON_GetObjectItem(tag, "values");
+
+        cJSON *dataName = cJSON_GetObjectItem(tag, "name");
+        if (dataName && dataName->type == cJSON_String &&
+            dataName->valuestring != NULL) {
+            customName = true;
+        }
         cJSON *countObj = cJSON_GetObjectItem(tag, "count");
         if (countObj && countObj->type == cJSON_Number) {
             count = (int)countObj->valueint;
@@ -183,17 +255,46 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         if ((tagSize == 1) &&
             (0 == strcasecmp(dataType->valuestring, "JSON"))) {
-            superTbls->tag_type[0] = TSDB_DATA_TYPE_JSON;
-            superTbls->tag_length[0] = data_length;
+            superTbls->tags[0].name = calloc(1, TSDB_COL_NAME_LEN);
+            if (customName) {
+                sprintf(superTbls->tags[0].name, "%s", dataName->valuestring);
+            } else {
+                sprintf(superTbls->tags[0].name, "jtag");
+            }
+            superTbls->tags[0].type = TSDB_DATA_TYPE_JSON;
+            superTbls->tags[0].length = data_length;
             superTbls->tagCount = count;
             code = 0;
             goto PARSE_OVER;
         }
 
         for (int n = 0; n < count; ++n) {
-            superTbls->tag_type[index] =
+            superTbls->tags[index].name = calloc(1, TSDB_COL_NAME_LEN);
+            if (customMax) {
+                superTbls->tags[index].max = dataMax->valueint;
+            } else {
+                superTbls->tags[index].max = RAND_MAX >> 1;
+            }
+            if (customMin) {
+                superTbls->tags[index].min = dataMin->valueint;
+            } else {
+                superTbls->tags[index].min = (RAND_MAX >> 1) * -1;
+            }
+            superTbls->tags[index].values = dataValues;
+            if (customName) {
+                if (n >= 1) {
+                    sprintf(superTbls->tags[index].name, "%s_%d",
+                            dataName->valuestring, n);
+                } else {
+                    sprintf(superTbls->tags[index].name, "%s",
+                            dataName->valuestring);
+                }
+            } else {
+                sprintf(superTbls->tags[index].name, "t%d", index);
+            }
+            superTbls->tags[index].type =
                 taos_convert_string_to_datatype(dataType->valuestring);
-            superTbls->tag_length[index] = data_length;
+            superTbls->tags[index].length = data_length;
             index++;
         }
     }
@@ -290,12 +391,8 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
 
     int dbSize = cJSON_GetArraySize(dbs);
     if (dbSize > MAX_DB_COUNT) goto PARSE_OVER;
-    tmfree(g_arguments->db->superTbls->col_length);
-    tmfree(g_arguments->db->superTbls->col_type);
-    tmfree(g_arguments->db->superTbls->col_null);
-    tmfree(g_arguments->db->superTbls->tag_type);
-    tmfree(g_arguments->db->superTbls->tag_length);
-    tmfree(g_arguments->db->superTbls->tag_null);
+    tmfree(g_arguments->db->superTbls->columns);
+    tmfree(g_arguments->db->superTbls->tags);
     tmfree(g_arguments->db->superTbls);
     tmfree(g_arguments->db);
     g_arguments->db = calloc(dbSize, sizeof(SDataBase));
