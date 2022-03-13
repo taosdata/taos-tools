@@ -699,14 +699,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             g_args.allow_sys = true;
             break;
 
-        case 'n':
-            g_args.escape_char = false;
-            break;
-
-        case 'L':
-            g_args.loose_mode = true;
-            break;
-
         case 'h':
             g_args.host = arg;
             break;
@@ -836,19 +828,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.data_batch = MAX_RECORDS_PER_REQ/2;
             }
             break;
-            /*
-        case 'L':
-            {
-                int32_t len = atoi((const char *)arg);
-                if (len > TSDB_MAX_ALLOWED_SQL_LEN) {
-                    len = TSDB_MAX_ALLOWED_SQL_LEN;
-                } else if (len < TSDB_MAX_SQL_LEN) {
-                    len = TSDB_MAX_SQL_LEN;
-                }
-                g_args.max_sql_len = len;
-                break;
-            }
-            */
+
         case 'T':
             if (!isStringNumber(arg)) {
                 errorPrint("%s", "\n\t-T need a number following!\n");
@@ -924,6 +904,12 @@ static void parse_args(
                         SHELL_MAX_PASSWORD_LEN);
                 strcpy(argv[i], "-p");
             }
+        } else if (strcmp(argv[i], "-n") == 0) {
+            g_args.escape_char = false;
+            strcpy(argv[i], "");
+        } else if (strcmp(argv[i], "-L") == 0) {
+            g_args.loose_mode = true;
+            strcpy(argv[i], "");
         } else if (strcmp(argv[i], "-gg") == 0) {
             arguments->verbose_print = true;
             strcpy(argv[i], "");
