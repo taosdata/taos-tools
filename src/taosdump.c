@@ -5529,6 +5529,10 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
                 taostools_ver, taosdump_commit);
     fwrite(buffer, strlen(buffer), 1, fp);
 
+    snprintf(buffer, BUFFER_LEN, "#!escape_char: %s\n",
+                g_args.escape_char?"true":"false");
+    fwrite(buffer, strlen(buffer), 1, fp);
+
     strcpy(sqlstr, "SHOW VARIABLES");
 
     TAOS_RES* res = taos_query(taos, sqlstr);
