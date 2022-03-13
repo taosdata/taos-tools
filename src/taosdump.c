@@ -377,6 +377,7 @@ static struct argp_option options[] = {
     {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement when restore back. Default value is 16384. If you see 'WAL size exceeds limit' error, please adjust the value to a smaller one and try. The workable value is related to the length of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
+    {"loose-mode",  'L', "LOOSE_MODE",  0,  "Using loose mode if the table name and column name use letter and number only. Default is NOT.", 10},
     {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -417,6 +418,7 @@ typedef struct arguments {
     int32_t  max_sql_len;
     bool     allow_sys;
     bool     escape_char;
+    bool     loose_mode;
     // other options
     int32_t  thread_num;
     int      abort;
@@ -471,6 +473,7 @@ struct arguments g_args = {
     TSDB_MAX_SQL_LEN,   // max_sql_len
     false,      // allow_sys
     true,       // escape_char
+    false,      // loose_mode
     // other options
     8,          // thread_num
     0,          // abort
@@ -698,6 +701,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
         case 'n':
             g_args.escape_char = false;
+            break;
+
+        case 'L':
+            g_args.loose_mode = true;
             break;
 
         case 'h':
@@ -5533,6 +5540,10 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
                 g_args.escape_char?"true":"false");
     fwrite(buffer, strlen(buffer), 1, fp);
 
+    snprintf(buffer, BUFFER_LEN, "#!loose_mode: %s\n",
+                g_args.loose_mode?"true":"false");
+    fwrite(buffer, strlen(buffer), 1, fp);
+
     strcpy(sqlstr, "SHOW VARIABLES");
 
     TAOS_RES* res = taos_query(taos, sqlstr);
@@ -6651,6 +6662,7 @@ void printArgs(FILE *file)
     fprintf(file, "thread_num: %d\n", g_args.thread_num);
     fprintf(file, "allow_sys: %s\n", g_args.allow_sys?"true":"false");
     fprintf(file, "escape_char: %s\n", g_args.escape_char?"true":"false");
+    fprintf(file, "loose_mode: %s\n", g_args.loose_mode?"true":"false");
     // should not print abort
     // fprintf(file, "abort: %d\n", g_args.abort);
     fprintf(file, "isDumpIn: %d\n", g_args.isDumpIn);
