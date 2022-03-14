@@ -766,17 +766,7 @@ void postFreeResource() {
             }
             tmfree(database[i].superTbls[j].childTblName);
             if (database[i].superTbls[j].iface == STMT_IFACE) {
-                for (int k = 0; k < database[i].superTbls[j].columnCount; ++k) {
-                    tmfree(database[i].superTbls[j].stmt_col_string_grid[k]);
-                }
-                tmfree(database[i].superTbls[j].stmt_col_string_grid);
                 if (database[i].superTbls[j].autoCreateTable) {
-                    for (int k = 0; k < database[i].superTbls[j].tagCount;
-                         ++k) {
-                        tmfree(
-                            database[i].superTbls[j].stmt_tag_string_grid[k]);
-                    }
-                    tmfree(database[i].superTbls[j].stmt_tag_string_grid);
                     for (int k = 0; k < database[i].superTbls[j].childTblCount;
                          ++k) {
                         tmfree(database[i].superTbls[j].tag_bind_array[k]);
