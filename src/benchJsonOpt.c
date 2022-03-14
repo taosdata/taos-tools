@@ -625,6 +625,9 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                     superTable->iface = REST_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                     superTable->iface = STMT_IFACE;
+                    if (g_arguments->reqPerReq > INT16_MAX) {
+                        g_arguments->reqPerReq = INT16_MAX;
+                    }
                     if (g_arguments->reqPerReq > g_arguments->prepared_rand) {
                         g_arguments->prepared_rand = g_arguments->reqPerReq;
                     }
