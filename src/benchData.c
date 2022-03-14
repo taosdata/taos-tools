@@ -97,6 +97,7 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
             tag->buffer_type = stbInfo->tags[j].type;
             tag->buffer_length = stbInfo->tags[j].length;
             tag->length = &tag->buffer_length;
+            tag->buffer = stbInfo->tags[j].data;
             tag->is_null = NULL;
         }
     }
