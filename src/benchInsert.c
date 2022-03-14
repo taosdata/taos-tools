@@ -44,6 +44,7 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
         }
     }
     int32_t *tmp_length_list = calloc(columnIndex, sizeof(int32_t));
+    columnIndex -= 1;
     if (columnIndex == stbInfo->columnCount) {
         for (int i = 0; i < stbInfo->columnCount; ++i) {
             if (stbInfo->columns[i].length == 0) {
@@ -51,6 +52,10 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             } else {
                 tmp_length_list[i] = 1;
             }
+        }
+    } else {
+        for (int i = 0; i < columnIndex; ++i) {
+            tmp_length_list[i] = 1;
         }
     }
     for (int i = 0; i < stbInfo->tagCount; ++i) {
@@ -63,7 +68,8 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     tmfree(stbInfo->tags);
     stbInfo->tags = calloc(tagIndex, sizeof(Column));
     tmfree(stbInfo->columns);
-    stbInfo->columns = calloc(stbInfo->columnCount, sizeof(Column));
+    stbInfo->columnCount = columnIndex;
+    stbInfo->columns = calloc(columnIndex, sizeof(Column));
     taos_free_result(res);
     res = taos_query(taos, command);
     code = taos_errno(res);
