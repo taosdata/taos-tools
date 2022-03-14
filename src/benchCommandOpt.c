@@ -741,6 +741,12 @@ void modify_argument() {
     SSuperTable *superTable = g_arguments->db->superTbls;
     if (init_taos_list()) exit(EXIT_FAILURE);
 
+    if (g_arguments->db->superTbls->iface == STMT_IFACE) {
+        if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
+            g_arguments->prepared_rand = g_arguments->reqPerReq;
+        }
+    }
+
     for (int i = 0; i < superTable->columnCount; ++i) {
         if (superTable->columns[i].length == 0) {
             superTable->columns[i].length = g_arguments->binwidth;

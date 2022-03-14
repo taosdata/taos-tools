@@ -625,6 +625,9 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                     superTable->iface = REST_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                     superTable->iface = STMT_IFACE;
+                    if (g_arguments->reqPerReq > g_arguments->prepared_rand) {
+                        g_arguments->prepared_rand = g_arguments->reqPerReq;
+                    }
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                     superTable->iface = SML_IFACE;
                 } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
@@ -695,9 +698,9 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                         toolsGetTimestamp(database->dbCfg.precision);
                 } else {
                     if (toolsParseTime(ts->valuestring,
-                                        &(superTable->startTimestamp),
-                                        (int32_t)strlen(ts->valuestring),
-                                        database->dbCfg.precision, 0)) {
+                                       &(superTable->startTimestamp),
+                                       (int32_t)strlen(ts->valuestring),
+                                       database->dbCfg.precision, 0)) {
                         errorPrint("failed to parse time %s\n",
                                    ts->valuestring);
                         return -1;

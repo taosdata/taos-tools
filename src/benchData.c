@@ -769,8 +769,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                     g_arguments->chinese);
                     }
                     if (iface == STMT_IFACE) {
-                        sprintf((char *)columns[i].data +
-                                    k * (columns[i].length + 1),
+                        sprintf((char *)columns[i].data + k * columns[i].length,
                                 "%s", tmp);
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
