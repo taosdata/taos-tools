@@ -624,7 +624,7 @@ TAOS *select_one_from_pool(char *db_name) {
         int code = taos_select_db(taos, db_name);
         if (code) {
             errorPrint("failed to select %s, reason: %s\n", db_name,
-                       tstrerror(code));
+                       taos_errstr(NULL));
             return NULL;
         }
     }
