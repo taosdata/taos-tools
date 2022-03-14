@@ -330,7 +330,12 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     int32_t pos = 0;
     if (iface == STMT_IFACE) {
         for (int i = 0; i < count; ++i) {
-            columns[i].data = calloc(1, loop * columns[i].length);
+            if (columns[i].type == TSDB_DATA_TYPE_BINARY ||
+                columns[i].type == TSDB_DATA_TYPE_NCHAR) {
+                columns[i].data = calloc(1, loop * (columns[i].length + 1));
+            } else {
+                columns[i].data = calloc(1, loop * columns[i].length);
+            }
         }
     }
     for (int k = 0; k < loop; ++k) {
@@ -763,7 +768,8 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                     g_arguments->chinese);
                     }
                     if (iface == STMT_IFACE) {
-                        sprintf((char *)columns[i].data + k * columns[i].length,
+                        sprintf((char *)columns[i].data +
+                                    k * (columns[i].length + 1),
                                 "%s", tmp);
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
