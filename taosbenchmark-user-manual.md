@@ -113,7 +113,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
         "use_sample_ts": "no",
         "tags_file": "",
         "columns": [{"type": "INT", "name": "id"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
-        "tags": [{"type": "TINYINT", "count":2, "max": 10, "min": 98}, {"type": "BINARY", "len": 16, "count":5, values: ["beijing","shanghai"]}]
+        "tags": [{"type": "TINYINT", "count":2, "max": 10, "min": 98}, {"type": "BINARY", "len": 16, "count":5, "values":["beijing","shanghai"]}]
         }]
       }]
 }
