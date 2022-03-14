@@ -97,27 +97,17 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
             tag->buffer_type = stbInfo->tags[j].type;
             tag->buffer_length = stbInfo->tags[j].length;
             tag->length = &tag->buffer_length;
+            tag->buffer = stbInfo->tags[j].data;
             tag->is_null = NULL;
-            if (stbInfo->tags[j].type == TSDB_DATA_TYPE_BINARY ||
-                stbInfo->tags[j].type == TSDB_DATA_TYPE_NCHAR) {
-                tag->buffer = stbInfo->stmt_tag_string_grid[j] +
-                              i * stbInfo->tags[j].length;
-            } else {
-                tag->buffer =
-                    stbInfo->tags[j].data + i * stbInfo->tags[j].length;
-            }
         }
     }
 }
 
 void generateStmtBuffer(SSuperTable *stbInfo) {
     int len = 0;
-    int tagCount = stbInfo->tagCount;
     stbInfo->stmt_buffer = calloc(1, BUFFER_SIZE);
     g_memoryUsage += BUFFER_SIZE;
     if (stbInfo->autoCreateTable) {
-        stbInfo->stmt_tag_string_grid = calloc(tagCount, sizeof(char *));
-        g_memoryUsage += tagCount * sizeof(char *);
         len += sprintf(stbInfo->stmt_buffer + len,
                        "INSERT INTO ? USING `%s` TAGS (", stbInfo->stbName);
         for (int i = 0; i < stbInfo->tagCount; ++i) {
@@ -125,18 +115,6 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
                 len += sprintf(stbInfo->stmt_buffer + len, "?");
             } else {
                 len += sprintf(stbInfo->stmt_buffer + len, ",?");
-            }
-            if (stbInfo->tags[i].type == TSDB_DATA_TYPE_NCHAR ||
-                stbInfo->tags[i].type == TSDB_DATA_TYPE_BINARY) {
-                stbInfo->stmt_tag_string_grid[i] = calloc(
-                    1, stbInfo->childTblCount * (stbInfo->tags[i].length + 1));
-                g_memoryUsage +=
-                    stbInfo->childTblCount * (stbInfo->tags[i].length + 1);
-                for (int j = 0; j < stbInfo->childTblCount; ++j) {
-                    rand_string(stbInfo->stmt_tag_string_grid[i] +
-                                    j * stbInfo->tags[i].length,
-                                stbInfo->tags[i].length, g_arguments->chinese);
-                }
             }
         }
         len += sprintf(stbInfo->stmt_buffer + len, ") VALUES(?");
@@ -146,22 +124,8 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
     }
 
     int columnCount = stbInfo->columnCount;
-    stbInfo->stmt_col_string_grid = calloc(columnCount, sizeof(char *));
-    g_memoryUsage += columnCount * sizeof(char *);
     for (int col = 0; col < columnCount; col++) {
         len += sprintf(stbInfo->stmt_buffer + len, ",?");
-        if (stbInfo->columns[col].type == TSDB_DATA_TYPE_NCHAR ||
-            stbInfo->columns[col].type == TSDB_DATA_TYPE_BINARY) {
-            stbInfo->stmt_col_string_grid[col] = calloc(
-                1, g_arguments->reqPerReq * (stbInfo->columns[col].length + 1));
-            g_memoryUsage +=
-                g_arguments->reqPerReq * (stbInfo->columns[col].length + 1);
-            for (int i = 0; i < g_arguments->reqPerReq; ++i) {
-                rand_string(stbInfo->stmt_col_string_grid[col] +
-                                i * stbInfo->columns[col].length,
-                            stbInfo->columns[col].length, g_arguments->chinese);
-            }
-        }
     }
     sprintf(stbInfo->stmt_buffer + len, ")");
     debugPrint("stmtBuffer: %s\n", stbInfo->stmt_buffer);
@@ -367,7 +331,12 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     int32_t pos = 0;
     if (iface == STMT_IFACE) {
         for (int i = 0; i < count; ++i) {
-            columns[i].data = calloc(1, loop * columns[i].length);
+            if (columns[i].type == TSDB_DATA_TYPE_BINARY ||
+                columns[i].type == TSDB_DATA_TYPE_NCHAR) {
+                columns[i].data = calloc(1, loop * (columns[i].length + 1));
+            } else {
+                columns[i].data = calloc(1, loop * columns[i].length);
+            }
         }
     }
     for (int k = 0; k < loop; ++k) {
@@ -798,6 +767,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     } else {
                         rand_string(tmp, columns[i].length,
                                     g_arguments->chinese);
+                    }
+                    if (iface == STMT_IFACE) {
+                        sprintf((char *)columns[i].data + k * columns[i].length,
+                                "%s", tmp);
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         columns[i].type == TSDB_DATA_TYPE_BINARY &&

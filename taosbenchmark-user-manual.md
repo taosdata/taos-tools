@@ -112,8 +112,8 @@ taosBenchmark can test TDengine's insertion, query and subscription
         "sample_file": "./sample.csv",
         "use_sample_ts": "no",
         "tags_file": "",
-        "columns": [{"type": "INT"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
-        "tags": [{"type": "TINYINT", "count":2}, {"type": "BINARY", "len": 16, "count":5}]
+        "columns": [{"type": "INT", "name": "id"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
+        "tags": [{"type": "TINYINT", "count":2, "max": 10, "min": 98}, {"type": "BINARY", "len": 16, "count":5, "values":["beijing","shanghai"]}]
         }]
       }]
 }
@@ -178,6 +178,10 @@ taosBenchmark can test TDengine's insertion, query and subscription
 | columns/tags | type                                    | data type, required                                          |
 | columns/tags | len                                     | length of data, valid for nchar and binary, default is 8     |
 | columns/tags | count                                   | number of consecutive of this column, default is 1           |
+| columns/tags | name                                    | name of this column, consecutive column name will be name_#{number}          |
+| columns/tags | min                                     | min value of numberic data type column/tag          |
+| columns/tags | max                                     | max value of numberic data type column/tag           |
+| columns/tags | values                                  | values for nchar/binary column/tag, will randomly selected from values           |
 
 ### 2、Query test json configuration file
 
