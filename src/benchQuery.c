@@ -73,13 +73,13 @@ static void *specifiedTableQuery(void *sarg) {
                         false);
         }
 
-        st = toolsGetTimestampMs();
+        st = toolsGetTimestampUs();
 
         selectAndGetResult(
             pThreadInfo,
             g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq]);
 
-        et = toolsGetTimestampMs();
+        et = toolsGetTimestampUs();
         uint64_t delay = et - st;
         total_delay_list[index] = delay;
         index++;
