@@ -2,22 +2,14 @@
 
 ## 简介
 
-taosBenchmark是一个用于TDengine的性能测试的应用程序。
-
-taosBenchmark可以测试TDengine的插入、查询和订阅功能。
-的功能，它可以模拟由大量设备产生的大量数据，并且可以灵活地控制
-它可以模拟大量设备产生的海量数据，还可以灵活地控制列的数量。
-数据类型、线程等。以前叫taosdemo，现在改名为
-为taosBenchmark，安装包提供taosdemo作为
-TaosBenchmark的软链接。
-配置，一种是命令行配置，另一种是
-[json文件](#taosbenchmark json-configuration-file)。
+taosBenchmark是一个用于TDengine的性能测试的应用程序。taosBenchmark可以测试TDengine的插入、查询和订阅功能，它可以模拟由大量设备产生的大量数据，还可以灵活地控制列的数量，数据类型、线程等。以前叫taosdemo，现在改名为为taosBenchmark，安装包提供taosdemo作为TaosBenchmark的软链接。
+配置，一种是命令行配置，另一种是[json文件](#taosbenchmark json-configuration-file)。
 
 ## taosBenchmark CLI选项
 
 | 选项名称                                               | 描述                                                    |
 |:---------------------------------------------------|-------------------------------------------------------|
-| [-f/--file](#taosbenchmarkjson-configuration-file) | json 配置文件                                             |
+| [-f/--file](#taosbenchmark json-configuration-file) | json 配置文件                                             |
 | -c/--config-dir                                    | 配置文件所在的目录，默认路径是/etc/taos/                             |
 | -h/--host                                          | 用于连接taosd服务器的FQDN，默认值为localhost。                      |
 | -P/--port                                          | 用于连接taosd服务器的端口号，默认值为6030。                            |
@@ -53,48 +45,48 @@ TaosBenchmark的软链接。
 
 ### 1、插入json配置文件
 
-````json
+```json
 {
     "filetype": "insert",
     "cfgdir": "/etc/taos",
     "host": "127.0.0.1",
-    "端口": 6030,
-    "用户": "root",
-    "密码": "taosdata",
+    "port": 6030,
+    "user": "root",
+    "password": "taosdata",
     "thread_count": 4,
-    "result_file": "./insert_res.txt"。
+    "result_file": "./insert_res.txt",
     "confirm_parameter_prompt": "no",
     "insert_interval": 0,
     "interlace_rows": 100,
     "num_of_records_per_req": 100,
     "prepared_rand": 10000,
-    "Chinese": "no",
-    "数据库": [{
+    "chinese":"no",
+    "databases": [{
     "dbinfo": {
       "name": "db",
       "drop": "yes",
       "replica": 1,
-      "天数": 10,
+      "days": 10,
       "cache": 16,
-      "块": 8,
-      "精度": "ms",
-      "保持": 3650,
+      "blocks": 8,
+      "precision": "ms",
+      "keep": 3650,
       "minRows": 100,
       "maxRows": 4096,
       "comp":2,
       "walLevel":1,
       "cachelast":0,
       "quorum":1,
-      "fsync":3000。
-      "更新"。0
+      "fsync":3000,
+      "update": 0
       },
       "super_tables": [{
         "name": "stb",
-        "child_table_exists": "no",
+        "child_table_exists":"no",
         "childtable_count": 100,
         "childtable_prefix": "stb_",
         "escape_character": "yes",
-        " batch_create_tbl_num": 5,
+        "batch_create_tbl_num": 5,
         "data_source": "rand",
         "insert_mode": "taosc",
         "line_protocol": "line",
@@ -107,12 +99,12 @@ TaosBenchmark的软链接。
         "disorder_range": 1000,
         "timestamp_step": 10,
         "start_timestamp": "2020-10-01 00:00:00.000",
-        " sample_format": "csv",
-        "sample_file": "./sample.csv"。
+        "sample_format": "csv",
+        "sample_file": "./sample.csv",
         "use_sample_ts": "no",
         "tags_file": "",
-        "列"。[{"类型": "INT", "name": "id"}, {"类型": "DOUBLE", "count":10}, {"type": "BINARY", "LEN": 16, "count":3}, {"type": "BINARY", "LEN": 32, "count":6}]。
-        "标签"。[{"类型": "TINYINT", "count":2, "max": 10, "min": 98}, {"类型": "BINARY", "LEN": 16, "count":5, "values":["beijing", "shanghai"]}]
+        "columns": [{"type": "INT", "name": "id"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
+        "tags": [{"type": "TINYINT", "count":2, "max": 10, "min": 98}, {"type": "BINARY", "len": 16, "count":5, "values":["beijing","shanghai"]}]
         }]
       }]
 }
@@ -123,91 +115,90 @@ TaosBenchmark的软链接。
 | 组 | 选项名称 | 描述 |
 | ------------ | --------------------------------------- | ------------------------------------------------------------ |
 | | filetype | 文件类型，指定哪种测试，对于插入测试，需要插入。
-| cfgdir | taos配置文件所在的目录，默认值是/etc/taos。
+| |cfgdir | taos配置文件所在的目录，默认值是/etc/taos。
 | | host | taosd服务器的FQDN，默认为localhost。
 | | port | taosd服务器的端口号，默认为6030。
-| 用户 | 连接taosd服务器的用户名，默认为root。
-| 密码 | 连接taosd服务器的密码，默认为taosdata。
+| |user | 连接taosd服务器的用户名，默认为root。
+| |password | 连接taosd服务器的密码，默认为taosdata。
 | | thread_count | 插入和创建表的线程数，默认为8。
 | | result_file | 保存输出结果的文件路径，默认为./output.txt。
 | | confirm_parameter_prompt | 在执行过程中传递确认提示，默认为无。
-| [insert_interval](#-i-insert-interval) | 插入隔行扫描模式的间隔时间，默认值为0
-| [interlace_rows](#-b-interlace-rows) | 每个子表的交错行数，默认值为0。
+| |[insert_interval](#-i-insert-interval) | 插入隔行扫描模式的间隔时间，默认值为0
+| |[interlace_rows](#-b-interlace-rows) | 每个子表的交错行数，默认值为0。
 | | num_of_records_per_req | 每个请求中的记录数，默认值为30000。
 | | [prepare_rand](#prepare_rand) | 随机产生的数据数量，默认值为10000 |
 | | chinese | nchar和binary都是rand中文，默认值为否。
 | dbinfo | name | 数据库名称，必填
 | dbinfo | drop | 插入测试前是否删除数据库，默认值为是。
 | dbinfo | replica | 复制的数量，默认值是1。
-| dbinfo | 天数 | 在文件中存储数据的时间跨度，默认值为10。
+| dbinfo | days | 在文件中存储数据的时间跨度，默认值为10。
 | dbinfo | cache | 内存块的大小，单位是MB，默认值是16。
 | dbinfo | blocks | 每个vnode(tsdb)中的缓存大小的内存块的数量，默认值为6。
 | dbinfo | precision | 数据库时间精度，默认值为 "ms" | dbinfo | keep | 数据库时间精度。
 | dbinfo | keep | 保留数据的天数，默认值为3650。
-| dbinfo | minRows     | 文件块中的最小记录数，默认值为100 | dbinfo | minRows | 文件块中的最大记录数，默认值为4096
-| 文件块中的最大记录数，默认值为4096。
+| dbinfo | minRows     | 文件块中的最小记录数，默认值为100 
+| dbinfo | minRows | 文件块中的最大记录数，默认值为4096
 | dbinfo | comp | 文件压缩标志，默认值为2。
 | dbinfo | walLevel | wal级别，默认值是1。
 | dbinfo | cachelast | 是否允许将每个表的最后一条记录保留在内存中，默认值为0
 | dbinfo | quorum | 异步写需要的确认次数，默认为1
 | dbinfo | fsync | 当wal设置为2时，fsync的间隔时间，单位为ms，默认值为3000。
 | dbinfo | update | 是否支持数据更新，默认值为0。
-| Super_tables | name | 超级表的名称，必须填写。
-| 子表是否已经存在，默认为否。
-| 超级表 | 子表_count | 子表的数量，必填
-| 子表名称的前缀，必须填写。
+| super_tables | name | 超级表的名称，必须填写。
+| super_tables | child_table_exists                      | 子表是否已经存在，默认为否。
+| super_tables | child_table_count | 子表的数量，必填
+| super_tables | childtable_prefix                       | 子表名称的前缀，必须填写。
 | Super_tables | escape_character | 超级表和子表的名称包括转义字符，默认为否。
 | Super_tables | batch_create_tbl_num | 为每个请求创建的子表数量，默认为10。
-| 超级表 | 数据源 | 数据资源类型 |
-| 插入模式，选项：taosc, rest, stmt, sml，默认为taosc。
-| 超级表格 | line_protocol | 仅当insert_mode为sml时有效，选项：line, telnet, json, 默认为line。
+| super_tables | data_source                             |  数据资源类型 |
+| super_tables | insert_mode                             | 插入模式，选项：taosc, rest, stmt, sml，默认为taosc。
+| super_tables | line_protocol | 仅当insert_mode为sml时有效，选项：line, telnet, json, 默认为line。
 | super_tables | insert_rows | 每个子表的记录数，默认为0。
-| 子表的偏移量，只有当drop为no，child_table_exists为yes时才有效。
+| super_tables | childtable_offset                       | 子表的偏移量，只有当drop为no，child_table_exists为yes时才有效。
 | super_tables | childtable_limit | 插入数据的子表数量，仅当drop为no且child_table_exists为yes时有效。
 | super_tables | interlace_rows | 每个子表的间隔行，默认为0。
-| 超级表格 | insert_interval | 两个请求之间的插入时间间隔，当interlace_rows大于0时有效。
-| Super_tables | [disorder_ratio](#-r-disorder-ratio) | 紊乱时间戳的数据比例，默认为0
-| Super_tables | [disorder_range](#-r--disorder-range) | 无序时间戳的范围，只有当disorder_ratio大于0时才有效，默认为1000。
-| Super_tables | timestamp_step | 每条记录的时间戳步骤，默认为1。
-| Super_tables | start_timestamp | 每个子表的时间戳起始值，默认值是现在。
+| super_tables | insert_interval | 两个请求之间的插入时间间隔，当interlace_rows大于0时有效。
+| super_tables | [disorder_ratio](#-r-disorder-ratio) | 紊乱时间戳的数据比例，默认为0
+| super_tables | [disorder_range](#-r--disorder-range) | 无序时间戳的范围，只有当disorder_ratio大于0时才有效，默认为1000。
+| super_tables | timestamp_step | 每条记录的时间戳步骤，默认为1。
+| super_tables | start_timestamp | 每个子表的时间戳起始值，默认值是现在。
 | super_tables | sample_format | 样本数据文件的类型，现在只支持csv。
 | super_tables | sample_file | 样本文件，仅当sample_source为 "sample "时有效。
-| 超级表格 | use_sample_ts | 样本文件是否包含时间戳，默认为否。
-| 标签数据样本文件，仅支持taosc、rest insert模式。
-| 列/标签 | 类型 | 数据类型，必填
-| 列/标签 | len | 数据长度，对nchar和binary有效，默认为8。
-| 列/标签 | count | 该列的连续数，默认为1。
+| super_tables| use_sample_ts | 样本文件是否包含时间戳，默认为否。
+| super_tables | tags_file | 标签数据样本文件，仅支持taosc、rest insert模式。
+| columns/tags | type  | 数据类型，必填
+| columns/tags | len | 数据长度，对nchar和binary有效，默认为8。
+| columns/tags | count | 该列的连续数，默认为1。
 | columns/tags | name | 这一列的名称，连续的列名将是name_#{number}。
-| 列/标签 | 最小值 | 数字数据类型列/标签的最小值
-| 列/标签 | 最大 | 数字数据类型列/标签的最大值
-| 列/标签 | 值 | nchar/binary列/标签的值，将从值中随机选择。
+| columns/tags | min | 数字数据类型列/标签的最小值
+| columns/tags | max | 数字数据类型列/标签的最大值
+| columns/tags | values | nchar/binary列/标签的值，将从值中随机选择。
 
 ###2、查询测试json配置文件
 
-````json
+```json
 {
   "filetype": "query",
   "cfgdir": "/etc/taos",
   "host": "127.0.0.1",
-  "端口": 6030,
-  "用户": "root",
-  "密码": "taosdata",
+  "port": 6030,
+  "user": "root",
+  "password": "taosdata",
   "confirm_parameter_prompt": "no",
   "databases": "db",
-  "查询时间"
-    "query_times": 2,
+  "query_times": 2,
   "query_mode": "taosc",
   "specified_table_query": {
     "query_interval": 1,
-    "并发的"。3,
+    "concurrent": 3,
     "sqls": [
       {
         "sql": "select last_row(*) from stb0 ",
-        "结果": "./query_res0.txt"
+        "result": "./query_res0.txt"
       },
       {
         "sql": "select count(*) from stb00_1",
-        "结果": "./query_res1.txt"
+        "result": "./query_res1.txt"
       }
      ]
    },
@@ -218,7 +209,7 @@ TaosBenchmark的软链接。
      "sqls": [
      {
        "sql": "select last_row(ts) from xxxx",
-       "结果": "./query_res2.txt"
+       "result": "./query_res2.txt"
       }
      ]
    }
@@ -230,15 +221,15 @@ TaosBenchmark的软链接。
 | 组 | 选项 | 描述 |
 | --------------------------------------- | ------------------------ | ------------------------------------------------------------ |
 | | filetype | 文件类型，指定哪种测试，对于查询测试，需要
-| cfgdir | taos配置文件所在的目录。
+| |cfgdir | taos配置文件所在的目录。
 | | host | taosd服务器的FQDN，默认为localhost。
 | | port | taosd服务器的端口号，默认为6030。
-| 用户 | 连接taosd服务器的用户名，默认为root。
-| 密码 | 连接taosd服务器的密码，默认为taosdata。
-| confirm_parameter_prompt | 在执行过程中传递确认提示，默认为否。
-| | 数据库的名称，需要
-| query_times | 查询次数 |
-|查询模式 |查询模式，选项：taosc和rest，默认为taosc。
+| |user | 连接taosd服务器的用户名，默认为root。
+| |password | 连接taosd服务器的密码，默认为taosdata。
+| |confirm_parameter_prompt | 在执行过程中传递确认提示，默认为否。
+| | database |数据库的名称，需要
+| |query_times | 查询次数 |
+| |query mode |查询模式，选项：taosc和rest，默认为taosc。
 | specified_table_query/super_table_query | query_interval | 查询时间间隔，单位是秒，默认是0
 | specified_table_query/super_table_query | concurrent/threads | 执行sql的线程数，默认为1。
 | super_table_query | stblname | supertable name, required |超级表名称。
@@ -247,26 +238,26 @@ TaosBenchmark的软链接。
 
 ###3、订阅json配置文件
 
-````json
+```json
 {
-  "filetype": "subscribe",
+  "filetype":"subscribe",
   "cfgdir": "/etc/taos",
   "host": "127.0.0.1",
-  "端口": 6030,
-  "用户": "root",
-  "密码": "taosdata",
+  "port": 6030,
+  "user": "root",
+  "password": "taosdata",
   "databases": "db",
   "confirm_parameter_prompt": "no",
   "specified_table_query":
     {
       "concurrent":1,
       "interval":0,
-      "重启": "是"。
-      "keepProgress": "yes",
+      "restart":"yes",
+      "keepProgress":"yes",
       "sqls": [
         {
           "sql": "select * from stb00_0 ;",
-          "结果"。"./subscribe_res0.txt"
+          "result": "./subscribe_res0.txt"
         }
         ]
       },
@@ -275,12 +266,12 @@ TaosBenchmark的软链接。
         "stblname": "stb0",
         "threads":1,
         "interval":10000,
-        "重启": "是"。
-        "keepProgress": "yes",
+        "restart":"yes",
+        "keepProgress":"yes",
         "sqls": [
         {
           "sql": "select * from xxxx where ts > '2021-02-25 11:35:00.000' ;",
-          "结果"。"./subscribe_res1.txt"
+          "result": "./subscribe_res1.txt"
         }]
       }
 }
@@ -291,13 +282,13 @@ TaosBenchmark的软链接。
 | 组 | 选项 | 描述 |
 | --------------------------------------- | ------------------------ | ------------------------------------------------------------ |
 | | filetype | 文件类型，指定哪种测试，对于订阅测试，需要
-| cfgdir | taos配置文件的目录。
+| |cfgdir | taos配置文件的目录。
 | | host | taosd服务器的FQDN，默认为localhost。
 | | port | taosd服务器的端口号，默认为6030。
-| 用户 | 连接taosd服务器的用户名，默认为root。
-| 密码 | 连接taosd服务器的密码，默认为taosdata。
-| 数据库 | 数据库名称，需要             
-| confirm_parameter_prompt | 在执行过程中是否通过确认提示。
+| |user | 连接taosd服务器的用户名，默认为root。
+| |password | 连接taosd服务器的密码，默认为taosdata。
+| |databases | 数据库名称，需要             
+| |confirm_parameter_prompt | 在执行过程中是否通过确认提示。
 | specified_table_query/super_table_query | concurrent/threads | 执行sql的线程数，默认为1。
 | specified_table_query/super_table_query | interval | 执行订阅的时间间隔，默认为0。
 | specified_table_query/super_table_query | restart | no: 继续之前的订阅，yes: 开始新的订阅。
