@@ -42,8 +42,8 @@
 #include <jansson.h>
 
 #define BUFFER_LEN              256             // use 256 as normal buffer length
-#define MAX_FILE_NAME_LEN       256             // max file name length on linux is 255
-#define MAX_PATH_LEN            4096            // max path length on linux is 4095
+#define MAX_FILE_NAME_LEN       256             // max file name length on Linux is 255
+#define MAX_PATH_LEN            4096            // max path length on Linux is 4095
 #define COMMAND_SIZE            65536
 #define MAX_RECORDS_PER_REQ     32766
 
@@ -302,7 +302,7 @@ char *g_avro_codec[] = {
     "invalid"
 };
 
-/* avro sectin begin */
+/* avro section begin */
 #define RECORD_NAME_LEN     64
 #define FIELD_NAME_LEN      64
 
@@ -1497,7 +1497,7 @@ static int getTableDes(
                             calloc(1, bufLenOfFloat + 1);
 
                         if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
                                     __func__, __LINE__);
                             taos_free_result(res);
                             return -1;
@@ -1529,7 +1529,7 @@ static int getTableDes(
                             calloc(1, bufLenOfDouble + 1);
 
                         if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
                                     __func__, __LINE__);
                             taos_free_result(res);
                             return -1;
@@ -1557,7 +1557,7 @@ static int getTableDes(
                                 1 + length[TSDB_SHOW_TABLES_NAME_INDEX]);
 
                         if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
                                     __func__, __LINE__);
                             taos_free_result(res);
                             return -1;
@@ -1584,7 +1584,7 @@ static int getTableDes(
                                 length[TSDB_SHOW_TABLES_NAME_INDEX] * 2);
 
                         if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory alalocation failed!\n",
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
                                     __func__, __LINE__);
                             taos_free_result(res);
                             return -1;
@@ -1611,7 +1611,7 @@ static int getTableDes(
                             tableDes->cols[i].var_value = calloc(1, nlen + 1);
 
                             if (NULL == tableDes->cols[i].var_value) {
-                                errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                errorPrint("%s() LN%d, memory allocation failed!\n",
                                         __func__, __LINE__);
                                 taos_free_result(res);
                                 return -1;
@@ -1635,7 +1635,7 @@ static int getTableDes(
                             tableDes->cols[i].var_value = calloc(1, nlen * 5);
 
                             if (NULL == tableDes->cols[i].var_value) {
-                                errorPrint("%s() LN%d, memory alalocation failed!\n",
+                                errorPrint("%s() LN%d, memory allocation failed!\n",
                                         __func__, __LINE__);
                                 taos_free_result(res);
                                 return -1;
@@ -2703,7 +2703,7 @@ static void print_json_aux(json_t *element, int indent)
 */
 
         default:
-            errorPrint("Unrecongnized JSON type %d\n", json_typeof(element));
+            errorPrint("Unrecognized JSON type %d\n", json_typeof(element));
     }
 }
 
@@ -4537,7 +4537,7 @@ static int64_t writeResultDebug(TAOS_RES *res, FILE *fp,
         fprintf(fp, "%s", tmpBuffer);
 
         if (totalRows >= lastRowsPrint) {
-            printf(" %"PRId64 " rows already be dumpout from %s.%s\n",
+            printf(" %"PRId64 " rows already be dump-out from %s.%s\n",
                     totalRows, dbName, tbName);
             lastRowsPrint += 5000000;
         }
@@ -5635,9 +5635,9 @@ static int64_t dumpInOneDebugFile(
         bool isRows = (0 == strncmp(cmd, "INSERT ", strlen("INSERT ")));
 
         if (queryDbImpl(taos, cmd)) {
-            errorPrint("%s() LN%d, error sql: lineno:%"PRId64", file:%s\n",
+            errorPrint("%s() LN%d, SQL: lineno:%"PRId64", file:%s\n",
                     __func__, __LINE__, lineNo, fileName);
-            fprintf(g_fpOfResult, "error sql: lineno:%"PRId64", file:%s\n",
+            fprintf(g_fpOfResult, "SQL: lineno:%"PRId64", file:%s\n",
                     lineNo, fileName);
             if (isRows)
                 failed ++;

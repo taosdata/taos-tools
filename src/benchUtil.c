@@ -242,7 +242,7 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     char    msgbuf[100] = {0};
 
     /* Compile regular expression */
-    if (regcomp(&regex, reg, cflags) != 0) ERROR_EXIT("Fail to regex\n");
+    if (regcomp(&regex, reg, cflags) != 0) ERROR_EXIT("Failed to regex compile\n");
 
     /* Execute regular expression */
     int reti = regexec(&regex, s, 0, NULL, 0);
