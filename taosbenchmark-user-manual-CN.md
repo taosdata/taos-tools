@@ -2,127 +2,99 @@
 
 ## 简介
 
-taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行TDengine的写入、查询和订阅功能的性能测试；也可以模拟大量设备产生海量数据的场景，能通过参数灵活控制表的列数、数据类型、并发线程数量等。taosBenchmark支持两种配置参数的方法，一种是命令行，另一种是配置json文件。
+taosBenchmark是一个用于TDengine的性能测试的应用程序。
 
-原来的taosdemo现在已经更名为taosBenchmark ，安装包同时提供了作为 taosBenchmark 软
-连接的 taosdemo，以兼容之前的用户习惯，建议后续使用 taosBenchmark。
+taosBenchmark可以测试TDengine的插入、查询和订阅功能。
+的功能，它可以模拟由大量设备产生的大量数据，并且可以灵活地控制
+它可以模拟大量设备产生的海量数据，还可以灵活地控制列的数量。
+数据类型、线程等。以前叫taosdemo，现在改名为
+为taosBenchmark，安装包提供taosdemo作为
+TaosBenchmark的软链接。
+配置，一种是命令行配置，另一种是
+[json文件](#taosbenchmark json-configuration-file)。
 
-## taosBenchmark 命令行参数：
+## taosBenchmark CLI选项
 
-```
+| 选项名称                                               | 描述                                                    |
+|:---------------------------------------------------|-------------------------------------------------------|
+| [-f/--file](#taosbenchmarkjson-configuration-file) | json 配置文件                                             |
+| -c/--config-dir                                    | 配置文件所在的目录，默认路径是/etc/taos/                             |
+| -h/--host                                          | 用于连接taosd服务器的FQDN，默认值为localhost。                      |
+| -P/--port                                          | 用于连接taosd服务器的端口号，默认值为6030。                            |
+| -I/--interface                                     | taosBenchmark如何插入数据，选项有taosc、rest、stmt、sml，默认值为taosc。 |
+| -u/--user                                          | 用于连接taosd服务器的用户名，默认值为root。                            |
+| -p/--password                                      | 用于连接taosd服务器的密码，默认值为taosdata。                         |
+| -o/--output                                        | 指定结果输出文件的路径，默认值为./output.txt。                         |
+| -T/--线程                                            | 指定插入数据的线程数，默认值为8                                      |
+| [-i/--insert-interval](#-i-insert-interval)        | 隔行插入模式的插入间隔，单位为ms，默认值为0。                              |
+| -S/--时间步长                                          | 每个子表中每条记录的插入时间戳步长，单位是ms，默认值是1                         |
+| [-B/--interlace-rows](#-b-interlace-rows)          | 向子表插入交错行的数量                                           |
+| -r/--rec-per-req                                   | 每次插入请求的记录数，默认值为30000                                  |
+| -t/--tables                                        | 子表的数量，默认值为10000。                                      |
+| -n/--records                                       | 每个子表插入的记录数，默认值为10000。                                 |
+| -d/--数据库                                           | 数据库的名称，默认值为test。                                      |
+| [-l/--columns](#-l--columns)                       | 子表的列数，将使用int数据类型的列。                                   |
+| [-A/--tag-type](#-a-tag-type)                      | 子表的标签的数据类型。                                           |
+| [-b/--data-type](#-b--data-type)                   | 子表的列的数据类型                                             |
+| -w/--binwidth                                      | nchar和二进制数据类型的默认长度，默认值为64。                            |
+| -m/--table-prefix                                  | 子表名称的前缀，默认值为d                                         |
+| -E/--转义字符                                          | 在稳定表和子表名称中使用转义字符，可选。                                  |
+| -C/--中文                                            | nchar和binary是基本的Unicode中文字符，可选。                       |
+| [-N/--normal-table](#-n-normal-table)              | 只创建正常表，不创建超级表，可选。                                     |
+| -M/--random                                        | 数据源是随机的，可选。                                           |
+| -x/--aggr-func                                     | 插入后查询聚合函数，可选。                                         |
+| -y/--answer-yes                                    | 通过确认提示继续，可选。                                          |
+| [-R/--disorder-range](#-r-disorder-range)          | 失序时间戳的范围，基于数据库的精度，默认值为1000                            |
+| [-O/--disorder](#-o-disorder)                      | 插入无序时间戳的数据的比例，默认为0。                                   |
+| -a/--replica                                       | 创建数据库时的副本数量，默认值为1。                                    |
+| -V/--version                                       | 显示版本信息并退出                                             |
+| -?/--help                                          | 显示帮助信息并退出。                                            |
+## taosBenchmark json 配置文件
 
--f: 指定taosBenchmark所需参数的配置json文件。使用该参数时，其他命令行参数失效，可选项。
+### 1、插入json配置文件
 
--c：配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。缺省值路径是 "/etc/taos"
-
--h：连接taosd服务的FQDN。缺省值为localhost。
-
--P：连接taosd服务的端口号。缺省值为6030。
-
--u：连接taosd服务的用户名。缺省值为root。
-
--p：连接taosd服务的密码。缺省值为taosdata。
-
--I：taosBenchmark插入数据的方式，可选项为taosc, rest, stmt, sml。缺省值为taosc。
-
--o：指定执行结果输出文件的路径。缺省值为./output.txt。
-
--T：指定插入数据时的并发线程数，不影响插入的数据总量，缺省值为8。
-
--i：指定每次请求插入的时间间隔，单位为毫秒(ms)，缺省值为0。
-
--S：指定每张子表的每条记录插入时间戳步长，单位为毫秒，缺省值为1。
-
--B：子表交错写入的行数，若为0，则按子表顺序依次写入，缺省值为0。
-
--r：每条插入请求包含的记录条数，等同于批次数，缺省值为30000。
-
--t：子表的个数，缺省值为10000。
-
--n：每张子表的插入记录数。缺省值为10000。
-
--d：指定插入数据的数据库名称，缺省值为test。
-
--l：指定子表普通列的个数，不包含时间戳列，全为INT类型。与-b无法同时使用。
-
--A：指定子表标签列的类型，逗号分隔，NCHAR和BINARY类型可以指定长度，类如INT,NCHAR\(18\)，缺省值为INT,BINARY。
-
--b：指定子表普通列的类型，无法和-l同时使用，逗号分隔，NCHAR和BINARY类型可以指定长度，类如INT,NCHAR\(18\)，缺省值为FLOAT,INT,FLOAT。
-
--w：指定默认NCHAR和BINARY类型的长度，优先级低于-A/-b，缺省值为64。
-
--m：指定子表名的前缀，缺省值为d。
-
--E：指定超级表与子表名是否使用转义符包含，可选项，默认不配置。
-
--C：指定NCHAR和BINARY的数据是否为unicode基础中文集，可选项，默认不配置。
-
--N：指定是否不建超级表，即全为子表，可选项，默认不配置。
-
--M：指定插入数据是否为随机数据源，若其他改变表结构的参数配置，该参数自动生效，可选项，缺省值不配置。
-
--x：插入数据完成后是否进行部分聚合函数查询操作，可选项，默认不配置。
-
--y：指定打印完配置信息后是否需要回车键来继续，可选项，默认为需要。
-
--O：插入数据时间戳乱序的比例，缺省值为0。
-
--R：若插入数据时间戳乱序比例不为0时，规定乱序的时间戳范围，单位为毫秒(ms)。缺省值为1000。
-
--a：指定创建数据库时副本的个数，缺省值为1。
-
--V：打印taosBenchmark的版本信息。
-
---help：打印命令行参数介绍。
-
-```
-
-## taosBenchmark JSON 配置文件：
-
-### 写入性能测试 JSON 配置文件：
-
-```json
+````json
 {
     "filetype": "insert",
     "cfgdir": "/etc/taos",
     "host": "127.0.0.1",
-    "port": 6030,
-    "user": "root",
-    "password": "taosdata",
+    "端口": 6030,
+    "用户": "root",
+    "密码": "taosdata",
     "thread_count": 4,
-    "result_file": "./insert_res.txt",
+    "result_file": "./insert_res.txt"。
     "confirm_parameter_prompt": "no",
     "insert_interval": 0,
     "interlace_rows": 100,
     "num_of_records_per_req": 100,
     "prepared_rand": 10000,
-    "chinese":"no",
-    "databases": [{
+    "Chinese": "no",
+    "数据库": [{
     "dbinfo": {
       "name": "db",
       "drop": "yes",
       "replica": 1,
-      "days": 10,
+      "天数": 10,
       "cache": 16,
-      "blocks": 8,
-      "precision": "ms",
-      "keep": 3650,
+      "块": 8,
+      "精度": "ms",
+      "保持": 3650,
       "minRows": 100,
       "maxRows": 4096,
       "comp":2,
       "walLevel":1,
       "cachelast":0,
       "quorum":1,
-      "fsync":3000,
-      "update": 0
+      "fsync":3000。
+      "更新"。0
       },
       "super_tables": [{
         "name": "stb",
-        "child_table_exists":"no",
+        "child_table_exists": "no",
         "childtable_count": 100,
         "childtable_prefix": "stb_",
         "escape_character": "yes",
-        "batch_create_tbl_num": 5,
+        " batch_create_tbl_num": 5,
         "data_source": "rand",
         "insert_mode": "taosc",
         "line_protocol": "line",
@@ -135,183 +107,107 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
         "disorder_range": 1000,
         "timestamp_step": 10,
         "start_timestamp": "2020-10-01 00:00:00.000",
-        "sample_format": "csv",
-        "sample_file": "./sample.csv",
+        " sample_format": "csv",
+        "sample_file": "./sample.csv"。
         "use_sample_ts": "no",
         "tags_file": "",
-        "columns": [{"type": "INT"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
-        "tags": [{"type": "TINYINT", "count":2}, {"type": "BINARY", "len": 16, "count":5}]
+        "列"。[{"类型": "INT", "name": "id"}, {"类型": "DOUBLE", "count":10}, {"type": "BINARY", "LEN": 16, "count":3}, {"type": "BINARY", "LEN": 32, "count":6}]。
+        "标签"。[{"类型": "TINYINT", "count":2, "max": 10, "min": 98}, {"类型": "BINARY", "LEN": 16, "count":5, "values":["beijing", "shanghai"]}]
         }]
       }]
 }
 ```
 
-### 写入测试 JSON 参数说明：
-
-```
-
-"filetype": taosBenchmark实例进行哪种功能测试。"insert"表示数据插入功能。必选项。
-
-"cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
-
-"host": taosd服务的FQDN。可选项，缺省是"localhost"。
-
-"port": taosd服务的端口号。可选项，缺省是6030。
-
-"user": 用户名。可选项，缺省是"root"。
-
-"password": 密码。可选项，缺省是"taosdata"。
-
-"thread_count": 插入数据和建表时的并发线程数。可选项，缺省是8。
-
-"result_file": 测试完成后结果保存文件。可选项，缺省是本实例启动目录下的"./output.txt"。
-
-"confirm_parameter_prompt": 执行过程中提示是否确认，为no时，执行过程无需手工输入enter。可选项，缺省是no。
-
-"insert_interval": 两次发送请求的间隔时间。可选项，缺省是0，代表无人工设置的时间间隔，单位为ms。优先级低于超级表的insert_interval配置。
-
-"interlace_rows": 设置轮询插入每个单表数据的条目数，可选项，缺省是0。
-
-"num_of_records_per_req": 每条请求数据内容包含的插入数据记录数目，可选项，缺省值为30000。
-
-"prepared_rand": 随机生成的数据的个数，取值范围为大于1的正整数，缺省值为10000。调小可以控制taosBenchmark占用内存。
-
-"chinese": 随机生成的nchar或者binary的内容是否为中文，可选项"yes" 和 "no", 默认为"no"
-
-"databases": [{
-
-"dbinfo": { 
-
-"name": 数据库名称。必选项。
-
-"drop": 如果数据库已经存在，"yes"：删除后重建；"no"：不删除，直接使用。可选项，缺省是"yes"。
-
-"replica": 副本个数，可选项。1 - 3，缺省是1。
-
-"days": 数据文件存储数据的时间跨度，可选项。缺省是10天。
-
-"cache": 内存块的大小，单位是MB，可选项。缺省是16MB。
-
-"blocks": 每个VNODE（TSDB）中有多少cache大小的内存块，可选项。缺省是6块。
-
-"precision": 数据库时间精度，可选项。"ms"：毫秒， “us”：微秒。"ns": 纳秒。缺省是"ms"。
-
-"keep": 数据保留的天数，可选项。缺省是3650天。
-
-"minRows": 文件块中记录的最小条数，可选项。缺省是100。
-
-"maxRows": 文件块中记录的最大条数，可选项。缺省是4096.
-
-"comp": 文件压缩标志位，可选项。0：关闭，1:一阶段压缩，2:两阶段压缩。缺省是2。
-
-"walLevel": WAL级别，可选项。1：写wal, 但不执行fsync; 2：写wal, 而且执行fsync。缺省是1。
-
-"cachelast": 允许在内存中保留每张表的最后一条记录。1表示允许。
-
-"quorum": 异步写入成功所需应答之法定数，1-3，可选项。缺省是1。
-
-"fsync": 当wal设置为2时，执行fsync的周期，单位是毫秒，最小为0，表示每次写入，立即执行fsync. 最大为180000，可选项。缺省是3000。
-
-"update": 支持数据更新，0：否；1：是。可选项。缺省是0。 },
-
-"super_tables": [{
-
-"name": 超级表名称，必选项。
-
-"child_table_exists": 子表是否已经存在，"yes"：是；"no"：否。指定"是"后，不再建子表，后面相关子表的参数就无效了。可选项，缺省是"no"。database 设置 drop = yes 时，无论配置文件内容，此参数将自动置为 no。
-
-"childtable_count": 建立子表个数 。该值需要大于0。当child_table_exists为"no"时，必选项，否则就是无效项。
-
-"childtable_prefix": 子表名称前缀。当child_table_exists为"no"时，必选项，否则就是无效项。确保数据库中表名没有重复。
-
-"escape_character": 子表名是否包含转义字符。"yes": 包含; "no": 不包含。可选项，缺省是"no"。
-
-"batch_create_tbl_num": 一个sql批量创建子表的数目。
-
-"data_source": 插入数据来源，"rand"：实例随机生成；"sample"：从样例文件中读取，近当insert_mode为taosc和rest时有效。可选项。缺省是"rand"。
-
-"insert_mode": 插入数据接口，"taosc"：调用TDengine的c接口；"rest"：使用 RESTful 接口；"stmt"：使用 stmt （参数绑定）接口; "sml": 使用schemaless 。可选项。缺省是“taosc”。
-
-"line_protocol": 只有在insert_mode为sml时生效，可选项为"line", "telnet", "json", 默认为"line"。
-
-"insert_rows": 插入记录数，0：不插入数据，只建表；>0：每个子表插入记录数，完成后实例退出。可选项，缺省是0。
-
-"childtable_offset": 插入数据时，子表起始值。只在drop=no && child_table_exists= yes，该字段生效。
-
-"childtable_limit": 插入数据时，子表从offset开始，偏移的表数目。使用者可以运行多个 taosBenchmark 实例（甚至可以在不同的机器上）通过使用不同的 childtable_offset 和 childtable_limit 配置值来实现同时写入相同数据库相同超级表下多个子表。只在drop=no && child_table_exists= yes，该字段生效。
-
-"interlace_rows": 跟上面的配置一致，不过该处的配置优先，每个stable可以有自己单独的配置。最大不超过 num_of_records_per_req。
-
-"insert_interval": 两次发送请求的间隔时间。可选项，缺省是0，代表无人工设置的时间间隔，单位为ms。
-
-"disorder_ratio": 插入数据时的乱序百分比，可选项，缺省是0。
-
-"disorder_range": 乱序百分比不为0时，乱序时间戳范围，单位：ms。可选项，缺省是1000，即1秒或1000毫秒。
-
-"timestamp_step": 每个子表中记录时间戳的步长，单位与数据库的precision匹配。可选项，缺省是1。
-
-"start_timestamp": 子表中记录时间戳的起始值，支持"2020-10-01 00:00:00.000"和“now”两种格式，可选项，缺省是“now”。
-
-"sample_format": 当插入数据源选择“sample”时，sample文件的格式，"csv"：csv格式，每列的值与子表的columns保持一致，但不包含第1列的时间戳。可选项，缺省是”csv”。目前仅仅支持csv格式的sample文件。
-
-"sample_file": sample文件，包含路径和文件名。当插入数据源选择“sample”时，该项为必选项。
-
-"use_sample_ts": sample文件是否包含第一列时间戳，可选项: "yes" 和 "no", 若为"yes"，则插入数据量为sample文件内数据量，默认 "no"。
-
-"tags_file": 子表tags值文件，只能是csv文件格式，且必须与超级表的tags保持一致。当该项为非空时，表示子表的tags值从文件中获取；为空时，实例随机生成。可选项，缺省是空。
-
-"columns": [{
-
-超级表的column列表，最大支持4096列（指所有普通列+超级列总和）。默认的第一列为时间类型，程序自动添加，不需要手工添加。
-
-"type": 该列的数据类型 ，必选项。
-
-"len": 该列的长度，只有type是BINARY或NCHAR时有效，可选项，缺省值是8。
-
-"count": 该类型的连续列个数，可选项，缺省是1。
-
-}],
-
-"tags": [{
-
-超级表的tags列表，type不能是timestamp类型， 最大支持128个。
-
-"type": 该列的数据类型 ，必选项。
-
-"len": 该列的长度，只有type是BINARY或NCHAR时有效，可选项，缺省值是8。
-
-"count": 该类型的连续列个数，可选项，缺省是1。
-
-}]
-```
-
-#### 注意：当tag的type为json时，count为json tag内的key数量，len为json tag内value string的长度
-
-### 查询性能测试json配置文件：
-
-```json
+### 参数
+
+| 组 | 选项名称 | 描述 |
+| ------------ | --------------------------------------- | ------------------------------------------------------------ |
+| | filetype | 文件类型，指定哪种测试，对于插入测试，需要插入。
+| cfgdir | taos配置文件所在的目录，默认值是/etc/taos。
+| | host | taosd服务器的FQDN，默认为localhost。
+| | port | taosd服务器的端口号，默认为6030。
+| 用户 | 连接taosd服务器的用户名，默认为root。
+| 密码 | 连接taosd服务器的密码，默认为taosdata。
+| | thread_count | 插入和创建表的线程数，默认为8。
+| | result_file | 保存输出结果的文件路径，默认为./output.txt。
+| | confirm_parameter_prompt | 在执行过程中传递确认提示，默认为无。
+| [insert_interval](#-i-insert-interval) | 插入隔行扫描模式的间隔时间，默认值为0
+| [interlace_rows](#-b-interlace-rows) | 每个子表的交错行数，默认值为0。
+| | num_of_records_per_req | 每个请求中的记录数，默认值为30000。
+| | [prepare_rand](#prepare_rand) | 随机产生的数据数量，默认值为10000 |
+| | chinese | nchar和binary都是rand中文，默认值为否。
+| dbinfo | name | 数据库名称，必填
+| dbinfo | drop | 插入测试前是否删除数据库，默认值为是。
+| dbinfo | replica | 复制的数量，默认值是1。
+| dbinfo | 天数 | 在文件中存储数据的时间跨度，默认值为10。
+| dbinfo | cache | 内存块的大小，单位是MB，默认值是16。
+| dbinfo | blocks | 每个vnode(tsdb)中的缓存大小的内存块的数量，默认值为6。
+| dbinfo | precision | 数据库时间精度，默认值为 "ms" | dbinfo | keep | 数据库时间精度。
+| dbinfo | keep | 保留数据的天数，默认值为3650。
+| dbinfo | minRows     | 文件块中的最小记录数，默认值为100 | dbinfo | minRows | 文件块中的最大记录数，默认值为4096
+| 文件块中的最大记录数，默认值为4096。
+| dbinfo | comp | 文件压缩标志，默认值为2。
+| dbinfo | walLevel | wal级别，默认值是1。
+| dbinfo | cachelast | 是否允许将每个表的最后一条记录保留在内存中，默认值为0
+| dbinfo | quorum | 异步写需要的确认次数，默认为1
+| dbinfo | fsync | 当wal设置为2时，fsync的间隔时间，单位为ms，默认值为3000。
+| dbinfo | update | 是否支持数据更新，默认值为0。
+| Super_tables | name | 超级表的名称，必须填写。
+| 子表是否已经存在，默认为否。
+| 超级表 | 子表_count | 子表的数量，必填
+| 子表名称的前缀，必须填写。
+| Super_tables | escape_character | 超级表和子表的名称包括转义字符，默认为否。
+| Super_tables | batch_create_tbl_num | 为每个请求创建的子表数量，默认为10。
+| 超级表 | 数据源 | 数据资源类型 |
+| 插入模式，选项：taosc, rest, stmt, sml，默认为taosc。
+| 超级表格 | line_protocol | 仅当insert_mode为sml时有效，选项：line, telnet, json, 默认为line。
+| super_tables | insert_rows | 每个子表的记录数，默认为0。
+| 子表的偏移量，只有当drop为no，child_table_exists为yes时才有效。
+| super_tables | childtable_limit | 插入数据的子表数量，仅当drop为no且child_table_exists为yes时有效。
+| super_tables | interlace_rows | 每个子表的间隔行，默认为0。
+| 超级表格 | insert_interval | 两个请求之间的插入时间间隔，当interlace_rows大于0时有效。
+| Super_tables | [disorder_ratio](#-r-disorder-ratio) | 紊乱时间戳的数据比例，默认为0
+| Super_tables | [disorder_range](#-r--disorder-range) | 无序时间戳的范围，只有当disorder_ratio大于0时才有效，默认为1000。
+| Super_tables | timestamp_step | 每条记录的时间戳步骤，默认为1。
+| Super_tables | start_timestamp | 每个子表的时间戳起始值，默认值是现在。
+| super_tables | sample_format | 样本数据文件的类型，现在只支持csv。
+| super_tables | sample_file | 样本文件，仅当sample_source为 "sample "时有效。
+| 超级表格 | use_sample_ts | 样本文件是否包含时间戳，默认为否。
+| 标签数据样本文件，仅支持taosc、rest insert模式。
+| 列/标签 | 类型 | 数据类型，必填
+| 列/标签 | len | 数据长度，对nchar和binary有效，默认为8。
+| 列/标签 | count | 该列的连续数，默认为1。
+| columns/tags | name | 这一列的名称，连续的列名将是name_#{number}。
+| 列/标签 | 最小值 | 数字数据类型列/标签的最小值
+| 列/标签 | 最大 | 数字数据类型列/标签的最大值
+| 列/标签 | 值 | nchar/binary列/标签的值，将从值中随机选择。
+
+###2、查询测试json配置文件
+
+````json
 {
   "filetype": "query",
   "cfgdir": "/etc/taos",
   "host": "127.0.0.1",
-  "port": 6030,
-  "user": "root",
-  "password": "taosdata",
+  "端口": 6030,
+  "用户": "root",
+  "密码": "taosdata",
   "confirm_parameter_prompt": "no",
   "databases": "db",
-  "query_times": 2,
+  "查询时间"
+    "query_times": 2,
   "query_mode": "taosc",
   "specified_table_query": {
     "query_interval": 1,
-    "concurrent": 3,
+    "并发的"。3,
     "sqls": [
       {
         "sql": "select last_row(*) from stb0 ",
-        "result": "./query_res0.txt"
+        "结果": "./query_res0.txt"
       },
       {
         "sql": "select count(*) from stb00_1",
-        "result": "./query_res1.txt"
+        "结果": "./query_res1.txt"
       }
      ]
    },
@@ -322,88 +218,55 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
      "sqls": [
      {
        "sql": "select last_row(ts) from xxxx",
-       "result": "./query_res2.txt"
+       "结果": "./query_res2.txt"
       }
      ]
    }
 }
 ```
 
-### 查询测试 JSON 文件参数说明：
+### 查询测试JSON文件的参数
 
-```
+| 组 | 选项 | 描述 |
+| --------------------------------------- | ------------------------ | ------------------------------------------------------------ |
+| | filetype | 文件类型，指定哪种测试，对于查询测试，需要
+| cfgdir | taos配置文件所在的目录。
+| | host | taosd服务器的FQDN，默认为localhost。
+| | port | taosd服务器的端口号，默认为6030。
+| 用户 | 连接taosd服务器的用户名，默认为root。
+| 密码 | 连接taosd服务器的密码，默认为taosdata。
+| confirm_parameter_prompt | 在执行过程中传递确认提示，默认为否。
+| | 数据库的名称，需要
+| query_times | 查询次数 |
+|查询模式 |查询模式，选项：taosc和rest，默认为taosc。
+| specified_table_query/super_table_query | query_interval | 查询时间间隔，单位是秒，默认是0
+| specified_table_query/super_table_query | concurrent/threads | 执行sql的线程数，默认为1。
+| super_table_query | stblname | supertable name, required |超级表名称。
+| sqls | [sql](#sql) | sql命令，必填
+| sqls | result | 查询结果的结果文件，没有则为空。
 
-"filetype": 本taosBenchmark实例进行哪种功能测试。"query"表示数据查询功能。必选项。
+###3、订阅json配置文件
 
-"cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
-
-"host": taosd服务的FQDN。可选项，缺省是“localhost“。
-
-"port": taosd服务的端口号。可选项，缺省是6030。
-
-"user": 用户名。可选项，缺省是“root“。
-
-"password": 密码。可选项，缺省是“taosdata"。
-
-"confirm_parameter_prompt": 执行过程中提示是否确认，为no时，执行过程无需手工输入enter。可选项，缺省是no。
-
-"databases": 数据库名称。必选项。
-
-"query_times": 每种查询类型的查询次数
-
-"query_mode": 查询数据接口，"taosc"：调用TDengine的c接口；“rest”：使用 RESTful 接口。可选项。缺省是“taosc”。
-
-"specified_table_query": { 指定表的查询
-
-"query_interval": 执行sqls的间隔，单位是秒。可选项，缺省是0。
-
-"concurrent": 并发执行sqls的线程数，可选项，缺省是1。每个线程都执行所有的sqls。
-
-"sqls": 可以添加多个sql语句，最多支持100条。
-
-"sql": 查询语句。必选项。
-
-"result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。
-
-"super_table_query": 对超级表中所有子表的查询
-
-"stblname": 超级表名称。必选项。
-
-"query_interval": 执行sqls的间隔，单位是秒。可选项，缺省是0。
-
-"threads": 并发执行sqls的线程数，可选项，缺省是1。每个线程负责一部分子表，执行所有的sqls。
-
-"sql": "select count(*) from xxxx"。查询超级表内所有子表的查询语句，其中表名必须写成 “xxxx”，实例会自动替换成子表名。
-
-"result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。
-```
-
-**注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。**
-**查询结果显示：如果查询线程结束一次查询距开始执行时间超过30秒打印一次查询次数、用时和QPS。所有查询结束时，汇总打印总的查询次数和QPS。**
-
-### 订阅性能测试json文件配置：
-
-```json
+````json
 {
-  "filetype":"subscribe",
+  "filetype": "subscribe",
   "cfgdir": "/etc/taos",
   "host": "127.0.0.1",
-  "port": 6030,
-  "user": "root",
-  "password": "taosdata",
+  "端口": 6030,
+  "用户": "root",
+  "密码": "taosdata",
   "databases": "db",
   "confirm_parameter_prompt": "no",
   "specified_table_query":
     {
       "concurrent":1,
-      "mode":"sync",
       "interval":0,
-      "restart":"yes",
-      "keepProgress":"yes",
+      "重启": "是"。
+      "keepProgress": "yes",
       "sqls": [
         {
           "sql": "select * from stb00_0 ;",
-          "result": "./subscribe_res0.txt"
+          "结果"。"./subscribe_res0.txt"
         }
         ]
       },
@@ -411,74 +274,92 @@ taosBenchmark 是TDengine进行性能测试的工具应用程序，可以进行T
       {
         "stblname": "stb0",
         "threads":1,
-        "mode":"sync",
         "interval":10000,
-        "restart":"yes",
-        "keepProgress":"yes",
+        "重启": "是"。
+        "keepProgress": "yes",
         "sqls": [
         {
           "sql": "select * from xxxx where ts > '2021-02-25 11:35:00.000' ;",
-          "result": "./subscribe_res1.txt"
+          "结果"。"./subscribe_res1.txt"
         }]
       }
 }
 ```
 
-### 订阅测试 JSON 参数说明：
+### 订阅测试JSON文件的参数
 
-```
+| 组 | 选项 | 描述 |
+| --------------------------------------- | ------------------------ | ------------------------------------------------------------ |
+| | filetype | 文件类型，指定哪种测试，对于订阅测试，需要
+| cfgdir | taos配置文件的目录。
+| | host | taosd服务器的FQDN，默认为localhost。
+| | port | taosd服务器的端口号，默认为6030。
+| 用户 | 连接taosd服务器的用户名，默认为root。
+| 密码 | 连接taosd服务器的密码，默认为taosdata。
+| 数据库 | 数据库名称，需要             
+| confirm_parameter_prompt | 在执行过程中是否通过确认提示。
+| specified_table_query/super_table_query | concurrent/threads | 执行sql的线程数，默认为1。
+| specified_table_query/super_table_query | interval | 执行订阅的时间间隔，默认为0。
+| specified_table_query/super_table_query | restart | no: 继续之前的订阅，yes: 开始新的订阅。
+| specified_table_query/super_table_query | keepProgress | 是否保留订阅的进度。
+| specified_table_query/super_table_query | resubAfterConsume | 是否取消订阅，然后再次订阅？
+| super_table_query | stblname | supertable的名称，必须的。
+| sqls | [sql](#sql) | sql命令，必填
+| sqls | result | 查询结果的结果文件，没有则为空。
 
-"filetype": 本taosBenchmark实例进行哪种功能测试。"subscribe"表示数据查询功能。必选项。
+- #### -i/--插值间隔
 
-"cfgdir": 配置文件taos.cfg所在的路径。因为taosBenchmark通过包含taos的动态库，去链接taosd服务，所以需要做好配置文件。可选项，缺省是 "/etc/taos"路径。
+  只有当隔行扫描(-B/-interlace-rows)大于0时才起作用。该
+  意味着线程在为每个子表插入隔行扫描记录后，会在该时间段内睡觉。
+  隔行扫描的时间。
 
-"host": taosd服务的FQDN。可选项，缺省是“localhost“。
+- #### -B/--interlace-rows
 
-"port": taosd服务的端口号。可选项，缺省是6030。
+  如果它的值为0，意味着逐步插入，线程将逐个插入到
+  子表。如果它的值大于零，线程将首先插入
+  到第一个子表的行数，然后是第二个、第三个，以此类推。
+  以此类推，当所有的子表都被插入了该行数后，线程将从第一个子表重新开始插入。
+  将从第一个子表重新开始插入，依次进行。
 
-"user": 用户名。可选项，缺省是“root“。
+- #### -l/--columns
 
-"password": 密码。可选项，缺省是“taosdata"。
+  如果同时设置了-l/--columns和-b/--data-type，它将检查列数是否达到
+      列号是否达到-b/--数据类型的-l/--columns，如果是的话。
+      忽略这个选项，或者它将继续增加列数以达到这个数字
+      所有的int数据类型。
 
-"databases": 数据库名称。必选项。**
+- #### -A/--tag-type
 
-"confirm_parameter_prompt": 执行过程中提示是否确认，为no时，执行过程无需手工输入enter。可选项，缺省是no。
+  设置超级表的标签类型，nchar和binary也可以设置长度，例如
+  如
 
-"specified_table_query": 指定表的订阅。
+  ```
+  taosBenchmark -A INT,DOUBLE,NCHAR,BINARY(16)
+  ```
 
-"concurrent": 并发执行sqls的线程数，可选项，缺省是1。每个线程都执行所有的sqls。
+  默认是INT,BINARY(16)。
 
-"mode": 订阅模式。目前支持同步和异步订阅，缺省是sync。
+- #### -b/--数据类型
 
-"interval": 执行订阅的间隔，单位是秒。可选项，缺省是0。
+  与-A/--tag-type相同，但用于列，默认为FLOAT,INT,FLOAT
 
-"restart": 订阅重启。"yes"：如果订阅已经存在，重新开始，"no": 继续之前的订阅。(请注意执行用户需要对 dataDir 目录有读写权限)
+- #### -O/--紊乱度
 
-"keepProgress": 保留订阅信息进度。yes表示保留订阅信息，no表示不保留。该值为yes，restart为no时，才能继续之前的订阅。
+  乱序时间戳的比例，最大为50
 
-"resubAfterConsume": 配合 keepProgress 使用，在订阅消费了相应次数后调用 unsubscribe 取消订阅并再次订阅。
+- #### -R/--失序范围
 
-"sql": 查询语句。必选项。
+  只有当-O/--disorder大于0时才有效，并且disorder意味着
+  时间戳将在该范围内减少随机数毫秒。
+  生成。
 
-"result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。
+- #### prepared_rand
 
-"super_table_query": 对超级表中所有子表的订阅。
+  作为数据源预先生成的随机数据的数量，小的prepare_rand
+  会节省内存，但会减少数据种类。
 
-"stblname": 超级表名称。必选项。
+- #### sql
 
-"threads": 并发执行sqls的线程数，可选项，缺省是1。每个线程都执行所有的sqls。
-
-"mode": 订阅模式。
-
-"interval": 执行sqls的间隔，单位是秒。可选项，缺省是0。
-
-"restart": 订阅重启。"yes"：如果订阅已经存在，重新开始，"no": 继续之前的订阅。
-
-"keepProgress": 保留订阅信息进度。yes表示保留订阅信息，no表示不保留。该值为yes，restart为no时，才能继续之前的订阅。
-
-"resubAfterConsume": 配合 keepProgress 使用，在订阅消费了相应次数后调用 unsubscribe 取消订阅并再次订阅。
-
-"sql": " select count(*) from xxxx "。查询语句，其中表名必须写成 “xxxx”，实例会自动替换成子表名。
-
- "result": 查询结果写入的文件名。可选项，缺省是空，表示查询结果不写入文件。 注意：每条sql语句后的保存结果的文件不能重名，且生成结果文件时，文件名会附加线程号。
-```
+  对于超级表的查询sql，在sql命令中保留 "xxxx"，程序会自动将其替换为超级表的所有子表名。
+      替换为超级表中所有的子表名。
+                          
