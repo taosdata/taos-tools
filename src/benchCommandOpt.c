@@ -92,7 +92,7 @@ static struct argp_option options[] = {
     {"replia", 'a', "NUMBER", 0,
      "The number of replica when create database, default is 1."},
     {"debug", 'g', 0, 0, "Debug mode, optional."},
-    {"performace", 'G', 0, 0, "Performance mode, optional."},
+    {"performance", 'G', 0, 0, "Performance mode, optional."},
     {"prepared_rand", 'F', "NUMBER", 0,
      "Random data source size, default is 10000."},
     {0}};

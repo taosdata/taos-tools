@@ -815,7 +815,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case STMT_IFACE:
             if (0 != taos_stmt_execute(pThreadInfo->stmt)) {
-                errorPrint("failied to execute insert statement. reason: %s\n",
+                errorPrint("failed to execute insert statement. reason: %s\n",
                            taos_stmt_errstr(pThreadInfo->stmt));
                 affectedRows = -1;
             } else {
