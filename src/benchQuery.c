@@ -121,7 +121,7 @@ static void *specifiedTableQuery(void *sarg) {
               " times,"
               "insert delay, min: %5" PRIu64
               "us, avg: %5.2fus,"
-              " p90: %5" PRIu64 "us, p95:%5" PRIu64 "us, p99: %5" PRIu64
+              " p90: %5" PRIu64 "us, p95: %5" PRIu64 "us, p99: %5" PRIu64
               "us,"
               " max: %5" PRIu64 "us\n\n ",
               pThreadInfo->threadID,

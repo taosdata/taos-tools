@@ -1236,6 +1236,7 @@ void *syncWriteProgressive(void *sarg) {
                         }
                         generated++;
                         if (len > (BUFFER_SIZE - stbInfo->lenOfCols)) {
+                            debugPrint("%d", j);
                             break;
                         }
                         if (i + generated >= stbInfo->insertRows) {
@@ -1826,6 +1827,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     free(infos);
 
     if (g_fail) {
+        tmfree(total_delay_list);
         return -1;
     }
 
