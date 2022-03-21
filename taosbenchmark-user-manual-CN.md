@@ -174,7 +174,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | columns/tags | max | 数字数据类型列/标签的最大值
 | columns/tags | values | nchar/binary 列/标签的值，将从值中随机选择。
 
-###2、查询测试 json 配置文件
+### 2、查询测试 json 配置文件
 
 ```json
 {
@@ -236,7 +236,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | sqls | [sql](#sql) | SQL 命令，必填
 | sqls | result | 查询结果的结果文件，没有则为空。
 
-###3、订阅 json 配置文件
+### 3、订阅 json 配置文件
 
 ```json
 {
