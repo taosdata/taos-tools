@@ -41,6 +41,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | -a/--replica                                       | 创建数据库时的副本数量，默认值为 1。                                    |
 | -V/--version                                       | 显示版本信息并退出                                             |
 | -?/--help                                          | 显示帮助信息并退出。                                            |
+
 ## taosBenchmark json 配置文件
 
 ### 1、插入 json 配置文件
@@ -136,7 +137,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | dbinfo | blocks | 每个 vnode(tsdb) 中的缓存大小的内存块的数量，默认值为 6。
 | dbinfo | precision | 数据库时间精度，默认值为 "ms" | dbinfo | keep | 数据库时间精度。
 | dbinfo | keep | 保留数据的天数，默认值为 3650。
-| dbinfo | minRows     | 文件块中的最小记录数，默认值为 100 
+| dbinfo | minRows     | 文件块中的最小记录数，默认值为 100
 | dbinfo | minRows | 文件块中的最大记录数，默认值为 4096
 | dbinfo | comp | 文件压缩标志，默认值为 2。
 | dbinfo | walLevel | wal 级别，默认值是 1。
@@ -174,7 +175,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | columns/tags | max | 数字数据类型列/标签的最大值
 | columns/tags | values | nchar/binary 列/标签的值，将从值中随机选择。
 
-###2、查询测试 json 配置文件
+### 2、查询测试 json 配置文件
 
 ```json
 {
@@ -236,7 +237,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | sqls | [sql](#sql) | SQL 命令，必填
 | sqls | result | 查询结果的结果文件，没有则为空。
 
-###3、订阅 json 配置文件
+### 3、订阅 json 配置文件
 
 ```json
 {
@@ -287,7 +288,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | | port | taosd 服务器的端口号，默认为 6030。
 | |user | 连接 taosd 服务器的用户名，默认为 root。
 | |password | 连接 taosd 服务器的密码，默认为 taosdata。
-| |databases | 数据库名称，需要             
+| |databases | 数据库名称，需要
 | |confirm_parameter_prompt | 在执行过程中是否通过确认提示。
 | specified_table_query/super_table_query | concurrent/threads | 执行 SQL 的线程数，默认为 1。
 | specified_table_query/super_table_query | interval | 执行订阅的时间间隔，默认为 0。
@@ -353,4 +354,4 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
   对于超级表的查询 SQL，在 SQL 命令中保留 "xxxx"，程序会自动将其替换为超级表的所有子表名。
       替换为超级表中所有的子表名。
-                          
+
