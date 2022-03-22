@@ -63,23 +63,23 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
     "prepared_rand": 10000,
     "chinese":"no",
     "databases": [{
-    "dbinfo": {
-      "name": "db",
-      "drop": "yes",
-      "replica": 1,
-      "days": 10,
-      "cache": 16,
-      "blocks": 8,
-      "precision": "ms",
-      "keep": 3650,
-      "minRows": 100,
-      "maxRows": 4096,
-      "comp":2,
-      "walLevel":1,
-      "cachelast":0,
-      "quorum":1,
-      "fsync":3000,
-      "update": 0
+      "dbinfo": {
+        "name": "db",
+        "drop": "yes",
+        "replica": 1,
+        "days": 10,
+        "cache": 16,
+        "blocks": 8,
+        "precision": "ms",
+        "keep": 3650,
+        "minRows": 100,
+        "maxRows": 4096,
+        "comp":2,
+        "walLevel":1,
+        "cachelast":0,
+        "quorum":1,
+        "fsync":3000,
+        "update": 0
       },
       "super_tables": [{
         "name": "stb",
@@ -106,8 +106,8 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
         "tags_file": "",
         "columns": [{"type": "INT", "name": "id"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
         "tags": [{"type": "TINYINT", "count":2, "max": 10, "min": 98}, {"type": "BINARY", "len": 16, "count":5, "values":["beijing","shanghai"]}]
-        }]
       }]
+    }]
 }
 ```
 
@@ -135,7 +135,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | dbinfo | days | 在文件中存储数据的时间跨度，默认值为 10。
 | dbinfo | cache | 内存块的大小，单位是 MB，默认值是 16。
 | dbinfo | blocks | 每个 vnode(tsdb) 中的缓存大小的内存块的数量，默认值为 6。
-| dbinfo | precision | 数据库时间精度，默认值为 "ms" | dbinfo | keep | 数据库时间精度。
+| dbinfo | precision | 数据库时间精度，默认值为 "ms"。
 | dbinfo | keep | 保留数据的天数，默认值为 3650。
 | dbinfo | minRows     | 文件块中的最小记录数，默认值为 100
 | dbinfo | minRows | 文件块中的最大记录数，默认值为 4096
@@ -151,7 +151,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | super_tables | childtable_prefix                       | 子表名称的前缀，必须填写。
 | Super_tables | escape_character | 超级表和子表的名称包括转义字符，默认为否。
 | Super_tables | batch_create_tbl_num | 为每个请求创建的子表数量，默认为 10。
-| super_tables | data_source                             |  数据资源类型 |
+| super_tables | data_source                             |  数据资源类型，选项：rand, sample。
 | super_tables | insert_mode                             | 插入模式，选项：taosc, rest, stmt, sml，默认为 taosc。
 | super_tables | line_protocol | 仅当 insert_mode 为 sml 时有效，选项：line, telnet, json, 默认为 line。
 | super_tables | insert_rows | 每个子表的记录数，默认为 0。
