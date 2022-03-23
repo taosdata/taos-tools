@@ -95,6 +95,8 @@ static struct argp_option options[] = {
     {"performance", 'G', 0, 0, "Performance mode, optional."},
     {"prepared_rand", 'F', "NUMBER", 0,
      "Random data source size, default is 10000."},
+    {"connection_pool", 'H', "NUMBER", 0,
+     "size of the pre-connected taos in connection pool, default is 8"},
     {0}};
 
 static int count_datatype(char *dataType, uint32_t *number) {
@@ -468,7 +470,14 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                            arg);
                 arguments->nthreads = DEFAULT_NTHREADS;
             }
-            arguments->nthreads_pool = arguments->nthreads + 5;
+            break;
+        case 'H':
+            arguments->connection_pool = atoi(arg);
+            if (arguments->connection_pool <= 0) {
+                errorPrint("Invalid -H: %s, will auto set to default(8)\n",
+                           arg);
+                arguments->connection_pool = DEFAULT_NTHREADS;
+            }
             break;
         case 'i':
             arguments->db->superTbls->insert_interval = atoi(arg);
@@ -718,7 +727,7 @@ void init_argument() {
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
-    g_arguments->nthreads_pool = DEFAULT_NTHREADS + 5;
+    g_arguments->connection_pool = DEFAULT_NTHREADS;
     g_arguments->binwidth = DEFAULT_BINWIDTH;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;

@@ -64,6 +64,8 @@ void printfInsertMetaToFileStream(FILE *fp) {
             g_arguments->nthreads);
     fprintf(fp, "thread num of create table: \033[33m%d\033[0m\n",
             g_arguments->nthreads);
+    fprintf(fp, "taos connection pool size: \033[33m%d\033[0m\n",
+            g_arguments->connection_pool);
     fprintf(fp, "number of records per req:  \033[33m%u\033[0m\n",
             g_arguments->reqPerReq);
     fprintf(fp, "random prepare data size:   \033[33m%" PRId64 "\033[0m\n",

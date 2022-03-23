@@ -419,7 +419,7 @@ typedef struct SArguments_S {
     char *             output_file;
     uint32_t           binwidth;
     uint32_t           intColumnCount;
-    uint32_t           nthreads_pool;
+    uint32_t           connection_pool;
     uint32_t           nthreads;
     uint64_t           prepared_rand;
     uint32_t           reqPerReq;

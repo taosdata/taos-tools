@@ -242,7 +242,8 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     char    msgbuf[100] = {0};
 
     /* Compile regular expression */
-    if (regcomp(&regex, reg, cflags) != 0) ERROR_EXIT("Failed to regex compile\n");
+    if (regcomp(&regex, reg, cflags) != 0)
+        ERROR_EXIT("Failed to regex compile\n");
 
     /* Execute regular expression */
     int reti = regexec(&regex, s, 0, NULL, 0);
@@ -598,7 +599,7 @@ int init_taos_list() {
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
         wordfree(&full_path);
     }
-    int        size = g_arguments->nthreads_pool;
+    int        size = g_arguments->connection_pool;
     TAOS_POOL *pool = g_arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
     g_memoryUsage += size * sizeof(TAOS *);
