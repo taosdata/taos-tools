@@ -269,14 +269,14 @@ typedef struct TAOS_POOL_S {
 } TAOS_POOL;
 
 typedef struct COLUMN_S {
-    char    type;
-    char *  name;
-    int32_t length;
-    bool    null;
-    void *  data;
-    int64_t max;
-    int64_t min;
-    cJSON * values;
+    char     type;
+    char *   name;
+    uint32_t length;
+    bool     null;
+    void *   data;
+    int64_t  max;
+    int64_t  min;
+    cJSON *  values;
 } Column;
 
 typedef struct SSuperTable_S {
@@ -286,7 +286,7 @@ typedef struct SSuperTable_S {
     bool     use_metric;
     char *   childTblPrefix;
     bool     childTblExists;
-    int64_t  childTblCount;
+    uint64_t childTblCount;
     uint64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
                                    // one sql
     bool     autoCreateTable;
@@ -296,28 +296,28 @@ typedef struct SSuperTable_S {
     uint64_t childTblOffset;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
-    int32_t interlaceRows;  //
-    int     disorderRatio;  // 0: no disorder, >0: x%
-    int     disorderRange;  // ms, us or ns. according to database precision
+    uint32_t interlaceRows;  //
+    int      disorderRatio;  // 0: no disorder, >0: x%
+    int      disorderRange;  // ms, us or ns. according to database precision
 
     uint64_t insert_interval;
-    int64_t  insertRows;
-    int64_t  timestamp_step;
+    uint64_t insertRows;
+    uint64_t timestamp_step;
     int      tsPrecision;
     int64_t  startTimestamp;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
 
-    int32_t columnCount;
-    int32_t partialColumnNum;
-    char *  partialColumnNameBuf;
-    Column *columns;
-    Column *tags;
-    int32_t tagCount;
-    char ** childTblName;
-    char *  colsOfCreateChildTable;
-    int32_t lenOfTags;
-    int32_t lenOfCols;
+    uint32_t columnCount;
+    uint32_t partialColumnNum;
+    char *   partialColumnNameBuf;
+    Column * columns;
+    Column * tags;
+    uint32_t tagCount;
+    char **  childTblName;
+    char *   colsOfCreateChildTable;
+    uint32_t lenOfTags;
+    uint32_t lenOfCols;
 
     char *sampleDataBuf;
     bool  useSampleTs;
@@ -327,28 +327,6 @@ typedef struct SSuperTable_S {
     char *      stmt_buffer;
     bool        tcpTransfer;
 } SSuperTable;
-
-typedef struct {
-    char    name[TSDB_DB_NAME_LEN];
-    char    create_time[32];
-    int64_t ntables;
-    int32_t vgroups;
-    int16_t replica;
-    int16_t quorum;
-    int16_t days;
-    char    keeplist[64];
-    int32_t cache;  // MB
-    int32_t blocks;
-    int32_t minrows;
-    int32_t maxrows;
-    int8_t  wallevel;
-    int32_t fsync;
-    int8_t  comp;
-    int8_t  cachelast;
-    char    precision[SMALL_BUFF_LEN];  // time resolution
-    int8_t  update;
-    char    status[16];
-} SDbInfo;
 
 typedef struct SDbCfg_S {
     //  int       maxtablesPerVnode;
@@ -406,7 +384,7 @@ typedef struct SuperQueryInfo_S {
     bool      subscribeRestart;
     int       subscribeKeepProgress;
     uint64_t  queryTimes;
-    int64_t   childTblCount;
+    uint64_t  childTblCount;
     int       sqlCount;
     char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
     char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
@@ -421,7 +399,7 @@ typedef struct SQueryMetaInfo_S {
     SpecifiedQueryInfo specifiedQueryInfo;
     SuperQueryInfo     superQueryInfo;
     uint64_t           totalQueried;
-    int64_t            query_times;
+    uint64_t           query_times;
     uint64_t           response_buffer;
     bool               reset_query_cache;
 } SQueryMetaInfo;
@@ -430,8 +408,8 @@ typedef struct SArguments_S {
     char *             metaFile;
     int32_t            test_mode;
     char *             host;
-    int16_t            port;
-    int16_t            telnet_tcp_port;
+    uint16_t           port;
+    uint16_t           telnet_tcp_port;
     char *             user;
     char *             password;
     bool               answer_yes;
@@ -439,22 +417,22 @@ typedef struct SArguments_S {
     bool               performance_print;
     bool               chinese;
     char *             output_file;
-    int32_t            binwidth;
-    int32_t            intColumnCount;
-    int32_t            nthreads_pool;
-    int32_t            nthreads;
-    int64_t            prepared_rand;
+    uint32_t           binwidth;
+    uint32_t           intColumnCount;
+    uint32_t           nthreads_pool;
+    uint32_t           nthreads;
+    uint64_t           prepared_rand;
     uint32_t           reqPerReq;
-    int64_t            insert_interval;
+    uint64_t           insert_interval;
     bool               demo_mode;
     bool               aggr_func;
-    int32_t            dbCount;
+    uint32_t           dbCount;
     struct sockaddr_in serv_addr;
     TAOS_POOL *        pool;
-    int64_t            g_totalChildTables;
-    int64_t            g_actualChildTables;
-    int64_t            g_autoCreatedChildTables;
-    int64_t            g_existedChildTables;
+    uint64_t           g_totalChildTables;
+    uint64_t           g_actualChildTables;
+    uint64_t           g_autoCreatedChildTables;
+    uint64_t           g_existedChildTables;
     FILE *             fpOfInsertResult;
     SDataBase *        db;
     char *             base64_buf;
@@ -474,21 +452,20 @@ typedef struct delayList_S {
 typedef struct SThreadInfo_S {
     TAOS *     taos;
     TAOS_STMT *stmt;
-    int64_t *  bind_ts;
-    int64_t *  bind_ts_array;
+    uint64_t * bind_ts;
+    uint64_t * bind_ts_array;
     char *     bindParams;
     char *     is_null;
-    int        threadID;
+    uint32_t   threadID;
     uint64_t   start_table_from;
     uint64_t   end_table_to;
-    int64_t    ntables;
-    int64_t    tables_created;
+    uint64_t   ntables;
+    uint64_t   tables_created;
     char *     buffer;
-    int64_t    counter;
+    uint64_t   counter;
     uint64_t   st;
     uint64_t   et;
-    uint64_t   lastTs;
-    int64_t    samplePos;
+    uint64_t   samplePos;
     uint64_t   totalInsertRows;
     uint64_t   totalQueried;
     uint64_t   totalAffectedRows;
@@ -500,13 +477,13 @@ typedef struct SThreadInfo_S {
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    int32_t    db_index;
-    int32_t    stb_index;
+    uint32_t   db_index;
+    uint32_t   stb_index;
     char **    sml_tags;
     cJSON *    json_array;
     cJSON *    sml_json_tags;
-    int64_t    start_time;
-    int64_t    max_sql_len;
+    uint64_t   start_time;
+    uint64_t   max_sql_len;
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
     delayList  delayList;

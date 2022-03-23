@@ -34,7 +34,7 @@ static struct argp_option options[] = {
     {"file", 'f', "FILE", 0,
      "(**IMPORTANT**) Set JSON configuration file(all options are going to "
      "read from this JSON file), which is mutually exclusive with other "
-     "commandline options",
+     "commandline options, examples are under /usr/local/taos/examples",
      0},
     {"config-dir", 'c', "CONFIG_DIR", 0, "Configuration directory.", 1},
     {"host", 'h', "HOST", 0,
@@ -97,7 +97,7 @@ static struct argp_option options[] = {
      "Random data source size, default is 10000."},
     {0}};
 
-static int count_datatype(char *dataType, int32_t *number) {
+static int count_datatype(char *dataType, uint32_t *number) {
     char *dup_str;
     *number = 0;
     if (strstr(dataType, ",") == NULL) {
