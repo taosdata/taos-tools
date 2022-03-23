@@ -346,9 +346,9 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         g_arguments->nthreads = (uint32_t)threads->valueint;
     }
 
-    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    cJSON *threadspool = cJSON_GetObjectItem(json, "connection_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
-        g_arguments->nthreads_pool = (uint32_t)threadspool->valueint;
+        g_arguments->connection_pool = (uint32_t)threadspool->valueint;
     }
 
     if (init_taos_list()) goto PARSE_OVER;
@@ -875,11 +875,9 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
         g_queryInfo.reset_query_cache = false;
     }
 
-    cJSON *threadspool = cJSON_GetObjectItem(json, "thread_pool_size");
+    cJSON *threadspool = cJSON_GetObjectItem(json, "connection_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
-        g_arguments->nthreads_pool = (uint32_t)threadspool->valueint;
-    } else {
-        g_arguments->nthreads_pool = g_arguments->nthreads + 5;
+        g_arguments->connection_pool = (uint32_t)threadspool->valueint;
     }
 
     cJSON *respBuffer = cJSON_GetObjectItem(json, "response_buffer");
