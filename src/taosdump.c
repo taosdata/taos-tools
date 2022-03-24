@@ -377,7 +377,7 @@ static struct argp_option options[] = {
     {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement when restore back. Default value is 16384. If you see 'WAL size exceeds limit' error, please adjust the value to a smaller one and try. The workable value is related to the length of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
-    {"loose-mode",  'L', "LOOSE_MODE",  0,  "Using loose mode if the table name and column name use letter and number only. Default is NOT.", 10},
+    {"loose-mode",  'L', 0,  0,  "Using loose mode if the table name and column name use letter and number only. Default is NOT.", 10},
     {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -770,7 +770,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             if (AVRO_CODEC_UNKNOWN == avroCodec) {
-                g_args.avro = false;
+                if (g_args.debug_print || g_args.verbose_print) {
+                    g_args.avro = false;
+                }
             } else if (AVRO_CODEC_INVALID == avroCodec) {
                 errorPrint("%s", "Invalid AVRO codec inputed. Exit program!\n");
                 exit(1);
@@ -6679,7 +6681,16 @@ int main(int argc, char *argv[])
         abort();
     }
 
-    if (!g_args.escape_char) {
+    if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
+        if (g_args.debug_print || g_args.verbose_print) {
+            g_args.avro = false;
+        } else {
+            errorPrint("%s", "Unknown AVRO codec inputed. Exit program!\n");
+            exit(1);
+        }
+    }
+
+    if (!g_args.escape_char || g_args.loose_mode) {
         sprintf(g_escapeChar, "%s", "");
     }
 
