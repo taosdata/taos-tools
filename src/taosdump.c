@@ -2481,6 +2481,15 @@ static int convertTbDesToJsonImpl(
     return 0;
 }
 
+
+static int convertTbTagsDesToJsonLoose(
+        char *dbName, char *stbName, TableDef *tableDes,
+        char **jsonSchema)
+{
+    errorPrint("TODO: %s\n", __func__);
+    return -1;
+}
+
 static int convertTbTagsDesToJson(
         char *dbName, char *stbName, TableDef *tableDes,
         char **jsonSchema)
@@ -2545,6 +2554,28 @@ static int convertTbTagsDesToJson(
     return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, false);
 }
 
+static int convertTbTagsDesToJsonWrap(
+        char *dbName, char *stbName, TableDef *tableDes,
+        char **jsonSchema)
+{
+    int ret = -1;
+    if (g_args.loose_mode) {
+        ret = convertTbTagsDesToJsonLoose(dbName, stbName, tableDes, jsonSchema);
+    } else {
+        ret = convertTbTagsDesToJson(dbName, stbName, tableDes, jsonSchema);
+    }
+
+    return ret;
+}
+
+static int convertTbDesToJsonLoose(
+        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        char **jsonSchema)
+{
+    errorPrint("TODO: %s\n", __func__);
+    return -1;
+}
+
 static int convertTbDesToJson(
         char *dbName, char *tbName, TableDef *tableDes, int colCount,
         char **jsonSchema)
@@ -2597,6 +2628,20 @@ static int convertTbDesToJson(
     }
 
     return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, true);
+}
+
+static int convertTbDesToJsonWrap(
+        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        char **jsonSchema)
+{
+    int ret = -1;
+    if (g_args.loose_mode) {
+        ret = convertTbDesToJsonLoose(dbName, tbName, tableDes, colCount, jsonSchema);
+    } else {
+        ret = convertTbDesToJson(dbName, tbName, tableDes, colCount, jsonSchema);
+    }
+
+    return ret;
 }
 
 static void print_json_indent(int indent) {
@@ -4617,12 +4662,11 @@ static int64_t dumpTableData(
         ) {
     char *jsonSchema = NULL;
     if (g_args.avro) {
-        if (0 != convertTbDesToJson(
+        if (0 != convertTbDesToJsonWrap(
                     dbName, tbName, tableDes, colCount, &jsonSchema)) {
-            errorPrint("%s() LN%d, convertTbDesToJson failed\n",
+            errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
                     __func__,
                     __LINE__);
-            freeTbDes(tableDes);
             return -1;
         }
     }
@@ -5118,9 +5162,9 @@ static int createMTableAvroHead(
     int colCount = getTableDes(taos, dbName, stable, tableDes, false);
 
     char *jsonTagsSchema = NULL;
-    if (0 != convertTbTagsDesToJson(
+    if (0 != convertTbTagsDesToJsonWrap(
                 dbName, stable, tableDes, &jsonTagsSchema)) {
-        errorPrint("%s() LN%d, convertTbTagsDesToJson failed\n",
+        errorPrint("%s() LN%d, convertTbTagsDesToJsonWrap failed\n",
                 __func__,
                 __LINE__);
         tfree(jsonTagsSchema);

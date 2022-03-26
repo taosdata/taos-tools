@@ -148,10 +148,10 @@ taosBenchmark can test TDengine's insertion, query and subscription
 | dbinfo       | minRows                                 | minimum number of records in a file block, default value is 100 |
 | dbinfo       | maxRows                                 | maximum number of records in a file block, default value is 4096 |
 | dbinfo       | comp                                    | file compression flag, default value is 2                    |
-| dbinfo       | walLevel                                | wal level, default value is 1                                |
+| dbinfo       | walLevel                                | WAL level, default value is 1                                |
 | dbinfo       | cachelast                               | whether allow the last record of each table to be kept in memory, default is 0 |
 | dbinfo       | quorum                                  | number of acknowledgement required for asynchronous write, default is 1 |
-| dbinfo       | fsync                                   | interval for fsync when wal is set to 2, unit is ms, default value is 3000 |
+| dbinfo       | fsync                                   | interval for fsync when WAL is set to 2, unit is ms, default value is 3000 |
 | dbinfo       | update                                  | whether support data update, default value is 0               |
 | super_tables | name                                    | name of super table, required                                |
 | super_tables | child_table_exists                      | whether child table already exists, default is no            |
@@ -179,8 +179,8 @@ taosBenchmark can test TDengine's insertion, query and subscription
 | columns/tags | len                                     | length of data, valid for nchar and binary, default is 8     |
 | columns/tags | count                                   | number of consecutive of this column, default is 1           |
 | columns/tags | name                                    | name of this column, consecutive column name will be name_#{number}          |
-| columns/tags | min                                     | min value of numberic data type column/tag          |
-| columns/tags | max                                     | max value of numberic data type column/tag           |
+| columns/tags | min                                     | min value of numeric data type column/tag          |
+| columns/tags | max                                     | max value of numeric data type column/tag           |
 | columns/tags | values                                  | values for nchar/binary column/tag, will randomly selected from values           |
 
 ### 2、Query test json configuration file
