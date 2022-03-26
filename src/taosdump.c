@@ -2481,6 +2481,15 @@ static int convertTbDesToJsonImpl(
     return 0;
 }
 
+
+static int convertTbTagsDesToJsonLoose(
+        char *dbName, char *stbName, TableDef *tableDes,
+        char **jsonSchema)
+{
+    errorPrint("TODO: %s\n", __func__);
+    return -1;
+}
+
 static int convertTbTagsDesToJson(
         char *dbName, char *stbName, TableDef *tableDes,
         char **jsonSchema)
@@ -2545,6 +2554,32 @@ static int convertTbTagsDesToJson(
     return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, false);
 }
 
+static int convertTbTagsDesToJsonWrap(
+        char *dbName, char *stbName, TableDef *tableDes,
+        char **jsonSchema)
+{
+    int ret = -1;
+    if (g_args.loose_mode) {
+        ret = convertTbTagsDesToJsonLoose(
+                dbName, stbName, tableDes,
+                jsonSchema);
+    } else {
+        ret = convertTbTagsDesToJson(
+                dbName, stbName, tableDes,
+                jsonSchema);
+    }
+
+    return ret;
+}
+
+static int convertTbDesToJsonLoose(
+        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        char **jsonSchema)
+{
+    errorPrint("TODO: %s\n", __func__);
+    return -1;
+}
+
 static int convertTbDesToJson(
         char *dbName, char *tbName, TableDef *tableDes, int colCount,
         char **jsonSchema)
@@ -2597,6 +2632,26 @@ static int convertTbDesToJson(
     }
 
     return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, true);
+}
+
+static int convertTbDesToJsonWrap(
+        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        char **jsonSchema)
+{
+    int ret = -1;
+    if (g_args.loose_mode) {
+        ret = convertTbDesToJsonLoose(
+                dbName, tbName,
+                tableDes, colCount,
+                jsonSchema);
+    } else {
+        ret = convertTbDesToJson(
+                dbName, tbName,
+                tableDes, colCount,
+                jsonSchema);
+    }
+
+    return ret;
 }
 
 static void print_json_indent(int indent) {
@@ -4617,12 +4672,11 @@ static int64_t dumpTableData(
         ) {
     char *jsonSchema = NULL;
     if (g_args.avro) {
-        if (0 != convertTbDesToJson(
+        if (0 != convertTbDesToJsonWrap(
                     dbName, tbName, tableDes, colCount, &jsonSchema)) {
-            errorPrint("%s() LN%d, convertTbDesToJson failed\n",
+            errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
                     __func__,
                     __LINE__);
-            freeTbDes(tableDes);
             return -1;
         }
     }
@@ -4648,8 +4702,15 @@ static int64_t dumpTableData(
     if (g_args.avro) {
         char avroFilename[MAX_PATH_LEN] = {0};
 
-        sprintf(avroFilename, "%s%s.%"PRId64".%"PRIu64".avro",
-                g_args.outpath, dbName, index, getUniqueIDFromEpoch());
+        if (g_args.loose_mode) {
+            sprintf(avroFilename, "%s%s.%"PRId64".%s.avro",
+                    g_args.outpath, dbName, index,
+                    tbName);
+        } else {
+            sprintf(avroFilename, "%s%s.%"PRId64".%"PRIu64".avro",
+                    g_args.outpath, dbName, index,
+                    getUniqueIDFromEpoch());
+        }
 
         totalRows = writeResultToAvro(avroFilename, tbName, jsonSchema, res);
     } else {
@@ -4733,8 +4794,15 @@ static int64_t dumpNormalTableWithoutStb(
     FILE *fp = NULL;
 
     if (g_args.avro) {
-        sprintf(dumpFilename, "%s%s.%"PRId64".%"PRIu64".avro-ntb",
-                g_args.outpath, dbInfo->name, index, getUniqueIDFromEpoch());
+        if (g_args.loose_mode) {
+            sprintf(dumpFilename, "%s%s.%"PRId64".%s.avro-ntb",
+                    g_args.outpath, dbInfo->name, index,
+                    ntbName);
+        } else {
+            sprintf(dumpFilename, "%s%s.%"PRId64".%"PRIu64".avro-ntb",
+                    g_args.outpath, dbInfo->name, index,
+                    getUniqueIDFromEpoch());
+        }
         count = dumpNormalTable(
                 index,
                 taos,
@@ -5118,9 +5186,9 @@ static int createMTableAvroHead(
     int colCount = getTableDes(taos, dbName, stable, tableDes, false);
 
     char *jsonTagsSchema = NULL;
-    if (0 != convertTbTagsDesToJson(
+    if (0 != convertTbTagsDesToJsonWrap(
                 dbName, stable, tableDes, &jsonTagsSchema)) {
-        errorPrint("%s() LN%d, convertTbTagsDesToJson failed\n",
+        errorPrint("%s() LN%d, convertTbTagsDesToJsonWrap failed\n",
                 __func__,
                 __LINE__);
         tfree(jsonTagsSchema);
@@ -5289,11 +5357,19 @@ static void *dumpNtbOfDb(void *arg) {
                 ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name);
 
         if (g_args.avro) {
-            sprintf(dumpFilename, "%s%s.%d.%"PRIu64".%d.avro-ntb",
-                    g_args.outpath, pThreadInfo->dbName,
-                    pThreadInfo->threadIndex,
-                    getUniqueIDFromEpoch(),
-                    pThreadInfo->threadIndex);
+            if (g_args.loose_mode) {
+                sprintf(dumpFilename, "%s%s.%d.%s.%d.avro-ntb",
+                        g_args.outpath, pThreadInfo->dbName,
+                        pThreadInfo->threadIndex,
+                        ((TableInfo*)(g_tablesList+pThreadInfo->from+i))->name,
+                        pThreadInfo->threadIndex);
+            } else {
+                sprintf(dumpFilename, "%s%s.%d.%"PRIu64".%d.avro-ntb",
+                        g_args.outpath, pThreadInfo->dbName,
+                        pThreadInfo->threadIndex,
+                        getUniqueIDFromEpoch(),
+                        pThreadInfo->threadIndex);
+            }
 
             if (0 == currentPercent) {
                 printf("[%d]: Dumping to %s \n",
@@ -5866,12 +5942,21 @@ static void *dumpNormalTablesOfStb(void *arg) {
     char dumpFilename[MAX_PATH_LEN] = {0};
 
     if (g_args.avro) {
-        sprintf(dumpFilename, "%s%s.%d.%"PRIu64".%d.avro-tbtags",
-                g_args.outpath,
-                pThreadInfo->dbName,
-                pThreadInfo->threadIndex,
-                getUniqueIDFromEpoch(),
-                pThreadInfo->threadIndex);
+        if (g_args.loose_mode) {
+            sprintf(dumpFilename, "%s%s.%d.%s.%d.avro-tbtags",
+                    g_args.outpath,
+                    pThreadInfo->dbName,
+                    pThreadInfo->threadIndex,
+                    pThreadInfo->stbName,
+                    pThreadInfo->threadIndex);
+        } else {
+            sprintf(dumpFilename, "%s%s.%d.%"PRIu64".%d.avro-tbtags",
+                    g_args.outpath,
+                    pThreadInfo->dbName,
+                    pThreadInfo->threadIndex,
+                    getUniqueIDFromEpoch(),
+                    pThreadInfo->threadIndex);
+        }
     } else {
         sprintf(dumpFilename, "%s%s.%s.%d.sql",
                 g_args.outpath,
@@ -6198,10 +6283,19 @@ static int dumpTbTagsToAvro(
             stable);
 
     char dumpFilename[MAX_PATH_LEN] = {0};
-    sprintf(dumpFilename, "%s%s.%"PRId64".%"PRId64".avro-tbtags",
-            g_args.outpath, dbInfo->name,
-            index,
-            getUniqueIDFromEpoch());
+
+    if (g_args.loose_mode) {
+        sprintf(dumpFilename, "%s%s.%"PRId64".%s.avro-tbtags",
+                g_args.outpath, dbInfo->name,
+                index,
+                stable);
+    } else {
+        sprintf(dumpFilename, "%s%s.%"PRId64".%"PRId64".avro-tbtags",
+                g_args.outpath, dbInfo->name,
+                index,
+                getUniqueIDFromEpoch());
+    }
+
     int ret = createMTableAvroHead(
             taos,
             dumpFilename,
