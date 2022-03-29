@@ -1076,7 +1076,7 @@ static int getTableRecordInfo(
         return -1;
     }
 
-    TAOS_FIELD *fields = taos_fetch_fields(result);
+//    TAOS_FIELD *fields = taos_fetch_fields(result);
 
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
