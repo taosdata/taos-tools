@@ -1079,18 +1079,19 @@ static int getTableRecordInfo(
     TAOS_FIELD *fields = taos_fetch_fields(result);
 
     while ((row = taos_fetch_row(result)) != NULL) {
+        int32_t* length = taos_fetch_lengths(result);
         isSet = true;
         pTableRecordInfo->isStb = false;
         tstrncpy(pTableRecordInfo->tableRecord.name,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                 min(TSDB_TABLE_NAME_LEN,
-                    fields[TSDB_SHOW_TABLES_NAME_INDEX].bytes + 1));
+                    length[TSDB_SHOW_TABLES_NAME_INDEX] + 1));
         if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
             pTableRecordInfo->belongStb = true;
             tstrncpy(pTableRecordInfo->tableRecord.stable,
                     (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
                     min(TSDB_TABLE_NAME_LEN,
-                        fields[TSDB_SHOW_TABLES_METRIC_INDEX].bytes + 1));
+                        length[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
         } else {
             pTableRecordInfo->belongStb = false;
         }
@@ -1189,25 +1190,26 @@ static int getDumpDbCount()
         return 0;
     }
 
-    TAOS_FIELD *fields = taos_fetch_fields(result);
-
     while ((row = taos_fetch_row(result)) != NULL) {
+        int32_t* length = taos_fetch_lengths(result);
         // sys database name : 'log', but subsequent version changed to 'log'
         if (strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) == 0) {
+                        length[TSDB_SHOW_DB_NAME_INDEX]) == 0) {
             if (!g_args.allow_sys) {
                 continue;
             }
         } else if (g_args.databases) {  // input multi dbs
             if (inDatabasesSeq(
                         (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) != 0)
+                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
                 continue;
+            }
         } else if (!g_args.all_databases) {  // only input one db
             if (strncasecmp(g_args.arg_list[0],
                         (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) != 0)
+                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
                 continue;
+            }
         }
 
         count++;
@@ -1363,11 +1365,11 @@ static int getTableDes(
 
     tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
     while ((row = taos_fetch_row(res)) != NULL) {
-
+        int32_t* length = taos_fetch_lengths(res);
         tstrncpy(tableDes->cols[colCount].field,
                 (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                 min(TSDB_COL_NAME_LEN,
-                    fields[TSDB_DESCRIBE_METRIC_FIELD_INDEX].bytes + 1));
+                    length[TSDB_DESCRIBE_METRIC_FIELD_INDEX]+1));
         tableDes->cols[colCount].type =
                 typeStrToType((char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
         tableDes->cols[colCount].length =
@@ -1375,7 +1377,7 @@ static int getTableDes(
         tstrncpy(tableDes->cols[colCount].note,
                 (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
                 min(COL_NOTE_LEN,
-                    fields[TSDB_DESCRIBE_METRIC_NOTE_INDEX].bytes + 1));
+                    length[TSDB_DESCRIBE_METRIC_FIELD_INDEX]+1));
 
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
             tableDes->columns ++;
@@ -6522,24 +6524,27 @@ static int dumpOut() {
     }
 
     TAOS_FIELD *fields = taos_fetch_fields(result);
+    int fieldCount = taos_field_count(result);
 
     while ((row = taos_fetch_row(result)) != NULL) {
+        int32_t* length = taos_fetch_lengths(result);
         if (strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) == 0) {
+                        length[TSDB_SHOW_DB_NAME_INDEX]) == 0) {
             if (!g_args.allow_sys) {
                 continue;
             }
         } else if (g_args.databases) {
             if (inDatabasesSeq(
                         (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) != 0) {
+                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
                 continue;
             }
         } else if (!g_args.all_databases) {
             if (strncasecmp(g_args.arg_list[0],
                         (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        fields[TSDB_SHOW_DB_NAME_INDEX].bytes) != 0)
+                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
                 continue;
+            }
         }
 
         g_dbInfos[count] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
@@ -6549,48 +6554,55 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
-        *(((char*)row[TSDB_SHOW_DB_NAME_INDEX])+fields[TSDB_SHOW_DB_NAME_INDEX].bytes) = '\0';
         okPrint("Database:%s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
-        tstrncpy(g_dbInfos[count]->name, (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                min(TSDB_DB_NAME_LEN,
-                    fields[TSDB_SHOW_DB_NAME_INDEX].bytes + 1));
-        g_dbInfos[count]->ntables =
-            *((int32_t *)row[TSDB_SHOW_DB_NTABLES_INDEX]);
-        g_dbInfos[count]->vgroups =
-            *((int32_t *)row[TSDB_SHOW_DB_VGROUPS_INDEX]);
-        g_dbInfos[count]->replica =
-            *((int16_t *)row[TSDB_SHOW_DB_REPLICA_INDEX]);
-        g_dbInfos[count]->quorum =
-            *((int16_t *)row[TSDB_SHOW_DB_QUORUM_INDEX]);
-        g_dbInfos[count]->days =
-            *((int16_t *)row[TSDB_SHOW_DB_DAYS_INDEX]);
 
-        tstrncpy(g_dbInfos[count]->keeplist,
-                (char *)row[TSDB_SHOW_DB_KEEP_INDEX],
-                min(32, fields[TSDB_SHOW_DB_KEEP_INDEX].bytes + 1));
+        for (int f = 0; f < fieldCount; f++) {
+            if (0 == strcmp(fields[f].name, "name")) {
+                tstrncpy(g_dbInfos[count]->name,
+                        (char *)row[f],
+                        min(TSDB_DB_NAME_LEN,
+                            length[f] + 1));
 
-        g_dbInfos[count]->cache =
-            *((int32_t *)row[TSDB_SHOW_DB_CACHE_INDEX]);
-        g_dbInfos[count]->blocks =
-            *((int32_t *)row[TSDB_SHOW_DB_BLOCKS_INDEX]);
-        g_dbInfos[count]->minrows =
-            *((int32_t *)row[TSDB_SHOW_DB_MINROWS_INDEX]);
-        g_dbInfos[count]->maxrows =
-            *((int32_t *)row[TSDB_SHOW_DB_MAXROWS_INDEX]);
-        g_dbInfos[count]->wallevel =
-            *((int8_t *)row[TSDB_SHOW_DB_WALLEVEL_INDEX]);
-        g_dbInfos[count]->fsync =
-            *((int32_t *)row[TSDB_SHOW_DB_FSYNC_INDEX]);
-        g_dbInfos[count]->comp =
-            (int8_t)(*((int8_t *)row[TSDB_SHOW_DB_COMP_INDEX]));
-        g_dbInfos[count]->cachelast =
-            (int8_t)(*((int8_t *)row[TSDB_SHOW_DB_CACHELAST_INDEX]));
+            } else if (0 == strcmp(fields[f].name, "vgroups")) {
+                g_dbInfos[count]->vgroups = *((int32_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "ntables")) {
+                g_dbInfos[count]->ntables = *((int32_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "replica")) {
+                g_dbInfos[count]->replica = *((int16_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "quorum")) {
+                g_dbInfos[count]->quorum =
+                    *((int16_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "days")) {
+                g_dbInfos[count]->days = *((int16_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "keep")) {
+                tstrncpy(g_dbInfos[count]->keeplist,
+                        (char *)row[f],
+                        min(32, length[TSDB_SHOW_DB_KEEP_INDEX]+ 1));
+            } else if (0 == strcmp(fields[f].name, "cache")) {
+                g_dbInfos[count]->cache = *((int32_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "blocks")) {
+                g_dbInfos[count]->blocks = *((int32_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "minrows")) {
+                g_dbInfos[count]->minrows = *((int32_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "maxrows")) {
+                g_dbInfos[count]->maxrows = *((int32_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "wallevel")) {
+                g_dbInfos[count]->wallevel = *((int8_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "fsync")) {
+                g_dbInfos[count]->fsync = *((int32_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "comp")) {
+                g_dbInfos[count]->comp = (int8_t)(*((int8_t *)row[f]));
+            } else if (0 == strcmp(fields[f].name, "cachelast")) {
+                g_dbInfos[count]->cachelast = (int8_t)(*((int8_t *)row[f]));
+            } else if (0 == strcmp(fields[f].name, "precision")) {
+                tstrncpy(g_dbInfos[count]->precision,
+                        (char *)row[f],
+                        DB_PRECISION_LEN);
+            } else if (0 == strcmp(fields[f].name, "update")) {
+                g_dbInfos[count]->update = *((int8_t *)row[f]);
+            }
+        }
 
-        tstrncpy(g_dbInfos[count]->precision,
-                (char *)row[TSDB_SHOW_DB_PRECISION_INDEX],
-                DB_PRECISION_LEN);
-        g_dbInfos[count]->update =
-            *((int8_t *)row[TSDB_SHOW_DB_UPDATE_INDEX]);
         count++;
 
         if (g_args.databases) {
