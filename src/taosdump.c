@@ -6578,7 +6578,8 @@ static int dumpOut() {
                 tstrncpy(g_dbInfos[count]->keeplist,
                         (char *)row[f],
                         min(32, length[TSDB_SHOW_DB_KEEP_INDEX]+ 1));
-            } else if (0 == strcmp(fields[f].name, "cache")) {
+            } else if ((0 == strcmp(fields[f].name, "cache"))
+                        || (0 == strcmp(fields[f].name, "cache(MB)"))) {
                 g_dbInfos[count]->cache = *((int32_t *)row[f]);
             } else if (0 == strcmp(fields[f].name, "blocks")) {
                 g_dbInfos[count]->blocks = *((int32_t *)row[f]);
