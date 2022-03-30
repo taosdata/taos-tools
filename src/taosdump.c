@@ -6572,6 +6572,9 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "days")) {
                 g_dbInfos[count]->days = *((int16_t *)row[f]);
             } else if (0 == strcmp(fields[f].name, "keep")) {
+                debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                        __func__, __LINE__, f,
+                        (char*)row[f], length[f]);
                 tstrncpy(g_dbInfos[count]->keeplist,
                         (char *)row[f],
                         min(32, length[f] + 1));
