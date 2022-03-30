@@ -1374,7 +1374,7 @@ static int getTableDes(
         tstrncpy(tableDes->cols[colCount].note,
                 (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
                 min(COL_NOTE_LEN,
-                    fields[TSDB_DESCRIBE_METRIC_FIELD_INDEX].bytes + 1));
+                    fields[TSDB_DESCRIBE_METRIC_NOTE_INDEX].bytes + 1));
 
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
             tableDes->columns ++;
@@ -6574,7 +6574,7 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "keep")) {
                 tstrncpy(g_dbInfos[count]->keeplist,
                         (char *)row[f],
-                        min(32, length[TSDB_SHOW_DB_KEEP_INDEX]+ 1));
+                        min(32, length[f] + 1));
             } else if ((0 == strcmp(fields[f].name, "cache"))
                         || (0 == strcmp(fields[f].name, "cache(MB)"))) {
                 g_dbInfos[count]->cache = *((int32_t *)row[f]);
@@ -6595,7 +6595,7 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "precision")) {
                 tstrncpy(g_dbInfos[count]->precision,
                         (char *)row[f],
-                        min(strlen((char*)row[f]), DB_PRECISION_LEN));
+                        min(length[f] + 1, DB_PRECISION_LEN));
             } else if (0 == strcmp(fields[f].name, "update")) {
                 g_dbInfos[count]->update = *((int8_t *)row[f]);
             }
