@@ -1365,11 +1365,10 @@ static int getTableDes(
 
     tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
     while ((row = taos_fetch_row(res)) != NULL) {
-        int32_t* length = taos_fetch_lengths(res);
         tstrncpy(tableDes->cols[colCount].field,
                 (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                 min(TSDB_COL_NAME_LEN,
-                    length[TSDB_DESCRIBE_METRIC_FIELD_INDEX]+1));
+                    fields[TSDB_DESCRIBE_METRIC_FIELD_INDEX].bytes + 1));
         tableDes->cols[colCount].type =
                 typeStrToType((char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
         tableDes->cols[colCount].length =
@@ -1377,7 +1376,7 @@ static int getTableDes(
         tstrncpy(tableDes->cols[colCount].note,
                 (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
                 min(COL_NOTE_LEN,
-                    length[TSDB_DESCRIBE_METRIC_FIELD_INDEX]+1));
+                    fields[TSDB_DESCRIBE_METRIC_FIELD_INDEX].bytes + 1));
 
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
             tableDes->columns ++;
