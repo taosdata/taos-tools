@@ -6572,7 +6572,8 @@ static int dumpOut() {
                     *((int16_t *)row[f]);
             } else if (0 == strcmp(fields[f].name, "days")) {
                 g_dbInfos[count]->days = *((int16_t *)row[f]);
-            } else if (0 == strcmp(fields[f].name, "keep")) {
+            } else if ((0 == strcmp(fields[f].name, "keep"))
+                || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
                 debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                         __func__, __LINE__, f,
                         (char*)row[f], length[f]);
