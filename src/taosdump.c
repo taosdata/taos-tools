@@ -1076,8 +1076,6 @@ static int getTableRecordInfo(
         return -1;
     }
 
-//    TAOS_FIELD *fields = taos_fetch_fields(result);
-
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
         isSet = true;
@@ -6597,7 +6595,7 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "precision")) {
                 tstrncpy(g_dbInfos[count]->precision,
                         (char *)row[f],
-                        DB_PRECISION_LEN);
+                        min(strlen((char*)row[f]), DB_PRECISION_LEN));
             } else if (0 == strcmp(fields[f].name, "update")) {
                 g_dbInfos[count]->update = *((int8_t *)row[f]);
             }
