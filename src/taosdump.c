@@ -2123,6 +2123,7 @@ static void dumpCreateDbClause(
     }
 
     pstr += sprintf(pstr, ";");
+    debugPrint("%s() LN%d db clause: %s\n", __func__, __LINE__, pstr);
     fprintf(fp, "%s\n\n", sqlstr);
 }
 
