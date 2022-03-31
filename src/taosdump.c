@@ -2340,129 +2340,159 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
     return which;
 }
 
+static int convertTbDesToJsonImplMore(
+        TableDef *tableDes, int pos, char **ppstr, char *colOrTag, int i)
+{
+    int ret = 0;
+    char *pstr = *ppstr;
+
+    switch(tableDes->cols[pos].type) {
+        case TSDB_DATA_TYPE_BINARY:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
+                    colOrTag, i-2, "string");
+            break;
+
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_JSON:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
+                    colOrTag, i-2, "bytes");
+            break;
+
+        case TSDB_DATA_TYPE_BOOL:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
+                    colOrTag, i-2, "boolean");
+            break;
+
+        case TSDB_DATA_TYPE_TINYINT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    colOrTag, i-2, "int");
+            break;
+
+        case TSDB_DATA_TYPE_SMALLINT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\", \"type\":\"%s\"",
+                    colOrTag, i-2, "int");
+            break;
+
+        case TSDB_DATA_TYPE_INT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\", \"type\":\"%s\"",
+                    colOrTag, i-2, "int");
+            break;
+
+        case TSDB_DATA_TYPE_BIGINT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    colOrTag, i-2, "long");
+            break;
+
+        case TSDB_DATA_TYPE_FLOAT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    colOrTag, i-2, "float");
+            break;
+
+        case TSDB_DATA_TYPE_DOUBLE:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    colOrTag, i-2, "double");
+            break;
+
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    colOrTag, i-2, "long");
+            break;
+
+        case TSDB_DATA_TYPE_UTINYINT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                    colOrTag, i-2, "int");
+            break;
+
+        case TSDB_DATA_TYPE_USMALLINT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                    colOrTag, i-2, "int");
+            break;
+
+        case TSDB_DATA_TYPE_UINT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                    colOrTag, i-2, "int");
+            break;
+
+        case TSDB_DATA_TYPE_UBIGINT:
+            ret = sprintf(pstr,
+                    "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                    colOrTag, i-2, "long");
+            break;
+
+        default:
+            errorPrint("%s() LN%d, wrong type: %d\n",
+                    __func__, __LINE__, tableDes->cols[pos].type);
+            break;
+    }
+
+    return ret;
+}
+
 static int convertTbDesToJsonImpl(
-        char *namespace, TableDef *tableDes,
+        char *namespace,
+        char *tbName,
+        TableDef *tableDes,
         char **jsonSchema, bool isColumn)
 {
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
-            namespace, (isColumn)?"_record":"_stb");
+            namespace,
+            (isColumn)?(g_args.loose_mode?tbName:"_record")
+            :(g_args.loose_mode?tbName:"_stb"));
 
-    // isCol: add one iterates for tbnmae
-    // isTag: add two iterates for stbname and tbnmae
-    int iterate = (isColumn)?(tableDes->columns+1):(tableDes->tags+2);
+    int iterate = 0;
+    if (g_args.loose_mode) {
+        // isCol: first column is ts
+        // isTag: first column is tbnmae
+        iterate = (isColumn)?(tableDes->columns):(tableDes->tags+1);
+    } else {
+        // isCol: add one iterates for tbnmae
+        // isTag: add two iterates for stbname and tbnmae
+        iterate = (isColumn)?(tableDes->columns+1):(tableDes->tags+2);
+    }
 
     char *colOrTag = (isColumn)?"col":"tag";
 
     for (int i = 0; i < iterate; i ++) {
-        if (0 == i) {
+        if ((0 == i) && (!g_args.loose_mode)) {
             pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":%s",
                     isColumn?"tbname":"stbname",
                     "[\"null\",\"string\"]");
-        } else if (1 == i) {
+        } else if (((1 == i) && (!g_args.loose_mode))
+                || ((0 == i) && (g_args.loose_mode))) {
             pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":%s",
                     isColumn?"ts":"tbname",
                     isColumn?"\"long\"":"[\"null\",\"string\"]");
         } else {
-            // isTag: pos is i-2 for stbname and tbnmae
-            int pos = i +
-                ((isColumn)?(-1):
-                 (tableDes->columns-2));
-
-            switch(tableDes->cols[pos].type) {
-                case TSDB_DATA_TYPE_BINARY:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                            colOrTag, i-2, "string");
-                    break;
-
-                case TSDB_DATA_TYPE_NCHAR:
-                case TSDB_DATA_TYPE_JSON:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                            colOrTag, i-2, "bytes");
-                    break;
-
-                case TSDB_DATA_TYPE_BOOL:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                            colOrTag, i-2, "boolean");
-                    break;
-
-                case TSDB_DATA_TYPE_TINYINT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i-2, "int");
-                    break;
-
-                case TSDB_DATA_TYPE_SMALLINT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\", \"type\":\"%s\"",
-                            colOrTag, i-2, "int");
-                    break;
-
-                case TSDB_DATA_TYPE_INT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\", \"type\":\"%s\"",
-                            colOrTag, i-2, "int");
-                    break;
-
-                case TSDB_DATA_TYPE_BIGINT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i-2, "long");
-                    break;
-
-                case TSDB_DATA_TYPE_FLOAT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i-2, "float");
-                    break;
-
-                case TSDB_DATA_TYPE_DOUBLE:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i-2, "double");
-                    break;
-
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                            colOrTag, i-2, "long");
-                    break;
-
-                case TSDB_DATA_TYPE_UTINYINT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i-2, "int");
-                    break;
-
-                case TSDB_DATA_TYPE_USMALLINT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i-2, "int");
-                    break;
-
-                case TSDB_DATA_TYPE_UINT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i-2, "int");
-                    break;
-
-                case TSDB_DATA_TYPE_UBIGINT:
-                    pstr += sprintf(pstr,
-                            "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                            colOrTag, i-2, "long");
-                    break;
-
-                default:
-                    errorPrint("%s() LN%d, wrong type: %d\n",
-                            __func__, __LINE__, tableDes->cols[pos].type);
-                    break;
+            int pos = i;
+            if (g_args.loose_mode) {
+                // isTag: pos is i-1 for tbnmae
+                if (!isColumn)
+                    pos = i + tableDes->columns-1;
+            } else {
+                // isTag: pos is i-2 for stbname and tbnmae
+                pos = i +
+                    ((isColumn)?(-1):
+                     (tableDes->columns-2));
             }
+
+            pstr += convertTbDesToJsonImplMore(tableDes, pos, &pstr, colOrTag, i);
         }
 
         if (i != (iterate-1)) {
@@ -2487,7 +2517,66 @@ static int convertTbTagsDesToJsonLoose(
         char **jsonSchema)
 {
     errorPrint("TODO: %s\n", __func__);
-    return -1;
+
+    // {
+    // "type": "record",
+    // "name": "stbName",
+    // "namespace": "dbname",
+    // "fields": [
+    //      {
+    //      "name": "tbname",
+    //      "type": "string"
+    //      },
+    //      {
+    //      "name": "tag0 name",
+    //      "type": "long"
+    //      },
+    //      {
+    //      "name": "tag1 name",
+    //      "type": "int"
+    //      },
+    //      {
+    //      "name": "tag2 name",
+    //      "type": "float"
+    //      },
+    //      {
+    //      "name": "tag3 name",
+    //      "type": "boolean"
+    //      },
+    //      ...
+    //      {
+    //      "name": "tagl name",
+    //      "type": {"type": "array", "items":"int"}
+    //      },
+    //      {
+    //      "name": "tagm name",
+    //      "type": ["null", "string"]
+    //      },
+    //      {
+    //      "name": "tagn name",
+    //      "type": ["null", "bytes"]}
+    //      }
+    // ]
+    // }
+
+    if (!g_args.verbose_print) {
+        return -1;
+    }
+
+    *jsonSchema = (char *)calloc(1,
+            17 + TSDB_DB_NAME_LEN               /* dbname section */
+            + 17                                /* type: record */
+            + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+            + 10                                /* fields section */
+            + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
+            + (TSDB_COL_NAME_LEN + 50) * tableDes->tags + 4);    /* fields section */
+
+    if (*jsonSchema == NULL) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
+
+    return convertTbDesToJsonImpl(dbName, stbName, tableDes, jsonSchema, false);
 }
 
 static int convertTbTagsDesToJson(
@@ -2551,7 +2640,7 @@ static int convertTbTagsDesToJson(
         return -1;
     }
 
-    return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, false);
+    return convertTbDesToJsonImpl(dbName, stbName, tableDes, jsonSchema, false);
 }
 
 static int convertTbTagsDesToJsonWrap(
@@ -2577,7 +2666,58 @@ static int convertTbDesToJsonLoose(
         char **jsonSchema)
 {
     errorPrint("TODO: %s\n", __func__);
-    return -1;
+    if (!g_args.verbose_print) {
+        return -1;
+    }
+
+    // {
+    // "type": "record",
+    // "name": "tbname",
+    // "namespace": "dbname",
+    // "fields": [
+    //      {
+    //      "name": "col0 name",
+    //      "type": "long"
+    //      },
+    //      {
+    //      "name": "col1 name",
+    //      "type": "int"
+    //      },
+    //      {
+    //      "name": "col2 name",
+    //      "type": "float"
+    //      },
+    //      {
+    //      "name": "col3 name",
+    //      "type": ["null",boolean"]
+    //      },
+    //      ...
+    //      {
+    //      "name": "coll name",
+    //      "type": {"type": "array", "items":"int"}
+    //      },
+    //      {
+    //      "name": "colm name",
+    //      "type": ["null","string"]
+    //      },
+    //      {
+    //      "name": "coln name",
+    //      "type": ["null","bytes"]}
+    //      }
+    // ]
+    // }
+    *jsonSchema = (char *)calloc(1,
+            17 + TSDB_DB_NAME_LEN               /* dbname section */
+            + 17                                /* type: record */
+            + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
+            + 10                                /* fields section */
+            + (TSDB_COL_NAME_LEN + 50) * colCount + 4);    /* fields section */
+    if (*jsonSchema == NULL) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
+
+    return convertTbDesToJsonImpl(dbName, tbName, tableDes, jsonSchema, true);
 }
 
 static int convertTbDesToJson(
@@ -2631,7 +2771,7 @@ static int convertTbDesToJson(
         return -1;
     }
 
-    return convertTbDesToJsonImpl(dbName, tableDes, jsonSchema, true);
+    return convertTbDesToJsonImpl(dbName, tbName, tableDes, jsonSchema, true);
 }
 
 static int convertTbDesToJsonWrap(
