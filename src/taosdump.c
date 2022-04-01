@@ -2345,91 +2345,96 @@ static int convertTbDesToJsonImplMore(
 {
     int ret = 0;
     char *pstr = *ppstr;
+    int adjust = 2;
+
+    if (g_args.loose_mode) {
+        adjust = 1;
+    }
 
     switch(tableDes->cols[pos].type) {
         case TSDB_DATA_TYPE_BINARY:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                    colOrTag, i-2, "string");
+                    colOrTag, i-adjust, "string");
             break;
 
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                    colOrTag, i-2, "bytes");
+                    colOrTag, i-adjust, "bytes");
             break;
 
         case TSDB_DATA_TYPE_BOOL:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
-                    colOrTag, i-2, "boolean");
+                    colOrTag, i-adjust, "boolean");
             break;
 
         case TSDB_DATA_TYPE_TINYINT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                    colOrTag, i-2, "int");
+                    colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_SMALLINT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\", \"type\":\"%s\"",
-                    colOrTag, i-2, "int");
+                    colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_INT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\", \"type\":\"%s\"",
-                    colOrTag, i-2, "int");
+                    colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_BIGINT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                    colOrTag, i-2, "long");
+                    colOrTag, i-adjust, "long");
             break;
 
         case TSDB_DATA_TYPE_FLOAT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                    colOrTag, i-2, "float");
+                    colOrTag, i-adjust, "float");
             break;
 
         case TSDB_DATA_TYPE_DOUBLE:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                    colOrTag, i-2, "double");
+                    colOrTag, i-adjust, "double");
             break;
 
         case TSDB_DATA_TYPE_TIMESTAMP:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":\"%s\"",
-                    colOrTag, i-2, "long");
+                    colOrTag, i-adjust, "long");
             break;
 
         case TSDB_DATA_TYPE_UTINYINT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    colOrTag, i-2, "int");
+                    colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_USMALLINT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    colOrTag, i-2, "int");
+                    colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_UINT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    colOrTag, i-2, "int");
+                    colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_UBIGINT:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
-                    colOrTag, i-2, "long");
+                    colOrTag, i-adjust, "long");
             break;
 
         default:
@@ -2516,7 +2521,11 @@ static int convertTbTagsDesToJsonLoose(
         char *dbName, char *stbName, TableDef *tableDes,
         char **jsonSchema)
 {
-    errorPrint("TODO: %s\n", __func__);
+/*    if (!g_args.verbose_print) {
+        errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
+        return -1;
+    }
+*/
 
     // {
     // "type": "record",
@@ -2558,10 +2567,6 @@ static int convertTbTagsDesToJsonLoose(
     //      }
     // ]
     // }
-
-    if (!g_args.verbose_print) {
-        return -1;
-    }
 
     *jsonSchema = (char *)calloc(1,
             17 + TSDB_DB_NAME_LEN               /* dbname section */
@@ -2665,10 +2670,11 @@ static int convertTbDesToJsonLoose(
         char *dbName, char *tbName, TableDef *tableDes, int colCount,
         char **jsonSchema)
 {
-    errorPrint("TODO: %s\n", __func__);
-    if (!g_args.verbose_print) {
+/*    if (!g_args.verbose_print) {
+        errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
         return -1;
     }
+    */
 
     // {
     // "type": "record",
@@ -2957,14 +2963,16 @@ static int64_t writeResultToAvro(
 
         avro_value_t value, branch;
 
-        if (0 != avro_value_get_by_name(
-                    &record, "tbname", &value, NULL)) {
-            errorPrint("%s() LN%d, avro_value_get_by_name(tbname) failed\n",
-                    __func__, __LINE__);
-            continue;
+        if (!g_args.loose_mode) {
+            if (0 != avro_value_get_by_name(
+                        &record, "tbname", &value, NULL)) {
+                errorPrint("%s() LN%d, avro_value_get_by_name(tbname) failed\n",
+                        __func__, __LINE__);
+                continue;
+            }
+            avro_value_set_branch(&value, 1, &branch);
+            avro_value_set_string(&branch, tbName);
         }
-        avro_value_set_branch(&value, 1, &branch);
-        avro_value_set_string(&branch, tbName);
 
         for (int col = 0; col < numFields; col++) {
             char tmpBuf[65] = {0};
@@ -4996,15 +5004,17 @@ static int createMTableAvroHeadImp(
 
     avro_value_t value, branch;
 
-    if (0 != avro_value_get_by_name(
-                &record, "stbname", &value, NULL)) {
-        errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
-                __func__, __LINE__, "stbname");
-        return -1;
-    }
+    if (!g_args.loose_mode) {
+        if (0 != avro_value_get_by_name(
+                    &record, "stbname", &value, NULL)) {
+            errorPrint("%s() LN%d, avro_value_get_by_name(..%s..) failed",
+                    __func__, __LINE__, "stbname");
+            return -1;
+        }
 
-    avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, stable);
+        avro_value_set_branch(&value, 1, &branch);
+        avro_value_set_string(&branch, stable);
+    }
 
     if (0 != avro_value_get_by_name(
                 &record, "tbname", &value, NULL)) {
