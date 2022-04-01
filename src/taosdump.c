@@ -48,7 +48,7 @@
 #define MAX_RECORDS_PER_REQ     32766
 
 static char    **g_tsDumpInDebugFiles     = NULL;
-static char      g_tsCharset[63] = {0};
+static char      g_dumpInCharset[63] = {0};
 static char      g_configDir[MAX_FILE_NAME_LEN] = "/etc/taos";
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
@@ -4483,7 +4483,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
         int64_t rows = dumpInOneAvroFile(
                 pThreadInfo->which,
-                g_tsCharset,
+                g_dumpInCharset,
                 avroFile);
         switch (pThreadInfo->which) {
             case WHICH_AVRO_DATA:
@@ -5786,12 +5786,11 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
     return ret;
 }
 
-static void loadFileCharset(FILE *fp, char *fcharset) {
+static void loadFileCharset(FILE *fp, char *mark, char *fcharset) {
     char *line = NULL;
     ssize_t size;
     size_t line_size = 0;
-    char *charSetMark = "#!charset: ";
-    int charSetMarkLen = strlen(charSetMark);
+    int markLen = strlen(mark);
 
     (void)fseek(fp, 0, SEEK_SET);
 
@@ -5801,9 +5800,9 @@ static void loadFileCharset(FILE *fp, char *fcharset) {
             goto _exit_no_charset;
         }
 
-        if (strncmp(line, charSetMark, charSetMarkLen) == 0) {
-            strncpy(fcharset, line + charSetMarkLen,
-                    (strlen(line) - (charSetMarkLen+1))); // remove '\n'
+        if (strncmp(line, mark, markLen) == 0) {
+            strncpy(fcharset, line + markLen,
+                    (strlen(line) - (markLen+1))); // remove '\n'
             break;
         }
 
@@ -5910,7 +5909,7 @@ static void* dumpInDebugWorkThreadFp(void *arg)
         }
 
         int64_t rows = dumpInOneDebugFile(
-                pThread->taos, fp, g_tsCharset,
+                pThread->taos, fp, g_dumpInCharset,
                 sqlFile);
         if (rows > 0) {
             pThread->recSuccess += rows;
@@ -6038,10 +6037,12 @@ static int dumpInDbs()
         return -1;
     }
     debugPrint("Success Open input file: %s\n", dbsSql);
-    loadFileCharset(fp, g_tsCharset);
+
+    char *charSetMark = "#!charset: ";
+    loadFileCharset(fp, charSetMark, g_dumpInCharset);
 
     int64_t rows = dumpInOneDebugFile(
-            taos, fp, g_tsCharset, dbsSql);
+            taos, fp, g_dumpInCharset, dbsSql);
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
                 rows, dbsSql);
