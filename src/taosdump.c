@@ -3259,6 +3259,8 @@ static int dumpInAvroTbTagsImpl(
     avro_value_t value;
     avro_generic_value_new(value_class, &value);
 
+    int tagAdjExt = g_dumpInLooseModeFlag?0:1;
+
     while(!avro_file_reader_read_value(reader, &value)) {
         TAOS_STMT *stmt = taos_stmt_init(taos);
         if (NULL == stmt) {
@@ -3275,7 +3277,7 @@ static int dumpInAvroTbTagsImpl(
 
         char *stbName = NULL;
         char *tbName = NULL;
-        for (int i = 0; i < recordSchema->num_fields-1; i++) {
+        for (int i = 0; i < recordSchema->num_fields-tagAdjExt; i++) {
             avro_value_t field_value, field_branch;
             size_t size;
 
@@ -3341,7 +3343,7 @@ static int dumpInAvroTbTagsImpl(
                 }
             } else {
                 FieldStruct *field = (FieldStruct *)
-                    (recordSchema->fields + sizeof(FieldStruct)*(i+1));
+                    (recordSchema->fields + sizeof(FieldStruct)*(i+tagAdjExt));
                 if (0 == avro_value_get_by_name(
                             &value, field->name, &field_value, NULL)) {
                     bind = (TAOS_BIND *)((char *)bindArray
