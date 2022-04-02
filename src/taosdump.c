@@ -1445,7 +1445,7 @@ static int getTableDes(
         row = taos_fetch_row(res);
 
         if (NULL == row) {
-            warnPrint("No data from fetch to run command <%s>, reason:%s\n",
+            debugPrint("No data from fetch to run command <%s>, reason:%s\n",
                     sqlstr, taos_errstr(res));
             taos_free_result(res);
             return -1;
@@ -3340,6 +3340,8 @@ static int dumpInAvroTbTagsImpl(
                             taos_stmt_errstr(stmt));
                     failed ++;
                     continue;
+                } else {
+                    printf("table %s created\n", tbName);
                 }
             } else {
                 FieldStruct *field = (FieldStruct *)
@@ -3704,7 +3706,9 @@ static int dumpInAvroTbTagsImpl(
                                                 &item_value, NULL);
                                         avro_value_get_long(&item_value, &n64tmp);
                                         *array_u64 += n64tmp;
-                                        debugPrint("%s() LN%d, array index: %d, n64tmp: %"PRId64", array_u64: %"PRIu64"\n",
+                                        debugPrint("%s() LN%d, array "
+                                                "index: %d, n64tmp: %"PRId64","
+                                                " array_u64: %"PRIu64"\n",
                                                 __func__, __LINE__,
                                                 (int)item, n64tmp,
                                                 (uint64_t)*array_u64);
@@ -4568,7 +4572,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
     int percentComplete = 0;
     for (int64_t i = 0; i < pThreadInfo->count; i++) {
         if (0 == currentPercent) {
-            printf("[%d]: Restoring from %s \n",
+            printf("[%d]: Restoring from %s ...\n",
                     pThreadInfo->threadIndex,
                     fileList[pThreadInfo->from + i]);
         }
@@ -4966,8 +4970,9 @@ static int64_t dumpTableData(
                     getUniqueIDFromEpoch(),
                     index);
         }
-        printf("[%"PRId64"]: Dumping to %s \n",
+/*        printf("[%"PRId64"]: Dumping to %s \n",
                 index, dataFilename);
+                */
 
         totalRows = writeResultToAvro(dataFilename, tbName, jsonSchema, res);
     } else {
@@ -5658,36 +5663,10 @@ static void *dumpNtbOfDb(void *arg) {
                      (g_tablesList + pThreadInfo->from+i))->belongStb,
                     ((TableInfo *)
                      (g_tablesList + pThreadInfo->from+i))->stable);
-/*
-            char *ext;
-            if (((TableInfo *)
-                        (g_tablesList + pThreadInfo->from+i))->belongStb) {
-                ext = "avro";
-            } else {
-                ext = "avro-ntb";
-            }
 
-            if (g_args.loose_mode) {
-                sprintf(dumpFilename, "%s%s.%s.%d.%s",
-                        g_args.outpath, pThreadInfo->dbName,
-                        ((TableInfo*)(g_tablesList+pThreadInfo->from+i))->name,
-                        pThreadInfo->threadIndex,
-                        ext);
-            } else {
-                sprintf(dumpFilename, "%s%s.%"PRIu64".%d.%s",
-                        g_args.outpath, pThreadInfo->dbName,
-                        getUniqueIDFromEpoch(),
-                        pThreadInfo->threadIndex,
-                        ext);
+            if (0 == currentPercent) {
+                printf("[%d]: Dumping \n", pThreadInfo->threadIndex);
             }
-
-            if ((0 == currentPercent)
-                    && (((TableInfo *)
-                        (g_tablesList + pThreadInfo->from+i))->belongStb)) {
-                printf("[%d]: LN%d Dumping to %s \n",
-                        pThreadInfo->threadIndex, __LINE__, dumpFilename);
-            }
-*/
             count = dumpNormalTable(
                     pThreadInfo->from+i,
                     pThreadInfo->taos,
