@@ -54,7 +54,7 @@ static char      g_dumpInTaosdumpVer[64] = {0};
 static char      g_dumpInEscapeChar[64] = {0};
 static char      g_dumpInLooseMode[64] = {0};
 static bool      g_dumpInLooseModeFlag = false;
-static char      g_configDir[MAX_FILE_NAME_LEN] = "/etc/taos";
+static char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
@@ -351,7 +351,8 @@ static char doc[] = "";
 /*         to force a line-break, e.g.\n<-- here."; */
 
 /* A description of the arguments we accept. */
-static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n--all-databases\n-i inpath\n-o outpath";
+static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n"
+    "--all-databases\n-i inpath\n-o outpath";
 
 /* Keys for options without short-options. */
 #define OPT_ABORT 1 /* –abort */
@@ -359,36 +360,61 @@ static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n--all-d
 /* The options we understand. */
 static struct argp_option options[] = {
     // connection option
-    {"host", 'h', "HOST",    0,  "Server host dumping data from. Default is localhost.", 0},
-    {"user", 'u', "USER",    0,  "User name used to connect to server. Default is root.", 0},
-    {"password", 'p', 0,    0,  "User password to connect to server. Default is taosdata.", 0},
+    {"host", 'h', "HOST",    0,
+        "Server host dumping data from. Default is localhost.", 0},
+    {"user", 'u', "USER",    0,
+        "User name used to connect to server. Default is root.", 0},
+    {"password", 'p', 0,    0,
+        "User password to connect to server. Default is taosdata.", 0},
     {"port", 'P', "PORT",        0,  "Port to connect", 0},
     // input/output file
     {"outpath", 'o', "OUTPATH",     0,  "Output file path.", 1},
     {"inpath", 'i', "INPATH",      0,  "Input file path.", 1},
-    {"resultFile", 'r', "RESULTFILE",  0,  "DumpOut/In Result file path and name.", 1},
-    {"config-dir", 'c', "CONFIG_DIR",  0,  "Configure directory. Default is /etc/taos", 1},
+    {"resultFile", 'r', "RESULTFILE",  0,
+        "DumpOut/In Result file path and name.", 1},
+    {"config-dir", 'c', "CONFIG_DIR",  0,
+        "Configure directory. Default is /etc/taos", 1},
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
-    {"databases", 'D', "DATABASES", 0,  "Dump inputted databases. Use comma to separate databases\' name.", 2},
+    {"databases", 'D', "DATABASES", 0,
+        "Dump inputted databases. Use comma to separate databases\' name.", 2},
     {"allow-sys",   'a', 0, 0,  "Allow to dump system database", 2},
     // dump format options
     {"schemaonly", 's', 0, 0,  "Only dump tables' schema.", 2},
-    {"without-property", 'N', 0, 0,  "Dump database without its properties.", 2},
-    {"answer-yes", 'y', 0, 0,  "Input yes for prompt. It will skip data file checking!", 3},
-    {"avro-codec", 'd', "snappy", 0,  "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
-    {"start-time",    'S', "START_TIME",  0,  "Start time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",  8},
-    {"end-time",      'E', "END_TIME",    0,  "End time to dump. Either epoch or ISO8601/RFC3339 format is acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",  9},
-    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert statement when restore back. Default value is 16384. If you see 'WAL size exceeds limit' error, please adjust the value to a smaller one and try. The workable value is related to the length of the row and type of table schema.", 10},
+    {"without-property", 'N', 0, 0,
+        "Dump database without its properties.", 2},
+    {"answer-yes", 'y', 0, 0,
+        "Input yes for prompt. It will skip data file checking!", 3},
+    {"avro-codec", 'd', "snappy", 0,
+        "Choose an avro codec among null, deflate, snappy, and lzma.", 4},
+    {"start-time",    'S', "START_TIME",  0,
+        "Start time to dump. Either epoch or ISO8601/RFC3339 format is "
+            "acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 "
+            "or 2017-10-0100:00:00:000+0800 or '2017-10-01 00:00:00.000+0800'",
+        8},
+    {"end-time",      'E', "END_TIME",    0,
+        "End time to dump. Either epoch or ISO8601/RFC3339 format is "
+            "acceptable. ISO8601 format example: 2017-10-01T00:00:00.000+0800 "
+            "or 2017-10-0100:00:00.000+0800 or '2017-10-01 00:00:00.000+0800'",
+        9},
+    {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per insert "
+        "statement when restore back. Default value is 16384. If you see "
+            "'WAL size exceeds limit' error, please adjust the value to a "
+            "smaller one and try. The workable value is related to the length "
+            "of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
-    {"thread-num",  'T', "THREAD_NUM",  0,  "Number of thread for dump in file. Default is 5.", 10},
-    {"loose-mode",  'L', 0,  0,  "Using loose mode if the table name and column name use letter and number only. Default is NOT.", 10},
+    {"thread-num",  'T', "THREAD_NUM",  0,
+        "Number of thread for dump in file. Default is 5.", 10},
+    {"loose-mode",  'L', 0,  0,
+        "Using loose mode if the table name and column name use letter and "
+            "number only. Default is NOT.", 10},
     {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
 };
 
 #define HUMAN_TIME_LEN      28
+#define MAX_DIR_LEN         MAX_PATH_LEN-MAX_FILE_NAME_LEN
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {
@@ -398,8 +424,8 @@ typedef struct arguments {
     char    password[SHELL_MAX_PASSWORD_LEN];
     uint16_t port;
     // output file
-    char     outpath[MAX_FILE_NAME_LEN];
-    char     inpath[MAX_FILE_NAME_LEN];
+    char     outpath[MAX_DIR_LEN];
+    char     inpath[MAX_DIR_LEN];
     // result file
     char    *resultFile;
     // dump unit option
@@ -736,7 +762,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             if (full_path.we_wordv[0]) {
-                snprintf(g_args.outpath, MAX_FILE_NAME_LEN, "%s/",
+                snprintf(g_args.outpath, MAX_DIR_LEN, "%s/",
                         full_path.we_wordv[0]);
                 wordfree(&full_path);
             } else {
@@ -758,7 +784,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
             if (full_path.we_wordv[0]) {
                 tstrncpy(g_args.inpath, full_path.we_wordv[0],
-                        MAX_FILE_NAME_LEN);
+                        MAX_DIR_LEN);
                 wordfree(&full_path);
             } else {
                 errorPrintReqArg3("taosdump", "-i or --inpath");
@@ -779,7 +805,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                     g_args.avro = false;
                 }
             } else if (AVRO_CODEC_INVALID == avroCodec) {
-                errorPrint("%s", "Invalid AVRO codec inputed. Exit program!\n");
+                errorPrint("%s",
+                        "Invalid AVRO codec inputed. Exit program!\n");
                 exit(1);
             }
             break;
@@ -797,7 +824,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 errorPrint("Invalid path %s\n", arg);
                 exit(EXIT_FAILURE);
             }
-            tstrncpy(g_configDir, full_path.we_wordv[0], MAX_FILE_NAME_LEN);
+            tstrncpy(g_configDir, full_path.we_wordv[0], MAX_PATH_LEN);
             wordfree(&full_path);
             break;
 
@@ -3864,6 +3891,7 @@ static int dumpInAvroDataImpl(
         avro_value_t tbname_value, tbname_branch;
 
         char *tbName= NULL;
+        int colAdj = 1;
         if (!g_dumpInLooseModeFlag) {
             avro_value_get_by_name(&value, "tbname", &tbname_value, NULL);
             avro_value_get_current_branch(&tbname_value, &tbname_branch);
@@ -3882,6 +3910,7 @@ static int dumpInAvroDataImpl(
 
             strcpy(tbName, tb);
             free(dupSeq);
+            colAdj = 0;
         }
         debugPrint("%s() LN%d table: %s parsed from file:%s\n",
                 __func__, __LINE__, tbName, fileName);
@@ -3917,14 +3946,14 @@ static int dumpInAvroDataImpl(
         TAOS_BIND *bind;
 
         int is_null = 1;
-        for (int i = 0; i < recordSchema->num_fields-1; i++) {
+        for (int i = 0; i < recordSchema->num_fields-colAdj; i++) {
             bind = (TAOS_BIND *)((char *)bindArray + (sizeof(TAOS_BIND) * i));
 
             avro_value_t field_value;
 
             FieldStruct *field =
                 (FieldStruct *)(recordSchema->fields
-                        + sizeof(FieldStruct)*(i+1));
+                        + sizeof(FieldStruct)*(i+colAdj));
 
             bind->is_null = NULL;
             if (0 == i) {
@@ -4890,8 +4919,7 @@ static int64_t dumpTableData(
         char* dbName,
         int precision,
         int colCount,
-        TableDef *tableDes,
-        char *avroFilename
+        TableDef *tableDes
         ) {
     char *jsonSchema = NULL;
     if (g_args.avro) {
@@ -4924,25 +4952,22 @@ static int64_t dumpTableData(
 
     if (g_args.avro) {
 
-        if (!belongStb) {
-            char dataFilename[MAX_PATH_LEN] = {0};
-            if (g_args.loose_mode) {
-                sprintf(dataFilename, "%s%s.%s.%"PRId64".avro",
-                        g_args.outpath, dbName,
-                        tbName,
-                        index);
-            } else {
-                sprintf(dataFilename, "%s%s.%"PRId64".%"PRIu64".avro",
-                        g_args.outpath, dbName,
-                        getUniqueIDFromEpoch(),
-                        index);
-            }
-            printf("[%"PRId64"]: Dumping to %s \n",
-                    index, dataFilename);
-            strncpy(avroFilename, dataFilename, MAX_PATH_LEN);
+        char dataFilename[MAX_PATH_LEN] = {0};
+        if (g_args.loose_mode) {
+            sprintf(dataFilename, "%s%s.%s.%"PRId64".avro",
+                    g_args.outpath, dbName,
+                    tbName,
+                    index);
+        } else {
+            sprintf(dataFilename, "%s%s.%"PRIu64".%"PRId64".avro",
+                    g_args.outpath, dbName,
+                    getUniqueIDFromEpoch(),
+                    index);
         }
+        printf("[%"PRId64"]: Dumping to %s \n",
+                index, dataFilename);
 
-        totalRows = writeResultToAvro(avroFilename, tbName, jsonSchema, res);
+        totalRows = writeResultToAvro(dataFilename, tbName, jsonSchema, res);
     } else {
         totalRows = writeResultDebug(res, fp, dbName, tbName);
     }
@@ -4996,7 +5021,27 @@ static int64_t dumpNormalTable(
 
         // create normal-table
         if (g_args.avro) {
-            assert(dumpFilename);
+            if (belongStb) {
+                if (g_args.loose_mode) {
+                    sprintf(dumpFilename, "%s%s.%s.avro-tbtags",
+                            g_args.outpath, dbName, stable);
+                } else {
+                    sprintf(dumpFilename, "%s%s.%"PRIu64".avro-tbtags",
+                            g_args.outpath, dbName,
+                            getUniqueIDFromEpoch());
+                }
+                errorPrint("%s() LN%d dumpFilename: %s\n",
+                        __func__, __LINE__, dumpFilename);
+            } else {
+                if (g_args.loose_mode) {
+                    sprintf(dumpFilename, "%s%s.%s.avro-ntb",
+                            g_args.outpath, dbName, tbName);
+                } else {
+                    sprintf(dumpFilename, "%s%s.%"PRIu64".avro-ntb",
+                            g_args.outpath, dbName,
+                            getUniqueIDFromEpoch());
+                }
+            }
             dumpCreateTableClauseAvro(dumpFilename, tableDes, numColsAndTags, dbName);
         } else {
             dumpCreateTableClause(tableDes, numColsAndTags, fp, dbName);
@@ -5010,8 +5055,7 @@ static int64_t dumpNormalTable(
                 fp, tbName,
                 belongStb,
                 dbName, precision,
-                numColsAndTags, tableDes,
-                dumpFilename);
+                numColsAndTags, tableDes);
     }
 
     freeTbDes(tableDes);
@@ -5034,7 +5078,7 @@ static int64_t dumpNormalTableWithoutStb(
                     ntbName,
                     index);
         } else {
-            sprintf(dumpFilename, "%s%s.%"PRId64".%"PRIu64".avro-ntb",
+            sprintf(dumpFilename, "%s%s.%"PRIu64".%"PRId64".avro-ntb",
                     g_args.outpath, dbInfo->name,
                     getUniqueIDFromEpoch(),
                     index);
@@ -5509,14 +5553,16 @@ static int64_t dumpNormalTableBelongStb(
     FILE *fp = NULL;
 
     if (g_args.avro) {
-        sprintf(dumpFilename, "%s%s.%s.avro-tagstb",
-                g_args.outpath, dbInfo->name, ntbName);
-    } else {
-        sprintf(dumpFilename, "%s%s.%s.sql",
-                g_args.outpath, dbInfo->name, ntbName);
-    }
+        if (g_args.loose_mode) {
+            sprintf(dumpFilename, "%s%s.%s.avro-tbtags",
+                    g_args.outpath, dbInfo->name, stbName);
+        } else {
+            sprintf(dumpFilename, "%s%s.%"PRIu64".avro-tbtags",
+                    g_args.outpath, dbInfo->name, getUniqueIDFromEpoch());
+        }
+        errorPrint("%s() LN%d dumpFilename: %s\n",
+                __func__, __LINE__, dumpFilename);
 
-    if (g_args.avro) {
         int ret = createMTableAvroHead(
                 taos,
                 dumpFilename,
@@ -5529,13 +5575,8 @@ static int64_t dumpNormalTableBelongStb(
             return -1;
         }
     } else {
-        fp = fopen(dumpFilename, "w");
-
-        if (fp == NULL) {
-            errorPrint("%s() LN%d, failed to open file %s\n",
-                    __func__, __LINE__, dumpFilename);
-            return -1;
-        }
+        sprintf(dumpFilename, "%s%s.%s.sql",
+                g_args.outpath, dbInfo->name, ntbName);
     }
 
     count = dumpNormalTable(
@@ -5608,7 +5649,7 @@ static void *dumpNtbOfDb(void *arg) {
                      (g_tablesList + pThreadInfo->from+i))->belongStb,
                     ((TableInfo *)
                      (g_tablesList + pThreadInfo->from+i))->stable);
-
+/*
             char *ext;
             if (((TableInfo *)
                         (g_tablesList + pThreadInfo->from+i))->belongStb) {
@@ -5634,10 +5675,10 @@ static void *dumpNtbOfDb(void *arg) {
             if ((0 == currentPercent)
                     && (((TableInfo *)
                         (g_tablesList + pThreadInfo->from+i))->belongStb)) {
-                printf("[%d]: Dumping to %s \n",
-                        pThreadInfo->threadIndex, dumpFilename);
+                printf("[%d]: LN%d Dumping to %s \n",
+                        pThreadInfo->threadIndex, __LINE__, dumpFilename);
             }
-
+*/
             count = dumpNormalTable(
                     pThreadInfo->from+i,
                     pThreadInfo->taos,
@@ -6013,7 +6054,8 @@ static void* dumpInDebugWorkThreadFp(void *arg)
 
     for (int64_t i = 0; i < pThread->count; i++) {
         char sqlFile[MAX_PATH_LEN];
-        sprintf(sqlFile, "%s/%s", g_args.inpath, g_tsDumpInDebugFiles[pThread->from + i]);
+        sprintf(sqlFile, "%s/%s", g_args.inpath,
+                g_tsDumpInDebugFiles[pThread->from + i]);
 
         FILE* fp = openDumpInFile(sqlFile);
         if (NULL == fp) {
@@ -6027,11 +6069,13 @@ static void* dumpInDebugWorkThreadFp(void *arg)
                 sqlFile);
         if (rows > 0) {
             pThread->recSuccess += rows;
-            okPrint("[%d] Total %"PRId64" line(s) command be successfully dumped in file: %s\n",
+            okPrint("[%d] Total %"PRId64" line(s) "
+                    "command be successfully dumped in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
         } else if (rows < 0) {
             pThread->recFailed += rows;
-            errorPrint("[%d] Total %"PRId64" line(s) command failed to dump in file: %s\n",
+            errorPrint("[%d] Total %"PRId64" line(s) "
+                    "command failed to dump in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
         }
         fclose(fp);
@@ -6236,6 +6280,8 @@ static void *dumpNormalTablesOfStb(void *arg) {
                     getUniqueIDFromEpoch(),
                     pThreadInfo->threadIndex);
         }
+        debugPrint("%s() LN%d dumpFilename: %s\n",
+                __func__, __LINE__, dumpFilename);
     } else {
         sprintf(dumpFilename, "%s%s.%s.%d.sql",
                 g_args.outpath,
@@ -6568,11 +6614,13 @@ static int dumpTbTagsToAvro(
                 index);
     } else {
         sprintf(dumpFilename,
-                "%s%s.%"PRId64".%"PRId64".avro-tbtags",
+                "%s%s.%"PRIu64".%"PRId64".avro-tbtags",
                 g_args.outpath, dbInfo->name,
                 getUniqueIDFromEpoch(),
                 index);
     }
+    debugPrint("%s() LN%d dumpFilename: %s\n",
+            __func__, __LINE__, dumpFilename);
 
     int ret = createMTableAvroHead(
             taos,
@@ -6956,7 +7004,7 @@ static int dumpOut() {
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         fp);
-
+/*
                 if (g_args.avro) {
                     dumpTbTagsToAvro(
                             i,
@@ -6965,6 +7013,7 @@ static int dumpOut() {
                             tableRecordInfo.tableRecord.stable,
                             g_args.arg_list[i]);
                 }
+                */
                 ret = dumpNormalTableBelongStb(
                         i,
                         taos,
