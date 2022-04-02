@@ -5579,6 +5579,13 @@ static int64_t dumpNormalTableBelongStb(
     } else {
         sprintf(dumpFilename, "%s%s.%s.sql",
                 g_args.outpath, dbInfo->name, ntbName);
+        fp = fopen(dumpFilename, "w");
+
+        if (fp == NULL) {
+            errorPrint("%s() LN%d, failed to open file %s\n",
+                    __func__, __LINE__, dumpFilename);
+            return -1;
+        }
     }
 
     count = dumpNormalTable(
