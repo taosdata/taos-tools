@@ -11,9 +11,11 @@ table(s) as the logical unit to backup. taosdump can backup specified data
 records of the database(s), super table(s) or normal table(s) with a specified
 time period. taosdump can backup data to the specified directory. If no
 location is specified, taosdump will back up the data to the current directory
-by default. If the specified location already has data files, taosdump will
-prompt the user that the backup action may be overwritten again. If you see
-the prompt, please proceed with caution.
+by default.
+
+If the specified location already has data files, taosdump will
+prompt the user that and exit to avoid the backup data may be overwritten again.
+If you see the prompt, please proceed with caution.
 
 taosdump is a logical backup tool. It does not intend to or to be expected to
 back up any raw data, the environment settings, hardware information, the
@@ -26,15 +28,16 @@ format to store the backup data.
 
 ### backup
 
-1. taosdump backups can specify all databases with the -A or --all-databases parameter;
+1.  taosdump backups can specify all databases with the -A or --all-databases parameter;
 2. or use the `-D db1,db2,...` parameter; or `-D db1, db2, ...`
-3. use `dbname stbname1 stbname2 tbname1 tbname2 ...` parameters sequence, note that the first parameter of this input sequence must be the database name and only the database name can be specified here, and the second and subsequent parameters are the names of the super or normal tables in the database, separated by spaces.
-4. TDengine servers or clusters usually contain a system database named log, the data in this database is the data that TDengine runs itself, and taosdump does not back up the log library by default. If you have a specific need to back up the log database, you can use the `-a` or `--allow-sys` command line parameter.
+3.  use `dbname stbname1 stbname2 tbname1 tbname2 ...` parameters sequence, note that the first parameter of this input sequence must be the database name and only the database name can be specified here, and the second and subsequent parameters are the names of the super or normal tables in the database, separated by spaces.
+4.  TDengine servers or clusters usually contain a system database named log, the data in this database is the data that TDengine runs itself, and taosdump does not back up the log library by default. If you have a specific need to back up the log database, you can use the `-a` or `--allow-sys` command line parameter.
+5.  taosdump 1.4.1 and later version provides `-n` and `-L` parameters to allow backup data and do not use escaped character and `loose mode` if you are sure the table name, column name and tag name have no escaped characters. Then the backup time and storage size will be less than strict mode. If you don't know whether your data contain escaped characters, please use default strict mode. Pleae refer to [official document](https://tdengine.com/docs/en/v2.0/taos-sql) for escaped characters.
 
 ### restore
 
-1. taosdump restores data using `-i` and the path where the data file is located as an argument to backup the data file under the specified path. As mentioned earlier, you should not use the same directory to backup different data sets, nor should you backup the same data set multiple times in the same path, otherwise the backup data will be overwritten or backed up multiple times.
-2. taosdump uses the TDengine stmt binding API internally for writing recovery data, and currently uses 16384 as a write batch to improve data recovery performance. If the backup data has more columns of data, it may cause WAL size exceeds limit error, you can try by adjusting to a smaller value with `-B` parameter.
+1.  taosdump restores data using `-i` and the path where the data file is located as an argument to backup the data file under the specified path. As mentioned earlier, you should not use the same directory to backup different data sets, nor should you backup the same data set multiple times in the same path, otherwise the backup data will be overwritten or backed up multiple times.
+2.  taosdump uses the TDengine stmt binding API internally for writing recovery data, and currently uses 16384 as a write batch to improve data recovery performance. If the backup data has more columns of data, it may cause `WAL size exceeds limit` error, you can try by adjusting to a smaller value with `-B` parameter.
 
 ## Details of command line arguments
 
@@ -80,6 +83,10 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              00:00:00.000+0800'
   -B, --data-batch=DATA_BATCH   Number of data per insert statement. Default
                              value is 16384.
+  -L, --loose-mode           Using loose mode if the table name and column name
+                             use letter and number only. Default is NOT.
+  -n, --no-escape            No escape char '`'. Default is using it.
+
   -T, --thread_num=THREAD_NUM   Number of thread for dump in file. Default is
                              5.
   -g, --debug                Print debug info.

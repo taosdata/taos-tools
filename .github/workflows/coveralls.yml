@@ -84,11 +84,17 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DBUILD_TOOLS=true -DCOVER=true -DBUILD_TYPE=Debug > /dev/null 2>&1
           make > /dev/null 2>&1
           sudo make install > /dev/null
-          ./build/bin/taosBenchmark --help
+          echo "TEST: taosBenchmark --help"
+          ./build/bin/taosBenchmark --help > /dev/null
+          echo "TEST: taodump --help"
           ./build/bin/taosdump --help > /dev/null
+          echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
+          echo "TEST: taodump --port 10000"
           ./build/bin/taosdump --port 10000 > /dev/null 2>&1 || :
+          echo "TEST: taodump -D"
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
+          echo "TEST: taodump --databases"
           ./build/bin/taosdump --databases > /dev/null 2>&1 || :
 
           nohup sudo taosd > /dev/null &
