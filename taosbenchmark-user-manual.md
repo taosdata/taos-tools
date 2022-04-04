@@ -172,7 +172,7 @@ taosBenchmark can test TDengine's insertion, query and subscription
 | super_tables | timestamp_step                          | timestamp step for each record, default is 1                 |
 | super_tables | start_timestamp                         | start value of timestamp for each child table, default value is now |
 | super_tables | sample_format                           | type of sample data file, only support csv now               |
-| super_tables | sample_file                             | sample file, valid only when sample_source is "sample"       |
+| super_tables | sample_file                             | sample file, valid only when data_source is "sample"       |
 | super_tables | use_sample_ts                           | whether the sample file include timestamp, default is no     |
 | super_tables | tags_file                               | tag data sample file, only support in taosc, rest insert mode |
 | columns/tags | type                                    | data type, required                                          |
