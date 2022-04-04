@@ -3,46 +3,47 @@
 ## 简介
 
 taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenchmark 可以测试 TDengine 的插入、查询和订阅功能，它可以模拟由大量设备产生的大量数据，还可以灵活地控制列的数量，数据类型、线程等。以前叫 taosdemo，现在改名为为 taosBenchmark，安装包提供 taosdemo 作为 taosBenchmark 的软链接。
-配置，一种是命令行配置，另一种是[json文件](#taosbenchmarkjson-configuration-file)。
+配置，一种是[命令行配置](#cli)，另一种是[JSON文件](#json)。
 
-## taosBenchmark CLI 选项
+## CLI
 
 | 选项名称                                               | 描述                                                    |
 |:---------------------------------------------------|-------------------------------------------------------|
-| [-f/--file](#taosbenchmark json-configuration-file) | json 配置文件                                             |
+| [-f/--file](#json) | JSON 配置文件, 与命令行其他参数不能同时使用                                             |
 | -c/--config-dir                                    | 配置文件所在的目录，默认路径是 /etc/taos/                             |
 | -h/--host                                          | 用于连接 taosd 服务器的 FQDN，默认值为 localhost。                      |
 | -P/--port                                          | 用于连接 taosd 服务器的端口号，默认值为 6030。                            |
-| -I/--interface                                     | taosBenchmark 如何插入数据，选项有 taosc、rest、stmt、sml，默认值为 taosc。 |
+| [-I/--interface](#insert-mode)                       | taosBenchmark 如何插入数据，默认值为 taosc。 |
 | -u/--user                                          | 用于连接 taosd 服务器的用户名，默认值为 root。                            |
 | -p/--password                                      | 用于连接 taosd 服务器的密码，默认值为 taosdata。                         |
 | -o/--output                                        | 指定结果输出文件的路径，默认值为 ./output.txt。                         |
 | -T/--thread                                            | 指定插入数据的线程数，默认值为 8                                      |
-| [-i/--insert-interval](#-i-insert-interval)        | 隔行插入模式的插入间隔，单位为 ms，默认值为 0。                              |
+| [-i/--insert-interval](#insert-interval)        | 隔行插入模式的插入间隔，单位为 ms，默认值为 0。                              |
 | -S/--timestampstep                                          | 每个子表中每条记录的插入时间戳步长，单位是 ms，默认值是 1                         |
-| [-B/--interlace-rows](#-b-interlace-rows)          | 向子表插入交错行的数量                                           |
-| -r/--rec-per-req                                   | 每次插入请求的记录数，默认值为 30000                                  |
+| [-B/--interlace-rows](#interlace-rows)          | 向子表插入交错行的数量                                           |
+| [-r/--rec-per-req](#record-per-request)                                   | 每次插入请求的记录数，默认值为 30000                                  |
 | -t/--tables                                        | 子表的数量，默认值为 10000。                                      |
 | -n/--records                                       | 每个子表插入的记录数，默认值为 10000。                                 |
 | -d/--database                                           | 数据库的名称，默认值为 test。                                      |
-| [-l/--columns](#-l--columns)                       | 子表的列数，将使用int数据类型的列。                                   |
-| [-A/--tag-type](#-a-tag-type)                      | 子表的标签的数据类型。                                           |
-| [-b/--data-type](#-b--data-type)                   | 子表的列的数据类型                                             |
-| -w/--binwidth                                      | nchar和二进制数据类型的默认长度，默认值为 64。                            |
+| [-l/--columns](#columns)                       | 子表的列数，将使用int数据类型的列。                                   |
+| [-A/--tag-type](#tag-type)                      | 子表的标签的数据类型。                                           |
+| [-b/--data-type](#data-type)                   | 子表的列的数据类型                                             |
+| -w/--binwidth                                      | 调整nchar和binary数据类型的默认长度，默认值为 64。                            |
 | -m/--table-prefix                                  | 子表名称的前缀，默认值为 d                                         |
-| -E/--escape-character                                          | 在稳定表和子表名称中使用转义字符，可选。                                  |
-| -C/--chinese                                            | nchar和binary是基本的Unicode中文字符，可选。                       |
-| [-N/--normal-table](#-n-normal-table)              | 只创建正常表，不创建超级表，可选。                                     |
-| -M/--random                                        | 数据源是随机的，可选。                                           |
+| -E/--escape-character                                          | 在超级表和子表名称中使用转义字符，可选。                                  |
+| -C/--chinese                                            | nchar和binary是否基本的Unicode中文字符，可选。                       |
+| [-N/--normal-table](#-n--normal-table)              | 只创建普通表，不创建超级表，可选。                                     |
+| [-M/--random](#random)                                     | 数据源否使用随机的，可选。                                           |
 | -x/--aggr-func                                     | 插入后查询聚合函数，可选。                                         |
 | -y/--answer-yes                                    | 通过确认提示继续，可选。                                          |
-| [-R/--disorder-range](#-r-disorder-range)          | 失序时间戳的范围，基于数据库的精度，默认值为 1000                            |
-| [-O/--disorder](#-o-disorder)                      | 插入无序时间戳的数据的比例，默认为 0。                                   |
+| [-R/--disorder-range](#disorder-range)          | 失序时间戳的范围，基于数据库的精度，默认值为 1000                            |
+| [-O/--disorder](#disorder-ratio)                      | 插入无序时间戳的数据的概率，默认为 0。                                   |
+| [-F/--prepare_rand](#prepared-rand) | 生产随机数据的随机个数，默认为10000 |
 | -a/--replica                                       | 创建数据库时的副本数量，默认值为 1。                                    |
 | -V/--version                                       | 显示版本信息并退出                                             |
 | -?/--help                                          | 显示帮助信息并退出。                                            |
 
-## taosBenchmark json 配置文件
+## JSON
 
 ### 1、插入 json 配置文件
 
@@ -54,6 +55,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
     "port": 6030,
     "user": "root",
     "password": "taosdata",
+    "connection_pool_size": 8,
     "thread_count": 4,
     "result_file": "./insert_res.txt",
     "confirm_parameter_prompt": "no",
@@ -115,19 +117,20 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
 | 组 | 选项名称 | 描述 |
 | ------------ | --------------------------------------- | ------------------------------------------------------------ |
-| | filetype | 文件类型，指定哪种测试，对于插入测试，需要插入。
-| |cfgdir | taos 配置文件所在的目录，默认值是 /etc/taos。
+| | filetype | 文件类型，指定哪种测试，对于插入测试，需要为insert。
+| |cfgdir | taosd 配置文件所在的目录，默认值是 /etc/taos。
 | | host | taosd 服务器的 FQDN，默认为 localhost。
 | | port | taosd 服务器的端口号，默认为 6030。
 | |user | 连接 taosd 服务器的用户名，默认为 root。
 | |password | 连接 taosd 服务器的密码，默认为 taosdata。
+| |[connection_pool_size](#connection-pool-size)| taos连接池的大小，默认为线程数。
 | | thread_count | 插入和创建表的线程数，默认为 8。
 | | result_file | 保存输出结果的文件路径，默认为 ./output.txt。
 | | confirm_parameter_prompt | 在执行过程中传递确认提示，默认为无。
-| |[insert_interval](#-i-insert-interval) | 插入隔行扫描模式的间隔时间，默认值为 0
-| |[interlace_rows](#-b-interlace-rows) | 每个子表的交错行数，默认值为 0。
-| | num_of_records_per_req | 每个请求中的记录数，默认值为 30000。
-| | [prepare_rand](#prepare_rand) | 随机产生的数据数量，默认值为 10000 |
+| |[insert_interval](#insert-interval) | 插入隔行扫描模式的间隔时间，默认值为 0
+| |[interlace_rows](#interlace-rows) | 每个子表的交错行数，默认值为 0。
+| | [num_of_records_per_req](#record-per-request) | 每个请求中的记录数，默认值为 30000。
+| | [prepare_rand](#prepared-rand) | 随机产生的数据数量，默认值为 10000 |
 | | chinese | nchar 和 binary 都是 rand 中文，默认值为否。
 | dbinfo | name | 数据库名称，必填
 | dbinfo | drop | 插入测试前是否删除数据库，默认值为是。
@@ -151,26 +154,27 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | super_tables | childtable_prefix                       | 子表名称的前缀，必须填写。
 | Super_tables | escape_character | 超级表和子表的名称包括转义字符，默认为否。
 | Super_tables | batch_create_tbl_num | 为每个请求创建的子表数量，默认为 10。
-| super_tables | data_source                             |  数据资源类型，选项：rand, sample。
-| super_tables | insert_mode                             | 插入模式，选项：taosc, rest, stmt, sml，默认为 taosc。
-| super_tables | line_protocol | 仅当 insert_mode 为 sml 时有效，选项：line, telnet, json, 默认为 line。
+| super_tables | [data_source](#data-source)                             |  数据资源类型，选项：rand, sample。
+| super_tables | [insert_mode](#insert-mode)                             | 插入模式，选项：taosc, rest, stmt, sml，默认为 taosc。
+| super_tables | [line_protocol](#line-protocol) | 行协议，可选项：line, telnet, json, 默认为 line。
+| super_tables | [tcp_transfer](#tcp-transfer) | 使用 tcp 还是 http 协议，默认为 http。
 | super_tables | insert_rows | 每个子表的记录数，默认为 0。
-| super_tables | childtable_offset                       | 子表的偏移量，只有当 drop 为 no，child_table_exists 为 yes 时才有效。
-| super_tables | childtable_limit | 插入数据的子表数量，仅当 drop 为 no 且 child_table_exists 为 yes 时有效。
-| super_tables | interlace_rows | 每个子表的间隔行，默认为 0。
+| super_tables | [childtable_offset](#childtable-offset)                       | 子表的偏移量。
+| super_tables | [childtable_limit](#childtable-limit) | 插入数据的子表数量。
+| super_tables | [interlace_rows](#interlace-rows) | 每个子表的间隔行，默认为 0。
 | super_tables | insert_interval | 两个请求之间的插入时间间隔，当 interlace_rows 大于 0 时有效。
-| super_tables | [disorder_ratio](#-r-disorder-ratio) | 紊乱时间戳的数据比例，默认为 0
-| super_tables | [disorder_range](#-r--disorder-range) | 无序时间戳的范围，只有当 disorder_ratio 大于 0 时才有效，默认为 1000。
+| super_tables | [disorder_ratio](#disorder-ratio) | 紊乱时间戳的数据比例，默认为 0
+| super_tables | [disorder_range](#disorder-range) | 无序时间戳的范围，只有当 disorder_ratio 大于 0 时才有效，默认为 1000。
 | super_tables | timestamp_step | 每条记录的时间戳步骤，默认为 1。
 | super_tables | start_timestamp | 每个子表的时间戳起始值，默认值是现在。
 | super_tables | sample_format | 样本数据文件的类型，现在只支持 csv。
-| super_tables | sample_file | 样本文件，仅当 data_source 为 "sample "时有效。
-| super_tables| use_sample_ts | 样本文件是否包含时间戳，默认为否。
-| super_tables | tags_file | 标签数据样本文件，仅支持 taosc、rest insert模式。
+| super_tables | [sample_file](#sample-file) | 样本文件，仅当 data_source 为 "sample "时有效。
+| super_tables| [use_sample_ts](#use-sample-ts) | 样本文件是否包含时间戳，默认为否。
+| super_tables | tags_file | 原理与[sample_file](#sample-file)相同，标签数据样本文件，仅支持 taosc、rest insert模式。
 | columns/tags | type  | 数据类型，必填
 | columns/tags | len | 数据长度，对 nchar 和 binary 有效，默认为 8。
-| columns/tags | count | 该列的连续数，默认为 1。
-| columns/tags | name | 这一列的名称，连续的列名将是 name_#{number}。
+| columns/tags | [count](#count) | 该列的连续数，默认为 1。
+| columns/tags | [name](#name) | 这一列的名称，连续的列名将是 name_#{number}。
 | columns/tags | min | 数字数据类型列/标签的最小值
 | columns/tags | max | 数字数据类型列/标签的最大值
 | columns/tags | values | nchar/binary 列/标签的值，将从值中随机选择。
@@ -299,13 +303,20 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | sqls | [sql](#sql) | SQL 命令，必填
 | sqls | result | 查询结果的结果文件，没有则为空。
 
-- #### -i/--插值间隔
+## 参数具体说明
+### 返回([cli](#cli) [json](#json))
+
+- #### insert mode
+
+  可选项有taosc, rest, stmt, sml, sml-rest, 分别对应c接口，restful，参数绑定，schemaless的c接口，taosadaptor schemaless写入
+
+- #### insert interval
 
   只有当隔行扫描(-B/-interlace-rows)大于0时才起作用。该
   意味着线程在为每个子表插入隔行扫描记录后，会在该时间段内睡觉。
   隔行扫描的时间。
 
-- #### -B/--interlace-rows
+- #### interlace rows
 
   如果它的值为 0，意味着逐步插入，线程将逐个插入到
   子表。如果它的值大于零，线程将首先插入
@@ -313,14 +324,18 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
   以此类推，当所有的子表都被插入了该行数后，线程将从第一个子表重新开始插入。
   将从第一个子表重新开始插入，依次进行。
 
-- #### -l/--columns
+- #### record per request
+
+  每次插入数据请求/调用api时包含的数据行数，也是批次数，当批次数过大时，taos客户端会返回相应的错误信息，此时需要调整这个数来满足写入要求
+
+- #### columns
 
   如果同时设置了-l/--columns和-b/--data-type，它将检查列数是否达到
       列号是否达到 -b/--数据类型的 -l/--columns，如果是的话。
       忽略这个选项，或者它将继续增加列数以达到这个数字
       所有的 int 数据类型。
 
-- #### -A/--tag-type
+- #### tag type
 
   设置超级表的标签类型，nchar 和 binary 也可以设置长度，例如
   如
@@ -331,24 +346,73 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
   默认是INT,BINARY(16)。
 
-- #### -b/--数据类型
+- #### data type
 
   与-A/--tag-type相同，但用于列，默认为FLOAT,INT,FLOAT
 
-- #### -O/--紊乱度
+- #### random
+  
+  默认的情况下，数据是模拟电表的采集点的数据，数据值有特定的大小范围，若配置次参数，数据将随机从支持最大的正负32位整数中产生。若有修改表结构的其他参数，如 [-l](#columns), [-b](#data-type), [-A](#tag-type)等...，将自动使用从支持最大的正负32位整数内随机产生的数据
+
+- #### disorder ratio
 
   乱序时间戳的比例，最大为50
 
-- #### -R/--失序范围
+- #### disorder range
 
   只有当-O/--disorder大于0时才有效，并且disorder意味着
   时间戳将在该范围内减少随机数毫秒。
   生成。
 
-- #### prepared_rand
+- #### prepared rand
 
   作为数据源预先生成的随机数据的数量，小的prepare_rand
-  会节省内存，但会减少数据种类。
+  会节省内存，但会减少数据种类。若为1，则生成的所有同类型的数据相同。
+
+- #### connection pool size
+
+  所有与taos c客户端相关的交互都需要 taos 实例，实例会预先创建，以防止运行过程中由于中断导致的失败，该值决定taos实例预先创建的数量。若不配置，则与线程数相同。
+
+- #### data source
+
+  数据的来源，默认为 taosBenchmark 随机产生，可以配置为 sample，即为使用 sample_file 参数指定的文件内的数据。
+
+- #### line protocol
+
+  行协议，仅当 insert_mode 为 sml 与 sml-rest 时生效，可选项为 line, telnet, json。
+
+- #### tcp transfer
+
+  仅当 insert_mode 为 sml-rest 并且 line_protocol 为 telnet 时生效，支持两种通讯协议: tcp 与 http， 默认为 http。
+
+
+- #### childtable limit
+
+  仅当 childtable_exists 为 yes 时生效，为使用语句
+  ``` select tbname from stable limit x offset y;```
+中的limit的值 x，即为获取插入的现有的子表数量。
+
+- #### childtable offet
+
+  仅当 childtable_exists 为 yes 时生效，为使用语句
+  ``` select tbname from stable limit x offset y;```
+中的 offset的值y，即为获取插入子表的偏移量。
+
+- #### sample file
+
+  是否使用以 csv 格式的数据作为数据源，仅当data_source 为 sample 时生效，注意，这里与最终生成的数据不同，最终数据源的数据与[prepared_rand](#prepared-rand)的值有关，若 csv 文件内的数据行数小于prepraed_rand，那么会循环读取 csv 文件数据直到与prepared_rand相同，若大于，则会只读取prepared_rand个数的行的数据。
+
+- #### use sample ts
+
+  仅当data_source 为 sample 时生效，sample_file 指定的 csv 文件内是否包含第一列时间戳，默认为 no， 若为yes， 则使用 csv 文件第一列的时间戳，由于同一子表时间戳不能重复，生成的数据个数必须与 csv 文件内的数据行数相同，此时 insert_rows 失效。
+
+- #### count
+
+  该列连续的个数，比如我们想测试4096个列的性能时，不用罗列出4096个key value 来表示，直接使用 count: 4096 即可。
+
+- #### name
+
+  列的名字，若与count同时使用，比如 ```"name"："current", "count":3```, 则 3 个列的名字分别为 current, current_2. current_3
 
 - #### sql
 
