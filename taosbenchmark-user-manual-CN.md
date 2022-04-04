@@ -164,7 +164,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | super_tables | timestamp_step | 每条记录的时间戳步骤，默认为 1。
 | super_tables | start_timestamp | 每个子表的时间戳起始值，默认值是现在。
 | super_tables | sample_format | 样本数据文件的类型，现在只支持 csv。
-| super_tables | sample_file | 样本文件，仅当 sample_source 为 "sample "时有效。
+| super_tables | sample_file | 样本文件，仅当 data_source 为 "sample "时有效。
 | super_tables| use_sample_ts | 样本文件是否包含时间戳，默认为否。
 | super_tables | tags_file | 标签数据样本文件，仅支持 taosc、rest insert模式。
 | columns/tags | type  | 数据类型，必填
