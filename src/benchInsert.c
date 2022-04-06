@@ -1923,6 +1923,13 @@ int insertTestProcess() {
             if (database[i].superTbls[j].insertRows == 0) {
                 continue;
             }
+            if (database[i].superTbls[j].non_stop) {
+                printf(
+                    "\n\n         Current mode is non-stop insertion mode, "
+                    "Press "
+                    "enter key to continue and Ctrl-C to stop\n\n");
+                (void)getchar();
+            }
             if (startMultiThreadInsertData(i, j)) {
                 return -1;
             }
