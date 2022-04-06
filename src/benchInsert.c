@@ -1891,7 +1891,7 @@ int insertTestProcess() {
         printfInsertMetaToFileStream(g_arguments->fpOfInsertResult);
     }
 
-    prompt();
+    prompt(0);
 
     encode_base_64();
 
@@ -1913,7 +1913,7 @@ int insertTestProcess() {
     }
     infoPrint("Estimate memory usage: %.2fMB\n",
               (double)g_memoryUsage / 1048576);
-    prompt();
+    prompt(0);
 
     if (createChildTables()) return -1;
 
@@ -1923,13 +1923,7 @@ int insertTestProcess() {
             if (database[i].superTbls[j].insertRows == 0) {
                 continue;
             }
-            if (database[i].superTbls[j].non_stop) {
-                printf(
-                    "\n\n         Current mode is non-stop insertion mode, "
-                    "Press "
-                    "enter key to continue and Ctrl-C to stop\n\n");
-                (void)getchar();
-            }
+            prompt(database[i].superTbls[j].non_stop);
             if (startMultiThreadInsertData(i, j)) {
                 return -1;
             }

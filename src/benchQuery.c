@@ -244,7 +244,7 @@ int queryTestProcess() {
         }
     }
 
-    prompt();
+    prompt(0);
 
     if (g_arguments->db->superTbls->iface == REST_IFACE) {
         if (convertHostToServAddr(g_arguments->host,
