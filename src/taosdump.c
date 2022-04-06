@@ -5503,7 +5503,7 @@ static int createMTableAvroHead(
             dbName, g_escapeChar, stable, g_escapeChar,
             limit, offset);
 
-    debugPrint("%s() LN%d, failed to run command <%s>.\n",
+    debugPrint("%s() LN%d, run command <%s>.\n",
                 __func__, __LINE__, command);
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
