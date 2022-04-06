@@ -5503,7 +5503,7 @@ static int createMTableAvroHead(
             dbName, g_escapeChar, stable, g_escapeChar,
             limit, offset);
 
-    debugPrint("%s() LN%d, failed to run command <%s>.\n",
+    debugPrint("%s() LN%d, run command <%s>.\n",
                 __func__, __LINE__, command);
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
@@ -5522,6 +5522,7 @@ static int createMTableAvroHead(
     if (specifiedTb) {
         createMTableAvroHeadImp(
                 taos, dbName, stable, specifiedTb, colCount, db, wface);
+        ntbCount++;
     } else {
         while((row = taos_fetch_row(res)) != NULL) {
             int32_t *length = taos_fetch_lengths(res);
@@ -5537,6 +5538,8 @@ static int createMTableAvroHead(
                     taos, dbName, stable, tbName, colCount, db, wface);
         }
     }
+
+    okPrint("total %"PRId64" sub table(s) of %s dumped\n", ntbCount, stable);
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
