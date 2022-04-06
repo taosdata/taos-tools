@@ -5522,6 +5522,7 @@ static int createMTableAvroHead(
     if (specifiedTb) {
         createMTableAvroHeadImp(
                 taos, dbName, stable, specifiedTb, colCount, db, wface);
+        ntbCount++;
     } else {
         while((row = taos_fetch_row(res)) != NULL) {
             int32_t *length = taos_fetch_lengths(res);
@@ -5537,6 +5538,8 @@ static int createMTableAvroHead(
                     taos, dbName, stable, tbName, colCount, db, wface);
         }
     }
+
+    okPrint("total %"PRId64" sub table(s) of %s dumped\n", ntbCount, stable);
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
