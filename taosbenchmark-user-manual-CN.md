@@ -32,7 +32,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 | -m/--table-prefix                                  | 子表名称的前缀，默认值为 d                                         |
 | -E/--escape-character                                          | 在超级表和子表名称中使用转义字符，可选。                                  |
 | -C/--chinese                                            | nchar和binary是否基本的Unicode中文字符，可选。                       |
-| [-N/--normal-table](#-n--normal-table)              | 只创建普通表，不创建超级表，可选。                                     |
+| [-N/--normal-table](#normal-table)              | 只创建普通表，不创建超级表，可选。                                     |
 | [-M/--random](#random)                                     | 数据源否使用随机的，可选。                                           |
 | -x/--aggr-func                                     | 插入后查询聚合函数，可选。                                         |
 | -y/--answer-yes                                    | 通过确认提示继续，可选。                                          |
@@ -384,6 +384,11 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 - #### tcp transfer
 
   仅当 insert_mode 为 sml-rest 并且 line_protocol 为 telnet 时生效，支持两种通讯协议: tcp 与 http， 默认为 http。
+
+
+- #### normal table
+
+  仅当 insert_mode 为 taosc, stmt, rest 模式下可以使用，不创建超级表，只创建普通表。
 
 
 - #### childtable limit
