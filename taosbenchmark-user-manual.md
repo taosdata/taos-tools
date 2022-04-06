@@ -139,7 +139,7 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 | dbinfo | replica | The number of replicas, the default value is 1.
 | dbinfo | days | The span of time to store data in the file, the default value is 10.
 | dbinfo | cache | The size of the memory blocks in MB, the default value is 16.
-| dbinfo | blocks | The number of memory blocks per vnode(ttsdb) for the cache size, the default is 6.
+| dbinfo | blocks | The number of memory blocks per vnode(tsdb) for the cache size, the default is 6.
 | dbinfo | precision | The database time precision, the default value is "ms".
 | dbinfo | keep | The number of days to keep the data, the default value is 3650.
 | dbinfo | minRows | The minimum number of records in the file block, the default value is 100
@@ -313,7 +313,7 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 
 - #### insert mode
 
-  Options are taosc, rest, stmt, sml, sml-rest, corresponding to c-interface, restful, parameter binding, schemaless c-interface, taosadaptor schemaless write
+  Options are taosc, rest, stmt, sml, sml-rest, corresponding to c-interface, restful, parameter binding, schemaless c-interface, taosAdapter schemaless write
 
 - #### insert interval
 
@@ -422,7 +422,7 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
   ``` select tbname from stable limit x offset y;```
 The value x of limit in the statement ``` is the number of existing child tables to get inserted.
 
-- #### childtable offet
+- #### childtable offset
 
   Only works if childtable_exists is yes, for the use of the statement
   ``` select tbname from stable limit x offset y;```
@@ -449,7 +449,7 @@ to get the offset y of the inserted child table.
 
   Please refer to the officially supported data types (https://www.taosdata.com/docs/cn/v2.0/taos-sql#data-type) for optional values.
   
-  Note: JSON data type is special, only in tags can be selected, and there is only one JSON tag column, at this time [count](#count) and [len](#len) represent the meaning of the number of key-value pairs within the JSON tag and the length of the value of each kv pair, respectively. The default value is string.
+  Note: JSON data type is special, only in tags can be selected, and there is only one JSON tag column, at this time [count](#count) and [len](#len) represent the meaning of the number of key-value pairs within the JSON tag and the length of the value of each KV pair, respectively. The default value is string.
 - #### count
 
   For example, if we want to test the performance of 4096 columns, instead of listing 4096 columns, we can just use ``"count": 4096``.
