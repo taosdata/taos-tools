@@ -326,6 +326,7 @@ typedef struct SSuperTable_S {
     TAOS_BIND **tag_bind_array;
     char *      stmt_buffer;
     bool        tcpTransfer;
+    bool        non_stop;
 } SSuperTable;
 
 typedef struct SDbCfg_S {

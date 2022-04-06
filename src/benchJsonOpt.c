@@ -744,6 +744,18 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
                 superTable->useSampleTs = false;
             }
 
+            cJSON *nonStop = cJSON_GetObjectItem(stbInfo, "non_stop_mode");
+            if (nonStop && nonStop->type == cJSON_String &&
+                nonStop->valuestring != NULL) {
+                if (0 == strncasecmp(nonStop->valuestring, "yes", 3)) {
+                    superTable->non_stop = true;
+                } else {
+                    superTable->non_stop = false;
+                }
+            } else {
+                superTable->non_stop = false;
+            }
+
             cJSON *tagsFile = cJSON_GetObjectItem(stbInfo, "tags_file");
             if ((tagsFile && tagsFile->type == cJSON_String) &&
                 (tagsFile->valuestring != NULL)) {

@@ -1057,7 +1057,9 @@ static void *syncWriteInterlace(void *sarg) {
                     interlaceRows * stbInfo->timestamp_step;
                 pThreadInfo->totalInsertRows +=
                     pThreadInfo->ntables * interlaceRows;
-                insertRows -= interlaceRows;
+                if (!stbInfo->non_stop) {
+                    insertRows -= interlaceRows;
+                }
                 if (stbInfo->insert_interval > 0) {
                     performancePrint("sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval);
@@ -1328,8 +1330,9 @@ void *syncWriteProgressive(void *sarg) {
                 default:
                     break;
             }
-
-            i += generated;
+            if (!stbInfo->non_stop) {
+                i += generated;
+            }
             pThreadInfo->totalInsertRows += generated;
             // only measure insert
             startTs = toolsGetTimestampUs();
