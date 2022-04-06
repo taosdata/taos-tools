@@ -25,6 +25,7 @@ taosdump 是一个逻辑备份工具。它不打算或不应被期望用于备�
 3.  使用 dbname stbname1 stbname2 tbname1 tbname2 ... 参数方式备份指定数据库中的某些个超级表或普通表，注意这种输入序列第一个参数为数据库名称，且只支持一个数据库，第二个和之后的参数为该数据库中的超级表或普通表名称，中间以空格分隔；
 4.  TDengine 服务器或集群通常会包含一个系统数据库，名为 log，这个数据库内的数据为 TDengine 自我运行的数据，taosdump 默认不会对 log 库进行备份。如果有特定需求对 log 库进行备份，可以使用 -a 或 --allow-sys 命令行参数。
 5.  taosdump 1.4.1 之后的版本提供 -n 参数和 -L 参数，用于备份数据时不使用转义字符和“宽容”模式，可以在表名、列名、标签名没使用转义字符的情况下减少备份数据时间和备份数据占用空间。如果不确定符合使用 -n 和 -L 条件时请使用默认参数进行“严格”模式进行备份。转义字符的说明请参考[官方文档](https://tdengine.com/docs/cn/v2.0/taos-sql)。
+6.  taosdump 1.4.1 之后的版本提供 -I 参数，用于解析 avro 文件 schema 和数据，如果指定 -s 参数将只解析 schema。
 
 ### taosdump恢复数据
 
@@ -75,6 +76,7 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              00:00:00.000+0800'
   -B, --data-batch=DATA_BATCH   Number of data per insert statement. Default
                              value is 16384.
+  -I, --inspect              inspect avro file content and print on screen
   -L, --loose-mode           Using loose mode if the table name and column name
                              use letter and number only. Default is NOT.
   -n, --no-escape            No escape char '`'. Default is using it.
