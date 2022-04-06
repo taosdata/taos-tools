@@ -313,7 +313,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
 - #### insert mode
 
-  可选项有taosc, rest, stmt, sml, sml-rest, 分别对应c接口，restful，参数绑定，schemaless的c接口，taosadaptor schemaless写入
+  可选项有taosc, rest, stmt, sml, sml-rest, 分别对应c接口，restful，参数绑定，schemaless的c接口，taosAdapter schemaless写入
 
 - #### insert interval
 
@@ -422,7 +422,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
   ``` select tbname from stable limit x offset y;```
 中的limit的值 x，即为获取插入的现有的子表数量。
 
-- #### childtable offet
+- #### childtable offset
 
   仅当 childtable_exists 为 yes 时生效，为使用语句
   ``` select tbname from stable limit x offset y;```
@@ -432,7 +432,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
   是否使用以 csv 格式的数据作为数据源，仅当data_source 为 sample 时生效。
   
-  注：这里与最终生成的数据不同，最终数据源的数据与[prepared_rand](#prepared-rand)的值有关，若 csv 文件内的数据行数小于prepraed_rand，那么会循环读取 csv 文件数据直到与prepared_rand相同，若大于，则会只读取 prepared_rand 个数的行的数据。
+  注：这里与最终生成的数据不同，最终数据源的数据与[prepared_rand](#prepared-rand)的值有关，若 csv 文件内的数据行数小于prepared_rand，那么会循环读取 csv 文件数据直到与prepared_rand相同，若大于，则会只读取 prepared_rand 个数的行的数据。
 
 - #### use sample ts
 
@@ -449,7 +449,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
   可选值请参考官方支持的数据类型(https://www.taosdata.com/docs/cn/v2.0/taos-sql#data-type)。
   
-  注：JSON 数据类型比较特殊，只有在 tags 里面可以选择，并且有且仅有一列 JSON tag 才可以，此时 [count](#count) 和 [len](#len) 代表的意义分别是 JSON tag 内的 key-value pair 的个数和每个kv pair 的 value的值的长度，value默认为string。
+  注：JSON 数据类型比较特殊，只有在 tags 里面可以选择，并且有且仅有一列 JSON tag 才可以，此时 [count](#count) 和 [len](#len) 代表的意义分别是 JSON tag 内的 key-value pair 的个数和每个KV pair 的 value的值的长度，value默认为string。
 - #### count
 
   该列连续的个数，比如我们想测试4096个列的性能时，不用罗列出 4096 个列来表示，直接使用 ```"count": 4096``` 即可。
