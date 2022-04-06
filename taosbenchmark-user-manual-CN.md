@@ -404,9 +404,11 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
   写入模式是否为不停的持续写入，若为 “yes” 则 insert_rows 失效，直到 Ctrl + C 停止程序，写入才会停止。
 
+  注：即使 insert_rows 失效，但是也必须是一个非零正整数。
+
 - #### tcp transfer
 
-  仅当 [insert_mode](#insert-mode) 为 sml-rest 并且 line_protocol 为 telnet 时生效，支持两种通讯协议: tcp 与 http， 默认为 http。
+  仅当 [insert_mode](#insert-mode) 为 sml-rest 并且 [line_protocol](#line-protocol) 为 telnet 时生效，支持两种通讯协议: tcp 与 http， 默认为 http。
 
 
 - #### normal table

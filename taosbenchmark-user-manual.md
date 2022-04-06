@@ -65,23 +65,23 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
     "prepared_rand": 10000,
     "chinese":"no",
     "databases": [{
-    "dbinfo": {
-      "name": "db",
-      "drop": "yes",
-      "replica": 1,
-      "days": 10,
-      "cache": 16,
-      "blocks": 8,
-      "precision": "ms",
-      "keep": 3650,
-      "minRows": 100,
-      "maxRows": 4096,
-      "comp":2,
-      "walLevel":1,
-      "cachelast":0,
-      "quorum":1,
-      "fsync":3000,
-      "update": 0
+      "dbinfo": {
+        "name": "db",
+        "drop": "yes",
+        "replica": 1,
+        "days": 10,
+        "cache": 16,
+        "blocks": 8,
+        "precision": "ms",
+        "keep": 3650,
+        "minRows": 100,
+        "maxRows": 4096,
+        "comp":2,
+        "walLevel":1,
+        "cachelast":0,
+        "quorum":1,
+        "fsync":3000,
+        "update": 0
       },
       "super_tables": [{
         "name": "stb",
@@ -89,16 +89,17 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
         "childtable_count": 100,
         "childtable_prefix": "stb_",
         "escape_character": "yes",
+        "auto_create_table": "no",
         "batch_create_tbl_num": 5,
         "data_source": "rand",
         "insert_mode": "taosc",
         "line_protocol": "line",
-        "tcp_transfer": "no",
         "insert_rows": 100000,
         "childtable_limit": 10,
         "childtable_offset":100,
         "interlace_rows": 0,
         "insert_interval":0,
+        "partial_col_num": 0,
         "disorder_ratio": 0,
         "disorder_range": 1000,
         "timestamp_step": 10,
@@ -109,16 +110,16 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
         "tags_file": "",
         "columns": [{"type": "INT", "name": "id"}, {"type": "DOUBLE", "count":10}, {"type": "BINARY", "len": 16, "count":3}, {"type": "BINARY", "len": 32, "count":6}],
         "tags": [{"type": "TINYINT", "count":2, "max": 10, "min": 98}, {"type": "BINARY", "len": 16, "count":5, "values":["beijing","shanghai"]}]
-        }]
       }]
+    }]
 }
 ```
 
 ### Parameters
 
-| group | option name | description |
+| Group | Option Name | Description |
 | ------------ | --------------------------------------- | ------------------------------------------------------------ |
-|| filetype | The file type, specifying which test, for insert tests, needs to be insert.
+|| filetype | filetype, specifies which test, for insert test, it needs to be insert.
 ||cfgdir | The directory where the taosd configuration file is located, the default value is /etc/taos.
 || host | The FQDN of the taosd server, the default is localhost.
 || port | The port number of the taosd server, the default is 6030.
@@ -132,7 +133,7 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 ||[interlace_rows](#interlace-rows) | The number of interleaved rows per child table, default is 0.
 || [num_of_records_per_req](#record-per-request) | The number of records per request, the default is 30000.
 || [prepare_rand](#prepared-rand) | The number of randomly generated data, the default is 10000 |
-| | chinese | Both nchar and binary are rand Chinese, default is no.
+|| | chinese | Both nchar and binary are rand Chinese, default is no.
 | dbinfo | name | The database name, required
 | dbinfo | drop | Whether to delete the database before inserting tests.
 | dbinfo | replica | The number of replicas, the default value is 1.
@@ -147,33 +148,36 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 | dbinfo | walLevel | The wal level, the default value is 1.
 | dbinfo | cachelast | Whether to allow the last record of each table to be kept in memory, with a default value of 0
 | dbinfo | quorum | The number of confirmations required for asynchronous writes, the default is 1.
-| dbinfo | fsync | The interval between fsyncs when wal is set to 2, in ms, with a default value of 3000.
+| dbinfo | fsync | The interval for fsync when wal is set to 2, in ms, default is 3000.
 | dbinfo | update | Whether to support data updates, the default is 0.
 | super_tables | name | The name of the super table, must be filled in.
 | super_tables | child_table_exists | Whether the child table already exists, default is no.
 | super_tables | child_table_count | The number of child tables, required.
 | super_tables | child_table_prefix | The prefix of the child table name, required.
-| super_tables | escape_character | The name of the super table and child table including escape characters, default is no.
-| super_tables | batch_create_tbl_num | The number of sub-tables to create for each request, defaults to 10.
+| super_tables | escape_character | The names of the super and child tables include escape characters, default is no.
+| super_tables | [auto_create_table](#auto-create-table) | Whether the SQL statement automatically creates sub-tables.
+| super_tables | [batch_create_tbl_num](#batch-create-tbl-num) | The number of sub-tables to create for each request, default is 10.
 | super_tables | [data_source](#data-source) | Data resource type, options: rand, sample.
 | super_tables | [insert_mode](#insert-mode) | Insert mode, options: taosc, rest, stmt, sml, default is taosc.
-| super_tables | [line_protocol](#line-protocol) | Line protocol, options: line, telnet, json, default is line.
-| super_tables | [tcp_transfer](#tcp-transfer) | Use tcp or http protocol, default is http.
+| super_tables | [non-stop_mode](#non-stop-mode) | Whether the insertion mode is a continuous non-stop write, default is no
+| super_tables | [line_protocol](#line-protocol) | Line protocol, optional: line, telnet, json, default is line.
+| super_tables | [tcp_transfer](#tcp-transfer) | Whether to use tcp or http protocol, default is http.
 | super_tables | insert_rows | The number of rows in each sub-table, default is 0.
 | super_tables | [childtable_offset](#childtable-offset) | The offset of the child table.
 | super_tables | [childtable_limit](#childtable-limit) | The number of child tables to insert data into.
 | super_tables | [interlace_rows](#interlace-rows) | The interval rows of each child table, default is 0.
-| super_tables | insert_interval | The insert time interval between two requests, valid when interlace_rows is greater than 0.
-| super_tables | [disorder_ratio](#disorder-ratio) | The data ratio for the disorder timestamp, defaults to 0
+| super_tables | [insert_interval](#insert-interval) | The insert interval between two requests, valid when interlace_rows is greater than 0.
+| super_tables | [partial_col_num](#partial-col-num) | Specifies the number of columns to be written to, default is 0.
+| super_tables | [disorder_ratio](#disorder-ratio) | The data ratio for disorder timestamps, default is 0
 | super_tables | [disorder_range](#disorder-range) | The range of the disorder timestamp, valid only if disorder_ratio is greater than 0, defaults to 1000.
 | super_tables | timestamp_step | The timestamp step for each record, defaults to 1.
 | super_tables | start_timestamp | The timestamp start value for each sub-table, the default is now.
 | super_tables | sample_format | The type of the sample data file, now only csv is supported.
-| super_tables | [sample_file](#sample-file) | Sample file, only valid if data_source is "sample".
-| super_tables| [use_sample_ts](#use-sample-ts) | Whether the sample file contains a timestamp, default is no.
-| super_tables | tags_file | Same principle as [sample_file](#sample-file), tags data sample file, only supports taosc, rest insert mode.
-| columns/tags | type | Data type, required
-| columns/tags | len | The length of the data, valid for nchar and binary, default is 8.
+| super_tables | [sample_file](#sample-file) | The sample file, only valid if data_source is "sample".
+| super_tables| [use_sample_ts](#use-sample-ts) | Whether the sample file contains a timestamp, defaults to no.
+| super_tables | [tags_file](#tags-file) | Same principle as [sample_file](#sample-file), tags data sample file, only supports taosc, rest insert mode.
+| columns/tags | [type](#type) | Data type, required
+| columns/tags | [len](#len) | The length of the data, default is 8.
 | columns/tags | [count](#count) | The number of consecutive columns, default is 1.
 | columns/tags | [name](#name) | The name of this column, the consecutive column name will be name_#{number}.
 | columns/tags | min | The minimum value of the numeric data type column/tag
@@ -304,8 +308,8 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 | sqls                                    | [sql](#sql)              | sql command, required                                        |
 | sqls                                    | result                   | result file for query result, empty for none                 |
 
-## Parameter specification
-### Return ([cli](#cli) [json](#json))
+## Parameter specifics
+#### [return](#taosbenchmark)
 
 - #### insert mode
 
@@ -313,62 +317,76 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 
 - #### insert interval
 
-  Only works if interlace (-B/-interlace-rows) is greater than 0. The
-  means that the thread sleeps for that amount of time after inserting interlaced rows for each child table.
-  interlace rows time.
+  Only works if [interlace rows](#interlace-rows) is greater than 0.
+  Means that the thread will wait for that value for as long as it takes before doing the next round of writes after inserting interlace rows for each child table.
 
+
+- #### partial col num
+
+  If the value is 5, only the first 5 columns are written to, only if [insert_mode](#insert-mode) is taosc and rest, and 0 is written to all columns.
+
+- #### batch create tbl num
+
+  The number of batches to create the child table, default is 10.
+
+
+  Note: The actual number of batches may not be the same as this value. When the executed SQL statement is longer than the maximum supported length, it will be automatically truncated and re-executed to continue creating.
+
+
+- #### auto create table
+
+  Only when [insert_mode](#insert-mode) is taosc, rest, stmt and childtable_exists is "no", this parameter means execute the written SQL statement, if it is " yes" then ``` insert into tb using stb tags (xxx,xxx,...) values (xxx,xxx,...) ``` This format, if "no", would be ``` insert into tb values (xxx,xxx,...) ``` The former does not need to create a sub-table in advance, the latter does.
 - #### interlace rows
 
-  If it has a value of 0, it means that the insertion is gradual and the thread will insert one by one into the
-  sub-table. If its value is greater than zero, the thread will first insert
-  to the first sub-table row, then the second, the third, and so on.
-  And so on, after all sub-tables have been inserted with that number of rows, the thread will restart the insertion from the first sub-table.
+  If its value is 0, it means insert sub-table by sub-table, if its value is greater than zero, for example, 5, it will insert first
+  to the first subtable with 5 rows, then the second subtable with 5 rows, then the third, and so on. After all sub-tables have been written to with 5 records, the thread will continue writing from the first sub-table, and so on.
 
 - #### record per request
 
-  The number of rows included in each insert request/api call is also the number of batches. When the number of batches is too large, the taos client will return the corresponding error message, and this number needs to be adjusted to meet the write requirement
+  The number of rows included in each insert request/api call is also the batch count. When the batch count is too large, the taos client will return the corresponding error message, and this number needs to be adjusted to meet the write requirement.
 
 - #### columns
 
-  If both -l/--columns and -b/--data-type are set, it will check if the number of columns reaches
-      column number to -b/--data-type of -l/--columns, if so.
-      Ignore this option, or it will continue to increase the number of columns to reach this number
-      All int data types.
+  If both this parameter and [-b/--data-type](#data-type) are set, the number of columns of the column type set by this parameter and [-b/--data-type](#data-type) will be compared, if the former is greater than the latter, for example: ```-l 5 -b float,double```, then the last column will be ```FLOAT,DOUBLE,INT,INT,INT```. If the former is less than or equal to the latter, for example: ```-l 3 -b float,double,float,bigint```, then the last column is ```FLOAT,DOUBLE,FLOAT,BIGINT```.
 
 - #### tag type
 
-  Set the tag type of the super table, nchar and binary can also set the length, for example
-  as
+  Set the tag type of the super table, nchar and binary can also set the length, for example: 
 
   ```
   taosBenchmark -A INT,DOUBLE,NCHAR,BINARY(16)
   ```
 
   The default is INT,BINARY(16).
-  Note: Some shells such as bash require the "\" escape to represent the parentheses.
+  
+  
+  Note: In some shells, such as bash, "()" needs to be escaped, so the above command should be
+
+  ```
+  taosBenchmark -A INT,DOUBLE,NCHAR,BINARY\(16\)
+  ```
+
 
 - #### data type
 
-  Same as -A/--tag-type, but for columns, default is FLOAT,INT,FLOAT
+  Same as [-A/--tag-type](#tag-type) but for columns, defaults to FLOAT,INT,FLOAT
 
 - #### random
   
-  By default, the data is the data of the collection point of the analog meter with a specific size range of data values. If the subparameter is configured, the data will be randomly generated from the largest supported plus or minus 32-bit integer. If there are other parameters to modify the table structure, such as [-l](#columns), [-b](#data-type), [-A](#tag-type), etc... The data will automatically be generated randomly from the largest supported plus or minus 32-bit integers
+  By default, the data is the data of the collection point of the analog meter with a specific size range of data values. If the sub-parameter is configured, the data will be randomly generated from the largest supported plus or minus 32-bit integer. If there are other parameters to modify the table structure, such as [-l](#columns), [-b](#data-type), [-A](#tag-type), etc... The data will be automatically generated randomly from the largest supported plus or minus 32-bit integers.
 
 - #### disorder ratio
 
-  Random probability of disorder timestamp, maximum is 50%, the inserted disorder time is the current timestamp that should be inserted minus a random number in the disorder_range range, so there is a probability that the final number of rows of data inserted by the target is less than the actual number of rows inserted (when the timestamp is duplicated)
+  The probability of random disorder timestamps, up to 50, i.e. 50%. The random disorder timestamp is the timestamp within a random [disorder-range](#disorder-range) backwards of the timestamp of the current data to be inserted.
 
 - #### disorder range
 
-  is only valid if -O/--disorder is greater than 0, and disorder means
-  timestamp will be reduced by a random number of milliseconds within that range.
-  Generated.
+  Valid only if [-O/--disorder](#disorder-ratio) is greater than 0, in the same units as the database's time precision.
 
 - #### prepared rand
 
   As the number of random data pre-generated by the data source, a small prepared_rand
-  will save memory, but will reduce the variety of data. If it is 1, all data of the same type is generated equally.
+  will save memory, but will reduce the variety of data. If it is 1, then all data of the same type is generated equally.
 
 - #### connection pool size
 
@@ -380,21 +398,27 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 
 - #### line protocol
 
-  line protocol, only valid when insert_mode is sml and sml-rest, options are line, telnet, json.
+  Line protocol, only if [insert_mode](#insert-mode) is sml and sml-rest, options are line, telnet, json.
+
+- #### non stop mode
+
+  If "yes", insert_rows will not work until Ctrl + C stops the program, then writing will stop.
+
+  Note: even though insert_rows is invalid, it must be a non-zero positive integer.
 
 - #### tcp transfer
 
-  Valid only when insert_mode is sml-rest and line_protocol is telnet, supports two protocols: tcp and http, default is http.
+  Only works if [insert_mode](#insert-mode) is sml-rest and [line-protocol](#line-protocol) is telnet, two protocols are supported: tcp and http, default is http.
 
 
 - #### normal table
 
-  Only available when insert_mode is taosc, stmt, rest mode, no super table is created, only normal table is created.
+  Only available when [insert_mode](#insert-mode) is taosc, stmt, rest mode, no super table is created, only normal table is created.
 
 
 - #### childtable limit
 
-  Only available when childtable_exists is yes, for use with the statement
+  Only works if childtable_exists is yes, for use with the statement
   ``` select tbname from stable limit x offset y;```
 The value x of limit in the statement ``` is the number of existing child tables to get inserted.
 
@@ -406,15 +430,33 @@ to get the offset y of the inserted child table.
 
 - #### sample file
 
-  Whether or not to use data in csv format as data source only works when data_source is sample, note that this is different from the final generated data, the final data source data is related to the value of [prepared_rand](#prepared-rand), if the number of data rows in the csv file is less than prepraed_rand, then the csv file data will be read cyclically until it is the same as prepraed_rand, if it is larger, then only the rows with the number of prepraed_rand will be read.
+  Whether to use data in csv format as data source, only when data_source is sample.
+  
+  If the number of rows in the csv file is smaller than prepared_rand, then the csv file data will be read cyclically until it is the same as prepared_rand, if it is larger, then only the number of rows of prepared_rand will be read. If it is greater than that, only the rows with the number of prepared_rand will be read.
 
 - #### use sample ts
 
-  Only works when data_source is sample. sample_file specifies whether the csv file contains the first column of timestamp. rows is invalid.If no, the timestamp is automatically provided using taosBenchmark and is generated based on start_timestamp and timestamp_step.
+  Only works when data_source is sample. sample_file specifies whether the csv file contains the first column timestamp, the default is no. If yes, the timestamp of the first column of the csv file is used. rows will be invalid.
 
+- #### tags file
+
+  Only works when [insert_mode](#insert-mode) is taosc, rest.
+  
+  Note: The principle here is similar to [sample-file](#sample-file), the final tag value is related to the childtable_count, if the tag data rows in the csv file are smaller than the given number of child tables, then the csv file data will be read cyclically until the number of child tables is the same, if it is larger, then only the childtable_count rows of tag data.
+
+
+- #### type
+
+  Please refer to the officially supported data types (https://www.taosdata.com/docs/cn/v2.0/taos-sql#data-type) for optional values.
+  
+  Note: JSON data type is special, only in tags can be selected, and there is only one JSON tag column, at this time [count](#count) and [len](#len) represent the meaning of the number of key-value pairs within the JSON tag and the length of the value of each kv pair, respectively. The default value is string.
 - #### count
 
-  The number of consecutive columns, for example, if we want to test the performance of 4096 columns, instead of listing 4096 key values, we can just use count: 4096.
+  For example, if we want to test the performance of 4096 columns, instead of listing 4096 columns, we can just use ``"count": 4096``.
+
+- #### len
+
+  The length of this data type, valid for NCHAR, BINARY and JSON data types, if configured for other data types, if it is 0, it means the column is always written with null value, if it is other numbers, it is meaningless and not recommended.
 
 - #### name
 
