@@ -899,6 +899,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static void freeTbDes(TableDef *tableDes)
 {
+    if (NULL == tableDes) return;
+
     for (int i = 0; i < (tableDes->columns+tableDes->tags); i ++) {
         if (tableDes->cols[i].var_value) {
             free(tableDes->cols[i].var_value);
@@ -1189,7 +1191,8 @@ static int inDatabasesSeq(
         int len)
 {
     if (strstr(g_args.databasesSeq, ",") == NULL) {
-        if (0 == strncmp(g_args.databasesSeq, name, len)) {
+        if (0 == strncmp(g_args.databasesSeq, name,
+                    strlen(g_args.databasesSeq))) {
             return 0;
         }
     } else {
@@ -2026,6 +2029,7 @@ static int dumpCreateTableClauseAvro(
         char *dumpFilename,
         TableDef *tableDes, int numOfCols,
         char* dbName) {
+    printf("CBD: %s() %dLN %s\n", __func__, __LINE__, dumpFilename);
     assert(dumpFilename);
     // {
     // "type": "record",
@@ -5015,26 +5019,33 @@ static int64_t dumpNormalTable(
         char *dumpFilename,
         FILE *fp
         ) {
-    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
-            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    int numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
+    int numColsAndTags = 0;
+    TableDef *tableDes = NULL;
 
     if (stable != NULL && stable[0] != '\0') {  // dump table schema which is created by using super table
 
-        if (numColsAndTags < 0) {
-            errorPrint("%s() LN%d, failed to get table[%s] schema\n",
-                    __func__,
-                    __LINE__,
-                    tbName);
-            free(tableDes);
-            return -1;
-        }
-
         // create child-table using super-table
         if (!g_args.avro) {
+            tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+                    + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+            numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
+
+            if (numColsAndTags < 0) {
+                errorPrint("%s() LN%d, failed to get table[%s] schema\n",
+                        __func__,
+                        __LINE__,
+                        tbName);
+                free(tableDes);
+                return -1;
+            }
+
             dumpCreateMTableClause(dbName, stable, tableDes, numColsAndTags, fp);
         }
     } else {  // dump table definition
+        tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+                + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+        numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
+
         if (numColsAndTags < 0) {
             errorPrint("%s() LN%d, failed to get table[%s] schema\n",
                     __func__,
@@ -5067,6 +5078,8 @@ static int64_t dumpNormalTable(
                             getUniqueIDFromEpoch());
                 }
             }
+            printf("CBD: %s() LN%d dumpFilename: %s\n",
+                    __func__, __LINE__, dumpFilename);
             dumpCreateTableClauseAvro(dumpFilename, tableDes, numColsAndTags, dbName);
         } else {
             dumpCreateTableClause(tableDes, numColsAndTags, fp, dbName);
@@ -5075,6 +5088,12 @@ static int64_t dumpNormalTable(
 
     int64_t totalRows = 0;
     if (!g_args.schemaonly) {
+        if (NULL == tableDes) {
+            tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+                    + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+            numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
+        }
+
         totalRows = dumpTableData(
                 index,
                 fp, tbName,
@@ -5517,7 +5536,17 @@ static int createMTableAvroHead(
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+    int64_t preCount = 0;
+    if (-1 == limit) {
+        preCount = getNtbCountOfStb(dbName, stable);
+    } else {
+        preCount = limit;
+    }
+    printf("Will dump out %"PRId64" sub table(s) of %s\n",
+            preCount, stable);
+
+    sprintf(command,
+            "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
             dbName, g_escapeChar, stable, g_escapeChar,
             limit, offset);
 
@@ -5551,13 +5580,16 @@ static int createMTableAvroHead(
                     min(TSDB_TABLE_NAME_LEN,
                         length[TSDB_SHOW_TABLES_NAME_INDEX]));
 
-            debugPrint("sub table %"PRId64": name: %s\n", ++ntbCount, tbName);
+            ++ntbCount;
+            debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
+                    tbName, ntbCount, stable);
             createMTableAvroHeadImp(
                     taos, dbName, stable, tbName, colCount, db, wface);
         }
     }
 
-    okPrint("total %"PRId64" sub table(s) of %s dumped\n", ntbCount, stable);
+    okPrint("total %"PRId64" sub table(s) of stable: %s dumped\n",
+            ntbCount, stable);
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
@@ -5686,7 +5718,7 @@ static void *dumpNtbOfDb(void *arg) {
                      (g_tablesList + pThreadInfo->from+i))->stable);
 
             if (0 == currentPercent) {
-                printf("[%d]: Dumping \n", pThreadInfo->threadIndex);
+                printf("[%d]: Dumping 1%%\n", pThreadInfo->threadIndex);
             }
             count = dumpNormalTable(
                     pThreadInfo->from+i,
@@ -6682,6 +6714,8 @@ static int64_t dumpCreateSTableClauseOfDb(
         }
 
         if (g_args.avro) {
+            printf("Start to dump out super table: %s of %s\n",
+                    (char*)row[TSDB_SHOW_TABLES_NAME_INDEX], dbInfo->name);
             dumpTbTagsToAvro(
                     superTblCnt,
                     taos,
@@ -6850,7 +6884,7 @@ static int dumpOut() {
         goto _exit_failure;
     }
 
-    sprintf(command, "show databases");
+    sprintf(command, "SHOW DATABASES");
     result = taos_query(taos, command);
     int32_t code = taos_errno(result);
 
@@ -7068,13 +7102,12 @@ void printArgs(FILE *file)
 
     fprintf(file, "host: %s\n", g_args.host);
     fprintf(file, "user: %s\n", g_args.user);
-    fprintf(file, "password: %s\n", g_args.password);
     fprintf(file, "port: %u\n", g_args.port);
     fprintf(file, "outpath: %s\n", g_args.outpath);
     fprintf(file, "inpath: %s\n", g_args.inpath);
     fprintf(file, "resultFile: %s\n", g_args.resultFile);
     fprintf(file, "all_databases: %s\n", g_args.all_databases?"true":"false");
-    fprintf(file, "databases: %d\n", g_args.databases);
+    fprintf(file, "databases: %s\n", g_args.databases?"true":"false");
     fprintf(file, "databasesSeq: %s\n", g_args.databasesSeq);
     fprintf(file, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
     fprintf(file, "with_property: %s\n", g_args.with_property?"true":"false");
@@ -7102,7 +7135,7 @@ void printArgs(FILE *file)
     fprintf(file, "loose_mode: %s\n", g_args.loose_mode?"true":"false");
     // should not print abort
     // fprintf(file, "abort: %d\n", g_args.abort);
-    fprintf(file, "isDumpIn: %d\n", g_args.isDumpIn);
+    fprintf(file, "isDumpIn: %s\n", g_args.isDumpIn?"true":"false");
     fprintf(file, "arg_list_len: %d\n", g_args.arg_list_len);
 
     fflush(file);
