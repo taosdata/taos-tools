@@ -4922,7 +4922,8 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
     }
 
     sprintf(sqlstr,
-            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
+            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
 
@@ -4963,7 +4964,8 @@ static int64_t dumpTableData(
             g_args.user, g_args.password, dbName, g_args.port);
     if (NULL == taos) {
         errorPrint(
-                "Failed to connect to TDengine server %s by specified database %s\n",
+                "Failed to connect to TDengine server %s by "
+                "specified database %s\n",
                 g_args.host, dbName);
         tfree(jsonSchema);
         return -1;
@@ -5077,7 +5079,8 @@ static int64_t dumpNormalTable(
                             getUniqueIDFromEpoch());
                 }
             }
-            dumpCreateTableClauseAvro(dumpFilename, tableDes, numColsAndTags, dbName);
+            dumpCreateTableClauseAvro(
+                    dumpFilename, tableDes, numColsAndTags, dbName);
         } else {
             dumpCreateTableClause(tableDes, numColsAndTags, fp, dbName);
         }
@@ -5088,7 +5091,8 @@ static int64_t dumpNormalTable(
         if (NULL == tableDes) {
             tableDes = (TableDef *)calloc(1, sizeof(TableDef)
                     + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-            numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
+            numColsAndTags = getTableDes(
+                    taos, dbName, tbName, tableDes, false);
         }
 
         totalRows = dumpTableData(
@@ -5263,7 +5267,8 @@ static int createMTableAvroHeadImp(
                 } else {
                     avro_value_set_int(&value,
                             (int8_t)atoi((const char *)
-                                subTableDes->cols[subTableDes->columns + tag].value));
+                                subTableDes->cols[subTableDes->columns
+                                + tag].value));
                 }
                 break;
 
@@ -5275,7 +5280,8 @@ static int createMTableAvroHeadImp(
                 } else {
                     avro_value_set_int(&value,
                             (int16_t)atoi((const char *)
-                                subTableDes->cols[subTableDes->columns + tag].value));
+                                subTableDes->cols[subTableDes->columns
+                                + tag].value));
                 }
                 break;
 
@@ -5287,7 +5293,8 @@ static int createMTableAvroHeadImp(
                 } else {
                     avro_value_set_int(&value,
                             (int32_t)atoi((const char *)
-                                subTableDes->cols[subTableDes->columns + tag].value));
+                                subTableDes->cols[subTableDes->columns
+                                + tag].value));
 
                 }
                 break;
@@ -5312,10 +5319,12 @@ static int createMTableAvroHeadImp(
                 } else {
                     if (subTableDes->cols[subTableDes->columns + tag].var_value) {
                         avro_value_set_float(&value,
-                                atof(subTableDes->cols[subTableDes->columns + tag].var_value));
+                                atof(subTableDes->cols[subTableDes->columns
+                                    + tag].var_value));
                     } else {
                         avro_value_set_float(&value,
-                                atof(subTableDes->cols[subTableDes->columns + tag].value));
+                                atof(subTableDes->cols[subTableDes->columns
+                                    + tag].value));
                     }
                 }
                 break;
@@ -5328,10 +5337,12 @@ static int createMTableAvroHeadImp(
                 } else {
                     if (subTableDes->cols[subTableDes->columns + tag].var_value) {
                         avro_value_set_double(&value,
-                                atof(subTableDes->cols[subTableDes->columns + tag].var_value));
+                                atof(subTableDes->cols[subTableDes->columns
+                                    + tag].var_value));
                     } else {
                         avro_value_set_double(&value,
-                                atof(subTableDes->cols[subTableDes->columns + tag].value));
+                                atof(subTableDes->cols[subTableDes->columns
+                                    + tag].value));
                     }
                 }
                 break;
@@ -5346,10 +5357,12 @@ static int createMTableAvroHeadImp(
                     avro_value_set_branch(&value, 1, &branch);
                     if (subTableDes->cols[subTableDes->columns + tag].var_value) {
                         avro_value_set_string(&branch,
-                                subTableDes->cols[subTableDes->columns + tag].var_value);
+                                subTableDes->cols[subTableDes->columns
+                                + tag].var_value);
                     } else {
                         avro_value_set_string(&branch,
-                                subTableDes->cols[subTableDes->columns + tag].value);
+                                subTableDes->cols[subTableDes->columns
+                                + tag].value);
                     }
                 }
                 break;
@@ -5364,20 +5377,23 @@ static int createMTableAvroHeadImp(
                 } else {
                     avro_value_set_branch(&value, 1, &branch);
                     if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                        size_t nlen = strlen(subTableDes->cols[subTableDes->columns + tag].var_value);
+                        size_t nlen = strlen(
+                                subTableDes->cols[subTableDes->columns
+                                + tag].var_value);
                         char *bytes = malloc(nlen+1);
                         assert(bytes);
 
                         strncpy(bytes,
-                                subTableDes->cols[subTableDes->columns + tag].var_value,
+                                subTableDes->cols[subTableDes->columns
+                                + tag].var_value,
                                 nlen);
                         avro_value_set_bytes(&branch, bytes, nlen);
                         free(bytes);
                     } else {
                         avro_value_set_bytes(&branch,
                                 subTableDes->cols[subTableDes->columns + tag].value,
-                                strlen(subTableDes->cols[subTableDes->columns + tag].value)
-                                );
+                                strlen(subTableDes->cols[subTableDes->columns
+                                    + tag].value));
                     }
                 }
                 break;
@@ -5539,7 +5555,8 @@ static int createMTableAvroHead(
     } else {
         preCount = limit;
     }
-    printf("%p is dumping out %"PRId64" sub table(s) of %s from offset %"PRId64"\n",
+    printf("connection: %p is dumping out: %"PRId64" "
+            "sub table(s) of %s from offset %"PRId64"\n",
             taos, preCount, stable, offset);
 
     char *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
@@ -5597,10 +5614,10 @@ static int createMTableAvroHead(
                 taos, dbName, stable, tbNameArr + tb*TSDB_TABLE_NAME_LEN,
                 colCount, db, wface);
 
-        currentPercent = ((ntbCount+1) * 100 / preCount);
+        currentPercent = ((tb+1) * 100 / preCount);
 
         if (currentPercent > percentComplete) {
-            printf("[%s]:%d%%\n", stable, currentPercent);
+            printf("connection %p is dumping out :%d%%\n", taos, currentPercent);
             percentComplete = currentPercent;
         }
     }
@@ -6097,7 +6114,8 @@ static int64_t dumpInOneDebugFile(
         cmd_len = 0;
 
         if (lineNo >= lastRowsPrint) {
-            printf(" %"PRId64" lines already be executed from file %s\n", lineNo, fileName);
+            printf(" %"PRId64" lines already be executed from file %s\n",
+                    lineNo, fileName);
             lastRowsPrint += 5000000;
         }
     }
@@ -7186,7 +7204,8 @@ int dump() {
 
     for (int32_t i = 0; i < g_args.arg_list_len; i++) {
         if (g_args.databases || g_args.all_databases) {
-            errorPrint("%s is an invalid input if database(s) be already specified.\n",
+            errorPrint("%s is an invalid input if database(s) "
+                    "be already specified.\n",
                     g_args.arg_list[i]);
             exit(EXIT_FAILURE);
         } else {
@@ -7501,7 +7520,8 @@ int inspectAvroFile(char *filename) {
 
     if (false == g_args.schemaonly) {
         fprintf(stdout, "\n=== Records:\n");
-        avro_value_iface_t *value_class = avro_generic_class_from_schema(schema);
+        avro_value_iface_t *value_class =
+            avro_generic_class_from_schema(schema);
         avro_value_t value;
         avro_generic_value_new(value_class, &value);
 
