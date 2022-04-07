@@ -5538,8 +5538,8 @@ static int createMTableAvroHead(
     } else {
         preCount = limit;
     }
-    printf("Will dump out %"PRId64" sub table(s) of %s\n",
-            preCount, stable);
+    printf("%p is dumping out %"PRId64" sub table(s) of %s from offset %"PRId64"\n",
+            taos, preCount, stable, offset);
 
     sprintf(command,
             "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
@@ -5567,6 +5567,9 @@ static int createMTableAvroHead(
                 taos, dbName, stable, specifiedTb, colCount, db, wface);
         ntbCount++;
     } else {
+        int currentPercent = 0;
+        int percentComplete = 0;
+
         while((row = taos_fetch_row(res)) != NULL) {
             int32_t *length = taos_fetch_lengths(res);
             char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
@@ -5581,6 +5584,16 @@ static int createMTableAvroHead(
                     tbName, ntbCount, stable);
             createMTableAvroHeadImp(
                     taos, dbName, stable, tbName, colCount, db, wface);
+
+            currentPercent = ((ntbCount+1) * 100 / preCount);
+            if (currentPercent > percentComplete) {
+                printf("[%s]:%d%%\n", stable, currentPercent);
+                percentComplete = currentPercent;
+            }
+        }
+
+        if (percentComplete < 100) {
+            errorPrint("[%s]:%d%%\n", stable, percentComplete);
         }
     }
 
