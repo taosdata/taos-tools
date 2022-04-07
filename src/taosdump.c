@@ -1190,6 +1190,7 @@ static int inDatabasesSeq(
         char *name,
         int len)
 {
+    name[len] = '\0';
     if (strstr(g_args.databasesSeq, ",") == NULL) {
         if (0 == strcmp(g_args.databasesSeq, name)) {
             return 0;
@@ -5592,7 +5593,7 @@ static int createMTableAvroHead(
             }
         }
 
-        if (percentComplete < 100) {
+        if ((preCount > 0) && (percentComplete < 100)) {
             errorPrint("[%s]:%d%%\n", stable, percentComplete);
         }
     }
