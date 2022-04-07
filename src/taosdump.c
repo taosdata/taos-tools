@@ -5542,6 +5542,9 @@ static int createMTableAvroHead(
     printf("%p is dumping out %"PRId64" sub table(s) of %s from offset %"PRId64"\n",
             taos, preCount, stable, offset);
 
+    char *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
+    assert(tbNameArr);
+
     sprintf(command,
             "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
             dbName, g_escapeChar, stable, g_escapeChar,
@@ -5568,38 +5571,49 @@ static int createMTableAvroHead(
                 taos, dbName, stable, specifiedTb, colCount, db, wface);
         ntbCount++;
     } else {
-        int currentPercent = 0;
-        int percentComplete = 0;
-
         while((row = taos_fetch_row(res)) != NULL) {
             int32_t *length = taos_fetch_lengths(res);
-            char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
 
-            strncpy(tbName,
+            strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
                     (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                     min(TSDB_TABLE_NAME_LEN,
                         length[TSDB_SHOW_TABLES_NAME_INDEX]));
 
-            ++ntbCount;
             debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
-                    tbName, ntbCount, stable);
-            createMTableAvroHeadImp(
-                    taos, dbName, stable, tbName, colCount, db, wface);
-
-            currentPercent = ((ntbCount+1) * 100 / preCount);
-            if (currentPercent > percentComplete) {
-                printf("[%s]:%d%%\n", stable, currentPercent);
-                percentComplete = currentPercent;
-            }
+                    tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                    ntbCount, stable);
+            ++ntbCount;
         }
 
-        if ((preCount > 0) && (percentComplete < 100)) {
-            errorPrint("[%s]:%d%%\n", stable, percentComplete);
+    }
+
+    int currentPercent = 0;
+    int percentComplete = 0;
+
+    int64_t tb = 0;
+    for (;tb < preCount; tb ++ ) {
+
+        createMTableAvroHeadImp(
+                taos, dbName, stable, tbNameArr + tb*TSDB_TABLE_NAME_LEN,
+                colCount, db, wface);
+
+        currentPercent = ((ntbCount+1) * 100 / preCount);
+
+        if (currentPercent > percentComplete) {
+            printf("[%s]:%d%%\n", stable, currentPercent);
+            percentComplete = currentPercent;
         }
     }
 
-    okPrint("total %"PRId64" sub table(s) of stable: %s dumped\n",
-            ntbCount, stable);
+    if ((preCount > 0) && (percentComplete < 100)) {
+        errorPrint("%d%% - total %"PRId64" sub table(s) of stable: %s dumped\n",
+            percentComplete, tb, stable);
+    } else {
+        okPrint("total %"PRId64" sub table(s) of stable: %s dumped\n",
+            tb, stable);
+    }
+
+    free(tbNameArr);
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
