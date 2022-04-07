@@ -150,6 +150,14 @@ void printfInsertMetaToFileStream(FILE *fp) {
             fprintf(fp, "      stbName:           \033[33m%s\033[0m\n",
                     g_arguments->db[i].superTbls[j].stbName);
 
+            if (g_arguments->db[i].superTbls[j].non_stop) {
+                fprintf(fp, "      non_stop_mode:    \033[33m%s\033[0m\n",
+                        "yes");
+            } else {
+                fprintf(fp, "      non_stop_mode:    \033[33m%s\033[0m\n",
+                        "no");
+            }
+
             fprintf(fp, "      interface:         \033[33m%s\033[0m\n",
                     (g_arguments->db[i].superTbls[j].iface == TAOSC_IFACE)
                         ? "taosc"

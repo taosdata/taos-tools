@@ -1057,7 +1057,9 @@ static void *syncWriteInterlace(void *sarg) {
                     interlaceRows * stbInfo->timestamp_step;
                 pThreadInfo->totalInsertRows +=
                     pThreadInfo->ntables * interlaceRows;
-                insertRows -= interlaceRows;
+                if (!stbInfo->non_stop) {
+                    insertRows -= interlaceRows;
+                }
                 if (stbInfo->insert_interval > 0) {
                     performancePrint("sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval);
@@ -1328,8 +1330,9 @@ void *syncWriteProgressive(void *sarg) {
                 default:
                     break;
             }
-
-            i += generated;
+            if (!stbInfo->non_stop) {
+                i += generated;
+            }
             pThreadInfo->totalInsertRows += generated;
             // only measure insert
             startTs = toolsGetTimestampUs();
@@ -1888,7 +1891,7 @@ int insertTestProcess() {
         printfInsertMetaToFileStream(g_arguments->fpOfInsertResult);
     }
 
-    prompt();
+    prompt(0);
 
     encode_base_64();
 
@@ -1910,7 +1913,7 @@ int insertTestProcess() {
     }
     infoPrint("Estimate memory usage: %.2fMB\n",
               (double)g_memoryUsage / 1048576);
-    prompt();
+    prompt(0);
 
     if (createChildTables()) return -1;
 
@@ -1920,6 +1923,7 @@ int insertTestProcess() {
             if (database[i].superTbls[j].insertRows == 0) {
                 continue;
             }
+            prompt(database[i].superTbls[j].non_stop);
             if (startMultiThreadInsertData(i, j)) {
                 return -1;
             }

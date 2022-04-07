@@ -32,7 +32,8 @@ format to store the backup data.
 2. or use the `-D db1,db2,...` parameter; or `-D db1, db2, ...`
 3.  use `dbname stbname1 stbname2 tbname1 tbname2 ...` parameters sequence, note that the first parameter of this input sequence must be the database name and only the database name can be specified here, and the second and subsequent parameters are the names of the super or normal tables in the database, separated by spaces.
 4.  TDengine servers or clusters usually contain a system database named log, the data in this database is the data that TDengine runs itself, and taosdump does not back up the log library by default. If you have a specific need to back up the log database, you can use the `-a` or `--allow-sys` command line parameter.
-5.  taosdump 1.4.1 and later version provides `-n` and `-L` parameters to allow backup data and do not use escaped character and `loose mode` if you are sure the table name, column name and tag name have no escaped characters. Then the backup time and storage size will be less than strict mode. If you don't know whether your data contain escaped characters, please use default strict mode. Pleae refer to [official document](https://tdengine.com/docs/en/v2.0/taos-sql) for escaped characters.
+5.  taosdump 1.4.1 and later version provides `-n` and `-L` parameters to allow backup data and do not use escaped character and `loose mode` if you are sure the table name, column name and tag name have no escaped characters. Then the backup time and storage size will be less than strict mode. If you don't know whether your data contain escaped characters, please use default strict mode. Please refer to [official document](https://tdengine.com/docs/en/v2.0/taos-sql) for escaped characters.
+6.  taosdump 1.4.1 and later version provides `-I` parameter to allow user to inspect and print AVRO file schema and content on the screen. If `-s` be specified, taosdump will inspect schema only.
 
 ### restore
 
@@ -83,6 +84,7 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              00:00:00.000+0800'
   -B, --data-batch=DATA_BATCH   Number of data per insert statement. Default
                              value is 16384.
+  -I, --inspect              inspect avro file content and print on screen
   -L, --loose-mode           Using loose mode if the table name and column name
                              use letter and number only. Default is NOT.
   -n, --no-escape            No escape char '`'. Default is using it.
