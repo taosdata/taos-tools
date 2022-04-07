@@ -2029,7 +2029,6 @@ static int dumpCreateTableClauseAvro(
         char *dumpFilename,
         TableDef *tableDes, int numOfCols,
         char* dbName) {
-    printf("CBD: %s() %dLN %s\n", __func__, __LINE__, dumpFilename);
     assert(dumpFilename);
     // {
     // "type": "record",
@@ -5078,8 +5077,6 @@ static int64_t dumpNormalTable(
                             getUniqueIDFromEpoch());
                 }
             }
-            printf("CBD: %s() LN%d dumpFilename: %s\n",
-                    __func__, __LINE__, dumpFilename);
             dumpCreateTableClauseAvro(dumpFilename, tableDes, numColsAndTags, dbName);
         } else {
             dumpCreateTableClause(tableDes, numColsAndTags, fp, dbName);
