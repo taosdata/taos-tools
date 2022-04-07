@@ -1191,8 +1191,7 @@ static int inDatabasesSeq(
         int len)
 {
     if (strstr(g_args.databasesSeq, ",") == NULL) {
-        if (0 == strncmp(g_args.databasesSeq, name,
-                    strlen(g_args.databasesSeq))) {
+        if (0 == strcmp(g_args.databasesSeq, name)) {
             return 0;
         }
     } else {
@@ -1200,7 +1199,7 @@ static int inDatabasesSeq(
         char *running = dupSeq;
         char *dbname = strsep(&running, ",");
         while (dbname) {
-            if (0 == strncmp(dbname, name, len)) {
+            if (0 == strcmp(dbname, name)) {
                 tfree(dupSeq);
                 return 0;
             }
