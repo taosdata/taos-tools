@@ -6527,6 +6527,8 @@ static int64_t dumpNtbOfDbByThreads(
         taos_close(pThreadInfo->taos);
     }
 
+    g_resultStatistics.totalChildTblsOfDumpOut += ntbCount;
+
     free(pids);
     free(infos);
 
@@ -7124,6 +7126,7 @@ static int dumpOut() {
     taos_free_result(result);
     freeDbInfos();
     okPrint("%" PRId64 " row(s) dumped out!\n", g_totalDumpOutRows);
+    g_resultStatistics.totalRowsOfDumpOut += g_totalDumpOutRows;
     return 0;
 
 _exit_failure:
