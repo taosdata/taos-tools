@@ -730,6 +730,44 @@ static int typeStrToType(const char *type_str) {
     return TSDB_DATA_TYPE_NULL;
 }
 
+int64_t getStartTime(int precision) {
+
+    int64_t start_time;
+
+    if (strlen(g_args.humanStartTime)) {
+        if (TSDB_CODE_SUCCESS != toolsParseTime(
+                g_args.humanStartTime, &start_time,
+                strlen(g_args.humanStartTime),
+                precision, 0)) {
+            errorPrint("Input %s, time format error!\n",
+                    g_args.humanStartTime);
+            return -1;
+        }
+    } else {
+        start_time = g_args.start_time;
+    }
+
+    return start_time;
+}
+
+int64_t getEndTime(int precision) {
+
+    int64_t end_time;
+
+    if (strlen(g_args.humanEndTime)) {
+        if (TSDB_CODE_SUCCESS != toolsParseTime(
+                g_args.humanEndTime, &end_time, strlen(g_args.humanEndTime),
+                precision, 0)) {
+            errorPrint("Input %s, time format error!\n", g_args.humanEndTime);
+            return -1;
+        }
+    } else {
+        end_time = g_args.end_time;
+    }
+
+    return end_time;
+}
+
 /* Parse a single option. */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     /* Get the input argument from argp_parse, which we
@@ -766,8 +804,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 exit(EXIT_FAILURE);
             }
             g_args.port = (uint16_t)port;
-
             break;
+
         case 'o':
             if (wordexp(arg, &full_path, 0) != 0) {
                 errorPrint("Invalid path %s\n", arg);
@@ -861,6 +899,15 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
 
         case 'E':
+            break;
+
+        case 'L':
+            break;
+
+        case 'I':
+            break;
+
+        case 'n':
             break;
 
         case 'B':
@@ -2978,13 +3025,83 @@ static void printDotOrX(int64_t count, bool *printDot)
     fflush(stdout);
 }
 
+int64_t queryDbForDumpOutCount(TAOS *taos,
+        char *dbName, char *tbName, int precision)
+{
+    char sqlstr[COMMAND_SIZE] = {0};
+
+    sprintf(sqlstr,
+            "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
+            dbName, g_escapeChar, tbName, g_escapeChar,
+            g_args.start_time, g_args.end_time);
+
+    TAOS_RES* res = taos_query(taos, sqlstr);
+    int32_t code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("failed to run command %s, reason: %s\n",
+                sqlstr, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    TAOS_ROW row = taos_fetch_row(res);
+    if (NULL == row) {
+        errorPrint("failed run %s to fetch row, reason: %s\n",
+                sqlstr, taos_errstr(res));
+        return -1;
+    }
+
+    return *(int64_t*)row[TSDB_SHOW_TABLES_NAME_INDEX];
+}
+
+TAOS_RES *queryDbForDumpOutOffset(TAOS *taos,
+        char *dbName, char *tbName, int precision,
+        int64_t start_time, int64_t end_time,
+        int64_t offset)
+{
+    char sqlstr[COMMAND_SIZE] = {0};
+
+    sprintf(sqlstr,
+            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT 1 OFFSET %" PRId64 ";",
+            dbName, g_escapeChar, tbName, g_escapeChar,
+            start_time, end_time, offset);
+
+    TAOS_RES* res = taos_query(taos, sqlstr);
+    int32_t code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("failed to run command %s, reason: %s\n",
+                sqlstr, taos_errstr(res));
+        taos_free_result(res);
+        return NULL;
+    }
+
+    return res;
+}
+
 static int64_t writeResultToAvro(
         char *avroFilename,
+        char *dbName,
         char *tbName,
         char *jsonSchema,
-        TAOS_RES *res)
+        TAOS *taos,
+        int precision)
 {
     assert(avroFilename);
+
+    int64_t start_time = getStartTime(precision);
+    int64_t end_time = getEndTime(precision);
+    if ((-1 == start_time) || (-1 == end_time)) {
+        return -1;
+    }
+
+    int64_t queryCount = queryDbForDumpOutCount(
+            taos, dbName, tbName, precision);
+    if (queryCount <=0) {
+        return 0;
+    }
+
     avro_schema_t schema;
     RecordSchema *recordSchema;
     avro_file_writer_t db;
@@ -2993,23 +3110,43 @@ static int64_t writeResultToAvro(
             avroFilename,
             jsonSchema, &schema, &recordSchema, &db);
 
-    TAOS_ROW row = NULL;
-
-    int numFields = taos_field_count(res);
-    assert(numFields > 0);
-    TAOS_FIELD *fields = taos_fetch_fields(res);
-
     int64_t success = 0;
     int64_t failed = 0;
-    int64_t count = 0;
 
     bool printDot = true;
 
-    while ((row = taos_fetch_row(res)) != NULL) {
+    int numFields = -1;
+    TAOS_FIELD *fields = NULL;
+
+    int64_t offset = 0;
+    do {
+        TAOS_RES *res = queryDbForDumpOutOffset(
+                taos, dbName, tbName, precision,
+                start_time, end_time, offset);
+        if (NULL == res) {
+            break;
+        }
+
+        if (-1 == numFields) {
+            numFields = taos_field_count(res);
+            assert(numFields > 0);
+        }
+
+        if (NULL == fields) {
+            fields = taos_fetch_fields(res);
+            assert(fields);
+        }
+
+        TAOS_ROW row = taos_fetch_row(res);
+        if (NULL == row) {
+            errorPrint("failed to fetch row at offset %" PRId64 "\n", offset);
+            break;
+        }
+
         int32_t *length = taos_fetch_lengths(res);
 
-        printDotOrX(count, &printDot);
-        count++;
+        printDotOrX(offset, &printDot);
+        offset++;
 
         avro_value_t record;
         avro_generic_value_new(wface, &record);
@@ -3235,7 +3372,7 @@ static int64_t writeResultToAvro(
             success ++;
         }
         avro_value_decref(&record);
-    }
+    } while (offset < queryCount);
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
@@ -4892,34 +5029,10 @@ static int64_t writeResultDebug(TAOS_RES *res, FILE *fp,
 }
 
 TAOS_RES *queryDbForDumpOut(TAOS *taos,
-        char *dbName, char *tbName, int precision)
+        char *dbName, char *tbName, int precision,
+        int64_t start_time, int64_t end_time)
 {
     char sqlstr[COMMAND_SIZE] = {0};
-
-    int64_t start_time, end_time;
-    if (strlen(g_args.humanStartTime)) {
-        if (TSDB_CODE_SUCCESS != toolsParseTime(
-                g_args.humanStartTime, &start_time,
-                strlen(g_args.humanStartTime),
-                precision, 0)) {
-            errorPrint("Input %s, time format error!\n",
-                    g_args.humanStartTime);
-            return NULL;
-        }
-    } else {
-        start_time = g_args.start_time;
-    }
-
-    if (strlen(g_args.humanEndTime)) {
-        if (TSDB_CODE_SUCCESS != toolsParseTime(
-                g_args.humanEndTime, &end_time, strlen(g_args.humanEndTime),
-                precision, 0)) {
-            errorPrint("Input %s, time format error!\n", g_args.humanEndTime);
-            return NULL;
-        }
-    } else {
-        end_time = g_args.end_time;
-    }
 
     sprintf(sqlstr,
             "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
@@ -4948,33 +5061,6 @@ static int64_t dumpTableDataAvro(
         int colCount,
         TableDef *tableDes
         ) {
-    char *jsonSchema = NULL;
-    if (0 != convertTbDesToJsonWrap(
-                dbName, tbName, tableDes, colCount, &jsonSchema)) {
-        errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
-                __func__,
-                __LINE__);
-        return -1;
-    }
-
-    TAOS *taos = taos_connect(g_args.host,
-            g_args.user, g_args.password, dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint(
-                "Failed to connect to TDengine server %s by "
-                "specified database %s\n",
-                g_args.host, dbName);
-        tfree(jsonSchema);
-        return -1;
-    }
-
-    TAOS_RES *res = queryDbForDumpOut(taos, dbName, tbName, precision);
-    if (NULL == res) {
-        tfree(jsonSchema);
-        return -1;
-    }
-
-    int64_t    totalRows     = 0;
 
     char dataFilename[MAX_PATH_LEN] = {0};
     if (g_args.loose_mode) {
@@ -4988,13 +5074,30 @@ static int64_t dumpTableDataAvro(
                 getUniqueIDFromEpoch(),
                 index);
     }
-    /*        printf("[%"PRId64"]: Dumping to %s \n",
-              index, dataFilename);
-              */
 
-    totalRows = writeResultToAvro(dataFilename, tbName, jsonSchema, res);
+    TAOS *taos = taos_connect(g_args.host,
+            g_args.user, g_args.password, dbName, g_args.port);
+    if (NULL == taos) {
+        errorPrint(
+                "Failed to connect to TDengine server %s by "
+                "specified database %s\n",
+                g_args.host, dbName);
+        return -1;
+    }
 
-    taos_free_result(res);
+    char *jsonSchema = NULL;
+    if (0 != convertTbDesToJsonWrap(
+                dbName, tbName, tableDes, colCount, &jsonSchema)) {
+        errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
+                __func__,
+                __LINE__);
+        taos_close(taos);
+        return -1;
+    }
+
+    int64_t totalRows = writeResultToAvro(
+            dataFilename, dbName, tbName, jsonSchema, taos, precision);
+
     taos_close(taos);
     tfree(jsonSchema);
 
@@ -5010,6 +5113,13 @@ static int64_t dumpTableData(
         TableDef *tableDes
         ) {
 
+    int64_t start_time = getStartTime(precision);
+    int64_t end_time = getEndTime(precision);
+
+    if ((-1 == start_time) || (-1 == end_time)) {
+        return -1;
+    }
+
     TAOS *taos = taos_connect(g_args.host,
             g_args.user, g_args.password, dbName, g_args.port);
     if (NULL == taos) {
@@ -5020,7 +5130,8 @@ static int64_t dumpTableData(
         return -1;
     }
 
-    TAOS_RES *res = queryDbForDumpOut(taos, dbName, tbName, precision);
+    TAOS_RES *res = queryDbForDumpOut(
+            taos, dbName, tbName, precision, start_time, end_time);
 
     int64_t totalRows = writeResultDebug(res, fp, dbName, tbName);
 
