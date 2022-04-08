@@ -1152,7 +1152,7 @@ static int getTableRecordInfo(
 
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
 
-    char command[COMMAND_SIZE];
+    char command[COMMAND_SIZE] = {0};
 
     sprintf(command, "USE %s", dbName);
     result = taos_query(taos, command);
@@ -1228,8 +1228,7 @@ static int getTableRecordInfo(
     if (isSet) {
         return 0;
     }
-    errorPrint("%s() LN%d, invalid table/stable %s\n",
-            __func__, __LINE__, table);
+    errorPrint("invalid table/stable %s\n", table);
     return -1;
 }
 
@@ -3140,8 +3139,6 @@ static int64_t writeResultToAvro(
             assert(fields);
         }
 
-        int32_t *length = taos_fetch_lengths(res);
-
         TAOS_ROW row = taos_fetch_row(res);
         if (NULL == row) {
             errorPrint("failed to fetch row at offset %" PRId64 "\n", offset);
@@ -3149,7 +3146,7 @@ static int64_t writeResultToAvro(
             break;
         }
 
-        taos_free_result(res);
+        int32_t *length = taos_fetch_lengths(res);
 
         printDotOrX(offset, &printDot);
         offset++;
@@ -3171,7 +3168,7 @@ static int64_t writeResultToAvro(
         }
 
         for (int col = 0; col < numFields; col++) {
-            char tmpBuf[65] = {0};
+            char tmpBuf[TSDB_COL_NAME_LEN] = {0};
 
             if (0 == col) {
                 sprintf(tmpBuf, "ts");
@@ -3378,6 +3375,7 @@ static int64_t writeResultToAvro(
             success ++;
         }
         avro_value_decref(&record);
+        taos_free_result(res);
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
@@ -5669,12 +5667,60 @@ static int createMTableAvroHeadImp(
     return 0;
 }
 
+static int createMTableAvroHeadSpecified(
+        TAOS *taos,
+        char *dumpFilename,
+        char *dbName, char *stable,
+        char *specifiedTb)
+{
+    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+    assert(tableDes);
+
+    int colCount = getTableDes(taos, dbName, stable, tableDes, false);
+
+    char *jsonTagsSchema = NULL;
+    if (0 != convertTbTagsDesToJsonWrap(
+                dbName, stable, tableDes, &jsonTagsSchema)) {
+        errorPrint("%s() LN%d, convertTbTagsDesToJsonWrap failed\n",
+                __func__,
+                __LINE__);
+        tfree(jsonTagsSchema);
+        freeTbDes(tableDes);
+        return -1;
+    }
+
+    debugPrint("tagsJson:\n%s\n", jsonTagsSchema);
+
+    avro_schema_t schema;
+    RecordSchema *recordSchema;
+    avro_file_writer_t db;
+
+    avro_value_iface_t *wface = prepareAvroWface(
+            dumpFilename,
+            jsonTagsSchema, &schema, &recordSchema, &db);
+
+    if (specifiedTb) {
+        createMTableAvroHeadImp(
+                taos, dbName, stable, specifiedTb, colCount, db, wface);
+    }
+
+    avro_value_iface_decref(wface);
+    freeRecordSchema(recordSchema);
+    avro_file_writer_close(db);
+    avro_schema_decref(schema);
+
+    tfree(jsonTagsSchema);
+    freeTbDes(tableDes);
+
+    return 0;
+}
+
 static int createMTableAvroHead(
         TAOS *taos,
         char *dumpFilename,
         char *dbName, char *stable,
-        int64_t limit, int64_t offset,
-        char *specifiedTb)
+        int64_t limit, int64_t offset)
 {
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
@@ -5739,25 +5785,18 @@ static int createMTableAvroHead(
     TAOS_ROW row = NULL;
     int64_t ntbCount = 0;
 
-    if (specifiedTb) {
-        createMTableAvroHeadImp(
-                taos, dbName, stable, specifiedTb, colCount, db, wface);
-        ntbCount++;
-    } else {
-        while((row = taos_fetch_row(res)) != NULL) {
-            int32_t *length = taos_fetch_lengths(res);
+    while((row = taos_fetch_row(res)) != NULL) {
+        int32_t *length = taos_fetch_lengths(res);
 
-            strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                    min(TSDB_TABLE_NAME_LEN,
-                        length[TSDB_SHOW_TABLES_NAME_INDEX]));
+        strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                min(TSDB_TABLE_NAME_LEN,
+                    length[TSDB_SHOW_TABLES_NAME_INDEX]));
 
-            debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
-                    tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                    ntbCount, stable);
-            ++ntbCount;
-        }
-
+        debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
+                tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                ntbCount, stable);
+        ++ntbCount;
     }
 
     int currentPercent = 0;
@@ -5818,14 +5857,14 @@ static int64_t dumpNormalTableBelongStb(
             sprintf(dumpFilename, "%s%s.%"PRIu64".avro-tbtags",
                     g_args.outpath, dbInfo->name, getUniqueIDFromEpoch());
         }
-        errorPrint("%s() LN%d dumpFilename: %s\n",
+        debugPrint("%s() LN%d dumpFilename: %s\n",
                 __func__, __LINE__, dumpFilename);
 
-        int ret = createMTableAvroHead(
+        int ret = createMTableAvroHeadSpecified(
                 taos,
                 dumpFilename,
                 dbInfo->name,
-                stbName, -1, 0,
+                stbName,
                 ntbName);
         if (-1 == ret) {
             errorPrint("%s() LN%d, failed to open file %s\n",
@@ -6537,8 +6576,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
                 pThreadInfo->dbName,
                 pThreadInfo->stbName,
                 pThreadInfo->count,
-                pThreadInfo->from,
-                NULL);
+                pThreadInfo->from);
         if (-1 == ret) {
             errorPrint("%s() LN%d, failed to open file %s\n",
                     __func__, __LINE__, dumpFilename);
@@ -6864,12 +6902,11 @@ static int dumpTbTagsToAvro(
     debugPrint("%s() LN%d dumpFilename: %s\n",
             __func__, __LINE__, dumpFilename);
 
-    int ret = createMTableAvroHead(
+    int ret = createMTableAvroHeadSpecified(
             taos,
             dumpFilename,
             dbInfo->name,
             stable,
-            -1, 0,
             specifiedTb);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to open file %s\n",
