@@ -3118,6 +3118,9 @@ static int64_t writeResultToAvro(
     int numFields = -1;
     TAOS_FIELD *fields = NULL;
 
+    int currentPercent = 0;
+    int percentComplete = 0;
+
     int64_t offset = 0;
     do {
         TAOS_RES *res = queryDbForDumpOutOffset(
@@ -3158,7 +3161,7 @@ static int64_t writeResultToAvro(
                         &record, "tbname", &value, NULL)) {
                 errorPrint("%s() LN%d, avro_value_get_by_name(tbname) failed\n",
                         __func__, __LINE__);
-                continue;
+                break;
             }
             avro_value_set_branch(&value, 1, &branch);
             avro_value_set_string(&branch, tbName);
@@ -3179,7 +3182,7 @@ static int64_t writeResultToAvro(
                         &value, NULL)) {
                 errorPrint("%s() LN%d, avro_value_get_by_name(%s) failed\n",
                         __func__, __LINE__, fields[col].name);
-                continue;
+                break;
             }
 
             avro_value_t firsthalf, secondhalf;
@@ -3372,7 +3375,17 @@ static int64_t writeResultToAvro(
             success ++;
         }
         avro_value_decref(&record);
+
+        currentPercent = ((offset) * 100 / queryCount);
+        if (currentPercent > percentComplete) {
+            printf("[%s]:%d%%\n", tbName, currentPercent);
+            percentComplete = currentPercent;
+        }
     } while (offset < queryCount);
+
+    if (percentComplete < 100) {
+        errorPrint("[%s]:%d%%\n", tbName, percentComplete);
+    }
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
