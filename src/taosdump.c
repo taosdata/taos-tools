@@ -901,6 +901,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'E':
             break;
 
+        case 's':
+            g_args.schemaonly = true;
+            break;
+
         case 'L':
             break;
 
@@ -1001,11 +1005,6 @@ static void parse_args(
         } else if ((strcmp(argv[i], "-I") == 0)
                 || (0 == strcmp(argv[i], "--inspect"))) {
             g_args.inspect = true;
-            strcpy(argv[i], "");
-        // dump format option
-        } else if ((strcmp(argv[i], "-s") == 0)
-                || (0 == strcmp(argv[i], "--schemaonly"))) {
-            g_args.schemaonly = true;
             strcpy(argv[i], "");
         } else if ((strcmp(argv[i], "-L") == 0)
                 || (0 == strcmp(argv[i], "--lose-mode"))) {
