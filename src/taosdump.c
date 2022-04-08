@@ -4939,9 +4939,8 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
     return res;
 }
 
-static int64_t dumpTableData(
+static int64_t dumpTableDataAvro(
         int64_t index,
-        FILE *fp,
         char *tbName,
         bool belongStb,
         char* dbName,
@@ -4950,14 +4949,12 @@ static int64_t dumpTableData(
         TableDef *tableDes
         ) {
     char *jsonSchema = NULL;
-    if (g_args.avro) {
-        if (0 != convertTbDesToJsonWrap(
-                    dbName, tbName, tableDes, colCount, &jsonSchema)) {
-            errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
-                    __func__,
-                    __LINE__);
-            return -1;
-        }
+    if (0 != convertTbDesToJsonWrap(
+                dbName, tbName, tableDes, colCount, &jsonSchema)) {
+        errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
+                __func__,
+                __LINE__);
+        return -1;
     }
 
     TAOS *taos = taos_connect(g_args.host,
@@ -4979,32 +4976,56 @@ static int64_t dumpTableData(
 
     int64_t    totalRows     = 0;
 
-    if (g_args.avro) {
-
-        char dataFilename[MAX_PATH_LEN] = {0};
-        if (g_args.loose_mode) {
-            sprintf(dataFilename, "%s%s.%s.%"PRId64".avro",
-                    g_args.outpath, dbName,
-                    tbName,
-                    index);
-        } else {
-            sprintf(dataFilename, "%s%s.%"PRIu64".%"PRId64".avro",
-                    g_args.outpath, dbName,
-                    getUniqueIDFromEpoch(),
-                    index);
-        }
-/*        printf("[%"PRId64"]: Dumping to %s \n",
-                index, dataFilename);
-                */
-
-        totalRows = writeResultToAvro(dataFilename, tbName, jsonSchema, res);
+    char dataFilename[MAX_PATH_LEN] = {0};
+    if (g_args.loose_mode) {
+        sprintf(dataFilename, "%s%s.%s.%"PRId64".avro",
+                g_args.outpath, dbName,
+                tbName,
+                index);
     } else {
-        totalRows = writeResultDebug(res, fp, dbName, tbName);
+        sprintf(dataFilename, "%s%s.%"PRIu64".%"PRId64".avro",
+                g_args.outpath, dbName,
+                getUniqueIDFromEpoch(),
+                index);
     }
+    /*        printf("[%"PRId64"]: Dumping to %s \n",
+              index, dataFilename);
+              */
+
+    totalRows = writeResultToAvro(dataFilename, tbName, jsonSchema, res);
 
     taos_free_result(res);
     taos_close(taos);
     tfree(jsonSchema);
+
+    return totalRows;
+}
+
+static int64_t dumpTableData(
+        int64_t index,
+        FILE *fp,
+        char *tbName,
+        char* dbName,
+        int precision,
+        TableDef *tableDes
+        ) {
+
+    TAOS *taos = taos_connect(g_args.host,
+            g_args.user, g_args.password, dbName, g_args.port);
+    if (NULL == taos) {
+        errorPrint(
+                "Failed to connect to TDengine server %s by "
+                "specified database %s\n",
+                g_args.host, dbName);
+        return -1;
+    }
+
+    TAOS_RES *res = queryDbForDumpOut(taos, dbName, tbName, precision);
+
+    int64_t totalRows = writeResultDebug(res, fp, dbName, tbName);
+
+    taos_free_result(res);
+    taos_close(taos);
 
     return totalRows;
 }
@@ -5088,19 +5109,27 @@ static int64_t dumpNormalTable(
 
     int64_t totalRows = 0;
     if (!g_args.schemaonly) {
-        if (NULL == tableDes) {
-            tableDes = (TableDef *)calloc(1, sizeof(TableDef)
-                    + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-            numColsAndTags = getTableDes(
-                    taos, dbName, tbName, tableDes, false);
-        }
+        if (g_args.avro) {
+            if (NULL == tableDes) {
+                tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+                        + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+                numColsAndTags = getTableDes(
+                        taos, dbName, tbName, tableDes, false);
+            }
 
-        totalRows = dumpTableData(
-                index,
-                fp, tbName,
-                belongStb,
-                dbName, precision,
-                numColsAndTags, tableDes);
+            totalRows = dumpTableDataAvro(
+                    index,
+                    tbName,
+                    belongStb,
+                    dbName, precision,
+                    numColsAndTags, tableDes);
+        } else {
+            totalRows = dumpTableData(
+                    index,
+                    fp, tbName,
+                    dbName, precision,
+                    tableDes);
+        }
     }
 
     freeTbDes(tableDes);
