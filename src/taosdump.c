@@ -3378,13 +3378,13 @@ static int64_t writeResultToAvro(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            printf("[%s]:%d%%\n", tbName, currentPercent);
+            printf("%d%% of %s\n", currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
 
     if (percentComplete < 100) {
-        errorPrint("[%s]:%d%%\n", tbName, percentComplete);
+        errorPrint("%d%% of %s\n", percentComplete, tbName);
     }
 
     avro_value_iface_decref(wface);
@@ -5770,7 +5770,8 @@ static int createMTableAvroHead(
         currentPercent = ((tb+1) * 100 / preCount);
 
         if (currentPercent > percentComplete) {
-            printf("connection %p is dumping out :%d%%\n", taos, currentPercent);
+            printf("connection %p is dumping out :%d%% of %s\n",
+                    taos, currentPercent, stable);
             percentComplete = currentPercent;
         }
     }
