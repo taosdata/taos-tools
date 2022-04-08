@@ -3140,13 +3140,16 @@ static int64_t writeResultToAvro(
             assert(fields);
         }
 
+        int32_t *length = taos_fetch_lengths(res);
+
         TAOS_ROW row = taos_fetch_row(res);
         if (NULL == row) {
             errorPrint("failed to fetch row at offset %" PRId64 "\n", offset);
+            taos_free_result(res);
             break;
         }
 
-        int32_t *length = taos_fetch_lengths(res);
+        taos_free_result(res);
 
         printDotOrX(offset, &printDot);
         offset++;
