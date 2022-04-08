@@ -1301,9 +1301,8 @@ static int getDumpDbCount()
                 continue;
             }
         } else if (!g_args.all_databases) {  // only input one db
-            if (strncasecmp(g_args.arg_list[0],
-                        (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
+            if (strcmp(g_args.arg_list[0],
+                        (char *)row[TSDB_SHOW_DB_NAME_INDEX])) {
                 continue;
             }
         }
@@ -7136,9 +7135,8 @@ static int dumpOut() {
                 continue;
             }
         } else if (!g_args.all_databases) {
-            if (strncasecmp(g_args.arg_list[0],
-                        (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
+            if (strcmp(g_args.arg_list[0],
+                        (char *)row[TSDB_SHOW_DB_NAME_INDEX])) {
                 continue;
             }
         }
