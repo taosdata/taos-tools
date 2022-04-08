@@ -201,7 +201,7 @@ jobs:
 
           echo "TEST: old cases"
           python3 ./test.py -f tools/taosdumpTest.py > /dev/null
-          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
+          #          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest3.py > /dev/null
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null
 
