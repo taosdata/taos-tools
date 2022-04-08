@@ -3129,15 +3129,10 @@ static int64_t writeResultToAvro(
             break;
         }
 
-        if (-1 == numFields) {
-            numFields = taos_field_count(res);
-            assert(numFields > 0);
-        }
+        numFields = taos_field_count(res);
 
-        if (NULL == fields) {
-            fields = taos_fetch_fields(res);
-            assert(fields);
-        }
+        fields = taos_fetch_fields(res);
+        assert(fields);
 
         TAOS_ROW row = taos_fetch_row(res);
         if (NULL == row) {
