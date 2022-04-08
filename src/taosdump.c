@@ -1312,10 +1312,6 @@ static int getDumpDbCount()
         count++;
     }
 
-    if (count == 0) {
-        errorPrint("%d databases valid to dump\n", count);
-    }
-
     taos_close(taos);
     return count;
 }
@@ -6871,8 +6867,7 @@ static int64_t dumpNtbOfStbByThreads(
 
 static int dumpTbTagsToAvro(
         int64_t index,
-        TAOS *taos, SDbInfo *dbInfo, char *stable,
-        char *specifiedTb)
+        TAOS *taos, SDbInfo *dbInfo, char *stable)
 {
     debugPrint("%s() LN%d dbName: %s, stable: %s\n",
             __func__, __LINE__,
@@ -6897,12 +6892,12 @@ static int dumpTbTagsToAvro(
     debugPrint("%s() LN%d dumpFilename: %s\n",
             __func__, __LINE__, dumpFilename);
 
-    int ret = createMTableAvroHeadSpecified(
+    int ret = createMTableAvroHead(
             taos,
             dumpFilename,
             dbInfo->name,
             stable,
-            specifiedTb);
+            -1, 0);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to open file %s\n",
                 __func__, __LINE__, dumpFilename);
@@ -6953,9 +6948,7 @@ static int64_t dumpCreateSTableClauseOfDb(
                     superTblCnt,
                     taos,
                     dbInfo,
-                    row[TSDB_SHOW_TABLES_NAME_INDEX],
-                    NULL
-                    );
+                    row[TSDB_SHOW_TABLES_NAME_INDEX]);
         }
     }
 
@@ -7280,16 +7273,6 @@ static int dumpOut() {
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         fp);
-/*
-                if (g_args.avro) {
-                    dumpTbTagsToAvro(
-                            i,
-                            taos,
-                            g_dbInfos[0],
-                            tableRecordInfo.tableRecord.stable,
-                            g_args.arg_list[i]);
-                }
-                */
                 ret = dumpNormalTableBelongStb(
                         i,
                         taos,
