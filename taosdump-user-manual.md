@@ -34,6 +34,7 @@ format to store the backup data.
 4.  TDengine servers or clusters usually contain a system database named log, the data in this database is the data that TDengine runs itself, and taosdump does not back up the log library by default. If you have a specific need to back up the log database, you can use the `-a` or `--allow-sys` command line parameter.
 5.  taosdump 1.4.1 and later version provides `-n` and `-L` parameters to allow backup data and do not use escaped character and `loose mode` if you are sure the table name, column name and tag name have no escaped characters. Then the backup time and storage size will be less than strict mode. If you don't know whether your data contain escaped characters, please use default strict mode. Please refer to [official document](https://tdengine.com/docs/en/v2.0/taos-sql) for escaped characters.
 6.  taosdump 1.4.1 and later version provides `-I` parameter to allow user to inspect and print AVRO file schema and content on the screen. If `-s` be specified, taosdump will inspect schema only.
+7.  taosdump 1.4.2 and later version will use `-B` parameter to allow user to backup batch number of records. If the system network throughput or disk writing performance is inefficient, it may cause "Error actual dump .. batch ..", you can try by adjusting to a smaller value with `-B` parameter.
 
 ### restore
 
