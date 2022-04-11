@@ -47,7 +47,7 @@ Following is the list of taosdump command line arguments in details:
 
 ```
 Usage: taosdump [OPTION...] dbname [tbname ...]
-  or:  taosdump [OPTION...] --databases db1,db2,...
+  or:  taosdump [OPTION...] --databases db1,db2,... 
   or:  taosdump [OPTION...] --all-databases
   or:  taosdump [OPTION...] -i inpath
   or:  taosdump [OPTION...] -o outpath
@@ -83,14 +83,18 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              2017-10-01T00:00:00.000+0800 or
                              2017-10-0100:00:00.000+0800 or '2017-10-01
                              00:00:00.000+0800'
-  -B, --data-batch=DATA_BATCH   Number of data per insert statement. Default
-                             value is 16384.
+  -B, --data-batch=DATA_BATCH   Number of data per query/insert statement when
+                             backup/restore. Default value is 16384. If you see
+                             'error actual dump .. batch ..' when backup or if
+                             you see 'WAL size exceeds limit' error when
+                             restore, please adjust the value to a smaller one
+                             and try. The workable value is related to the
+                             length of the row and type of table schema.
   -I, --inspect              inspect avro file content and print on screen
   -L, --loose-mode           Using loose mode if the table name and column name
                              use letter and number only. Default is NOT.
   -n, --no-escape            No escape char '`'. Default is using it.
-
-  -T, --thread_num=THREAD_NUM   Number of thread for dump in file. Default is
+  -T, --thread-num=THREAD_NUM   Number of thread for dump in file. Default is
                              5.
   -g, --debug                Print debug info.
   -?, --help                 Give this help list
