@@ -1289,8 +1289,7 @@ static int getDumpDbCount()
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
         // sys database name : 'log', but subsequent version changed to 'log'
-        if (strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
-                        length[TSDB_SHOW_DB_NAME_INDEX]) == 0) {
+        if (strcmp(row[TSDB_SHOW_DB_NAME_INDEX], "log") == 0) {
             if (!g_args.allow_sys) {
                 continue;
             }
@@ -1310,6 +1309,7 @@ static int getDumpDbCount()
         count++;
     }
 
+    taos_free_result(result);
     taos_close(taos);
     return count;
 }
@@ -1424,6 +1424,7 @@ static int64_t getNtbCountOfStb(char *dbName, char *stbName)
     debugPrint("%s() LN%d, COUNT(TBNAME): %"PRId64"\n",
             __func__, __LINE__, count);
 
+    taos_free_result(res);
     taos_close(taos);
     return count;
 }
@@ -3021,6 +3022,7 @@ static void printDotOrX(int64_t count, bool *printDot)
 int64_t queryDbForDumpOutCount(TAOS *taos,
         char *dbName, char *tbName, int precision)
 {
+    int64_t count = -1;
     char sqlstr[COMMAND_SIZE] = {0};
 
     sprintf(sqlstr,
@@ -3042,10 +3044,15 @@ int64_t queryDbForDumpOutCount(TAOS *taos,
     if (NULL == row) {
         errorPrint("failed run %s to fetch row, reason: %s\n",
                 sqlstr, taos_errstr(res));
+        taos_free_result(res);
         return -1;
     }
 
-    return *(int64_t*)row[TSDB_SHOW_TABLES_NAME_INDEX];
+    count = *(int64_t*)row[TSDB_SHOW_TABLES_NAME_INDEX];
+
+    taos_free_result(res);
+
+    return count;
 }
 
 TAOS_RES *queryDbForDumpOutOffset(TAOS *taos,
@@ -5746,7 +5753,7 @@ static int createMTableAvroHead(
     } else {
         preCount = limit;
     }
-    printf("connection: %p is dumping out: %"PRId64" "
+    printf("connection: %p is dumping out schema: %"PRId64" "
             "sub table(s) of %s from offset %"PRId64"\n",
             taos, preCount, stable, offset);
 
@@ -5801,7 +5808,7 @@ static int createMTableAvroHead(
         currentPercent = ((tb+1) * 100 / preCount);
 
         if (currentPercent > percentComplete) {
-            printf("connection %p is dumping out :%d%% of %s\n",
+            printf("connection %p is dumping out schema:%d%% of %s\n",
                     taos, currentPercent, stable);
             percentComplete = currentPercent;
         }
@@ -5822,6 +5829,7 @@ static int createMTableAvroHead(
     avro_file_writer_close(db);
     avro_schema_decref(schema);
 
+    taos_free_result(res);
     tfree(jsonTagsSchema);
     freeTbDes(tableDes);
 
@@ -6204,6 +6212,7 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
     }
 
     ret = ferror(fp);
+    taos_free_result(res);
 
     return ret;
 }
@@ -6740,6 +6749,7 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
     if (code != 0) {
         errorPrint("invalid database %s, reason: %s\n",
                 dbInfo->name, taos_errstr(result));
+        taos_free_result(result);
         taos_close(taos);
         return 0;
     }
@@ -6750,6 +6760,7 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
     if (code != 0) {
         errorPrint("Failed to show %s\'s tables, reason: %s\n",
                 dbInfo->name, taos_errstr(result));
+        taos_free_result(result);
         taos_close(taos);
         return 0;
     }
@@ -6781,6 +6792,8 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
         }
         count ++;
     }
+
+    taos_free_result(result);
     taos_close(taos);
 
     int64_t records = dumpNtbOfDbByThreads(dbInfo, count);
@@ -7288,11 +7301,10 @@ static int dumpOut() {
         }
     }
 
-    taos_close(taos);
-
     /* Close the handle and return */
     fclose(fp);
     taos_free_result(result);
+    taos_close(taos);
     freeDbInfos();
     okPrint("%" PRId64 " row(s) dumped out!\n", g_totalDumpOutRows);
     g_resultStatistics.totalRowsOfDumpOut += g_totalDumpOutRows;
@@ -7300,8 +7312,8 @@ static int dumpOut() {
 
 _exit_failure:
     fclose(fp);
-    taos_close(taos);
     taos_free_result(result);
+    taos_close(taos);
     freeDbInfos();
     errorPrint("%" PRId64 " row(s) dumped out!\n", g_totalDumpOutRows);
     return -1;
