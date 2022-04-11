@@ -3023,7 +3023,7 @@ static void printDotOrX(int64_t count, bool *printDot)
 int64_t queryDbForDumpOutCount(TAOS *taos,
         char *dbName, char *tbName, int precision)
 {
-    int64_t count = -1;
+    int64_t count = 0;
     char sqlstr[COMMAND_SIZE] = {0};
 
     sprintf(sqlstr,
@@ -3043,13 +3043,22 @@ int64_t queryDbForDumpOutCount(TAOS *taos,
 
     TAOS_ROW row = taos_fetch_row(res);
     if (NULL == row) {
-        errorPrint("failed run %s to fetch row, reason: %s\n",
-                sqlstr, taos_errstr(res));
+        if (0 == taos_errno(res)) {
+            count = 0;
+            warnPrint("%s fetch row, count: %" PRId64 "\n",
+                    sqlstr, count);
+        } else {
+            count = -1;
+            errorPrint("failed run %s to fetch row, reason: %s\n",
+                    sqlstr, taos_errstr(res));
+        }
         taos_free_result(res);
-        return -1;
+        return count;
+    } else {
+        count = *(int64_t*)row[TSDB_SHOW_TABLES_NAME_INDEX];
+        debugPrint("%s fetch row, count: %" PRId64 "\n",
+                sqlstr, count);
     }
-
-    count = *(int64_t*)row[TSDB_SHOW_TABLES_NAME_INDEX];
 
     taos_free_result(res);
 
