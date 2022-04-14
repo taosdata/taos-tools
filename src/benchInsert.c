@@ -1317,9 +1317,14 @@ void *syncWriteProgressive(void *sarg) {
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
-                        timestamp += getTSRandTail(
-                            stbInfo->timestamp_step, i + 1,
-                            stbInfo->disorderRatio, stbInfo->disorderRange);
+                        timestamp += stbInfo->timestamp_step;
+                        if (stbInfo->disorderRatio > 0) {
+                          int rand_num = taosRandom() % 100;
+                          if (rand_num < stbInfo->disorderRatio) {
+                            timestamp -=
+                                (taosRandom() % stbInfo->disorderRange);
+                          }
+                        }
                         generated++;
                         if (i + generated >= stbInfo->insertRows) {
                             break;
