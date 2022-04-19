@@ -139,7 +139,7 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 | dbinfo | replica | The number of replicas, the default value is 1.
 | dbinfo | days | The span of time to store data in the file, the default value is 10.
 | dbinfo | cache | The size of the memory blocks in MB, the default value is 16.
-| dbinfo | blocks | The number of memory blocks per vnode(ttsdb) for the cache size, the default is 6.
+| dbinfo | blocks | The number of memory blocks per vnode(tsdb) for the cache size, the default is 6.
 | dbinfo | precision | The database time precision, the default value is "ms".
 | dbinfo | keep | The number of days to keep the data, the default value is 3650.
 | dbinfo | minRows | The minimum number of records in the file block, the default value is 100

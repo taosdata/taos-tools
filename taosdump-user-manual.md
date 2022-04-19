@@ -32,7 +32,9 @@ format to store the backup data.
 2. or use the `-D db1,db2,...` parameter; or `-D db1, db2, ...`
 3.  use `dbname stbname1 stbname2 tbname1 tbname2 ...` parameters sequence, note that the first parameter of this input sequence must be the database name and only the database name can be specified here, and the second and subsequent parameters are the names of the super or normal tables in the database, separated by spaces.
 4.  TDengine servers or clusters usually contain a system database named log, the data in this database is the data that TDengine runs itself, and taosdump does not back up the log library by default. If you have a specific need to back up the log database, you can use the `-a` or `--allow-sys` command line parameter.
-5.  taosdump 1.4.1 and later version provides `-n` and `-L` parameters to allow backup data and do not use escaped character and `loose mode` if you are sure the table name, column name and tag name have no escaped characters. Then the backup time and storage size will be less than strict mode. If you don't know whether your data contain escaped characters, please use default strict mode. Pleae refer to [official document](https://tdengine.com/docs/en/v2.0/taos-sql) for escaped characters.
+5.  taosdump 1.4.1 and later version provides `-n` and `-L` parameters to allow backup data and do not use escaped character and `loose mode` if you are sure the table name, column name and tag name have no escaped characters. Then the backup time and storage size will be less than strict mode. If you don't know whether your data contain escaped characters, please use default strict mode. Please refer to [official document](https://tdengine.com/docs/en/v2.0/taos-sql) for escaped characters.
+6.  taosdump 1.4.1 and later version provides `-I` parameter to allow user to inspect and print AVRO file schema and content on the screen. If `-s` be specified, taosdump will inspect schema only.
+7.  taosdump 1.4.2 and later version will use `-B` parameter to allow user to backup batch number of records. If the system network throughput or disk writing performance is inefficient, it may cause "Error actual dump .. batch ..", you can try by adjusting to a smaller value with `-B` parameter.
 
 ### restore
 
@@ -45,7 +47,7 @@ Following is the list of taosdump command line arguments in details:
 
 ```
 Usage: taosdump [OPTION...] dbname [tbname ...]
-  or:  taosdump [OPTION...] --databases db1,db2,...
+  or:  taosdump [OPTION...] --databases db1,db2,... 
   or:  taosdump [OPTION...] --all-databases
   or:  taosdump [OPTION...] -i inpath
   or:  taosdump [OPTION...] -o outpath
@@ -81,13 +83,18 @@ Usage: taosdump [OPTION...] dbname [tbname ...]
                              2017-10-01T00:00:00.000+0800 or
                              2017-10-0100:00:00.000+0800 or '2017-10-01
                              00:00:00.000+0800'
-  -B, --data-batch=DATA_BATCH   Number of data per insert statement. Default
-                             value is 16384.
+  -B, --data-batch=DATA_BATCH   Number of data per query/insert statement when
+                             backup/restore. Default value is 16384. If you see
+                             'error actual dump .. batch ..' when backup or if
+                             you see 'WAL size exceeds limit' error when
+                             restore, please adjust the value to a smaller one
+                             and try. The workable value is related to the
+                             length of the row and type of table schema.
+  -I, --inspect              inspect avro file content and print on screen
   -L, --loose-mode           Using loose mode if the table name and column name
                              use letter and number only. Default is NOT.
   -n, --no-escape            No escape char '`'. Default is using it.
-
-  -T, --thread_num=THREAD_NUM   Number of thread for dump in file. Default is
+  -T, --thread-num=THREAD_NUM   Number of thread for dump in file. Default is
                              5.
   -g, --debug                Print debug info.
   -?, --help                 Give this help list

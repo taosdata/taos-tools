@@ -42,6 +42,7 @@
             "batch_create_tbl_num": 10,
             "data_source": "rand",
             "insert_mode": "taosc",
+            "non_stop_mode": "no",
             "line_protocol": "line",
             "childtable_limit": -10,
             "childtable_offset": 10,

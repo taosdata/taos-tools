@@ -326,6 +326,7 @@ typedef struct SSuperTable_S {
     TAOS_BIND **tag_bind_array;
     char *      stmt_buffer;
     bool        tcpTransfer;
+    bool        non_stop;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -533,7 +534,7 @@ int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
-void    prompt();
+void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
 int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);

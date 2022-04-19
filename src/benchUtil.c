@@ -156,11 +156,22 @@ int convertHostToServAddr(char *host, uint16_t port,
     return 0;
 }
 
-void prompt() {
+void prompt(bool nonStopMode) {
     if (!g_arguments->answer_yes) {
-        printf(
-            "\n\n         Press enter key to continue or Ctrl-C to stop\n\n");
-        (void)getchar();
+        if (nonStopMode) {
+            printf(
+                "\n\n         Current is the Non-Stop insertion mode. "
+                "taosBenchmark will continuously insert data unless you press "
+                "Ctrl-C to end it.\n\n         press enter key to continue and "
+                "Ctrl-C to "
+                "stop\n\n");
+            (void)getchar();
+        } else {
+            printf(
+                "\n\n         Press enter key to continue or Ctrl-C to "
+                "stop\n\n");
+            (void)getchar();
+        }
     }
 }
 

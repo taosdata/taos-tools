@@ -281,7 +281,7 @@ int subscribeTestProcess() {
     printfQueryMeta();
     resetAfterAnsiEscape();
 
-    prompt();
+    prompt(0);
 
     if (init_taos_list()) return -1;
     encode_base_64();
