@@ -420,13 +420,10 @@ Configuration, one is [command line configuration](#cli) and the other is [JSON 
 
   Only works if childtable_exists is yes, for use with the statement
   ``` select tbname from stable limit x offset y;```
-The value x of limit in the statement ``` is the number of existing child tables to get inserted.
+The value x of limit in the statement is the number of existing child tables to get inserted.
 
-<<<<<<< HEAD
+
 ### childtable offet
-=======
-- #### childtable offset
->>>>>>> a84f6e7c652ebd9ad81789fedc594d6ea74518fe
 
   Only works if childtable_exists is yes, for the use of the statement
   ``` select tbname from stable limit x offset y;```
@@ -452,14 +449,9 @@ to get the offset y of the inserted child table.
 ### type
 
   Please refer to the officially supported data types (https://www.taosdata.com/docs/cn/v2.0/taos-sql#data-type) for optional values.
-  
-<<<<<<< HEAD
-  Note: JSON data type is special, only in tags can be selected, and there is only one JSON tag column, at this time [count](#count) and [len](#len) represent the meaning of the number of key-value pairs within the JSON tag and the length of the value of each kv pair, respectively. The default value is string.
-### count
-=======
+
   Note: JSON data type is special, only in tags can be selected, and there is only one JSON tag column, at this time [count](#count) and [len](#len) represent the meaning of the number of key-value pairs within the JSON tag and the length of the value of each KV pair, respectively. The default value is string.
-- #### count
->>>>>>> a84f6e7c652ebd9ad81789fedc594d6ea74518fe
+### count
 
   For example, if we want to test the performance of 4096 columns, instead of listing 4096 columns, we can just use ``"count": 4096``.
 
@@ -469,7 +461,7 @@ to get the offset y of the inserted child table.
 
 ### name
 
-  The name of the column, if used together with count, e.g. ```"name": "current", "count":3``, then the names of the 3 columns are current, current_2. current_3
+  The name of the column, if used together with count, e.g. ```"name": "current", "count":3```, then the names of the 3 columns are current, current_2. current_3
 
 ### sql
 
