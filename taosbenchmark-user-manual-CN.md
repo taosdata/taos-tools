@@ -422,11 +422,7 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
   ``` select tbname from stable limit x offset y;```
 中的limit的值 x，即为获取插入的现有的子表数量。
 
-<<<<<<< HEAD
 ### childtable offet
-=======
-- #### childtable offset
->>>>>>> a84f6e7c652ebd9ad81789fedc594d6ea74518fe
 
   仅当 childtable_exists 为 yes 时生效，为使用语句
   ``` select tbname from stable limit x offset y;```
@@ -453,13 +449,9 @@ taosBenchmark 是一个用于 TDengine 的性能测试的应用程序。taosBenc
 
   可选值请参考官方支持的数据类型(https://www.taosdata.com/docs/cn/v2.0/taos-sql#data-type)。
   
-<<<<<<< HEAD
-  注：JSON 数据类型比较特殊，只有在 tags 里面可以选择，并且有且仅有一列 JSON tag 才可以，此时 [count](#count) 和 [len](#len) 代表的意义分别是 JSON tag 内的 key-value pair 的个数和每个kv pair 的 value的值的长度，value默认为string。
-### count
-=======
   注：JSON 数据类型比较特殊，只有在 tags 里面可以选择，并且有且仅有一列 JSON tag 才可以，此时 [count](#count) 和 [len](#len) 代表的意义分别是 JSON tag 内的 key-value pair 的个数和每个KV pair 的 value的值的长度，value默认为string。
-- #### count
->>>>>>> a84f6e7c652ebd9ad81789fedc594d6ea74518fe
+
+### count
 
   该列连续的个数，比如我们想测试4096个列的性能时，不用罗列出 4096 个列来表示，直接使用 ```"count": 4096``` 即可。
 
