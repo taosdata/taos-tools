@@ -3421,10 +3421,10 @@ static int64_t writeResultToAvro(
 
 void freeBindArray(char *bindArray, int elements)
 {
-    TAOS_BIND *bind;
+    TAOS_BIND_v2 *bind;
 
     for (int j = 0; j < elements; j++) {
-        bind = (TAOS_BIND *)((char *)bindArray + (sizeof(TAOS_BIND) * j));
+        bind = (TAOS_BIND_v2 *)((char *)bindArray + (sizeof(TAOS_BIND_v2) * j));
         if ((TSDB_DATA_TYPE_BINARY != bind->buffer_type)
                 && (TSDB_DATA_TYPE_NCHAR != bind->buffer_type)
                 && (TSDB_DATA_TYPE_JSON != bind->buffer_type)) {
@@ -3464,10 +3464,10 @@ static int dumpInAvroTbTagsImpl(
                     taos_stmt_errstr(NULL));
         }
         char *bindArray =
-            calloc(1, sizeof(TAOS_BIND)*(recordSchema->num_fields-1));
+            calloc(1, sizeof(TAOS_BIND_v2)*(recordSchema->num_fields-1));
         assert(bindArray);
 
-        TAOS_BIND *bind;
+        TAOS_BIND_v2 *bind;
         int is_null = 1;
 
         char *stbName = NULL;
@@ -3543,8 +3543,8 @@ static int dumpInAvroTbTagsImpl(
                     (recordSchema->fields + sizeof(FieldStruct)*(i+tagAdjExt));
                 if (0 == avro_value_get_by_name(
                             &value, field->name, &field_value, NULL)) {
-                    bind = (TAOS_BIND *)((char *)bindArray
-                            + (sizeof(TAOS_BIND)*(i-1)));
+                    bind = (TAOS_BIND_v2 *)((char *)bindArray
+                            + (sizeof(TAOS_BIND_v2)*(i-1)));
                     bind->is_null = NULL;
                     switch(tableDes->cols[tableDes->columns -1 + i].type) {
                         case TSDB_DATA_TYPE_BOOL:
@@ -3951,7 +3951,7 @@ static int dumpInAvroTbTagsImpl(
         if (g_dumpInLooseModeFlag) {
             tfree(stbName);
         }
-        if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
+        if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND_v2 *)bindArray)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             freeBindArray(bindArray, recordSchema->num_fields-1);
@@ -4079,7 +4079,7 @@ static int dumpInAvroDataImpl(
     avro_generic_value_new(value_class, &value);
 
     char *bindArray =
-            malloc(sizeof(TAOS_BIND) * onlyCol);
+            malloc(sizeof(TAOS_BIND_v2) * onlyCol);
     assert(bindArray);
 
     int64_t success = 0;
@@ -4143,12 +4143,12 @@ static int dumpInAvroDataImpl(
         printDotOrX(count, &printDot);
         count++;
 
-        memset(bindArray, 0, sizeof(TAOS_BIND) * onlyCol);
-        TAOS_BIND *bind;
+        memset(bindArray, 0, sizeof(TAOS_BIND_v2) * onlyCol);
+        TAOS_BIND_v2 *bind;
 
         int is_null = 1;
         for (int i = 0; i < recordSchema->num_fields-colAdj; i++) {
-            bind = (TAOS_BIND *)((char *)bindArray + (sizeof(TAOS_BIND) * i));
+            bind = (TAOS_BIND_v2 *)((char *)bindArray + (sizeof(TAOS_BIND_v2) * i));
 
             avro_value_t field_value;
 
@@ -4515,7 +4515,7 @@ static int dumpInAvroDataImpl(
         if (g_dumpInLooseModeFlag) {
             tfree(tbName);
         }
-        if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
+        if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND_v2 *)bindArray)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             freeBindArray(bindArray, onlyCol);

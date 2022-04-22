@@ -1617,7 +1617,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                 pThreadInfo->bind_ts_array =
                     calloc(1, sizeof(int64_t) * g_arguments->reqPerReq);
                 pThreadInfo->bindParams = calloc(
-                    1, sizeof(TAOS_MULTI_BIND) * (stbInfo->columnCount + 1));
+                    1, sizeof(TAOS_BIND_v2) * (stbInfo->columnCount + 1));
                 pThreadInfo->is_null = calloc(1, g_arguments->reqPerReq);
 
                 break;
