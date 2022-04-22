@@ -15,7 +15,7 @@
     "resubAfterConsume": 10,
     "sqls": [
       {
-        "sql": "select avg(col1) from meters where col1 > 1;",
+        "sql": "select avg(current) from meters where location = 'beijing';",
         "result": "./subscribe_res0.txt"
       }
     ]
@@ -29,7 +29,7 @@
     "keepProgress": "yes",
     "sqls": [
       {
-        "sql": "select col1 from xxxx where col1 > 10;",
+        "sql": "select phase from xxxx where groupid > 3;",
         "result": "./subscribe_res1.txt"
       }
     ]

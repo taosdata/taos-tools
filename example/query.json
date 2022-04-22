@@ -6,18 +6,18 @@
   "user": "root",
   "password": "taosdata",
   "confirm_parameter_prompt": "yes",
-  "databases": "dbx",
+  "databases": "db",
   "query_times": 1,
   "specified_table_query": {
     "query_interval": 1,
     "concurrent": 4,
     "sqls": [
       {
-        "sql": "select last_row(*) from stb where color='red'",
+        "sql": "select last_row(*) from stb",
         "result": "./query_res0.txt"
       },
       {
-        "sql": "select count(*) from stb_01",
+        "sql": "select count(*) from stb",
         "result": "./query_res1.txt"
       }
     ]
