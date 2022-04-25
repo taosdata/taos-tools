@@ -88,12 +88,12 @@ static void rand_string(char *str, int size, bool chinese) {
 
 static void generateStmtTagArray(SSuperTable *stbInfo) {
     stbInfo->tag_bind_array =
-        calloc(stbInfo->childTblCount, sizeof(TAOS_BIND_v2 *));
+        calloc(stbInfo->childTblCount, sizeof(TAOS_MULTI_BIND *));
     for (int i = 0; i < stbInfo->childTblCount; ++i) {
         stbInfo->tag_bind_array[i] =
-            calloc(stbInfo->tagCount, sizeof(TAOS_BIND_v2));
+            calloc(stbInfo->tagCount, sizeof(TAOS_MULTI_BIND));
         for (int j = 0; j < stbInfo->tagCount; ++j) {
-            TAOS_BIND_v2 *tag = &(stbInfo->tag_bind_array[i][j]);
+            TAOS_MULTI_BIND *tag = &(stbInfo->tag_bind_array[i][j]);
             tag->buffer_type = stbInfo->tags[j].type;
             tag->buffer_length = stbInfo->tags[j].length;
             tag->length = &tag->buffer_length;
@@ -968,13 +968,13 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     uint32_t     columnCount = stbInfo->columnCount;
     memset(pThreadInfo->bindParams, 0,
-           (sizeof(TAOS_BIND_v2) * (columnCount + 1)));
+           (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
     memset(pThreadInfo->is_null, 0, batch);
 
     for (int c = 0; c < columnCount + 1; c++) {
-        TAOS_BIND_v2 *param =
-            (TAOS_BIND_v2 *)(pThreadInfo->bindParams +
-                                sizeof(TAOS_BIND_v2) * c);
+        TAOS_MULTI_BIND *param =
+            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
+                                sizeof(TAOS_MULTI_BIND) * c);
 
         char data_type;
 
@@ -1015,16 +1015,16 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     }
 
     if (taos_stmt_bind_param_batch(
-            stmt, (TAOS_BIND_v2 *)pThreadInfo->bindParams)) {
+            stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
         errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
         return -1;
     }
 
     for (int c = 0; c < stbInfo->columnCount + 1; c++) {
-        TAOS_BIND_v2 *param =
-            (TAOS_BIND_v2 *)(pThreadInfo->bindParams +
-                                sizeof(TAOS_BIND_v2) * c);
+        TAOS_MULTI_BIND *param =
+            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
+                                sizeof(TAOS_MULTI_BIND) * c);
         tmfree(param->length);
     }
 
