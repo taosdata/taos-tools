@@ -3419,6 +3419,7 @@ static int64_t writeResultToAvro(
     return success;
 }
 
+#if 0
 void freeBindArray(char *bindArray, int elements)
 {
     TAOS_BIND *bind;
@@ -3432,6 +3433,7 @@ void freeBindArray(char *bindArray, int elements)
         }
     }
 }
+#endif
 
 static int dumpInAvroTbTagsImpl(
         TAOS *taos,
@@ -3456,22 +3458,30 @@ static int dumpInAvroTbTagsImpl(
 
     int tagAdjExt = g_dumpInLooseModeFlag?0:1;
 
-    while(!avro_file_reader_read_value(reader, &value)) {
-        TAOS_STMT *stmt = taos_stmt_init(taos);
-        if (NULL == stmt) {
-            errorPrint("%s() LN%d, Failed to execute taos_stmt_init(). reason: %s\n",
-                    __func__, __LINE__,
-                    taos_stmt_errstr(NULL));
-        }
-        char *bindArray =
-            calloc(1, sizeof(TAOS_BIND)*(recordSchema->num_fields-1));
-        assert(bindArray);
+    char *bindArray =
+        calloc(1, sizeof(TAOS_MULTI_BIND)*(recordSchema->num_fields-1));
+    assert(bindArray);
 
-        TAOS_BIND *bind;
-        int is_null = 1;
+    TAOS_STMT *stmt = taos_stmt_init(taos);
+    if (NULL == stmt) {
+        errorPrint("%s() LN%d, Failed to execute taos_stmt_init(). reason: %s\n",
+                __func__, __LINE__,
+                taos_stmt_errstr(NULL));
+        free(bindArray);
+        avro_value_iface_decref(value_class);
+        freeTbDes(tableDes);
+        return -1;
+    }
+
+    int batchCount = 0;
+    TAOS_MULTI_BIND *bind;
+
+    while(!avro_file_reader_read_value(reader, &value)) {
+        char is_null = 1;
 
         char *stbName = NULL;
         char *tbName = NULL;
+
         for (int i = 0; i < recordSchema->num_fields-tagAdjExt; i++) {
             avro_value_t field_value, field_branch;
             size_t size;
@@ -3543,8 +3553,8 @@ static int dumpInAvroTbTagsImpl(
                     (recordSchema->fields + sizeof(FieldStruct)*(i+tagAdjExt));
                 if (0 == avro_value_get_by_name(
                             &value, field->name, &field_value, NULL)) {
-                    bind = (TAOS_BIND *)((char *)bindArray
-                            + (sizeof(TAOS_BIND)*(i-1)));
+                    bind = (TAOS_MULTI_BIND *)((char *)bindArray
+                            + (sizeof(TAOS_MULTI_BIND)*(i-1)));
                     bind->is_null = NULL;
                     switch(tableDes->cols[tableDes->columns -1 + i].type) {
                         case TSDB_DATA_TYPE_BOOL:
@@ -3945,34 +3955,68 @@ static int dumpInAvroTbTagsImpl(
                             field->name);
                 }
             }
+
         }
+
         debugPrint2("%s", "\n");
 
         if (g_dumpInLooseModeFlag) {
             tfree(stbName);
         }
-        if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
+
+        batchCount ++;
+        for (int f = 1; f < recordSchema->num_fields-tagAdjExt; f++) {
+            bind = (TAOS_MULTI_BIND *)((char *)bindArray
+                    + (sizeof(TAOS_MULTI_BIND)*(f-1)));
+            if (0 != taos_stmt_bind_param_batch(stmt,
+                        (TAOS_MULTI_BIND *)bind)) {
+                errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+                //            freeBindArray(bindArray, recordSchema->num_fields-1);
+                //            tfree(bindArray);
+            } else if (taos_stmt_add_batch(stmt)) {
+                errorPrint("%s() LN%d stmt_add_batch() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+            }
+        }
+
+        if (batchCount == g_args.data_batch) {
+            bind->num = batchCount;
+            if (0 != taos_stmt_execute(stmt)) {
+                warnPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+                failed += batchCount;
+            } else {
+                success += batchCount;
+            }
+
+            batchCount = 0;
+        }
+//        freeBindArray(bindArray, recordSchema->num_fields-1);
+    }
+
+    if (batchCount) {
+        bind->num = batchCount;
+        if (0 != taos_stmt_bind_param_batch(stmt,
+                    (TAOS_MULTI_BIND *)bind)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
-            freeBindArray(bindArray, recordSchema->num_fields-1);
-            tfree(bindArray);
-            failed++;
-            taos_stmt_close(stmt);
-            continue;
-        }
-
-        if (0 != taos_stmt_execute(stmt)) {
-            warnPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt));
-            failed ++;
+            //            freeBindArray(bindArray, recordSchema->num_fields-1);
+            //            tfree(bindArray);
+            failed += batchCount;
         } else {
-            success ++;
+            if (0 != taos_stmt_execute(stmt)) {
+                warnPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+                failed += batchCount;
+            } else {
+                success += batchCount;
+            }
         }
-
-        freeBindArray(bindArray, recordSchema->num_fields-1);
-        tfree(bindArray);
-        taos_stmt_close(stmt);
     }
+
+    tfree(bindArray);
+    taos_stmt_close(stmt);
 
     avro_value_decref(&value);
     avro_value_iface_decref(value_class);
@@ -4079,7 +4123,7 @@ static int dumpInAvroDataImpl(
     avro_generic_value_new(value_class, &value);
 
     char *bindArray =
-            malloc(sizeof(TAOS_BIND) * onlyCol);
+            malloc(sizeof(TAOS_MULTI_BIND) * onlyCol);
     assert(bindArray);
 
     int64_t success = 0;
@@ -4143,12 +4187,13 @@ static int dumpInAvroDataImpl(
         printDotOrX(count, &printDot);
         count++;
 
-        memset(bindArray, 0, sizeof(TAOS_BIND) * onlyCol);
-        TAOS_BIND *bind;
+        memset(bindArray, 0, sizeof(TAOS_MULTI_BIND) * onlyCol);
+        TAOS_MULTI_BIND *bind;
 
-        int is_null = 1;
+        char is_null = 1;
         for (int i = 0; i < recordSchema->num_fields-colAdj; i++) {
-            bind = (TAOS_BIND *)((char *)bindArray + (sizeof(TAOS_BIND) * i));
+            bind = (TAOS_MULTI_BIND *)((char *)bindArray
+                    + (sizeof(TAOS_MULTI_BIND) * i));
 
             avro_value_t field_value;
 
@@ -4515,10 +4560,10 @@ static int dumpInAvroDataImpl(
         if (g_dumpInLooseModeFlag) {
             tfree(tbName);
         }
-        if (0 != taos_stmt_bind_param(stmt, (TAOS_BIND *)bindArray)) {
-            errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
+        if (0 != taos_stmt_bind_param_batch(stmt, (TAOS_MULTI_BIND *)bindArray)) {
+            errorPrint("%s() LN%d stmt_bind_param_batch() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
-            freeBindArray(bindArray, onlyCol);
+//            freeBindArray(bindArray, onlyCol);
             failed++;
             continue;
         }
@@ -4526,7 +4571,7 @@ static int dumpInAvroDataImpl(
         if (0 != taos_stmt_add_batch(stmt)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
-            freeBindArray(bindArray, onlyCol);
+//            freeBindArray(bindArray, onlyCol);
             failed++;
             continue;
         }
@@ -4540,7 +4585,7 @@ static int dumpInAvroDataImpl(
             }
             stmt_count = 0;
         }
-        freeBindArray(bindArray, onlyCol);
+//        freeBindArray(bindArray, onlyCol);
         success ++;
     }
 
