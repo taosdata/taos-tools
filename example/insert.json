@@ -17,7 +17,7 @@
 	"databases": [
 		{
 			"dbinfo": {
-				"name": "db",
+				"name": "test",
 				"drop": "yes",
 				"replica": 1,
 				"days": 10,
@@ -36,10 +36,10 @@
 			},
 			"super_tables": [
 				{
-					"name": "stb",
+					"name": "meters",
 					"child_table_exists": "no",
 					"childtable_count": 100,
-					"childtable_prefix": "tb_",
+					"childtable_prefix": "d",
 					"escape_character": "yes",
 					"auto_create_table": "no",
 					"batch_create_tbl_num": 5,
@@ -62,9 +62,15 @@
 					"use_sample_ts": "no",
 					"tags_file": "",
 					"columns": [
-						{ "type": "INT", "name": "id" },
-						{ "type": "DOUBLE", "count": 3 },
-						{ "type": "BINARY", "len": 16, "count": 3 }
+						{
+							"type": "FLOAT",
+							"name": "current",
+							"count": 1,
+							"max": 12,
+							"min": 8
+						},
+						{ "type": "INT", "name": "voltage", "max": 225, "min": 215 },
+						{ "type": "FLOAT", "name": "phase", "max": 1, "min": 0 }
 					],
 					"tags": [
 						{
