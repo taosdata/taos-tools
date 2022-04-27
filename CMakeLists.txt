@@ -101,7 +101,7 @@ ENDIF ()
 ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
 
-ADD_DEPENDENCIES(taosdump apache-avro)
+#ADD_DEPENDENCIES(taosdump apache-avro)
 ADD_DEPENDENCIES(taosBenchmark cJsonDemo)
 
 SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.sh")
