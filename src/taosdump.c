@@ -3419,13 +3419,12 @@ static int64_t writeResultToAvro(
     return success;
 }
 
-#if 0
 void freeBindArray(char *bindArray, int elements)
 {
-    TAOS_BIND *bind;
+    TAOS_MULTI_BIND *bind;
 
     for (int j = 0; j < elements; j++) {
-        bind = (TAOS_BIND *)((char *)bindArray + (sizeof(TAOS_BIND) * j));
+        bind = (TAOS_MULTI_BIND *)((char *)bindArray + (sizeof(TAOS_MULTI_BIND) * j));
         if ((TSDB_DATA_TYPE_BINARY != bind->buffer_type)
                 && (TSDB_DATA_TYPE_NCHAR != bind->buffer_type)
                 && (TSDB_DATA_TYPE_JSON != bind->buffer_type)) {
@@ -3433,7 +3432,6 @@ void freeBindArray(char *bindArray, int elements)
         }
     }
 }
-#endif
 
 static int dumpInAvroTbTagsImpl(
         TAOS *taos,
@@ -3537,6 +3535,7 @@ static int dumpInAvroTbTagsImpl(
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "%d,",
                                             (*bl)?1:0);
+                                    free(bl);
                                 }
                             }
                             break;
@@ -4489,16 +4488,16 @@ static int dumpInAvroDataImpl(
                 bind->buffer_type = tableDes->cols[i].type;
                 bind->length = (int32_t *)&bind->buffer_length;
             }
+
+            bind->num = 1;
         }
+
         debugPrint2("%s", "\n");
 
-        if (g_dumpInLooseModeFlag) {
-            tfree(tbName);
-        }
         if (0 != taos_stmt_bind_param_batch(stmt, (TAOS_MULTI_BIND *)bindArray)) {
             errorPrint("%s() LN%d stmt_bind_param_batch() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
-//            freeBindArray(bindArray, onlyCol);
+            freeBindArray(bindArray, onlyCol);
             failed++;
             continue;
         }
@@ -4506,29 +4505,22 @@ static int dumpInAvroDataImpl(
         if (0 != taos_stmt_add_batch(stmt)) {
             errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
-//            freeBindArray(bindArray, onlyCol);
+            freeBindArray(bindArray, onlyCol);
             failed++;
             continue;
         }
-
-        stmt_count ++;
-        if (stmt_count == g_args.data_batch) {
-            if (0 != taos_stmt_execute(stmt)) {
-                errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
-                        __func__, __LINE__, taos_stmt_errstr(stmt));
-                failed -= stmt_count;
-            }
-            stmt_count = 0;
-        }
-//        freeBindArray(bindArray, onlyCol);
-        success ++;
-    }
-
-    if (stmt_count) {
         if (0 != taos_stmt_execute(stmt)) {
             errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             failed -= stmt_count;
+        } else {
+            success ++;
+
+        }
+        freeBindArray(bindArray, onlyCol);
+
+        if (g_dumpInLooseModeFlag) {
+            tfree(tbName);
         }
     }
 
