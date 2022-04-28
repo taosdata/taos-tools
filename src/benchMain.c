@@ -21,6 +21,7 @@ uint64_t       g_memoryUsage = 0;
 cJSON*         root;
 
 int main(int argc, char* argv[]) {
+    infoPrint("taos client version: %s", taos_get_client_info());
     init_argument();
     commandLineParseArgument(argc, argv);
     if (g_arguments->metaFile) {

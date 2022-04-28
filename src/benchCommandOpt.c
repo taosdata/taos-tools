@@ -712,6 +712,11 @@ static SDataBase *init_database() {
 void init_argument() {
     g_arguments = calloc(1, sizeof(SArguments));
     g_memoryUsage += sizeof(SArguments);
+    if (taos_get_client_info()[0] == '3') {
+        g_arguments->taosc_version = 3;
+    } else {
+        g_arguments->taosc_version = 2;
+    }
     g_arguments->pool = calloc(1, sizeof(TAOS_POOL));
     g_memoryUsage += sizeof(TAOS_POOL);
     g_arguments->test_mode = INSERT_TEST;

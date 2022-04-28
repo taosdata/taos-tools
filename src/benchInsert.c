@@ -339,6 +339,10 @@ static int createSuperTable(int db_index, int stb_index) {
                            stbInfo->columns[colIndex].type);
                 return -1;
         }
+        if (strlen(stbInfo->columns[colIndex].comment) != 0) {
+            len += snprintf(cols + len, COL_BUFFER_LEN - len, " comment '%s'",
+                            stbInfo->columns[colIndex].comment);
+        }
     }
 
     // save for creating child table
@@ -437,11 +441,42 @@ static int createSuperTable(int db_index, int stb_index) {
 skip:
     len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, ")");
 
-    snprintf(command, BUFFER_SIZE,
-             stbInfo->escape_character
-                 ? "CREATE TABLE IF NOT EXISTS %s.`%s` (ts TIMESTAMP%s) TAGS %s"
-                 : "CREATE TABLE IF NOT EXISTS %s.%s (ts TIMESTAMP%s) TAGS %s",
-             database->dbName, stbInfo->stbName, cols, tags);
+    int length = snprintf(
+        command, BUFFER_SIZE,
+        stbInfo->escape_character
+            ? "CREATE TABLE IF NOT EXISTS %s.`%s` (ts TIMESTAMP%s) TAGS %s"
+            : "CREATE TABLE IF NOT EXISTS %s.%s (ts TIMESTAMP%s) TAGS %s",
+        database->dbName, stbInfo->stbName, cols, tags);
+    if (stbInfo->comment != NULL) {
+        length += snprintf(command + length, BUFFER_SIZE - length,
+                           " COMMENT '%s'", stbInfo->comment);
+    }
+    if (stbInfo->delay >= 0) {
+        length += snprintf(command + length, BUFFER_SIZE - length, " DELAY %d",
+                           stbInfo->delay);
+    }
+    if (stbInfo->file_factor >= 0) {
+        length +=
+            snprintf(command + length, BUFFER_SIZE - length, " FILE_FACTOR %f",
+                     (float)stbInfo->file_factor / 100);
+    }
+    if (stbInfo->rollup != NULL) {
+        length += snprintf(command + length, BUFFER_SIZE - length,
+                           " ROLLUP(%s)", stbInfo->rollup);
+    }
+    bool first_sma = true;
+    for (int i = 0; i < stbInfo->columnCount; ++i) {
+        if (stbInfo->columns[i].sma) {
+            if (first_sma) {
+                length += snprintf(command + length, BUFFER_SIZE - length,
+                                   " SMA(%s", stbInfo->columns[i].name);
+            } else {
+                length += snprintf(command + length, BUFFER_SIZE - length,
+                                   ",%s", stbInfo->columns[i].name);
+            }
+        }
+    }
+    sprintf(command + length, ")");
     if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
         errorPrint("create supertable %s failed!\n\n", stbInfo->stbName);
         return -1;
@@ -516,6 +551,34 @@ static int createDatabase(int db_index) {
     if (database->dbCfg.fsync >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " FSYNC %d", database->dbCfg.fsync);
+    }
+    if (database->dbCfg.buffer >= 0) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " BUFFER %d", database->dbCfg.buffer);
+    }
+    if (database->dbCfg.strict >= 0) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " STRICT %d", database->dbCfg.strict);
+    }
+    if (database->dbCfg.page_size >= 0) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " PAGESIZE %d", database->dbCfg.page_size);
+    }
+    if (database->dbCfg.pages >= 0) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " PAGES %d", database->dbCfg.pages);
+    }
+    if (database->dbCfg.vgroups >= 0) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " VGROUPS %d", database->dbCfg.vgroups);
+    }
+    if (database->dbCfg.single_stable >= 0) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " SINGLE_STABLE %d", database->dbCfg.single_stable);
+    }
+    if (database->dbCfg.retentions != NULL) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " RETENTIONS %s", database->dbCfg.retentions);
     }
     switch (database->dbCfg.precision) {
         case TSDB_TIME_PRECISION_MILLI:

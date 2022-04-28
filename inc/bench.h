@@ -98,9 +98,6 @@
 #define TIMESTAMP_BUFF_LEN  21
 #define PRINT_STAT_INTERVAL 30 * 1000
 
-#define MAX_DB_COUNT          8
-#define MAX_SUPER_TABLE_COUNT 200
-
 #define MAX_QUERY_SQL_COUNT 100
 
 #define MAX_JSON_BUFF 6400000
@@ -277,6 +274,8 @@ typedef struct COLUMN_S {
     int64_t  max;
     int64_t  min;
     cJSON *  values;
+    bool     sma;
+    char *   comment;
 } Column;
 
 typedef struct SSuperTable_S {
@@ -326,10 +325,13 @@ typedef struct SSuperTable_S {
     TAOS_MULTI_BIND **tag_bind_array;
     bool              tcpTransfer;
     bool              non_stop;
+    char *            comment;
+    int               delay;
+    int               file_factor;
+    char *            rollup;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
-    //  int       maxtablesPerVnode;
     int32_t minRows;  // 0 means default
     int32_t maxRows;  // 0 means default
     int     comp;
@@ -338,13 +340,21 @@ typedef struct SDbCfg_S {
     int     fsync;
     int     replica;
     int     update;
+    int     buffer;
     int     keep;
     int     days;
     int     cache;
     int     blocks;
     int     quorum;
+    int     strict;
     int     precision;
     int     sml_precision;
+    int     page_size;
+    int     pages;
+    int     vgroups;
+    int     single_stable;
+    char *  retentions;
+
 } SDbCfg;
 
 typedef struct SDataBase_S {
@@ -405,6 +415,7 @@ typedef struct SQueryMetaInfo_S {
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
+    uint8_t            taosc_version;
     char *             metaFile;
     int32_t            test_mode;
     char *             host;
