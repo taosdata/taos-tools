@@ -751,7 +751,6 @@ void postFreeResource() {
             tmfree(database[i].superTbls[j].colsOfCreateChildTable);
             tmfree(database[i].superTbls[j].sampleDataBuf);
             tmfree(database[i].superTbls[j].tagDataBuf);
-            tmfree(database[i].superTbls[j].stmt_buffer);
             tmfree(database[i].superTbls[j].partialColumnNameBuf);
             for (int k = 0; k < database[i].superTbls[j].tagCount; ++k) {
                 tmfree(database[i].superTbls[j].tags[k].name);
@@ -1172,6 +1171,11 @@ void *syncWriteProgressive(void *sarg) {
         char *   tableName = stbInfo->childTblName[tableSeq];
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
+        if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
+            if (stmt_prepare(stbInfo, pThreadInfo->stmt, tableSeq)) {
+                goto free_of_progressive;
+            }
+        }
 
         for (uint64_t i = 0; i < stbInfo->insertRows;) {
             int32_t generated = 0;
@@ -1249,24 +1253,11 @@ void *syncWriteProgressive(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (stbInfo->autoCreateTable) {
-                        if (taos_stmt_set_tbname_tags(
-                                pThreadInfo->stmt, tableName,
-                                stbInfo->tag_bind_array[tableSeq])) {
-                            errorPrint(
-                                "taos_stmt_set_tbname_tags(%s) failed, reason: "
-                                "%s\n",
-                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
-                            goto free_of_progressive;
-                        }
-                    } else {
-                        if (taos_stmt_set_tbname(pThreadInfo->stmt,
-                                                 tableName)) {
-                            errorPrint(
-                                "taos_stmt_set_tbname(%s) failed, reason: %s\n",
-                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
-                            goto free_of_progressive;
-                        }
+                    if (taos_stmt_set_tbname(pThreadInfo->stmt, tableName)) {
+                        errorPrint(
+                            "taos_stmt_set_tbname(%s) failed, reason: %s\n",
+                            tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                        goto free_of_progressive;
                     }
                     generated = bindParamBatch(
                         pThreadInfo,
@@ -1320,11 +1311,11 @@ void *syncWriteProgressive(void *sarg) {
                         }
                         timestamp += stbInfo->timestamp_step;
                         if (stbInfo->disorderRatio > 0) {
-                          int rand_num = taosRandom() % 100;
-                          if (rand_num < stbInfo->disorderRatio) {
-                            timestamp -=
-                                (taosRandom() % stbInfo->disorderRange);
-                          }
+                            int rand_num = taosRandom() % 100;
+                            if (rand_num < stbInfo->disorderRatio) {
+                                timestamp -=
+                                    (taosRandom() % stbInfo->disorderRange);
+                            }
                         }
                         generated++;
                         if (i + generated >= stbInfo->insertRows) {
@@ -1487,14 +1478,14 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
         TAOS_ROW row = NULL;
         while ((row = taos_fetch_row(res)) != NULL) {
-            int* lengths = taos_fetch_lengths(res);
+            int *lengths = taos_fetch_lengths(res);
             if (stbInfo->escape_character) {
-              stbInfo->childTblName[count][0] = '`';
-              strncpy(stbInfo->childTblName[count]+1, row[0], lengths[0]);
-              stbInfo->childTblName[count][lengths[0] + 1] = '`';
-              stbInfo->childTblName[count][lengths[0] + 2] = '\0';
+                stbInfo->childTblName[count][0] = '`';
+                strncpy(stbInfo->childTblName[count] + 1, row[0], lengths[0]);
+                stbInfo->childTblName[count][lengths[0] + 1] = '`';
+                stbInfo->childTblName[count][lengths[0] + 2] = '\0';
             } else {
-              tstrncpy(stbInfo->childTblName[count], row[0], lengths[0] + 1);
+                tstrncpy(stbInfo->childTblName[count], row[0], lengths[0] + 1);
             }
             debugPrint("stbInfo->childTblName[%" PRId64 "]: %s\n", count,
                        stbInfo->childTblName[count]);
@@ -1601,17 +1592,12 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                                taos_errstr(NULL));
                     return -1;
                 }
-
-                if (0 != taos_stmt_prepare(pThreadInfo->stmt,
-                                           stbInfo->stmt_buffer, 0)) {
-                    errorPrint(
-                        "failed to execute taos_stmt_prepare. "
-                        "reason: %s\n",
-                        taos_stmt_errstr(pThreadInfo->stmt));
-                    tmfree(pids);
-                    tmfree(infos);
-                    return -1;
+                if (!stbInfo->autoCreateTable) {
+                    if (stmt_prepare(stbInfo, pThreadInfo->stmt, 0)) {
+                        return -1;
+                    }
                 }
+
                 pThreadInfo->bind_ts = calloc(1, sizeof(int64_t));
                 pThreadInfo->bind_ts_array =
                     calloc(1, sizeof(int64_t) * g_arguments->reqPerReq);

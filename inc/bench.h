@@ -66,8 +66,8 @@
 #include "toolsdef.h"
 
 #define REQ_EXTRA_BUF_LEN 1024
-#define RESP_BUF_LEN 4096
-#define SQL_BUFF_LEN 1024
+#define RESP_BUF_LEN      4096
+#define SQL_BUFF_LEN      1024
 
 #define STR_INSERT_INTO "INSERT INTO "
 
@@ -76,53 +76,53 @@
 #define HEAD_BUFF_LEN \
     TSDB_MAX_COLUMNS * 24  // 16*MAX_COLUMNS + (192+32)*2 + insert into ..
 
-#define BUFFER_SIZE TSDB_MAX_ALLOWED_SQL_LEN
+#define BUFFER_SIZE       TSDB_MAX_ALLOWED_SQL_LEN
 #define FETCH_BUFFER_SIZE 100 * TSDB_MAX_ALLOWED_SQL_LEN
-#define COND_BUF_LEN (BUFFER_SIZE - 30)
-#define COL_BUFFER_LEN ((TSDB_COL_NAME_LEN + 15) * TSDB_MAX_COLUMNS)
+#define COND_BUF_LEN      (BUFFER_SIZE - 30)
+#define COL_BUFFER_LEN    ((TSDB_COL_NAME_LEN + 15) * TSDB_MAX_COLUMNS)
 
-#define OPT_ABORT 1            /* –abort */
+#define OPT_ABORT         1    /* –abort */
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
-#define MAX_PATH_LEN 4096
+#define MAX_PATH_LEN      4096
 
-#define DEFAULT_START_TIME 1500000000000
-#define TELNET_TCP_PORT 6046
-#define INT_BUFF_LEN 12
-#define BIGINT_BUFF_LEN 21
-#define SMALLINT_BUFF_LEN 8
-#define TINYINT_BUFF_LEN 6
-#define BOOL_BUFF_LEN 6
-#define FLOAT_BUFF_LEN 22
-#define DOUBLE_BUFF_LEN 42
-#define JSON_BUFF_LEN 20
-#define TIMESTAMP_BUFF_LEN 21
+#define DEFAULT_START_TIME  1500000000000
+#define TELNET_TCP_PORT     6046
+#define INT_BUFF_LEN        12
+#define BIGINT_BUFF_LEN     21
+#define SMALLINT_BUFF_LEN   8
+#define TINYINT_BUFF_LEN    6
+#define BOOL_BUFF_LEN       6
+#define FLOAT_BUFF_LEN      22
+#define DOUBLE_BUFF_LEN     42
+#define JSON_BUFF_LEN       20
+#define TIMESTAMP_BUFF_LEN  21
 #define PRINT_STAT_INTERVAL 30 * 1000
 
-#define MAX_DB_COUNT 8
+#define MAX_DB_COUNT          8
 #define MAX_SUPER_TABLE_COUNT 200
 
 #define MAX_QUERY_SQL_COUNT 100
 
 #define MAX_JSON_BUFF 6400000
 
-#define INPUT_BUF_LEN 256
-#define EXTRA_SQL_LEN 256
-#define SMALL_BUFF_LEN 8
+#define INPUT_BUF_LEN     256
+#define EXTRA_SQL_LEN     256
+#define SMALL_BUFF_LEN    8
 #define DATATYPE_BUFF_LEN (SMALL_BUFF_LEN * 3)
 
-#define DEFAULT_NTHREADS 8
-#define DEFAULT_CHILDTABLES 10000
-#define DEFAULT_PORT 6030
-#define DEFAULT_DATABASE "test"
-#define DEFAULT_TB_PREFIX "d"
-#define DEFAULT_OUTPUT "./output.txt"
-#define DEFAULT_BINWIDTH 64
-#define DEFAULT_PREPARED_RAND 10000
-#define DEFAULT_REQ_PER_REQ 30000
-#define DEFAULT_INSERT_ROWS 10000
+#define DEFAULT_NTHREADS       8
+#define DEFAULT_CHILDTABLES    10000
+#define DEFAULT_PORT           6030
+#define DEFAULT_DATABASE       "test"
+#define DEFAULT_TB_PREFIX      "d"
+#define DEFAULT_OUTPUT         "./output.txt"
+#define DEFAULT_BINWIDTH       64
+#define DEFAULT_PREPARED_RAND  10000
+#define DEFAULT_REQ_PER_REQ    30000
+#define DEFAULT_INSERT_ROWS    10000
 #define DEFAULT_DISORDER_RANGE 1000
-#define DEFAULT_CREATE_BATCH 10
-#define DEFAULT_SUB_INTERVAL 10000
+#define DEFAULT_CREATE_BATCH   10
+#define DEFAULT_SUB_INTERVAL   10000
 #define DEFAULT_QUERY_INTERVAL 10000
 
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
@@ -324,9 +324,8 @@ typedef struct SSuperTable_S {
     char *tagDataBuf;
     // bind param batch
     TAOS_MULTI_BIND **tag_bind_array;
-    char *      stmt_buffer;
-    bool        tcpTransfer;
-    bool        non_stop;
+    bool              tcpTransfer;
+    bool              non_stop;
 } SSuperTable;
 
 typedef struct SDbCfg_S {

@@ -103,32 +103,24 @@ static void generateStmtTagArray(SSuperTable *stbInfo) {
     }
 }
 
-void generateStmtBuffer(SSuperTable *stbInfo) {
-    int len = 0;
-    stbInfo->stmt_buffer = calloc(1, BUFFER_SIZE);
+int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
+    int   len = 0;
+    char *prepare = calloc(1, BUFFER_SIZE);
     g_memoryUsage += BUFFER_SIZE;
     if (stbInfo->autoCreateTable) {
-        len += sprintf(stbInfo->stmt_buffer + len,
-                       "INSERT INTO ? USING `%s` TAGS (", stbInfo->stbName);
-        for (int i = 0; i < stbInfo->tagCount; ++i) {
-            if (i == 0) {
-                len += sprintf(stbInfo->stmt_buffer + len, "?");
-            } else {
-                len += sprintf(stbInfo->stmt_buffer + len, ",?");
-            }
-        }
-        len += sprintf(stbInfo->stmt_buffer + len, ") VALUES(?");
-        generateStmtTagArray(stbInfo);
+        len += sprintf(prepare + len,
+                       "INSERT INTO ? USING `%s` TAGS (%s) VALUES(?",
+                       stbInfo->stbName,
+                       stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq);
     } else {
-        len += sprintf(stbInfo->stmt_buffer + len, "INSERT INTO ? VALUES(?");
+        len += sprintf(prepare + len, "INSERT INTO ? VALUES(?");
     }
 
     int columnCount = stbInfo->columnCount;
     for (int col = 0; col < columnCount; col++) {
-        len += sprintf(stbInfo->stmt_buffer + len, ",?");
+        len += sprintf(prepare + len, ",?");
     }
-    sprintf(stbInfo->stmt_buffer + len, ")");
-    debugPrint("stmtBuffer: %s\n", stbInfo->stmt_buffer);
+    sprintf(prepare + len, ")");
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
         infoPrint(
             "in stmt mode, batch size(%u) can not larger than prepared "
@@ -139,6 +131,13 @@ void generateStmtBuffer(SSuperTable *stbInfo) {
             g_arguments->prepared_rand);
         g_arguments->reqPerReq = g_arguments->prepared_rand;
     }
+    if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
+        errorPrint("%s", "taos_stmt_prepare(%s) failed\n", prepare);
+        tmfree(prepare);
+        return -1;
+    }
+    tmfree(prepare);
+    return 0;
 }
 
 static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
@@ -898,9 +897,6 @@ int prepare_sample_data(int db_index, int stb_index) {
                              stbInfo->childTblCount, true);
         }
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
-    }
-    if (stbInfo->iface == STMT_IFACE) {
-        generateStmtBuffer(stbInfo);
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
