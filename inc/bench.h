@@ -321,8 +321,6 @@ typedef struct SSuperTable_S {
     char *sampleDataBuf;
     bool  useSampleTs;
     char *tagDataBuf;
-    // bind param batch
-    TAOS_MULTI_BIND **tag_bind_array;
     bool              tcpTransfer;
     bool              non_stop;
     char *            comment;

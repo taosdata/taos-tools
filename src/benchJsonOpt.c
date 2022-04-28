@@ -581,7 +581,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         cJSON *childTbl_limit =
             cJSON_GetObjectItem(stbInfo, "childtable_limit");
         if (cJSON_IsNumber(childTbl_limit)) {
-            superTable->childTblLimit = superTable->childTblCount;
+            superTable->childTblLimit = childTbl_limit->valueint;
         }
         cJSON *childTbl_offset =
             cJSON_GetObjectItem(stbInfo, "childtable_offset");

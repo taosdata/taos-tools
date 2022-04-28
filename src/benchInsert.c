@@ -60,9 +60,13 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     }
     for (int i = 0; i < stbInfo->tagCount; ++i) {
         tmfree(stbInfo->tags[i].name);
+        tmfree(stbInfo->tags[i].comment);
+
     }
     for (int i = 0; i < stbInfo->columnCount; ++i) {
         tmfree(stbInfo->columns[i].name);
+        tmfree(stbInfo->columns[i].comment);
+
     }
     stbInfo->tagCount = tagIndex;
     tmfree(stbInfo->tags);
@@ -232,6 +236,10 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             stbInfo->columns[columnIndex].max = RAND_MAX >> 1;
             stbInfo->columns[columnIndex].min = (RAND_MAX >> 1) * -1;
             stbInfo->columns[columnIndex].name = calloc(
+                1,
+                sizeof(strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX])) +
+                    1);
+            stbInfo->columns[columnIndex].comment = calloc(
                 1,
                 sizeof(strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX])) +
                     1);
@@ -843,15 +851,6 @@ void postFreeResource() {
                 }
             }
             tmfree(database[i].superTbls[j].childTblName);
-            if (database[i].superTbls[j].iface == STMT_IFACE) {
-                if (database[i].superTbls[j].autoCreateTable) {
-                    for (int k = 0; k < database[i].superTbls[j].childTblCount;
-                         ++k) {
-                        tmfree(database[i].superTbls[j].tag_bind_array[k]);
-                    }
-                    tmfree(database[i].superTbls[j].tag_bind_array);
-                }
-            }
         }
         tmfree(database[i].superTbls);
     }
@@ -1049,11 +1048,6 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
-                        if (stmt_prepare(stbInfo, pThreadInfo->stmt, tableSeq)) {
-                            goto free_of_interlace;
-                        }
-                    }
                     if (taos_stmt_set_tbname(pThreadInfo->stmt,
                                              tableName)) {
                         errorPrint(
@@ -1237,6 +1231,8 @@ void *syncWriteProgressive(void *sarg) {
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
         if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
+            taos_stmt_close(pThreadInfo->stmt);
+            pThreadInfo->stmt = taos_stmt_init(pThreadInfo->taos);
             if (stmt_prepare(stbInfo, pThreadInfo->stmt, tableSeq)) {
                 goto free_of_progressive;
             }
@@ -1500,6 +1496,11 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         infoPrint("interlaceRows larger than insertRows %d > %" PRId64 "\n\n",
                   stbInfo->interlaceRows, stbInfo->insertRows);
         infoPrint("%s", "interlaceRows will be set to 0\n\n");
+        stbInfo->interlaceRows = 0;
+    }
+
+    if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
+        infoPrint("%s","not support autocreate table with interlace row in stmt insertion, will change to progressive mode\n");
         stbInfo->interlaceRows = 0;
     }
 
