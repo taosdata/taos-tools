@@ -683,6 +683,8 @@ static SSuperTable *init_stable() {
     stbInfo->insertRows = DEFAULT_INSERT_ROWS;
     stbInfo->disorderRange = DEFAULT_DISORDER_RANGE;
     stbInfo->disorderRatio = 0;
+    stbInfo->file_factor = -1;
+    stbInfo->delay = -1;
     return stbInfo;
 }
 
@@ -705,6 +707,13 @@ static SDataBase *init_database() {
     database->dbCfg.cache = -1;
     database->dbCfg.blocks = -1;
     database->dbCfg.quorum = -1;
+    database->dbCfg.buffer = -1;
+    database->dbCfg.pages = -1;
+    database->dbCfg.page_size = -1;
+    database->dbCfg.retentions = NULL;
+    database->dbCfg.single_stable = -1;
+    database->dbCfg.vgroups = -1;
+    database->dbCfg.strict = -1;
     database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     return database;
@@ -772,18 +781,23 @@ void modify_argument() {
 
     if (g_arguments->demo_mode) {
         superTable->tags[0].name = calloc(1, TSDB_COL_NAME_LEN);
+        superTable->tags[0].comment = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->tags[0].name, "groupid");
         superTable->tags[0].min = -1 * (RAND_MAX >> 1);
         superTable->tags[1].min = -1 * (RAND_MAX >> 1);
         superTable->tags[0].max = RAND_MAX >> 1;
         superTable->tags[1].max = RAND_MAX >> 1;
         superTable->tags[1].name = calloc(1, TSDB_COL_NAME_LEN);
+        superTable->tags[1].comment = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->tags[1].name, "location");
         superTable->columns[0].name = calloc(1, TSDB_COL_NAME_LEN);
+        superTable->columns[0].comment = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->columns[0].name, "current");
         superTable->columns[1].name = calloc(1, TSDB_COL_NAME_LEN);
+        superTable->columns[1].comment = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->columns[1].name, "voltage");
         superTable->columns[2].name = calloc(1, TSDB_COL_NAME_LEN);
+        superTable->columns[2].comment = calloc(1, TSDB_COL_NAME_LEN);
         sprintf(superTable->columns[2].name, "phase");
         superTable->columns[0].min = -1 * (RAND_MAX >> 1);
         superTable->columns[0].max = RAND_MAX >> 1;
@@ -794,6 +808,7 @@ void modify_argument() {
     } else {
         for (int i = 0; i < superTable->tagCount; ++i) {
             superTable->tags[i].name = calloc(1, TSDB_COL_NAME_LEN);
+            superTable->tags[i].comment = calloc(1, TSDB_COL_NAME_LEN);
             sprintf(superTable->tags[i].name, "t%d", i);
             superTable->tags[i].min = -1 * (RAND_MAX >> 1);
             superTable->tags[i].max = RAND_MAX >> 1;
@@ -823,6 +838,7 @@ void modify_argument() {
     if (!g_arguments->demo_mode) {
         for (int i = 0; i < superTable->columnCount; ++i) {
             superTable->columns[i].name = calloc(1, TSDB_COL_NAME_LEN);
+            superTable->columns[i].comment = calloc(1, TSDB_COL_NAME_LEN);
             sprintf(superTable->columns[i].name, "c%d", i);
             superTable->columns[i].min = -1 * (RAND_MAX >> 1);
             superTable->columns[i].max = RAND_MAX >> 1;

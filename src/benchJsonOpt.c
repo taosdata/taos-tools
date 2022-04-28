@@ -267,6 +267,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         } else {
             count = 1;
         }
+        cJSON *comment_value = cJSON_GetObjectItem(tag, "comment");
 
         if ((tagSize == 1) &&
             (0 == strcasecmp(dataType->valuestring, "JSON"))) {
@@ -285,6 +286,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         for (int n = 0; n < count; ++n) {
             superTbls->tags[index].name = calloc(1, TSDB_COL_NAME_LEN);
+            superTbls->tags[index].comment = calloc(1, TSDB_COL_NAME_LEN);
             if (customMax) {
                 superTbls->tags[index].max = dataMax->valueint;
             } else {
@@ -306,6 +308,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                 }
             } else {
                 sprintf(superTbls->tags[index].name, "t%d", index);
+            }
+            if (g_arguments->taosc_version == 3 &&
+                cJSON_IsString(comment_value)) {
+                sprintf(superTbls->tags[index].comment, "%s",
+                        comment_value->valuestring);
             }
             superTbls->tags[index].type =
                 taos_convert_string_to_datatype(dataType->valuestring);
@@ -342,6 +349,7 @@ static int getDatabaseInfo(cJSON *dbinfos, int index) {
     database->dbCfg.pages = -1;
     database->dbCfg.vgroups = -1;
     database->dbCfg.single_stable = -1;
+    database->dbCfg.buffer = -1;
     database->dbCfg.retentions = NULL;
     database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;

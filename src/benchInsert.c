@@ -435,6 +435,10 @@ static int createSuperTable(int db_index, int stb_index) {
                            stbInfo->tags[tagIndex].type);
                 return -1;
         }
+        if (strlen(stbInfo->tags[tagIndex].comment) != 0) {
+            len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, " comment '%s'",
+                            stbInfo->tags[tagIndex].comment);
+        }
     }
 
     len -= 1;
@@ -470,13 +474,16 @@ skip:
             if (first_sma) {
                 length += snprintf(command + length, BUFFER_SIZE - length,
                                    " SMA(%s", stbInfo->columns[i].name);
+                first_sma = false;
             } else {
                 length += snprintf(command + length, BUFFER_SIZE - length,
                                    ",%s", stbInfo->columns[i].name);
             }
         }
     }
-    sprintf(command + length, ")");
+    if (!first_sma) {
+        sprintf(command + length, ")");
+    }
     if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
         errorPrint("create supertable %s failed!\n\n", stbInfo->stbName);
         return -1;
@@ -817,12 +824,14 @@ void postFreeResource() {
             tmfree(database[i].superTbls[j].partialColumnNameBuf);
             for (int k = 0; k < database[i].superTbls[j].tagCount; ++k) {
                 tmfree(database[i].superTbls[j].tags[k].name);
+                tmfree(database[i].superTbls[j].tags[k].comment);
                 tmfree(database[i].superTbls[j].tags[k].data);
             }
             tmfree(database[i].superTbls[j].tags);
 
             for (int k = 0; k < database[i].superTbls[j].columnCount; ++k) {
                 tmfree(database[i].superTbls[j].columns[k].name);
+                tmfree(database[i].superTbls[j].columns[k].comment);
                 tmfree(database[i].superTbls[j].columns[k].data);
             }
             tmfree(database[i].superTbls[j].columns);
