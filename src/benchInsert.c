@@ -1040,24 +1040,17 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (stbInfo->autoCreateTable) {
-                        if (taos_stmt_set_tbname_tags(
-                                pThreadInfo->stmt, tableName,
-                                stbInfo->tag_bind_array[tableSeq])) {
-                            errorPrint(
-                                "taos_stmt_set_tbname_tags(%s) failed, reason: "
-                                "%s\n",
-                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                    if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
+                        if (stmt_prepare(stbInfo, pThreadInfo->stmt, tableSeq)) {
                             goto free_of_interlace;
                         }
-                    } else {
-                        if (taos_stmt_set_tbname(pThreadInfo->stmt,
-                                                 tableName)) {
-                            errorPrint(
-                                "taos_stmt_set_tbname(%s) failed, reason: %s\n",
-                                tableName, taos_stmt_errstr(pThreadInfo->stmt));
-                            goto free_of_interlace;
-                        }
+                    }
+                    if (taos_stmt_set_tbname(pThreadInfo->stmt,
+                                             tableName)) {
+                        errorPrint(
+                            "taos_stmt_set_tbname(%s) failed, reason: %s\n",
+                            tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                        goto free_of_interlace;
                     }
                     generated =
                         bindParamBatch(pThreadInfo, interlaceRows, timestamp);

@@ -321,8 +321,8 @@ PARSE_OVER:
     return code;
 }
 
-static int getDatabaseInfo(cJSON *dbinfos, int i) {
-    SDataBase *database = &(g_arguments->db[i]);
+static int getDatabaseInfo(cJSON *dbinfos, int index) {
+    SDataBase *database = &(g_arguments->db[index]);
     database->drop = true;
     database->dbCfg.minRows = -1;
     database->dbCfg.maxRows = -1;
@@ -345,7 +345,7 @@ static int getDatabaseInfo(cJSON *dbinfos, int i) {
     database->dbCfg.retentions = NULL;
     database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-    cJSON *dbinfo = cJSON_GetArrayItem(dbinfos, i);
+    cJSON *dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON *db = cJSON_GetObjectItem(dbinfo, "dbinfo");
     if (!cJSON_IsObject(db)) {
         errorPrint("%s", "Invalid dbinfo format in json\n");
@@ -457,9 +457,9 @@ static int getDatabaseInfo(cJSON *dbinfos, int i) {
     return 0;
 }
 
-static int getStableInfo(cJSON *dbinfos, int i) {
-    SDataBase *database = &(g_arguments->db[i]);
-    cJSON *    dbinfo = cJSON_GetArrayItem(dbinfos, i);
+static int getStableInfo(cJSON *dbinfos, int index) {
+    SDataBase *database = &(g_arguments->db[index]);
+    cJSON *    dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON *    stables = cJSON_GetObjectItem(dbinfo, "super_tables");
     if (!cJSON_IsArray(stables)) {
         errorPrint("%s", "invalid super_tables format in json\n");
@@ -492,7 +492,7 @@ static int getStableInfo(cJSON *dbinfos, int i) {
         superTable->partialColumnNum = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
-        superTable->file_factor = -1.0;
+        superTable->file_factor = -1;
         superTable->rollup = NULL;
         cJSON *stbInfo = cJSON_GetArrayItem(stables, i);
         cJSON *stbName = cJSON_GetObjectItem(stbInfo, "name");
@@ -678,7 +678,9 @@ static int getStableInfo(cJSON *dbinfos, int i) {
             return -1;
         }
     }
+    return 0;
 }
+
 static int getMetaFromInsertJsonFile(cJSON *json) {
     int32_t code = -1;
 

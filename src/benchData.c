@@ -86,23 +86,6 @@ static void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-static void generateStmtTagArray(SSuperTable *stbInfo) {
-    stbInfo->tag_bind_array =
-        calloc(stbInfo->childTblCount, sizeof(TAOS_MULTI_BIND *));
-    for (int i = 0; i < stbInfo->childTblCount; ++i) {
-        stbInfo->tag_bind_array[i] =
-            calloc(stbInfo->tagCount, sizeof(TAOS_MULTI_BIND));
-        for (int j = 0; j < stbInfo->tagCount; ++j) {
-            TAOS_MULTI_BIND *tag = &(stbInfo->tag_bind_array[i][j]);
-            tag->buffer_type = stbInfo->tags[j].type;
-            tag->buffer_length = stbInfo->tags[j].length;
-            tag->length = &tag->buffer_length;
-            tag->buffer = stbInfo->tags[j].data;
-            tag->is_null = NULL;
-        }
-    }
-}
-
 int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = calloc(1, BUFFER_SIZE);
@@ -132,7 +115,7 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
         g_arguments->reqPerReq = g_arguments->prepared_rand;
     }
     if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
-        errorPrint("%s", "taos_stmt_prepare(%s) failed\n", prepare);
+        errorPrint("taos_stmt_prepare(%s) failed\n", prepare);
         tmfree(prepare);
         return -1;
     }
