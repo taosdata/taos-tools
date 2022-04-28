@@ -1486,16 +1486,14 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
         TAOS_ROW row = NULL;
         while ((row = taos_fetch_row(res)) != NULL) {
-            if (0 == strlen((char *)(row[0]))) {
-                errorPrint("No.%" PRId64 " table return empty name\n", count);
-                return -1;
-            }
+            int* lengths = taos_fetch_lengths(res);
             if (stbInfo->escape_character) {
-                snprintf(stbInfo->childTblName[count], TSDB_TABLE_NAME_LEN,
-                         "`%s`", (char *)row[0]);
+              stbInfo->childTblName[count][0] = '`';
+              strncpy(stbInfo->childTblName[count]+1, row[0], lengths[0]);
+              stbInfo->childTblName[count][lengths[0] + 1] = '`';
+              stbInfo->childTblName[count][lengths[0] + 2] = '\0';
             } else {
-                snprintf(stbInfo->childTblName[count], TSDB_TABLE_NAME_LEN,
-                         "`%s`", (char *)row[0]);
+              tstrncpy(stbInfo->childTblName[count], row[0], lengths[0] + 1);
             }
             debugPrint("stbInfo->childTblName[%" PRId64 "]: %s\n", count,
                        stbInfo->childTblName[count]);
