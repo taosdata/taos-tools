@@ -3444,7 +3444,7 @@ static int dumpInAvroTbTagsImpl(
     int64_t success = 0;
     int64_t failed = 0;
 
-    char tbuf[COMMAND_SIZE] = {0};
+    char sqlstr[COMMAND_SIZE] = {0};
 
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
@@ -3457,27 +3457,14 @@ static int dumpInAvroTbTagsImpl(
     int tagAdjExt = g_dumpInLooseModeFlag?0:1;
 
     while(!avro_file_reader_read_value(reader, &value)) {
-        TAOS_STMT *stmt = taos_stmt_init(taos);
-        if (NULL == stmt) {
-            errorPrint("%s() LN%d, Failed to execute taos_stmt_init(). reason: %s\n",
-                    __func__, __LINE__,
-                    taos_stmt_errstr(NULL));
-        }
-        char *bindArray =
-            calloc(1, sizeof(TAOS_MULTI_BIND)*(recordSchema->num_fields-1));
-        assert(bindArray);
-
-        TAOS_MULTI_BIND *bind;
-        int is_null = 1;
-
         char *stbName = NULL;
         char *tbName = NULL;
+
+        int32_t  curr_sqlstr_len = 0;
         for (int i = 0; i < recordSchema->num_fields-tagAdjExt; i++) {
             avro_value_t field_value, field_branch;
             size_t size;
 
-            int32_t  curr_sqlstr_len = 0;
-            int tagAdj = 3;
             if (0 == i) {
                 if (!g_dumpInLooseModeFlag) {
                     avro_value_get_by_name(
@@ -3501,8 +3488,6 @@ static int dumpInAvroTbTagsImpl(
 
                     strcpy(stbName, stb);
                     free(dupSeq);
-
-                    tagAdj = 2;
                 }
 
                 if ((NULL == tableDes->name)
@@ -3517,35 +3502,18 @@ static int dumpInAvroTbTagsImpl(
                 avro_value_get_string(&field_branch,
                         (const char **)&tbName, &size);
 
-                curr_sqlstr_len = sprintf(tbuf,
-                        "CREATE TABLE %s.%s%s%s USING %s.%s%s%s TAGS(?",
+                curr_sqlstr_len = sprintf(sqlstr,
+                        "CREATE TABLE %s.%s%s%s USING %s.%s%s%s TAGS(",
                         namespace, g_escapeChar, tbName, g_escapeChar,
                         namespace, g_escapeChar, stbName, g_escapeChar);
-                for (int j = 0; j < recordSchema->num_fields-tagAdj; j ++) {
-                    curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ",?");
-                }
-
-                curr_sqlstr_len += sprintf(tbuf + curr_sqlstr_len, ")");
 
                 debugPrint("%s() LN%d, command buffer: %s\n",
-                        __func__, __LINE__, tbuf);
-
-                if (0 != taos_stmt_prepare(stmt, tbuf, 0)) {
-                    errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
-                            taos_stmt_errstr(stmt));
-                    failed ++;
-                    continue;
-                } else {
-                    printf("table %s created\n", tbName);
-                }
+                        __func__, __LINE__, sqlstr);
             } else {
                 FieldStruct *field = (FieldStruct *)
                     (recordSchema->fields + sizeof(FieldStruct)*(i+tagAdjExt));
                 if (0 == avro_value_get_by_name(
                             &value, field->name, &field_value, NULL)) {
-                    bind = (TAOS_MULTI_BIND *)((char *)bindArray
-                            + (sizeof(TAOS_MULTI_BIND)*(i-1)));
-                    bind->is_null = NULL;
                     switch(tableDes->cols[tableDes->columns -1 + i].type) {
                         case TSDB_DATA_TYPE_BOOL:
                             {
@@ -3553,8 +3521,9 @@ static int dumpInAvroTbTagsImpl(
                                 avro_value_get_current_branch(&field_value, &bool_branch);
 
                                 if (0 == avro_value_get_null(&bool_branch)) {
-                                    bind->is_null = &is_null;
                                     debugPrint2("%s | ", "null");
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     int32_t *bl = malloc(sizeof(int32_t));
                                     assert(bl);
@@ -3562,9 +3531,11 @@ static int dumpInAvroTbTagsImpl(
                                     avro_value_get_boolean(&bool_branch, bl);
                                     verbosePrint("%s() LN%d, *bl=%d\n",
                                             __func__, __LINE__, *bl);
-                                    bind->buffer = (int8_t*)bl;
                                     debugPrint2("%s | ", (*bl)?"true":"false");
-                                    bind->buffer_length = sizeof(int8_t);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%d,",
+                                            (*bl)?1:0);
+                                    free(bl);
                                 }
                             }
                             break;
@@ -3582,13 +3553,14 @@ static int dumpInAvroTbTagsImpl(
 
                                 if ((int8_t)TSDB_DATA_TINYINT_NULL == (int8_t)*n8) {
                                     debugPrint2("%s | ", "null");
-                                    bind->is_null = &is_null;
-                                    free(n8);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%d | ", *n8);
-                                    bind->buffer_length = sizeof(int8_t);
-                                    bind->buffer = (int8_t *)n8;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%d,", *n8);
                                 }
+                                free(n8);
                             }
                             break;
 
@@ -3605,13 +3577,14 @@ static int dumpInAvroTbTagsImpl(
 
                                 if ((int16_t)TSDB_DATA_SMALLINT_NULL == (int16_t)*n16) {
                                     debugPrint2("%s | ", "null");
-                                    bind->is_null = &is_null;
-                                    free(n16);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%d | ", *n16);
-                                    bind->buffer_length = sizeof(int16_t);
-                                    bind->buffer = (int32_t*)n16;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%d,", *n16);
                                 }
+                                free(n16);
                             }
                             break;
 
@@ -3628,13 +3601,15 @@ static int dumpInAvroTbTagsImpl(
 
                                 if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
                                     debugPrint2("%s | ", "null");
-                                    bind->is_null = &is_null;
-                                    free(n32);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%d | ", *n32);
-                                    bind->buffer_length = sizeof(int32_t);
-                                    bind->buffer = n32;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len,
+                                            "%d,", *n32);
                                 }
+                                free(n32);
                             }
                             break;
 
@@ -3651,13 +3626,15 @@ static int dumpInAvroTbTagsImpl(
 
                                 if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
                                     debugPrint2("%s | ", "null");
-                                    bind->is_null = &is_null;
-                                    free(n64);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%"PRId64" | ", *n64);
-                                    bind->buffer_length = sizeof(int64_t);
-                                    bind->buffer = n64;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len,
+                                            "%"PRId64",", *n64);
                                 }
+                                free(n64);
                             }
                             break;
 
@@ -3669,12 +3646,14 @@ static int dumpInAvroTbTagsImpl(
                                 avro_value_get_float(&field_value, f);
                                 if (TSDB_DATA_FLOAT_NULL == *f) {
                                     debugPrint2("%s | ", "NULL");
-                                    bind->is_null = &is_null;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%f | ", *f);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%f,", *f);
                                 }
-                                bind->buffer = f;
-                                bind->buffer_length = sizeof(float);
+                                free(f);
                             }
                             break;
 
@@ -3686,12 +3665,14 @@ static int dumpInAvroTbTagsImpl(
                                 avro_value_get_double(&field_value, dbl);
                                 if (TSDB_DATA_DOUBLE_NULL == *dbl) {
                                     debugPrint2("%s | ", "NULL");
-                                    bind->is_null = &is_null;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%f | ", *dbl);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%f,", *dbl);
                                 }
-                                bind->buffer = dbl;
-                                bind->buffer_length = sizeof(double);
+                                free(dbl);
                             }
                             break;
 
@@ -3709,13 +3690,14 @@ static int dumpInAvroTbTagsImpl(
 
                                 if (NULL == buf) {
                                     debugPrint2("%s | ", "NULL");
-                                    bind->is_null = &is_null;
-                                    bind->buffer_length = 0;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%s | ", (char *)buf);
-                                    bind->buffer_length = strlen(buf);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "\'%s\',",
+                                            (char *)buf);
                                 }
-                                bind->buffer = buf;
                             }
                             break;
 
@@ -3734,13 +3716,14 @@ static int dumpInAvroTbTagsImpl(
 
                                 if (NULL == bytesbuf) {
                                     debugPrint2("%s | ", "NULL");
-                                    bind->is_null = &is_null;
-                                    bind->buffer_length = 0;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%s | ", (char *)bytesbuf);
-                                    bind->buffer_length = strlen((char*)bytesbuf);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "\'%s\',",
+                                            (char *)bytesbuf);
                                 }
-                                bind->buffer = bytesbuf;
                             }
                             break;
 
@@ -3757,13 +3740,15 @@ static int dumpInAvroTbTagsImpl(
 
                                 if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
                                     debugPrint2("%s | ", "null");
-                                    bind->is_null = &is_null;
-                                    free(n64);
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     debugPrint2("%"PRId64" | ", *n64);
-                                    bind->buffer_length = sizeof(int64_t);
-                                    bind->buffer = n64;
+                                    curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len,
+                                            "%"PRId64",", *n64);
                                 }
+                                free(n64);
                             }
                             break;
 
@@ -3790,12 +3775,15 @@ static int dumpInAvroTbTagsImpl(
 
                                     if (TSDB_DATA_UTINYINT_NULL == *array_u8) {
                                         debugPrint2("%s |", "null");
-                                        bind->is_null = &is_null;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         debugPrint2("%u | ", (uint32_t)*array_u8);
-                                        bind->buffer_length = sizeof(uint8_t);
-                                        bind->buffer = array_u8;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%u,",
+                                            (uint32_t)*array_u8);
                                     }
+                                    free(array_u8);
                                 } else {
                                     errorPrint("%s() LN%d mix type %s with int array",
                                             __func__, __LINE__,
@@ -3827,12 +3815,15 @@ static int dumpInAvroTbTagsImpl(
 
                                     if (TSDB_DATA_USMALLINT_NULL == *array_u16) {
                                         debugPrint2("%s |", "null");
-                                        bind->is_null = &is_null;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         debugPrint2("%u | ", (uint32_t)*array_u16);
-                                        bind->buffer_length = sizeof(uint16_t);
-                                        bind->buffer = array_u16;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len,"%u,",
+                                            (uint32_t)*array_u16);
                                     }
+                                    free(array_u16);
                                 } else {
                                     errorPrint("%s() LN%d mix type %s with int array",
                                             __func__, __LINE__,
@@ -3868,12 +3859,15 @@ static int dumpInAvroTbTagsImpl(
 
                                     if (TSDB_DATA_UINT_NULL == *array_u32) {
                                         debugPrint2("%s |", "null");
-                                        bind->is_null = &is_null;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         debugPrint2("%u | ", (uint32_t)*array_u32);
-                                        bind->buffer_length = sizeof(uint32_t);
-                                        bind->buffer = array_u32;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%u,",
+                                            (uint32_t)*array_u32);
                                     }
+                                    free(array_u32);
                                 } else {
                                     errorPrint("%s() LN%d mix type %s with int array",
                                             __func__, __LINE__,
@@ -3911,12 +3905,15 @@ static int dumpInAvroTbTagsImpl(
 
                                     if (TSDB_DATA_UBIGINT_NULL == *array_u64) {
                                         debugPrint2("%s |", "null");
-                                        bind->is_null = &is_null;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         debugPrint2("%"PRIu64" | ", (uint64_t)*array_u64);
-                                        bind->buffer_length = sizeof(uint64_t);
-                                        bind->buffer = array_u64;
+                                        curr_sqlstr_len += sprintf(
+                                            sqlstr+curr_sqlstr_len, "%"PRIu64",",
+                                            (uint64_t)*array_u64);
                                     }
+                                    free(array_u64);
                                 } else {
                                     errorPrint("%s() LN%d mix type %s with int array",
                                             __func__, __LINE__,
@@ -3930,48 +3927,33 @@ static int dumpInAvroTbTagsImpl(
                                     __func__, __LINE__, field->type);
                             break;
                     }
-
-                    if (TSDB_DATA_TYPE_JSON == tableDes->cols[tableDes->columns -1 + i].type) {
-                        bind->buffer_type = TSDB_DATA_TYPE_NCHAR;
-                    } else {
-                        bind->buffer_type = tableDes->cols[tableDes->columns -1 + i].type;
-                    }
-                    debugPrint("%s() LN%d, bind->buffer_type=%d\n",
-                            __func__, __LINE__, bind->buffer_type);
-
-                    bind->length = &bind->buffer_length;
                 } else {
                     errorPrint("Failed to get value by name: %s\n",
                             field->name);
                 }
             }
+
         }
+
         debugPrint2("%s", "\n");
+
+        curr_sqlstr_len += sprintf(sqlstr + curr_sqlstr_len-1, ")");
+        debugPrint("%s() LN%d, sqlstr=\n%s\n", __func__, __LINE__, sqlstr);
 
         if (g_dumpInLooseModeFlag) {
             tfree(stbName);
         }
-        if (0 != taos_stmt_bind_param(stmt, (TAOS_MULTI_BIND *)bindArray)) {
-            errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt));
-            freeBindArray(bindArray, recordSchema->num_fields-1);
-            tfree(bindArray);
-            failed++;
-            taos_stmt_close(stmt);
-            continue;
-        }
 
-        if (0 != taos_stmt_execute(stmt)) {
-            warnPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt));
+        TAOS_RES *res = taos_query(taos, sqlstr);
+        int32_t code = taos_errno(res);
+        if (code != 0) {
+            warnPrint("%s() LN%d taos_query() failed! reason: %s\n",
+                    __func__, __LINE__, taos_errstr(res));
             failed ++;
         } else {
             success ++;
         }
-
-        freeBindArray(bindArray, recordSchema->num_fields-1);
-        tfree(bindArray);
-        taos_stmt_close(stmt);
+        taos_free_result(res);
     }
 
     avro_value_decref(&value);
@@ -3982,11 +3964,10 @@ static int dumpInAvroTbTagsImpl(
     if (failed)
         return failed;
     return success;
-
 }
 
-static int dumpInAvroNtbImpl(TAOS *taos,
-        TAOS_STMT *stmt,
+static int dumpInAvroNtbImpl(
+        TAOS *taos,
         char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
@@ -4012,20 +3993,18 @@ static int dumpInAvroNtbImpl(TAOS *taos,
                     &field_value, &field_branch);
             avro_value_get_string(&field_branch, (const char **)&buf, &size);
 
-            if (0 != taos_stmt_prepare(stmt, buf, 0)) {
+            TAOS_RES *res = taos_query(taos, buf);
+            int code = taos_errno(res);
+            if (0 != code) {
                 errorPrint("%s() LN%d,"
-                        " Failed to execute taos_stmt_prepare(%s)."
+                        " Failed to execute taos_query(%s)."
                         " reason: %s\n",
                         __func__, __LINE__, buf,
-                        taos_stmt_errstr(stmt));
+                        taos_errstr(res));
                 failed ++;
-            } else if (0 != taos_stmt_execute(stmt)) {
-                errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
-                        __func__, __LINE__, taos_stmt_errstr(stmt));
-                failed ++;
+            } else {
+                success ++;
             }
-
-            success ++;
         }
     }
 
@@ -4079,7 +4058,7 @@ static int dumpInAvroDataImpl(
     avro_generic_value_new(value_class, &value);
 
     char *bindArray =
-            malloc(sizeof(TAOS_MULTI_BIND) * onlyCol);
+            calloc(1, sizeof(TAOS_MULTI_BIND) * onlyCol);
     assert(bindArray);
 
     int64_t success = 0;
@@ -4143,12 +4122,12 @@ static int dumpInAvroDataImpl(
         printDotOrX(count, &printDot);
         count++;
 
-        memset(bindArray, 0, sizeof(TAOS_MULTI_BIND) * onlyCol);
         TAOS_MULTI_BIND *bind;
 
-        int is_null = 1;
+        char is_null = 1;
         for (int i = 0; i < recordSchema->num_fields-colAdj; i++) {
-            bind = (TAOS_MULTI_BIND *)((char *)bindArray + (sizeof(TAOS_MULTI_BIND) * i));
+            bind = (TAOS_MULTI_BIND *)((char *)bindArray
+                    + (sizeof(TAOS_MULTI_BIND) * i));
 
             avro_value_t field_value;
 
@@ -4169,7 +4148,7 @@ static int dumpInAvroDataImpl(
                 bind->buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
                 bind->buffer_length = sizeof(int64_t);
                 bind->buffer = ts;
-                bind->length = &bind->buffer_length;
+                bind->length = (int32_t*)&bind->buffer_length;
             } else if (0 == avro_value_get_by_name(
                         &value, field->name, &field_value, NULL)) {
                 switch(tableDes->cols[i].type) {
@@ -4507,16 +4486,16 @@ static int dumpInAvroDataImpl(
                 }
 
                 bind->buffer_type = tableDes->cols[i].type;
-                bind->length = &bind->buffer_length;
+                bind->length = (int32_t *)&bind->buffer_length;
             }
+
+            bind->num = 1;
         }
+
         debugPrint2("%s", "\n");
 
-        if (g_dumpInLooseModeFlag) {
-            tfree(tbName);
-        }
-        if (0 != taos_stmt_bind_param(stmt, (TAOS_MULTI_BIND *)bindArray)) {
-            errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
+        if (0 != taos_stmt_bind_param_batch(stmt, (TAOS_MULTI_BIND *)bindArray)) {
+            errorPrint("%s() LN%d stmt_bind_param_batch() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             freeBindArray(bindArray, onlyCol);
             failed++;
@@ -4530,25 +4509,18 @@ static int dumpInAvroDataImpl(
             failed++;
             continue;
         }
-
-        stmt_count ++;
-        if (stmt_count == g_args.data_batch) {
-            if (0 != taos_stmt_execute(stmt)) {
-                errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
-                        __func__, __LINE__, taos_stmt_errstr(stmt));
-                failed -= stmt_count;
-            }
-            stmt_count = 0;
-        }
-        freeBindArray(bindArray, onlyCol);
-        success ++;
-    }
-
-    if (stmt_count) {
         if (0 != taos_stmt_execute(stmt)) {
             errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
                     __func__, __LINE__, taos_stmt_errstr(stmt));
             failed -= stmt_count;
+        } else {
+            success ++;
+
+        }
+        freeBindArray(bindArray, onlyCol);
+
+        if (g_dumpInLooseModeFlag) {
+            tfree(tbName);
         }
     }
 
@@ -4714,7 +4686,7 @@ static int64_t dumpInOneAvroFile(
         case WHICH_AVRO_NTB:
             debugPrint("%s() LN%d will dump %s's normal tables\n",
                     __func__, __LINE__, namespace);
-            retExec = dumpInAvroNtbImpl(taos, stmt,
+            retExec = dumpInAvroNtbImpl(taos,
                     (char *)namespace,
                     schema, reader, recordSchema);
             break;
