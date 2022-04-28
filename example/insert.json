@@ -18,7 +18,21 @@
 		{
 			"dbinfo": {
 				"name": "test",
-				"drop": "yes"
+				"drop": "yes",
+				"replica": 1,
+				"days": 10,
+				"cache": 16,
+				"blocks": 8,
+				"precision": "ms",
+				"keep": 3650,
+				"minRows": 100,
+				"maxRows": 4096,
+				"comp": 2,
+				"walLevel": 1,
+				"cachelast": 0,
+				"quorum": 1,
+				"fsync": 3000,
+				"update": 0
 			},
 			"super_tables": [
 				{
@@ -27,10 +41,10 @@
 					"childtable_count": 100,
 					"childtable_prefix": "d",
 					"escape_character": "yes",
-					"auto_create_table": "yes",
+					"auto_create_table": "no",
 					"batch_create_tbl_num": 5,
 					"data_source": "rand",
-					"insert_mode": "stmt",
+					"insert_mode": "taosc",
 					"non_stop_mode": "no",
 					"line_protocol": "line",
 					"insert_rows": 100,
