@@ -96,7 +96,7 @@ static struct argp_option options[] = {
     {"prepared_rand", 'F', "NUMBER", 0,
      "Random data source size, default is 10000."},
     {"connection_pool", 'H', "NUMBER", 0,
-     "size of the pre-connected taos in connection pool, default is 8"},
+     "size of the pre-connected client in connection pool, default is 8"},
     {0}};
 
 static int count_datatype(char *dataType, uint32_t *number) {
