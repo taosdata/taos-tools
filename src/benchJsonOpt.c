@@ -487,7 +487,6 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         superTable->iface = TAOSC_IFACE;
         superTable->lineProtocol = TSDB_SML_LINE_PROTOCOL;
         superTable->tcpTransfer = false;
-        superTable->childTblLimit = superTable->childTblCount;
         superTable->childTblOffset = 0;
         superTable->timestamp_step = 1;
         superTable->useSampleTs = false;
@@ -530,7 +529,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         cJSON *childTblExists =
             cJSON_GetObjectItem(stbInfo, "child_table_exists");
         if (cJSON_IsString(childTblExists) &&
-            (0 == strcasecmp(childTblExists->valuestring, "yes"))) {
+            (0 == strcasecmp(childTblExists->valuestring, "yes")) && !database->drop) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
         }
@@ -580,9 +579,11 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         }
         cJSON *childTbl_limit =
             cJSON_GetObjectItem(stbInfo, "childtable_limit");
-        if (cJSON_IsNumber(childTbl_limit)) {
+        if (cJSON_IsNumber(childTbl_limit) && (childTbl_limit->valueint >= 0)) {
             superTable->childTblLimit = childTbl_limit->valueint;
-        }
+        } else {
+            superTable->childTblLimit = superTable->childTblCount;
+        };
         cJSON *childTbl_offset =
             cJSON_GetObjectItem(stbInfo, "childtable_offset");
         if (cJSON_IsNumber(childTbl_offset)) {
@@ -1210,7 +1211,7 @@ int getInfoFromJsonFile() {
     }
 
     char *pstr = cJSON_Print(root);
-    infoPrint(stdout, "\n%s\n", pstr);
+    infoPrint(stdout, "%s\n%s\n", file, pstr);
     tmfree(pstr);
 
     cJSON *filetype = cJSON_GetObjectItem(root, "filetype");
