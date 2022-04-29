@@ -61,12 +61,10 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     for (int i = 0; i < stbInfo->tagCount; ++i) {
         tmfree(stbInfo->tags[i].name);
         tmfree(stbInfo->tags[i].comment);
-
     }
     for (int i = 0; i < stbInfo->columnCount; ++i) {
         tmfree(stbInfo->columns[i].name);
         tmfree(stbInfo->columns[i].comment);
-
     }
     stbInfo->tagCount = tagIndex;
     tmfree(stbInfo->tags);
@@ -444,8 +442,8 @@ static int createSuperTable(int db_index, int stb_index) {
                 return -1;
         }
         if (strlen(stbInfo->tags[tagIndex].comment) != 0) {
-            len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, " comment '%s'",
-                            stbInfo->tags[tagIndex].comment);
+            len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len,
+                            " comment '%s'", stbInfo->tags[tagIndex].comment);
         }
     }
 
@@ -614,6 +612,7 @@ static int createDatabase(int db_index) {
         errorPrint("\ncreate database %s failed!\n\n", database->dbName);
         return -1;
     }
+    debugPrint("%s\n", command);
     infoPrint("create database %s success!\n", database->dbName);
     sleep(2);
     return 0;
@@ -1048,8 +1047,7 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (taos_stmt_set_tbname(pThreadInfo->stmt,
-                                             tableName)) {
+                    if (taos_stmt_set_tbname(pThreadInfo->stmt, tableName)) {
                         errorPrint(
                             "taos_stmt_set_tbname(%s) failed, reason: %s\n",
                             tableName, taos_stmt_errstr(pThreadInfo->stmt));
@@ -1499,8 +1497,11 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         stbInfo->interlaceRows = 0;
     }
 
-    if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
-        infoPrint("%s","not support autocreate table with interlace row in stmt insertion, will change to progressive mode\n");
+    if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE &&
+        stbInfo->autoCreateTable) {
+        infoPrint("%s",
+                  "not support autocreate table with interlace row in stmt "
+                  "insertion, will change to progressive mode\n");
         stbInfo->interlaceRows = 0;
     }
 

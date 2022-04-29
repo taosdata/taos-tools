@@ -370,37 +370,37 @@ static int getDatabaseInfo(cJSON *dbinfos, int index) {
     if (cJSON_IsString(drop) && (0 == strcasecmp(drop->valuestring, "no"))) {
         database->drop = false;
     }
-    cJSON *keep = cJSON_GetObjectItem(dbinfo, "keep");
+    cJSON *keep = cJSON_GetObjectItem(db, "keep");
     if (cJSON_IsNumber(keep)) {
         database->dbCfg.keep = (int)keep->valueint;
     }
-    cJSON *days = cJSON_GetObjectItem(dbinfo, "days");
+    cJSON *days = cJSON_GetObjectItem(db, "days");
     if (cJSON_IsNumber(days)) {
         database->dbCfg.days = (int)days->valueint;
     }
 
-    cJSON *maxRows = cJSON_GetObjectItem(dbinfo, "maxRows");
+    cJSON *maxRows = cJSON_GetObjectItem(db, "maxRows");
     if (cJSON_IsNumber(maxRows)) {
         database->dbCfg.maxRows = (int)maxRows->valueint;
     }
 
-    cJSON *minRows = cJSON_GetObjectItem(dbinfo, "minRows");
+    cJSON *minRows = cJSON_GetObjectItem(db, "minRows");
     if (cJSON_IsNumber(minRows)) {
         database->dbCfg.minRows = (int)minRows->valueint;
     }
-    cJSON *walLevel = cJSON_GetObjectItem(dbinfo, "walLevel");
+    cJSON *walLevel = cJSON_GetObjectItem(db, "walLevel");
     if (cJSON_IsNumber(walLevel)) {
         database->dbCfg.walLevel = (int)walLevel->valueint;
     }
-    cJSON *fsync = cJSON_GetObjectItem(dbinfo, "fsync");
+    cJSON *fsync = cJSON_GetObjectItem(db, "fsync");
     if (cJSON_IsNumber(fsync)) {
         database->dbCfg.fsync = (int)fsync->valueint;
     }
-    cJSON *cacheLast = cJSON_GetObjectItem(dbinfo, "cachelast");
+    cJSON *cacheLast = cJSON_GetObjectItem(db, "cachelast");
     if (cJSON_IsNumber(cacheLast)) {
         database->dbCfg.cacheLast = (int)cacheLast->valueint;
     }
-    cJSON *replica = cJSON_GetObjectItem(dbinfo, "replica");
+    cJSON *replica = cJSON_GetObjectItem(db, "replica");
     if (cJSON_IsNumber(replica)) {
         database->dbCfg.replica = (int)replica->valueint;
     }
@@ -416,48 +416,48 @@ static int getDatabaseInfo(cJSON *dbinfos, int index) {
     }
 
     if (g_arguments->taosc_version == 2) {
-        cJSON *update = cJSON_GetObjectItem(dbinfo, "update");
+        cJSON *update = cJSON_GetObjectItem(db, "update");
         if (cJSON_IsNumber(update)) {
             database->dbCfg.update = (int)update->valueint;
         }
-        cJSON *cache = cJSON_GetObjectItem(dbinfo, "cache");
+        cJSON *cache = cJSON_GetObjectItem(db, "cache");
         if (cJSON_IsNumber(cache)) {
             database->dbCfg.cache = (int)cache->valueint;
         }
-        cJSON *blocks = cJSON_GetObjectItem(dbinfo, "blocks");
+        cJSON *blocks = cJSON_GetObjectItem(db, "blocks");
         if (cJSON_IsNumber(blocks)) {
             database->dbCfg.blocks = (int)blocks->valueint;
         }
-        cJSON *quorum = cJSON_GetObjectItem(dbinfo, "quorum");
+        cJSON *quorum = cJSON_GetObjectItem(db, "quorum");
         if (cJSON_IsNumber(quorum)) {
             database->dbCfg.quorum = (int)quorum->valueint;
         }
     } else if (g_arguments->taosc_version == 3) {
-        cJSON *buffer = cJSON_GetObjectItem(dbinfo, "buffer");
+        cJSON *buffer = cJSON_GetObjectItem(db, "buffer");
         if (cJSON_IsNumber(buffer)) {
             database->dbCfg.buffer = (int)buffer->valueint;
         }
-        cJSON *strict = cJSON_GetObjectItem(dbinfo, "strict");
+        cJSON *strict = cJSON_GetObjectItem(db, "strict");
         if (cJSON_IsNumber(strict)) {
             database->dbCfg.strict = (int)strict->valueint;
         }
-        cJSON *page_size = cJSON_GetObjectItem(dbinfo, "page_size");
+        cJSON *page_size = cJSON_GetObjectItem(db, "page_size");
         if (cJSON_IsNumber(page_size)) {
             database->dbCfg.page_size = (int)page_size->valueint;
         }
-        cJSON *pages = cJSON_GetObjectItem(dbinfo, "pages");
+        cJSON *pages = cJSON_GetObjectItem(db, "pages");
         if (cJSON_IsNumber(pages)) {
             database->dbCfg.pages = (int)pages->valueint;
         }
-        cJSON *vgroups = cJSON_GetObjectItem(dbinfo, "vgroups");
+        cJSON *vgroups = cJSON_GetObjectItem(db, "vgroups");
         if (cJSON_IsNumber(vgroups)) {
             database->dbCfg.vgroups = (int)vgroups->valueint;
         }
-        cJSON *single_stable = cJSON_GetObjectItem(dbinfo, "single_stable");
+        cJSON *single_stable = cJSON_GetObjectItem(db, "single_stable");
         if (cJSON_IsNumber(single_stable)) {
             database->dbCfg.single_stable = (int)single_stable->valueint;
         }
-        cJSON *retentions = cJSON_GetObjectItem(dbinfo, "retentions");
+        cJSON *retentions = cJSON_GetObjectItem(db, "retentions");
         if (cJSON_IsString(retentions)) {
             database->dbCfg.retentions = retentions->valuestring;
         }
