@@ -18,8 +18,8 @@
 static void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
                                 int code) {
     if (res == NULL || taos_errno(res) != 0) {
-        errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
-                   taos_errstr(res));
+        errorPrint(stderr, "failed to subscribe result, code:%d, reason:%s\n",
+                   code, taos_errstr(res));
         return;
     }
 
@@ -30,8 +30,8 @@ static void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
 static void specified_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
                                    int code) {
     if (res == NULL || taos_errno(res) != 0) {
-        errorPrint("failed to subscribe result, code:%d, reason:%s\n", code,
-                   taos_errstr(res));
+        errorPrint(stderr, "failed to subscribe result, code:%d, reason:%s\n",
+                   code, taos_errstr(res));
         return;
     }
 
@@ -62,8 +62,8 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
     }
 
     if (tsub == NULL) {
-        errorPrint("failed to create subscription. topic:%s, sql:%s\n", topic,
-                   sql);
+        errorPrint(stderr, "failed to create subscription. topic:%s, sql:%s\n",
+                   topic, sql);
         return NULL;
     }
 
@@ -104,7 +104,7 @@ static void *specifiedSubscribe(void *sarg) {
             g_queryInfo.specifiedQueryInfo
                 .endAfterConsume[pThreadInfo->querySeq])) {
         infoPrint(
-            "consumed[%d]: %d, endAfterConsum[%" PRId64 "]: %d\n",
+            stdout, "consumed[%d]: %d, endAfterConsum[%" PRId64 "]: %d\n",
             pThreadInfo->threadID,
             g_queryInfo.specifiedQueryInfo.consumed[pThreadInfo->threadID],
             pThreadInfo->querySeq,
@@ -133,7 +133,8 @@ static void *specifiedSubscribe(void *sarg) {
                      .consumed[pThreadInfo->threadID] >=
                  g_queryInfo.specifiedQueryInfo
                      .resubAfterConsume[pThreadInfo->querySeq])) {
-                infoPrint("keepProgress:%d, resub specified query: %" PRIu64
+                infoPrint(stdout,
+                          "keepProgress:%d, resub specified query: %" PRIu64
                           "\n",
                           g_queryInfo.specifiedQueryInfo.subscribeKeepProgress,
                           pThreadInfo->querySeq);
@@ -173,7 +174,8 @@ static void *superSubscribe(void *sarg) {
     prctl(PR_SET_NAME, "superSub");
 
     if (pThreadInfo->ntables > MAX_QUERY_SQL_COUNT) {
-        errorPrint("The table number(%" PRId64
+        errorPrint(stderr,
+                   "The table number(%" PRId64
                    ") of the thread is more than max query sql count: %d\n",
                    pThreadInfo->ntables, MAX_QUERY_SQL_COUNT);
         goto free_of_super_subscribe;
@@ -224,14 +226,14 @@ static void *superSubscribe(void *sarg) {
             }
 
             st = toolsGetTimestampMs();
-            performancePrint("st: %" PRIu64 " et: %" PRIu64 " st-et: %" PRIu64
-                             "\n",
-                             st, et, (st - et));
+            performancePrint(
+                stdout, "st: %" PRIu64 " et: %" PRIu64 " st-et: %" PRIu64 "\n",
+                st, et, (st - et));
             res = taos_consume(tsub[tsubSeq]);
             et = toolsGetTimestampMs();
-            performancePrint("st: %" PRIu64 " et: %" PRIu64 " delta: %" PRIu64
-                             "\n",
-                             st, et, (et - st));
+            performancePrint(
+                stdout, "st: %" PRIu64 " et: %" PRIu64 " delta: %" PRIu64 "\n",
+                st, et, (et - st));
 
             if (res) {
                 if (g_queryInfo.superQueryInfo
@@ -277,10 +279,6 @@ free_of_super_subscribe:
 }
 
 int subscribeTestProcess() {
-    setupForAnsiEscape();
-    printfQueryMeta();
-    resetAfterAnsiEscape();
-
     prompt(0);
 
     if (init_taos_list()) return -1;
@@ -294,7 +292,8 @@ int subscribeTestProcess() {
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
-            errorPrint("failed to count child table name: %s. reason: %s\n",
+            errorPrint(stderr,
+                       "failed to count child table name: %s. reason: %s\n",
                        cmd, taos_errstr(res));
             taos_free_result(res);
 
@@ -305,7 +304,7 @@ int subscribeTestProcess() {
         TAOS_FIELD *fields = taos_fetch_fields(res);
         while ((row = taos_fetch_row(res)) != NULL) {
             if (0 == strlen((char *)(row[0]))) {
-                errorPrint("stable %s have no child table\n",
+                errorPrint(stderr, "stable %s have no child table\n",
                            g_queryInfo.superQueryInfo.stbName);
                 return -1;
             }
@@ -313,7 +312,7 @@ int subscribeTestProcess() {
             taos_print_row(temp, row, fields, num_fields);
             g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
         }
-        infoPrint("%s's childTblCount: %" PRId64 "\n",
+        infoPrint(stdout, "%s's childTblCount: %" PRId64 "\n",
                   g_queryInfo.superQueryInfo.stbName,
                   g_queryInfo.superQueryInfo.childTblCount);
         taos_free_result(res);

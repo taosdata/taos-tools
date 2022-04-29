@@ -128,72 +128,72 @@
 #define __func__ __FUNCTION__
 #endif
 
-#define debugPrint(fmt, ...)                                                  \
-    do {                                                                      \
-        if (g_arguments->debug_print) {                                       \
-            struct tm      Tm, *ptm;                                          \
-            struct timeval timeSecs;                                          \
-            time_t         curTime;                                           \
-            gettimeofday(&timeSecs, NULL);                                    \
-            curTime = timeSecs.tv_sec;                                        \
-            ptm = localtime_r(&curTime, &Tm);                                 \
-            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",               \
-                    ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
-                    ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
-            fprintf(stderr, "DEBG: ");                                        \
-            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                   \
-            fprintf(stderr, "" fmt, __VA_ARGS__);                             \
-        }                                                                     \
-    } while (0)
-
-#define infoPrint(fmt, ...)                                                  \
+#define debugPrint(fp, fmt, ...)                                             \
     do {                                                                     \
-        struct tm      Tm, *ptm;                                             \
-        struct timeval timeSecs;                                             \
-        time_t         curTime;                                              \
-        gettimeofday(&timeSecs, NULL);                                       \
-        curTime = timeSecs.tv_sec;                                           \
-        ptm = localtime_r(&curTime, &Tm);                                    \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
-                (int32_t)timeSecs.tv_usec);                                  \
-        fprintf(stderr, "INFO: " fmt, __VA_ARGS__);                          \
-    } while (0)
-
-#define performancePrint(fmt, ...)                                            \
-    do {                                                                      \
-        if (g_arguments->performance_print) {                                 \
-            struct tm      Tm, *ptm;                                          \
-            struct timeval timeSecs;                                          \
-            time_t         curTime;                                           \
-            gettimeofday(&timeSecs, NULL);                                    \
-            curTime = timeSecs.tv_sec;                                        \
-            ptm = localtime_r(&curTime, &Tm);                                 \
-            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",               \
-                    ptm->tm_mon + 1, ptm->tm_mday, ptm->tm_hour, ptm->tm_min, \
-                    ptm->tm_sec, (int32_t)timeSecs.tv_usec);                  \
-            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                       \
-        }                                                                     \
-    } while (0)
-
-#define errorPrint(fmt, ...)                                                 \
-    do {                                                                     \
-        struct tm      Tm, *ptm;                                             \
-        struct timeval timeSecs;                                             \
-        time_t         curTime;                                              \
-        gettimeofday(&timeSecs, NULL);                                       \
-        curTime = timeSecs.tv_sec;                                           \
-        ptm = localtime_r(&curTime, &Tm);                                    \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,        \
-                (int32_t)timeSecs.tv_usec);                                  \
-        fprintf(stderr, "\033[31m");                                         \
-        fprintf(stderr, "ERROR: ");                                          \
         if (g_arguments->debug_print) {                                      \
-            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                  \
+            struct tm      Tm, *ptm;                                         \
+            struct timeval timeSecs;                                         \
+            time_t         curTime;                                          \
+            gettimeofday(&timeSecs, NULL);                                   \
+            curTime = timeSecs.tv_sec;                                       \
+            ptm = localtime_r(&curTime, &Tm);                                \
+            fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
+                    (int32_t)timeSecs.tv_usec);                              \
+            fprintf(fp, "DEBG: ");                                           \
+            fprintf(fp, "%s(%d) ", __FILE__, __LINE__);                      \
+            fprintf(fp, "" fmt, __VA_ARGS__);                                \
         }                                                                    \
-        fprintf(stderr, "" fmt, __VA_ARGS__);                                \
-        fprintf(stderr, "\033[0m");                                          \
+    } while (0)
+
+#define infoPrint(fp, fmt, ...)                                          \
+    do {                                                                 \
+        struct tm      Tm, *ptm;                                         \
+        struct timeval timeSecs;                                         \
+        time_t         curTime;                                          \
+        gettimeofday(&timeSecs, NULL);                                   \
+        curTime = timeSecs.tv_sec;                                       \
+        ptm = localtime_r(&curTime, &Tm);                                \
+        fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
+                (int32_t)timeSecs.tv_usec);                              \
+        fprintf(fp, "INFO: " fmt, __VA_ARGS__);                          \
+    } while (0)
+
+#define performancePrint(fp, fmt, ...)                                       \
+    do {                                                                     \
+        if (g_arguments->performance_print) {                                \
+            struct tm      Tm, *ptm;                                         \
+            struct timeval timeSecs;                                         \
+            time_t         curTime;                                          \
+            gettimeofday(&timeSecs, NULL);                                   \
+            curTime = timeSecs.tv_sec;                                       \
+            ptm = localtime_r(&curTime, &Tm);                                \
+            fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
+                    (int32_t)timeSecs.tv_usec);                              \
+            fprintf(fp, "PERF: " fmt, __VA_ARGS__);                          \
+        }                                                                    \
+    } while (0)
+
+#define errorPrint(fp, fmt, ...)                                         \
+    do {                                                                 \
+        struct tm      Tm, *ptm;                                         \
+        struct timeval timeSecs;                                         \
+        time_t         curTime;                                          \
+        gettimeofday(&timeSecs, NULL);                                   \
+        curTime = timeSecs.tv_sec;                                       \
+        ptm = localtime_r(&curTime, &Tm);                                \
+        fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
+                (int32_t)timeSecs.tv_usec);                              \
+        fprintf(fp, "\033[31m");                                         \
+        fprintf(fp, "ERROR: ");                                          \
+        if (g_arguments->debug_print) {                                  \
+            fprintf(fp, "%s(%d) ", __FILE__, __LINE__);                  \
+        }                                                                \
+        fprintf(fp, "" fmt, __VA_ARGS__);                                \
+        fprintf(fp, "\033[0m");                                          \
     } while (0)
 
 enum TEST_MODE {
@@ -321,12 +321,12 @@ typedef struct SSuperTable_S {
     char *sampleDataBuf;
     bool  useSampleTs;
     char *tagDataBuf;
-    bool              tcpTransfer;
-    bool              non_stop;
-    char *            comment;
-    int               delay;
-    int               file_factor;
-    char *            rollup;
+    bool  tcpTransfer;
+    bool  non_stop;
+    char *comment;
+    int   delay;
+    int   file_factor;
+    char *rollup;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -557,11 +557,6 @@ void    delay_list_destroy(delayList *list);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
-/* demoOutput.c */
-void printfInsertMetaToFileStream(FILE *fp);
-void printStatPerThread(threadInfo *pThreadInfo);
-void printfQueryMeta();
-void display_delay_list(delayList *list);
 /* demoQuery.c */
 int queryTestProcess();
 /* demoSubscribe.c */

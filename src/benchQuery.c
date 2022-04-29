@@ -20,13 +20,13 @@ void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     if (g_arguments->db->superTbls->iface == REST_IFACE) {
         int retCode = postProceSql(command, pThreadInfo);
         if (0 != retCode) {
-            errorPrint("====restful return fail, threadID[%d]\n",
+            errorPrint(stderr, "====restful return fail, threadID[%d]\n",
                        pThreadInfo->threadID);
         }
     } else {
         TAOS_RES *res = taos_query(pThreadInfo->taos, command);
         if (res == NULL || taos_errno(res) != 0) {
-            errorPrint("failed to execute sql:%s, reason:%s\n", command,
+            errorPrint(stderr, "failed to execute sql:%s, reason:%s\n", command,
                        taos_errstr(res));
             taos_free_result(res);
             return;
@@ -74,13 +74,13 @@ static void *specifiedTableQuery(void *sarg) {
         }
 
         st = toolsGetTimestampUs();
-        debugPrint("st: %" PRId64 "\n", st);
+        debugPrint(stdout, "st: %" PRId64 "\n", st);
         selectAndGetResult(
             pThreadInfo,
             g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq]);
 
         et = toolsGetTimestampUs();
-        debugPrint("et: %" PRId64 "\n", et);
+        debugPrint(stdout, "et: %" PRId64 "\n", et);
         uint64_t delay = et - st;
         total_delay_list[index] = delay;
         index++;
@@ -96,7 +96,8 @@ static void *specifiedTableQuery(void *sarg) {
         uint64_t currentPrintTime = toolsGetTimestampMs();
         uint64_t endTs = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
-            infoPrint("thread[%d] has currently completed queries: %" PRIu64
+            infoPrint(stdout,
+                      "thread[%d] has currently completed queries: %" PRIu64
                       ", QPS: %10.6f\n",
                       pThreadInfo->threadID, pThreadInfo->totalQueried,
                       (double)(pThreadInfo->totalQueried /
@@ -106,18 +107,19 @@ static void *specifiedTableQuery(void *sarg) {
     }
     if (g_arguments->debug_print) {
         for (int i = 0; i < queryTimes; ++i) {
-            debugPrint("total_delay_list[%d]: %" PRIu64 "\n", i,
+            debugPrint(stdout, "total_delay_list[%d]: %" PRIu64 "\n", i,
                        total_delay_list[i]);
         }
     }
     qsort(total_delay_list, queryTimes, sizeof(uint64_t), compare);
     if (g_arguments->debug_print) {
         for (int i = 0; i < queryTimes; ++i) {
-            debugPrint("total_delay_list[%d]: %" PRIu64 "\n", i,
+            debugPrint(stdout, "total_delay_list[%d]: %" PRIu64 "\n", i,
                        total_delay_list[i]);
         }
     }
-    infoPrint("thread[%d] complete query <%s> %" PRIu64
+    infoPrint(stdout,
+              "thread[%d] complete query <%s> %" PRIu64
               " times,"
               "insert delay, min: %5" PRIu64
               "us, avg: %5.2fus,"
@@ -177,6 +179,7 @@ static void *superTableQuery(void *sarg) {
                 int64_t endTs = toolsGetTimestampMs();
                 if (currentPrintTime - lastPrintTime > 30 * 1000) {
                     infoPrint(
+                        stdout,
                         "thread[%d] has currently completed queries: %" PRIu64
                         ", QPS: %10.3f\n",
                         pThreadInfo->threadID, pThreadInfo->totalQueried,
@@ -188,6 +191,7 @@ static void *superTableQuery(void *sarg) {
         }
         et = toolsGetTimestampMs();
         infoPrint(
+            stdout,
             "thread[%d] complete all sqls to allocate all sub-tables[%" PRIu64
             " - %" PRIu64 "] once queries duration:%.4fs\n",
             pThreadInfo->threadID, pThreadInfo->start_table_from,
@@ -199,7 +203,6 @@ static void *superTableQuery(void *sarg) {
 }
 
 int queryTestProcess() {
-    printfQueryMeta(g_arguments);
     if (init_taos_list()) return -1;
     encode_base_64();
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
@@ -210,7 +213,8 @@ int queryTestProcess() {
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
-            errorPrint("failed to count child table name: %s. reason: %s\n",
+            errorPrint(stderr,
+                       "failed to count child table name: %s. reason: %s\n",
                        cmd, taos_errstr(res));
             taos_free_result(res);
 
@@ -221,7 +225,7 @@ int queryTestProcess() {
         TAOS_FIELD *fields = taos_fetch_fields(res);
         while ((row = taos_fetch_row(res)) != NULL) {
             if (0 == strlen((char *)(row[0]))) {
-                errorPrint("stable %s have no child table\n",
+                errorPrint(stderr, "stable %s have no child table\n",
                            g_queryInfo.superQueryInfo.stbName);
                 return -1;
             }
@@ -229,7 +233,7 @@ int queryTestProcess() {
             taos_print_row(temp, row, fields, num_fields);
             g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
         }
-        infoPrint("%s's childTblCount: %" PRId64 "\n",
+        infoPrint(stdout, "%s's childTblCount: %" PRId64 "\n",
                   g_queryInfo.superQueryInfo.stbName,
                   g_queryInfo.superQueryInfo.childTblCount);
         taos_free_result(res);
@@ -250,7 +254,7 @@ int queryTestProcess() {
         if (convertHostToServAddr(g_arguments->host,
                                   g_arguments->port + TSDB_PORT_HTTP,
                                   &(g_arguments->serv_addr)) != 0) {
-            errorPrint("%s", "convert host to server address\n");
+            errorPrint(stderr, "%s", "convert host to server address\n");
             return -1;
         }
     }
@@ -287,13 +291,14 @@ int queryTestProcess() {
                     sockfd = socket(AF_INET, SOCK_STREAM, 0);
                     // int iMode = 1;
                     // ioctl(sockfd, FIONBIO, &iMode);
-                    debugPrint("sockfd=%d\n", sockfd);
+                    debugPrint(stdout, "sockfd=%d\n", sockfd);
                     if (sockfd < 0) {
 #ifdef WINDOWS
-                        errorPrint("Could not create socket : %d",
+                        errorPrint(stderr, "Could not create socket : %d",
                                    WSAGetLastError());
 #endif
-                        errorPrint("failed to create socket, reason: %s\n",
+                        errorPrint(stderr,
+                                   "failed to create socket, reason: %s\n",
                                    strerror(errno));
                         tmfree((char *)pids);
                         tmfree((char *)infos);
@@ -305,6 +310,7 @@ int queryTestProcess() {
                         sizeof(struct sockaddr));
                     if (retConn < 0) {
                         errorPrint(
+                            stderr,
                             "failed to connect with socket, reason: %s\n",
                             strerror(errno));
                         tmfree((char *)pids);
@@ -401,17 +407,17 @@ int queryTestProcess() {
                 sockfd = socket(AF_INET, SOCK_STREAM, 0);
                 if (sockfd < 0) {
 #ifdef WINDOWS
-                    errorPrint("Could not create socket : %d",
+                    errorPrint(stderr, "Could not create socket : %d",
                                WSAGetLastError());
 #endif
-                    debugPrint("sockfd=%d\n", sockfd);
+                    debugPrint(stdout, "sockfd=%d\n", sockfd);
                     ERROR_EXIT("opening socket");
                 }
 
                 int retConn = connect(
                     sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
                     sizeof(struct sockaddr));
-                debugPrint("connect() return %d\n", retConn);
+                debugPrint(stdout, "connect() return %d\n", retConn);
                 if (retConn < 0) {
                     ERROR_EXIT("connecting");
                 }
@@ -465,7 +471,8 @@ int queryTestProcess() {
     int64_t t = endTs - startTs;
     double  tInS = (double)t / 1000.0;
 
-    infoPrint("Spend %.4f second completed total queries: %" PRIu64
+    infoPrint(stdout,
+              "Spend %.4f second completed total queries: %" PRIu64
               ", the QPS of all threads: %10.3f\n\n",
               tInS, totalQueried, (double)totalQueried / tInS);
     return 0;

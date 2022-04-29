@@ -105,17 +105,17 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     }
     sprintf(prepare + len, ")");
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
-        infoPrint(
-            "in stmt mode, batch size(%u) can not larger than prepared "
-            "sample data size(%" PRId64
-            "), restart with larger prepared_rand or batch size will be "
-            "auto set to %" PRId64 "\n",
-            g_arguments->reqPerReq, g_arguments->prepared_rand,
-            g_arguments->prepared_rand);
+        infoPrint(stdout,
+                  "in stmt mode, batch size(%u) can not larger than prepared "
+                  "sample data size(%" PRId64
+                  "), restart with larger prepared_rand or batch size will be "
+                  "auto set to %" PRId64 "\n",
+                  g_arguments->reqPerReq, g_arguments->prepared_rand,
+                  g_arguments->prepared_rand);
         g_arguments->reqPerReq = g_arguments->prepared_rand;
     }
     if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
-        errorPrint("taos_stmt_prepare(%s) failed\n", prepare);
+        errorPrint(stderr, "taos_stmt_prepare(%s) failed\n", prepare);
         tmfree(prepare);
         return -1;
     }
@@ -132,7 +132,7 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
 
     FILE *fp = fopen(file, "r");
     if (fp == NULL) {
-        errorPrint("Failed to open sample file: %s, reason:%s\n", file,
+        errorPrint(stderr, "Failed to open sample file: %s, reason:%s\n", file,
                    strerror(errno));
         return -1;
     }
@@ -140,8 +140,8 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         readLen = getline(&line, &n, fp);
         if (-1 == readLen) {
             if (0 != fseek(fp, 0, SEEK_SET)) {
-                errorPrint("Failed to fseek file: %s, reason:%s\n", file,
-                           strerror(errno));
+                errorPrint(stderr, "Failed to fseek file: %s, reason:%s\n",
+                           file, strerror(errno));
                 fclose(fp);
                 return -1;
             }
@@ -158,6 +158,7 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
 
         if (readLen > length) {
             infoPrint(
+                stdout,
                 "sample row len[%d] overflow define schema len[%d], so discard "
                 "this row\n",
                 (int32_t)readLen, length);
@@ -183,7 +184,7 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
     int     line_count = 0;
     char *  buf;
     if (fp == NULL) {
-        errorPrint("Failed to open sample file: %s, reason:%s\n",
+        errorPrint(stderr, "Failed to open sample file: %s, reason:%s\n",
                    stbInfo->sampleFile, strerror(errno));
         goto free_of_get_set_rows_from_csv;
     }
@@ -818,10 +819,10 @@ int prepare_sample_data(int db_index, int stb_index) {
     SDataBase *  database = &(g_arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
     calcRowLen(stbInfo);
-    debugPrint("stable: %s: tagCount: %d; lenOfTags: %d\n", stbInfo->stbName,
-               stbInfo->tagCount, stbInfo->lenOfTags);
-    debugPrint("stable: %s: columnCount: %d; lenOfCols: %d\n", stbInfo->stbName,
-               stbInfo->columnCount, stbInfo->lenOfCols);
+    debugPrint(stdout, "stable: %s: tagCount: %d; lenOfTags: %d\n",
+               stbInfo->stbName, stbInfo->tagCount, stbInfo->lenOfTags);
+    debugPrint(stdout, "stable: %s: columnCount: %d; lenOfCols: %d\n",
+               stbInfo->stbName, stbInfo->columnCount, stbInfo->lenOfCols);
     if (stbInfo->partialColumnNum != 0 &&
         (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
         if (stbInfo->partialColumnNum > stbInfo->columnCount) {
@@ -839,7 +840,7 @@ int prepare_sample_data(int db_index, int stb_index) {
                  ++i) {
                 stbInfo->columns[i].null = true;
             }
-            debugPrint("partialColumnNameBuf: %s\n",
+            debugPrint(stdout, "partialColumnNameBuf: %s\n",
                        stbInfo->partialColumnNameBuf);
         }
     } else {
@@ -862,7 +863,7 @@ int prepare_sample_data(int db_index, int stb_index) {
             return -1;
         }
     }
-    debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
+    debugPrint(stdout, "sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
 
     if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
         stbInfo->tagDataBuf =
@@ -879,7 +880,7 @@ int prepare_sample_data(int db_index, int stb_index) {
                              stbInfo->tags, stbInfo->tagCount,
                              stbInfo->childTblCount, true);
         }
-        debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
+        debugPrint(stdout, "tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
@@ -887,14 +888,14 @@ int prepare_sample_data(int db_index, int stb_index) {
             if (convertHostToServAddr(g_arguments->host,
                                       g_arguments->telnet_tcp_port,
                                       &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
+                errorPrint(stderr, "%s\n", "convert host to server address");
                 return -1;
             }
         } else {
             if (convertHostToServAddr(g_arguments->host,
                                       g_arguments->port + TSDB_PORT_HTTP,
                                       &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
+                errorPrint(stderr, "%s\n", "convert host to server address");
                 return -1;
             }
         }
@@ -966,7 +967,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             data_type = stbInfo->columns[c - 1].type;
             param->buffer = stbInfo->columns[c - 1].data;
             param->buffer_length = stbInfo->columns[c - 1].length;
-            debugPrint("col[%d]: type: %s, len: %d\n", c,
+            debugPrint(stdout, "col[%d]: type: %s, len: %d\n", c,
                        taos_convert_datatype_to_string(data_type),
                        stbInfo->columns[c - 1].length);
         }
@@ -995,7 +996,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
 
     if (taos_stmt_bind_param_batch(
             stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
-        errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
+        errorPrint(stderr, "taos_stmt_bind_param_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
         return -1;
     }
@@ -1009,7 +1010,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
 
     // if msg > 3MB, break
     if (taos_stmt_add_batch(stmt)) {
-        errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
+        errorPrint(stderr, "taos_stmt_add_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
         return -1;
     }
@@ -1110,6 +1111,7 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             }
             default:
                 errorPrint(
+                    stderr,
                     "unknown data type (%d) for schemaless json protocol\n",
                     stbInfo->tags[i].type);
                 goto free_of_generate_sml_json_tag;
@@ -1137,7 +1139,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
     } else if (time_precision == TSDB_SML_TIMESTAMP_NANO_SECONDS) {
         cJSON_AddStringToObject(ts, "type", "ns");
     } else {
-        errorPrint("Unknown time precision %d\n", time_precision);
+        errorPrint(stderr, "Unknown time precision %d\n", time_precision);
         return -1;
     }
     cJSON *value = cJSON_CreateObject();
@@ -1205,7 +1207,8 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
             break;
         }
         default:
-            errorPrint("unknown data type (%d) for schemaless json protocol\n",
+            errorPrint(stderr,
+                       "unknown data type (%d) for schemaless json protocol\n",
                        stbInfo->columns[0].type);
             return -1;
     }

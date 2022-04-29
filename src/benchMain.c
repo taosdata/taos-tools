@@ -21,7 +21,6 @@ uint64_t       g_memoryUsage = 0;
 cJSON*         root;
 
 int main(int argc, char* argv[]) {
-    infoPrint("taos client version: %s\n", taos_get_client_info());
     init_argument();
     commandLineParseArgument(argc, argv);
     if (g_arguments->metaFile) {
@@ -33,10 +32,10 @@ int main(int argc, char* argv[]) {
 
     g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
     if (NULL == g_arguments->fpOfInsertResult) {
-        errorPrint("failed to open %s for save result\n",
+        errorPrint(stderr, "failed to open %s for save result\n",
                    g_arguments->output_file);
     }
-
+    infoPrint(stdout, "taos client version: %s\n", taos_get_client_info());
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) exit(EXIT_FAILURE);
     } else if (g_arguments->test_mode == QUERY_TEST) {

@@ -356,14 +356,14 @@ static int getDatabaseInfo(cJSON *dbinfos, int index) {
     cJSON *dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON *db = cJSON_GetObjectItem(dbinfo, "dbinfo");
     if (!cJSON_IsObject(db)) {
-        errorPrint("%s", "Invalid dbinfo format in json\n");
+        errorPrint(stderr, "%s", "Invalid dbinfo format in json\n");
         return -1;
     }
     cJSON *dbName = cJSON_GetObjectItem(db, "name");
     if (cJSON_IsString(dbName)) {
         database->dbName = dbName->valuestring;
     } else {
-        errorPrint("%s", "miss name in dbinfo\n");
+        errorPrint(stderr, "%s", "miss name in dbinfo\n");
         return -1;
     }
     cJSON *drop = cJSON_GetObjectItem(db, "drop");
@@ -470,7 +470,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
     cJSON *    dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON *    stables = cJSON_GetObjectItem(dbinfo, "super_tables");
     if (!cJSON_IsArray(stables)) {
-        errorPrint("%s", "invalid super_tables format in json\n");
+        errorPrint(stderr, "%s", "invalid super_tables format in json\n");
         return -1;
     }
     int stbSize = cJSON_GetArraySize(stables);
@@ -598,7 +598,8 @@ static int getStableInfo(cJSON *dbinfos, int index) {
                                    &(superTable->startTimestamp),
                                    (int32_t)strlen(ts->valuestring),
                                    database->dbCfg.precision, 0)) {
-                    errorPrint("failed to parse time %s\n", ts->valuestring);
+                    errorPrint(stderr, "failed to parse time %s\n",
+                               ts->valuestring);
                     return -1;
                 }
             }
@@ -771,7 +772,7 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
 
     cJSON *dbinfos = cJSON_GetObjectItem(json, "databases");
     if (!cJSON_IsArray(dbinfos)) {
-        errorPrint("%s", "Invalid databases format in json\n");
+        errorPrint(stderr, "%s", "Invalid databases format in json\n");
         return -1;
     }
     int dbSize = cJSON_GetArraySize(dbinfos);
@@ -974,6 +975,7 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             if (superSqlSize * g_queryInfo.specifiedQueryInfo.concurrent >
                 MAX_QUERY_SQL_COUNT) {
                 errorPrint(
+                    stderr,
                     "failed to read json, query sql(%d) * concurrent(%d) "
                     "overflow, max is %d\n",
                     superSqlSize, g_queryInfo.specifiedQueryInfo.concurrent,
@@ -1145,6 +1147,7 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             int superSqlSize = cJSON_GetArraySize(superSqls);
             if (superSqlSize > MAX_QUERY_SQL_COUNT) {
                 errorPrint(
+                    stderr,
                     "failed to read json, query sql size overflow, max is %d\n",
                     MAX_QUERY_SQL_COUNT);
                 goto PARSE_OVER;
@@ -1185,7 +1188,8 @@ int getInfoFromJsonFile() {
     int32_t code = -1;
     FILE *  fp = fopen(file, "r");
     if (!fp) {
-        errorPrint("failed to read %s, reason:%s\n", file, strerror(errno));
+        errorPrint(stderr, "failed to read %s, reason:%s\n", file,
+                   strerror(errno));
         return code;
     }
 
@@ -1193,16 +1197,21 @@ int getInfoFromJsonFile() {
     char *content = calloc(1, maxLen + 1);
     int   len = (int)fread(content, 1, maxLen, fp);
     if (len <= 0) {
-        errorPrint("failed to read %s, content is null", file);
+        errorPrint(stderr, "failed to read %s, content is null", file);
         goto PARSE_OVER;
     }
 
     content[len] = 0;
     root = cJSON_Parse(content);
     if (root == NULL) {
-        errorPrint("failed to cjson parse %s, invalid json format\n", file);
+        errorPrint(stderr, "failed to cjson parse %s, invalid json format\n",
+                   file);
         goto PARSE_OVER;
     }
+
+    char *pstr = cJSON_Print(root);
+    infoPrint(stdout, "\n%s\n", pstr);
+    tmfree(pstr);
 
     cJSON *filetype = cJSON_GetObjectItem(root, "filetype");
     if (filetype && filetype->type == cJSON_String &&
@@ -1214,7 +1223,8 @@ int getInfoFromJsonFile() {
         } else if (0 == strcasecmp("subscribe", filetype->valuestring)) {
             g_arguments->test_mode = SUBSCRIBE_TEST;
         } else {
-            errorPrint("%s", "failed to read json, filetype not support\n");
+            errorPrint(stderr, "%s",
+                       "failed to read json, filetype not support\n");
             goto PARSE_OVER;
         }
     } else {
