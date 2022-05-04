@@ -141,7 +141,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
         ADD_LIBRARY(avro STATIC IMPORTED)
 
-        IF(${OS_ID} MATCHES "centos")
+        IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin")
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
         ELSE()
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
