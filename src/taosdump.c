@@ -706,6 +706,7 @@ static int typeStrToType(const char *type_str) {
     } else if (0 == strcasecmp(type_str, "double")) {
         return TSDB_DATA_TYPE_DOUBLE;
     } else if ((0 == strcasecmp(type_str, "binary"))
+            || (0 == strcasecmp(type_str, "varchar"))
             || (0 == strcasecmp(type_str, "string"))) {
         return TSDB_DATA_TYPE_BINARY;
     } else if (0 == strcasecmp(type_str, "timestamp")) {
@@ -1458,18 +1459,22 @@ static int getTableDes(
 
     tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
     while ((row = taos_fetch_row(res)) != NULL) {
+        int32_t* lengths = taos_fetch_lengths(res);
+        char type[20] = {0};
         tstrncpy(tableDes->cols[colCount].field,
                 (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                min(TSDB_COL_NAME_LEN,
-                    fields[TSDB_DESCRIBE_METRIC_FIELD_INDEX].bytes + 1));
-        tableDes->cols[colCount].type =
-                typeStrToType((char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
+                lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX]);
+        strncpy(type, (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+                lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
+        tableDes->cols[colCount].type = typeStrToType(type);
         tableDes->cols[colCount].length =
             *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-        tstrncpy(tableDes->cols[colCount].note,
-                (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
-                min(COL_NOTE_LEN,
-                    fields[TSDB_DESCRIBE_METRIC_NOTE_INDEX].bytes + 1));
+
+        if (lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX] > 0) {
+            tstrncpy(tableDes->cols[colCount].note,
+                    (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
+                    lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX]);
+        }
 
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
             tableDes->columns ++;
