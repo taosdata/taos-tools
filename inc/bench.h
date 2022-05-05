@@ -430,6 +430,7 @@ typedef struct SArguments_S {
     uint32_t           intColumnCount;
     uint32_t           connection_pool;
     uint32_t           nthreads;
+    uint32_t           table_threads;
     uint64_t           prepared_rand;
     uint32_t           reqPerReq;
     uint64_t           insert_interval;
