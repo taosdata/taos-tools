@@ -731,6 +731,11 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         g_arguments->nthreads = (uint32_t)threads->valueint;
     }
 
+    cJSON* table_theads = cJSON_GetObjectItem(json, "create_table_thread_count");
+    if (cJSON_IsNumber(table_theads)) {
+        g_arguments->table_threads = (uint32_t)table_theads->valueint;
+    }
+
     cJSON *threadspool = cJSON_GetObjectItem(json, "connection_pool_size");
     if (threadspool && threadspool->type == cJSON_Number) {
         g_arguments->connection_pool = (uint32_t)threadspool->valueint;

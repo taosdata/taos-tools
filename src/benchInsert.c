@@ -642,8 +642,8 @@ static void *createTable(void *sarg) {
     pThreadInfo->buffer = calloc(1, TSDB_MAX_SQL_LEN);
     int len = 0;
     int batchNum = 0;
-    debugPrint(stdout,
-               "thread[%d]: start creating table from %" PRIu64 " to %" PRIu64
+    infoPrint(stdout,
+               "thread[%d] start creating table from %" PRIu64 " to %" PRIu64
                "\n",
                pThreadInfo->threadID, pThreadInfo->start_table_from,
                pThreadInfo->end_table_to);
@@ -692,7 +692,7 @@ static void *createTable(void *sarg) {
         batchNum = 0;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
-            infoPrint(stdout, "thread[%d] already created %" PRId64 " tables\n",
+            debugPrint(stdout, "thread[%d] already created %" PRId64 " tables\n",
                       pThreadInfo->threadID, pThreadInfo->tables_created);
             lastPrintTime = currentPrintTime;
         }
@@ -704,7 +704,7 @@ static void *createTable(void *sarg) {
             goto create_table_end;
         }
         pThreadInfo->tables_created += batchNum;
-        infoPrint(stdout, "thread[%d] already created %" PRId64 " tables\n",
+        debugPrint(stdout, "thread[%d] already created %" PRId64 " tables\n",
                   pThreadInfo->threadID, pThreadInfo->tables_created);
     }
     *code = 0;
@@ -714,7 +714,7 @@ create_table_end:
 }
 
 static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
-    int          threads = g_arguments->nthreads;
+    int          threads = g_arguments->table_threads;
     SDataBase *  database = &(g_arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
     int64_t      ntables = stbInfo->childTblCount;
@@ -774,11 +774,11 @@ static int createChildTables() {
     int32_t    code;
     SDataBase *database = g_arguments->db;
     infoPrint(stdout, "start creating %" PRId64 " table(s) with %d thread(s)\n",
-              g_arguments->g_totalChildTables, g_arguments->nthreads);
+              g_arguments->g_totalChildTables, g_arguments->table_threads);
     if (g_arguments->fpOfInsertResult) {
         infoPrint(g_arguments->fpOfInsertResult,
                   "start creating %" PRId64 " table(s) with %d thread(s)\n",
-                  g_arguments->g_totalChildTables, g_arguments->nthreads);
+                  g_arguments->g_totalChildTables, g_arguments->table_threads);
     }
     double start = (double)toolsGetTimestampMs();
 
@@ -817,7 +817,7 @@ static int createChildTables() {
               " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
               " table(s) will be auto created\n",
               (end - start) / 1000.0, g_arguments->g_totalChildTables,
-              g_arguments->nthreads, g_arguments->g_existedChildTables,
+              g_arguments->table_threads, g_arguments->g_existedChildTables,
               g_arguments->g_actualChildTables,
               g_arguments->g_autoCreatedChildTables);
     if (g_arguments->fpOfInsertResult) {
@@ -827,7 +827,7 @@ static int createChildTables() {
                 " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
                 " table(s) will be auto created\n",
                 (end - start) / 1000.0, g_arguments->g_totalChildTables,
-                g_arguments->nthreads, g_arguments->g_existedChildTables,
+                g_arguments->table_threads, g_arguments->g_existedChildTables,
                 g_arguments->g_actualChildTables,
                 g_arguments->g_autoCreatedChildTables);
     }
@@ -970,8 +970,8 @@ static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
-    debugPrint(stdout,
-               "thread[%d]: start interlace inserting into table from "
+    infoPrint(stdout,
+               "thread[%d] start interlace inserting into table from "
                "%" PRIu64 " to %" PRIu64 "\n",
                pThreadInfo->threadID, pThreadInfo->start_table_from,
                pThreadInfo->end_table_to);
@@ -1230,8 +1230,8 @@ void *syncWriteProgressive(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
-    debugPrint(stdout,
-               "thread[%d]: start progressive inserting into table from "
+    infoPrint(stdout,
+               "thread[%d] start progressive inserting into table from "
                "%" PRIu64 " to %" PRIu64 "\n",
                pThreadInfo->threadID, pThreadInfo->start_table_from,
                pThreadInfo->end_table_to);
