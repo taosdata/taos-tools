@@ -1461,7 +1461,7 @@ static int getTableDes(
     while ((row = taos_fetch_row(res)) != NULL) {
         int32_t* lengths = taos_fetch_lengths(res);
         char type[20] = {0};
-        tstrncpy(tableDes->cols[colCount].field,
+        strncpy(tableDes->cols[colCount].field,
                 (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                 lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX]);
         strncpy(type, (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
@@ -1471,7 +1471,7 @@ static int getTableDes(
             *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
 
         if (lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX] > 0) {
-            tstrncpy(tableDes->cols[colCount].note,
+            strncpy(tableDes->cols[colCount].note,
                     (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX]);
         }
