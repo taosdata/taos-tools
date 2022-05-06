@@ -109,7 +109,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/cJsonDemo/src)
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     SET(OS_ID "")
     ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
-    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchOutput.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
+    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
     EXECUTE_PROCESS (
         COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
         OUTPUT_VARIABLE OS_ID
@@ -141,7 +141,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
         ADD_LIBRARY(avro STATIC IMPORTED)
 
-        IF(${OS_ID} MATCHES "centos")
+        IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin")
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
         ELSE()
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
