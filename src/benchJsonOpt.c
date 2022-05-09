@@ -62,22 +62,22 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         // column info
         cJSON *dataType = cJSON_GetObjectItem(column, "type");
-        if (!dataType || dataType->type != cJSON_String) goto PARSE_OVER;
+        if (!cJSON_IsString(dataType)) goto PARSE_OVER;
 
         cJSON *dataMax = cJSON_GetObjectItem(column, "max");
         if (dataMax && cJSON_IsNumber(dataMax) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMax = true;
         }
 
         cJSON *dataMin = cJSON_GetObjectItem(column, "min");
         if (dataMin && cJSON_IsNumber(dataMin) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMin = true;
         }
@@ -98,7 +98,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
         } else {
-            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+            switch (taos_convert_string_to_datatype(dataType->valuestring, 0)) {
                 case TSDB_DATA_TYPE_BOOL:
                 case TSDB_DATA_TYPE_TINYINT:
                 case TSDB_DATA_TYPE_UTINYINT:
@@ -133,7 +133,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             superTbls->columns[index].name = calloc(1, TSDB_COL_NAME_LEN);
             superTbls->columns[index].comment = calloc(1, TSDB_COL_NAME_LEN);
             superTbls->columns[index].type =
-                taos_convert_string_to_datatype(dataType->valuestring);
+                taos_convert_string_to_datatype(dataType->valuestring, 0);
             superTbls->columns[index].length = length;
             superTbls->columns[index].sma = sma;
             if (customMax) {
@@ -191,7 +191,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
     superTbls->use_metric = true;
     superTbls->tags = calloc(tag_count, sizeof(Column));
-    // superTbls->tagCount = tagSize;
+    superTbls->tagCount = tag_count;
     for (int k = 0; k < tagSize; ++k) {
         cJSON *tag = cJSON_GetArrayItem(tags, k);
         if (tag == NULL) continue;
@@ -199,13 +199,13 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         bool   customMin = false;
         bool   customName = false;
         cJSON *dataType = cJSON_GetObjectItem(tag, "type");
-        if (!dataType || dataType->type != cJSON_String) goto PARSE_OVER;
+        if (!cJSON_IsString(dataType)) goto PARSE_OVER;
         int    data_length = 0;
         cJSON *dataLen = cJSON_GetObjectItem(tag, "len");
-        if (dataLen && dataLen->type == cJSON_Number) {
+        if (cJSON_IsNumber(dataLen)) {
             data_length = (int32_t)dataLen->valueint;
         } else {
-            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+            switch (taos_convert_string_to_datatype(dataType->valuestring, 0)) {
                 case TSDB_DATA_TYPE_BOOL:
                 case TSDB_DATA_TYPE_TINYINT:
                 case TSDB_DATA_TYPE_UTINYINT:
@@ -237,19 +237,19 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
 
         cJSON *dataMax = cJSON_GetObjectItem(tag, "max");
-        if (dataMax && cJSON_IsNumber(dataMax) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+        if (cJSON_IsNumber(dataMax) &&
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMax = true;
         }
 
         cJSON *dataMin = cJSON_GetObjectItem(tag, "min");
-        if (dataMin && cJSON_IsNumber(dataMin) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+        if (cJSON_IsNumber(dataMin) &&
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMin = true;
         }
@@ -262,7 +262,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             customName = true;
         }
         cJSON *countObj = cJSON_GetObjectItem(tag, "count");
-        if (countObj && countObj->type == cJSON_Number) {
+        if (cJSON_IsNumber(countObj)) {
             count = (int)countObj->valueint;
         } else {
             count = 1;
@@ -315,7 +315,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                         comment_value->valuestring);
             }
             superTbls->tags[index].type =
-                taos_convert_string_to_datatype(dataType->valuestring);
+                taos_convert_string_to_datatype(dataType->valuestring, 0);
             superTbls->tags[index].length = data_length;
             index++;
         }
@@ -529,7 +529,8 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         cJSON *childTblExists =
             cJSON_GetObjectItem(stbInfo, "child_table_exists");
         if (cJSON_IsString(childTblExists) &&
-            (0 == strcasecmp(childTblExists->valuestring, "yes")) && !database->drop) {
+            (0 == strcasecmp(childTblExists->valuestring, "yes")) &&
+            !database->drop) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
         }
@@ -731,7 +732,8 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         g_arguments->nthreads = (uint32_t)threads->valueint;
     }
 
-    cJSON* table_theads = cJSON_GetObjectItem(json, "create_table_thread_count");
+    cJSON *table_theads =
+        cJSON_GetObjectItem(json, "create_table_thread_count");
     if (cJSON_IsNumber(table_theads)) {
         g_arguments->table_threads = (uint32_t)table_theads->valueint;
     }

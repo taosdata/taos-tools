@@ -65,6 +65,26 @@
 #include "taos.h"
 #include "toolsdef.h"
 
+#ifndef TSDB_DATA_TYPE_VARCHAR
+#define TSDB_DATA_TYPE_VARCHAR 8
+#endif
+
+#ifndef TSDB_DATA_TYPE_VARBINARY
+#define TSDB_DATA_TYPE_VARBINARY 16
+#endif
+
+#ifndef TSDB_DATA_TYPE_DECIMAL
+#define TSDB_DATA_TYPE_DECIMAL 17
+#endif
+
+#ifndef TSDB_DATA_TYPE_MEDIUMBLOB
+#define TSDB_DATA_TYPE_MEDIUMBLOB 19
+#endif
+
+#ifndef TSDB_DATA_TYPE_MAX
+#define TSDB_DATA_TYPE_MAX 20
+#endif
+
 #define REQ_EXTRA_BUF_LEN 1024
 #define RESP_BUF_LEN      4096
 #define SQL_BUFF_LEN      1024
@@ -538,7 +558,7 @@ void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
 char *  taos_convert_datatype_to_string(int type);
-int     taos_convert_string_to_datatype(char *type);
+int     taos_convert_string_to_datatype(char *type, int length);
 int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
