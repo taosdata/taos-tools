@@ -566,36 +566,38 @@ char *taos_convert_datatype_to_string(int type) {
 }
 
 int taos_convert_string_to_datatype(char *type) {
-    if (0 == strcasecmp(type, "binary")) {
+    if (0 == strncasecmp(type, "binary", strlen("binary"))) {
         return TSDB_DATA_TYPE_BINARY;
-    } else if (0 == strcasecmp(type, "nchar")) {
+    } else if (0 == strncasecmp(type, "nchar", strlen("nchar"))) {
         return TSDB_DATA_TYPE_NCHAR;
-    } else if (0 == strcasecmp(type, "timestamp")) {
+    } else if (0 == strncasecmp(type, "timestamp", strlen("timestamp"))) {
         return TSDB_DATA_TYPE_TIMESTAMP;
-    } else if (0 == strcasecmp(type, "bool")) {
+    } else if (0 == strncasecmp(type, "bool", strlen("bool"))) {
         return TSDB_DATA_TYPE_BOOL;
-    } else if (0 == strcasecmp(type, "tinyint")) {
+    } else if (0 == strncasecmp(type, "tinyint", strlen("tinyint"))) {
         return TSDB_DATA_TYPE_TINYINT;
-    } else if (0 == strcasecmp(type, "utinyint")) {
+    } else if (0 == strncasecmp(type, "utinyint", strlen("utinyint"))) {
         return TSDB_DATA_TYPE_UTINYINT;
-    } else if (0 == strcasecmp(type, "smallint")) {
+    } else if (0 == strncasecmp(type, "smallint", strlen("smallint"))) {
         return TSDB_DATA_TYPE_SMALLINT;
-    } else if (0 == strcasecmp(type, "usmallint")) {
+    } else if (0 == strncasecmp(type, "usmallint", strlen("usmallint"))) {
         return TSDB_DATA_TYPE_USMALLINT;
-    } else if (0 == strcasecmp(type, "int")) {
+    } else if (0 == strncasecmp(type, "int", strlen("int"))) {
         return TSDB_DATA_TYPE_INT;
-    } else if (0 == strcasecmp(type, "uint")) {
+    } else if (0 == strncasecmp(type, "uint", strlen("uint"))) {
         return TSDB_DATA_TYPE_UINT;
-    } else if (0 == strcasecmp(type, "bigint")) {
+    } else if (0 == strncasecmp(type, "bigint", strlen("bigint"))) {
         return TSDB_DATA_TYPE_BIGINT;
-    } else if (0 == strcasecmp(type, "ubigint")) {
+    } else if (0 == strncasecmp(type, "ubigint", strlen("ubigint"))) {
         return TSDB_DATA_TYPE_UBIGINT;
-    } else if (0 == strcasecmp(type, "float")) {
+    } else if (0 == strncasecmp(type, "float", strlen("float"))) {
         return TSDB_DATA_TYPE_FLOAT;
-    } else if (0 == strcasecmp(type, "double")) {
+    } else if (0 == strncasecmp(type, "double", strlen("double"))) {
         return TSDB_DATA_TYPE_DOUBLE;
-    } else if (0 == strcasecmp(type, "json")) {
+    } else if (0 == strncasecmp(type, "json", strlen("json"))) {
         return TSDB_DATA_TYPE_JSON;
+    } else if (0 == strncasecmp(type, "varchar", strlen("varchar"))) {
+        return TSDB_DATA_TYPE_BINARY;
     } else {
         errorPrint(stderr, "unknown data type: %s\n", type);
         exit(EXIT_FAILURE);

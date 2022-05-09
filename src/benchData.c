@@ -819,10 +819,6 @@ int prepare_sample_data(int db_index, int stb_index) {
     SDataBase *  database = &(g_arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
     calcRowLen(stbInfo);
-    debugPrint(stdout, "stable: %s: tagCount: %d; lenOfTags: %d\n",
-               stbInfo->stbName, stbInfo->tagCount, stbInfo->lenOfTags);
-    debugPrint(stdout, "stable: %s: columnCount: %d; lenOfCols: %d\n",
-               stbInfo->stbName, stbInfo->columnCount, stbInfo->lenOfCols);
     if (stbInfo->partialColumnNum != 0 &&
         (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
         if (stbInfo->partialColumnNum > stbInfo->columnCount) {
@@ -848,6 +844,10 @@ int prepare_sample_data(int db_index, int stb_index) {
     }
     stbInfo->sampleDataBuf =
         calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
+    infoPrint(stdout,
+              "generate stable<%s> columns data with lenOfCols<%u> * "
+              "prepared_rand<%" PRIu64 ">\n",
+              stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
     g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
     if (stbInfo->random_data_source) {
         generateRandData(stbInfo, stbInfo->sampleDataBuf, stbInfo->lenOfCols,
@@ -868,6 +868,10 @@ int prepare_sample_data(int db_index, int stb_index) {
     if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
         stbInfo->tagDataBuf =
             calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
+        infoPrint(stdout,
+                  "generate stable<%s> tags data with lenOfTags<%u> * "
+                  "childTblCount<%" PRIu64 ">\n",
+                  stbInfo->stbName, stbInfo->lenOfTags, stbInfo->childTblCount);
         g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
         if (stbInfo->tagsFile[0] != 0) {
             if (generateSampleFromCsvForStb(
