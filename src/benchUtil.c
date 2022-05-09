@@ -614,19 +614,19 @@ int taos_convert_string_to_datatype(char *type, int length) {
             return TSDB_DATA_TYPE_BOOL;
         } else if (0 == strncasecmp(type, "tinyint", length)) {
             return TSDB_DATA_TYPE_TINYINT;
-        } else if (0 == strncasecmp(type, "utinyint", length)) {
+        } else if (0 == strncasecmp(type, "tinyint unsigned", length)) {
             return TSDB_DATA_TYPE_UTINYINT;
         } else if (0 == strncasecmp(type, "smallint", length)) {
             return TSDB_DATA_TYPE_SMALLINT;
-        } else if (0 == strncasecmp(type, "usmallint", length)) {
+        } else if (0 == strncasecmp(type, "smallint unsigned", length)) {
             return TSDB_DATA_TYPE_USMALLINT;
         } else if (0 == strncasecmp(type, "int", length)) {
             return TSDB_DATA_TYPE_INT;
-        } else if (0 == strncasecmp(type, "uint", length)) {
+        } else if (0 == strncasecmp(type, "int unsigned", length)) {
             return TSDB_DATA_TYPE_UINT;
         } else if (0 == strncasecmp(type, "bigint", length)) {
             return TSDB_DATA_TYPE_BIGINT;
-        } else if (0 == strncasecmp(type, "ubigint", length)) {
+        } else if (0 == strncasecmp(type, "bigint unsigned", length)) {
             return TSDB_DATA_TYPE_UBIGINT;
         } else if (0 == strncasecmp(type, "float", length)) {
             return TSDB_DATA_TYPE_FLOAT;
