@@ -107,10 +107,17 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             count++;
             continue;
         }
+        int32_t *lengths = taos_fetch_lengths(res);
+        if (lengths == NULL) {
+            errorPrint(stderr, "%s", "failed to execute taos_fetch_length\n");
+            taos_free_result(res);
+            return -1;
+        }
         if (strncasecmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
                         strlen("tag")) == 0) {
             stbInfo->tags[tagIndex].type = taos_convert_string_to_datatype(
-                (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
+                (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+                lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
             stbInfo->tags[tagIndex].length =
                 *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
             stbInfo->tags[tagIndex].max = RAND_MAX >> 1;
@@ -120,7 +127,8 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
         } else {
             stbInfo->columns[columnIndex].type =
                 taos_convert_string_to_datatype(
-                    (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
+                    (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+                    lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
             if (tmp_length_list[columnIndex] != 0) {
                 stbInfo->columns[columnIndex].length =
                     *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);

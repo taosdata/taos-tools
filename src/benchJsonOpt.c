@@ -66,18 +66,18 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         cJSON *dataMax = cJSON_GetObjectItem(column, "max");
         if (dataMax && cJSON_IsNumber(dataMax) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMax = true;
         }
 
         cJSON *dataMin = cJSON_GetObjectItem(column, "min");
         if (dataMin && cJSON_IsNumber(dataMin) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMin = true;
         }
@@ -98,7 +98,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         if (dataLen && dataLen->type == cJSON_Number) {
             length = (int32_t)dataLen->valueint;
         } else {
-            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+            switch (taos_convert_string_to_datatype(dataType->valuestring, 0)) {
                 case TSDB_DATA_TYPE_BOOL:
                 case TSDB_DATA_TYPE_TINYINT:
                 case TSDB_DATA_TYPE_UTINYINT:
@@ -133,7 +133,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             superTbls->columns[index].name = calloc(1, TSDB_COL_NAME_LEN);
             superTbls->columns[index].comment = calloc(1, TSDB_COL_NAME_LEN);
             superTbls->columns[index].type =
-                taos_convert_string_to_datatype(dataType->valuestring);
+                taos_convert_string_to_datatype(dataType->valuestring, 0);
             superTbls->columns[index].length = length;
             superTbls->columns[index].sma = sma;
             if (customMax) {
@@ -205,7 +205,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         if (cJSON_IsNumber(dataLen)) {
             data_length = (int32_t)dataLen->valueint;
         } else {
-            switch (taos_convert_string_to_datatype(dataType->valuestring)) {
+            switch (taos_convert_string_to_datatype(dataType->valuestring, 0)) {
                 case TSDB_DATA_TYPE_BOOL:
                 case TSDB_DATA_TYPE_TINYINT:
                 case TSDB_DATA_TYPE_UTINYINT:
@@ -238,18 +238,18 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         cJSON *dataMax = cJSON_GetObjectItem(tag, "max");
         if (cJSON_IsNumber(dataMax) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMax = true;
         }
 
         cJSON *dataMin = cJSON_GetObjectItem(tag, "min");
         if (cJSON_IsNumber(dataMin) &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring) !=
+            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
                 TSDB_DATA_TYPE_NCHAR) {
             customMin = true;
         }
@@ -315,7 +315,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                         comment_value->valuestring);
             }
             superTbls->tags[index].type =
-                taos_convert_string_to_datatype(dataType->valuestring);
+                taos_convert_string_to_datatype(dataType->valuestring, 0);
             superTbls->tags[index].length = data_length;
             index++;
         }

@@ -558,7 +558,7 @@ void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
 char *  taos_convert_datatype_to_string(int type);
-int     taos_convert_string_to_datatype(char *type);
+int     taos_convert_string_to_datatype(char *type, int length);
 int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
