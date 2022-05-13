@@ -1868,6 +1868,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
     if (JSON_OBJECT != json_typeof(element)) {
         errorPrint("%s() LN%d, json passed is not an object\n",
                 __func__, __LINE__);
+        free(recordSchema);
         return NULL;
     }
 
@@ -4055,6 +4056,7 @@ static int dumpInAvroDataImpl(
                 taos_stmt_errstr(stmt));
 
         free(stmtBuffer);
+        free(tableDes);
         return -1;
     }
 
@@ -4114,6 +4116,9 @@ static int dumpInAvroDataImpl(
                     "reason: %s\n",
                     escapedTbName, taos_stmt_errstr(stmt));
             free(escapedTbName);
+            if (g_dumpInLooseModeFlag) {
+                free(tbName);
+            }
             continue;
         }
         free(escapedTbName);
@@ -5777,6 +5782,7 @@ static int createMTableAvroHead(
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
+        free(tbNameArr);
         tfree(jsonTagsSchema);
         freeTbDes(tableDes);
         return -1;
@@ -6607,6 +6613,9 @@ static void *dumpNormalTablesOfStb(void *arg) {
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
+        if (!g_args.avro) {
+            fclose(fp);
+        }
         return NULL;
     }
 
@@ -7012,7 +7021,7 @@ static bool checkFileExists(char *path, char *filename)
 
 static bool checkFileExistsExt(char *path, char *ext)
 {
-    bool bRet;
+    bool bRet = false;
 
     int namelen, extlen;
     struct dirent *pDirent;
@@ -7640,6 +7649,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
             } else {
                 errorPrint("%s() LN%d, fields have no array\n",
                         __func__, __LINE__);
+                free(recordSchema);
                 return NULL;
             }
 
