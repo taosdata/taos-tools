@@ -146,6 +146,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             } else {
                 superTbls->columns[index].min = (RAND_MAX >> 1) * -1;
             }
+            if (customMin && customMax && dataMin->valueint > dataMax->valueint) {
+                errorPrint(stderr, "%s", "Invalid max and min column value in json\n");
+                goto PARSE_OVER;
+            }
+            
             superTbls->columns[index].values = dataValues;
 
             if (customName) {
@@ -297,6 +302,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             } else {
                 superTbls->tags[index].min = (RAND_MAX >> 1) * -1;
             }
+            if (customMax && customMin && dataMin->valueint > dataMax->valueint) {
+                errorPrint(stderr, "%s","Invalid max and min tag value in json\n");
+                goto PARSE_OVER;
+            }
+            
             superTbls->tags[index].values = dataValues;
             if (customName) {
                 if (n >= 1) {
