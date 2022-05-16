@@ -39,7 +39,7 @@ mkdir -p ${pkg_dir}${install_home_path}
 mkdir -p ${pkg_dir}${install_home_path}/bin || :
 
 cp ${compile_dir}/build/bin/${dumpName}                     ${pkg_dir}${install_home_path}/bin
-cp ${compile_dir}/build/bin/${benchmarkName}                ${pkg_dir}${install_home_path}/bin
+#cp ${compile_dir}/build/bin/${benchmarkName}                ${pkg_dir}${install_home_path}/bin
 
 wget https://github.com/taosdata/grafanaplugin/releases/latest/download/TDinsight.sh -O ${compile_dir}/build/bin/${TDinsight} && \
     echo "TDinsight.sh downloaded!" || \

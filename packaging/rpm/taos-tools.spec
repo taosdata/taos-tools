@@ -45,7 +45,7 @@ echo buildroot: %{buildroot}
 mkdir -p %{buildroot}%{homepath}/bin
 
 cp %{_compiledir}/build/bin/taosdump                %{buildroot}%{homepath}/bin
-cp %{_compiledir}/build/bin/taosBenchmark           %{buildroot}%{homepath}/bin
+#cp %{_compiledir}/build/bin/taosBenchmark           %{buildroot}%{homepath}/bin
 cp %{_compiledir}/build/bin/TDinsight.sh            %{buildroot}%{homepath}/bin
 
 #if [ -f %{_compiledir}/build/lib/libavro.so.23.0.0 ]; then
@@ -75,8 +75,11 @@ fi
 
 ${csudo}mkdir -p /usr/local/bin || :
 ${csudo}ln -sf /usr/local/taos/bin/taosdump          /usr/local/bin/taosdump
-${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosBenchmark
-${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosdemo
+
+if [[ -f /usr/local/taos/bin/taosBenchmark ]]; then
+    ${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosBenchmark
+    ${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosdemo
+fi
 
 if [[ -d /usr/local/lib64 ]]; then
     ${csudo}ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23.0.0 || :
@@ -106,8 +109,8 @@ if command -v sudo > /dev/null; then
 fi
 # only remove package to call preun.sh, not but update(2)
 ${csudo}rm -f /usr/local/bin/taosdump      || :
-${csudo}rm -f /usr/local/bin/taosBenchmark || :
-${csudo}rm -f /usr/local/bin/taosdemo      || :
+#${csudo}rm -f /usr/local/bin/taosBenchmark || :
+#${csudo}rm -f /usr/local/bin/taosdemo      || :
 
 # Scripts executed after uninstall
 %postun
