@@ -66,7 +66,7 @@
 
 #define TSDB_TABLE_NAME_LEN       193     // it is a null-terminated string
 #define TSDB_DB_NAME_LEN          33
-#define TSDB_COL_NAME_LEN         65
+#define TSDB_COL_NAME_LEN         129 // must sync with taodef.h TSDB_COL_NAME_LEN
 #define TSDB_MAX_ALLOWED_SQL_LEN  (1*1024*1024u)          // sql length should be less than 1mb
 
 #define TSDB_MAX_BYTES_PER_ROW    49151
