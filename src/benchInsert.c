@@ -1875,7 +1875,9 @@ int insertTestProcess() {
                     if (createSuperTable(i, j)) return -1;
                 }
             }
-            prepare_sample_data(i, j);
+            if (0 != prepare_sample_data(i, j)) {
+                return -1;
+            }
         }
     }
     infoPrint(stdout, "Estimate memory usage: %.2fMB\n",
