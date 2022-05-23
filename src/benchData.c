@@ -307,11 +307,11 @@ static void calcRowLen(SSuperTable *stbInfo) {
 }
 
 void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-                      int lenOfOneRow, Column *columns, int count, int loop,
+                      int lenOfOneRow, Column *columns, int count, int64_t loop,
                       bool tag) {
     int     iface = stbInfo->iface;
     int     line_protocol = stbInfo->lineProtocol;
-    int32_t pos = 0;
+    int64_t pos = 0;
     if (iface == STMT_IFACE) {
         for (int i = 0; i < count; ++i) {
             if (columns[i].type == TSDB_DATA_TYPE_BINARY ||
@@ -322,7 +322,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
             }
         }
     }
-    for (int k = 0; k < loop; ++k) {
+    for (int64_t k = 0; k < loop; ++k) {
         pos = k * lenOfOneRow;
         if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
             (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
