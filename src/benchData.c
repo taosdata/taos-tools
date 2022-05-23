@@ -868,6 +868,10 @@ int prepare_sample_data(int db_index, int stb_index) {
     if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
         stbInfo->tagDataBuf =
             calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
+        if (NULL == stbInfo->tagDataBuf) {
+            errorPrint(stderr, "%s() LN%d, failed to alloc memory!\n", __func__, __LINE__);
+            return -1;
+        }
         infoPrint(stdout,
                   "generate stable<%s> tags data with lenOfTags<%u> * "
                   "childTblCount<%" PRIu64 ">\n",
