@@ -61,7 +61,7 @@ if [ -f ${compile_dir}/build/lib/libavro.a ]; then
     cp ${compile_dir}/build/lib/libavro.a ${pkg_dir}${install_user_local_path}/lib/
 fi
 
-cp -r ${deb_dir}/DEBIAN ${pkg_dir}/
+cp -rf ${deb_dir}/DEBIAN ${pkg_dir}/
 chmod 755 ${pkg_dir}/DEBIAN/*
 
 debname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
