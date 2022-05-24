@@ -1735,7 +1735,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     for (int j = 0; j < g_arguments->reqPerReq; j++) {
                         pThreadInfo->lines[j] =
                             calloc(1, pThreadInfo->max_sql_len);
-                        if (pThreadInfo->lines[j]) {
+                        if (pThreadInfo->lines[j] == NULL) {
                             errorPrint(stderr, "%s", "memory allocation failed\n");
                             exit(EXIT_FAILURE);
                         }
