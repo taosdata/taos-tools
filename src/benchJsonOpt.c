@@ -40,6 +40,12 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
     }
     superTbls->columns = calloc(col_count, sizeof(Column));
+    if (superTbls->columns == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    g_memoryUsage += col_count * sizeof(Column);
     for (int k = 0; k < columnSize; ++k) {
         bool   customName = false;
         bool   customMax = false;
@@ -91,7 +97,6 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                 sma = true;
             }
         }
-        cJSON *comment_value = cJSON_GetObjectItem(column, "comment");
 
         cJSON * dataLen = cJSON_GetObjectItem(column, "len");
         int32_t length;
@@ -130,8 +135,6 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
 
         for (int n = 0; n < count; ++n) {
-            superTbls->columns[index].name = calloc(1, TSDB_COL_NAME_LEN);
-            superTbls->columns[index].comment = calloc(1, TSDB_COL_NAME_LEN);
             superTbls->columns[index].type =
                 taos_convert_string_to_datatype(dataType->valuestring, 0);
             superTbls->columns[index].length = length;
@@ -164,11 +167,6 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             } else {
                 sprintf(superTbls->columns[index].name, "c%d", index);
             }
-            if (g_arguments->taosc_version == 3 &&
-                cJSON_IsString(comment_value)) {
-                sprintf(superTbls->columns[index].comment, "%s",
-                        comment_value->valuestring);
-            }
             index++;
         }
     }
@@ -196,6 +194,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
     superTbls->use_metric = true;
     superTbls->tags = calloc(tag_count, sizeof(Column));
+    if (superTbls->tags == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    g_memoryUsage += tag_count * sizeof(Column);
     superTbls->tagCount = tag_count;
     for (int k = 0; k < tagSize; ++k) {
         cJSON *tag = cJSON_GetArrayItem(tags, k);
@@ -272,11 +275,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         } else {
             count = 1;
         }
-        cJSON *comment_value = cJSON_GetObjectItem(tag, "comment");
 
         if ((tagSize == 1) &&
             (0 == strcasecmp(dataType->valuestring, "JSON"))) {
-            superTbls->tags[0].name = calloc(1, TSDB_COL_NAME_LEN);
             if (customName) {
                 sprintf(superTbls->tags[0].name, "%s", dataName->valuestring);
             } else {
@@ -290,8 +291,6 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
 
         for (int n = 0; n < count; ++n) {
-            superTbls->tags[index].name = calloc(1, TSDB_COL_NAME_LEN);
-            superTbls->tags[index].comment = calloc(1, TSDB_COL_NAME_LEN);
             if (customMax) {
                 superTbls->tags[index].max = dataMax->valueint;
             } else {
@@ -318,11 +317,6 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
                 }
             } else {
                 sprintf(superTbls->tags[index].name, "t%d", index);
-            }
-            if (g_arguments->taosc_version == 3 &&
-                cJSON_IsString(comment_value)) {
-                sprintf(superTbls->tags[index].comment, "%s",
-                        comment_value->valuestring);
             }
             superTbls->tags[index].type =
                 taos_convert_string_to_datatype(dataType->valuestring, 0);
@@ -485,6 +479,10 @@ static int getStableInfo(cJSON *dbinfos, int index) {
     }
     int stbSize = cJSON_GetArraySize(stables);
     database->superTbls = calloc(stbSize, sizeof(SSuperTable));
+    if (database->superTbls == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     g_memoryUsage += stbSize * sizeof(SSuperTable);
     database->superTblCount = stbSize;
     for (int i = 0; i < database->superTblCount; ++i) {
@@ -677,10 +675,6 @@ static int getStableInfo(cJSON *dbinfos, int index) {
             superTable->partialColumnNum = pCoumnNum->valueint;
         }
         if (g_arguments->taosc_version == 3) {
-            cJSON *comment = cJSON_GetObjectItem(stbInfo, "comment");
-            if (cJSON_IsString(comment)) {
-                superTable->comment = comment->valuestring;
-            }
             cJSON *delay = cJSON_GetObjectItem(stbInfo, "delay");
             if (cJSON_IsNumber(delay)) {
                 superTable->delay = (int)delay->valueint;
@@ -799,6 +793,11 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     tmfree(g_arguments->db->superTbls);
     tmfree(g_arguments->db);
     g_arguments->db = calloc(dbSize, sizeof(SDataBase));
+    if (g_arguments->db == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    
     g_memoryUsage += dbSize * sizeof(SDataBase);
     g_arguments->dbCount = dbSize;
 
@@ -1213,6 +1212,10 @@ int getInfoFromJsonFile() {
 
     int   maxLen = MAX_JSON_BUFF;
     char *content = calloc(1, maxLen + 1);
+    if (content == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     int   len = (int)fread(content, 1, maxLen, fp);
     if (len <= 0) {
         errorPrint(stderr, "failed to read %s, content is null", file);
