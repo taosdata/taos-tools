@@ -560,6 +560,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             tmfree(arguments->db->superTbls->tags);
             arguments->db->superTbls->tags =
                 calloc(arguments->db->superTbls->tagCount, sizeof(Column));
+            if (arguments->db->superTbls->tags == NULL) {
+                errorPrint(stderr, "%s", "memory allocation failed\n");
+                exit(EXIT_FAILURE);
+            }
+            g_memoryUsage += arguments->db->superTbls->tagCount * sizeof(Column);
             if (parse_tag_datatype(arg, arguments->db->superTbls->tags)) {
                 tmfree(arguments->db->superTbls->tags);
                 exit(EXIT_FAILURE);
@@ -571,7 +576,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             count_datatype(arg, &(arguments->db->superTbls->columnCount));
             arguments->db->superTbls->columns =
                 calloc(arguments->db->superTbls->columnCount, sizeof(Column));
-
+            if (arguments->db->superTbls->columns == NULL) {
+                errorPrint(stderr, "%s", "memory allocation failed\n");
+                exit(EXIT_FAILURE);
+            }
+            g_memoryUsage += arguments->db->superTbls->columnCount * sizeof(Column);
             if (parse_col_datatype(arg, arguments->db->superTbls->columns)) {
                 tmfree(arguments->db->superTbls->columns);
                 exit(EXIT_FAILURE);
@@ -664,6 +673,11 @@ static struct argp argp = {options, parse_opt, args_doc, doc};
 static SSuperTable *init_stable() {
     SDataBase *database = g_arguments->db;
     database->superTbls = calloc(1, sizeof(SSuperTable));
+    if (database->superTbls == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    g_memoryUsage += sizeof(SSuperTable);
     SSuperTable *stbInfo = database->superTbls;
     stbInfo->iface = TAOSC_IFACE;
     stbInfo->stbName = "meters";
@@ -671,6 +685,11 @@ static SSuperTable *init_stable() {
     stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
     stbInfo->columns = calloc(3, sizeof(Column));
+    if (stbInfo->columns == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    g_memoryUsage += 3 * sizeof(Column);
     stbInfo->columns[0].type = TSDB_DATA_TYPE_FLOAT;
     stbInfo->columns[1].type = TSDB_DATA_TYPE_INT;
     stbInfo->columns[2].type = TSDB_DATA_TYPE_FLOAT;
@@ -678,6 +697,11 @@ static SSuperTable *init_stable() {
     stbInfo->columns[1].length = sizeof(int32_t);
     stbInfo->columns[2].length = sizeof(float);
     stbInfo->tags = calloc(3, sizeof(Column));
+    if (stbInfo->tags == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    g_memoryUsage += 3 * sizeof(Column);
     stbInfo->tags[0].type = TSDB_DATA_TYPE_INT;
     stbInfo->tags[1].type = TSDB_DATA_TYPE_BINARY;
     stbInfo->tags[0].length = sizeof(int32_t);
@@ -706,6 +730,11 @@ static SSuperTable *init_stable() {
 
 static SDataBase *init_database() {
     g_arguments->db = calloc(1, sizeof(SDataBase));
+    if (g_arguments->db == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    g_memoryUsage += sizeof(SDataBase);
     SDataBase *database = g_arguments->db;
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
@@ -736,6 +765,10 @@ static SDataBase *init_database() {
 }
 void init_argument() {
     g_arguments = calloc(1, sizeof(SArguments));
+    if (g_arguments == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     g_memoryUsage += sizeof(SArguments);
     if (taos_get_client_info()[0] == '3') {
         g_arguments->taosc_version = 3;
@@ -743,6 +776,10 @@ void init_argument() {
         g_arguments->taosc_version = 2;
     }
     g_arguments->pool = calloc(1, sizeof(TAOS_POOL));
+    if (g_arguments->pool == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     g_memoryUsage += sizeof(TAOS_POOL);
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
@@ -797,25 +834,15 @@ void modify_argument() {
     }
 
     if (g_arguments->demo_mode) {
-        superTable->tags[0].name = calloc(1, TSDB_COL_NAME_LEN);
-        superTable->tags[0].comment = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->tags[0].name, "groupid");
+        tstrncpy(superTable->tags[0].name, "groupid", TSDB_COL_NAME_LEN + 1);
         superTable->tags[0].min = -1 * (RAND_MAX >> 1);
         superTable->tags[1].min = -1 * (RAND_MAX >> 1);
         superTable->tags[0].max = RAND_MAX >> 1;
         superTable->tags[1].max = RAND_MAX >> 1;
-        superTable->tags[1].name = calloc(1, TSDB_COL_NAME_LEN);
-        superTable->tags[1].comment = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->tags[1].name, "location");
-        superTable->columns[0].name = calloc(1, TSDB_COL_NAME_LEN);
-        superTable->columns[0].comment = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->columns[0].name, "current");
-        superTable->columns[1].name = calloc(1, TSDB_COL_NAME_LEN);
-        superTable->columns[1].comment = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->columns[1].name, "voltage");
-        superTable->columns[2].name = calloc(1, TSDB_COL_NAME_LEN);
-        superTable->columns[2].comment = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->columns[2].name, "phase");
+        tstrncpy(superTable->tags[1].name, "location", TSDB_COL_NAME_LEN + 1);
+        tstrncpy(superTable->columns[0].name, "current", TSDB_COL_NAME_LEN + 1);
+        tstrncpy(superTable->columns[1].name, "voltage", TSDB_COL_NAME_LEN + 1);
+        tstrncpy(superTable->columns[2].name, "phase", TSDB_COL_NAME_LEN + 1);
         superTable->columns[0].min = -1 * (RAND_MAX >> 1);
         superTable->columns[0].max = RAND_MAX >> 1;
         superTable->columns[1].min = -1 * (RAND_MAX >> 1);
@@ -824,8 +851,6 @@ void modify_argument() {
         superTable->columns[2].max = RAND_MAX >> 1;
     } else {
         for (int i = 0; i < superTable->tagCount; ++i) {
-            superTable->tags[i].name = calloc(1, TSDB_COL_NAME_LEN);
-            superTable->tags[i].comment = calloc(1, TSDB_COL_NAME_LEN);
             sprintf(superTable->tags[i].name, "t%d", i);
             superTable->tags[i].min = -1 * (RAND_MAX >> 1);
             superTable->tags[i].max = RAND_MAX >> 1;
@@ -854,8 +879,6 @@ void modify_argument() {
     }
     if (!g_arguments->demo_mode) {
         for (int i = 0; i < superTable->columnCount; ++i) {
-            superTable->columns[i].name = calloc(1, TSDB_COL_NAME_LEN);
-            superTable->columns[i].comment = calloc(1, TSDB_COL_NAME_LEN);
             sprintf(superTable->columns[i].name, "c%d", i);
             superTable->columns[i].min = -1 * (RAND_MAX >> 1);
             superTable->columns[i].max = RAND_MAX >> 1;
@@ -868,7 +891,10 @@ static void *queryStableAggrFunc(void *sarg) {
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryStableAggrFunc");
     char *command = calloc(1, BUFFER_SIZE);
-
+    if (command == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     FILE *  fp = g_arguments->fpOfInsertResult;
     int64_t totalData = g_arguments->db->superTbls->insertRows *
                         g_arguments->db->superTbls->childTblCount;
@@ -952,6 +978,10 @@ static void *queryNtableAggrFunc(void *sarg) {
     TAOS *      taos = pThreadInfo->taos;
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
     char *  command = calloc(1, BUFFER_SIZE);
+    if (command == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     FILE *  fp = g_arguments->fpOfInsertResult;
     int64_t totalData = g_arguments->db->superTbls->childTblCount *
                         g_arguments->db->superTbls->insertRows;
@@ -1031,6 +1061,10 @@ static void *queryNtableAggrFunc(void *sarg) {
 void queryAggrFunc() {
     pthread_t   read_id;
     threadInfo *pThreadInfo = calloc(1, sizeof(threadInfo));
+    if (pThreadInfo == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     pThreadInfo->taos = select_one_from_pool(g_arguments->db->dbName);
     if (g_arguments->db->superTbls->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);

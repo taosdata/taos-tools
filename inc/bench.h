@@ -288,7 +288,7 @@ typedef struct TAOS_POOL_S {
 
 typedef struct COLUMN_S {
     char     type;
-    char *   name;
+    char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
     bool     null;
     void *   data;
@@ -296,7 +296,6 @@ typedef struct COLUMN_S {
     int64_t  min;
     cJSON *  values;
     bool     sma;
-    char *   comment;
 } Column;
 
 typedef struct SSuperTable_S {
