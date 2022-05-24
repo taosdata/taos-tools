@@ -60,6 +60,7 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
         }
     }
     int32_t *tmp_length_list = calloc(columnIndex, sizeof(int32_t));
+    g_memoryUsage += columnIndex * sizeof(int32_t);
     columnIndex -= 1;
     if (columnIndex == stbInfo->columnCount) {
         for (int i = 0; i < stbInfo->columnCount; ++i) {
@@ -85,9 +86,11 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     stbInfo->tagCount = tagIndex;
     tmfree(stbInfo->tags);
     stbInfo->tags = calloc(tagIndex, sizeof(Column));
+    g_memoryUsage += tagIndex * sizeof(Column);
     tmfree(stbInfo->columns);
     stbInfo->columnCount = columnIndex;
     stbInfo->columns = calloc(columnIndex, sizeof(Column));
+    g_memoryUsage += columnIndex * sizeof(Column);
     infoPrint(stdout, "stable<%s> with %u columns and %u tags\n",
               stbInfo->stbName, stbInfo->tagCount, stbInfo->columnCount);
     taos_free_result(res);
@@ -139,12 +142,14 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             stbInfo->columns[columnIndex].min = (RAND_MAX >> 1) * -1;
             stbInfo->columns[columnIndex].name = calloc(
                 1,
-                sizeof(strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX])) +
+                strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) +
                     1);
+            g_memoryUsage += strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]);
             stbInfo->columns[columnIndex].comment = calloc(
                 1,
-                sizeof(strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX])) +
+                strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) +
                     1);
+            g_memoryUsage += strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1;
             tstrncpy(stbInfo->columns[columnIndex].name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                      strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
@@ -257,6 +262,7 @@ static int createSuperTable(int db_index, int stb_index) {
     // save for creating child table
     stbInfo->colsOfCreateChildTable =
         (char *)calloc(len + TIMESTAMP_BUFF_LEN, 1);
+    g_memoryUsage += len + TIMESTAMP_BUFF_LEN;
 
     snprintf(stbInfo->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
              "(ts timestamp%s)", cols);
@@ -1156,28 +1162,28 @@ void *syncWriteProgressive(void *sarg) {
                     if (stbInfo->partialColumnNum == stbInfo->columnCount) {
                         if (stbInfo->autoCreateTable) {
                             len =
-                                snprintf(pstr, pThreadInfo->max_sql_len,
+                                snprintf(pstr, MAX_SQL_LEN,
                                          "%s %s.%s using %s tags (%s) values ",
                                          STR_INSERT_INTO, database->dbName,
                                          tableName, stbInfo->stbName,
                                          stbInfo->tagDataBuf +
                                              stbInfo->lenOfTags * tableSeq);
                         } else {
-                            len = snprintf(pstr, pThreadInfo->max_sql_len,
+                            len = snprintf(pstr, MAX_SQL_LEN,
                                            "%s %s.%s values ", STR_INSERT_INTO,
                                            database->dbName, tableName);
                         }
                     } else {
                         if (stbInfo->autoCreateTable) {
                             len = snprintf(
-                                pstr, pThreadInfo->max_sql_len,
+                                pstr, MAX_SQL_LEN,
                                 "%s %s.%s (%s) using %s tags (%s) values ",
                                 STR_INSERT_INTO, database->dbName, tableName,
                                 stbInfo->partialColumnNameBuf, stbInfo->stbName,
                                 stbInfo->tagDataBuf +
                                     stbInfo->lenOfTags * tableSeq);
                         } else {
-                            len = snprintf(pstr, pThreadInfo->max_sql_len,
+                            len = snprintf(pstr, MAX_SQL_LEN,
                                            "%s %s.%s (%s) values ",
                                            STR_INSERT_INTO, database->dbName,
                                            tableName,
@@ -1190,12 +1196,12 @@ void *syncWriteProgressive(void *sarg) {
                             !stbInfo->random_data_source) {
                             len +=
                                 snprintf(pstr + len,
-                                         pThreadInfo->max_sql_len - len, "(%s)",
+                                         MAX_SQL_LEN - len, "(%s)",
                                          stbInfo->sampleDataBuf +
                                              pos * stbInfo->lenOfCols);
                         } else {
                             len += snprintf(pstr + len,
-                                            pThreadInfo->max_sql_len - len,
+                                            MAX_SQL_LEN - len,
                                             "(%" PRId64 ",%s)", timestamp,
                                             stbInfo->sampleDataBuf +
                                                 pos * stbInfo->lenOfCols);
@@ -1213,8 +1219,7 @@ void *syncWriteProgressive(void *sarg) {
                             }
                         }
                         generated++;
-                        if (len > (BUFFER_SIZE - stbInfo->lenOfCols)) {
-                            debugPrint(stdout, "%d", j);
+                        if (len > (MAX_SQL_LEN - stbInfo->lenOfCols)) {
                             break;
                         }
                         if (i + generated >= stbInfo->insertRows) {
@@ -1306,7 +1311,6 @@ void *syncWriteProgressive(void *sarg) {
             // only measure insert
             startTs = toolsGetTimestampUs();
             int32_t affectedRows = execInsert(pThreadInfo, generated);
-
             endTs = toolsGetTimestampUs();
             if (affectedRows < 0) {
                 goto free_of_progressive;
@@ -1424,8 +1428,10 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     uint64_t tableFrom = 0;
     uint64_t ntables = stbInfo->childTblCount;
     stbInfo->childTblName = calloc(stbInfo->childTblCount, sizeof(char *));
+    g_memoryUsage += stbInfo->childTblCount * 8;
     for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
         stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
+        g_memoryUsage += TSDB_TABLE_NAME_LEN;
     }
 
     if ((stbInfo->iface != SML_IFACE || stbInfo->iface != SML_REST_IFACE) &&
@@ -1500,7 +1506,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     }
 
     pthread_t * pids = calloc(1, threads * sizeof(pthread_t));
+    g_memoryUsage += threads * sizeof(pthread_t);
     threadInfo *infos = calloc(1, threads * sizeof(threadInfo));
+    g_memoryUsage += threads * sizeof(threadInfo);
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
@@ -1530,6 +1538,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                         stbInfo->lenOfCols * g_arguments->reqPerReq + 1024;
                 }
                 pThreadInfo->buffer = calloc(1, pThreadInfo->max_sql_len);
+                g_memoryUsage += pThreadInfo->max_sql_len;
 #ifdef WINDOWS
                 WSADATA wsaData;
                 WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -1582,11 +1591,14 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                 }
 
                 pThreadInfo->bind_ts = calloc(1, sizeof(int64_t));
+                g_memoryUsage += sizeof(int64_t);
                 pThreadInfo->bind_ts_array =
                     calloc(1, sizeof(int64_t) * g_arguments->reqPerReq);
                 pThreadInfo->bindParams = calloc(
                     1, sizeof(TAOS_MULTI_BIND) * (stbInfo->columnCount + 1));
+                g_memoryUsage += sizeof(TAOS_MULTI_BIND) * (stbInfo->columnCount + 1);
                 pThreadInfo->is_null = calloc(1, g_arguments->reqPerReq);
+                g_memoryUsage += g_arguments->reqPerReq;
 
                 break;
             }
@@ -1636,13 +1648,17 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     pThreadInfo->buffer =
                         calloc(1, g_arguments->reqPerReq *
                                       (1 + pThreadInfo->max_sql_len));
+                    g_memoryUsage += g_arguments->reqPerReq *
+                                      (1 + pThreadInfo->max_sql_len);
                 }
                 if (stbInfo->lineProtocol != TSDB_SML_JSON_PROTOCOL) {
                     pThreadInfo->sml_tags =
                         (char **)calloc(pThreadInfo->ntables, sizeof(char *));
+                    g_memoryUsage += pThreadInfo->ntables * sizeof(char *);
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         pThreadInfo->sml_tags[t] =
                             calloc(1, stbInfo->lenOfTags);
+                        g_memoryUsage += stbInfo->lenOfTags;
                     }
 
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
@@ -1655,9 +1671,11 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     }
                     pThreadInfo->lines =
                         calloc(g_arguments->reqPerReq, sizeof(char *));
+                    g_memoryUsage += g_arguments->reqPerReq * sizeof(char *);
                     for (int j = 0; j < g_arguments->reqPerReq; j++) {
                         pThreadInfo->lines[j] =
                             calloc(1, pThreadInfo->max_sql_len);
+                        g_memoryUsage += pThreadInfo->max_sql_len;
                     }
                 } else {
                     pThreadInfo->json_array = cJSON_CreateArray();
@@ -1670,33 +1688,35 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                         }
                     }
                     pThreadInfo->lines = (char **)calloc(1, sizeof(char *));
+                    g_memoryUsage += sizeof(char *);
                 }
                 break;
             }
             case TAOSC_IFACE: {
-                if (stbInfo->autoCreateTable) {
-                    pThreadInfo->max_sql_len =
-                        (stbInfo->lenOfCols + stbInfo->lenOfTags) *
-                            g_arguments->reqPerReq +
-                        1024;
-                } else {
-                    pThreadInfo->max_sql_len =
-                        stbInfo->lenOfCols * g_arguments->reqPerReq + 1024;
-                }
-
                 pThreadInfo->taos = select_one_from_pool(database->dbName);
-                pThreadInfo->buffer = calloc(1, pThreadInfo->max_sql_len);
+                pThreadInfo->buffer = calloc(1, MAX_SQL_LEN);
+                g_memoryUsage += MAX_SQL_LEN;
                 break;
             }
             default:
                 break;
         }
+        
+    }
+
+    infoPrint(stdout, "Estimate memory usage: %.2fMB\n",
+              (double)g_memoryUsage / 1048576);
+    prompt(0);
+
+    for (int i = 0; i < threads; i++) {
+        threadInfo *pThreadInfo = infos + i;
         if (stbInfo->interlaceRows > 0) {
             pthread_create(pids + i, NULL, syncWriteInterlace, pThreadInfo);
         } else {
             pthread_create(pids + i, NULL, syncWriteProgressive, pThreadInfo);
         }
     }
+
     int64_t start = toolsGetTimestampUs();
 
     for (int i = 0; i < threads; i++) {
@@ -1880,9 +1900,6 @@ int insertTestProcess() {
             }
         }
     }
-    infoPrint(stdout, "Estimate memory usage: %.2fMB\n",
-              (double)g_memoryUsage / 1048576);
-    prompt(0);
 
     if (createChildTables()) return -1;
 

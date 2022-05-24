@@ -40,6 +40,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         }
     }
     superTbls->columns = calloc(col_count, sizeof(Column));
+    g_memoryUsage += col_count * sizeof(Column);
     for (int k = 0; k < columnSize; ++k) {
         bool   customName = false;
         bool   customMax = false;
@@ -131,7 +132,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         for (int n = 0; n < count; ++n) {
             superTbls->columns[index].name = calloc(1, TSDB_COL_NAME_LEN);
+            g_memoryUsage += TSDB_COL_NAME_LEN;
             superTbls->columns[index].comment = calloc(1, TSDB_COL_NAME_LEN);
+            g_memoryUsage += TSDB_COL_NAME_LEN;
             superTbls->columns[index].type =
                 taos_convert_string_to_datatype(dataType->valuestring, 0);
             superTbls->columns[index].length = length;
@@ -196,6 +199,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
     superTbls->use_metric = true;
     superTbls->tags = calloc(tag_count, sizeof(Column));
+    g_memoryUsage += tag_count * sizeof(Column);
     superTbls->tagCount = tag_count;
     for (int k = 0; k < tagSize; ++k) {
         cJSON *tag = cJSON_GetArrayItem(tags, k);
@@ -277,6 +281,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
         if ((tagSize == 1) &&
             (0 == strcasecmp(dataType->valuestring, "JSON"))) {
             superTbls->tags[0].name = calloc(1, TSDB_COL_NAME_LEN);
+            g_memoryUsage += TSDB_COL_NAME_LEN;
             if (customName) {
                 sprintf(superTbls->tags[0].name, "%s", dataName->valuestring);
             } else {
@@ -291,7 +296,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
 
         for (int n = 0; n < count; ++n) {
             superTbls->tags[index].name = calloc(1, TSDB_COL_NAME_LEN);
+            g_memoryUsage += TSDB_COL_NAME_LEN;
             superTbls->tags[index].comment = calloc(1, TSDB_COL_NAME_LEN);
+            g_memoryUsage += TSDB_COL_NAME_LEN;
             if (customMax) {
                 superTbls->tags[index].max = dataMax->valueint;
             } else {

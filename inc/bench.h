@@ -106,6 +106,7 @@
 #define MAX_PATH_LEN      4096
 
 #define DEFAULT_START_TIME  1500000000000
+#define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
 #define INT_BUFF_LEN        12
 #define BIGINT_BUFF_LEN     21

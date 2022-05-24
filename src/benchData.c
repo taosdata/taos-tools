@@ -317,8 +317,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
             if (columns[i].type == TSDB_DATA_TYPE_BINARY ||
                 columns[i].type == TSDB_DATA_TYPE_NCHAR) {
                 columns[i].data = calloc(1, loop * (columns[i].length + 1));
+                g_memoryUsage += loop * (columns[i].length + 1);
             } else {
                 columns[i].data = calloc(1, loop * columns[i].length);
+                g_memoryUsage += loop * columns[i].length;
             }
         }
     }
@@ -908,33 +910,6 @@ int prepare_sample_data(int db_index, int stb_index) {
             }
         }
     }
-    switch (stbInfo->iface) {
-        case REST_IFACE:
-        case TAOSC_IFACE:
-            if (stbInfo->autoCreateTable) {
-                g_memoryUsage += g_arguments->nthreads *
-                                 ((stbInfo->lenOfCols + stbInfo->lenOfTags) *
-                                      g_arguments->reqPerReq +
-                                  1024);
-            } else {
-                g_memoryUsage +=
-                    g_arguments->nthreads *
-                    (stbInfo->lenOfCols * g_arguments->reqPerReq + 1024);
-            }
-            break;
-        case SML_REST_IFACE:
-            g_memoryUsage += (stbInfo->lenOfCols + stbInfo->lenOfTags + 1) *
-                             g_arguments->reqPerReq * g_arguments->nthreads;
-        case SML_IFACE:
-            g_memoryUsage += stbInfo->childTblCount * sizeof(char *);
-            g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
-            g_memoryUsage += g_arguments->reqPerReq * sizeof(char *);
-            g_memoryUsage += g_arguments->reqPerReq *
-                             (stbInfo->lenOfTags + stbInfo->lenOfCols);
-            break;
-        default:
-            break;
-    }
     return 0;
 }
 
@@ -981,6 +956,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
         }
         param->buffer_type = data_type;
         param->length = calloc(batch, sizeof(int32_t));
+        g_memoryUsage += batch * sizeof(int32_t);
 
         for (int b = 0; b < batch; b++) {
             param->length[b] = (int32_t)param->buffer_length;
