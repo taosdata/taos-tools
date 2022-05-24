@@ -125,6 +125,10 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
+        if (childTblNameOfSuperTbl[count] == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
                  (char *)row[0]);
         debugPrint(stdout, "childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
@@ -315,6 +319,10 @@ void encode_base_64() {
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
     g_arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
+    if (g_arguments->base64_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
@@ -370,6 +378,10 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = calloc(1, req_buf_len);
+    if (request_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     uint64_t response_length;
     if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
@@ -377,6 +389,10 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         response_length = g_queryInfo.response_buffer;
     }
     response_buf = calloc(1, response_length);
+    if (response_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     int r;
     if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
@@ -500,6 +516,11 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
     char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
+
+    if (databuf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     int64_t totalLen = 0;
 
@@ -656,6 +677,10 @@ int init_taos_list() {
     int        size = g_arguments->connection_pool;
     TAOS_POOL *pool = g_arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
+    if (pool->taos_list == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     g_memoryUsage += size * sizeof(TAOS *);
     pool->current = 0;
     pool->size = size;

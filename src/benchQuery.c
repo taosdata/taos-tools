@@ -40,6 +40,10 @@ void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
 static void *specifiedTableQuery(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     int32_t *   code = calloc(1, sizeof(int32_t));
+    if (code == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     *code = -1;
     prctl(PR_SET_NAME, "specTableQuery");
 
@@ -52,6 +56,10 @@ static void *specifiedTableQuery(void *sarg) {
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
     uint64_t *total_delay_list = calloc(queryTimes, sizeof(uint64_t));
+    if (total_delay_list == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     uint64_t  lastPrintTime = toolsGetTimestampMs();
     uint64_t  startTs = toolsGetTimestampMs();
 
@@ -139,9 +147,16 @@ static void *specifiedTableQuery(void *sarg) {
 
 static void *superTableQuery(void *sarg) {
     int32_t *code = calloc(1, sizeof(int32_t));
+    if (code == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     *code = -1;
     char *sqlstr = calloc(1, BUFFER_SIZE);
-
+    if (sqlstr == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     prctl(PR_SET_NAME, "superTableQuery");
 
@@ -239,6 +254,10 @@ int queryTestProcess() {
         taos_free_result(res);
         g_queryInfo.superQueryInfo.childTblName =
             calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *));
+        if (g_queryInfo.superQueryInfo.childTblName == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         if (getAllChildNameOfSuperTable(
                 taos, g_arguments->db->dbName,
                 g_queryInfo.superQueryInfo.stbName,
@@ -269,7 +288,15 @@ int queryTestProcess() {
 
     if ((nSqlCount > 0) && (nConcurrent > 0)) {
         pids = calloc(1, nConcurrent * nSqlCount * sizeof(pthread_t));
+        if (pids == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         infos = calloc(1, nConcurrent * nSqlCount * sizeof(threadInfo));
+        if (infos == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         for (uint64_t i = 0; i < nSqlCount; i++) {
             for (int j = 0; j < nConcurrent; j++) {
                 uint64_t    seq = i * nConcurrent + j;
@@ -368,8 +395,17 @@ int queryTestProcess() {
         (g_queryInfo.superQueryInfo.threadCnt > 0)) {
         pidsOfSub =
             calloc(1, g_queryInfo.superQueryInfo.threadCnt * sizeof(pthread_t));
+        if (pidsOfSub == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         infosOfSub = calloc(
             1, g_queryInfo.superQueryInfo.threadCnt * sizeof(threadInfo));
+        
+        if (infosOfSub == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
 
         int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
         int     threads = g_queryInfo.superQueryInfo.threadCnt;

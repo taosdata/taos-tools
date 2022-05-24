@@ -106,6 +106,7 @@
 #define MAX_PATH_LEN      4096
 
 #define DEFAULT_START_TIME  1500000000000
+#define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
 #define INT_BUFF_LEN        12
 #define BIGINT_BUFF_LEN     21
@@ -287,7 +288,7 @@ typedef struct TAOS_POOL_S {
 
 typedef struct COLUMN_S {
     char     type;
-    char *   name;
+    char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
     bool     null;
     void *   data;
@@ -295,7 +296,6 @@ typedef struct COLUMN_S {
     int64_t  min;
     cJSON *  values;
     bool     sma;
-    char *   comment;
 } Column;
 
 typedef struct SSuperTable_S {
