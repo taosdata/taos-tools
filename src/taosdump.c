@@ -5757,7 +5757,7 @@ static int createMTableAvroHead(
     char command[COMMAND_SIZE];
 
     int64_t preCount = 0;
-    if (-1 == limit) {
+    if (INT64_MAX == limit) {
         preCount = getNtbCountOfStb(dbName, stable);
     } else {
         preCount = limit;
@@ -6921,7 +6921,7 @@ static int dumpTbTagsToAvro(
             dumpFilename,
             dbInfo->name,
             stable,
-            -1, 0);
+            INT64_MAX, 0);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to open file %s\n",
                 __func__, __LINE__, dumpFilename);
