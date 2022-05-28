@@ -61,6 +61,7 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     }
     int32_t *tmp_length_list = calloc(columnIndex, sizeof(int32_t));
     if (tmp_length_list == NULL) {
+        taos_free_result(res);
         errorPrint(stderr, "%s", "memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
@@ -83,6 +84,8 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     tmfree(stbInfo->tags);
     stbInfo->tags = calloc(tagIndex, sizeof(Column));
     if (stbInfo->tags == NULL) {
+        taos_free_result(res);
+        tmfree(tmp_length_list);
         errorPrint(stderr, "%s", "memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
@@ -91,6 +94,8 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     stbInfo->columnCount = columnIndex;
     stbInfo->columns = calloc(columnIndex, sizeof(Column));
     if (stbInfo->columns == NULL) {
+        taos_free_result(res);
+        tmfree(tmp_length_list);
         errorPrint(stderr, "%s", "memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
@@ -104,6 +109,7 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
         errorPrint(stderr, "failed to run command %s, reason: %s\n", command,
                    taos_errstr(res));
         taos_free_result(res);
+        tmfree(tmp_length_list);
         return -1;
     }
     tagIndex = 0;
@@ -117,6 +123,7 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
         int32_t *lengths = taos_fetch_lengths(res);
         if (lengths == NULL) {
             errorPrint(stderr, "%s", "failed to execute taos_fetch_length\n");
+            tmfree(tmp_length_list);
             taos_free_result(res);
             return -1;
         }
@@ -620,6 +627,9 @@ static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
     }
     threadInfo * infos = calloc(1, threads * sizeof(threadInfo));
     if (infos == NULL) {
+        // if the infos == NULL but the pids is not NULL
+        // we should free the pids when the function exit()
+        free(pids);
         errorPrint(stderr, "%s", "memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
@@ -638,7 +648,7 @@ static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
 
     for (int64_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-        pThreadInfo->threadID = (int)i;
+        pThreadInfo->threadID = (pthread_t)i;
         pThreadInfo->stb_index = stb_index;
         pThreadInfo->db_index = db_index;
         pThreadInfo->taos = select_one_from_pool(database->dbName);
@@ -777,7 +787,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
     int32_t      affectedRows;
-    TAOS_RES *   res;
+    TAOS_RES *   res = NULL;
     int32_t      code;
     uint16_t     iface = stbInfo->iface;
 
