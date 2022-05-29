@@ -1762,7 +1762,18 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
             }
             case TAOSC_IFACE: {
                 pThreadInfo->taos = select_one_from_pool(database->dbName);
-                pThreadInfo->buffer = calloc(1, MAX_SQL_LEN);
+                
+                if (stbInfo->interlaceRows > 0) {
+                    if (stbInfo->autoCreateTable) {
+                        pThreadInfo->max_sql_len = g_arguments->reqPerReq * (stbInfo->lenOfCols + stbInfo->lenOfTags) + 1024;
+                    } else {
+                        pThreadInfo->max_sql_len = g_arguments->reqPerReq * stbInfo->lenOfCols + 1024;
+                    }
+                    pThreadInfo->buffer = calloc(1, pThreadInfo->max_sql_len);
+                } else {
+                    pThreadInfo->buffer = calloc(1, MAX_SQL_LEN);
+                }
+                
                 if (pThreadInfo->buffer == NULL) {
                     errorPrint(stderr, "%s", "memory allocation failed\n");
                     exit(EXIT_FAILURE);
