@@ -9,9 +9,9 @@
 
 taosTools 是用于 TDengine 的辅助工具软件集合。
 
-taosBenchmark （曾命名为 taosdemo）可以用于对 TDengine 进行全功能的写入、查询、订阅等功能的压力测试。taosBenchmark 在 TDengine 2.4.0.7 和之前发布版本在 taosTools 安装包中发布提供，在后续版本中 taosBenchmark 将在 TDengine 标准安装包中发布。详细使用方法请参考[taosBenchmark用户手册](https://github.com/taosdata/taos-tools/blob/develop/taosbenchmark-user-manual-CN.md)。
+taosBenchmark （曾命名为 taosdemo）可以用于对 TDengine 进行全功能的写入、查询、订阅等功能的压力测试。taosBenchmark 在 TDengine 2.4.0.7 和之前发布版本在 taosTools 安装包中发布提供，在后续版本中 taosBenchmark 将在 TDengine 标准安装包中发布。详细使用方法请参考[taosBenchmark用户手册](https://docs.taosdata.com/reference/taosbenchmark)。
 
-taosdump 是用于备份 TDengine 数据到本地目录和从本地目录恢复数据到 TDengine 的工具。详细使用方法请参考[taosdump用户手册](https://github.com/taosdata/taos-tools/blob/develop/taosdump-user-manual-CN.md)。
+taosdump 是用于备份 TDengine 数据到本地目录和从本地目录恢复数据到 TDengine 的工具。详细使用方法请参考[taosdump用户手册](https://docs.taosdata.com/reference/taosdump)。
 
 ## 安装 taosTools
 
