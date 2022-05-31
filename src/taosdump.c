@@ -3034,7 +3034,7 @@ int64_t queryDbForDumpOutCount(TAOS *taos,
 
     sprintf(sqlstr,
             "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
+            "AND _c0 <= %" PRId64 "",
             dbName, g_escapeChar, tbName, g_escapeChar,
             g_args.start_time, g_args.end_time);
 
