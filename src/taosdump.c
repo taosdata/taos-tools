@@ -6181,7 +6181,13 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
     }
 
     snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", taos_get_server_info(taos));
-    fwrite(buffer, strlen(buffer), 1, fp);
+    char *firstline = strchr(buffer, '\n');
+
+    if (NULL == firstline) {
+        return -1;
+    }
+    int firstreturn = (int)(firstline - buffer);
+    fwrite(buffer, firstreturn+1, 1, fp);
 
     char taostools_ver[] = TAOSTOOLS_TAG;
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
