@@ -6297,6 +6297,10 @@ static int64_t dumpInOneDebugFile(
             continue;
         }
 
+        if (line[0] == '#') {
+            continue;
+        }
+
         if (line[read_len - 1] == '\\') {
             line[read_len - 1] = ' ';
             memcpy(cmd + cmd_len, line, read_len);
