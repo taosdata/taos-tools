@@ -370,7 +370,7 @@ static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n"
 static struct argp_option options[] = {
     // connection option
     {"host", 'h', "HOST",    0,
-        "Server host dumping data from. Default is localhost.", 0},
+        "Server host from which to dump data. Default is localhost.", 0},
     {"user", 'u', "USER",    0,
         "User name used to connect to server. Default is root.", 0},
     {"password", 'p', 0,    0,
@@ -386,10 +386,10 @@ static struct argp_option options[] = {
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,
-        "Dump inputted databases. Use comma to separate databases\' name.", 2},
+        "Dump listed databases. Use comma to separate databases names.", 2},
     {"allow-sys",   'a', 0, 0,  "Allow to dump system database", 2},
     // dump format options
-    {"schemaonly", 's', 0, 0,  "Only dump tables' schema.", 2},
+    {"schemaonly", 's', 0, 0,  "Only dump table schemas.", 2},
     {"without-property", 'N', 0, 0,
         "Dump database without its properties.", 2},
     {"answer-yes", 'y', 0, 0,
@@ -416,7 +416,7 @@ static struct argp_option options[] = {
     {"thread-num",  'T', "THREAD_NUM",  0,
         "Number of thread for dump in file. Default is 5.", 10},
     {"loose-mode",  'L', 0,  0,
-        "Using loose mode if the table name and column name use letter and "
+        "Use loose mode if the table name and column name use letter and "
             "number only. Default is NOT.", 10},
     {"inspect",  'I', 0,  0,
         "inspect avro file content and print on screen", 10},
