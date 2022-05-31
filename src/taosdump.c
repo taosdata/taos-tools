@@ -244,6 +244,7 @@ typedef struct {
     int32_t  minrows;
     int32_t  maxrows;
     int8_t   wallevel;
+    int8_t   wal; // 3.0 only
     int32_t  fsync;
     int8_t   comp;
     int8_t   cachelast;
@@ -2212,12 +2213,33 @@ static void dumpCreateDbClause(
     char *pstr = sqlstr;
     pstr += sprintf(pstr, "CREATE DATABASE IF NOT EXISTS %s ", dbInfo->name);
     if (isDumpProperty) {
+        char quorum[32] = "";
+        if (0 != dbInfo->quorum) {
+            sprintf(quorum, "QUORUM %d", dbInfo->quorum);
+        }
+
+        char days[32] = "";
+        if (0 != dbInfo->days) {
+            sprintf(days, "DAYS %d", dbInfo->days);
+        }
+
+        char cache[32] = "";
+        if (0 != dbInfo->cache) {
+            sprintf(cache, "CACHE %d", dbInfo->cache);
+        }
+
+        char blocks[32] = "";
+        if (0 != dbInfo->blocks) {
+            sprintf(cache, "BLOCKS %d", dbInfo->blocks);
+        }
+
+
         pstr += sprintf(pstr,
-                "REPLICA %d QUORUM %d DAYS %d KEEP %s CACHE %d BLOCKS %d MINROWS %d MAXROWS %d FSYNC %d CACHELAST %d COMP %d PRECISION '%s' UPDATE %d",
-                dbInfo->replica, dbInfo->quorum, dbInfo->days,
+                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d CACHELAST %d COMP %d PRECISION '%s' UPDATE %d",
+                dbInfo->replica, quorum, days,
                 dbInfo->keeplist,
-                dbInfo->cache,
-                dbInfo->blocks, dbInfo->minrows, dbInfo->maxrows,
+                cache,
+                blocks, dbInfo->minrows, dbInfo->maxrows,
                 dbInfo->fsync,
                 dbInfo->cachelast,
                 dbInfo->comp, dbInfo->precision, dbInfo->update);
@@ -6795,20 +6817,22 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
     int64_t count = 0;
     while(NULL != (row = taos_fetch_row(result))) {
         int32_t *length = taos_fetch_lengths(result);
-        debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s\n",
-                __func__, __LINE__,
-                count,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
         strncpy(((TableInfo *)(g_tablesList + count))->name,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                 min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
+        debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s, lenth: %d\n",
+                __func__, __LINE__,
+                count,
+                ((TableInfo *)(g_tablesList + count))->name,
+                length[TSDB_SHOW_TABLES_NAME_INDEX]);
         if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
-            debugPrint("%s() LN%d stbName: %s\n",
-                    __func__, __LINE__,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]);
             strncpy(((TableInfo *)(g_tablesList + count))->stable,
                     (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
                     min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_METRIC_INDEX]));
+            debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                    __func__, __LINE__,
+                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                    length[TSDB_SHOW_TABLES_METRIC_INDEX]);
             ((TableInfo *)(g_tablesList + count))->belongStb = true;
         } else {
             ((TableInfo *)(g_tablesList + count))->belongStb = false;
@@ -7194,9 +7218,25 @@ static int dumpOut() {
                             length[f] + 1));
 
             } else if (0 == strcmp(fields[f].name, "vgroups")) {
-                g_dbInfos[count]->vgroups = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->vgroups = *((int32_t *)row[f]);
+                } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
+                    g_dbInfos[count]->vgroups = *((int16_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "ntables")) {
-                g_dbInfos[count]->ntables = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->ntables = *((int32_t *)row[f]);
+                } else if (TSDB_DATA_TYPE_BIGINT == fields[f].type) {
+                    g_dbInfos[count]->ntables = *((int64_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "replica")) {
                 if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
                     g_dbInfos[count]->replica = *((int8_t *)row[f]);
@@ -7226,17 +7266,55 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "blocks")) {
                 g_dbInfos[count]->blocks = *((int32_t *)row[f]);
             } else if (0 == strcmp(fields[f].name, "minrows")) {
-                g_dbInfos[count]->minrows = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->minrows = *((int32_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "maxrows")) {
-                g_dbInfos[count]->maxrows = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->maxrows = *((int32_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "wallevel")) {
                 g_dbInfos[count]->wallevel = *((int8_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "wal")) {
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->wal = *((int8_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "fsync")) {
-                g_dbInfos[count]->fsync = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->fsync = *((int32_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "comp")) {
-                g_dbInfos[count]->comp = (int8_t)(*((int8_t *)row[f]));
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->comp = (int8_t)(*((int8_t *)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "cachelast")) {
-                g_dbInfos[count]->cachelast = (int8_t)(*((int8_t *)row[f]));
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->cachelast = (int8_t)(*((int8_t *)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "precision")) {
                 tstrncpy(g_dbInfos[count]->precision,
                         (char *)row[f],
