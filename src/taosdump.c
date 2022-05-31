@@ -3034,7 +3034,7 @@ int64_t queryDbForDumpOutCount(TAOS *taos,
 
     sprintf(sqlstr,
             "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
+            "AND _c0 <= %" PRId64 "",
             dbName, g_escapeChar, tbName, g_escapeChar,
             g_args.start_time, g_args.end_time);
 
@@ -6181,7 +6181,13 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
     }
 
     snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", taos_get_server_info(taos));
-    fwrite(buffer, strlen(buffer), 1, fp);
+    char *firstline = strchr(buffer, '\n');
+
+    if (NULL == firstline) {
+        return -1;
+    }
+    int firstreturn = (int)(firstline - buffer);
+    fwrite(buffer, firstreturn+1, 1, fp);
 
     char taostools_ver[] = TAOSTOOLS_TAG;
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
@@ -6288,6 +6294,10 @@ static int64_t dumpInOneDebugFile(
 
         //if (read_len == 0 || isCommentLine(line)) {  // line starts with #
         if (read_len == 0 ) {
+            continue;
+        }
+
+        if (line[0] == '#') {
             continue;
         }
 
