@@ -370,7 +370,7 @@ static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n"
 static struct argp_option options[] = {
     // connection option
     {"host", 'h', "HOST",    0,
-        "Server host dumping data from. Default is localhost.", 0},
+        "Server host from which to dump data. Default is localhost.", 0},
     {"user", 'u', "USER",    0,
         "User name used to connect to server. Default is root.", 0},
     {"password", 'p', 0,    0,
@@ -386,10 +386,10 @@ static struct argp_option options[] = {
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,
-        "Dump inputted databases. Use comma to separate databases\' name.", 2},
+        "Dump listed databases. Use comma to separate databases names.", 2},
     {"allow-sys",   'a', 0, 0,  "Allow to dump system database", 2},
     // dump format options
-    {"schemaonly", 's', 0, 0,  "Only dump tables' schema.", 2},
+    {"schemaonly", 's', 0, 0,  "Only dump table schemas.", 2},
     {"without-property", 'N', 0, 0,
         "Dump database without its properties.", 2},
     {"answer-yes", 'y', 0, 0,
@@ -416,7 +416,7 @@ static struct argp_option options[] = {
     {"thread-num",  'T', "THREAD_NUM",  0,
         "Number of thread for dump in file. Default is 5.", 10},
     {"loose-mode",  'L', 0,  0,
-        "Using loose mode if the table name and column name use letter and "
+        "Use loose mode if the table name and column name use letter and "
             "number only. Default is NOT.", 10},
     {"inspect",  'I', 0,  0,
         "inspect avro file content and print on screen", 10},
@@ -1868,6 +1868,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
     if (JSON_OBJECT != json_typeof(element)) {
         errorPrint("%s() LN%d, json passed is not an object\n",
                 __func__, __LINE__);
+        free(recordSchema);
         return NULL;
     }
 
@@ -4055,6 +4056,7 @@ static int dumpInAvroDataImpl(
                 taos_stmt_errstr(stmt));
 
         free(stmtBuffer);
+        free(tableDes);
         return -1;
     }
 
@@ -4114,6 +4116,9 @@ static int dumpInAvroDataImpl(
                     "reason: %s\n",
                     escapedTbName, taos_stmt_errstr(stmt));
             free(escapedTbName);
+            if (g_dumpInLooseModeFlag) {
+                free(tbName);
+            }
             continue;
         }
         free(escapedTbName);
@@ -5752,7 +5757,7 @@ static int createMTableAvroHead(
     char command[COMMAND_SIZE];
 
     int64_t preCount = 0;
-    if (-1 == limit) {
+    if (INT64_MAX == limit) {
         preCount = getNtbCountOfStb(dbName, stable);
     } else {
         preCount = limit;
@@ -5777,6 +5782,7 @@ static int createMTableAvroHead(
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
+        free(tbNameArr);
         tfree(jsonTagsSchema);
         freeTbDes(tableDes);
         return -1;
@@ -6607,6 +6613,9 @@ static void *dumpNormalTablesOfStb(void *arg) {
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
+        if (!g_args.avro) {
+            fclose(fp);
+        }
         return NULL;
     }
 
@@ -6912,7 +6921,7 @@ static int dumpTbTagsToAvro(
             dumpFilename,
             dbInfo->name,
             stable,
-            -1, 0);
+            INT64_MAX, 0);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to open file %s\n",
                 __func__, __LINE__, dumpFilename);
@@ -7012,7 +7021,7 @@ static bool checkFileExists(char *path, char *filename)
 
 static bool checkFileExistsExt(char *path, char *ext)
 {
-    bool bRet;
+    bool bRet = false;
 
     int namelen, extlen;
     struct dirent *pDirent;
@@ -7640,6 +7649,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
             } else {
                 errorPrint("%s() LN%d, fields have no array\n",
                         __func__, __LINE__);
+                free(recordSchema);
                 return NULL;
             }
 

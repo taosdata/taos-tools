@@ -125,6 +125,10 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
+        if (childTblNameOfSuperTbl[count] == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
                  (char *)row[0]);
         debugPrint(stdout, "childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
@@ -315,6 +319,10 @@ void encode_base_64() {
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
     g_arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
+    if (g_arguments->base64_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
@@ -370,6 +378,10 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = calloc(1, req_buf_len);
+    if (request_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     uint64_t response_length;
     if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
@@ -377,6 +389,10 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         response_length = g_queryInfo.response_buffer;
     }
     response_buf = calloc(1, response_length);
+    if (response_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     int r;
     if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
@@ -501,6 +517,11 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
 
     char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
 
+    if (databuf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
     int64_t totalLen = 0;
 
     // fetch the records row by row
@@ -565,40 +586,81 @@ char *taos_convert_datatype_to_string(int type) {
     return "unknown type";
 }
 
-int taos_convert_string_to_datatype(char *type) {
-    if (0 == strcasecmp(type, "binary")) {
-        return TSDB_DATA_TYPE_BINARY;
-    } else if (0 == strcasecmp(type, "nchar")) {
-        return TSDB_DATA_TYPE_NCHAR;
-    } else if (0 == strcasecmp(type, "timestamp")) {
-        return TSDB_DATA_TYPE_TIMESTAMP;
-    } else if (0 == strcasecmp(type, "bool")) {
-        return TSDB_DATA_TYPE_BOOL;
-    } else if (0 == strcasecmp(type, "tinyint")) {
-        return TSDB_DATA_TYPE_TINYINT;
-    } else if (0 == strcasecmp(type, "utinyint")) {
-        return TSDB_DATA_TYPE_UTINYINT;
-    } else if (0 == strcasecmp(type, "smallint")) {
-        return TSDB_DATA_TYPE_SMALLINT;
-    } else if (0 == strcasecmp(type, "usmallint")) {
-        return TSDB_DATA_TYPE_USMALLINT;
-    } else if (0 == strcasecmp(type, "int")) {
-        return TSDB_DATA_TYPE_INT;
-    } else if (0 == strcasecmp(type, "uint")) {
-        return TSDB_DATA_TYPE_UINT;
-    } else if (0 == strcasecmp(type, "bigint")) {
-        return TSDB_DATA_TYPE_BIGINT;
-    } else if (0 == strcasecmp(type, "ubigint")) {
-        return TSDB_DATA_TYPE_UBIGINT;
-    } else if (0 == strcasecmp(type, "float")) {
-        return TSDB_DATA_TYPE_FLOAT;
-    } else if (0 == strcasecmp(type, "double")) {
-        return TSDB_DATA_TYPE_DOUBLE;
-    } else if (0 == strcasecmp(type, "json")) {
-        return TSDB_DATA_TYPE_JSON;
+int taos_convert_string_to_datatype(char *type, int length) {
+    if (length == 0) {
+        if (0 == strcasecmp(type, "binary")) {
+            return TSDB_DATA_TYPE_BINARY;
+        } else if (0 == strcasecmp(type, "nchar")) {
+            return TSDB_DATA_TYPE_NCHAR;
+        } else if (0 == strcasecmp(type, "timestamp")) {
+            return TSDB_DATA_TYPE_TIMESTAMP;
+        } else if (0 == strcasecmp(type, "bool")) {
+            return TSDB_DATA_TYPE_BOOL;
+        } else if (0 == strcasecmp(type, "tinyint")) {
+            return TSDB_DATA_TYPE_TINYINT;
+        } else if (0 == strcasecmp(type, "utinyint")) {
+            return TSDB_DATA_TYPE_UTINYINT;
+        } else if (0 == strcasecmp(type, "smallint")) {
+            return TSDB_DATA_TYPE_SMALLINT;
+        } else if (0 == strcasecmp(type, "usmallint")) {
+            return TSDB_DATA_TYPE_USMALLINT;
+        } else if (0 == strcasecmp(type, "int")) {
+            return TSDB_DATA_TYPE_INT;
+        } else if (0 == strcasecmp(type, "uint")) {
+            return TSDB_DATA_TYPE_UINT;
+        } else if (0 == strcasecmp(type, "bigint")) {
+            return TSDB_DATA_TYPE_BIGINT;
+        } else if (0 == strcasecmp(type, "ubigint")) {
+            return TSDB_DATA_TYPE_UBIGINT;
+        } else if (0 == strcasecmp(type, "float")) {
+            return TSDB_DATA_TYPE_FLOAT;
+        } else if (0 == strcasecmp(type, "double")) {
+            return TSDB_DATA_TYPE_DOUBLE;
+        } else if (0 == strcasecmp(type, "json")) {
+            return TSDB_DATA_TYPE_JSON;
+        } else if (0 == strcasecmp(type, "varchar")) {
+            return TSDB_DATA_TYPE_BINARY;
+        } else {
+            errorPrint(stderr, "unknown data type: %s\n", type);
+            exit(EXIT_FAILURE);
+        }
     } else {
-        errorPrint(stderr, "unknown data type: %s\n", type);
-        exit(EXIT_FAILURE);
+        if (0 == strncasecmp(type, "binary", length)) {
+            return TSDB_DATA_TYPE_BINARY;
+        } else if (0 == strncasecmp(type, "nchar", length)) {
+            return TSDB_DATA_TYPE_NCHAR;
+        } else if (0 == strncasecmp(type, "timestamp", length)) {
+            return TSDB_DATA_TYPE_TIMESTAMP;
+        } else if (0 == strncasecmp(type, "bool", length)) {
+            return TSDB_DATA_TYPE_BOOL;
+        } else if (0 == strncasecmp(type, "tinyint", length)) {
+            return TSDB_DATA_TYPE_TINYINT;
+        } else if (0 == strncasecmp(type, "tinyint unsigned", length)) {
+            return TSDB_DATA_TYPE_UTINYINT;
+        } else if (0 == strncasecmp(type, "smallint", length)) {
+            return TSDB_DATA_TYPE_SMALLINT;
+        } else if (0 == strncasecmp(type, "smallint unsigned", length)) {
+            return TSDB_DATA_TYPE_USMALLINT;
+        } else if (0 == strncasecmp(type, "int", length)) {
+            return TSDB_DATA_TYPE_INT;
+        } else if (0 == strncasecmp(type, "int unsigned", length)) {
+            return TSDB_DATA_TYPE_UINT;
+        } else if (0 == strncasecmp(type, "bigint", length)) {
+            return TSDB_DATA_TYPE_BIGINT;
+        } else if (0 == strncasecmp(type, "bigint unsigned", length)) {
+            return TSDB_DATA_TYPE_UBIGINT;
+        } else if (0 == strncasecmp(type, "float", length)) {
+            return TSDB_DATA_TYPE_FLOAT;
+        } else if (0 == strncasecmp(type, "double", length)) {
+            return TSDB_DATA_TYPE_DOUBLE;
+        } else if (0 == strncasecmp(type, "json", length)) {
+            return TSDB_DATA_TYPE_JSON;
+        } else if (0 == strncasecmp(type, "varchar", length)) {
+            return TSDB_DATA_TYPE_BINARY;
+        } else {
+            errorPrint(stderr, "unknown data type: %s\n", type);
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
@@ -615,6 +677,10 @@ int init_taos_list() {
     int        size = g_arguments->connection_pool;
     TAOS_POOL *pool = g_arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
+    if (pool->taos_list == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     g_memoryUsage += size * sizeof(TAOS *);
     pool->current = 0;
     pool->size = size;
