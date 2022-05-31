@@ -7198,7 +7198,15 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "ntables")) {
                 g_dbInfos[count]->ntables = *((int32_t *)row[f]);
             } else if (0 == strcmp(fields[f].name, "replica")) {
-                g_dbInfos[count]->replica = *((int16_t *)row[f]);
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->replica = *((int8_t *)row[f]);
+                } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
+                    g_dbInfos[count]->replica = *((int16_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "quorum")) {
                 g_dbInfos[count]->quorum =
                     *((int16_t *)row[f]);
