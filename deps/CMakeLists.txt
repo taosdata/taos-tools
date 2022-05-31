@@ -1,4 +1,4 @@
-IF (${BUILD_TYPE} MATCHES "Debug")
+IF (${TOOLS_BUILD_TYPE} MATCHES "debug")
     MESSAGE("will not build jansson and snappy, use system's")
 ELSE ()
     OPTION(JANSSON_BUILD_DOCS "turn jansson build docs off" OFF)
