@@ -383,6 +383,12 @@ typedef struct SDataBase_S {
     SSuperTable *superTbls;
 } SDataBase;
 
+typedef struct SSQL_S {
+    char command[BUFFER_SIZE + 1];
+    char result[MAX_FILE_NAME_LEN];
+    int64_t* delay_list;
+} SSQL;
+
 typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
     uint32_t  concurrent;
@@ -392,8 +398,7 @@ typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryTimes;
     bool      subscribeRestart;
     int       subscribeKeepProgress;
-    char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
-    char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
+    SSQL      sql[MAX_QUERY_SQL_COUNT];
     int       resubAfterConsume[MAX_QUERY_SQL_COUNT];
     int       endAfterConsume[MAX_QUERY_SQL_COUNT];
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
@@ -517,6 +522,8 @@ typedef struct SThreadInfo_S {
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
     delayList  delayList;
+    uint64_t*  query_delay_list;
+    double     avg_delay;
 } threadInfo;
 
 /* ************ Global variables ************  */
