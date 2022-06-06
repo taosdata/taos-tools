@@ -83,15 +83,15 @@ static void *specifiedSubscribe(void *sarg) {
     sprintf(g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
             "taosbenchmark-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
             pThreadInfo->threadID);
-    if (g_queryInfo.specifiedQueryInfo.result[pThreadInfo->querySeq][0] !=
+    if (g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result[0] !=
         '\0') {
         sprintf(pThreadInfo->filePath, "%s-%d",
-                g_queryInfo.specifiedQueryInfo.result[pThreadInfo->querySeq],
+                g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result,
                 pThreadInfo->threadID);
     }
     g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID] = subscribeImpl(
         SPECIFIED_CLASS, pThreadInfo,
-        g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
+        g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command,
         g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
         g_queryInfo.specifiedQueryInfo.subscribeRestart,
         g_queryInfo.specifiedQueryInfo.subscribeInterval);
@@ -120,10 +120,10 @@ static void *specifiedSubscribe(void *sarg) {
                 g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID]);
         if (g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]) {
             if (g_queryInfo.specifiedQueryInfo
-                    .result[pThreadInfo->querySeq][0] != 0) {
+                    .sql[pThreadInfo->querySeq].result[0] != 0) {
                 sprintf(pThreadInfo->filePath, "%s-%d",
                         g_queryInfo.specifiedQueryInfo
-                            .result[pThreadInfo->querySeq],
+                            .sql[pThreadInfo->querySeq].result,
                         pThreadInfo->threadID);
             }
             fetchResult(
@@ -150,7 +150,7 @@ static void *specifiedSubscribe(void *sarg) {
                 g_queryInfo.specifiedQueryInfo
                     .tsub[pThreadInfo->threadID] = subscribeImpl(
                     SPECIFIED_CLASS, pThreadInfo,
-                    g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
+                    g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command,
                     g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
                     g_queryInfo.specifiedQueryInfo.subscribeRestart,
                     g_queryInfo.specifiedQueryInfo.subscribeInterval);
