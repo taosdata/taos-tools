@@ -61,6 +61,8 @@ static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
 
 static char      g_escapeChar[2] = "`";
+char             g_client_info[32] = {0};
+int              g_majorVersion = 0;
 
 static void print_json_aux(json_t *element, int indent);
 
@@ -248,7 +250,10 @@ typedef struct {
     int32_t  fsync;
     int8_t   comp;
     int8_t   cachelast;
+    bool     cache_model;
     char     precision[DB_PRECISION_LEN];   // time resolution
+    bool     single_stable_model;
+    bool     schemaless;
     int8_t   update;
     char     status[DB_STATUS_LEN];
     int64_t  dumpTbCount;
@@ -2230,19 +2235,41 @@ static void dumpCreateDbClause(
 
         char blocks[32] = "";
         if (0 != dbInfo->blocks) {
-            sprintf(cache, "BLOCKS %d", dbInfo->blocks);
+            sprintf(blocks, "BLOCKS %d", dbInfo->blocks);
         }
 
+        char cachelast[32] = {0};
+        if (0 != dbInfo->cachelast) {
+            sprintf(cachelast, "CACHELAST %d", dbInfo->cachelast);
+        }
+
+        char update[32] = "";
+        if (0 != dbInfo->update) {
+            sprintf(update, "UPDATE %d", dbInfo->update);
+        }
+
+        char single_stable_model[32] = {0};
+        sprintf(cache, "SINGLE_STABLE_MODEL %d", dbInfo->single_stable_model?1:0);
+
+        char schemaless[32] = {0};
+        sprintf(cache, "SCHEMALESS %d", dbInfo->single_stable_model?1:0);
 
         pstr += sprintf(pstr,
-                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d CACHELAST %d COMP %d PRECISION '%s' UPDATE %d",
-                dbInfo->replica, quorum, days,
+                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s %s",
+                dbInfo->replica,
+                (g_majorVersion < 3)?quorum:"",
+                (g_majorVersion < 3)?days:"",
                 dbInfo->keeplist,
-                cache,
-                blocks, dbInfo->minrows, dbInfo->maxrows,
+                (g_majorVersion < 3)?cache:"",
+                (g_majorVersion < 3)?blocks:"",
+                dbInfo->minrows, dbInfo->maxrows,
                 dbInfo->fsync,
-                dbInfo->cachelast,
-                dbInfo->comp, dbInfo->precision, dbInfo->update);
+                (g_majorVersion < 3)?cachelast:"",
+                dbInfo->comp,
+                dbInfo->precision,
+                (g_majorVersion > 3)?single_stable_model:"",
+                (g_majorVersion > 3)?schemaless:"",
+                (g_majorVersion < 3)?update:"");
     }
 
     pstr += sprintf(pstr, ";");
@@ -7315,6 +7342,30 @@ static int dumpOut() {
                             __func__, __LINE__, fields[f].type);
                     goto _exit_failure;
                 }
+            } else if (0 == strcmp(fields[f].name, "cache_model")) {
+                if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
+                    g_dbInfos[count]->cache_model = (bool)(*((bool *)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
+            } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
+                if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
+                    g_dbInfos[count]->single_stable_model = (bool)(*((bool*)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
+            } else if (0 == strcmp(fields[f].name, "schemaless")) {
+                if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
+                    g_dbInfos[count]->schemaless = (bool)(*((bool*)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "precision")) {
                 tstrncpy(g_dbInfos[count]->precision,
                         (char *)row[f],
@@ -7996,6 +8047,10 @@ int main(int argc, char *argv[])
     if (g_args.abort) {
         abort();
     }
+
+    sprintf(g_client_info, "%s", taos_get_client_info());
+    g_majorVersion = atoi(g_client_info);
+    debugPrint("Client info: %s, major version: %d\n", g_client_info, g_majorVersion);
 
     if (g_args.inspect) {
         ret = inspect(argc, argv);
