@@ -21,7 +21,7 @@ inline void exit_required(char* name) {
 }
 
 void commandLineParseArgument(int argc, char *argv[]) {
-    for (int i = 0; i < argc; ++i) {
+    for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-F") == 0) {
             if (i < argc - 1) {
                 g_arguments->prepared_rand = atol(argv[++i]);

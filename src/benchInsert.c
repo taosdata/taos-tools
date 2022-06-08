@@ -163,96 +163,33 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
 }
 
 static int createSuperTable(int db_index, int stb_index) {
-    TAOS *       taos = select_one_from_pool(NULL);
-    char         cols[COL_BUFFER_LEN] = "\0";
-    char         command[BUFFER_SIZE] = "\0";
-    int          len = 0;
     SDataBase *  database = &(g_arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    TAOS *       taos = select_one_from_pool(NULL);
+    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->columnCount;
+    char         *cols = calloc(1, col_buffer_len);
+    if (cols == NULL) {
+        errorPrint(stderr, "%s", "failed to allocate memeory\n");
+        exit(EXIT_FAILURE);
+    }
+    char*         command = calloc(1, BUFFER_SIZE);
+    if (command == NULL) {
+        errorPrint(stderr, "%s", "failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    int          len = 0;
 
     for (int colIndex = 0; colIndex < stbInfo->columnCount; colIndex++) {
-        switch (stbInfo->columns[colIndex].type) {
-            case TSDB_DATA_TYPE_BINARY:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s(%d)",
-                                stbInfo->columns[colIndex].name, "BINARY",
-                                stbInfo->columns[colIndex].length);
-                break;
-
-            case TSDB_DATA_TYPE_NCHAR:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s(%d)",
-                                stbInfo->columns[colIndex].name, "NCHAR",
-                                stbInfo->columns[colIndex].length);
-                break;
-
-            case TSDB_DATA_TYPE_INT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "INT");
-                break;
-
-            case TSDB_DATA_TYPE_BIGINT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "BIGINT");
-                break;
-
-            case TSDB_DATA_TYPE_SMALLINT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "SMALLINT");
-                break;
-
-            case TSDB_DATA_TYPE_TINYINT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "TINYINT");
-                break;
-
-            case TSDB_DATA_TYPE_BOOL:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "BOOL");
-                break;
-
-            case TSDB_DATA_TYPE_FLOAT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "FLOAT");
-                break;
-
-            case TSDB_DATA_TYPE_DOUBLE:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "DOUBLE");
-                break;
-
-            case TSDB_DATA_TYPE_TIMESTAMP:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name, "TIMESTAMP");
-                break;
-
-            case TSDB_DATA_TYPE_UTINYINT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name,
-                                "TINYINT UNSIGNED");
-                break;
-
-            case TSDB_DATA_TYPE_USMALLINT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name,
-                                "SMALLINT UNSIGNED");
-                break;
-
-            case TSDB_DATA_TYPE_UINT:
-                len +=
-                    snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                             stbInfo->columns[colIndex].name, "INT UNSIGNED");
-                break;
-
-            case TSDB_DATA_TYPE_UBIGINT:
-                len += snprintf(cols + len, COL_BUFFER_LEN - len, ",%s %s",
-                                stbInfo->columns[colIndex].name,
-                                "BIGINT UNSIGNED");
-                break;
-
-            default:
-
-                errorPrint(stderr, "unknown data type : %d\n",
-                           stbInfo->columns[colIndex].type);
-                return -1;
+        if (stbInfo->columns[colIndex].type == TSDB_DATA_TYPE_BINARY ||
+                stbInfo->columns[colIndex].type == TSDB_DATA_TYPE_NCHAR){
+            len += snprintf(cols + len, col_buffer_len - len, ",%s %s(%d)",
+                            stbInfo->columns[colIndex].name,
+                            taos_convert_datatype_to_string(stbInfo->columns[colIndex].type),
+                            stbInfo->columns[colIndex].length);
+        } else {
+            len += snprintf(cols + len, col_buffer_len - len, ",%s %s",
+                            stbInfo->columns[colIndex].name,
+                            taos_convert_datatype_to_string(stbInfo->columns[colIndex].type));
         }
     }
 
@@ -269,93 +206,41 @@ static int createSuperTable(int db_index, int stb_index) {
              "(ts timestamp%s)", cols);
 
     if (stbInfo->tagCount == 0) {
+        free(cols);
+        free(command);
         return 0;
     }
 
-    char tags[TSDB_MAX_TAGS_LEN] = "\0";
+    uint32_t tag_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->tagCount;
+    char *tags = calloc(1, tag_buffer_len);
+    if (tags == NULL) {
+        errorPrint(stderr, "%s", "failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
     int  tagIndex;
     len = 0;
 
-    len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "(");
+    len += snprintf(tags + len, tag_buffer_len - len, "(");
     for (tagIndex = 0; tagIndex < stbInfo->tagCount; tagIndex++) {
-        switch (stbInfo->tags[tagIndex].type) {
-            case TSDB_DATA_TYPE_BINARY:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len,
-                                "%s %s(%d),", stbInfo->tags[tagIndex].name,
-                                "BINARY", stbInfo->tags[tagIndex].length);
-
-                break;
-            case TSDB_DATA_TYPE_NCHAR:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len,
-                                "%s %s(%d),", stbInfo->tags[tagIndex].name,
-                                "NCHAR", stbInfo->tags[tagIndex].length);
-                break;
-            case TSDB_DATA_TYPE_INT:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "INT");
-                break;
-            case TSDB_DATA_TYPE_BIGINT:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "BIGINT");
-                break;
-            case TSDB_DATA_TYPE_SMALLINT:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "SMALLINT");
-                break;
-            case TSDB_DATA_TYPE_TINYINT:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "TINYINT");
-                break;
-            case TSDB_DATA_TYPE_BOOL:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "BOOL");
-                break;
-            case TSDB_DATA_TYPE_FLOAT:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "FLOAT");
-                break;
-            case TSDB_DATA_TYPE_DOUBLE:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "DOUBLE");
-                break;
-            case TSDB_DATA_TYPE_UTINYINT:
-                len +=
-                    snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                             stbInfo->tags[tagIndex].name, "TINYINT UNSIGNED");
-                break;
-            case TSDB_DATA_TYPE_USMALLINT:
-                len +=
-                    snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                             stbInfo->tags[tagIndex].name, "SMALLINT UNSIGNED");
-                break;
-            case TSDB_DATA_TYPE_UINT:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "INT UNSIGNED");
-                break;
-            case TSDB_DATA_TYPE_UBIGINT:
-                len +=
-                    snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                             stbInfo->tags[tagIndex].name, "BIGINT UNSIGNED");
-                break;
-            case TSDB_DATA_TYPE_TIMESTAMP:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s %s,",
-                                stbInfo->tags[tagIndex].name, "TIMESTAMP");
-                break;
-            case TSDB_DATA_TYPE_JSON:
-                len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, "%s json",
-                                stbInfo->tags[tagIndex].name);
-                goto skip;
-            default:
-
-                errorPrint(stderr, "unknown data type : %d\n",
-                           stbInfo->tags[tagIndex].type);
-                return -1;
+        if (stbInfo->tags[tagIndex].type == TSDB_DATA_TYPE_BINARY ||
+                stbInfo->tags[tagIndex].type == TSDB_DATA_TYPE_NCHAR) {
+            len += snprintf(tags + len, tag_buffer_len - len,
+                            "%s %s(%d),", stbInfo->tags[tagIndex].name,
+                            taos_convert_datatype_to_string(stbInfo->tags[tagIndex].type),
+                            stbInfo->tags[tagIndex].length);
+        } else if (stbInfo->tags[tagIndex].type == TSDB_DATA_TYPE_JSON) {
+            len += snprintf(tags + len, tag_buffer_len - len, "%s json",
+                            stbInfo->tags[tagIndex].name);
+            goto skip;
+        } else {
+            len += snprintf(tags + len, tag_buffer_len - len, "%s %s,",
+                            stbInfo->tags[tagIndex].name,
+                            taos_convert_datatype_to_string(stbInfo->tags[tagIndex].type));
         }
     }
-
     len -= 1;
 skip:
-    len += snprintf(tags + len, TSDB_MAX_TAGS_LEN - len, ")");
+    len += snprintf(tags + len, tag_buffer_len - len, ")");
 
     int length = snprintf(
         command, BUFFER_SIZE,
@@ -400,13 +285,19 @@ skip:
     if (0 != queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
         errorPrint(stderr, "create supertable %s failed!\n\n",
                    stbInfo->stbName);
+        free(command);
+        free(cols);
+        free(tags);
         return -1;
     }
+    free(command);
+    free(cols);
+    free(tags);
     return 0;
 }
 
-static int createDatabase(int db_index) {
-    char       command[BUFFER_SIZE] = "\0";
+int createDatabase(int db_index) {
+    char       command[SQL_BUFF_LEN] = "\0";
     SDataBase *database = &(g_arguments->db[db_index]);
     TAOS *     taos = NULL;
     taos = select_one_from_pool(NULL);

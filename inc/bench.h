@@ -39,9 +39,12 @@
 #include <unistd.h>
 #include <wordexp.h>
 #include <sys/ioctl.h>
-#else
-#include <string>
 #endif
+
+#if defined(WIN32) || defined(WIN64)
+#include "os.h"
+#endif
+
 
 #include <regex.h>
 #include <stdio.h>
@@ -94,15 +97,12 @@
 
 #define STR_INSERT_INTO "INSERT INTO "
 
-#define MAX_RECORDS_PER_REQ 32766
-
 #define HEAD_BUFF_LEN \
     TSDB_MAX_COLUMNS * 24  // 16*MAX_COLUMNS + (192+32)*2 + insert into ..
 
 #define BUFFER_SIZE       TSDB_MAX_ALLOWED_SQL_LEN
 #define FETCH_BUFFER_SIZE 100 * TSDB_MAX_ALLOWED_SQL_LEN
 #define COND_BUF_LEN      (BUFFER_SIZE - 30)
-#define COL_BUFFER_LEN    ((TSDB_COL_NAME_LEN + 15) * TSDB_MAX_COLUMNS)
 
 #define OPT_ABORT         1    /* –abort */
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.

@@ -142,7 +142,11 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         return -1;
     }
     while (1) {
+#if defined(WIN32) || defined(WIN64)
+        readLen = tgetline(&line, &n, fp);
+#else
         readLen = getline(&line, &n, fp);
+#endif
         if (-1 == readLen) {
             if (0 != fseek(fp, 0, SEEK_SET)) {
                 errorPrint(stderr, "Failed to fseek file: %s, reason:%s\n",
