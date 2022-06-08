@@ -87,6 +87,20 @@ int taosRandom() {
 
     return number;
 }
+
+void usleep(__int64 usec)
+{
+  HANDLE timer;
+  LARGE_INTEGER ft;
+
+  ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+  timer = CreateWaitableTimer(NULL, TRUE, NULL);
+  SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+  WaitForSingleObject(timer, INFINITE);
+  CloseHandle(timer);
+}
+
 #else  // Not windows
 void setupForAnsiEscape(void) {}
 
@@ -94,8 +108,6 @@ void resetAfterAnsiEscape(void) {
     // Reset colors
     printf("\x1b[0m");
 }
-
-#include <time.h>
 
 int taosRandom() { return rand(); }
 
@@ -246,13 +258,6 @@ int64_t toolsGetTimestamp(int32_t precision) {
 }
 
 void taosMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
-
-int64_t taosGetSelfPthreadId() {
-    static __thread int id = 0;
-    if (id != 0) return id;
-    id = syscall(SYS_gettid);
-    return id;
-}
 
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;
@@ -665,6 +670,7 @@ int taos_convert_string_to_datatype(char *type, int length) {
 }
 
 int init_taos_list() {
+#ifdef LINUX
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
@@ -674,6 +680,7 @@ int init_taos_list() {
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
         wordfree(&full_path);
     }
+#endif
     int        size = g_arguments->connection_pool;
     TAOS_POOL *pool = g_arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));

@@ -25,45 +25,48 @@
 #ifndef _ALPINE
 #include <error.h>
 #endif
-#include <pthread.h>
-#include <regex.h>
 #include <semaphore.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 #include <wordexp.h>
+#include <netdb.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <syscall.h>
+#include <unistd.h>
+#include <wordexp.h>
+#include <sys/ioctl.h>
 #else
-#include <regex.h>
-#include <stdio.h>
+#include <string>
 #endif
 
-#include <argp.h>
+#include <regex.h>
+#include <stdio.h>
 #include <assert.h>
 #include <cJSONDEMO.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <netdb.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/prctl.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <syscall.h>
 #include <time.h>
-#include <unistd.h>
-#include <wordexp.h>
+
 
 // temporary flag for 3.0 development TODO need to remove in future
 #define ALLOW_FORBID_FUNC
 
 #include "taos.h"
 #include "toolsdef.h"
+
+#if defined(WIN32) || defined(WIN64)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#endif
 
 #ifndef TSDB_DATA_TYPE_VARCHAR
 #define TSDB_DATA_TYPE_VARCHAR 8
@@ -548,6 +551,9 @@ void commandLineParseArgument(int argc, char *argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
+int count_datatype(char *dataType, uint32_t *number);
+int parse_tag_datatype(char *dataType, Column *tags);
+int parse_col_datatype(char *dataType, Column *columns);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */

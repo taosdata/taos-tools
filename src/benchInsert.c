@@ -520,7 +520,11 @@ static int createDatabase(int db_index) {
         return -1;
     }
     infoPrint(stdout, "create database: <%s>\n", command);
+#ifdef LINUX
     sleep(2);
+#else
+    Sleep(2);
+#endif
     return 0;
 }
 
@@ -534,7 +538,9 @@ static void *createTable(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+#ifdef LINUX
     prctl(PR_SET_NAME, "createTable");
+#endif
     uint64_t lastPrintTime = toolsGetTimestampMs();
     pThreadInfo->buffer = calloc(1, TSDB_MAX_SQL_LEN);
     if (pThreadInfo->buffer == NULL) {
@@ -648,7 +654,12 @@ static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
 
     for (int64_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
+#ifdef LINUX
         pThreadInfo->threadID = (pthread_t)i;
+#else
+        pThreadInfo->threadID = (uint32_t)i;
+#endif
+
         pThreadInfo->stb_index = stb_index;
         pThreadInfo->db_index = db_index;
         pThreadInfo->taos = select_one_from_pool(database->dbName);

@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.21)
 
 INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR}/build/include)
 INCLUDE_DIRECTORIES(../inc)
@@ -109,7 +109,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/cJsonDemo/src)
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     SET(OS_ID "")
     ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
-    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
+    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
     EXECUTE_PROCESS (
         COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
         OUTPUT_VARIABLE OS_ID
@@ -172,5 +172,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         ENDIF()
     ENDIF ()
     TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo)
+else()
+    set (CMAKE_C_STANDARD 11)
+    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchWindows.c)
+    TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread cJsonDemo)
 ENDIF ()
 

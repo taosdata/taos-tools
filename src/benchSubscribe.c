@@ -78,8 +78,9 @@ static void *specifiedSubscribe(void *sarg) {
     }
     *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
+#ifdef LINUX
     prctl(PR_SET_NAME, "specSub");
-
+#endif
     sprintf(g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
             "taosbenchmark-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
             pThreadInfo->threadID);
@@ -182,9 +183,9 @@ static void *superSubscribe(void *sarg) {
         errorPrint(stderr, "%s", "memory allocation failed\n");
         exit(EXIT_FAILURE);
     }
-
+#ifdef LINUX
     prctl(PR_SET_NAME, "superSub");
-
+#endif
     if (pThreadInfo->ntables > MAX_QUERY_SQL_COUNT) {
         errorPrint(stderr,
                    "The table number(%" PRId64
