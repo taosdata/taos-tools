@@ -105,9 +105,9 @@
 #define COND_BUF_LEN      (BUFFER_SIZE - 30)
 
 #define OPT_ABORT         1    /* –abort */
+#define MAX_RECORDS_PER_REQ 65536
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
 #define MAX_PATH_LEN      4096
-
 #define DEFAULT_START_TIME  1500000000000
 #define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
