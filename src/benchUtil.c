@@ -564,19 +564,19 @@ char *taos_convert_datatype_to_string(int type) {
         case TSDB_DATA_TYPE_TINYINT:
             return "tinyint";
         case TSDB_DATA_TYPE_UTINYINT:
-            return "unsigned tinyint";
+            return "tinyint unsigned";
         case TSDB_DATA_TYPE_SMALLINT:
             return "smallint";
         case TSDB_DATA_TYPE_USMALLINT:
-            return "unsigned smallint";
+            return "smallint unsigned";
         case TSDB_DATA_TYPE_INT:
             return "int";
         case TSDB_DATA_TYPE_UINT:
-            return "unsigned int";
+            return "int unsigned";
         case TSDB_DATA_TYPE_BIGINT:
             return "bigint";
         case TSDB_DATA_TYPE_UBIGINT:
-            return "unsigned bigint";
+            return "bigint unsigned";
         case TSDB_DATA_TYPE_BOOL:
             return "bool";
         case TSDB_DATA_TYPE_FLOAT:
