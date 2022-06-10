@@ -26,7 +26,7 @@ if(NOT WIN32)
 endif()
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-
+    add_definitions(-DLINUX)
     find_package(PkgConfig REQUIRED)
 
     find_package(ZLIB)

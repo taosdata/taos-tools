@@ -27,7 +27,6 @@
 #endif
 #include <semaphore.h>
 #include <stdbool.h>
-#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 #include <wordexp.h>
