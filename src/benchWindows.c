@@ -20,6 +20,81 @@ inline void exit_required(char* name) {
     exit(EXIT_FAILURE);
 }
 
+void printHelp() {
+  printf("Usage: taosdemo [OPTION...] \n"
+      "\n"
+      "  -f, --file=FILE            (**IMPORTANT**) Set JSON configuration file(all\n"
+      "                             options are going to read from this JSON file),\n"
+      "                             which is mutually exclusive with other commandline\n"
+      "                             options, examples are under\n"
+      "                             /usr/local/taos/examples\n"
+      "  -a, --replia=NUMBER        The number of replica when create database,\n"
+      "                             default is 1.\n"
+      "  -A, --tag-type=TAG_TYPE    Data type of tables' tags, default is\n"
+      "                             INT,BINARY(16).\n"
+      "  -b, --data-type=COL_TYPE   Data type of tables' cols, default is\n"
+      "                             FLOAT,INT,FLOAT.\n"
+      "  -B, --interlace-rows=NUMBER   The number of interlace rows insert into\n"
+      "                             tables, default is 0\n"
+      "  -c, --config-dir=CONFIG_DIR   Configuration directory.\n"
+      "  -C, --chinese              Nchar and binary are basic unicode chinese\n"
+      "                             characters, optional.\n"
+      "  -d, --database=DATABASE    Name of database, default is test.\n"
+      "  -E, --escape-character     Use escape character in stable and child table\n"
+      "                             name, optional.\n"
+      "  -F, --prepared_rand=NUMBER Random data source size, default is 10000.\n"
+      "  -g, --debug                Debug mode, optional.\n"
+      "  -G, --performance          Performance mode, optional.\n"
+      "  -h, --host=HOST            TDengine server FQDN to connect, default is\n"
+      "                             localhost.\n"
+      "  -H, --connection_pool=NUMBER   size of the pre-connected client in connection\n"
+      "                             pool, default is 8\n"
+      "  -i, --insert-interval=NUMBER   Insert interval for interlace mode in\n"
+      "                             milliseconds, default is 0.\n"
+      "  -I, --interface=IFACE      insert mode, default is taosc, options:\n"
+      "                             taosc|rest|stmt|sml\n"
+      "  -l, --columns=NUMBER       Number of INT data type columns in table, default\n"
+      "                             is 0. \n"
+      "  -m, --table-prefix=TABLE_PREFIX\n"
+      "                             Prefix of child table name, default is d.\n"
+      "  -M, --random               Data source is randomly generated, optional.\n"
+      "  -n, --records=NUMBER       Number of records for each table, default is\n"
+      "                             10000.\n"
+      "  -N, --normal-table         Only create normal table without super table,\n"
+      "                             optional.\n"
+      "  -o, --output=FILE          The path of result output file, default is\n"
+      "                             ./output.txt.\n"
+      "  -O, --disorder=NUMBER      Ratio of inserting data with disorder timestamp,\n"
+      "                             default is 0.\n"
+      "  -p, --password=PASSWORD    The password to use when connecting to the server,\n"
+      "                             default is taosdata.\n"
+      "  -P, --port=PORT            The TCP/IP port number to use for the connection,\n"
+      "                             default is 6030.\n"
+      "  -r, --rec-per-req=NUMBER   Number of records in each insert request, default\n"
+      "                             is 30000.\n"
+      "  -R, --disorder-range=NUMBER   Range of disordered timestamp, default is 1000.\n"
+      "                            \n"
+      "  -S, --time-step=NUMBER     Timestamp step in milliseconds, default is 1.\n"
+      "  -t, --tables=NUMBER        Number of child tables, default is 10000.\n"
+      "  -T, --threads=NUMBER       The number of thread when insert data, default is\n"
+      "                             8.\n"
+      "  -u, --user=USER            The user name to use when connecting to the\n"
+      "                             server, default is root.\n"
+      "  -w, --binwidth=NUMBER      The default length of nchar and binary if not\n"
+      "                             specified, default is 64.\n"
+      "  -x, --aggr-func            Query aggregation function after insertion,\n"
+      "                             optional.\n"
+      "  -y, --answer-yes           Pass confirmation prompt to continue, optional.\n"
+      "  -?, --help                 Give this help list\n"
+      "      --usage                Give a short usage message\n"
+      "  -V, --version              Print program version\n"
+      "\n"
+      "Mandatory or optional arguments to long options are also mandatory or optional\n"
+      "for any corresponding short options.\n"
+      "\n"
+      "Report bugs to <support@taosdata.com>.");
+}
+
 void commandLineParseArgument(int argc, char *argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-F") == 0) {
@@ -240,6 +315,9 @@ void commandLineParseArgument(int argc, char *argv[]) {
             g_arguments->debug_print = true;
         } else if (strcmp(argv[i], "-G") == 0) {
             g_arguments->performance_print = true;
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-?") == 0) {
+          printHelp();
+          exit(EXIT_SUCCESS);
         } else {
             errorPrint(stderr, "unknown option: %s\n", argv[i]);
             exit(EXIT_FAILURE);
