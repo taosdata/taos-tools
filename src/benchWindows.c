@@ -20,6 +20,26 @@ inline void exit_required(char* name) {
     exit(EXIT_FAILURE);
 }
 
+void printUsage() {
+    fprintf(stdout, "Usage: taosdemo [-CEgGMNxy?V] [-f FILE] [-a NUMBER] [-A TAG_TYPE]\n"
+                    "            [-b COL_TYPE] [-B NUMBER] [-c CONFIG_DIR] [-d DATABASE]\n"
+                    "            [-F NUMBER] [-h HOST] [-H NUMBER] [-i NUMBER] [-I IFACE]\n"
+                    "            [-l NUMBER] [-m TABLE_PREFIX] [-n NUMBER] [-o FILE] [-O NUMBER]\n"
+                    "            [-p PASSWORD] [-P PORT] [-r NUMBER] [-R NUMBER] [-S NUMBER]\n"
+                    "            [-t NUMBER] [-T NUMBER] [-u USER] [-w NUMBER] [--file=FILE]\n"
+                    "            [--replia=NUMBER] [--tag-type=TAG_TYPE] [--data-type=COL_TYPE]\n"
+                    "            [--interlace-rows=NUMBER] [--config-dir=CONFIG_DIR] [--chinese]\n"
+                    "            [--database=DATABASE] [--escape-character] [--prepared_rand=NUMBER]\n"
+                    "            [--debug] [--performance] [--host=HOST] [--connection_pool=NUMBER]\n"
+                    "            [--insert-interval=NUMBER] [--interface=IFACE] [--columns=NUMBER]\n"
+                    "            [--table-prefix=TABLE_PREFIX] [--random] [--records=NUMBER]\n"
+                    "            [--normal-table] [--output=FILE] [--disorder=NUMBER]\n"
+                    "            [--password=PASSWORD] [--port=PORT] [--rec-per-req=NUMBER]\n"
+                    "            [--disorder-range=NUMBER] [--time-step=NUMBER] [--tables=NUMBER]\n"
+                    "            [--threads=NUMBER] [--user=USER] [--binwidth=NUMBER] [--aggr-func]\n"
+                    "            [--answer-yes] [--help] [--usage] [--version]");
+}
+
 void printHelp() {
   fprintf(stdout, "Usage: taosdemo [OPTION...] \n"
       "\n"
@@ -318,8 +338,11 @@ void commandLineParseArgument(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-?") == 0) {
             printHelp();
             exit(EXIT_SUCCESS);
-        } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+        } else if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
             fprintf(stdout, "%s\n", taos_get_client_info());
+            exit(EXIT_SUCCESS);
+        } else if (strcmp(argv[i], "--usage") == 0) {
+            printUsage();
             exit(EXIT_SUCCESS);
         } else {
             errorPrint(stderr, "unknown option: %s\n", argv[i]);
