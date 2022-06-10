@@ -19,6 +19,13 @@
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
+const char* locations[] = {"San Francisco", "Los Angles", "San Diego",
+                           "San Jose", "Palo Alto", "Campbell", "Mountain View",
+                           "Sunnyvale", "Santa Clara", "Cupertino"};
+
+const char* locations_chinese[] = {"旧金山","洛杉矶","圣地亚哥","圣何塞","帕洛阿尔托","坎贝尔",
+                                   "山景城","森尼韦尔","圣克拉拉","库比蒂诺"};
+
 static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
         *p = (unic & 0x7F);
@@ -522,7 +529,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if ((g_arguments->demo_mode) && (i == 0)) {
                         int_ = taosRandom() % 10 + 1;
                     } else if ((g_arguments->demo_mode) && (i == 1)) {
-                        int_ = 215 + taosRandom() % 10;
+                        int_ = 110 + taosRandom() % 10;
                     } else {
                         if (columns[i].min < (-1 * (RAND_MAX >> 1))) {
                             columns[i].min = -1 * (RAND_MAX >> 1);
@@ -740,18 +747,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         exit(EXIT_FAILURE);
                     }
                     if (g_arguments->demo_mode) {
-                        if (taosRandom() % 2 == 1) {
-                            if (g_arguments->chinese) {
-                                sprintf(tmp, "上海");
-                            } else {
-                                sprintf(tmp, "shanghai");
-                            }
+                        if (g_arguments->chinese) {
+                            sprintf(tmp, locations_chinese[taosRandom() % 10]);
                         } else {
-                            if (g_arguments->chinese) {
-                                sprintf(tmp, "北京");
-                            } else {
-                                sprintf(tmp, "beijing");
-                            }
+                            sprintf(tmp, locations[taosRandom() % 10]);
                         }
                     } else if (columns[i].values) {
                         cJSON *buf = cJSON_GetArrayItem(
