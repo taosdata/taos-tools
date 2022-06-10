@@ -25,45 +25,50 @@
 #ifndef _ALPINE
 #include <error.h>
 #endif
-#include <pthread.h>
-#include <regex.h>
 #include <semaphore.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 #include <wordexp.h>
-#else
-#include <regex.h>
-#include <stdio.h>
+#include <netdb.h>
+#include <sys/prctl.h>
+#include <sys/socket.h>
+#include <sys/time.h>
+#include <syscall.h>
+#include <unistd.h>
+#include <wordexp.h>
+#include <sys/ioctl.h>
 #endif
 
-#include <argp.h>
+#if defined(WIN32) || defined(WIN64)
+#include "os.h"
+#endif
+
+
+#include <regex.h>
+#include <stdio.h>
 #include <assert.h>
 #include <cJSONDEMO.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <netdb.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/prctl.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <syscall.h>
 #include <time.h>
-#include <unistd.h>
-#include <wordexp.h>
+
 
 // temporary flag for 3.0 development TODO need to remove in future
 #define ALLOW_FORBID_FUNC
 
 #include "taos.h"
 #include "toolsdef.h"
+
+#if defined(WIN32) || defined(WIN64)
+#define strcasecmp _stricmp
+#define strncasecmp _strnicmp
+#endif
 
 #ifndef TSDB_DATA_TYPE_VARCHAR
 #define TSDB_DATA_TYPE_VARCHAR 8
@@ -91,20 +96,17 @@
 
 #define STR_INSERT_INTO "INSERT INTO "
 
-#define MAX_RECORDS_PER_REQ 32766
-
 #define HEAD_BUFF_LEN \
     TSDB_MAX_COLUMNS * 24  // 16*MAX_COLUMNS + (192+32)*2 + insert into ..
 
 #define BUFFER_SIZE       TSDB_MAX_ALLOWED_SQL_LEN
 #define FETCH_BUFFER_SIZE 100 * TSDB_MAX_ALLOWED_SQL_LEN
 #define COND_BUF_LEN      (BUFFER_SIZE - 30)
-#define COL_BUFFER_LEN    ((TSDB_COL_NAME_LEN + 15) * TSDB_MAX_COLUMNS)
 
 #define OPT_ABORT         1    /* –abort */
+#define MAX_RECORDS_PER_REQ 65536
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
 #define MAX_PATH_LEN      4096
-
 #define DEFAULT_START_TIME  1500000000000
 #define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
@@ -548,6 +550,9 @@ void commandLineParseArgument(int argc, char *argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
+int count_datatype(char *dataType, uint32_t *number);
+int parse_tag_datatype(char *dataType, Column *tags);
+int parse_col_datatype(char *dataType, Column *columns);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */

@@ -13,7 +13,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <sys/ioctl.h>
 #include "bench.h"
 
 void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
@@ -45,8 +44,9 @@ static void *specifiedTableQuery(void *sarg) {
         exit(EXIT_FAILURE);
     }
     *code = -1;
+#ifdef LINUX
     prctl(PR_SET_NAME, "specTableQuery");
-
+#endif
     uint64_t st = 0;
     uint64_t et = 0;
     uint64_t minDelay = UINT64_MAX;
@@ -158,7 +158,9 @@ static void *superTableQuery(void *sarg) {
         exit(EXIT_FAILURE);
     }
     threadInfo *pThreadInfo = (threadInfo *)sarg;
+#ifdef LINUX
     prctl(PR_SET_NAME, "superTableQuery");
+#endif
 
     uint64_t st = 0;
     uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval;

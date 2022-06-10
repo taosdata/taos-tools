@@ -19,6 +19,17 @@
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
+const char* locations[] = {"San Francisco", "Los Angles", "San Diego",
+                           "San Jose", "Palo Alto", "Campbell", "Mountain View",
+                           "Sunnyvale", "Santa Clara", "Cupertino"};
+
+const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
+                           "San\\ Jose", "Palo\\ Alto", "Campbell", "Mountain\\ View",
+                           "Sunnyvale", "Santa\\ Clara", "Cupertino"};
+
+const char* locations_chinese[] = {"旧金山","洛杉矶","圣地亚哥","圣何塞","帕洛阿尔托","坎贝尔",
+                                   "山景城","森尼韦尔","圣克拉拉","库比蒂诺"};
+
 static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
         *p = (unic & 0x7F);
@@ -142,7 +153,11 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         return -1;
     }
     while (1) {
+#if defined(WIN32) || defined(WIN64)
+        readLen = tgetline(&line, &n, fp);
+#else
         readLen = getline(&line, &n, fp);
+#endif
         if (-1 == readLen) {
             if (0 != fseek(fp, 0, SEEK_SET)) {
                 errorPrint(stderr, "Failed to fseek file: %s, reason:%s\n",
@@ -357,8 +372,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
                     if (iface == STMT_IFACE) {
-                        *(bool *)(columns[i].data + k * columns[i].length) =
-                            rand_bool;
+                        ((bool *)columns[i].data)[k] = rand_bool;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -393,8 +407,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(int8_t *)(columns[i].data + k * columns[i].length) =
-                            tinyint;
+                        ((int8_t *)columns[i].data)[k] = tinyint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -427,8 +440,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint8_t *)(columns[i].data + k * columns[i].length) =
-                            utinyint;
+                        ((uint8_t *)columns[i].data)[k] = utinyint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -461,8 +473,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(int16_t *)(columns[i].data + k * columns[i].length) =
-                            smallint;
+                        ((int16_t *)columns[i].data)[k] = smallint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -495,8 +506,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint16_t *)(columns[i].data + k * columns[i].length) =
-                            usmallint;
+                        ((uint16_t *)columns[i].data)[k] = usmallint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -523,7 +533,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if ((g_arguments->demo_mode) && (i == 0)) {
                         int_ = taosRandom() % 10 + 1;
                     } else if ((g_arguments->demo_mode) && (i == 1)) {
-                        int_ = 215 + taosRandom() % 10;
+                        int_ = 110 + taosRandom() % 10;
                     } else {
                         if (columns[i].min < (-1 * (RAND_MAX >> 1))) {
                             columns[i].min = -1 * (RAND_MAX >> 1);
@@ -536,8 +546,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                             (taosRandom() % (columns[i].max - columns[i].min));
                     }
                     if (iface == STMT_IFACE) {
-                        *(int32_t *)(columns[i].data + k * columns[i].length) =
-                            int_;
+                        ((int32_t *)columns[i].data)[k] = int_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -569,8 +578,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     int_ = columns[i].min +
                            (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(int64_t *)(columns[i].data + k * columns[i].length) =
-                            (int64_t)int_;
+                        ((int64_t *)columns[i].data)[k] = int_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -602,8 +610,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint32_t *)(columns[i].data + k * columns[i].length) =
-                            uint;
+                        ((uint32_t *)columns[i].data)[k] = uint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -636,8 +643,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint64_t *)(columns[i].data + k * columns[i].length) =
-                            (uint64_t)ubigint;
+                        ((uint64_t *)columns[i].data)[k] = ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         (line_protocol == TSDB_SML_LINE_PROTOCOL ||
@@ -680,8 +686,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                          360);
                     }
                     if (iface == STMT_IFACE) {
-                        *(float *)(columns[i].data + k * columns[i].length) =
-                            float_;
+                        ((float *)(columns[i].data))[k] = float_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -716,8 +721,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                   (columns[i].max - columns[i].min)) +
                                  taosRandom() % 1000000 / 1000000.0);
                     if (iface == STMT_IFACE) {
-                        *(double *)(columns[i].data + k * columns[i].length) =
-                            double_;
+                        ((double *)columns[i].data)[k] = double_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -747,18 +751,12 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         exit(EXIT_FAILURE);
                     }
                     if (g_arguments->demo_mode) {
-                        if (taosRandom() % 2 == 1) {
-                            if (g_arguments->chinese) {
-                                sprintf(tmp, "上海");
-                            } else {
-                                sprintf(tmp, "shanghai");
-                            }
+                        if (g_arguments->chinese) {
+                            sprintf(tmp, "%s", locations_chinese[taosRandom() % 10]);
+                        } else if (stbInfo->iface == SML_IFACE) {
+                            sprintf(tmp, "%s", locations_sml[taosRandom() % 10]);
                         } else {
-                            if (g_arguments->chinese) {
-                                sprintf(tmp, "北京");
-                            } else {
-                                sprintf(tmp, "beijing");
-                            }
+                            sprintf(tmp, "%s", locations[taosRandom() % 10]);
                         }
                     } else if (columns[i].values) {
                         cJSON *buf = cJSON_GetArrayItem(
