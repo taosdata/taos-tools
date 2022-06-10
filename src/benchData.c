@@ -748,9 +748,9 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     }
                     if (g_arguments->demo_mode) {
                         if (g_arguments->chinese) {
-                            sprintf(tmp, locations_chinese[taosRandom() % 10]);
+                            sprintf(tmp, "%s", locations_chinese[taosRandom() % 10]);
                         } else {
-                            sprintf(tmp, locations[taosRandom() % 10]);
+                            sprintf(tmp, "%s", locations[taosRandom() % 10]);
                         }
                     } else if (columns[i].values) {
                         cJSON *buf = cJSON_GetArrayItem(
