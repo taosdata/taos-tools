@@ -21,7 +21,7 @@ inline void exit_required(char* name) {
 }
 
 void printHelp() {
-  printf("Usage: taosdemo [OPTION...] \n"
+  fprintf(stdout, "Usage: taosdemo [OPTION...] \n"
       "\n"
       "  -f, --file=FILE            (**IMPORTANT**) Set JSON configuration file(all\n"
       "                             options are going to read from this JSON file),\n"
@@ -316,8 +316,11 @@ void commandLineParseArgument(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "-G") == 0) {
             g_arguments->performance_print = true;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-?") == 0) {
-          printHelp();
-          exit(EXIT_SUCCESS);
+            printHelp();
+            exit(EXIT_SUCCESS);
+        } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+            fprintf(stdout, "%s\n", taos_get_client_info());
+            exit(EXIT_SUCCESS);
         } else {
             errorPrint(stderr, "unknown option: %s\n", argv[i]);
             exit(EXIT_FAILURE);
