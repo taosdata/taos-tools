@@ -3531,7 +3531,7 @@ static int dumpInAvroTbTagsImpl(
                     free(dupSeq);
                 }
 
-                if ((NULL == tableDes->name)
+                if ((0 == strlen(tableDes->name))
                         || (0 != strcmp(tableDes->name, stbName))) {
                     getTableDes(taos, namespace,
                             stbName, tableDes, false);
