@@ -19,6 +19,17 @@
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
+const char* locations[] = {"San Francisco", "Los Angles", "San Diego",
+                           "San Jose", "Palo Alto", "Campbell", "Mountain View",
+                           "Sunnyvale", "Santa Clara", "Cupertino"};
+
+const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
+                           "San\\ Jose", "Palo\\ Alto", "Campbell", "Mountain\\ View",
+                           "Sunnyvale", "Santa\\ Clara", "Cupertino"};
+
+const char* locations_chinese[] = {"旧金山","洛杉矶","圣地亚哥","圣何塞","帕洛阿尔托","坎贝尔",
+                                   "山景城","森尼韦尔","圣克拉拉","库比蒂诺"};
+
 static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
         *p = (unic & 0x7F);
@@ -89,6 +100,11 @@ static void rand_string(char *str, int size, bool chinese) {
 int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = calloc(1, BUFFER_SIZE);
+    if (prepare == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+    
     g_memoryUsage += BUFFER_SIZE;
     if (stbInfo->autoCreateTable) {
         len += sprintf(prepare + len,
@@ -137,7 +153,11 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         return -1;
     }
     while (1) {
+#if defined(WIN32) || defined(WIN64)
+        readLen = tgetline(&line, &n, fp);
+#else
         readLen = getline(&line, &n, fp);
+#endif
         if (-1 == readLen) {
             if (0 != fseek(fp, 0, SEEK_SET)) {
                 errorPrint(stderr, "Failed to fseek file: %s, reason:%s\n",
@@ -189,6 +209,10 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
         goto free_of_get_set_rows_from_csv;
     }
     buf = calloc(1, TSDB_MAX_SQL_LEN);
+    if (buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     while (fgets(buf, TSDB_MAX_SQL_LEN, fp)) {
         line_count++;
     }
@@ -307,22 +331,28 @@ static void calcRowLen(SSuperTable *stbInfo) {
 }
 
 void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-                      int lenOfOneRow, Column *columns, int count, int loop,
+                      int lenOfOneRow, Column *columns, int count, int64_t loop,
                       bool tag) {
     int     iface = stbInfo->iface;
     int     line_protocol = stbInfo->lineProtocol;
-    int32_t pos = 0;
+    int64_t pos = 0;
     if (iface == STMT_IFACE) {
         for (int i = 0; i < count; ++i) {
             if (columns[i].type == TSDB_DATA_TYPE_BINARY ||
                 columns[i].type == TSDB_DATA_TYPE_NCHAR) {
                 columns[i].data = calloc(1, loop * (columns[i].length + 1));
+                g_memoryUsage += loop * (columns[i].length + 1);
             } else {
                 columns[i].data = calloc(1, loop * columns[i].length);
+                g_memoryUsage += loop * columns[i].length;
+            }
+            if (NULL == columns[i].data) {
+                errorPrint(stderr, "%s", "memory allocation failed\n");
+                exit(EXIT_FAILURE);
             }
         }
     }
-    for (int k = 0; k < loop; ++k) {
+    for (int64_t k = 0; k < loop; ++k) {
         pos = k * lenOfOneRow;
         if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
             (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
@@ -342,8 +372,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
                     if (iface == STMT_IFACE) {
-                        *(bool *)(columns[i].data + k * columns[i].length) =
-                            rand_bool;
+                        ((bool *)columns[i].data)[k] = rand_bool;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -378,8 +407,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(int8_t *)(columns[i].data + k * columns[i].length) =
-                            tinyint;
+                        ((int8_t *)columns[i].data)[k] = tinyint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -412,8 +440,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint8_t *)(columns[i].data + k * columns[i].length) =
-                            utinyint;
+                        ((uint8_t *)columns[i].data)[k] = utinyint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -446,8 +473,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(int16_t *)(columns[i].data + k * columns[i].length) =
-                            smallint;
+                        ((int16_t *)columns[i].data)[k] = smallint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -480,8 +506,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint16_t *)(columns[i].data + k * columns[i].length) =
-                            usmallint;
+                        ((uint16_t *)columns[i].data)[k] = usmallint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -508,7 +533,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if ((g_arguments->demo_mode) && (i == 0)) {
                         int_ = taosRandom() % 10 + 1;
                     } else if ((g_arguments->demo_mode) && (i == 1)) {
-                        int_ = 215 + taosRandom() % 10;
+                        int_ = 110 + taosRandom() % 10;
                     } else {
                         if (columns[i].min < (-1 * (RAND_MAX >> 1))) {
                             columns[i].min = -1 * (RAND_MAX >> 1);
@@ -521,8 +546,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                             (taosRandom() % (columns[i].max - columns[i].min));
                     }
                     if (iface == STMT_IFACE) {
-                        *(int32_t *)(columns[i].data + k * columns[i].length) =
-                            int_;
+                        ((int32_t *)columns[i].data)[k] = int_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -554,8 +578,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     int_ = columns[i].min +
                            (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(int64_t *)(columns[i].data + k * columns[i].length) =
-                            (int64_t)int_;
+                        ((int64_t *)columns[i].data)[k] = int_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -587,8 +610,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint32_t *)(columns[i].data + k * columns[i].length) =
-                            uint;
+                        ((uint32_t *)columns[i].data)[k] = uint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -621,8 +643,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         columns[i].min +
                         (taosRandom() % (columns[i].max - columns[i].min));
                     if (iface == STMT_IFACE) {
-                        *(uint64_t *)(columns[i].data + k * columns[i].length) =
-                            (uint64_t)ubigint;
+                        ((uint64_t *)columns[i].data)[k] = ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         (line_protocol == TSDB_SML_LINE_PROTOCOL ||
@@ -665,8 +686,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                          360);
                     }
                     if (iface == STMT_IFACE) {
-                        *(float *)(columns[i].data + k * columns[i].length) =
-                            float_;
+                        ((float *)(columns[i].data))[k] = float_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -701,8 +721,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                   (columns[i].max - columns[i].min)) +
                                  taosRandom() % 1000000 / 1000000.0);
                     if (iface == STMT_IFACE) {
-                        *(double *)(columns[i].data + k * columns[i].length) =
-                            double_;
+                        ((double *)columns[i].data)[k] = double_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
@@ -727,19 +746,17 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = calloc(1, columns[i].length + 1);
+                    if (tmp == NULL) {
+                        errorPrint(stderr, "%s", "memory allocation failed\n");
+                        exit(EXIT_FAILURE);
+                    }
                     if (g_arguments->demo_mode) {
-                        if (taosRandom() % 2 == 1) {
-                            if (g_arguments->chinese) {
-                                sprintf(tmp, "上海");
-                            } else {
-                                sprintf(tmp, "shanghai");
-                            }
+                        if (g_arguments->chinese) {
+                            sprintf(tmp, "%s", locations_chinese[taosRandom() % 10]);
+                        } else if (stbInfo->iface == SML_IFACE) {
+                            sprintf(tmp, "%s", locations_sml[taosRandom() % 10]);
                         } else {
-                            if (g_arguments->chinese) {
-                                sprintf(tmp, "北京");
-                            } else {
-                                sprintf(tmp, "beijing");
-                            }
+                            sprintf(tmp, "%s", locations[taosRandom() % 10]);
                         }
                     } else if (columns[i].values) {
                         cJSON *buf = cJSON_GetArrayItem(
@@ -800,6 +817,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     for (int j = 0; j < count; ++j) {
                         pos += sprintf(sampleDataBuf + pos, "\"k%d\":", j);
                         char *buf = calloc(1, columns[j].length + 1);
+                        if (buf == NULL) {
+                            errorPrint(stderr, "%s", "memory allocation failed\n");
+                            exit(EXIT_FAILURE);
+                        }
                         rand_string(buf, columns[j].length,
                                     g_arguments->chinese);
                         pos += sprintf(sampleDataBuf + pos, "\"%s\",", buf);
@@ -825,6 +846,10 @@ int prepare_sample_data(int db_index, int stb_index) {
             stbInfo->partialColumnNum = stbInfo->columnCount;
         } else {
             stbInfo->partialColumnNameBuf = calloc(1, BUFFER_SIZE);
+            if (NULL == stbInfo->partialColumnNameBuf) {
+                errorPrint(stderr, "%s", "memory allocation failed\n");
+                exit(EXIT_FAILURE);
+            }
             g_memoryUsage += BUFFER_SIZE;
             int pos = 0;
             pos += sprintf(stbInfo->partialColumnNameBuf + pos, "ts");
@@ -844,6 +869,10 @@ int prepare_sample_data(int db_index, int stb_index) {
     }
     stbInfo->sampleDataBuf =
         calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
+    if (stbInfo->sampleDataBuf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }    
     infoPrint(stdout,
               "generate stable<%s> columns data with lenOfCols<%u> * "
               "prepared_rand<%" PRIu64 ">\n",
@@ -868,6 +897,10 @@ int prepare_sample_data(int db_index, int stb_index) {
     if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
         stbInfo->tagDataBuf =
             calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
+        if (NULL == stbInfo->tagDataBuf) {
+            errorPrint(stderr, "%s() LN%d, failed to alloc memory!\n", __func__, __LINE__);
+            return -1;
+        }
         infoPrint(stdout,
                   "generate stable<%s> tags data with lenOfTags<%u> * "
                   "childTblCount<%" PRIu64 ">\n",
@@ -903,33 +936,6 @@ int prepare_sample_data(int db_index, int stb_index) {
                 return -1;
             }
         }
-    }
-    switch (stbInfo->iface) {
-        case REST_IFACE:
-        case TAOSC_IFACE:
-            if (stbInfo->autoCreateTable) {
-                g_memoryUsage += g_arguments->nthreads *
-                                 ((stbInfo->lenOfCols + stbInfo->lenOfTags) *
-                                      g_arguments->reqPerReq +
-                                  1024);
-            } else {
-                g_memoryUsage +=
-                    g_arguments->nthreads *
-                    (stbInfo->lenOfCols * g_arguments->reqPerReq + 1024);
-            }
-            break;
-        case SML_REST_IFACE:
-            g_memoryUsage += (stbInfo->lenOfCols + stbInfo->lenOfTags + 1) *
-                             g_arguments->reqPerReq * g_arguments->nthreads;
-        case SML_IFACE:
-            g_memoryUsage += stbInfo->childTblCount * sizeof(char *);
-            g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
-            g_memoryUsage += g_arguments->reqPerReq * sizeof(char *);
-            g_memoryUsage += g_arguments->reqPerReq *
-                             (stbInfo->lenOfTags + stbInfo->lenOfCols);
-            break;
-        default:
-            break;
     }
     return 0;
 }
@@ -977,6 +983,11 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
         }
         param->buffer_type = data_type;
         param->length = calloc(batch, sizeof(int32_t));
+        if (param->length == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
+        g_memoryUsage += batch * sizeof(int32_t);
 
         for (int b = 0; b < batch; b++) {
             param->length[b] = (int32_t)param->buffer_length;
@@ -1027,11 +1038,18 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
     Column *columns = stbInfo->tags;
     cJSON * tags = cJSON_CreateObject();
     char *  tbName = calloc(1, TSDB_TABLE_NAME_LEN);
+    if (tbName == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
              stbInfo->childTblPrefix, tbSeq + start_table_from);
     cJSON_AddStringToObject(tags, "id", tbName);
     char *tagName = calloc(1, TSDB_MAX_TAGS);
-    assert(tagName);
+    if (tagName == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     for (int i = 0; i < stbInfo->tagCount; i++) {
         cJSON *tag = cJSON_CreateObject();
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
@@ -1102,6 +1120,10 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)calloc(stbInfo->tags[i].length + 1, 1);
+                if (buf == NULL) {
+                    errorPrint(stderr, "%s", "memory allocation failed\n");
+                    exit(EXIT_FAILURE);
+                }
                 rand_string(buf, stbInfo->tags[i].length, g_arguments->chinese);
                 if (stbInfo->tags[i].type == TSDB_DATA_TYPE_BINARY) {
                     cJSON_AddStringToObject(tag, "value", buf);
@@ -1199,6 +1221,10 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)calloc(stbInfo->columns[0].length + 1, 1);
+            if (buf == NULL) {
+                errorPrint(stderr, "%s", "memory allocation failed\n");
+                exit(EXIT_FAILURE);
+            }
             rand_string(buf, stbInfo->columns[0].length, g_arguments->chinese);
             if (stbInfo->columns[0].type == TSDB_DATA_TYPE_BINARY) {
                 cJSON_AddStringToObject(value, "value", buf);

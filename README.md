@@ -11,11 +11,11 @@ taosTools are some useful tool collections for TDengine.
 
 taosBenchmark (once named taosdemo) can be used to stress test TDengine
  for full-featured writes, queries, subscriptions, etc. In 2.4.0.7 and early release, taosBenchmark is distributed within taosTools package. In later release, taosBenchmark will be included within TDengine again.  Please refer to
- the [taosBenchmark User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosbenchmark-user-manual.md)
+ the [taosBenchmark User Manual](https://docs.tdengine.com/reference/taosbenchmark)
  for details on how to use it.
 
 taosdump is a tool for backing up and restoring TDengine data to/from local directory.
- Please refer to the [taosdump User Manual](https://github.com/taosdata/taos-tools/blob/develop/taosdump-user-manual.md)
+ Please refer to the [taosdump User Manual](https://docs.tdengine.com/reference/taosdump)
  for details on how to use it.
 
 ## Install taosTools

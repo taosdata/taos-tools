@@ -244,6 +244,7 @@ typedef struct {
     int32_t  minrows;
     int32_t  maxrows;
     int8_t   wallevel;
+    int8_t   wal; // 3.0 only
     int32_t  fsync;
     int8_t   comp;
     int8_t   cachelast;
@@ -370,7 +371,7 @@ static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n"
 static struct argp_option options[] = {
     // connection option
     {"host", 'h', "HOST",    0,
-        "Server host dumping data from. Default is localhost.", 0},
+        "Server host from which to dump data. Default is localhost.", 0},
     {"user", 'u', "USER",    0,
         "User name used to connect to server. Default is root.", 0},
     {"password", 'p', 0,    0,
@@ -386,10 +387,10 @@ static struct argp_option options[] = {
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,
-        "Dump inputted databases. Use comma to separate databases\' name.", 2},
+        "Dump listed databases. Use comma to separate databases names.", 2},
     {"allow-sys",   'a', 0, 0,  "Allow to dump system database", 2},
     // dump format options
-    {"schemaonly", 's', 0, 0,  "Only dump tables' schema.", 2},
+    {"schemaonly", 's', 0, 0,  "Only dump table schemas.", 2},
     {"without-property", 'N', 0, 0,
         "Dump database without its properties.", 2},
     {"answer-yes", 'y', 0, 0,
@@ -416,7 +417,7 @@ static struct argp_option options[] = {
     {"thread-num",  'T', "THREAD_NUM",  0,
         "Number of thread for dump in file. Default is 5.", 10},
     {"loose-mode",  'L', 0,  0,
-        "Using loose mode if the table name and column name use letter and "
+        "Use loose mode if the table name and column name use letter and "
             "number only. Default is NOT.", 10},
     {"inspect",  'I', 0,  0,
         "inspect avro file content and print on screen", 10},
@@ -2212,12 +2213,33 @@ static void dumpCreateDbClause(
     char *pstr = sqlstr;
     pstr += sprintf(pstr, "CREATE DATABASE IF NOT EXISTS %s ", dbInfo->name);
     if (isDumpProperty) {
+        char quorum[32] = "";
+        if (0 != dbInfo->quorum) {
+            sprintf(quorum, "QUORUM %d", dbInfo->quorum);
+        }
+
+        char days[32] = "";
+        if (0 != dbInfo->days) {
+            sprintf(days, "DAYS %d", dbInfo->days);
+        }
+
+        char cache[32] = "";
+        if (0 != dbInfo->cache) {
+            sprintf(cache, "CACHE %d", dbInfo->cache);
+        }
+
+        char blocks[32] = "";
+        if (0 != dbInfo->blocks) {
+            sprintf(cache, "BLOCKS %d", dbInfo->blocks);
+        }
+
+
         pstr += sprintf(pstr,
-                "REPLICA %d QUORUM %d DAYS %d KEEP %s CACHE %d BLOCKS %d MINROWS %d MAXROWS %d FSYNC %d CACHELAST %d COMP %d PRECISION '%s' UPDATE %d",
-                dbInfo->replica, dbInfo->quorum, dbInfo->days,
+                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d CACHELAST %d COMP %d PRECISION '%s' UPDATE %d",
+                dbInfo->replica, quorum, days,
                 dbInfo->keeplist,
-                dbInfo->cache,
-                dbInfo->blocks, dbInfo->minrows, dbInfo->maxrows,
+                cache,
+                blocks, dbInfo->minrows, dbInfo->maxrows,
                 dbInfo->fsync,
                 dbInfo->cachelast,
                 dbInfo->comp, dbInfo->precision, dbInfo->update);
@@ -3034,7 +3056,7 @@ int64_t queryDbForDumpOutCount(TAOS *taos,
 
     sprintf(sqlstr,
             "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
+            "AND _c0 <= %" PRId64 "",
             dbName, g_escapeChar, tbName, g_escapeChar,
             g_args.start_time, g_args.end_time);
 
@@ -5757,7 +5779,7 @@ static int createMTableAvroHead(
     char command[COMMAND_SIZE];
 
     int64_t preCount = 0;
-    if (-1 == limit) {
+    if (INT64_MAX == limit) {
         preCount = getNtbCountOfStb(dbName, stable);
     } else {
         preCount = limit;
@@ -6181,7 +6203,13 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
     }
 
     snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", taos_get_server_info(taos));
-    fwrite(buffer, strlen(buffer), 1, fp);
+    char *firstline = strchr(buffer, '\n');
+
+    if (NULL == firstline) {
+        return -1;
+    }
+    int firstreturn = (int)(firstline - buffer);
+    fwrite(buffer, firstreturn+1, 1, fp);
 
     char taostools_ver[] = TAOSTOOLS_TAG;
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
@@ -6288,6 +6316,10 @@ static int64_t dumpInOneDebugFile(
 
         //if (read_len == 0 || isCommentLine(line)) {  // line starts with #
         if (read_len == 0 ) {
+            continue;
+        }
+
+        if (line[0] == '#') {
             continue;
         }
 
@@ -6785,20 +6817,22 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
     int64_t count = 0;
     while(NULL != (row = taos_fetch_row(result))) {
         int32_t *length = taos_fetch_lengths(result);
-        debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s\n",
-                __func__, __LINE__,
-                count,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
         strncpy(((TableInfo *)(g_tablesList + count))->name,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                 min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
+        debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s, lenth: %d\n",
+                __func__, __LINE__,
+                count,
+                ((TableInfo *)(g_tablesList + count))->name,
+                length[TSDB_SHOW_TABLES_NAME_INDEX]);
         if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
-            debugPrint("%s() LN%d stbName: %s\n",
-                    __func__, __LINE__,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]);
             strncpy(((TableInfo *)(g_tablesList + count))->stable,
                     (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
                     min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_METRIC_INDEX]));
+            debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                    __func__, __LINE__,
+                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                    length[TSDB_SHOW_TABLES_METRIC_INDEX]);
             ((TableInfo *)(g_tablesList + count))->belongStb = true;
         } else {
             ((TableInfo *)(g_tablesList + count))->belongStb = false;
@@ -6921,7 +6955,7 @@ static int dumpTbTagsToAvro(
             dumpFilename,
             dbInfo->name,
             stable,
-            -1, 0);
+            INT64_MAX, 0);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to open file %s\n",
                 __func__, __LINE__, dumpFilename);
@@ -7184,11 +7218,35 @@ static int dumpOut() {
                             length[f] + 1));
 
             } else if (0 == strcmp(fields[f].name, "vgroups")) {
-                g_dbInfos[count]->vgroups = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->vgroups = *((int32_t *)row[f]);
+                } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
+                    g_dbInfos[count]->vgroups = *((int16_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "ntables")) {
-                g_dbInfos[count]->ntables = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->ntables = *((int32_t *)row[f]);
+                } else if (TSDB_DATA_TYPE_BIGINT == fields[f].type) {
+                    g_dbInfos[count]->ntables = *((int64_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "replica")) {
-                g_dbInfos[count]->replica = *((int16_t *)row[f]);
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->replica = *((int8_t *)row[f]);
+                } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
+                    g_dbInfos[count]->replica = *((int16_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "quorum")) {
                 g_dbInfos[count]->quorum =
                     *((int16_t *)row[f]);
@@ -7208,17 +7266,55 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "blocks")) {
                 g_dbInfos[count]->blocks = *((int32_t *)row[f]);
             } else if (0 == strcmp(fields[f].name, "minrows")) {
-                g_dbInfos[count]->minrows = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->minrows = *((int32_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "maxrows")) {
-                g_dbInfos[count]->maxrows = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->maxrows = *((int32_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "wallevel")) {
                 g_dbInfos[count]->wallevel = *((int8_t *)row[f]);
+            } else if (0 == strcmp(fields[f].name, "wal")) {
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->wal = *((int8_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "fsync")) {
-                g_dbInfos[count]->fsync = *((int32_t *)row[f]);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->fsync = *((int32_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "comp")) {
-                g_dbInfos[count]->comp = (int8_t)(*((int8_t *)row[f]));
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->comp = (int8_t)(*((int8_t *)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "cachelast")) {
-                g_dbInfos[count]->cachelast = (int8_t)(*((int8_t *)row[f]));
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->cachelast = (int8_t)(*((int8_t *)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if (0 == strcmp(fields[f].name, "precision")) {
                 tstrncpy(g_dbInfos[count]->precision,
                         (char *)row[f],

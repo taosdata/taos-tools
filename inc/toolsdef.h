@@ -70,7 +70,6 @@
 #define TSDB_MAX_ALLOWED_SQL_LEN  (1*1024*1024u)          // sql length should be less than 1mb
 
 #define TSDB_MAX_BYTES_PER_ROW    49151
-#define TSDB_MAX_TAGS_LEN         16384
 #define TSDB_MAX_TAGS             128
 
 #define TSDB_DEFAULT_PKT_SIZE     65480  //same as RPC_MAX_UDP_SIZE

@@ -87,6 +87,20 @@ int taosRandom() {
 
     return number;
 }
+
+void usleep(__int64 usec)
+{
+  HANDLE timer;
+  LARGE_INTEGER ft;
+
+  ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+  timer = CreateWaitableTimer(NULL, TRUE, NULL);
+  SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+  WaitForSingleObject(timer, INFINITE);
+  CloseHandle(timer);
+}
+
 #else  // Not windows
 void setupForAnsiEscape(void) {}
 
@@ -94,8 +108,6 @@ void resetAfterAnsiEscape(void) {
     // Reset colors
     printf("\x1b[0m");
 }
-
-#include <time.h>
 
 int taosRandom() { return rand(); }
 
@@ -125,6 +137,10 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
             return -1;
         }
         childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
+        if (childTblNameOfSuperTbl[count] == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
                  (char *)row[0]);
         debugPrint(stdout, "childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
@@ -243,13 +259,6 @@ int64_t toolsGetTimestamp(int32_t precision) {
 
 void taosMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
-int64_t taosGetSelfPthreadId() {
-    static __thread int id = 0;
-    if (id != 0) return id;
-    id = syscall(SYS_gettid);
-    return id;
-}
-
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;
     char    msgbuf[100] = {0};
@@ -315,6 +324,10 @@ void encode_base_64() {
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
     g_arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
+    if (g_arguments->base64_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
@@ -370,6 +383,10 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = calloc(1, req_buf_len);
+    if (request_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     uint64_t response_length;
     if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
@@ -377,6 +394,10 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         response_length = g_queryInfo.response_buffer;
     }
     response_buf = calloc(1, response_length);
+    if (response_buf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     int r;
     if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
@@ -501,6 +522,11 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
 
     char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
 
+    if (databuf == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+
     int64_t totalLen = 0;
 
     // fetch the records row by row
@@ -538,19 +564,19 @@ char *taos_convert_datatype_to_string(int type) {
         case TSDB_DATA_TYPE_TINYINT:
             return "tinyint";
         case TSDB_DATA_TYPE_UTINYINT:
-            return "unsigned tinyint";
+            return "tinyint unsigned";
         case TSDB_DATA_TYPE_SMALLINT:
             return "smallint";
         case TSDB_DATA_TYPE_USMALLINT:
-            return "unsigned smallint";
+            return "smallint unsigned";
         case TSDB_DATA_TYPE_INT:
             return "int";
         case TSDB_DATA_TYPE_UINT:
-            return "unsigned int";
+            return "int unsigned";
         case TSDB_DATA_TYPE_BIGINT:
             return "bigint";
         case TSDB_DATA_TYPE_UBIGINT:
-            return "unsigned bigint";
+            return "bigint unsigned";
         case TSDB_DATA_TYPE_BOOL:
             return "bool";
         case TSDB_DATA_TYPE_FLOAT:
@@ -644,6 +670,7 @@ int taos_convert_string_to_datatype(char *type, int length) {
 }
 
 int init_taos_list() {
+#ifdef LINUX
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
@@ -653,9 +680,14 @@ int init_taos_list() {
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
         wordfree(&full_path);
     }
+#endif
     int        size = g_arguments->connection_pool;
     TAOS_POOL *pool = g_arguments->pool;
     pool->taos_list = calloc(size, sizeof(TAOS *));
+    if (pool->taos_list == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     g_memoryUsage += size * sizeof(TAOS *);
     pool->current = 0;
     pool->size = size;

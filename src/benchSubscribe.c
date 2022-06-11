@@ -72,22 +72,27 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
 
 static void *specifiedSubscribe(void *sarg) {
     int32_t *code = calloc(1, sizeof(int32_t));
+    if (code == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
+#ifdef LINUX
     prctl(PR_SET_NAME, "specSub");
-
+#endif
     sprintf(g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
             "taosbenchmark-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
             pThreadInfo->threadID);
-    if (g_queryInfo.specifiedQueryInfo.result[pThreadInfo->querySeq][0] !=
+    if (g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result[0] !=
         '\0') {
         sprintf(pThreadInfo->filePath, "%s-%d",
-                g_queryInfo.specifiedQueryInfo.result[pThreadInfo->querySeq],
+                g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result,
                 pThreadInfo->threadID);
     }
     g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID] = subscribeImpl(
         SPECIFIED_CLASS, pThreadInfo,
-        g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
+        g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command,
         g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
         g_queryInfo.specifiedQueryInfo.subscribeRestart,
         g_queryInfo.specifiedQueryInfo.subscribeInterval);
@@ -116,10 +121,10 @@ static void *specifiedSubscribe(void *sarg) {
                 g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID]);
         if (g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]) {
             if (g_queryInfo.specifiedQueryInfo
-                    .result[pThreadInfo->querySeq][0] != 0) {
+                    .sql[pThreadInfo->querySeq].result[0] != 0) {
                 sprintf(pThreadInfo->filePath, "%s-%d",
                         g_queryInfo.specifiedQueryInfo
-                            .result[pThreadInfo->querySeq],
+                            .sql[pThreadInfo->querySeq].result,
                         pThreadInfo->threadID);
             }
             fetchResult(
@@ -146,7 +151,7 @@ static void *specifiedSubscribe(void *sarg) {
                 g_queryInfo.specifiedQueryInfo
                     .tsub[pThreadInfo->threadID] = subscribeImpl(
                     SPECIFIED_CLASS, pThreadInfo,
-                    g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq],
+                    g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command,
                     g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
                     g_queryInfo.specifiedQueryInfo.subscribeRestart,
                     g_queryInfo.specifiedQueryInfo.subscribeInterval);
@@ -165,14 +170,22 @@ free_of_specified_subscribe:
 
 static void *superSubscribe(void *sarg) {
     int32_t *code = calloc(1, sizeof(int32_t));
+    if (code == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
     *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS_SUB *  tsub[MAX_QUERY_SQL_COUNT] = {0};
     uint64_t    tsubSeq;
     char *      subSqlStr = calloc(1, BUFFER_SIZE);
-
+    if (subSqlStr == NULL) {
+        errorPrint(stderr, "%s", "memory allocation failed\n");
+        exit(EXIT_FAILURE);
+    }
+#ifdef LINUX
     prctl(PR_SET_NAME, "superSub");
-
+#endif
     if (pThreadInfo->ntables > MAX_QUERY_SQL_COUNT) {
         errorPrint(stderr,
                    "The table number(%" PRId64
@@ -318,6 +331,10 @@ int subscribeTestProcess() {
         taos_free_result(res);
         g_queryInfo.superQueryInfo.childTblName =
             calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *));
+        if (g_queryInfo.superQueryInfo.childTblName == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         if (getAllChildNameOfSuperTable(
                 taos, g_arguments->db->dbName,
                 g_queryInfo.superQueryInfo.stbName,
@@ -338,10 +355,17 @@ int subscribeTestProcess() {
         pids = calloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
                              g_queryInfo.specifiedQueryInfo.concurrent *
                              sizeof(pthread_t));
+        if (pids == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         infos = calloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
                               g_queryInfo.specifiedQueryInfo.concurrent *
                               sizeof(threadInfo));
-
+        if (infos == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
         for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
             for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent;
                  j++) {
@@ -379,10 +403,18 @@ int subscribeTestProcess() {
         pidsOfStable = calloc(1, g_queryInfo.superQueryInfo.sqlCount *
                                      g_queryInfo.superQueryInfo.threadCnt *
                                      sizeof(pthread_t));
+        if (pidsOfStable == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
 
         infosOfStable = calloc(1, g_queryInfo.superQueryInfo.sqlCount *
                                       g_queryInfo.superQueryInfo.threadCnt *
                                       sizeof(threadInfo));
+        if (infosOfStable == NULL) {
+            errorPrint(stderr, "%s", "memory allocation failed\n");
+            exit(EXIT_FAILURE);
+        }
 
         int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
         int     threads = g_queryInfo.superQueryInfo.threadCnt;

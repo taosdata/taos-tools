@@ -8,7 +8,7 @@ dumpName="taosdump"
 benchmarkName="taosBenchmark"
 TDinsight="TDinsight.sh"
 
-#curr_dir=$(pwd)
+deb_dir=$(pwd)
 top_dir=$1
 compile_dir=$2
 output_dir=$3
@@ -21,7 +21,7 @@ verType=$8
 script_dir="$(dirname $(readlink -f $0))"
 pkg_dir="${top_dir}/debworkroom"
 
-#echo "curr_dir: ${curr_dir}"
+echo "deb_dir: ${deb_dir}"
 #echo "top_dir: ${top_dir}"
 #echo "script_dir: ${script_dir}"
 echo "compile_dir: ${compile_dir}"
@@ -39,7 +39,7 @@ mkdir -p ${pkg_dir}${install_home_path}
 mkdir -p ${pkg_dir}${install_home_path}/bin || :
 
 cp ${compile_dir}/build/bin/${dumpName}                     ${pkg_dir}${install_home_path}/bin
-cp ${compile_dir}/build/bin/${benchmarkName}                ${pkg_dir}${install_home_path}/bin
+#cp ${compile_dir}/build/bin/${benchmarkName}                ${pkg_dir}${install_home_path}/bin
 
 wget https://github.com/taosdata/grafanaplugin/releases/latest/download/TDinsight.sh -O ${compile_dir}/build/bin/${TDinsight} && \
     echo "TDinsight.sh downloaded!" || \
@@ -61,7 +61,7 @@ if [ -f ${compile_dir}/build/lib/libavro.a ]; then
     cp ${compile_dir}/build/lib/libavro.a ${pkg_dir}${install_user_local_path}/lib/
 fi
 
-cp -r ${top_dir}/src/kit/taos-tools/packaging/deb/DEBIAN        ${pkg_dir}/
+cp -r ${deb_dir}/DEBIAN ${pkg_dir}/
 chmod 755 ${pkg_dir}/DEBIAN/*
 
 debname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
