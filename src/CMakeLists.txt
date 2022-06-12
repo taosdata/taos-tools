@@ -106,14 +106,23 @@ INCLUDE_DIRECTORIES(/usr/local/taos/include)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/avro/lang/c/src)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/cJsonDemo/src)
 
-IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     SET(OS_ID "")
-    ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
-    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
-    EXECUTE_PROCESS (
-        COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
-        OUTPUT_VARIABLE OS_ID
-    )
+
+    IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        ADD_DEFINITIONS(-DLINUX)
+        EXECUTE_PROCESS (
+            COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+            OUTPUT_VARIABLE OS_ID
+            )
+    ELSE ()
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        INCLUDE_DIRECTORIES(/usr/local/include)
+        ADD_DEFINITIONS(-DDARWIN)
+        SET(OS_ID "Darwin")
+    ENDIF ()
 
     IF (${COVER} MATCHES "true")
         MESSAGE("${Green} build with coverage ${ColourReSET}")
@@ -144,35 +153,56 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         ELSE()
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
         ENDIF()
+
+        TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo)
     ELSE ()
         MESSAGE("${Green} RELEASE mode use static avro library to link for release ${ColourReset}")
         SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
-        ADD_LIBRARY(avro STATIC IMPORTED)
 
-        IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin")
-            SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
-        ELSE()
-            SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
-        ENDIF()
+        IF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+            #            ADD_LIBRARY(jansson STATIC IMPORTED)
+            #SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION "/opt/homebrew/opt/jansson/lib/libjansson.a")
 
-        EXECUTE_PROCESS (
-            COMMAND gcc -print-file-name=libstdc++.a
-            OUTPUT_VARIABLE LIBSTDCXX_PATH
-        )
+            # ADD_LIBRARY(snappy STATIC IMPORTED)
+            # SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION "/opt/homebrew/opt/snappy/lib/libsnappy.a")
 
-        STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
-        MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
-        ADD_LIBRARY(stdc++ STATIC IMPORTED)
-        SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
+            # ADD_LIBRARY(avro STATIC IMPORTED)
+            # SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "/opt/homebrew/opt/avro-c/lib/libavro.a")
+            #            TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy lzma z pthread)
+            ADD_LIBRARY(argp STATIC IMPORTED)
+            SET_PROPERTY(TARGET argp PROPERTY IMPORTED_LOCATION "/opt/homebrew/opt/argp-standalone/lib/libargp.a")
+            INCLUDE_DIRECTORIES(/opt/homebrew/opt/argp-standalone/include/)
 
-        IF (${OS_ID} MATCHES "alpine")
-            TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp)
-        ELSE()
-            TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread)
-        ENDIF()
+            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo argp)
+        ELSE ()
+            ADD_LIBRARY(avro STATIC IMPORTED)
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin")
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
+            ELSE()
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
+            ENDIF()
+
+            EXECUTE_PROCESS (
+                COMMAND gcc -print-file-name=libstdc++.a
+                OUTPUT_VARIABLE LIBSTDCXX_PATH
+                )
+
+            STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
+            MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
+            ADD_LIBRARY(stdc++ STATIC IMPORTED)
+            SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
+
+            IF (${OS_ID} MATCHES "alpine")
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp)
+            ELSE()
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread)
+            ENDIF()
+
+            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo)
+        ENDIF ()
+
     ENDIF ()
-    TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo)
-else()
+ELSE ()
     set (CMAKE_C_STANDARD 11)
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
     ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchWindows.c)

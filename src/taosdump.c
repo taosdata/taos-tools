@@ -23,10 +23,15 @@
 #include <iconv.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+
+#include <argp.h>
+#ifdef DARWIN
+#include <ctype.h>
+#else
 #include <sys/prctl.h>
+#endif
 // #include <error.h>
 #include <inttypes.h>
-#include <argp.h>
 #include <dirent.h>
 #include <wordexp.h>
 #include <assert.h>
@@ -82,7 +87,12 @@ static void print_json_aux(json_t *element, int indent);
   } while (0)
 
 #define atomic_add_fetch_64(ptr, val) __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST)
+
+#ifdef DARWIN
+#define SET_THREAD_NAME(name)
+#else
 #define SET_THREAD_NAME(name)  do {prctl(PR_SET_NAME, (name));} while(0)
+#endif
 
 static int  converStringToReadable(char *str, int size, char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size, char *buf, int bufsize);
@@ -3800,7 +3810,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u8);
                                     *array_u8 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3840,7 +3850,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u16);
                                     *array_u16 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3880,7 +3890,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u32);
                                     *array_u32 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3924,7 +3934,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u64);
                                     *array_u64 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int64_t n64tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -4416,7 +4426,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u32);
                                 *array_u32 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4451,7 +4461,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u8);
                                 *array_u8 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4482,7 +4492,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u16);
                                 *array_u16 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4513,7 +4523,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u64);
                                 *array_u64 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int64_t n64tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -7569,7 +7579,7 @@ int dump() {
         }
     }
 
-    if (checkParam(&g_args) < 0) {
+    if (checkParam() < 0) {
         exit(EXIT_FAILURE);
     }
 
@@ -7896,11 +7906,11 @@ int inspectAvroFile(char *filename) {
                 InspectStruct *field = (InspectStruct *)(recordSchema->fields
                         + sizeof(InspectStruct) * i);
                 avro_value_t field_value;
-                int32_t n32;
-                float f;
-                double dbl;
-                int64_t n64;
-                int b;
+                int32_t n32 = 0;
+                float f = 0.0;
+                double dbl = 0.0;
+                int64_t n64 = 0;
+                int b = 0;
                 const char *buf = NULL;
                 size_t size;
                 const void *bytesbuf = NULL;

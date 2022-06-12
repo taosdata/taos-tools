@@ -38,10 +38,20 @@
 #include <unistd.h>
 #include <wordexp.h>
 #include <sys/ioctl.h>
-#endif
 
-#if defined(WIN32) || defined(WIN64)
+#elif DARWIN
+
+#include <argp.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/time.h>
+#include <netdb.h>
+
+#elif defined(WIN32) || defined(WIN64)
+
 #include "os.h"
+
 #endif
 
 

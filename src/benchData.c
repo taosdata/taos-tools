@@ -202,7 +202,7 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
     int32_t code = -1;
     FILE *  fp = fopen(stbInfo->sampleFile, "r");
     int     line_count = 0;
-    char *  buf;
+    char *  buf = NULL;
     if (fp == NULL) {
         errorPrint(stderr, "Failed to open sample file: %s, reason:%s\n",
                    stbInfo->sampleFile, strerror(errno));
