@@ -680,12 +680,12 @@ static void *queryNtableAggrFunc(void *sarg) {
                         "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
                         aggreFunc[j],
                         g_arguments->db->superTbls->childTblPrefix, i,
-                        DEFAULT_START_TIME);
+                        (uint64_t) DEFAULT_START_TIME);
             } else {
                 sprintf(
                     command, "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
                     aggreFunc[j], g_arguments->db->superTbls->childTblPrefix, i,
-                    DEFAULT_START_TIME);
+                    (uint64_t)DEFAULT_START_TIME);
             }
 
             double    t = (double)toolsGetTimestampUs();
