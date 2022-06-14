@@ -512,7 +512,7 @@ struct arguments g_args = {
     // outpath and inpath
     "",
     "",
-    "./dump_result.txt", // result_file
+    "./dump_result.txt", // resultFile
     // dump unit option
     false,      // all_databases
     false,      // databases
@@ -1249,6 +1249,23 @@ static int getTableRecordInfo(
     return -1;
 }
 
+static bool isSystemDatabase(char *name, int len) {
+    if (g_majorVersion == 3) {
+        if ((strcmp(name, "information_schema") == 0)
+                || (strcmp(name, "performance_schema") == 0)) {
+            return true;
+        }
+    } else if (g_majorVersion == 2) {
+        if (strcmp(name, "log") == 0) {
+            return true;
+        }
+    } else {
+        return false;
+    }
+
+    return false;
+}
+
 static int inDatabasesSeq(
         char *name,
         int len)
@@ -1283,7 +1300,7 @@ static int getDumpDbCount()
 
     TAOS     *taos = NULL;
     TAOS_RES *result     = NULL;
-    char     *command    = "show databases";
+    char     *command    = "SHOW DATABASES";
     TAOS_ROW row;
 
     /* Connect to server */
@@ -1306,8 +1323,8 @@ static int getDumpDbCount()
 
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
-        // sys database name : 'log', but subsequent version changed to 'log'
-        if (strcmp(row[TSDB_SHOW_DB_NAME_INDEX], "log") == 0) {
+        if (isSystemDatabase(row[TSDB_SHOW_DB_NAME_INDEX],
+                    length[TSDB_SHOW_DB_NAME_INDEX])) {
             if (!g_args.allow_sys) {
                 continue;
             }
@@ -6329,25 +6346,28 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
 
     int32_t code = taos_errno(res);
     if (code != 0) {
-        errorPrint("failed to run command %s, reason: %s\n",
+        warnPrint("failed to run command %s, reason: %s. Will use default settings\n",
                 sqlstr, taos_errstr(res));
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", taos_errstr(res));
+        fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
+        snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
+        fwrite(buffer, strlen(buffer), 1, fp);
         taos_free_result(res);
-        return -1;
-    }
+    } else {
+        TAOS_ROW row;
 
-    TAOS_ROW row;
-
-    while ((row = taos_fetch_row(res)) != NULL) {
-        debugPrint("row[0]=%s, row[1]=%s\n",
-                (char *)row[0], (char *)row[1]);
-        if (0 == strcmp((char *)row[0], "charset")) {
-            snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
-            fwrite(buffer, strlen(buffer), 1, fp);
+        while ((row = taos_fetch_row(res)) != NULL) {
+            debugPrint("row[0]=%s, row[1]=%s\n",
+                    (char *)row[0], (char *)row[1]);
+            if (0 == strcmp((char *)row[0], "charset")) {
+                snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
+                fwrite(buffer, strlen(buffer), 1, fp);
+            }
         }
+        taos_free_result(res);
     }
 
     ret = ferror(fp);
-    taos_free_result(res);
 
     return ret;
 }
@@ -7283,8 +7303,9 @@ static int dumpOut() {
 
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
-        if (strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
-                        length[TSDB_SHOW_DB_NAME_INDEX]) == 0) {
+        if (isSystemDatabase(
+                    row[TSDB_SHOW_DB_NAME_INDEX],
+                    length[TSDB_SHOW_DB_NAME_INDEX])) {
             if (!g_args.allow_sys) {
                 continue;
             }
