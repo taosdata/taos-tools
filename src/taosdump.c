@@ -23,10 +23,15 @@
 #include <iconv.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+
+#include <argp.h>
+#ifdef DARWIN
+#include <ctype.h>
+#else
 #include <sys/prctl.h>
+#endif
 // #include <error.h>
 #include <inttypes.h>
-#include <argp.h>
 #include <dirent.h>
 #include <wordexp.h>
 #include <assert.h>
@@ -84,7 +89,12 @@ static void print_json_aux(json_t *element, int indent);
   } while (0)
 
 #define atomic_add_fetch_64(ptr, val) __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST)
+
+#ifdef DARWIN
+#define SET_THREAD_NAME(name)
+#else
 #define SET_THREAD_NAME(name)  do {prctl(PR_SET_NAME, (name));} while(0)
+#endif
 
 static int  converStringToReadable(char *str, int size, char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size, char *buf, int bufsize);
@@ -1869,7 +1879,10 @@ static void freeRecordSchema(RecordSchema *recordSchema)
 static RecordSchema *parse_json_to_recordschema(json_t *element)
 {
     RecordSchema *recordSchema = calloc(1, sizeof(RecordSchema));
-    assert(recordSchema);
+    if (NULL == recordSchema) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return NULL;
+    }
 
     if (JSON_OBJECT != json_typeof(element)) {
         errorPrint("%s() LN%d, json passed is not an object\n",
@@ -2103,7 +2116,7 @@ static int dumpCreateTableClauseAvro(
             + 17                                /* type: record */
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
             + 120);                              /* fields section */
-    if (jsonSchema == NULL) {
+    if (NULL == jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
@@ -2113,7 +2126,11 @@ static int dumpCreateTableClauseAvro(
             dbName, "_ntb");
 
     char *sqlstr = calloc(1, COMMAND_SIZE);
-    assert(sqlstr);
+    if (NULL == sqlstr) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        free(jsonSchema);
+        return -1;
+    }
 
     convertTableDesToSql(dbName, tableDes, &sqlstr);
 
@@ -2170,7 +2187,10 @@ static int dumpCreateTableClauseAvro(
 static int dumpCreateTableClause(TableDef *tableDes, int numOfCols,
         FILE *fp, char* dbName) {
     char *sqlstr = calloc(1, COMMAND_SIZE);
-    assert(sqlstr);
+    if (NULL == sqlstr) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
 
     convertTableDesToSql(dbName, tableDes, &sqlstr);
 
@@ -2726,7 +2746,7 @@ static int convertTbTagsDesToJsonLoose(
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
             + (TSDB_COL_NAME_LEN + 50) * tableDes->tags + 4);    /* fields section */
 
-    if (*jsonSchema == NULL) {
+    if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
@@ -2790,7 +2810,7 @@ static int convertTbTagsDesToJson(
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
             + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
             + (TSDB_COL_NAME_LEN + 50) * tableDes->tags + 4);    /* fields section */
-    if (*jsonSchema == NULL) {
+    if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
@@ -2868,7 +2888,7 @@ static int convertTbDesToJsonLoose(
             + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
             + 10                                /* fields section */
             + (TSDB_COL_NAME_LEN + 50) * colCount + 4);    /* fields section */
-    if (*jsonSchema == NULL) {
+    if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
@@ -2922,7 +2942,7 @@ static int convertTbDesToJson(
             + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
             + 10                                /* fields section */
             + (TSDB_COL_NAME_LEN + 50) * colCount + 4);    /* fields section */
-    if (*jsonSchema == NULL) {
+    if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
@@ -3503,7 +3523,10 @@ static int dumpInAvroTbTagsImpl(
 
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    assert(tableDes);
+    if (NULL == tableDes) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
 
     avro_value_iface_t *value_class = avro_generic_class_from_schema(schema);
     avro_value_t value;
@@ -3545,7 +3568,7 @@ static int dumpInAvroTbTagsImpl(
                     free(dupSeq);
                 }
 
-                if ((NULL == tableDes->name)
+                if ((0 == strlen(tableDes->name))
                         || (0 != strcmp(tableDes->name, stbName))) {
                     getTableDes(taos, namespace,
                             stbName, tableDes, false);
@@ -3814,7 +3837,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u8);
                                     *array_u8 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3854,7 +3877,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u16);
                                     *array_u16 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3894,7 +3917,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u32);
                                     *array_u32 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3938,7 +3961,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u64);
                                     *array_u64 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int64_t n64tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -4082,10 +4105,17 @@ static int dumpInAvroDataImpl(
 {
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    assert(tableDes);
+    if (NULL == tableDes) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
 
     char *stmtBuffer = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
-    assert(stmtBuffer);
+    if (NULL == stmtBuffer) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        free(tableDes);
+        return -1;
+    }
 
     char *pstr = stmtBuffer;
     pstr += sprintf(pstr, "INSERT INTO ? VALUES(?");
@@ -4115,7 +4145,12 @@ static int dumpInAvroDataImpl(
 
     char *bindArray =
             calloc(1, sizeof(TAOS_MULTI_BIND) * onlyCol);
-    assert(bindArray);
+    if (NULL == bindArray) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        free(stmtBuffer);
+        free(tableDes);
+        return -1;
+    }
 
     int64_t success = 0;
     int64_t failed = 0;
@@ -4152,7 +4187,10 @@ static int dumpInAvroDataImpl(
                 __func__, __LINE__, tbName, fileName);
 
         char *escapedTbName = calloc(1, strlen(tbName) + 3);
-        assert(escapedTbName);
+        if (NULL == escapedTbName) {
+            errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+            return 0;
+        }
 
         sprintf(escapedTbName, "%s%s%s",
                 g_escapeChar, tbName, g_escapeChar);
@@ -4172,7 +4210,7 @@ static int dumpInAvroDataImpl(
         }
         free(escapedTbName);
 
-        if ((NULL == tableDes->name)
+        if ((0 == strlen(tableDes->name))
                 || (0 != strcmp(tableDes->name, tbName))) {
             getTableDes(taos, namespace,
                 tbName, tableDes, true);
@@ -4415,7 +4453,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u32);
                                 *array_u32 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4450,7 +4488,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u8);
                                 *array_u8 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4481,7 +4519,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u16);
                                 *array_u16 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4512,7 +4550,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u64);
                                 *array_u64 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int64_t n64tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4637,7 +4675,10 @@ static RecordSchema *getSchemaAndReaderFromFile(
     }
 
     char *jsonbuf = calloc(1, buf_len);
-    assert(jsonbuf);
+    if (NULL == jsonbuf) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return NULL;
+    }
 
     avro_writer_t jsonwriter = avro_writer_memory(jsonbuf, buf_len);
 
@@ -4948,7 +4989,10 @@ static int64_t writeResultDebug(TAOS_RES *res, FILE *fp,
 
     int32_t  sql_buf_len = g_args.max_sql_len;
     char* tmpBuffer = (char *)calloc(1, sql_buf_len + 128);
-    assert(tmpBuffer);
+    if (NULL == tmpBuffer) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return 0;
+    }
 
     char *pstr = tmpBuffer;
 
@@ -5229,6 +5273,10 @@ static int64_t dumpNormalTable(
         if (!g_args.avro) {
             tableDes = (TableDef *)calloc(1, sizeof(TableDef)
                     + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+            if (NULL == tableDes) {
+                errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+                return -1;
+            }
             numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
 
             if (numColsAndTags < 0) {
@@ -5245,6 +5293,10 @@ static int64_t dumpNormalTable(
     } else {  // dump table definition
         tableDes = (TableDef *)calloc(1, sizeof(TableDef)
                 + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+        if (NULL == tableDes) {
+            errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+            return -1;
+        }
         numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
 
         if (numColsAndTags < 0) {
@@ -5292,6 +5344,10 @@ static int64_t dumpNormalTable(
             if (NULL == tableDes) {
                 tableDes = (TableDef *)calloc(1, sizeof(TableDef)
                         + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+                if (NULL == tableDes) {
+                    errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+                    return 0;
+                }
                 numColsAndTags = getTableDes(
                         taos, dbName, tbName, tableDes, false);
             }
@@ -5416,7 +5472,10 @@ static int createMTableAvroHeadImp(
 
     TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * colCount);
-    assert(subTableDes);
+    if (NULL == subTableDes) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
 
     getTableDes(taos, dbName,
             tbName,
@@ -5729,7 +5788,10 @@ static int createMTableAvroHeadSpecified(
 {
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    assert(tableDes);
+    if (NULL == tableDes) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
 
     int colCount = getTableDes(taos, dbName, stable, tableDes, false);
 
@@ -5778,7 +5840,10 @@ static int createMTableAvroHead(
 {
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    assert(tableDes);
+    if (NULL == tableDes) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
 
     int colCount = getTableDes(taos, dbName, stable, tableDes, false);
 
@@ -5816,7 +5881,12 @@ static int createMTableAvroHead(
             taos, preCount, stable, offset);
 
     char *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
-    assert(tbNameArr);
+    if (NULL == tbNameArr) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        tfree(jsonTagsSchema);
+        freeTbDes(tableDes);
+        return -1;
+    }
 
     sprintf(command,
             "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
@@ -6838,7 +6908,10 @@ static int64_t dumpNTablesOfDb(SDbInfo *dbInfo)
     }
 
     g_tablesList = calloc(1, dbInfo->ntables * sizeof(TableInfo));
-    assert(g_tablesList);
+    if (NULL == g_tablesList) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return 0;
+    }
 
     TAOS_ROW row;
     int64_t count = 0;
@@ -7173,7 +7246,7 @@ static int dumpOut() {
     }
 
     g_dbInfos = (SDbInfo **)calloc(g_args.dumpDbCount, sizeof(SDbInfo *));
-    if (g_dbInfos == NULL) {
+    if (NULL == g_dbInfos) {
         errorPrint("%s() LN%d, failed to allocate memory\n",
                 __func__, __LINE__);
         goto _exit_failure;
@@ -7184,7 +7257,7 @@ static int dumpOut() {
     /* Connect to server */
     taos = taos_connect(g_args.host, g_args.user, g_args.password,
             NULL, g_args.port);
-    if (taos == NULL) {
+    if (NULL == taos) {
         errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
         goto _exit_failure;
     }
@@ -7229,7 +7302,7 @@ static int dumpOut() {
         }
 
         g_dbInfos[count] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
-        if (g_dbInfos[count] == NULL) {
+        if (NULL == g_dbInfos[count]) {
             errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
                     __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
             goto _exit_failure;
@@ -7557,7 +7630,7 @@ int dump() {
         }
     }
 
-    if (checkParam(&g_args) < 0) {
+    if (checkParam() < 0) {
         exit(EXIT_FAILURE);
     }
 
@@ -7649,7 +7722,10 @@ int dump() {
 static RecordSchema *parse_json_for_inspect(json_t *element)
 {
     RecordSchema *recordSchema = calloc(1, sizeof(RecordSchema));
-    assert(recordSchema);
+    if (NULL == recordSchema) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return NULL;
+    }
 
     if (JSON_OBJECT != json_typeof(element)) {
         errorPrint("%s() LN%d, json passed is not an object\n",
@@ -7675,7 +7751,10 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
 
                 recordSchema->num_fields = size;
                 recordSchema->fields = calloc(1, sizeof(InspectStruct) * size);
-                assert(recordSchema->fields);
+                if (NULL== recordSchema->fields) {
+                    errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+                    return NULL;
+                }
 
                 for (i = 0; i < size; i++) {
                     InspectStruct *field = (InspectStruct *)
@@ -7822,7 +7901,10 @@ int inspectAvroFile(char *filename) {
 
     int buf_len = 65536;
     char *jsonbuf = calloc(1, buf_len);
-    assert(jsonbuf);
+    if (NULL == jsonbuf) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
 
     avro_writer_t jsonwriter = avro_writer_memory(jsonbuf, buf_len);
 
@@ -7875,11 +7957,11 @@ int inspectAvroFile(char *filename) {
                 InspectStruct *field = (InspectStruct *)(recordSchema->fields
                         + sizeof(InspectStruct) * i);
                 avro_value_t field_value;
-                int32_t n32;
-                float f;
-                double dbl;
-                int64_t n64;
-                int b;
+                int32_t n32 = 0;
+                float f = 0.0;
+                double dbl = 0.0;
+                int64_t n64 = 0;
+                int b = 0;
                 const char *buf = NULL;
                 size_t size;
                 const void *bytesbuf = NULL;
