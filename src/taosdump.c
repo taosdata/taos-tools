@@ -7437,8 +7437,8 @@ static int dumpOut() {
                     goto _exit_failure;
                 }
             } else if (0 == strcmp(fields[f].name, "cache_model")) {
-                if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
-                    g_dbInfos[count]->cache_model = (bool)(*((bool *)row[f]));
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->cache_model = (int8_t)(*((int8_t*)row[f]));
                 } else {
                     errorPrint("%s() LN%d, unexpected type: %d\n",
                             __func__, __LINE__, fields[f].type);
