@@ -4824,12 +4824,12 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         switch (pThreadInfo->which) {
             case WHICH_AVRO_DATA:
                 if (rows >= 0) {
-                    g_totalDumpInRecSuccess += rows;
+                    atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
                     okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
                 } else {
-                    g_totalDumpInRecFailed += rows;
+                    atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
                     errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
@@ -4838,13 +4838,13 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
             case WHICH_AVRO_TBTAGS:
                 if (rows >= 0) {
-                    g_totalDumpInStbSuccess += rows;
+                    atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
                     okPrint("[%d] %"PRId64""
                             "table(s) belong stb from the file(%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
                 } else {
-                    g_totalDumpInStbFailed += rows;
+                    atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
                     errorPrint("[%d] %"PRId64""
                             "table(s) belong stb from the file(%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows,
@@ -4854,13 +4854,13 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
             case WHICH_AVRO_NTB:
                 if (rows >= 0) {
-                    g_totalDumpInNtbSuccess += rows;
+                    atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
                     okPrint("[%d] %"PRId64""
                             "normal table(s) from (%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
                 } else {
-                    g_totalDumpInNtbFailed += rows;
+                    atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
                     errorPrint("[%d] %"PRId64""
                             "normal tables from (%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows,
@@ -6457,12 +6457,12 @@ static void* dumpInDebugWorkThreadFp(void *arg)
                 pThread->taos, fp, g_dumpInCharset,
                 sqlFile);
         if (rows > 0) {
-            pThread->recSuccess += rows;
+            atomic_add_fetch_64(&pThread->recSuccess, rows);
             okPrint("[%d] Total %"PRId64" line(s) "
                     "command be successfully dumped in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
         } else if (rows < 0) {
-            pThread->recFailed += rows;
+            atomic_add_fetch_64(&pThread->recFailed, rows);
             errorPrint("[%d] Total %"PRId64" line(s) "
                     "command failed to dump in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
@@ -6548,10 +6548,12 @@ static int dumpInDebugWorkThreads()
     }
 
     for (int t = 0; t < threads; ++t) {
-        g_totalDumpInRecSuccess += infos[t].recSuccess;
-        g_totalDumpInRecFailed += infos[t].recFailed;
-
         taos_close(infos[t].taos);
+    }
+
+    for (int t = 0; t < threads; ++t) {
+        atomic_add_fetch_64(&g_totalDumpInRecSuccess, infos[t].recSuccess);
+        atomic_add_fetch_64(&g_totalDumpInRecFailed, infos[t].recFailed);
     }
 
     free(infos);
