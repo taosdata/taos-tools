@@ -239,15 +239,19 @@ typedef struct {
     TableRecord tableRecord;
 } TableRecordInfo;
 
+#define STRICT_LEN      16 
+#define KEEPLIST_LEN    48
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
     char     create_time[32];
     int64_t  ntables;
     int32_t  vgroups;
     int16_t  replica;
+    char     strict[STRICT_LEN];
     int16_t  quorum;
     int16_t  days;
-    char     keeplist[32];
+    int32_t  duration;
+    char     keeplist[KEEPLIST_LEN];
     //int16_t  daysToKeep;
     //int16_t  daysToKeep1;
     //int16_t  daysToKeep2;
@@ -2255,6 +2259,13 @@ static void dumpCreateDbClause(
     char *pstr = sqlstr;
     pstr += sprintf(pstr, "CREATE DATABASE IF NOT EXISTS %s ", dbInfo->name);
     if (isDumpProperty) {
+        char strict[32] = "";
+        if (0 == strcmp(dbInfo->strict, "strict")) {
+            sprintf(strict, "STRICT %d", 1);
+        } else if (0 == strcmp(dbInfo->strict, "no_strict")) {
+            sprintf(strict, "STRICT %d", 0);
+        }
+
         char quorum[32] = "";
         if (0 != dbInfo->quorum) {
             sprintf(quorum, "QUORUM %d", dbInfo->quorum);
@@ -2263,6 +2274,12 @@ static void dumpCreateDbClause(
         char days[32] = "";
         if (0 != dbInfo->days) {
             sprintf(days, "DAYS %d", dbInfo->days);
+        }
+
+        char duration[32] = "";
+        if (0 != dbInfo->duration) {
+            errorPrint("%s() LN%d, TODO: support duration later", __func__, __LINE__);
+            sprintf(duration, "DURATION %d", dbInfo->duration);
         }
 
         char cache[32] = "";
@@ -2292,10 +2309,15 @@ static void dumpCreateDbClause(
         sprintf(cache, "SCHEMALESS %d", dbInfo->single_stable_model?1:0);
 
         pstr += sprintf(pstr,
-                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s %s",
+                "REPLICA %d %s %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s %s",
                 dbInfo->replica,
+                (g_majorVersion < 3)?"":strict,
                 (g_majorVersion < 3)?quorum:"",
-                (g_majorVersion < 3)?days:"",
+#if 0
+                (g_majorVersion < 3)?days:duration,
+#else
+                "",
+#endif
                 dbInfo->keeplist,
                 (g_majorVersion < 3)?cache:"",
                 (g_majorVersion < 3)?blocks:"",
@@ -7368,6 +7390,13 @@ static int dumpOut() {
                             __func__, __LINE__, fields[f].type);
                     goto _exit_failure;
                 }
+            } else if (0 == strcmp(fields[f].name, "strict")) {
+                debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                        __func__, __LINE__, f,
+                        (char*)row[f], length[f]);
+                tstrncpy(g_dbInfos[count]->strict,
+                        (char *)row[f],
+                        min(STRICT_LEN, length[f] + 1));
             } else if (0 == strcmp(fields[f].name, "quorum")) {
                 g_dbInfos[count]->quorum =
                     *((int16_t *)row[f]);
@@ -7380,7 +7409,16 @@ static int dumpOut() {
                         (char*)row[f], length[f]);
                 tstrncpy(g_dbInfos[count]->keeplist,
                         (char *)row[f],
-                        min(32, length[f] + 1));
+                        min(KEEPLIST_LEN, length[f] + 1));
+            } else if (0 == strcmp(fields[f].name, "duration")) {
+                errorPrint("%s() LN%d, TODO: support duration later", __func__, __LINE__);
+                if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                    g_dbInfos[count]->duration = *((int32_t *)row[f]);
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
             } else if ((0 == strcmp(fields[f].name, "cache"))
                         || (0 == strcmp(fields[f].name, "cache(MB)"))) {
                 g_dbInfos[count]->cache = *((int32_t *)row[f]);
