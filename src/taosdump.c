@@ -263,7 +263,7 @@ typedef struct {
     bool     cache_model;
     char     precision[DB_PRECISION_LEN];   // time resolution
     bool     single_stable_model;
-    bool     schemaless;
+    //    bool     schemaless;
     int8_t   update;
     char     status[DB_STATUS_LEN];
     int64_t  dumpTbCount;
@@ -2286,13 +2286,18 @@ static void dumpCreateDbClause(
         }
 
         char single_stable_model[32] = {0};
-        sprintf(cache, "SINGLE_STABLE_MODEL %d", dbInfo->single_stable_model?1:0);
+        if (3 == g_majorVersion) {
+            sprintf(cache, "SINGLE_STABLE_MODEL %d",
+                    dbInfo->single_stable_model?1:0);
+        }
 
+/*
         char schemaless[32] = {0};
         sprintf(cache, "SCHEMALESS %d", dbInfo->single_stable_model?1:0);
+        */
 
         pstr += sprintf(pstr,
-                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s %s",
+                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s",
                 dbInfo->replica,
                 (g_majorVersion < 3)?quorum:"",
                 (g_majorVersion < 3)?days:"",
@@ -2304,13 +2309,13 @@ static void dumpCreateDbClause(
                 (g_majorVersion < 3)?cachelast:"",
                 dbInfo->comp,
                 dbInfo->precision,
-                (g_majorVersion > 3)?single_stable_model:"",
-                (g_majorVersion > 3)?schemaless:"",
+                single_stable_model,
+//                (g_majorVersion > 3)?schemaless:"",
                 (g_majorVersion < 3)?update:"");
     }
 
     pstr += sprintf(pstr, ";");
-    debugPrint("%s() LN%d db clause: %s\n", __func__, __LINE__, pstr);
+    debugPrint("%s() LN%d db clause: %s\n", __func__, __LINE__, sqlstr);
     fprintf(fp, "%s\n\n", sqlstr);
 }
 
@@ -7452,6 +7457,7 @@ static int dumpOut() {
                             __func__, __LINE__, fields[f].type);
                     goto _exit_failure;
                 }
+                /*
             } else if (0 == strcmp(fields[f].name, "schemaless")) {
                 if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
                     g_dbInfos[count]->schemaless = (bool)(*((bool*)row[f]));
@@ -7460,6 +7466,7 @@ static int dumpOut() {
                             __func__, __LINE__, fields[f].type);
                     goto _exit_failure;
                 }
+                */
             } else if (0 == strcmp(fields[f].name, "precision")) {
                 tstrncpy(g_dbInfos[count]->precision,
                         (char *)row[f],
