@@ -132,7 +132,7 @@ void commandLineParseArgument(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "-h") == 0) {
             if (i < argc - 1) {
-                g_arguments->host = argv[++i];
+                tstrncpy(g_arguments->host, argv[++i], HOST_NAME_MAX);
             } else {
                 exit_required("-h");
             }
@@ -170,7 +170,7 @@ void commandLineParseArgument(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "-u") == 0) {
             if (i < argc - 1) {
-                g_arguments->user = argv[++i];
+                tstrncpy(g_arguments->user, arg, NAME_MAX);
             } else {
                 exit_required("-u");
             }
@@ -254,13 +254,8 @@ void commandLineParseArgument(int argc, char *argv[]) {
                 count_datatype(tags, &(g_arguments->db->superTbls->tagCount));
                 tmfree(g_arguments->db->superTbls->tags);
                 g_arguments->db->superTbls->tags =
-                        calloc(g_arguments->db->superTbls->tagCount, sizeof(Column));
-                if (g_arguments->db->superTbls->tags == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                g_memoryUsage += g_arguments->db->superTbls->tagCount * sizeof(Column);
-                if (parse_tag_datatype(tags, g_arguments->db->superTbls->tags)) {
+                        benchCalloc(g_arguments->db->superTbls->tagCount, sizeof(Column), true);
+                if (parse_datatype(tags, g_arguments->db->superTbls->tags, true)) {
                     tmfree(g_arguments->db->superTbls->tags);
                     exit(EXIT_FAILURE);
                 }
@@ -274,13 +269,8 @@ void commandLineParseArgument(int argc, char *argv[]) {
                 tmfree(g_arguments->db->superTbls->columns);
                 count_datatype(cols, &(g_arguments->db->superTbls->columnCount));
                 g_arguments->db->superTbls->columns =
-                        calloc(g_arguments->db->superTbls->columnCount, sizeof(Column));
-                if (g_arguments->db->superTbls->columns == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                g_memoryUsage += g_arguments->db->superTbls->columnCount * sizeof(Column);
-                if (parse_col_datatype(cols, g_arguments->db->superTbls->columns)) {
+                        benchCalloc(g_arguments->db->superTbls->columnCount, sizeof(Column), true);
+                if (parse_datatype(cols, g_arguments->db->superTbls->columns, false)) {
                     tmfree(g_arguments->db->superTbls->columns);
                     exit(EXIT_FAILURE);
                 }

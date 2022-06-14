@@ -30,10 +30,12 @@ int main(int argc, char* argv[]) {
         modify_argument();
     }
 
-    g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
-    if (NULL == g_arguments->fpOfInsertResult) {
-        errorPrint(stderr, "failed to open %s for save result\n",
-                   g_arguments->output_file);
+    if (strlen(g_arguments->result_file) != 0) {
+        g_arguments->fpOfInsertResult = fopen(g_arguments->result_file, "a");
+        if (NULL == g_arguments->fpOfInsertResult) {
+            errorPrint(stderr, "failed to open %s for save result\n",
+                       g_arguments->result_file);
+        }
     }
     infoPrint(stdout, "taos client version: %s\n", taos_get_client_info());
     if (g_arguments->test_mode == INSERT_TEST) {

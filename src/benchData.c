@@ -99,13 +99,7 @@ static void rand_string(char *str, int size, bool chinese) {
 
 int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
-    char *prepare = calloc(1, BUFFER_SIZE);
-    if (prepare == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    g_memoryUsage += BUFFER_SIZE;
+    char *prepare = benchCalloc(1, BUFFER_SIZE, true);
     if (stbInfo->autoCreateTable) {
         len += sprintf(prepare + len,
                        "INSERT INTO ? USING `%s` TAGS (%s) VALUES(?",
@@ -122,7 +116,7 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     sprintf(prepare + len, ")");
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
         infoPrint(stdout,
-                  "in stmt mode, batch size(%u) can not larger than prepared "
+                  "in stmt mode, batch size(%"PRId64") can not larger than prepared "
                   "sample data size(%" PRId64
                   "), restart with larger prepared_rand or batch size will be "
                   "auto set to %" PRId64 "\n",
@@ -208,11 +202,7 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
                    stbInfo->sampleFile, strerror(errno));
         goto free_of_get_set_rows_from_csv;
     }
-    buf = calloc(1, TSDB_MAX_SQL_LEN);
-    if (buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    buf = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
     while (fgets(buf, TSDB_MAX_SQL_LEN, fp)) {
         line_count++;
     }
@@ -340,15 +330,9 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         for (int i = 0; i < count; ++i) {
             if (columns[i].type == TSDB_DATA_TYPE_BINARY ||
                 columns[i].type == TSDB_DATA_TYPE_NCHAR) {
-                columns[i].data = calloc(1, loop * (columns[i].length + 1));
-                g_memoryUsage += loop * (columns[i].length + 1);
+                columns[i].data = benchCalloc(1, loop * (columns[i].length + 1), true);
             } else {
-                columns[i].data = calloc(1, loop * columns[i].length);
-                g_memoryUsage += loop * columns[i].length;
-            }
-            if (NULL == columns[i].data) {
-                errorPrint(stderr, "%s", "memory allocation failed\n");
-                exit(EXIT_FAILURE);
+                columns[i].data = benchCalloc(1, loop * columns[i].length, true);
             }
         }
     }
@@ -745,11 +729,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
-                    char *tmp = calloc(1, columns[i].length + 1);
-                    if (tmp == NULL) {
-                        errorPrint(stderr, "%s", "memory allocation failed\n");
-                        exit(EXIT_FAILURE);
-                    }
+                    char *tmp = benchCalloc(1, columns[i].length + 1, false);
                     if (g_arguments->demo_mode) {
                         if (g_arguments->chinese) {
                             sprintf(tmp, "%s", locations_chinese[taosRandom() % 10]);
@@ -816,11 +796,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     pos += sprintf(sampleDataBuf + pos, "'{");
                     for (int j = 0; j < count; ++j) {
                         pos += sprintf(sampleDataBuf + pos, "\"k%d\":", j);
-                        char *buf = calloc(1, columns[j].length + 1);
-                        if (buf == NULL) {
-                            errorPrint(stderr, "%s", "memory allocation failed\n");
-                            exit(EXIT_FAILURE);
-                        }
+                        char *buf = benchCalloc(1, columns[j].length + 1, false);
                         rand_string(buf, columns[j].length,
                                     g_arguments->chinese);
                         pos += sprintf(sampleDataBuf + pos, "\"%s\",", buf);
@@ -845,12 +821,7 @@ int prepare_sample_data(int db_index, int stb_index) {
         if (stbInfo->partialColumnNum > stbInfo->columnCount) {
             stbInfo->partialColumnNum = stbInfo->columnCount;
         } else {
-            stbInfo->partialColumnNameBuf = calloc(1, BUFFER_SIZE);
-            if (NULL == stbInfo->partialColumnNameBuf) {
-                errorPrint(stderr, "%s", "memory allocation failed\n");
-                exit(EXIT_FAILURE);
-            }
-            g_memoryUsage += BUFFER_SIZE;
+            stbInfo->partialColumnNameBuf = benchCalloc(1, BUFFER_SIZE, true);
             int pos = 0;
             pos += sprintf(stbInfo->partialColumnNameBuf + pos, "ts");
             for (int i = 0; i < stbInfo->partialColumnNum; ++i) {
@@ -868,16 +839,11 @@ int prepare_sample_data(int db_index, int stb_index) {
         stbInfo->partialColumnNum = stbInfo->columnCount;
     }
     stbInfo->sampleDataBuf =
-        calloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand);
-    if (stbInfo->sampleDataBuf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }    
+        benchCalloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand, true);
     infoPrint(stdout,
               "generate stable<%s> columns data with lenOfCols<%u> * "
               "prepared_rand<%" PRIu64 ">\n",
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
-    g_memoryUsage += stbInfo->lenOfCols * g_arguments->prepared_rand;
     if (stbInfo->random_data_source) {
         generateRandData(stbInfo, stbInfo->sampleDataBuf, stbInfo->lenOfCols,
                          stbInfo->columns, stbInfo->columnCount,
@@ -896,16 +862,11 @@ int prepare_sample_data(int db_index, int stb_index) {
 
     if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
         stbInfo->tagDataBuf =
-            calloc(1, stbInfo->childTblCount * stbInfo->lenOfTags);
-        if (NULL == stbInfo->tagDataBuf) {
-            errorPrint(stderr, "%s() LN%d, failed to alloc memory!\n", __func__, __LINE__);
-            return -1;
-        }
+            benchCalloc(1, stbInfo->childTblCount * stbInfo->lenOfTags, true);
         infoPrint(stdout,
                   "generate stable<%s> tags data with lenOfTags<%u> * "
                   "childTblCount<%" PRIu64 ">\n",
                   stbInfo->stbName, stbInfo->lenOfTags, stbInfo->childTblCount);
-        g_memoryUsage += stbInfo->childTblCount * stbInfo->lenOfTags;
         if (stbInfo->tagsFile[0] != 0) {
             if (generateSampleFromCsvForStb(
                     stbInfo->tagDataBuf, stbInfo->tagsFile, stbInfo->lenOfTags,
@@ -982,12 +943,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
                        stbInfo->columns[c - 1].length);
         }
         param->buffer_type = data_type;
-        param->length = calloc(batch, sizeof(int32_t));
-        if (param->length == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        g_memoryUsage += batch * sizeof(int32_t);
+        param->length = benchCalloc(batch, sizeof(int32_t), true);
 
         for (int b = 0; b < batch; b++) {
             param->length[b] = (int32_t)param->buffer_length;
@@ -1037,19 +993,11 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
     int32_t code = -1;
     Column *columns = stbInfo->tags;
     cJSON * tags = cJSON_CreateObject();
-    char *  tbName = calloc(1, TSDB_TABLE_NAME_LEN);
-    if (tbName == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, false);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
              stbInfo->childTblPrefix, tbSeq + start_table_from);
     cJSON_AddStringToObject(tags, "id", tbName);
-    char *tagName = calloc(1, TSDB_MAX_TAGS);
-    if (tagName == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *tagName = benchCalloc(1, TSDB_MAX_TAGS, false);
     for (int i = 0; i < stbInfo->tagCount; i++) {
         cJSON *tag = cJSON_CreateObject();
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
@@ -1119,11 +1067,7 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
 
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR: {
-                char *buf = (char *)calloc(stbInfo->tags[i].length + 1, 1);
-                if (buf == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
+                char *buf = (char *)benchCalloc(stbInfo->tags[i].length + 1, 1, false);
                 rand_string(buf, stbInfo->tags[i].length, g_arguments->chinese);
                 if (stbInfo->tags[i].type == TSDB_DATA_TYPE_BINARY) {
                     cJSON_AddStringToObject(tag, "value", buf);
@@ -1220,11 +1164,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
             break;
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR: {
-            char *buf = (char *)calloc(stbInfo->columns[0].length + 1, 1);
-            if (buf == NULL) {
-                errorPrint(stderr, "%s", "memory allocation failed\n");
-                exit(EXIT_FAILURE);
-            }
+            char *buf = (char *)benchCalloc(stbInfo->columns[0].length + 1, 1, false);
             rand_string(buf, stbInfo->columns[0].length, g_arguments->chinese);
             if (stbInfo->columns[0].type == TSDB_DATA_TYPE_BINARY) {
                 cJSON_AddStringToObject(value, "value", buf);

@@ -311,36 +311,36 @@ typedef struct COLUMN_S {
 } Column;
 
 typedef struct SSuperTable_S {
-    char *   stbName;
+    char     stbName[TSDB_TABLE_NAME_LEN];
     bool     random_data_source;  // rand_gen or sample
     bool     escape_character;
     bool     use_metric;
     char *   childTblPrefix;
     bool     childTblExists;
-    uint64_t childTblCount;
-    uint64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
+    int64_t childTblCount;
+    int64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
                                    // one sql
     bool     autoCreateTable;
     uint16_t iface;  // 0: taosc, 1: rest, 2: stmt
     uint16_t lineProtocol;
-    uint64_t childTblLimit;
-    uint64_t childTblOffset;
+    int64_t childTblLimit;
+    int64_t childTblOffset;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
-    uint32_t interlaceRows;  //
-    int      disorderRatio;  // 0: no disorder, >0: x%
-    int      disorderRange;  // ms, us or ns. according to database precision
+    int64_t  interlaceRows;  //
+    int64_t  disorderRatio;  // 0: no disorder, >0: x%
+    int64_t  disorderRange;  // ms, us or ns. according to database precision
 
-    uint64_t insert_interval;
-    uint64_t insertRows;
-    uint64_t timestamp_step;
+    int64_t insert_interval;
+    int64_t insertRows;
+    int64_t timestamp_step;
     int      tsPrecision;
     int64_t  startTimestamp;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
 
     uint32_t columnCount;
-    uint32_t partialColumnNum;
+    int64_t partialColumnNum;
     char *   partialColumnNameBuf;
     Column * columns;
     Column * tags;
@@ -355,40 +355,40 @@ typedef struct SSuperTable_S {
     char *tagDataBuf;
     bool  tcpTransfer;
     bool  non_stop;
-    char *comment;
-    int   delay;
-    int   file_factor;
-    char *rollup;
+    char  comment[128];
+    int64_t  delay;
+    int64_t  file_factor;
+    char    rollup[128];
 } SSuperTable;
 
 typedef struct SDbCfg_S {
-    int32_t minRows;  // 0 means default
-    int32_t maxRows;  // 0 means default
-    int     comp;
-    int     walLevel;
-    int     cacheLast;
-    int     fsync;
-    int     replica;
-    int     update;
-    int     buffer;
-    int     keep;
-    int     days;
-    int     cache;
-    int     blocks;
-    int     quorum;
-    int     strict;
-    int     precision;
-    int     sml_precision;
-    int     page_size;
-    int     pages;
-    int     vgroups;
-    int     single_stable;
-    char *  retentions;
+    int64_t     minRows;  // 0 means default
+    int64_t     maxRows;  // 0 means default
+    int64_t     comp;
+    int64_t     walLevel;
+    int64_t     cacheLast;
+    int64_t     fsync;
+    int64_t     replica;
+    int64_t     update;
+    int64_t     buffer;
+    int64_t     keep;
+    int64_t     days;
+    int64_t     cache;
+    int64_t     blocks;
+    int64_t     quorum;
+    int64_t     strict;
+    int         precision;
+    int         sml_precision;
+    int64_t     page_size;
+    int64_t     pages;
+    int64_t     vgroups;
+    int64_t     single_stable;
+    char        retentions[128];
 
 } SDbCfg;
 
 typedef struct SDataBase_S {
-    char *       dbName;
+    char         dbName[TSDB_DB_NAME_LEN];
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
     SDbCfg       dbCfg;
     uint64_t     superTblCount;
@@ -402,17 +402,17 @@ typedef struct SSQL_S {
 } SSQL;
 
 typedef struct SpecifiedQueryInfo_S {
-    uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
-    uint32_t  concurrent;
+    int64_t   queryInterval;  // 0: unlimited  > 0   loop/s
+    int64_t   concurrent;
     int       sqlCount;
     uint32_t  asyncMode;          // 0: sync, 1: async
-    uint64_t  subscribeInterval;  // ms
-    uint64_t  queryTimes;
+    int64_t  subscribeInterval;  // ms
+    int64_t  queryTimes;
     bool      subscribeRestart;
-    int       subscribeKeepProgress;
+    int64_t      subscribeKeepProgress;
     SSQL      sql[MAX_QUERY_SQL_COUNT];
-    int       resubAfterConsume[MAX_QUERY_SQL_COUNT];
-    int       endAfterConsume[MAX_QUERY_SQL_COUNT];
+    int64_t      resubAfterConsume[MAX_QUERY_SQL_COUNT];
+    int64_t      endAfterConsume[MAX_QUERY_SQL_COUNT];
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
     char      topic[MAX_QUERY_SQL_COUNT][32];
     int       consumed[MAX_QUERY_SQL_COUNT];
@@ -422,19 +422,19 @@ typedef struct SpecifiedQueryInfo_S {
 
 typedef struct SuperQueryInfo_S {
     char      stbName[TSDB_TABLE_NAME_LEN];
-    uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
-    uint32_t  threadCnt;
+    int64_t  queryInterval;  // 0: unlimited  > 0   loop/s
+    int64_t  threadCnt;
     uint32_t  asyncMode;          // 0: sync, 1: async
-    uint64_t  subscribeInterval;  // ms
+    int64_t  subscribeInterval;  // ms
     bool      subscribeRestart;
-    int       subscribeKeepProgress;
-    uint64_t  queryTimes;
+    bool      subscribeKeepProgress;
+    int64_t  queryTimes;
     uint64_t  childTblCount;
     int       sqlCount;
     char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
     char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
-    int       resubAfterConsume;
-    int       endAfterConsume;
+    int64_t      resubAfterConsume;
+    int64_t      endAfterConsume;
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
     char **   childTblName;
     uint64_t  totalQueried;
@@ -444,8 +444,8 @@ typedef struct SQueryMetaInfo_S {
     SpecifiedQueryInfo specifiedQueryInfo;
     SuperQueryInfo     superQueryInfo;
     uint64_t           totalQueried;
-    uint64_t           query_times;
-    uint64_t           response_buffer;
+    int64_t           query_times;
+    int64_t           response_buffer;
     bool               reset_query_cache;
 } SQueryMetaInfo;
 
@@ -453,24 +453,24 @@ typedef struct SArguments_S {
     uint8_t            taosc_version;
     char *             metaFile;
     int32_t            test_mode;
-    char *             host;
-    uint16_t           port;
-    uint16_t           telnet_tcp_port;
-    char *             user;
-    char *             password;
+    char               host[HOST_NAME_MAX];
+    int64_t            port;
+    int64_t            telnet_tcp_port;
+    char               user[NAME_MAX];
+    char               password[TSDB_PASS_LEN];
     bool               answer_yes;
     bool               debug_print;
     bool               performance_print;
     bool               chinese;
-    char *             output_file;
+    char               result_file[TSDB_FILENAME_LEN];
     uint32_t           binwidth;
     uint32_t           intColumnCount;
-    uint32_t           connection_pool;
-    uint32_t           nthreads;
-    uint32_t           table_threads;
-    uint64_t           prepared_rand;
-    uint32_t           reqPerReq;
-    uint64_t           insert_interval;
+    int64_t            connection_pool;
+    int64_t            nthreads;
+    int64_t            table_threads;
+    int64_t            prepared_rand;
+    int64_t            reqPerReq;
+    int64_t            insert_interval;
     bool               demo_mode;
     bool               aggr_func;
     uint32_t           dbCount;
@@ -551,6 +551,7 @@ extern uint64_t       g_memoryUsage;
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
     do {                               \
+        memset(dst, 0, size);          \
         strncpy((dst), (src), (size)); \
         (dst)[(size)-1] = 0;           \
     } while (0)
@@ -561,8 +562,7 @@ void modify_argument();
 void init_argument();
 void queryAggrFunc();
 int count_datatype(char *dataType, uint32_t *number);
-int parse_tag_datatype(char *dataType, Column *tags);
-int parse_col_datatype(char *dataType, Column *columns);
+int parse_datatype(char *dataType, Column *fields, bool isTag);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
@@ -582,6 +582,7 @@ void    resetAfterAnsiEscape(void);
 char *  taos_convert_datatype_to_string(int type);
 int     taos_convert_string_to_datatype(char *type, int length);
 int     taosRandom();
+void*   benchCalloc(size_t nmemb, size_t size, bool record);
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);

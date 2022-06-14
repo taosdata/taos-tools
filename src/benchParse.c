@@ -104,7 +104,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       arguments->metaFile = arg;
       break;
     case 'h':
-      arguments->host = arg;
+      tstrncpy(arguments->host, arg, HOST_NAME_MAX);
       break;
     case 'P':
       arguments->port = atoi(arg);
@@ -132,16 +132,16 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       }
       break;
     case 'p':
-      arguments->password = arg;
+        tstrncpy(arguments->password, arg, TSDB_PASS_LEN);
       break;
     case 'u':
-      arguments->user = arg;
+        tstrncpy(arguments->user, arg, NAME_MAX);
       break;
     case 'c':
       tstrncpy(configDir, arg, TSDB_FILENAME_LEN);
       break;
     case 'o':
-      arguments->output_file = arg;
+        tstrncpy(arguments->result_file, arg, TSDB_FILENAME_LEN);
       break;
     case 'T':
       arguments->nthreads = atoi(arg);
@@ -219,8 +219,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       }
       break;
     case 'd':
-      arguments->db->dbName = arg;
-      break;
+        tstrncpy(arguments->db->dbName, arg, TSDB_DB_NAME_LEN);
+        break;
     case 'l':
       arguments->demo_mode = false;
       arguments->intColumnCount = atoi(arg);
@@ -236,13 +236,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       count_datatype(arg, &(arguments->db->superTbls->tagCount));
       tmfree(arguments->db->superTbls->tags);
       arguments->db->superTbls->tags =
-          calloc(arguments->db->superTbls->tagCount, sizeof(Column));
-      if (arguments->db->superTbls->tags == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-      }
-      g_memoryUsage += arguments->db->superTbls->tagCount * sizeof(Column);
-      if (parse_tag_datatype(arg, arguments->db->superTbls->tags)) {
+          benchCalloc(arguments->db->superTbls->tagCount, sizeof(Column), true);
+      if (parse_datatype(arg, arguments->db->superTbls->tags, true)) {
         tmfree(arguments->db->superTbls->tags);
         exit(EXIT_FAILURE);
       }
@@ -252,13 +247,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       tmfree(arguments->db->superTbls->columns);
       count_datatype(arg, &(arguments->db->superTbls->columnCount));
       arguments->db->superTbls->columns =
-          calloc(arguments->db->superTbls->columnCount, sizeof(Column));
-      if (arguments->db->superTbls->columns == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-      }
-      g_memoryUsage += arguments->db->superTbls->columnCount * sizeof(Column);
-      if (parse_col_datatype(arg, arguments->db->superTbls->columns)) {
+          benchCalloc(arguments->db->superTbls->columnCount, sizeof(Column), true);
+      if (parse_datatype(arg, arguments->db->superTbls->columns, false)) {
         tmfree(arguments->db->superTbls->columns);
         exit(EXIT_FAILURE);
       }

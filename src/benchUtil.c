@@ -15,6 +15,19 @@
 
 #include "bench.h"
 
+inline void* benchCalloc(size_t nmemb, size_t size, bool record) {
+    void* ret = calloc(nmemb, size);
+    if (NULL == ret) {
+        errorPrint(stderr, "%s", "failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    if (record) {
+      g_memoryUsage += nmemb * size;
+    }
+    return ret;
+}
+
+
 inline void tmfclose(FILE *fp) {
     if (NULL != fp) {
         fclose(fp);
@@ -136,11 +149,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                        count);
             return -1;
         }
-        childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
-        if (childTblNameOfSuperTbl[count] == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
+        childTblNameOfSuperTbl[count] = benchCalloc(1, TSDB_TABLE_NAME_LEN, false);
         snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
                  (char *)row[0]);
         debugPrint(stdout, "childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
@@ -175,7 +184,7 @@ int convertHostToServAddr(char *host, uint16_t port,
 }
 
 void prompt(bool nonStopMode) {
-    if (!g_arguments->answer_yes) {
+    if (g_arguments->answer_yes) {
         if (nonStopMode) {
             printf(
                 "\n\n         Current is the Non-Stop insertion mode. "
@@ -308,14 +317,14 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
 }
 
 void encode_base_64() {
-    char        userpass_buf[INPUT_BUF_LEN];
+    char        userpass_buf[NAME_MAX + TSDB_PASS_LEN + 1];
     static char base64[] = {
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
         'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
         'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
         'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
-    snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_arguments->user,
+    snprintf(userpass_buf, NAME_MAX + TSDB_PASS_LEN + 1, "%s:%s", g_arguments->user,
              g_arguments->password);
 
     int mod_table[] = {0, 2, 1};
@@ -323,11 +332,7 @@ void encode_base_64() {
     size_t userpass_buf_len = strlen(userpass_buf);
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
-    g_arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
-    if (g_arguments->base64_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    g_arguments->base64_buf = benchCalloc(1, INPUT_BUF_LEN, true);
 
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
@@ -382,23 +387,14 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
 
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
-    request_buf = calloc(1, req_buf_len);
-    if (request_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    request_buf = benchCalloc(1, req_buf_len, false);
     uint64_t response_length;
     if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
     } else {
         response_length = g_queryInfo.response_buffer;
     }
-    response_buf = calloc(1, response_length);
-    if (response_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-
+    response_buf = benchCalloc(1, response_length, false);
     int r;
     if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
         stbInfo->tcpTransfer) {
@@ -520,12 +516,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     int         num_fields = taos_field_count(res);
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
-    char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
-
-    if (databuf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *databuf = (char *)benchCalloc(1, FETCH_BUFFER_SIZE, false);
 
     int64_t totalLen = 0;
 
@@ -683,12 +674,7 @@ int init_taos_list() {
 #endif
     int        size = g_arguments->connection_pool;
     TAOS_POOL *pool = g_arguments->pool;
-    pool->taos_list = calloc(size, sizeof(TAOS *));
-    if (pool->taos_list == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += size * sizeof(TAOS *);
+    pool->taos_list = benchCalloc(size, sizeof(TAOS *), true);
     pool->current = 0;
     pool->size = size;
     for (int i = 0; i < size; ++i) {
