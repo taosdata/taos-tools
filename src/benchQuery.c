@@ -16,7 +16,7 @@
 #include "bench.h"
 
 void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
-    if (g_arguments->db->superTbls->iface == REST_IFACE) {
+    if (g_queryInfo.iface == REST_IFACE) {
         int retCode = postProceSql(command, pThreadInfo);
         if (0 != retCode) {
             errorPrint(stderr, "====restful return fail, threadID[%d]\n",
@@ -207,10 +207,10 @@ int queryTestProcess() {
     if (init_taos_list()) return -1;
     encode_base_64();
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        TAOS *taos = select_one_from_pool(g_arguments->db->dbName);
+        TAOS *taos = select_one_from_pool(g_queryInfo.database);
         char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
-                 g_arguments->db->dbName, g_queryInfo.superQueryInfo.stbName);
+                 g_queryInfo.database, g_queryInfo.superQueryInfo.stbName);
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
@@ -241,7 +241,7 @@ int queryTestProcess() {
         g_queryInfo.superQueryInfo.childTblName =
             benchCalloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *), false);
         if (getAllChildNameOfSuperTable(
-                taos, g_arguments->db->dbName,
+                taos, g_queryInfo.database,
                 g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
@@ -251,7 +251,7 @@ int queryTestProcess() {
 
     prompt(0);
 
-    if (g_arguments->db->superTbls->iface == REST_IFACE) {
+    if (g_queryInfo.iface == REST_IFACE) {
         if (convertHostToServAddr(g_arguments->host,
                                   g_arguments->port + TSDB_PORT_HTTP,
                                   &(g_arguments->serv_addr)) != 0) {
@@ -277,10 +277,8 @@ int queryTestProcess() {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
-                pThreadInfo->stb_index = 0;
 
-                if (g_arguments->db->superTbls->iface == REST_IFACE) {
+                if (g_queryInfo.iface == REST_IFACE) {
 #ifdef WINDOWS
                     WSADATA wsaData;
                     WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -321,7 +319,7 @@ int queryTestProcess() {
                     pThreadInfo->sockfd = sockfd;
                 } else {
                     pThreadInfo->taos =
-                        select_one_from_pool(g_arguments->db->dbName);
+                        select_one_from_pool(g_queryInfo.database);
                 }
 
                 pthread_create(pids + seq, NULL, specifiedTableQuery,
@@ -335,7 +333,7 @@ int queryTestProcess() {
                     g_fail = true;
                 }
                 tmfree(result);
-                if (g_arguments->db->superTbls->iface == REST_IFACE) {
+                if (g_queryInfo.iface == REST_IFACE) {
                     threadInfo *pThreadInfo = infos + j * nSqlCount + i;
 #ifdef WINDOWS
                     closesocket(pThreadInfo->sockfd);
@@ -406,14 +404,12 @@ int queryTestProcess() {
         for (int i = 0; i < threads; i++) {
             threadInfo *pThreadInfo = infosOfSub + i;
             pThreadInfo->threadID = i;
-            pThreadInfo->db_index = 0;
-            pThreadInfo->stb_index = 0;
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
             pThreadInfo->end_table_to =
                 i < b ? tableFrom + a : tableFrom + a - 1;
             tableFrom = pThreadInfo->end_table_to + 1;
-            if (g_arguments->db->superTbls->iface == REST_IFACE) {
+            if (g_queryInfo.iface == REST_IFACE) {
 #ifdef WINDOWS
                 WSADATA wsaData;
                 WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -441,7 +437,7 @@ int queryTestProcess() {
                 pThreadInfo->sockfd = sockfd;
             } else {
                 pThreadInfo->taos =
-                    select_one_from_pool(g_arguments->db->dbName);
+                    select_one_from_pool(g_queryInfo.database);
             }
             pthread_create(pidsOfSub + i, NULL, superTableQuery, pThreadInfo);
         }
@@ -458,7 +454,7 @@ int queryTestProcess() {
             g_fail = true;
         }
         tmfree(result);
-        if (g_arguments->db->superTbls->iface == REST_IFACE) {
+        if (g_queryInfo.iface == REST_IFACE) {
             threadInfo *pThreadInfo = infosOfSub + i;
 #ifdef WINDOWS
             closesocket(pThreadInfo->sockfd);

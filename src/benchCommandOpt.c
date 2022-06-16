@@ -27,202 +27,71 @@ char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
                        "max(C0)", "min(C0)",  "first(C0)", "last(C0)"};
 
 
-int count_datatype(char *dataType, uint32_t *number) {
-    char *dup_str;
-    *number = 0;
-    if (strstr(dataType, ",") == NULL) {
-        *number = 1;
-        return 0;
-    } else {
-        dup_str = strdup(dataType);
-        char *running = dup_str;
-        char *token = strsep(&running, ",");
-        while (token != NULL) {
-            (*number)++;
-            token = strsep(&running, ",");
-        }
-    }
-    tmfree(dup_str);
-    return 0;
-}
-
-int parse_datatype(char *dataType, Column *fields, bool isTag) {
+void parse_datatype(char *dataType, BArray *fields, bool isTag) {
     char *dup_str;
     if (strstr(dataType, ",") == NULL) {
-        if (0 == strcasecmp(dataType, "int")) {
-            fields[0].type = TSDB_DATA_TYPE_INT;
-            fields[0].length = sizeof(int32_t);
-        } else if (0 == strcasecmp(dataType, "float")) {
-            fields[0].type = TSDB_DATA_TYPE_FLOAT;
-            fields[0].length = sizeof(float);
-        } else if (0 == strcasecmp(dataType, "double")) {
-            fields[0].type = TSDB_DATA_TYPE_DOUBLE;
-            fields[0].length = sizeof(double);
-        } else if (0 == strcasecmp(dataType, "tinyint")) {
-            fields[0].type = TSDB_DATA_TYPE_TINYINT;
-            fields[0].length = sizeof(int8_t);
-        } else if (0 == strcasecmp(dataType, "bool")) {
-            fields[0].type = TSDB_DATA_TYPE_BOOL;
-            fields[0].length = sizeof(char);
-        } else if (0 == strcasecmp(dataType, "smallint")) {
-            fields[0].type = TSDB_DATA_TYPE_SMALLINT;
-            fields[0].length = sizeof(int16_t);
-        } else if (0 == strcasecmp(dataType, "bigint")) {
-            fields[0].type = TSDB_DATA_TYPE_BIGINT;
-            fields[0].length = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "timestamp")) {
-            fields[0].type = TSDB_DATA_TYPE_TIMESTAMP;
-            fields[0].length = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "utinyint")) {
-            fields[0].type = TSDB_DATA_TYPE_UTINYINT;
-            fields[0].length = sizeof(uint8_t);
-        } else if (0 == strcasecmp(dataType, "usmallint")) {
-            fields[0].type = TSDB_DATA_TYPE_USMALLINT;
-            fields[0].length = sizeof(uint16_t);
-        } else if (0 == strcasecmp(dataType, "uint")) {
-            fields[0].type = TSDB_DATA_TYPE_UINT;
-            fields[0].length = sizeof(uint32_t);
-        } else if (0 == strcasecmp(dataType, "ubigint")) {
-            fields[0].type = TSDB_DATA_TYPE_UBIGINT;
-            fields[0].length = sizeof(uint64_t);
-        } else if (0 == strcasecmp(dataType, "nchar")) {
-            fields[0].type = TSDB_DATA_TYPE_NCHAR;
-            fields[0].length = 0;
-        } else if (0 == strcasecmp(dataType, "binary")) {
-            fields[0].type = TSDB_DATA_TYPE_BINARY;
-            fields[0].length = 0;
-        } else if ((0 == strcasecmp(dataType, "json")) && isTag) {
-            fields[0].type = TSDB_DATA_TYPE_JSON;
-            fields[0].length = 0;
-        } else if (1 == regexMatch(dataType, "^(BINARY)(\\([1-9][0-9]*\\))$",
+        Field * field = benchCalloc(1, sizeof(Field), true);
+        if (1 == regexMatch(dataType, "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
                                    REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
             sscanf(dataType, "%[^(](%[^)]", type, length);
-            fields[0].type = TSDB_DATA_TYPE_BINARY;
-            fields[0].length = atoi(length);
-        } else if (1 == regexMatch(dataType, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            fields[0].type = TSDB_DATA_TYPE_NCHAR;
-            fields[0].length = atoi(length);
-        } else if ((1 == regexMatch(dataType, "^(json)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) && isTag) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            fields[0].type = TSDB_DATA_TYPE_JSON;
-            fields[0].length = atoi(length);
+            setField(field, taos_convert_string_to_datatype(type, 0), atoi(length), isTag?"t0":"c0", 0,0);
         } else {
-            errorPrint(stderr, "Invalid data type: %s\n", dataType);
-            return -1;
+            uint8_t type = taos_convert_string_to_datatype(dataType, 0);
+            setField(field, type, taos_convert_type_to_length(type), isTag?"t0":"c0",
+                     get_min_from_data_type(type), get_max_from_data_type(type));
         }
+        benchArrayPush(fields, field);
     } else {
         dup_str = strdup(dataType);
         char *running = dup_str;
         char *token = strsep(&running, ",");
         int   index = 0;
         while (token != NULL) {
-            if (0 == strcasecmp(token, "int")) {
-                fields[index].type = TSDB_DATA_TYPE_INT;
-                fields[index].length = sizeof(int32_t);
-            } else if (0 == strcasecmp(token, "float")) {
-                fields[index].type = TSDB_DATA_TYPE_FLOAT;
-                fields[index].length = sizeof(float);
-            } else if (0 == strcasecmp(token, "double")) {
-                fields[index].type = TSDB_DATA_TYPE_DOUBLE;
-                fields[index].length = sizeof(double);
-            } else if (0 == strcasecmp(token, "tinyint")) {
-                fields[index].type = TSDB_DATA_TYPE_TINYINT;
-                fields[index].length = sizeof(int8_t);
-            } else if (0 == strcasecmp(token, "bool")) {
-                fields[index].type = TSDB_DATA_TYPE_BOOL;
-                fields[index].length = sizeof(char);
-            } else if (0 == strcasecmp(token, "smallint")) {
-                fields[index].type = TSDB_DATA_TYPE_SMALLINT;
-                fields[index].length = sizeof(int16_t);
-            } else if (0 == strcasecmp(token, "bigint")) {
-                fields[index].type = TSDB_DATA_TYPE_BIGINT;
-                fields[index].length = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "timestamp")) {
-                fields[index].type = TSDB_DATA_TYPE_TIMESTAMP;
-                fields[index].length = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "utinyint")) {
-                fields[index].type = TSDB_DATA_TYPE_UTINYINT;
-                fields[index].length = sizeof(uint8_t);
-            } else if (0 == strcasecmp(token, "usmallint")) {
-                fields[index].type = TSDB_DATA_TYPE_USMALLINT;
-                fields[index].length = sizeof(uint16_t);
-            } else if (0 == strcasecmp(token, "uint")) {
-                fields[index].type = TSDB_DATA_TYPE_UINT;
-                fields[index].length = sizeof(uint32_t);
-            } else if (0 == strcasecmp(token, "ubigint")) {
-                fields[index].type = TSDB_DATA_TYPE_UBIGINT;
-                fields[index].length = sizeof(uint64_t);
-            } else if (0 == strcasecmp(token, "nchar")) {
-                fields[index].type = TSDB_DATA_TYPE_NCHAR;
-                fields[index].length = 0;
-            } else if (0 == strcasecmp(token, "binary")) {
-                fields[index].type = TSDB_DATA_TYPE_BINARY;
-                fields[index].length = 0;
-            } else if (1 == regexMatch(token, "^(BINARY)(\\([1-9][0-9]*\\))$",
+            Field * field = benchCalloc(1, sizeof(Field), true);
+            char name[TSDB_COL_NAME_LEN] = {0};
+            snprintf(name, TSDB_COL_NAME_LEN, isTag?"t%d":"c%d", index);
+             if (1 == regexMatch(token, "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
                                        REG_ICASE | REG_EXTENDED)) {
                 char type[DATATYPE_BUFF_LEN];
                 char length[BIGINT_BUFF_LEN];
                 sscanf(token, "%[^(](%[^)]", type, length);
-                fields[index].type = TSDB_DATA_TYPE_BINARY;
-                fields[index].length = atoi(length);
-            } else if (1 == regexMatch(token, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                char type[DATATYPE_BUFF_LEN];
-                char length[BIGINT_BUFF_LEN];
-                sscanf(token, "%[^(](%[^)]", type, length);
-                fields[index].type = TSDB_DATA_TYPE_NCHAR;
-                fields[index].length = atoi(length);
-            } else if (1 == regexMatch(token, "^(JSON)(\\([1-9][0-9]*\\))?$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                errorPrint(stderr, "%s",
-                           "Json tag type cannot use with other type tags\n");
-                tmfree(dup_str);
-                return -1;
+                setField(field, taos_convert_string_to_datatype(type, 0), atoi(length), name, 0,0);
             } else {
-                errorPrint(stderr, "Invalid data type <%s>\n", token);
-                tmfree(dup_str);
-                return -1;
+                uint8_t type = taos_convert_string_to_datatype(dataType, 0);
+                setField(field, type, taos_convert_type_to_length(type), name,
+                         get_min_from_data_type(type), get_max_from_data_type(type));
             }
+            benchArrayPush(fields, field);
             index++;
             token = strsep(&running, ",");
         }
         tmfree(dup_str);
     }
-    return 0;
 }
 
-static SSuperTable *init_stable() {
-    SDataBase *database = g_arguments->db;
-    database->superTbls = benchCalloc(1, sizeof(SSuperTable), true);
-    SSuperTable *stbInfo = database->superTbls;
+void init_stable() {
+    SDataBase *database = benchArrayGet(g_arguments->db, 0);
+    database->superTbls = benchArrayInit(1, sizeof(SSuperTable));
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, 0);
     stbInfo->iface = TAOSC_IFACE;
     tstrncpy(stbInfo->stbName, "meters", TSDB_TABLE_NAME_LEN);
     stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
     stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
-    stbInfo->columns = benchCalloc(3, sizeof(Column), true);
-    stbInfo->columns[0].type = TSDB_DATA_TYPE_FLOAT;
-    stbInfo->columns[1].type = TSDB_DATA_TYPE_INT;
-    stbInfo->columns[2].type = TSDB_DATA_TYPE_FLOAT;
-    stbInfo->columns[0].length = sizeof(float);
-    stbInfo->columns[1].length = sizeof(int32_t);
-    stbInfo->columns[2].length = sizeof(float);
-    stbInfo->tags = benchCalloc(2, sizeof(Column), true);
-    stbInfo->tags[0].type = TSDB_DATA_TYPE_INT;
-    stbInfo->tags[1].type = TSDB_DATA_TYPE_BINARY;
-    stbInfo->tags[0].length = sizeof(int32_t);
-    stbInfo->tags[1].length = 16;
-    stbInfo->columnCount = 3;
-    stbInfo->tagCount = 2;
+    stbInfo->columns = benchArrayInit(3, sizeof(Field));
+    Field* c1 = benchArrayGet(stbInfo->columns, 0);
+    Field* c2 = benchArrayGet(stbInfo->columns, 1);
+    Field* c3 = benchArrayGet(stbInfo->columns, 2);
+    setField(c1, TSDB_DATA_TYPE_FLOAT, sizeof(float), "current", 9, 10);
+    setField(c2, TSDB_DATA_TYPE_INT, sizeof(int32_t), "voltage", 110, 119);
+    setField(c3, TSDB_DATA_TYPE_FLOAT, sizeof(float), "phase", 115, 125);
+    stbInfo->tags = benchArrayInit(2, sizeof(Field));
+    Field* t1 = benchArrayGet(stbInfo->tags, 0);
+    Field* t2 = benchArrayGet(stbInfo->tags, 1);
+    setField(t1, TSDB_DATA_TYPE_INT, sizeof(int32_t), "groupid", 1, 10);
+    setField(t2, TSDB_DATA_TYPE_BINARY, 16, "location", 0, 0);
     stbInfo->insert_interval = 0;
     stbInfo->timestamp_step = 1;
     stbInfo->interlaceRows = 0;
@@ -240,15 +109,13 @@ static SSuperTable *init_stable() {
     stbInfo->disorderRatio = 0;
     stbInfo->file_factor = -1;
     stbInfo->delay = -1;
-    return stbInfo;
 }
 
-static SDataBase *init_database() {
-    g_arguments->db = benchCalloc(1, sizeof(SDataBase), true);
-    SDataBase *database = g_arguments->db;
+static void init_database() {
+    g_arguments->db = benchArrayInit(1, sizeof(SDataBase));
+    SDataBase *database = benchArrayGet(g_arguments->db, 0);
     tstrncpy(database->dbName, DEFAULT_DATABASE, TSDB_DB_NAME_LEN);
     database->drop = 1;
-    database->superTblCount = 1;
     database->dbCfg.minRows = -1;
     database->dbCfg.maxRows = -1;
     database->dbCfg.comp = -1;
@@ -270,7 +137,6 @@ static SDataBase *init_database() {
     database->dbCfg.strict = -1;
     database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-    return database;
 }
 void init_argument() {
     g_arguments = benchCalloc(1, sizeof(SArguments), true);
@@ -279,10 +145,9 @@ void init_argument() {
     } else {
         g_arguments->taosc_version = 2;
     }
-    g_arguments->pool = benchCalloc(1, sizeof(TAOS_POOL), true);
+    g_arguments->pool = benchArrayInit(DEFAULT_NTHREADS, sizeof(TAOS));
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
-    g_arguments->dbCount = 1;
     g_arguments->port = DEFAULT_PORT;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     tstrncpy(g_arguments->user, TSDB_DEFAULT_USER, NAME_MAX);
@@ -302,15 +167,16 @@ void init_argument() {
     g_arguments->g_existedChildTables = 0;
     g_arguments->chinese = 0;
     g_arguments->aggr_func = 0;
-    g_arguments->db = init_database();
-    g_arguments->db->superTbls = init_stable();
+    init_database();
+    init_stable();
 }
 
 void modify_argument() {
-    SSuperTable *superTable = g_arguments->db->superTbls;
+    SDataBase *db = benchArrayGet(g_arguments->db, 0);
+    SSuperTable *superTable = benchArrayGet(db->superTbls, 0);
     if (init_taos_list()) exit(EXIT_FAILURE);
 
-    if (g_arguments->db->superTbls->iface == STMT_IFACE) {
+    if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
             g_arguments->reqPerReq = INT16_MAX;
         }
@@ -318,62 +184,30 @@ void modify_argument() {
             g_arguments->prepared_rand = g_arguments->reqPerReq;
         }
     }
-
-    for (int i = 0; i < superTable->columnCount; ++i) {
-        if (superTable->columns[i].length == 0) {
-            superTable->columns[i].length = g_arguments->binwidth;
+    BArray * cols = superTable->columns;
+    BArray * tags = superTable->tags;
+    for (int i = 0; i < cols->size; ++i) {
+        Field * col = benchArrayGet(cols, i);
+        if (col->length == 0) {
+            col->length = g_arguments->binwidth;
+        }
+    }
+    for (int i = 0; i < tags->size; ++i) {
+        Field * tag = benchArrayGet(tags, i);
+        if (tag->length == 0) {
+            tag->length = g_arguments->binwidth;
         }
     }
 
-    if (g_arguments->demo_mode) {
-        tstrncpy(superTable->tags[0].name, "groupid", TSDB_COL_NAME_LEN + 1);
-        superTable->tags[0].min = -1 * (RAND_MAX >> 1);
-        superTable->tags[1].min = -1 * (RAND_MAX >> 1);
-        superTable->tags[0].max = RAND_MAX >> 1;
-        superTable->tags[1].max = RAND_MAX >> 1;
-        tstrncpy(superTable->tags[1].name, "location", TSDB_COL_NAME_LEN + 1);
-        tstrncpy(superTable->columns[0].name, "current", TSDB_COL_NAME_LEN + 1);
-        tstrncpy(superTable->columns[1].name, "voltage", TSDB_COL_NAME_LEN + 1);
-        tstrncpy(superTable->columns[2].name, "phase", TSDB_COL_NAME_LEN + 1);
-        superTable->columns[0].min = -1 * (RAND_MAX >> 1);
-        superTable->columns[0].max = RAND_MAX >> 1;
-        superTable->columns[1].min = -1 * (RAND_MAX >> 1);
-        superTable->columns[1].max = RAND_MAX >> 1;
-        superTable->columns[2].min = -1 * (RAND_MAX >> 1);
-        superTable->columns[2].max = RAND_MAX >> 1;
-    } else {
-        for (int i = 0; i < superTable->tagCount; ++i) {
-            sprintf(superTable->tags[i].name, "t%d", i);
-            superTable->tags[i].min = -1 * (RAND_MAX >> 1);
-            superTable->tags[i].max = RAND_MAX >> 1;
-        }
-    }
-
-    for (int i = 0; i < superTable->tagCount; ++i) {
-        if (superTable->tags[i].length == 0) {
-            superTable->tags[i].length = g_arguments->binwidth;
-        }
-    }
-
-    if (g_arguments->intColumnCount > superTable->columnCount) {
-        Column *tmp_col = (Column *)realloc(
-            superTable->columns, g_arguments->intColumnCount * sizeof(Column));
-        if (tmp_col != NULL) {
-            superTable->columns = tmp_col;
-            for (int i = superTable->columnCount;
-                 i < g_arguments->intColumnCount; ++i) {
-                memset(&superTable->columns[i], 0, sizeof(Column));
-                superTable->columns[i].type = TSDB_DATA_TYPE_INT;
-                superTable->columns[i].length = sizeof(int32_t);
-            }
-        }
-        superTable->columnCount = g_arguments->intColumnCount;
-    }
-    if (!g_arguments->demo_mode) {
-        for (int i = 0; i < superTable->columnCount; ++i) {
-            sprintf(superTable->columns[i].name, "c%d", i);
-            superTable->columns[i].min = -1 * (RAND_MAX >> 1);
-            superTable->columns[i].max = RAND_MAX >> 1;
+    if (g_arguments->intColumnCount > cols->size) {
+        for (int i = cols->size;
+             i < g_arguments->intColumnCount; ++i) {
+            Field* intCol = benchCalloc(1, sizeof(Field), true);
+            char tmpName[TSDB_COL_NAME_LEN] = {0};
+            snprintf(tmpName, TSDB_COL_NAME_LEN, "c%d", i);
+            setField(intCol, TSDB_DATA_TYPE_INT, sizeof(int32_t), tmpName,
+                     get_min_from_data_type(TSDB_DATA_TYPE_INT), get_max_from_data_type(TSDB_DATA_TYPE_INT));
+            benchArrayPush(cols, intCol);
         }
     }
 }
@@ -386,8 +220,9 @@ static void *queryStableAggrFunc(void *sarg) {
 #endif
     char *command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
-    int64_t totalData = g_arguments->db->superTbls->insertRows *
-                        g_arguments->db->superTbls->childTblCount;
+    SDataBase * db = benchArrayGet(g_arguments->db, 0);
+    SSuperTable * stbInfo = benchArrayGet(db->superTbls, 0);
+    int64_t totalData = stbInfo->insertRows * stbInfo->childTblCount;
     char **aggreFunc;
     int    n;
 
@@ -407,9 +242,9 @@ static void *queryStableAggrFunc(void *sarg) {
         char condition[COND_BUF_LEN] = "\0";
         char tempS[64] = "\0";
 
-        int64_t m = 10 < g_arguments->db->superTbls->childTblCount
+        int64_t m = 10 < stbInfo->childTblCount
                         ? 10
-                        : g_arguments->db->superTbls->childTblCount;
+                        : stbInfo->childTblCount;
 
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
@@ -471,8 +306,9 @@ static void *queryNtableAggrFunc(void *sarg) {
 #endif
     char *  command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
-    int64_t totalData = g_arguments->db->superTbls->childTblCount *
-                        g_arguments->db->superTbls->insertRows;
+    SDataBase * db = benchArrayGet(g_arguments->db, 0);
+    SSuperTable * stbInfo = benchArrayGet(db->superTbls, 0);
+    int64_t totalData = stbInfo->childTblCount * stbInfo->insertRows;
     char **aggreFunc;
     int    n;
 
@@ -494,18 +330,18 @@ static void *queryNtableAggrFunc(void *sarg) {
     for (int j = 0; j < n; j++) {
         double   totalT = 0;
         uint64_t count = 0;
-        for (int64_t i = 0; i < g_arguments->db->superTbls->childTblCount;
+        for (int64_t i = 0; i < stbInfo->childTblCount;
              i++) {
-            if (g_arguments->db->superTbls->escape_character) {
+            if (stbInfo->escape_character) {
                 sprintf(command,
                         "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
                         aggreFunc[j],
-                        g_arguments->db->superTbls->childTblPrefix, i,
+                        stbInfo->childTblPrefix, i,
                         (uint64_t) DEFAULT_START_TIME);
             } else {
                 sprintf(
                     command, "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
-                    aggreFunc[j], g_arguments->db->superTbls->childTblPrefix, i,
+                    aggreFunc[j], stbInfo->childTblPrefix, i,
                     (uint64_t)DEFAULT_START_TIME);
             }
 
@@ -534,8 +370,7 @@ static void *queryNtableAggrFunc(void *sarg) {
             fprintf(fp, "|%10s  |   %" PRId64 "   |  %12.2f   |   %10.2f  |\n",
                     aggreFunc[j][0] == '*' ? "   *   " : aggreFunc[j],
                     totalData,
-                    (double)(g_arguments->db->superTbls->childTblCount *
-                             g_arguments->db->superTbls->insertRows) /
+                    (double)(stbInfo->childTblCount * stbInfo->insertRows) /
                         totalT,
                     totalT / 1000000);
         }
@@ -549,8 +384,10 @@ static void *queryNtableAggrFunc(void *sarg) {
 void queryAggrFunc() {
     pthread_t   read_id;
     threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), true);
-    pThreadInfo->taos = select_one_from_pool(g_arguments->db->dbName);
-    if (g_arguments->db->superTbls->use_metric) {
+    SDataBase * db = benchArrayGet(g_arguments->db, 0);
+    SSuperTable * stbInfo = benchArrayGet(db->superTbls, 0);
+    pThreadInfo->taos = select_one_from_pool(db->dbName);
+    if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);

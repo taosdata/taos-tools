@@ -109,8 +109,8 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
         len += sprintf(prepare + len, "INSERT INTO ? VALUES(?");
     }
 
-    int columnCount = stbInfo->columnCount;
-    for (int col = 0; col < columnCount; col++) {
+    BArray* cols = stbInfo->columns;
+    for (int col = 0; col < cols->size; col++) {
         len += sprintf(prepare + len, ",?");
     }
     sprintf(prepare + len, ")");
@@ -214,161 +214,114 @@ free_of_get_set_rows_from_csv:
     return code;
 }
 
-static void calcRowLen(SSuperTable *stbInfo) {
-    stbInfo->lenOfCols = 0;
-    stbInfo->lenOfTags = 0;
-    for (int colIndex = 0; colIndex < stbInfo->columnCount; colIndex++) {
-        switch (stbInfo->columns[colIndex].type) {
+static uint32_t calcRowLen(SSuperTable *stbInfo, BArray* fields) {
+    uint32_t ret = 0;
+    BArray * cols = stbInfo->columns;
+    for (int colIndex = 0; colIndex < cols->size; colIndex++) {
+        Field * field = benchArrayGet(fields, colIndex);
+        switch (field->type) {
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
-                stbInfo->lenOfCols += stbInfo->columns[colIndex].length + 3;
+                ret += field->length + 3;
                 break;
 
             case TSDB_DATA_TYPE_INT:
             case TSDB_DATA_TYPE_UINT:
-                stbInfo->lenOfCols += INT_BUFF_LEN;
+                ret += INT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_BIGINT:
             case TSDB_DATA_TYPE_UBIGINT:
-                stbInfo->lenOfCols += BIGINT_BUFF_LEN;
+                ret += BIGINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_SMALLINT:
             case TSDB_DATA_TYPE_USMALLINT:
-                stbInfo->lenOfCols += SMALLINT_BUFF_LEN;
+                ret += SMALLINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_TINYINT:
             case TSDB_DATA_TYPE_UTINYINT:
-                stbInfo->lenOfCols += TINYINT_BUFF_LEN;
+                ret += TINYINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_BOOL:
-                stbInfo->lenOfCols += BOOL_BUFF_LEN;
+                ret += BOOL_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_FLOAT:
-                stbInfo->lenOfCols += FLOAT_BUFF_LEN;
+                ret += FLOAT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_DOUBLE:
-                stbInfo->lenOfCols += DOUBLE_BUFF_LEN;
+                ret += DOUBLE_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_TIMESTAMP:
-                stbInfo->lenOfCols += TIMESTAMP_BUFF_LEN;
+                ret += TIMESTAMP_BUFF_LEN;
                 break;
         }
-        stbInfo->lenOfCols += 1;
+        ret += 1;
         if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
-            stbInfo->lenOfCols += SML_LINE_SQL_SYNTAX_OFFSET +
-                                  strlen(stbInfo->columns[colIndex].name);
+            ret += SML_LINE_SQL_SYNTAX_OFFSET + strlen(field->name);
+            ret += 2 * TSDB_TABLE_NAME_LEN * 2 + SML_LINE_SQL_SYNTAX_OFFSET;
         }
     }
-    stbInfo->lenOfCols += TIMESTAMP_BUFF_LEN;
-
-    for (int tagIndex = 0; tagIndex < stbInfo->tagCount; tagIndex++) {
-        switch (stbInfo->tags[tagIndex].type) {
-            case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR:
-                stbInfo->lenOfTags += stbInfo->tags[tagIndex].length + 4;
-                break;
-            case TSDB_DATA_TYPE_INT:
-            case TSDB_DATA_TYPE_UINT:
-                stbInfo->lenOfTags += INT_BUFF_LEN;
-                break;
-            case TSDB_DATA_TYPE_TIMESTAMP:
-            case TSDB_DATA_TYPE_BIGINT:
-            case TSDB_DATA_TYPE_UBIGINT:
-                stbInfo->lenOfTags += BIGINT_BUFF_LEN;
-                break;
-            case TSDB_DATA_TYPE_SMALLINT:
-            case TSDB_DATA_TYPE_USMALLINT:
-                stbInfo->lenOfTags += SMALLINT_BUFF_LEN;
-                break;
-            case TSDB_DATA_TYPE_TINYINT:
-            case TSDB_DATA_TYPE_UTINYINT:
-                stbInfo->lenOfTags += TINYINT_BUFF_LEN;
-                break;
-            case TSDB_DATA_TYPE_BOOL:
-                stbInfo->lenOfTags += BOOL_BUFF_LEN;
-                break;
-            case TSDB_DATA_TYPE_FLOAT:
-                stbInfo->lenOfTags += FLOAT_BUFF_LEN;
-                break;
-            case TSDB_DATA_TYPE_DOUBLE:
-                stbInfo->lenOfTags += DOUBLE_BUFF_LEN;
-                break;
-            case TSDB_DATA_TYPE_JSON:
-                stbInfo->lenOfTags +=
-                    (JSON_BUFF_LEN + stbInfo->tags[tagIndex].length) *
-                    stbInfo->tagCount;
-                return;
-        }
-        stbInfo->lenOfTags += 1;
-        if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
-            stbInfo->lenOfTags += SML_LINE_SQL_SYNTAX_OFFSET +
-                                  strlen(stbInfo->tags[tagIndex].name);
-        }
-    }
-
-    if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
-        stbInfo->lenOfTags +=
-            2 * TSDB_TABLE_NAME_LEN * 2 + SML_LINE_SQL_SYNTAX_OFFSET;
-    }
-    return;
+    ret += TIMESTAMP_BUFF_LEN;
+    return ret;
 }
 
 void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-                      int lenOfOneRow, Column *columns, int count, int64_t loop,
-                      bool tag) {
+                      int lenOfOneRow, BArray *fields, int64_t loop,
+                      bool isTag) {
     int     iface = stbInfo->iface;
     int     line_protocol = stbInfo->lineProtocol;
     int64_t pos = 0;
     if (iface == STMT_IFACE) {
-        for (int i = 0; i < count; ++i) {
-            if (columns[i].type == TSDB_DATA_TYPE_BINARY ||
-                columns[i].type == TSDB_DATA_TYPE_NCHAR) {
-                columns[i].data = benchCalloc(1, loop * (columns[i].length + 1), true);
+        for (int i = 0; i < fields->size; ++i) {
+            Field* field = benchArrayGet(fields, i);
+            if (field->type == TSDB_DATA_TYPE_BINARY ||
+                field->type == TSDB_DATA_TYPE_NCHAR) {
+                field->data = benchCalloc(1, loop * (field->length + 1), true);
             } else {
-                columns[i].data = benchCalloc(1, loop * columns[i].length, true);
+                field->data = benchCalloc(1, loop * field->length, true);
             }
         }
     }
     for (int64_t k = 0; k < loop; ++k) {
         pos = k * lenOfOneRow;
         if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
-            (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
+            (iface == SML_IFACE || iface == SML_REST_IFACE) && isTag) {
             pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
         }
-        for (int i = 0; i < count; ++i) {
+        for (int i = 0; i < fields->size; ++i) {
+            Field* field = benchArrayGet(fields, i);
             if (iface == TAOSC_IFACE || iface == REST_IFACE) {
-                if (columns[i].null) {
+                if (field->null) {
                     continue;
                 }
-                if (columns[i].length == 0) {
+                if (field->length == 0) {
                     pos += sprintf(sampleDataBuf + pos, "null,");
                     continue;
                 }
             }
-            switch (columns[i].type) {
+            switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
                     if (iface == STMT_IFACE) {
-                        ((bool *)columns[i].data)[k] = rand_bool;
+                        ((bool *)field->data)[k] = rand_bool;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%s,",
-                                       columns[i].name,
+                                       field->name,
                                        rand_bool ? "true" : "false");
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%s ",
-                                           columns[i].name,
+                                           field->name,
                                            rand_bool ? "true" : "false");
                         } else {
                             pos += sprintf(sampleDataBuf + pos, "%s ",
@@ -381,28 +334,22 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    if (columns[i].min < -127) {
-                        columns[i].min = -127;
-                    }
-                    if (columns[i].max > 128) {
-                        columns[i].max = 128;
-                    }
                     int8_t tinyint =
-                        columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min));
+                        field->min +
+                        (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((int8_t *)columns[i].data)[k] = tinyint;
+                        ((int8_t *)field->data)[k] = tinyint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di8,",
-                                       columns[i].name, tinyint);
+                                       field->name, tinyint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%di8 ",
-                                           columns[i].name, tinyint);
+                                           field->name, tinyint);
                         } else {
                             pos +=
                                 sprintf(sampleDataBuf + pos, "%di8 ", tinyint);
@@ -414,28 +361,22 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    if (columns[i].min < 0) {
-                        columns[i].min = 0;
-                    }
-                    if (columns[i].max > 254) {
-                        columns[i].max = 254;
-                    }
                     uint8_t utinyint =
-                        columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min));
+                        field->min +
+                        (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint8_t *)columns[i].data)[k] = utinyint;
+                        ((uint8_t *)field->data)[k] = utinyint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu8,",
-                                       columns[i].name, utinyint);
+                                       field->name, utinyint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%uu8 ",
-                                           columns[i].name, utinyint);
+                                           field->name, utinyint);
                         } else {
                             pos +=
                                 sprintf(sampleDataBuf + pos, "%uu8 ", utinyint);
@@ -447,28 +388,22 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    if (columns[i].min < -32767) {
-                        columns[i].min = -32767;
-                    }
-                    if (columns[i].max > 32767) {
-                        columns[i].max = 32767;
-                    }
                     int16_t smallint =
-                        columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min));
+                        field->min +
+                        (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((int16_t *)columns[i].data)[k] = smallint;
+                        ((int16_t *)field->data)[k] = smallint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di16,",
-                                       columns[i].name, smallint);
+                                       field->name, smallint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%di16 ",
-                                           columns[i].name, smallint);
+                                           field->name, smallint);
                         } else {
                             pos += sprintf(sampleDataBuf + pos, "%di16 ",
                                            smallint);
@@ -480,28 +415,22 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    if (columns[i].min < 0) {
-                        columns[i].min = 0;
-                    }
-                    if (columns[i].max > 65534) {
-                        columns[i].max = 65534;
-                    }
                     uint16_t usmallint =
-                        columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min));
+                        field->min +
+                        (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint16_t *)columns[i].data)[k] = usmallint;
+                        ((uint16_t *)field->data)[k] = usmallint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu16,",
-                                       columns[i].name, usmallint);
+                                       field->name, usmallint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%uu16 ",
-                                           columns[i].name, usmallint);
+                                           field->name, usmallint);
                         } else {
                             pos += sprintf(sampleDataBuf + pos, "%uu16 ",
                                            usmallint);
@@ -513,35 +442,23 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t int_;
-                    if ((g_arguments->demo_mode) && (i == 0)) {
-                        int_ = taosRandom() % 10 + 1;
-                    } else if ((g_arguments->demo_mode) && (i == 1)) {
-                        int_ = 110 + taosRandom() % 10;
-                    } else {
-                        if (columns[i].min < (-1 * (RAND_MAX >> 1))) {
-                            columns[i].min = -1 * (RAND_MAX >> 1);
-                        }
-                        if (columns[i].max > (RAND_MAX >> 1)) {
-                            columns[i].max = RAND_MAX >> 1;
-                        }
-                        int_ =
-                            columns[i].min +
-                            (taosRandom() % (columns[i].max - columns[i].min));
-                    }
+                    int32_t int_ =
+                            field->min +
+                            (taosRandom() % (field->max - field->min));
+
                     if (iface == STMT_IFACE) {
-                        ((int32_t *)columns[i].data)[k] = int_;
+                        ((int32_t *)field->data)[k] = int_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di32,",
-                                       columns[i].name, int_);
+                                       field->name, int_);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%di32 ",
-                                           columns[i].name, int_);
+                                           field->name, int_);
                         } else {
                             pos += sprintf(sampleDataBuf + pos, "%di32 ", int_);
                         }
@@ -552,28 +469,21 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int32_t int_;
-                    if (columns[i].min < (-1 * (RAND_MAX >> 1))) {
-                        columns[i].min = -1 * (RAND_MAX >> 1);
-                    }
-                    if (columns[i].max > (RAND_MAX >> 1)) {
-                        columns[i].max = RAND_MAX >> 1;
-                    }
-                    int_ = columns[i].min +
-                           (taosRandom() % (columns[i].max - columns[i].min));
+                    int32_t int_ = field->min +
+                           (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((int64_t *)columns[i].data)[k] = int_;
+                        ((int64_t *)field->data)[k] = int_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di64,",
-                                       columns[i].name, int_);
+                                       field->name, int_);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%di64 ",
-                                           columns[i].name, int_);
+                                           field->name, int_);
                         } else {
                             pos += sprintf(sampleDataBuf + pos, "%di64 ", int_);
                         }
@@ -584,28 +494,22 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    if (columns[i].min < 0) {
-                        columns[i].min = 0;
-                    }
-                    if (columns[i].max > RAND_MAX) {
-                        columns[i].max = RAND_MAX;
-                    }
                     uint32_t uint =
-                        columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min));
+                        field->min +
+                        (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint32_t *)columns[i].data)[k] = uint;
+                        ((uint32_t *)field->data)[k] = uint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu32,",
-                                       columns[i].name, uint);
+                                       field->name, uint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%uu32 ",
-                                           columns[i].name, uint);
+                                           field->name, uint);
                         } else {
                             pos += sprintf(sampleDataBuf + pos, "%uu32 ", uint);
                         }
@@ -617,29 +521,23 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    if (columns[i].min < 0) {
-                        columns[i].min = 0;
-                    }
-                    if (columns[i].max > RAND_MAX) {
-                        columns[i].max = RAND_MAX;
-                    }
                     uint32_t ubigint =
-                        columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min));
+                        field->min +
+                        (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint64_t *)columns[i].data)[k] = ubigint;
+                        ((uint64_t *)field->data)[k] = ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         (line_protocol == TSDB_SML_LINE_PROTOCOL ||
-                         (tag && line_protocol == TSDB_SML_TELNET_PROTOCOL))) {
+                         (isTag && line_protocol == TSDB_SML_TELNET_PROTOCOL))) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
-                                       columns[i].name, ubigint);
+                                       field->name, ubigint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%uu64 ",
-                                           columns[i].name, ubigint);
+                                           field->name, ubigint);
                         } else {
                             pos +=
                                 sprintf(sampleDataBuf + pos, "%uu64 ", ubigint);
@@ -651,37 +549,31 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    if (columns[i].min < ((RAND_MAX >> 1) * -1)) {
-                        columns[i].min = (RAND_MAX >> 1) * -1;
-                    }
-                    if (columns[i].max > RAND_MAX >> 1) {
-                        columns[i].max = RAND_MAX >> 1;
-                    }
-                    float float_ = (float)(columns[i].min +
+                    float float_ = (float)(field->min +
                                            (taosRandom() %
-                                            (columns[i].max - columns[i].min)) +
+                                            (field->max - field->min)) +
                                            (taosRandom() % 1000) / 1000.0);
-                    if (g_arguments->demo_mode && i == 0) {
+                    /*if (g_arguments->demo_mode && i == 0) {
                         float_ = (float)(9.8 + 0.04 * (taosRandom() % 10) +
                                          float_ / 1000000000);
                     } else if (g_arguments->demo_mode && i == 2) {
                         float_ = (float)((115 + taosRandom() % 10 +
                                           float_ / 1000000000) /
                                          360);
-                    }
+                    }*/
                     if (iface == STMT_IFACE) {
-                        ((float *)(columns[i].data))[k] = float_;
+                        ((float *)(field->data))[k] = float_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%ff32,",
-                                       columns[i].name, float_);
+                                       field->name, float_);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%ff32 ",
-                                           columns[i].name, float_);
+                                           field->name, float_);
                         } else {
                             pos +=
                                 sprintf(sampleDataBuf + pos, "%ff32 ", float_);
@@ -693,30 +585,24 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    if (columns[i].min < ((RAND_MAX >> 1) * -1)) {
-                        columns[i].min = (RAND_MAX >> 1) * -1;
-                    }
-                    if (columns[i].max > RAND_MAX >> 1) {
-                        columns[i].max = RAND_MAX >> 1;
-                    }
                     double double_ =
-                        (double)(columns[i].min +
+                        (double)(field->min +
                                  (taosRandom() %
-                                  (columns[i].max - columns[i].min)) +
+                                  (field->max - field->min)) +
                                  taosRandom() % 1000000 / 1000000.0);
                     if (iface == STMT_IFACE) {
-                        ((double *)columns[i].data)[k] = double_;
+                        ((double *)field->data)[k] = double_;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%ff64,",
-                                       columns[i].name, double_);
+                                       field->name, double_);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%ff64 ",
-                                           columns[i].name, double_);
+                                           field->name, double_);
                         } else {
                             pos +=
                                 sprintf(sampleDataBuf + pos, "%ff64 ", double_);
@@ -729,7 +615,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
-                    char *tmp = benchCalloc(1, columns[i].length + 1, false);
+                    char *tmp = benchCalloc(1, field->length + 1, false);
                     if (g_arguments->demo_mode) {
                         if (g_arguments->chinese) {
                             sprintf(tmp, "%s", locations_chinese[taosRandom() % 10]);
@@ -738,49 +624,49 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         } else {
                             sprintf(tmp, "%s", locations[taosRandom() % 10]);
                         }
-                    } else if (columns[i].values) {
+                    } else if (field->values) {
                         cJSON *buf = cJSON_GetArrayItem(
-                            columns[i].values,
+                            field->values,
                             taosRandom() %
-                                cJSON_GetArraySize(columns[i].values));
+                                cJSON_GetArraySize(field->values));
                         sprintf(tmp, "%s", buf->valuestring);
                     } else {
-                        rand_string(tmp, columns[i].length,
+                        rand_string(tmp, field->length,
                                     g_arguments->chinese);
                     }
                     if (iface == STMT_IFACE) {
-                        sprintf((char *)columns[i].data + k * columns[i].length,
+                        sprintf((char *)field->data + k * field->length,
                                 "%s", tmp);
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        columns[i].type == TSDB_DATA_TYPE_BINARY &&
+                        field->type == TSDB_DATA_TYPE_BINARY &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=\"%s\",",
-                                       columns[i].name, tmp);
+                                       field->name, tmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
-                               columns[i].type == TSDB_DATA_TYPE_NCHAR &&
+                               field->type == TSDB_DATA_TYPE_NCHAR &&
                                line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\",",
-                                       columns[i].name, tmp);
+                                       field->name, tmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
-                               columns[i].type == TSDB_DATA_TYPE_BINARY &&
+                               field->type == TSDB_DATA_TYPE_BINARY &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\" ",
-                                           columns[i].name, tmp);
+                                           field->name, tmp);
                         } else {
                             pos += sprintf(sampleDataBuf + pos, "\"%s\" ", tmp);
                         }
 
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
-                               columns[i].type == TSDB_DATA_TYPE_NCHAR &&
+                               field->type == TSDB_DATA_TYPE_NCHAR &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
+                        if (isTag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\" ",
-                                           columns[i].name, tmp);
+                                           field->name, tmp);
                         } else {
                             pos +=
                                 sprintf(sampleDataBuf + pos, "L\"%s\" ", tmp);
@@ -794,10 +680,11 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
                 case TSDB_DATA_TYPE_JSON: {
                     pos += sprintf(sampleDataBuf + pos, "'{");
-                    for (int j = 0; j < count; ++j) {
+                    for (int j = 0; j < stbInfo->tags->size; ++j) {
+                        Field * tag = benchArrayGet(stbInfo->tags, j);
                         pos += sprintf(sampleDataBuf + pos, "\"k%d\":", j);
-                        char *buf = benchCalloc(1, columns[j].length + 1, false);
-                        rand_string(buf, columns[j].length,
+                        char *buf = benchCalloc(1, tag->length + 1, false);
+                        rand_string(buf, tag->length,
                                     g_arguments->chinese);
                         pos += sprintf(sampleDataBuf + pos, "\"%s\",", buf);
                         tmfree(buf);
@@ -812,31 +699,33 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     }
 }
 
-int prepare_sample_data(int db_index, int stb_index) {
-    SDataBase *  database = &(g_arguments->db[db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
-    calcRowLen(stbInfo);
+int prepare_sample_data(SDataBase *  database, SSuperTable *stbInfo) {
+    stbInfo->lenOfTags = calcRowLen(stbInfo, stbInfo->tags);
+    stbInfo->lenOfCols = calcRowLen(stbInfo, stbInfo->columns);
+    BArray * columns = stbInfo->columns;
     if (stbInfo->partialColumnNum != 0 &&
         (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
-        if (stbInfo->partialColumnNum > stbInfo->columnCount) {
-            stbInfo->partialColumnNum = stbInfo->columnCount;
+        if (stbInfo->partialColumnNum > columns->size) {
+            stbInfo->partialColumnNum = columns->size;
         } else {
             stbInfo->partialColumnNameBuf = benchCalloc(1, BUFFER_SIZE, true);
             int pos = 0;
             pos += sprintf(stbInfo->partialColumnNameBuf + pos, "ts");
             for (int i = 0; i < stbInfo->partialColumnNum; ++i) {
+                Field * column = benchArrayGet(columns, i);
                 pos += sprintf(stbInfo->partialColumnNameBuf + pos, ",%s",
-                               stbInfo->columns[i].name);
+                               column->name);
             }
-            for (int i = stbInfo->partialColumnNum; i < stbInfo->columnCount;
+            for (int i = stbInfo->partialColumnNum; i < columns->size;
                  ++i) {
-                stbInfo->columns[i].null = true;
+                Field * column = benchArrayGet(columns, i);
+                column->null = true;
             }
             debugPrint(stdout, "partialColumnNameBuf: %s\n",
                        stbInfo->partialColumnNameBuf);
         }
     } else {
-        stbInfo->partialColumnNum = stbInfo->columnCount;
+        stbInfo->partialColumnNum = columns->size;
     }
     stbInfo->sampleDataBuf =
         benchCalloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand, true);
@@ -846,8 +735,7 @@ int prepare_sample_data(int db_index, int stb_index) {
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
     if (stbInfo->random_data_source) {
         generateRandData(stbInfo, stbInfo->sampleDataBuf, stbInfo->lenOfCols,
-                         stbInfo->columns, stbInfo->columnCount,
-                         g_arguments->prepared_rand, false);
+                         stbInfo->columns, g_arguments->prepared_rand, false);
     } else {
         if (stbInfo->useSampleTs) {
             if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
@@ -860,7 +748,8 @@ int prepare_sample_data(int db_index, int stb_index) {
     }
     debugPrint(stdout, "sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
 
-    if (!stbInfo->childTblExists && stbInfo->tagCount != 0) {
+    BArray * tags = stbInfo->tags;
+    if (!stbInfo->childTblExists && tags->size != 0) {
         stbInfo->tagDataBuf =
             benchCalloc(1, stbInfo->childTblCount * stbInfo->lenOfTags, true);
         infoPrint(stdout,
@@ -875,8 +764,7 @@ int prepare_sample_data(int db_index, int stb_index) {
             }
         } else {
             generateRandData(stbInfo, stbInfo->tagDataBuf, stbInfo->lenOfTags,
-                             stbInfo->tags, stbInfo->tagCount,
-                             stbInfo->childTblCount, true);
+                             stbInfo->tags, stbInfo->childTblCount, true);
         }
         debugPrint(stdout, "tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
@@ -915,32 +803,29 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     TAOS_STMT *  stmt = pThreadInfo->stmt;
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
-    uint32_t     columnCount = stbInfo->columnCount;
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    BArray * columns = stbInfo->columns;
     memset(pThreadInfo->bindParams, 0,
-           (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
+           (sizeof(TAOS_MULTI_BIND) * (columns->size + 1)));
     memset(pThreadInfo->is_null, 0, batch);
 
-    for (int c = 0; c < columnCount + 1; c++) {
+    for (int c = 0; c < columns->size + 1; c++) {
         TAOS_MULTI_BIND *param =
             (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
                                 sizeof(TAOS_MULTI_BIND) * c);
-
+        Field * column = benchArrayGet(columns, c);
         char data_type;
-
         if (c == 0) {
             data_type = TSDB_DATA_TYPE_TIMESTAMP;
             param->buffer_length = sizeof(int64_t);
             param->buffer = pThreadInfo->bind_ts_array;
-
         } else {
-            data_type = stbInfo->columns[c - 1].type;
-            param->buffer = stbInfo->columns[c - 1].data;
-            param->buffer_length = stbInfo->columns[c - 1].length;
+            data_type = column->type;
+            param->buffer = column->data;
+            param->buffer_length = column->length;
             debugPrint(stdout, "col[%d]: type: %s, len: %d\n", c,
                        taos_convert_datatype_to_string(data_type),
-                       stbInfo->columns[c - 1].length);
+                       column->length);
         }
         param->buffer_type = data_type;
         param->length = benchCalloc(batch, sizeof(int32_t), true);
@@ -972,7 +857,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
         return -1;
     }
 
-    for (int c = 0; c < stbInfo->columnCount + 1; c++) {
+    for (int c = 0; c < stbInfo->columns->size + 1; c++) {
         TAOS_MULTI_BIND *param =
             (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
                                 sizeof(TAOS_MULTI_BIND) * c);
@@ -991,17 +876,18 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
 int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq) {
     int32_t code = -1;
-    Column *columns = stbInfo->tags;
+    BArray *fields = stbInfo->tags;
     cJSON * tags = cJSON_CreateObject();
     char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, false);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
              stbInfo->childTblPrefix, tbSeq + start_table_from);
     cJSON_AddStringToObject(tags, "id", tbName);
     char *tagName = benchCalloc(1, TSDB_MAX_TAGS, false);
-    for (int i = 0; i < stbInfo->tagCount; i++) {
+    for (int i = 0; i < fields->size; i++) {
+        Field * field = benchArrayGet(fields, i);
         cJSON *tag = cJSON_CreateObject();
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
-        switch (stbInfo->tags[i].type) {
+        switch (field->type) {
             case TSDB_DATA_TYPE_BOOL: {
                 cJSON_AddBoolToObject(tag, "value", (taosRandom() % 2) & 1);
                 cJSON_AddStringToObject(tag, "type", "bool");
@@ -1011,8 +897,8 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             case TSDB_DATA_TYPE_TINYINT: {
                 cJSON_AddNumberToObject(
                     tag, "value",
-                    columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min)));
+                    field->min +
+                        (taosRandom() % (field->max - field->min)));
                 cJSON_AddStringToObject(tag, "type", "tinyint");
                 break;
             }
@@ -1020,8 +906,8 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             case TSDB_DATA_TYPE_SMALLINT: {
                 cJSON_AddNumberToObject(
                     tag, "value",
-                    columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min)));
+                    field->min +
+                        (taosRandom() % (field->max - field->min)));
                 cJSON_AddStringToObject(tag, "type", "smallint");
                 break;
             }
@@ -1029,8 +915,8 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             case TSDB_DATA_TYPE_INT: {
                 cJSON_AddNumberToObject(
                     tag, "value",
-                    columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min)));
+                    field->min +
+                        (taosRandom() % (field->max - field->min)));
                 cJSON_AddStringToObject(tag, "type", "int");
                 break;
             }
@@ -1038,8 +924,8 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             case TSDB_DATA_TYPE_BIGINT: {
                 cJSON_AddNumberToObject(
                     tag, "value",
-                    (double)columns[i].min +
-                        (taosRandom() % (columns[i].max - columns[i].min)));
+                    (double)field->min +
+                        (taosRandom() % (field->max - field->min)));
                 cJSON_AddStringToObject(tag, "type", "bigint");
                 break;
             }
@@ -1047,8 +933,8 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             case TSDB_DATA_TYPE_FLOAT: {
                 cJSON_AddNumberToObject(
                     tag, "value",
-                    (float)(columns[i].min +
-                            (taosRandom() % (columns[i].max - columns[i].min)) +
+                    (float)(field->min +
+                            (taosRandom() % (field->max - field->min)) +
                             taosRandom() % 1000 / 1000.0));
                 cJSON_AddStringToObject(tag, "type", "float");
                 break;
@@ -1057,9 +943,9 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
             case TSDB_DATA_TYPE_DOUBLE: {
                 cJSON_AddNumberToObject(
                     tag, "value",
-                    (double)(columns[i].min +
+                    (double)(field->min +
                              (taosRandom() %
-                              (columns[i].max - columns[i].min)) +
+                              (field->max - field->min)) +
                              taosRandom() % 1000000 / 1000000.0));
                 cJSON_AddStringToObject(tag, "type", "double");
                 break;
@@ -1067,9 +953,9 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
 
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR: {
-                char *buf = (char *)benchCalloc(stbInfo->tags[i].length + 1, 1, false);
-                rand_string(buf, stbInfo->tags[i].length, g_arguments->chinese);
-                if (stbInfo->tags[i].type == TSDB_DATA_TYPE_BINARY) {
+                char *buf = (char *)benchCalloc(field->length + 1, 1, false);
+                rand_string(buf, field->length, g_arguments->chinese);
+                if (field->type == TSDB_DATA_TYPE_BINARY) {
                     cJSON_AddStringToObject(tag, "value", buf);
                     cJSON_AddStringToObject(tag, "type", "binary");
                 } else {
@@ -1083,7 +969,7 @@ int32_t generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
                 errorPrint(
                     stderr,
                     "unknown data type (%d) for schemaless json protocol\n",
-                    stbInfo->tags[i].type);
+                    field->type);
                 goto free_of_generate_sml_json_tag;
         }
         cJSON_AddItemToObject(tags, tagName, tag);
@@ -1100,7 +986,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
                             uint32_t time_precision, int64_t timestamp) {
     cJSON * record = cJSON_CreateObject();
     cJSON * ts = cJSON_CreateObject();
-    Column *columns = stbInfo->columns;
+    BArray *columns = stbInfo->columns;
     cJSON_AddNumberToObject(ts, "value", (double)timestamp);
     if (time_precision == TSDB_SML_TIMESTAMP_MILLI_SECONDS) {
         cJSON_AddStringToObject(ts, "type", "ms");
@@ -1113,7 +999,8 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
         return -1;
     }
     cJSON *value = cJSON_CreateObject();
-    switch (stbInfo->columns[0].type) {
+    Field * column = benchArrayGet(columns, 0);
+    switch (column->type) {
         case TSDB_DATA_TYPE_BOOL:
             cJSON_AddBoolToObject(value, "value", (taosRandom() % 2) & 1);
             cJSON_AddStringToObject(value, "type", "bool");
@@ -1121,52 +1008,52 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
         case TSDB_DATA_TYPE_TINYINT:
             cJSON_AddNumberToObject(
                 value, "value",
-                columns[0].min +
-                    (taosRandom() % (columns[0].max - columns[0].min)));
+                column->min +
+                    (taosRandom() % (column->max - column->min)));
             cJSON_AddStringToObject(value, "type", "tinyint");
             break;
         case TSDB_DATA_TYPE_SMALLINT:
             cJSON_AddNumberToObject(
                 value, "value",
-                columns[0].min +
-                    (taosRandom() % (columns[0].max - columns[0].min)));
+                column->min +
+                    (taosRandom() % (column->max - column->min)));
             cJSON_AddStringToObject(value, "type", "smallint");
             break;
         case TSDB_DATA_TYPE_INT:
             cJSON_AddNumberToObject(
                 value, "value",
-                columns[0].min +
-                    (taosRandom() % (columns[0].max - columns[0].min)));
+                column->min +
+                    (taosRandom() % (column->max - column->min)));
             cJSON_AddStringToObject(value, "type", "int");
             break;
         case TSDB_DATA_TYPE_BIGINT:
             cJSON_AddNumberToObject(
                 value, "value",
-                (double)columns[0].min +
-                    (taosRandom() % (columns[0].max - columns[0].min)));
+                (double)column->min +
+                    (taosRandom() % (column->max - column->min)));
             cJSON_AddStringToObject(value, "type", "bigint");
             break;
         case TSDB_DATA_TYPE_FLOAT:
             cJSON_AddNumberToObject(
                 value, "value",
-                (float)(columns[0].min +
-                        (taosRandom() % (columns[0].max - columns[0].min)) +
+                (float)(column->min +
+                        (taosRandom() % (column->max - column->min)) +
                         taosRandom() % 1000 / 1000.0));
             cJSON_AddStringToObject(value, "type", "float");
             break;
         case TSDB_DATA_TYPE_DOUBLE:
             cJSON_AddNumberToObject(
                 value, "value",
-                (double)(columns[0].min +
-                         (taosRandom() % (columns[0].max - columns[0].min)) +
+                (double)(column->min +
+                         (taosRandom() % (column->max - column->min)) +
                          taosRandom() % 1000000 / 1000000.0));
             cJSON_AddStringToObject(value, "type", "double");
             break;
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR: {
-            char *buf = (char *)benchCalloc(stbInfo->columns[0].length + 1, 1, false);
-            rand_string(buf, stbInfo->columns[0].length, g_arguments->chinese);
-            if (stbInfo->columns[0].type == TSDB_DATA_TYPE_BINARY) {
+            char *buf = (char *)benchCalloc(column->length + 1, 1, false);
+            rand_string(buf, column->length, g_arguments->chinese);
+            if (column->type == TSDB_DATA_TYPE_BINARY) {
                 cJSON_AddStringToObject(value, "value", buf);
                 cJSON_AddStringToObject(value, "type", "binary");
             } else {
@@ -1179,7 +1066,7 @@ int32_t generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
         default:
             errorPrint(stderr,
                        "unknown data type (%d) for schemaless json protocol\n",
-                       stbInfo->columns[0].type);
+                       column->type);
             return -1;
     }
     cJSON_AddItemToObject(record, "timestamp", ts);

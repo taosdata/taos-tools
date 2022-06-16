@@ -286,10 +286,10 @@ int subscribeTestProcess() {
     encode_base_64();
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        TAOS *taos = select_one_from_pool(g_arguments->db->dbName);
+        TAOS *taos = select_one_from_pool(g_queryInfo.database);
         char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
-                 g_arguments->db->dbName, g_queryInfo.superQueryInfo.stbName);
+                 g_queryInfo.database, g_queryInfo.superQueryInfo.stbName);
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
@@ -320,7 +320,7 @@ int subscribeTestProcess() {
         g_queryInfo.superQueryInfo.childTblName =
             benchCalloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *), false);
         if (getAllChildNameOfSuperTable(
-                taos, g_arguments->db->dbName,
+                taos, g_queryInfo.database,
                 g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
@@ -350,9 +350,8 @@ int subscribeTestProcess() {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
                 pThreadInfo->taos =
-                    select_one_from_pool(g_arguments->db->dbName);
+                    select_one_from_pool(g_queryInfo.database);
                 pthread_create(pids + seq, NULL, specifiedSubscribe,
                                pThreadInfo);
             }
@@ -405,14 +404,13 @@ int subscribeTestProcess() {
                 threadInfo *pThreadInfo = infosOfStable + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
                 pThreadInfo->start_table_from = tableFrom;
                 pThreadInfo->ntables = j < b ? a + 1 : a;
                 pThreadInfo->end_table_to =
                     j < b ? tableFrom + a : tableFrom + a - 1;
                 tableFrom = pThreadInfo->end_table_to + 1;
                 pThreadInfo->taos =
-                    select_one_from_pool(g_arguments->db->dbName);
+                    select_one_from_pool(g_queryInfo.database);
                 pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                pThreadInfo);
             }

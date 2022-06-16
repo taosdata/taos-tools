@@ -220,7 +220,7 @@ static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    sprintf(subTblName, "%s.%s", g_arguments->db->dbName,
+    sprintf(subTblName, "%s.%s", g_queryInfo.database,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
@@ -354,8 +354,8 @@ void encode_base_64() {
 }
 
 int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = pThreadInfo->database;
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
@@ -582,7 +582,7 @@ char *taos_convert_datatype_to_string(int type) {
     return "unknown type";
 }
 
-int taos_convert_string_to_datatype(char *type, int length) {
+uint8_t taos_convert_string_to_datatype(char *type, int length) {
     if (length == 0) {
         if (0 == strcasecmp(type, "binary")) {
             return TSDB_DATA_TYPE_BINARY;
@@ -673,26 +673,24 @@ int init_taos_list() {
     }
 #endif
     int        size = g_arguments->connection_pool;
-    TAOS_POOL *pool = g_arguments->pool;
-    pool->taos_list = benchCalloc(size, sizeof(TAOS *), true);
-    pool->current = 0;
-    pool->size = size;
+    g_arguments->pool = benchArrayInit(size, sizeof(TAOS));
     for (int i = 0; i < size; ++i) {
-        pool->taos_list[i] =
+        TAOS* taos =
             taos_connect(g_arguments->host, g_arguments->user,
                          g_arguments->password, NULL, g_arguments->port);
-        if (pool->taos_list[i] == NULL) {
+        if (taos == NULL) {
             errorPrint(stderr, "Failed to connect to TDengine, reason:%s\n",
                        taos_errstr(NULL));
-            return -1;
+            return 1;
         }
+        benchArrayPush(g_arguments->pool, taos);
     }
     return 0;
 }
 
 TAOS *select_one_from_pool(char *db_name) {
-    TAOS_POOL *pool = g_arguments->pool;
-    TAOS *     taos = pool->taos_list[pool->current];
+    BArray *pool = g_arguments->pool;
+    TAOS *     taos = benchArrayGet(pool, g_arguments->current_taos);
     if (db_name != NULL) {
         int code = taos_select_db(taos, db_name);
         if (code) {
@@ -701,18 +699,18 @@ TAOS *select_one_from_pool(char *db_name) {
             return NULL;
         }
     }
-    pool->current++;
-    if (pool->current >= pool->size) {
-        pool->current = 0;
+    g_arguments->current_taos++;
+    if (g_arguments->current_taos >= pool->size) {
+        g_arguments->current_taos = 0;
     }
     return taos;
 }
 
 void cleanup_taos_list() {
     for (int i = 0; i < g_arguments->pool->size; ++i) {
-        taos_close(g_arguments->pool->taos_list[i]);
+        taos_close(benchArrayGet(g_arguments->pool, i));
     }
-    tmfree(g_arguments->pool->taos_list);
+    tmfree(g_arguments->pool);
 }
 void delay_list_init(delayList *list) {
     list->size = 0;
@@ -731,4 +729,194 @@ void delay_list_destroy(delayList *list) {
 
 int compare(const void *a, const void *b) {
     return *(uint64_t *)a - *(uint64_t *)b;
+}
+
+BArray* benchArrayInit(size_t size, size_t elemSize) {
+    assert(elemSize > 0);
+
+    if (size < BARRAY_MIN_SIZE) {
+        size = BARRAY_MIN_SIZE;
+    }
+
+    BArray* pArray = benchCalloc(1, sizeof(BArray), true);
+
+    pArray->size = 0;
+    pArray->pData = benchCalloc(size, elemSize, true);
+
+    pArray->capacity = size;
+    pArray->elemSize = elemSize;
+    return pArray;
+}
+
+static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
+    if (newCap > pArray->capacity) {
+        size_t tsize = (pArray->capacity << 1u);
+        while (newCap > tsize) {
+            tsize = (tsize << 1u);
+        }
+
+        pArray->pData = realloc(pArray->pData, tsize * pArray->elemSize);
+        if (pArray->pData == NULL) {
+            return -1;
+        }
+
+        pArray->capacity = tsize;
+    }
+    return 0;
+}
+
+static void* benchArrayAddBatch(BArray* pArray, const void* pData, int32_t nEles) {
+    if (pData == NULL) {
+        return NULL;
+    }
+
+    if (benchArrayEnsureCap(pArray, pArray->size + nEles) != 0) {
+        return NULL;
+    }
+
+    void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
+    memcpy(dst, pData, pArray->elemSize * nEles);
+
+    pArray->size += nEles;
+    return dst;
+}
+
+FORCE_INLINE void* benchArrayPush(BArray* pArray, const void* pData) {
+    return benchArrayAddBatch(pArray, pData, 1);
+}
+
+void* benchArrayDestroy(BArray* pArray) {
+    if (pArray) {
+        free(pArray->pData);
+        free(pArray);
+    }
+    return NULL;
+}
+
+void benchArrayClear(BArray* pArray) {
+    if (pArray == NULL) return;
+    free(pArray->pData);
+    pArray->pData = benchCalloc(pArray->size, pArray->elemSize, true);
+    pArray->size = 0;
+}
+
+void* benchArrayGet(const BArray* pArray, size_t index) {
+    assert(index < pArray->size);
+    return BARRAY_GET_ELEM(pArray, index);
+}
+
+void setField(Field* f, uint8_t type, uint16_t length, char* name, int64_t min, int64_t max) {
+    f->type = type;
+    f->length = length;
+    tstrncpy(f->name, name, TSDB_COL_NAME_LEN);
+    f->min = min;
+    f->max = max;
+}
+
+uint16_t taos_convert_type_to_length(uint8_t type) {
+    uint16_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_UINT:
+        case TSDB_DATA_TYPE_INT:
+            ret = sizeof(int32_t);
+            break;
+        case TSDB_DATA_TYPE_UTINYINT:
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_BOOL:
+            ret = sizeof(int8_t);
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+            ret = sizeof(int16_t);
+            break;
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            ret = sizeof(int64_t);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            ret = sizeof(float);
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            ret = sizeof(double);
+            break;
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_JSON:
+            break;
+        default:
+            errorPrint(stderr, "Invalid data type: %d\n", type);
+            exit(EXIT_FAILURE);
+    }
+    return ret;
+}
+
+int64_t get_max_from_data_type(uint8_t type) {
+    int64_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TINYINT:
+            ret = (int64_t)127;
+            break;
+        case TSDB_DATA_TYPE_UTINYINT:
+            ret = (int64_t)254;
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+            ret = (int64_t)32767;
+            break;
+        case TSDB_DATA_TYPE_USMALLINT:
+            ret = (int64_t)65534;
+            break;
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_FLOAT:
+        case TSDB_DATA_TYPE_DOUBLE:
+            ret = (int64_t)RAND_MAX >> 1;
+            break;
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_UINT:
+            ret = RAND_MAX;
+            break;
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_JSON:
+            break;
+        default:
+            errorPrint(stderr, "Invalid data type: %d\n", type);
+            exit(EXIT_FAILURE);
+    }
+    return ret;
+}
+
+int64_t get_min_from_data_type(uint8_t type) {
+    int64_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TINYINT:
+            ret = -127;
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+            ret = -32767;
+            break;
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_FLOAT:
+        case TSDB_DATA_TYPE_DOUBLE:
+        case TSDB_DATA_TYPE_INT:
+            ret = -1 * (RAND_MAX >> 1);
+            break;
+        case TSDB_DATA_TYPE_UTINYINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+        case TSDB_DATA_TYPE_UINT:
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_JSON:
+            break;
+        default:
+            errorPrint(stderr, "Invalid datatype %d\n", type);
+            exit(EXIT_FAILURE);
+    }
+    return ret;
 }

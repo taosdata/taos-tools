@@ -156,9 +156,15 @@
 #define DEFAULT_QUERY_INTERVAL 10000
 
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
-
+#define BARRAY_MIN_SIZE 8
 #if _MSC_VER <= 1900
 #define __func__ __FUNCTION__
+#endif
+
+#if defined(__GNUC__)
+#define FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define FORCE_INLINE
 #endif
 
 #define debugPrint(fp, fmt, ...)                                             \
@@ -292,23 +298,24 @@ enum _describe_table_index {
     TSDB_MAX_DESCRIBE_METRIC
 };
 
-typedef struct TAOS_POOL_S {
-    int    size;
-    int    current;
-    TAOS **taos_list;
-} TAOS_POOL;
+typedef struct BArray {
+    size_t   size;
+    uint32_t capacity;
+    uint32_t elemSize;
+    void*    pData;
+} BArray;
 
-typedef struct COLUMN_S {
-    char     type;
-    char     name[TSDB_COL_NAME_LEN + 1];
-    uint32_t length;
+typedef struct FIELD_S {
+    uint8_t    type;
+    char     name[TSDB_COL_NAME_LEN];
+    uint16_t length;
     bool     null;
     void *   data;
     int64_t  max;
     int64_t  min;
     cJSON *  values;
     bool     sma;
-} Column;
+} Field;
 
 typedef struct SSuperTable_S {
     char     stbName[TSDB_TABLE_NAME_LEN];
@@ -338,13 +345,10 @@ typedef struct SSuperTable_S {
     int64_t  startTimestamp;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
-
-    uint32_t columnCount;
     int64_t partialColumnNum;
     char *   partialColumnNameBuf;
-    Column * columns;
-    Column * tags;
-    uint32_t tagCount;
+    BArray*  columns;
+    BArray*  tags;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -391,8 +395,7 @@ typedef struct SDataBase_S {
     char         dbName[TSDB_DB_NAME_LEN];
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
     SDbCfg       dbCfg;
-    uint64_t     superTblCount;
-    SSuperTable *superTbls;
+    BArray*      superTbls;
 } SDataBase;
 
 typedef struct SSQL_S {
@@ -447,6 +450,8 @@ typedef struct SQueryMetaInfo_S {
     int64_t           query_times;
     int64_t           response_buffer;
     bool               reset_query_cache;
+    char               database[TSDB_DB_NAME_LEN];
+    uint8_t            iface;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
@@ -473,16 +478,16 @@ typedef struct SArguments_S {
     int64_t            insert_interval;
     bool               demo_mode;
     bool               aggr_func;
-    uint32_t           dbCount;
     struct sockaddr_in serv_addr;
-    TAOS_POOL *        pool;
+    BArray *           pool;
     uint64_t           g_totalChildTables;
     uint64_t           g_actualChildTables;
     uint64_t           g_autoCreatedChildTables;
     uint64_t           g_existedChildTables;
     FILE *             fpOfInsertResult;
-    SDataBase *        db;
+    BArray*            db;
     char *             base64_buf;
+    int                current_taos;
 } SArguments;
 
 typedef struct delayNode_S {
@@ -524,8 +529,8 @@ typedef struct SThreadInfo_S {
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    uint32_t   db_index;
-    uint32_t   stb_index;
+    SDataBase *database;
+    SSuperTable *stbInfo;
     char **    sml_tags;
     cJSON *    json_array;
     cJSON *    sml_json_tags;
@@ -555,14 +560,14 @@ extern uint64_t       g_memoryUsage;
         strncpy((dst), (src), (size)); \
         (dst)[(size)-1] = 0;           \
     } while (0)
+#define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
 void commandLineParseArgument(int argc, char *argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
-int count_datatype(char *dataType, uint32_t *number);
-int parse_datatype(char *dataType, Column *fields, bool isTag);
+void parse_datatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
@@ -580,7 +585,10 @@ void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
 char *  taos_convert_datatype_to_string(int type);
-int     taos_convert_string_to_datatype(char *type, int length);
+uint8_t   taos_convert_string_to_datatype(char *type, int length);
+uint16_t taos_convert_type_to_length(uint8_t type);
+int64_t get_max_from_data_type(uint8_t type);
+int64_t get_min_from_data_type(uint8_t type);
 int     taosRandom();
 void*   benchCalloc(size_t nmemb, size_t size, bool record);
 void    tmfree(void *buf);
@@ -598,6 +606,12 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     int64_t childTblCountOfSuperTbl);
 void    delay_list_init(delayList *list);
 void    delay_list_destroy(delayList *list);
+BArray* benchArrayInit(size_t size, size_t elemSize);
+void*   benchArrayGet(const BArray* pArray, size_t index);
+void    benchArrayClear(BArray* pArray);
+void*   benchArrayPush(BArray* pArray, const void* pData);
+void* benchArrayDestroy(BArray* pArray);
+void    setField(Field* f, uint8_t type, uint16_t length, char* name, int64_t min, int64_t max);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
