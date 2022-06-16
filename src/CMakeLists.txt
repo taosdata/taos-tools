@@ -176,7 +176,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread cJsonDemo argp)
         ELSE ()
             ADD_LIBRARY(avro STATIC IMPORTED)
-            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin")
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" OR ${OS_ID} MATCHES "rhel")
                 SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
             ELSE()
                 SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
