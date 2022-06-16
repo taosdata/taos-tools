@@ -434,7 +434,7 @@ static struct argp_option options[] = {
             "of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,
-        "Number of thread for dump in file. Default is 5.", 10},
+        "Number of thread for dump in file. Default is 8.", 10}, // DEFAULT_THREAD_NUM
     {"loose-mode",  'L', 0,  0,
         "Use loose mode if the table name and column name use letter and "
             "number only. Default is NOT.", 10},
@@ -507,6 +507,8 @@ static int g_numOfCores = 1;
 #define DEFAULT_START_TIME    (-INT64_MAX + 1) // start_time
 #define DEFAULT_END_TIME    (INT64_MAX)  // end_time
 
+#define DEFAULT_THREAD_NUM  8
+
 struct arguments g_args = {
     // connection option
     NULL,
@@ -540,7 +542,7 @@ struct arguments g_args = {
     false,      // loose_mode
     false,      // inspect
     // other options
-    8,          // thread_num
+    DEFAULT_THREAD_NUM, // thread_num
     0,          // abort
     NULL,       // arg_list
     0,          // arg_list_len
