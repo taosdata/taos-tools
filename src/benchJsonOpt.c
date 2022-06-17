@@ -51,7 +51,11 @@ static int getFieldFromInsertJsonFile(cJSON* srcs, BArray* fields, bool isTag) {
                     }
                 } else {
                     if (isTag) {
-                        snprintf(fieldName, TSDB_COL_NAME_LEN, "t%d", fieldSize);
+                        if (type == TSDB_DATA_TYPE_JSON) {
+                            snprintf(fieldName, TSDB_COL_NAME_LEN, "jtag");
+                        } else {
+                            snprintf(fieldName, TSDB_COL_NAME_LEN, "t%d", fieldSize);
+                        }
                     } else {
                         snprintf(fieldName, TSDB_COL_NAME_LEN, "c%d", fieldSize);
                     }
@@ -60,12 +64,12 @@ static int getFieldFromInsertJsonFile(cJSON* srcs, BArray* fields, bool isTag) {
                          get_min_from_data_type(type), get_max_from_data_type(type));
 
                 cJSON* dataLen = cJSON_GetObjectItem(src, "len");
-                if (cJSON_IsNumber(dataLen) &&
-                    (type == TSDB_DATA_TYPE_BINARY ||
-                     type == TSDB_DATA_TYPE_NCHAR ||
-                     type == TSDB_DATA_TYPE_JSON)) {
+                if (cJSON_IsNumber(dataLen)) {
                     field->length = (uint32_t)dataLen->valueint;
+                } else {
+                    field->length = taos_convert_type_to_length(type);
                 }
+
                 cJSON* dataValues = cJSON_GetObjectItem(src, "values");
                 if (cJSON_IsArray(dataValues)) {
                     if (type == TSDB_DATA_TYPE_NCHAR || type == TSDB_DATA_TYPE_BINARY) {
@@ -78,11 +82,11 @@ static int getFieldFromInsertJsonFile(cJSON* srcs, BArray* fields, bool isTag) {
 
                 cJSON* dataMin = cJSON_GetObjectItem(src, "max");
                 if (cJSON_IsNumber(dataMin)) {
-                    field->min = dataMin->valueint;
+                    field->max = dataMin->valueint;
                 }
                 cJSON* dataMax = cJSON_GetObjectItem(src, "min");
                 if (cJSON_IsNumber(dataMax)) {
-                    field->max = dataMax->valueint;
+                    field->min = dataMax->valueint;
                 }
                 benchArrayPush(fields, field);
                 fieldSize++;
@@ -98,6 +102,10 @@ PARSE_OVER:
 }
 
 static int getStringValueFromJson(cJSON* source, char* target, int length, char* key, bool required) {
+    if (target == NULL) {
+        errorPrint(stderr, "Invalid target of key %s\n", key);
+        return 1;
+    }
     cJSON* src = cJSON_GetObjectItem(source, key);
     if (cJSON_IsString(src)) {
         tstrncpy(target, src->valuestring, length);
@@ -139,7 +147,12 @@ static int getNumberValueFromJson(cJSON* source, int64_t* target, char* key, boo
 
 static int getDatabaseInfo(cJSON *dbinfos, int index) {
     int code = 1;
-    SDataBase *database = benchArrayGet(g_arguments->db, index);
+    SDataBase *database;
+    if (index == 0) {
+        database = benchArrayGet(g_arguments->db, 0);
+    } else {
+        database = benchCalloc(1, sizeof(SDataBase), true);
+    }
     database->drop = true;
     database->dbCfg.minRows = -1;
     database->dbCfg.maxRows = -1;
@@ -170,7 +183,7 @@ static int getDatabaseInfo(cJSON *dbinfos, int index) {
     }
 
     if (getStringValueFromJson(db, database->dbName, TSDB_DB_NAME_LEN, "name", true) ||
-            getBoolValueFromJson(db, &(database->drop), "no", false) ||
+            getBoolValueFromJson(db, &(database->drop), "drop", false) ||
             getNumberValueFromJson(db, &(database->dbCfg.keep), "keep", false) ||
             getNumberValueFromJson(db, &(database->dbCfg.days), "days", false) ||
             getNumberValueFromJson(db, &(database->dbCfg.maxRows), "maxRows", false) ||
@@ -220,6 +233,9 @@ static int getDatabaseInfo(cJSON *dbinfos, int index) {
             goto PARSE_OVER;
         }
     }
+    if (index) {
+        benchArrayPush(g_arguments->db, database);
+    }
     code = 0;
     PARSE_OVER:
     return code;
@@ -235,9 +251,13 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         return -1;
     }
     int stbSize = cJSON_GetArraySize(stables);
-    database->superTbls = benchArrayInit(stbSize, sizeof(SSuperTable));
     for (int i = 0; i < stbSize; ++i) {
-        SSuperTable *superTable = benchArrayGet(database->superTbls, i);
+        SSuperTable *superTable;
+        if (i == 0) {
+            superTable = benchArrayGet(database->superTbls, 0);
+        } else {
+            superTable = benchCalloc(1, sizeof(SSuperTable), true);
+        }
         superTable->escape_character = false;
         superTable->autoCreateTable = false;
         superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
@@ -250,6 +270,8 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         superTable->timestamp_step = 1;
         superTable->useSampleTs = false;
         superTable->non_stop = false;
+        superTable->childTblCount = 10;
+        superTable->insertRows = 10;
         superTable->insertRows = 10;
         superTable->interlaceRows = 0;
         superTable->disorderRatio = 0;
@@ -274,7 +296,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
                 getBoolValueFromJson(stbInfo, &(superTable->useSampleTs), "use_sample_ts", false) ||
                 getBoolValueFromJson(stbInfo, &(superTable->non_stop), "non_stop_mode", false) ||
                 getStringValueFromJson(stbInfo, superTable->tagsFile, MAX_FILE_NAME_LEN, "tags_file", false) ||
-                getNumberValueFromJson(stbInfo, &(superTable->insertRows), "insert_rows", true) ||
+                getNumberValueFromJson(stbInfo, &(superTable->insertRows), "insert_rows", false) ||
                 getNumberValueFromJson(stbInfo, &(superTable->interlaceRows), "interlace_rows", false) ||
                 getNumberValueFromJson(stbInfo, &(superTable->disorderRatio), "disorder_ratio", false) ||
                 getNumberValueFromJson(stbInfo, &(superTable->disorderRange), "disorder_range", false) ||
@@ -366,6 +388,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         }
         cJSON* columns = cJSON_GetObjectItem(stbInfo, "columns");
         if (cJSON_IsArray(columns)) {
+            benchArrayDestroy(superTable->columns, true);
             superTable->columns =  benchArrayInit(1, sizeof(Field));
             if (getFieldFromInsertJsonFile(columns, superTable->columns, false)) {
                 goto PARSE_OVER;
@@ -376,11 +399,16 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         }
         cJSON* tags = cJSON_GetObjectItem(stbInfo, "tags");
         if (cJSON_IsArray(tags)) {
+            benchArrayDestroy(superTable->tags, true);
             superTable->tags = benchArrayInit(1, sizeof(Field));
             if (getFieldFromInsertJsonFile(tags, superTable->tags, true)) {
                 goto PARSE_OVER;
             }
         }
+        if (i) {
+            benchArrayPush(database->superTbls, superTable);
+        }
+
     }
     code = 0;
 PARSE_OVER:
@@ -417,7 +445,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         goto PARSE_OVER;
     }
     int dbSize = cJSON_GetArraySize(dbinfos);
-    benchArrayClear(g_arguments->db);
 
     for (int i = 0; i < dbSize; ++i) {
         if (getDatabaseInfo(dbinfos, i)) {
@@ -435,6 +462,7 @@ PARSE_OVER:
 static int getMetaFromQueryJsonFile(cJSON *json) {
     int32_t code = 1;
     g_queryInfo.response_buffer = RESP_BUF_LEN;
+    g_queryInfo.query_times = 1;
     if (getStringValueFromJson(json, configDir, MAX_FILE_NAME_LEN, "cfgdir", false) ||
             getStringValueFromJson(json, g_arguments->host, HOST_NAME_MAX, "host", false) ||
             getNumberValueFromJson(json, &(g_arguments->port), "port", false) ||
@@ -442,7 +470,7 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             getStringValueFromJson(json, g_arguments->user, NAME_MAX, "user", false) ||
             getStringValueFromJson(json, g_arguments->password, TSDB_PASS_LEN, "password", false) ||
             getBoolValueFromJson(json, &(g_arguments->answer_yes), "confirm_parameter_prompt", false) ||
-            getNumberValueFromJson(json, &(g_queryInfo.query_times), "query_times", true) ||
+            getNumberValueFromJson(json, &(g_queryInfo.query_times), "query_times", false) ||
             getBoolValueFromJson(json, &(g_queryInfo.reset_query_cache), "reset_query_cache", false) ||
             getNumberValueFromJson(json, &(g_arguments->connection_pool), "connection_pool_size", false) ||
             getNumberValueFromJson(json, &(g_queryInfo.response_buffer), "response_buffer", false) ||

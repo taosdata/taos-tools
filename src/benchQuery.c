@@ -17,7 +17,7 @@
 
 void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     if (g_queryInfo.iface == REST_IFACE) {
-        int retCode = postProceSql(command, pThreadInfo);
+        int retCode = postProceSql(command, pThreadInfo, g_queryInfo.database, g_queryInfo.superQueryInfo.stbName, REST_IFACE, 0,0,false);
         if (0 != retCode) {
             errorPrint(stderr, "====restful return fail, threadID[%d]\n",
                        pThreadInfo->threadID);

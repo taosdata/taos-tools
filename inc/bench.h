@@ -322,8 +322,8 @@ typedef struct SSuperTable_S {
     char     stbName[TSDB_TABLE_NAME_LEN];
     bool     random_data_source;  // rand_gen or sample
     bool     escape_character;
-    bool     use_metric;
-    char *   childTblPrefix;
+    bool     normal;
+    char     childTblPrefix[TSDB_TABLE_NAME_LEN];
     bool     childTblExists;
     int64_t childTblCount;
     int64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
@@ -468,7 +468,7 @@ typedef struct SArguments_S {
     bool               debug_print;
     bool               performance_print;
     bool               chinese;
-    char               result_file[TSDB_FILENAME_LEN];
+    char               result_file[MAX_FILE_NAME_LEN];
     uint32_t           binwidth;
     uint32_t           intColumnCount;
     int64_t            connection_pool;
@@ -509,7 +509,7 @@ typedef struct SThreadInfo_S {
     uint64_t * bind_ts_array;
     char *     bindParams;
     char *     is_null;
-    uint32_t   threadID;
+    uint32_t threadID;
     uint64_t   start_table_from;
     uint64_t   end_table_to;
     uint64_t   ntables;
@@ -597,7 +597,8 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
-int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
+int     postProceSql(char *sqlstr, threadInfo *pThreadInfo, char* dbName,
+                       char* stbName, int iface, int lineProtocol, int precision, bool tcpTransfer);
 int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,

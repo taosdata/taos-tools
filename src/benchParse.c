@@ -260,7 +260,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       }
       break;
     case 'm':
-      stbInfo->childTblPrefix = arg;
+        tstrncpy(stbInfo->childTblPrefix, arg, TSDB_TABLE_NAME_LEN);
       break;
     case 'E':
         stbInfo->escape_character = true;
@@ -269,7 +269,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       arguments->chinese = true;
       break;
     case 'N':
-      stbInfo->use_metric = false;
+      stbInfo->normal = true;
       break;
     case 'M':
       arguments->demo_mode = false;

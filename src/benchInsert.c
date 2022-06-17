@@ -108,7 +108,7 @@ static int createSuperTable(SDataBase *  database, SSuperTable *stbInfo) {
     snprintf(stbInfo->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
              "(ts timestamp%s)", cols);
 
-    if (stbInfo->tags->size == 0 || !stbInfo->use_metric) {
+    if (stbInfo->tags->size == 0 || stbInfo->normal) {
         free(cols);
         free(command);
         return 0;
@@ -324,7 +324,7 @@ static void *createTable(void *sarg) {
 
     for (uint64_t i = pThreadInfo->start_table_from;
          i <= pThreadInfo->end_table_to; i++) {
-        if (!stbInfo->use_metric) {
+        if (stbInfo->normal) {
             snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
                      stbInfo->escape_character
                          ? "CREATE TABLE IF NOT EXISTS %s.`%s%" PRIu64 "` %s;"
@@ -389,7 +389,7 @@ create_table_end:
 
 static int startMultiThreadCreateChildTable(SDataBase * database, SSuperTable *stbInfo) {
     infoPrint(stdout, "start creating %" PRId64 " table(s) with %"PRId64" thread(s)\n",
-              g_arguments->g_totalChildTables, g_arguments->table_threads);
+              stbInfo->childTblCount, g_arguments->table_threads);
     int          threads = g_arguments->table_threads;
     int64_t      ntables = stbInfo->childTblCount;
     pthread_t *  pids = benchCalloc(1, threads * sizeof(pthread_t), true);
@@ -444,7 +444,7 @@ static int startMultiThreadCreateChildTable(SDataBase * database, SSuperTable *s
               " table(s) with %"PRId64" thread(s), already exist %" PRId64
               " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
               " table(s) will be auto created\n",
-              (end - start) / 1000.0, g_arguments->g_totalChildTables,
+              (end - start) / 1000.0, stbInfo->childTblCount,
               g_arguments->table_threads, g_arguments->g_existedChildTables,
               g_arguments->g_actualChildTables,
               g_arguments->g_autoCreatedChildTables);
@@ -500,7 +500,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case REST_IFACE:
 
-            if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo)) {
+            if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo, database->dbName,
+                                  stbInfo->stbName, stbInfo->iface, stbInfo->lineProtocol,
+                                  database->dbCfg.precision, stbInfo->tcpTransfer)) {
                 affectedRows = -1;
             } else {
                 affectedRows = k;
@@ -542,7 +544,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case SML_REST_IFACE: {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = cJSON_Print(pThreadInfo->json_array);
-                if (0 != postProceSql(pThreadInfo->lines[0], pThreadInfo)) {
+                if (0 != postProceSql(pThreadInfo->lines[0], pThreadInfo, database->dbName,
+                                      stbInfo->stbName, stbInfo->iface, stbInfo->lineProtocol,
+                                      database->dbCfg.precision, stbInfo->tcpTransfer)) {
                     affectedRows = -1;
                 } else {
                     affectedRows = k;
@@ -563,7 +567,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                         break;
                     }
                 }
-                if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo)) {
+                if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo, database->dbName,
+                                      stbInfo->stbName, stbInfo->iface, stbInfo->lineProtocol,
+                                      database->dbCfg.precision, stbInfo->tcpTransfer)) {
                     affectedRows = -1;
                 } else {
                     affectedRows = k;
@@ -1099,7 +1105,7 @@ free_of_progressive:
 
 static int startMultiThreadInsertData(SDataBase *  database, SSuperTable *stbInfo) {
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) &&
-        !stbInfo->use_metric) {
+        stbInfo->normal) {
         errorPrint(stderr, "%s", "schemaless cannot work without stable\n");
         return -1;
     }
@@ -1134,7 +1140,7 @@ static int startMultiThreadInsertData(SDataBase *  database, SSuperTable *stbInf
     uint64_t ntables = stbInfo->childTblCount;
     stbInfo->childTblName = benchCalloc(stbInfo->childTblCount, sizeof(char *), true);
     for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
-        stbInfo->childTblName[i] = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
+        stbInfo->childTblName[i] = benchCalloc(1, TSDB_TABLE_NAME_LEN+BIGINT_BUFF_LEN, true);
     }
 
     if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) &&
@@ -1188,10 +1194,10 @@ static int startMultiThreadInsertData(SDataBase *  database, SSuperTable *stbInf
     } else {
         for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
             if (stbInfo->escape_character) {
-                snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
+                snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN+BIGINT_BUFF_LEN,
                          "`%s%" PRIu64 "`", stbInfo->childTblPrefix, i);
             } else {
-                snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
+                snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN+BIGINT_BUFF_LEN,
                          "%s%" PRIu64 "", stbInfo->childTblPrefix, i);
             }
         }
@@ -1571,17 +1577,24 @@ int insertTestProcess() {
         }
         for (int j = 0; j < db->superTbls->size; ++j) {
             SSuperTable * stbInfo = benchArrayGet(db->superTbls, j);
-            if (prepare_sample_data(db, stbInfo)) {
-                return -1;
-            }
+
             if (stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) {
                 g_arguments->g_autoCreatedChildTables += stbInfo->childTblCount;
+                if (prepare_sample_data(db, stbInfo)) {
+                    return -1;
+                }
             } else if (stbInfo->childTblExists) {
                 g_arguments->g_existedChildTables += stbInfo->childTblCount;
                 if (getSuperTableFromServer(db, stbInfo)) {
                     return -1;
                 }
+                if (prepare_sample_data(db, stbInfo)) {
+                    return -1;
+                }
             } else {
+                if (prepare_sample_data(db, stbInfo)) {
+                    return -1;
+                }
                 if (createSuperTable(db, stbInfo)) {
                     return -1;
                 }
@@ -1591,7 +1604,7 @@ int insertTestProcess() {
                     return -1;
                 }
             }
-            if (startMultiThreadInsertData(db, stbInfo)) {
+            if (stbInfo->insertRows && startMultiThreadInsertData(db, stbInfo)) {
                 return -1;
             }
         }

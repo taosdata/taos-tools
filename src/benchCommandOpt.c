@@ -77,9 +77,9 @@ void init_stable() {
     SSuperTable *stbInfo = benchCalloc(1, sizeof(SSuperTable), true);
     stbInfo->iface = TAOSC_IFACE;
     tstrncpy(stbInfo->stbName, "meters", TSDB_TABLE_NAME_LEN);
-    stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
+    tstrncpy(stbInfo->childTblPrefix, DEFAULT_TB_PREFIX, TSDB_TABLE_NAME_LEN);
     stbInfo->escape_character = 0;
-    stbInfo->use_metric = 1;
+    stbInfo->normal = false;
     stbInfo->columns = benchArrayInit(3, sizeof(Field));
     Field* c1 = benchCalloc(1, sizeof(Field), true);
     Field* c2 = benchCalloc(1, sizeof(Field), true);
@@ -394,10 +394,10 @@ void queryAggrFunc() {
     SDataBase * db = benchArrayGet(g_arguments->db, 0);
     SSuperTable * stbInfo = benchArrayGet(db->superTbls, 0);
     pThreadInfo->taos = select_one_from_pool(db->dbName);
-    if (stbInfo->use_metric) {
-        pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
-    } else {
+    if (stbInfo->normal) {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
+    } else {
+        pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
     free(pThreadInfo);

@@ -353,31 +353,29 @@ void encode_base_64() {
         g_arguments->base64_buf[encoded_len - 1 - l] = '=';
 }
 
-int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SDataBase *  database = pThreadInfo->database;
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+int postProceSql(char *sqlstr, threadInfo *pThreadInfo, char* dbName, char* stbName, int iface, int lineProtocol, int precision, bool tcpTransfer) {
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
     char url[1024];
-    if (stbInfo->iface == REST_IFACE) {
-        sprintf(url, "/rest/sql/%s", database->dbName);
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
-        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", database->dbName,
-                database->dbCfg.precision == TSDB_TIME_PRECISION_MILLI
+    if (iface == REST_IFACE) {
+        sprintf(url, "/rest/sql/%s", dbName);
+    } else if (iface == SML_REST_IFACE &&
+               lineProtocol == TSDB_SML_LINE_PROTOCOL) {
+        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", dbName,
+                precision == TSDB_TIME_PRECISION_MILLI
                     ? "ms"
-                    : database->dbCfg.precision == TSDB_TIME_PRECISION_NANO
+                    : precision == TSDB_TIME_PRECISION_NANO
                           ? "ns"
                           : "u");
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-        sprintf(url, "/opentsdb/v1/put/telnet/%s", database->dbName);
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-        sprintf(url, "/opentsdb/v1/put/json/%s", database->dbName);
+    } else if (iface == SML_REST_IFACE &&
+               lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/telnet/%s", dbName);
+    } else if (iface == SML_REST_IFACE &&
+               lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/json/%s", dbName);
     }
 
     int      bytes, sent, received, req_str_len, resp_len;
@@ -396,8 +394,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
     response_buf = benchCalloc(1, response_length, false);
     int r;
-    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-        stbInfo->tcpTransfer) {
+    if (lineProtocol == TSDB_SML_TELNET_PROTOCOL && tcpTransfer) {
         r = snprintf(request_buf, req_buf_len, "%s", sqlstr);
     } else {
         r = snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
@@ -428,8 +425,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         sent += bytes;
     } while (sent < req_str_len);
 
-    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-        stbInfo->iface == SML_REST_IFACE && stbInfo->tcpTransfer) {
+    if (lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
+        iface == SML_REST_IFACE && tcpTransfer) {
         code = 0;
         goto free_of_post;
     }
@@ -850,6 +847,7 @@ uint16_t taos_convert_type_to_length(uint8_t type) {
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
+            ret = DEFAULT_BINWIDTH;
             break;
         default:
             errorPrint(stderr, "Invalid data type: %d\n", type);
