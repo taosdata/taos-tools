@@ -108,7 +108,7 @@ static int createSuperTable(SDataBase *  database, SSuperTable *stbInfo) {
     snprintf(stbInfo->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
              "(ts timestamp%s)", cols);
 
-    if (stbInfo->tags->size == 0) {
+    if (stbInfo->tags->size == 0 || !stbInfo->use_metric) {
         free(cols);
         free(command);
         return 0;
@@ -172,12 +172,12 @@ skip:
                    stbInfo->stbName);
         free(command);
         free(cols);
-        free(tags);
+        free(tags_buffer);
         return -1;
     }
     free(command);
     free(cols);
-    free(tags);
+    free(tags_buffer);
     return 0;
 }
 
@@ -465,8 +465,8 @@ void postFreeResource() {
             tmfree(stbInfo->sampleDataBuf);
             tmfree(stbInfo->tagDataBuf);
             tmfree(stbInfo->partialColumnNameBuf);
-            benchArrayDestroy(stbInfo->tags);
-            benchArrayDestroy(stbInfo->columns);
+            benchArrayDestroy(stbInfo->tags, true);
+            benchArrayDestroy(stbInfo->columns, true);
             if (g_arguments->test_mode == INSERT_TEST &&
                 stbInfo->insertRows != 0) {
                 for (int64_t k = 0; k < stbInfo->childTblCount;
@@ -476,9 +476,9 @@ void postFreeResource() {
             }
             tmfree(stbInfo->childTblName);
         }
-        benchArrayDestroy(database->superTbls);
+        benchArrayDestroy(database->superTbls, false);
     }
-    benchArrayDestroy(g_arguments->db);
+    benchArrayDestroy(g_arguments->db, false);
     cJSON_Delete(root);
     cleanup_taos_list();
 }
@@ -584,8 +584,6 @@ static void *syncWriteInterlace(void *sarg) {
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
-    *code = -1;
 
     int64_t insertRows = stbInfo->insertRows;
     int32_t interlaceRows = stbInfo->interlaceRows;
@@ -829,10 +827,9 @@ static void *syncWriteInterlace(void *sarg) {
                    pThreadInfo->totalAffectedRows);
     }
 
-    *code = 0;
     printStatPerThread(pThreadInfo);
 free_of_interlace:
-    return code;
+    return NULL;
 }
 
 void *syncWriteProgressive(void *sarg) {
@@ -844,8 +841,7 @@ void *syncWriteProgressive(void *sarg) {
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
-    *code = -1;
+
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     uint64_t   startTs = toolsGetTimestampMs();
     uint64_t   endTs;
@@ -1096,10 +1092,9 @@ void *syncWriteProgressive(void *sarg) {
             }
         }  // insertRows
     }      // tableSeq
-    *code = 0;
     printStatPerThread(pThreadInfo);
 free_of_progressive:
-    return code;
+    return NULL;
 }
 
 static int startMultiThreadInsertData(SDataBase *  database, SSuperTable *stbInfo) {
@@ -1414,12 +1409,7 @@ static int startMultiThreadInsertData(SDataBase *  database, SSuperTable *stbInf
     int64_t start = toolsGetTimestampUs();
 
     for (int i = 0; i < threads; i++) {
-        void *result;
-        pthread_join(pids[i], &result);
-        if (*(int32_t *)result) {
-            g_fail = true;
-        }
-        tmfree(result);
+        pthread_join(pids[i], NULL);
     }
 
     int64_t end = toolsGetTimestampUs();

@@ -673,7 +673,7 @@ int init_taos_list() {
     }
 #endif
     int        size = g_arguments->connection_pool;
-    g_arguments->pool = benchArrayInit(size, sizeof(TAOS));
+    g_arguments->pool = benchCalloc(size, sizeof(TAOS *), true);
     for (int i = 0; i < size; ++i) {
         TAOS* taos =
             taos_connect(g_arguments->host, g_arguments->user,
@@ -683,14 +683,14 @@ int init_taos_list() {
                        taos_errstr(NULL));
             return 1;
         }
-        benchArrayPush(g_arguments->pool, taos);
+        g_arguments->pool[i] = taos;
     }
     return 0;
 }
 
 TAOS *select_one_from_pool(char *db_name) {
-    BArray *pool = g_arguments->pool;
-    TAOS *     taos = benchArrayGet(pool, g_arguments->current_taos);
+    TAOS ** pool = g_arguments->pool;
+    TAOS *     taos = pool[g_arguments->current_taos];
     if (db_name != NULL) {
         int code = taos_select_db(taos, db_name);
         if (code) {
@@ -700,15 +700,15 @@ TAOS *select_one_from_pool(char *db_name) {
         }
     }
     g_arguments->current_taos++;
-    if (g_arguments->current_taos >= pool->size) {
+    if (g_arguments->current_taos >= g_arguments->connection_pool) {
         g_arguments->current_taos = 0;
     }
     return taos;
 }
 
 void cleanup_taos_list() {
-    for (int i = 0; i < g_arguments->pool->size; ++i) {
-        taos_close(benchArrayGet(g_arguments->pool, i));
+    for (int i = 0; i < g_arguments->connection_pool; ++i) {
+        taos_close(g_arguments->pool[i]);
     }
     tmfree(g_arguments->pool);
 }
@@ -765,7 +765,7 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
     return 0;
 }
 
-static void* benchArrayAddBatch(BArray* pArray, const void* pData, int32_t nEles) {
+static void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles) {
     if (pData == NULL) {
         return NULL;
     }
@@ -776,17 +776,23 @@ static void* benchArrayAddBatch(BArray* pArray, const void* pData, int32_t nEles
 
     void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
     memcpy(dst, pData, pArray->elemSize * nEles);
-
+    free(pData);
     pArray->size += nEles;
     return dst;
 }
 
-FORCE_INLINE void* benchArrayPush(BArray* pArray, const void* pData) {
+FORCE_INLINE void* benchArrayPush(BArray* pArray, void* pData) {
     return benchArrayAddBatch(pArray, pData, 1);
 }
 
-void* benchArrayDestroy(BArray* pArray) {
+void* benchArrayDestroy(BArray* pArray, bool isField) {
     if (pArray) {
+        if (isField) {
+            for (int i = 0; i < pArray->size; ++i) {
+                Field * field = benchArrayGet(pArray, i);
+                tmfree(field->data);
+            }
+        }
         free(pArray->pData);
         free(pArray);
     }
@@ -795,13 +801,14 @@ void* benchArrayDestroy(BArray* pArray) {
 
 void benchArrayClear(BArray* pArray) {
     if (pArray == NULL) return;
-    free(pArray->pData);
-    pArray->pData = benchCalloc(pArray->size, pArray->elemSize, true);
     pArray->size = 0;
 }
 
 void* benchArrayGet(const BArray* pArray, size_t index) {
-    assert(index < pArray->size);
+    if (index >= pArray->size) {
+        errorPrint(stderr, "index(%zu) greater than BArray size(%zu)\n", index, pArray->size);
+        exit(EXIT_FAILURE);
+    }
     return BARRAY_GET_ELEM(pArray, index);
 }
 

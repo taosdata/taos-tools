@@ -143,6 +143,7 @@
 #define DEFAULT_NTHREADS       8
 #define DEFAULT_CHILDTABLES    10000
 #define DEFAULT_PORT           6030
+#define DEFAULT_HOST           "localhost"
 #define DEFAULT_DATABASE       "test"
 #define DEFAULT_TB_PREFIX      "d"
 #define DEFAULT_OUTPUT         "./output.txt"
@@ -479,7 +480,7 @@ typedef struct SArguments_S {
     bool               demo_mode;
     bool               aggr_func;
     struct sockaddr_in serv_addr;
-    BArray *           pool;
+    TAOS **           pool;
     uint64_t           g_totalChildTables;
     uint64_t           g_actualChildTables;
     uint64_t           g_autoCreatedChildTables;
@@ -609,8 +610,8 @@ void    delay_list_destroy(delayList *list);
 BArray* benchArrayInit(size_t size, size_t elemSize);
 void*   benchArrayGet(const BArray* pArray, size_t index);
 void    benchArrayClear(BArray* pArray);
-void*   benchArrayPush(BArray* pArray, const void* pData);
-void* benchArrayDestroy(BArray* pArray);
+void*   benchArrayPush(BArray* pArray, void* pData);
+void* benchArrayDestroy(BArray* pArray, bool isFields);
 void    setField(Field* f, uint8_t type, uint16_t length, char* name, int64_t min, int64_t max);
 /* demoInsert.c */
 int  insertTestProcess();

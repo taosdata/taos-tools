@@ -116,7 +116,7 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     sprintf(prepare + len, ")");
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
         infoPrint(stdout,
-                  "in stmt mode, batch size(%"PRId64") can not larger than prepared "
+                  "in stmt mode, batch size(%"PRId64") can not be larger than prepared "
                   "sample data size(%" PRId64
                   "), restart with larger prepared_rand or batch size will be "
                   "auto set to %" PRId64 "\n",
@@ -216,9 +216,8 @@ free_of_get_set_rows_from_csv:
 
 static uint32_t calcRowLen(SSuperTable *stbInfo, BArray* fields) {
     uint32_t ret = 0;
-    BArray * cols = stbInfo->columns;
-    for (int colIndex = 0; colIndex < cols->size; colIndex++) {
-        Field * field = benchArrayGet(fields, colIndex);
+    for (int i = 0; i < fields->size; i++) {
+        Field * field = benchArrayGet(fields, i);
         switch (field->type) {
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
@@ -259,6 +258,9 @@ static uint32_t calcRowLen(SSuperTable *stbInfo, BArray* fields) {
 
             case TSDB_DATA_TYPE_TIMESTAMP:
                 ret += TIMESTAMP_BUFF_LEN;
+                break;
+            case TSDB_DATA_TYPE_JSON:
+                ret += field->length * fields->size;
                 break;
         }
         ret += 1;
@@ -813,13 +815,13 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
         TAOS_MULTI_BIND *param =
             (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
                                 sizeof(TAOS_MULTI_BIND) * c);
-        Field * column = benchArrayGet(columns, c);
         char data_type;
         if (c == 0) {
             data_type = TSDB_DATA_TYPE_TIMESTAMP;
             param->buffer_length = sizeof(int64_t);
             param->buffer = pThreadInfo->bind_ts_array;
         } else {
+            Field * column = benchArrayGet(columns, c - 1);
             data_type = column->type;
             param->buffer = column->data;
             param->buffer_length = column->length;

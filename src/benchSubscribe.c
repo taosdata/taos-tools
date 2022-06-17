@@ -71,8 +71,6 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
 }
 
 static void *specifiedSubscribe(void *sarg) {
-    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
-    *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
 #ifdef LINUX
     prctl(PR_SET_NAME, "specSub");
@@ -158,15 +156,12 @@ static void *specifiedSubscribe(void *sarg) {
             }
         }
     }
-    *code = 0;
     taos_free_result(g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]);
 free_of_specified_subscribe:
-    return code;
+    return NULL;
 }
 
 static void *superSubscribe(void *sarg) {
-    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
-    *code = -1;
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS_SUB *  tsub[MAX_QUERY_SQL_COUNT] = {0};
     uint64_t    tsubSeq;
@@ -272,11 +267,9 @@ static void *superSubscribe(void *sarg) {
         tsubSeq = i - pThreadInfo->start_table_from;
         taos_unsubscribe(tsub[tsubSeq], 0);
     }
-    *code = 0;
 free_of_super_subscribe:
-
     tmfree(subSqlStr);
-    return code;
+    return NULL;
 }
 
 int subscribeTestProcess() {
@@ -362,12 +355,7 @@ int subscribeTestProcess() {
                  j++) {
                 uint64_t seq =
                     i * g_queryInfo.specifiedQueryInfo.concurrent + j;
-                void *result;
-                pthread_join(pids[seq], &result);
-                if (*(int32_t *)result) {
-                    g_fail = true;
-                }
-                tmfree(result);
+                pthread_join(pids[seq], NULL);
             }
         }
     }

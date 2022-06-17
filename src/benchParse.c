@@ -269,7 +269,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       arguments->chinese = true;
       break;
     case 'N':
-      arguments->demo_mode = false;
       stbInfo->use_metric = false;
       break;
     case 'M':
@@ -279,7 +278,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       arguments->aggr_func = true;
       break;
     case 'y':
-      arguments->answer_yes = true;
+      arguments->answer_yes = false;
       break;
     case 'R':
         stbInfo->disorderRange = atoi(arg);

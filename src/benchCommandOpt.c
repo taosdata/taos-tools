@@ -59,7 +59,7 @@ void parse_datatype(char *dataType, BArray *fields, bool isTag) {
                 sscanf(token, "%[^(](%[^)]", type, length);
                 setField(field, taos_convert_string_to_datatype(type, 0), atoi(length), name, 0,0);
             } else {
-                uint8_t type = taos_convert_string_to_datatype(dataType, 0);
+                uint8_t type = taos_convert_string_to_datatype(token, 0);
                 setField(field, type, taos_convert_type_to_length(type), name,
                          get_min_from_data_type(type), get_max_from_data_type(type));
             }
@@ -74,24 +74,29 @@ void parse_datatype(char *dataType, BArray *fields, bool isTag) {
 void init_stable() {
     SDataBase *database = benchArrayGet(g_arguments->db, 0);
     database->superTbls = benchArrayInit(1, sizeof(SSuperTable));
-    SSuperTable *stbInfo = benchArrayGet(database->superTbls, 0);
+    SSuperTable *stbInfo = benchCalloc(1, sizeof(SSuperTable), true);
     stbInfo->iface = TAOSC_IFACE;
     tstrncpy(stbInfo->stbName, "meters", TSDB_TABLE_NAME_LEN);
     stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
     stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
     stbInfo->columns = benchArrayInit(3, sizeof(Field));
-    Field* c1 = benchArrayGet(stbInfo->columns, 0);
-    Field* c2 = benchArrayGet(stbInfo->columns, 1);
-    Field* c3 = benchArrayGet(stbInfo->columns, 2);
+    Field* c1 = benchCalloc(1, sizeof(Field), true);
+    Field* c2 = benchCalloc(1, sizeof(Field), true);
+    Field* c3 = benchCalloc(1, sizeof(Field), true);
     setField(c1, TSDB_DATA_TYPE_FLOAT, sizeof(float), "current", 9, 10);
     setField(c2, TSDB_DATA_TYPE_INT, sizeof(int32_t), "voltage", 110, 119);
     setField(c3, TSDB_DATA_TYPE_FLOAT, sizeof(float), "phase", 115, 125);
+    benchArrayPush(stbInfo->columns, c1);
+    benchArrayPush(stbInfo->columns, c2);
+    benchArrayPush(stbInfo->columns, c3);
     stbInfo->tags = benchArrayInit(2, sizeof(Field));
-    Field* t1 = benchArrayGet(stbInfo->tags, 0);
-    Field* t2 = benchArrayGet(stbInfo->tags, 1);
+    Field* t1 = benchCalloc(1, sizeof(Field), true);
+    Field* t2 = benchCalloc(1, sizeof(Field), true);
     setField(t1, TSDB_DATA_TYPE_INT, sizeof(int32_t), "groupid", 1, 10);
     setField(t2, TSDB_DATA_TYPE_BINARY, 16, "location", 0, 0);
+    benchArrayPush(stbInfo->tags, t1);
+    benchArrayPush(stbInfo->tags, t2);
     stbInfo->insert_interval = 0;
     stbInfo->timestamp_step = 1;
     stbInfo->interlaceRows = 0;
@@ -109,11 +114,12 @@ void init_stable() {
     stbInfo->disorderRatio = 0;
     stbInfo->file_factor = -1;
     stbInfo->delay = -1;
+    benchArrayPush(database->superTbls, stbInfo);
 }
 
 static void init_database() {
     g_arguments->db = benchArrayInit(1, sizeof(SDataBase));
-    SDataBase *database = benchArrayGet(g_arguments->db, 0);
+    SDataBase *database = benchCalloc(1, sizeof(SDataBase), true);
     tstrncpy(database->dbName, DEFAULT_DATABASE, TSDB_DB_NAME_LEN);
     database->drop = 1;
     database->dbCfg.minRows = -1;
@@ -137,6 +143,7 @@ static void init_database() {
     database->dbCfg.strict = -1;
     database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    benchArrayPush(g_arguments->db, database);
 }
 void init_argument() {
     g_arguments = benchCalloc(1, sizeof(SArguments), true);
@@ -145,11 +152,11 @@ void init_argument() {
     } else {
         g_arguments->taosc_version = 2;
     }
-    g_arguments->pool = benchArrayInit(DEFAULT_NTHREADS, sizeof(TAOS));
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
     g_arguments->port = DEFAULT_PORT;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
+    tstrncpy(g_arguments->host, DEFAULT_HOST, HOST_NAME_MAX);
     tstrncpy(g_arguments->user, TSDB_DEFAULT_USER, NAME_MAX);
     tstrncpy(g_arguments->password, TSDB_DEFAULT_PASS, TSDB_PASS_LEN);
     g_arguments->answer_yes = 1;

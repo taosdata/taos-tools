@@ -138,8 +138,6 @@ static void *specifiedTableQuery(void *sarg) {
 }
 
 static void *superTableQuery(void *sarg) {
-    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
-    *code = -1;
     char *sqlstr = benchCalloc(1, BUFFER_SIZE, false);
     threadInfo *pThreadInfo = (threadInfo *)sarg;
 #ifdef LINUX
@@ -198,9 +196,8 @@ static void *superTableQuery(void *sarg) {
             pThreadInfo->threadID, pThreadInfo->start_table_from,
             pThreadInfo->end_table_to, (double)(et - st) / 1000.0);
     }
-    *code = 0;
     tmfree(sqlstr);
-    return code;
+    return NULL;
 }
 
 int queryTestProcess() {
@@ -448,12 +445,7 @@ int queryTestProcess() {
     }
 
     for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
-        void *result;
-        pthread_join(pidsOfSub[i], &result);
-        if (*(int32_t *)result) {
-            g_fail = true;
-        }
-        tmfree(result);
+        pthread_join(pidsOfSub[i], NULL);
         if (g_queryInfo.iface == REST_IFACE) {
             threadInfo *pThreadInfo = infosOfSub + i;
 #ifdef WINDOWS
