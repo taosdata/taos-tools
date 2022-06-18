@@ -240,6 +240,7 @@ typedef struct {
 } TableRecordInfo;
 
 #define STRICT_LEN      16 
+#define DURATION_LEN    16 
 #define KEEPLIST_LEN    48
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
@@ -250,7 +251,7 @@ typedef struct {
     char     strict[STRICT_LEN];
     int16_t  quorum;
     int16_t  days;
-    int32_t  duration;
+    char     duration[DURATION_LEN];
     char     keeplist[KEEPLIST_LEN];
     //int16_t  daysToKeep;
     //int16_t  daysToKeep1;
@@ -2278,13 +2279,10 @@ static void dumpCreateDbClause(
             sprintf(days, "DAYS %d", dbInfo->days);
         }
 
-        char duration[32] = "";
-#if 0 // TODO: support duration once SQL command ready
-        if (0 != dbInfo->duration) {
-            errorPrint("%s() LN%d, TODO: support duration later", __func__, __LINE__);
-            sprintf(duration, "DURATION %d", dbInfo->duration);
+        char duration[DURATION_LEN + 10] = "";
+        if (strlen(dbInfo->duration)) {
+            sprintf(duration, "DURATION %s", dbInfo->duration);
         }
-#endif
 
         char cache[32] = "";
         if (0 != dbInfo->cache) {
@@ -7418,14 +7416,12 @@ static int dumpOut() {
                         (char *)row[f],
                         min(KEEPLIST_LEN, length[f] + 1));
             } else if (0 == strcmp(fields[f].name, "duration")) {
-                errorPrint("%s() LN%d, TODO: support duration later", __func__, __LINE__);
-                if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                    g_dbInfos[count]->duration = *((int32_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
+                debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
+                        __func__, __LINE__, f,
+                        (char*)row[f], length[f]);
+                tstrncpy(g_dbInfos[count]->duration,
+                        (char *)row[f],
+                        min(DURATION_LEN, length[f] + 1));
             } else if ((0 == strcmp(fields[f].name, "cache"))
                         || (0 == strcmp(fields[f].name, "cache(MB)"))) {
                 g_dbInfos[count]->cache = *((int32_t *)row[f]);
