@@ -847,7 +847,7 @@ uint16_t taos_convert_type_to_length(uint8_t type) {
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
-            ret = DEFAULT_BINWIDTH;
+            ret = g_arguments->binwidth;
             break;
         default:
             errorPrint(stderr, "Invalid data type: %d\n", type);

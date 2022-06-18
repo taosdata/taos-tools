@@ -195,13 +195,13 @@ void modify_argument() {
     BArray * tags = superTable->tags;
     for (int i = 0; i < cols->size; ++i) {
         Field * col = benchArrayGet(cols, i);
-        if (col->length == 0) {
+        if (col->type == TSDB_DATA_TYPE_JSON || col->type == TSDB_DATA_TYPE_BINARY || col->type == TSDB_DATA_TYPE_NCHAR) {
             col->length = g_arguments->binwidth;
         }
     }
     for (int i = 0; i < tags->size; ++i) {
         Field * tag = benchArrayGet(tags, i);
-        if (tag->length == 0) {
+        if (tag->type == TSDB_DATA_TYPE_JSON || tag->type == TSDB_DATA_TYPE_BINARY || tag->type == TSDB_DATA_TYPE_NCHAR) {
             tag->length = g_arguments->binwidth;
         }
     }
