@@ -23,10 +23,15 @@
 #include <iconv.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+
+#include <argp.h>
+#ifdef DARWIN
+#include <ctype.h>
+#else
 #include <sys/prctl.h>
+#endif
 // #include <error.h>
 #include <inttypes.h>
-#include <argp.h>
 #include <dirent.h>
 #include <wordexp.h>
 #include <assert.h>
@@ -82,7 +87,12 @@ static void print_json_aux(json_t *element, int indent);
   } while (0)
 
 #define atomic_add_fetch_64(ptr, val) __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST)
+
+#ifdef DARWIN
+#define SET_THREAD_NAME(name)
+#else
 #define SET_THREAD_NAME(name)  do {prctl(PR_SET_NAME, (name));} while(0)
+#endif
 
 static int  converStringToReadable(char *str, int size, char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size, char *buf, int bufsize);
@@ -415,7 +425,7 @@ static struct argp_option options[] = {
             "of the row and type of table schema.", 10},
 //    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,
-        "Number of thread for dump in file. Default is 5.", 10},
+        "Number of thread for dump in file. Default is 8.", 10}, // DEFAULT_THREAD_NUM
     {"loose-mode",  'L', 0,  0,
         "Use loose mode if the table name and column name use letter and "
             "number only. Default is NOT.", 10},
@@ -488,6 +498,8 @@ static int g_numOfCores = 1;
 #define DEFAULT_START_TIME    (-INT64_MAX + 1) // start_time
 #define DEFAULT_END_TIME    (INT64_MAX)  // end_time
 
+#define DEFAULT_THREAD_NUM  8
+
 struct arguments g_args = {
     // connection option
     NULL,
@@ -521,7 +533,7 @@ struct arguments g_args = {
     false,      // loose_mode
     false,      // inspect
     // other options
-    8,          // thread_num
+    DEFAULT_THREAD_NUM, // thread_num
     0,          // abort
     NULL,       // arg_list
     0,          // arg_list_len
@@ -3800,7 +3812,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u8);
                                     *array_u8 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3840,7 +3852,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u16);
                                     *array_u16 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3880,7 +3892,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u32);
                                     *array_u32 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -3924,7 +3936,7 @@ static int dumpInAvroTbTagsImpl(
                                     assert(array_u64);
                                     *array_u64 = 0;
 
-                                    size_t array_size;
+                                    size_t array_size = 0;
                                     int64_t n64tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
@@ -4416,7 +4428,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u32);
                                 *array_u32 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4451,7 +4463,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u8);
                                 *array_u8 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4482,7 +4494,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u16);
                                 *array_u16 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int32_t n32tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4513,7 +4525,7 @@ static int dumpInAvroDataImpl(
                                 assert(array_u64);
                                 *array_u64 = 0;
 
-                                size_t array_size;
+                                size_t array_size = 0;
                                 int64_t n64tmp;
                                 avro_value_get_size(&field_value, &array_size);
 
@@ -4814,12 +4826,12 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         switch (pThreadInfo->which) {
             case WHICH_AVRO_DATA:
                 if (rows >= 0) {
-                    g_totalDumpInRecSuccess += rows;
+                    atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
                     okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
                 } else {
-                    g_totalDumpInRecFailed += rows;
+                    atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
                     errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
@@ -4828,13 +4840,13 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
             case WHICH_AVRO_TBTAGS:
                 if (rows >= 0) {
-                    g_totalDumpInStbSuccess += rows;
+                    atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
                     okPrint("[%d] %"PRId64""
                             "table(s) belong stb from the file(%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
                 } else {
-                    g_totalDumpInStbFailed += rows;
+                    atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
                     errorPrint("[%d] %"PRId64""
                             "table(s) belong stb from the file(%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows,
@@ -4844,13 +4856,13 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
             case WHICH_AVRO_NTB:
                 if (rows >= 0) {
-                    g_totalDumpInNtbSuccess += rows;
+                    atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
                     okPrint("[%d] %"PRId64""
                             "normal table(s) from (%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
                 } else {
-                    g_totalDumpInNtbFailed += rows;
+                    atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
                     errorPrint("[%d] %"PRId64""
                             "normal tables from (%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows,
@@ -6447,12 +6459,12 @@ static void* dumpInDebugWorkThreadFp(void *arg)
                 pThread->taos, fp, g_dumpInCharset,
                 sqlFile);
         if (rows > 0) {
-            pThread->recSuccess += rows;
+            atomic_add_fetch_64(&pThread->recSuccess, rows);
             okPrint("[%d] Total %"PRId64" line(s) "
                     "command be successfully dumped in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
         } else if (rows < 0) {
-            pThread->recFailed += rows;
+            atomic_add_fetch_64(&pThread->recFailed, rows);
             errorPrint("[%d] Total %"PRId64" line(s) "
                     "command failed to dump in file: %s\n",
                     pThread->threadIndex, rows, sqlFile);
@@ -6538,10 +6550,12 @@ static int dumpInDebugWorkThreads()
     }
 
     for (int t = 0; t < threads; ++t) {
-        g_totalDumpInRecSuccess += infos[t].recSuccess;
-        g_totalDumpInRecFailed += infos[t].recFailed;
-
         taos_close(infos[t].taos);
+    }
+
+    for (int t = 0; t < threads; ++t) {
+        atomic_add_fetch_64(&g_totalDumpInRecSuccess, infos[t].recSuccess);
+        atomic_add_fetch_64(&g_totalDumpInRecFailed, infos[t].recFailed);
     }
 
     free(infos);
@@ -7569,7 +7583,7 @@ int dump() {
         }
     }
 
-    if (checkParam(&g_args) < 0) {
+    if (checkParam() < 0) {
         exit(EXIT_FAILURE);
     }
 
@@ -7896,11 +7910,11 @@ int inspectAvroFile(char *filename) {
                 InspectStruct *field = (InspectStruct *)(recordSchema->fields
                         + sizeof(InspectStruct) * i);
                 avro_value_t field_value;
-                int32_t n32;
-                float f;
-                double dbl;
-                int64_t n64;
-                int b;
+                int32_t n32 = 0;
+                float f = 0.0;
+                double dbl = 0.0;
+                int64_t n64 = 0;
+                int b = 0;
                 const char *buf = NULL;
                 size_t size;
                 const void *bytesbuf = NULL;

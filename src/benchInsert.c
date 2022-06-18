@@ -413,6 +413,8 @@ int createDatabase(int db_index) {
     infoPrint(stdout, "create database: <%s>\n", command);
 #ifdef LINUX
     sleep(2);
+#elif defined(DARWIN)
+    sleep(2);
 #else
     Sleep(2);
 #endif
@@ -1373,7 +1375,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         g_memoryUsage += TSDB_TABLE_NAME_LEN;
     }
 
-    if ((stbInfo->iface != SML_IFACE || stbInfo->iface != SML_REST_IFACE) &&
+    if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) &&
         stbInfo->childTblExists) {
         TAOS *taos = select_one_from_pool(database->dbName);
         if (taos == NULL) {
