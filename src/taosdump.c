@@ -4164,7 +4164,11 @@ static int dumpInAvroDataImpl(
         char *escapedTbName = calloc(1, strlen(tbName) + 3);
         if (NULL == escapedTbName) {
             errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
-            return 0;
+            free(bindArray);
+            free(stmtBuffer);
+            free(tableDes);
+            tfree(tbName);
+            return -1;
         }
 
         sprintf(escapedTbName, "%s%s%s",
