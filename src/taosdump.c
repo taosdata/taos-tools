@@ -66,6 +66,8 @@ static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
 
 static char      g_escapeChar[2] = "`";
+char             g_client_info[32] = {0};
+int              g_majorVersion = 0;
 
 static void print_json_aux(json_t *element, int indent);
 
@@ -237,15 +239,20 @@ typedef struct {
     TableRecord tableRecord;
 } TableRecordInfo;
 
+#define STRICT_LEN      16 
+#define DURATION_LEN    16 
+#define KEEPLIST_LEN    48
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
     char     create_time[32];
     int64_t  ntables;
     int32_t  vgroups;
     int16_t  replica;
+    char     strict[STRICT_LEN];
     int16_t  quorum;
     int16_t  days;
-    char     keeplist[32];
+    char     duration[DURATION_LEN];
+    char     keeplist[KEEPLIST_LEN];
     //int16_t  daysToKeep;
     //int16_t  daysToKeep1;
     //int16_t  daysToKeep2;
@@ -258,7 +265,9 @@ typedef struct {
     int32_t  fsync;
     int8_t   comp;
     int8_t   cachelast;
+    bool     cache_model;
     char     precision[DB_PRECISION_LEN];   // time resolution
+    bool     single_stable_model;
     int8_t   update;
     char     status[DB_STATUS_LEN];
     int64_t  dumpTbCount;
@@ -509,7 +518,7 @@ struct arguments g_args = {
     // outpath and inpath
     "",
     "",
-    "./dump_result.txt", // result_file
+    "./dump_result.txt", // resultFile
     // dump unit option
     false,      // all_databases
     false,      // databases
@@ -1246,6 +1255,23 @@ static int getTableRecordInfo(
     return -1;
 }
 
+static bool isSystemDatabase(char *name, int len) {
+    if (g_majorVersion == 3) {
+        if ((strcmp(name, "information_schema") == 0)
+                || (strcmp(name, "performance_schema") == 0)) {
+            return true;
+        }
+    } else if (g_majorVersion == 2) {
+        if (strcmp(name, "log") == 0) {
+            return true;
+        }
+    } else {
+        return false;
+    }
+
+    return false;
+}
+
 static int inDatabasesSeq(
         char *name,
         int len)
@@ -1280,7 +1306,7 @@ static int getDumpDbCount()
 
     TAOS     *taos = NULL;
     TAOS_RES *result     = NULL;
-    char     *command    = "show databases";
+    char     *command    = "SHOW DATABASES";
     TAOS_ROW row;
 
     /* Connect to server */
@@ -1303,8 +1329,8 @@ static int getDumpDbCount()
 
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
-        // sys database name : 'log', but subsequent version changed to 'log'
-        if (strcmp(row[TSDB_SHOW_DB_NAME_INDEX], "log") == 0) {
+        if (isSystemDatabase(row[TSDB_SHOW_DB_NAME_INDEX],
+                    length[TSDB_SHOW_DB_NAME_INDEX])) {
             if (!g_args.allow_sys) {
                 continue;
             }
@@ -2235,6 +2261,13 @@ static void dumpCreateDbClause(
     char *pstr = sqlstr;
     pstr += sprintf(pstr, "CREATE DATABASE IF NOT EXISTS %s ", dbInfo->name);
     if (isDumpProperty) {
+        char strict[STRICT_LEN] = "";
+        if (0 == strcmp(dbInfo->strict, "strict")) {
+            sprintf(strict, "STRICT %d", 1);
+        } else if (0 == strcmp(dbInfo->strict, "no_strict")) {
+            sprintf(strict, "STRICT %d", 0);
+        }
+
         char quorum[32] = "";
         if (0 != dbInfo->quorum) {
             sprintf(quorum, "QUORUM %d", dbInfo->quorum);
@@ -2245,6 +2278,11 @@ static void dumpCreateDbClause(
             sprintf(days, "DAYS %d", dbInfo->days);
         }
 
+        char duration[DURATION_LEN + 10] = "";
+        if (strlen(dbInfo->duration)) {
+            sprintf(duration, "DURATION %s", dbInfo->duration);
+        }
+
         char cache[32] = "";
         if (0 != dbInfo->cache) {
             sprintf(cache, "CACHE %d", dbInfo->cache);
@@ -2252,23 +2290,45 @@ static void dumpCreateDbClause(
 
         char blocks[32] = "";
         if (0 != dbInfo->blocks) {
-            sprintf(cache, "BLOCKS %d", dbInfo->blocks);
+            sprintf(blocks, "BLOCKS %d", dbInfo->blocks);
         }
 
+        char cachelast[32] = {0};
+        if (0 != dbInfo->cachelast) {
+            sprintf(cachelast, "CACHELAST %d", dbInfo->cachelast);
+        }
+
+        char update[32] = "";
+        if (0 != dbInfo->update) {
+            sprintf(update, "UPDATE %d", dbInfo->update);
+        }
+
+        char single_stable_model[32] = {0};
+        if (3 == g_majorVersion) {
+            sprintf(cache, "SINGLE_STABLE_MODEL %d",
+                    dbInfo->single_stable_model?1:0);
+        }
 
         pstr += sprintf(pstr,
-                "REPLICA %d %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d CACHELAST %d COMP %d PRECISION '%s' UPDATE %d",
-                dbInfo->replica, quorum, days,
+                "REPLICA %d %s %s %s KEEP %s %s %s MINROWS %d MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s",
+                dbInfo->replica,
+                (g_majorVersion < 3)?"":strict,
+                (g_majorVersion < 3)?quorum:"",
+                (g_majorVersion < 3)?days:duration,
                 dbInfo->keeplist,
-                cache,
-                blocks, dbInfo->minrows, dbInfo->maxrows,
+                (g_majorVersion < 3)?cache:"",
+                (g_majorVersion < 3)?blocks:"",
+                dbInfo->minrows, dbInfo->maxrows,
                 dbInfo->fsync,
-                dbInfo->cachelast,
-                dbInfo->comp, dbInfo->precision, dbInfo->update);
+                (g_majorVersion < 3)?cachelast:"",
+                dbInfo->comp,
+                dbInfo->precision,
+                single_stable_model,
+                (g_majorVersion < 3)?update:"");
     }
 
     pstr += sprintf(pstr, ";");
-    debugPrint("%s() LN%d db clause: %s\n", __func__, __LINE__, pstr);
+    debugPrint("%s() LN%d db clause: %s\n", __func__, __LINE__, sqlstr);
     fprintf(fp, "%s\n\n", sqlstr);
 }
 
@@ -6308,25 +6368,28 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
 
     int32_t code = taos_errno(res);
     if (code != 0) {
-        errorPrint("failed to run command %s, reason: %s\n",
+        warnPrint("failed to run command %s, reason: %s. Will use default settings\n",
                 sqlstr, taos_errstr(res));
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", taos_errstr(res));
+        fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
+        snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
+        fwrite(buffer, strlen(buffer), 1, fp);
         taos_free_result(res);
-        return -1;
-    }
+    } else {
+        TAOS_ROW row;
 
-    TAOS_ROW row;
-
-    while ((row = taos_fetch_row(res)) != NULL) {
-        debugPrint("row[0]=%s, row[1]=%s\n",
-                (char *)row[0], (char *)row[1]);
-        if (0 == strcmp((char *)row[0], "charset")) {
-            snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
-            fwrite(buffer, strlen(buffer), 1, fp);
+        while ((row = taos_fetch_row(res)) != NULL) {
+            debugPrint("row[0]=%s, row[1]=%s\n",
+                    (char *)row[0], (char *)row[1]);
+            if (0 == strcmp((char *)row[0], "charset")) {
+                snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
+                fwrite(buffer, strlen(buffer), 1, fp);
+            }
         }
+        taos_free_result(res);
     }
 
     ret = ferror(fp);
-    taos_free_result(res);
 
     return ret;
 }
@@ -7264,8 +7327,9 @@ static int dumpOut() {
 
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
-        if (strncasecmp(row[TSDB_SHOW_DB_NAME_INDEX], "log",
-                        length[TSDB_SHOW_DB_NAME_INDEX]) == 0) {
+        if (isSystemDatabase(
+                    row[TSDB_SHOW_DB_NAME_INDEX],
+                    length[TSDB_SHOW_DB_NAME_INDEX])) {
             if (!g_args.allow_sys) {
                 continue;
             }
@@ -7328,6 +7392,13 @@ static int dumpOut() {
                             __func__, __LINE__, fields[f].type);
                     goto _exit_failure;
                 }
+            } else if (0 == strcmp(fields[f].name, "strict")) {
+                debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                        __func__, __LINE__, f,
+                        (char*)row[f], length[f]);
+                tstrncpy(g_dbInfos[count]->strict,
+                        (char *)row[f],
+                        min(STRICT_LEN, length[f] + 1));
             } else if (0 == strcmp(fields[f].name, "quorum")) {
                 g_dbInfos[count]->quorum =
                     *((int16_t *)row[f]);
@@ -7340,7 +7411,14 @@ static int dumpOut() {
                         (char*)row[f], length[f]);
                 tstrncpy(g_dbInfos[count]->keeplist,
                         (char *)row[f],
-                        min(32, length[f] + 1));
+                        min(KEEPLIST_LEN, length[f] + 1));
+            } else if (0 == strcmp(fields[f].name, "duration")) {
+                debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
+                        __func__, __LINE__, f,
+                        (char*)row[f], length[f]);
+                tstrncpy(g_dbInfos[count]->duration,
+                        (char *)row[f],
+                        min(DURATION_LEN, length[f] + 1));
             } else if ((0 == strcmp(fields[f].name, "cache"))
                         || (0 == strcmp(fields[f].name, "cache(MB)"))) {
                 g_dbInfos[count]->cache = *((int32_t *)row[f]);
@@ -7391,6 +7469,22 @@ static int dumpOut() {
             } else if (0 == strcmp(fields[f].name, "cachelast")) {
                 if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
                     g_dbInfos[count]->cachelast = (int8_t)(*((int8_t *)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
+            } else if (0 == strcmp(fields[f].name, "cache_model")) {
+                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                    g_dbInfos[count]->cache_model = (int8_t)(*((int8_t*)row[f]));
+                } else {
+                    errorPrint("%s() LN%d, unexpected type: %d\n",
+                            __func__, __LINE__, fields[f].type);
+                    goto _exit_failure;
+                }
+            } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
+                if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
+                    g_dbInfos[count]->single_stable_model = (bool)(*((bool*)row[f]));
                 } else {
                     errorPrint("%s() LN%d, unexpected type: %d\n",
                             __func__, __LINE__, fields[f].type);
@@ -8086,6 +8180,10 @@ int main(int argc, char *argv[])
     if (g_args.abort) {
         abort();
     }
+
+    sprintf(g_client_info, "%s", taos_get_client_info());
+    g_majorVersion = atoi(g_client_info);
+    debugPrint("Client info: %s, major version: %d\n", g_client_info, g_majorVersion);
 
     if (g_args.inspect) {
         ret = inspect(argc, argv);
