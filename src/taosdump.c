@@ -2578,19 +2578,19 @@ static int convertTbDesToJsonImplMore(
 
         case TSDB_DATA_TYPE_TINYINT:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_SMALLINT:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\", \"type\":\"%s\"",
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "int");
             break;
 
         case TSDB_DATA_TYPE_INT:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\", \"type\":\"%s\"",
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "int");
             break;
 
@@ -3267,7 +3267,7 @@ static int64_t writeResultToAvro(
         fields = taos_fetch_fields(res);
         assert(fields);
 
-        int countInBatch = 0;
+        int32_t countInBatch = 0;
         TAOS_ROW row;
 
         while(NULL != (row = taos_fetch_row(res))) {
@@ -3289,7 +3289,7 @@ static int64_t writeResultToAvro(
                 avro_value_set_string(&branch, tbName);
             }
 
-            for (int col = 0; col < numFields; col++) {
+            for (int32_t col = 0; col < numFields; col++) {
                 char tmpBuf[TSDB_COL_NAME_LEN] = {0};
 
                 if (0 == col) {
@@ -3339,17 +3339,21 @@ static int64_t writeResultToAvro(
 
                     case TSDB_DATA_TYPE_SMALLINT:
                         if (NULL == row[col]) {
-                            avro_value_set_int(&value, TSDB_DATA_SMALLINT_NULL);
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_null(&branch);
                         } else {
-                            avro_value_set_int(&value, *((int16_t *)row[col]));
+                            avro_value_set_branch(&value, 1, &branch);
+                            avro_value_set_int(&branch, *((int16_t *)row[col]));
                         }
                         break;
 
                     case TSDB_DATA_TYPE_INT:
                         if (NULL == row[col]) {
-                            avro_value_set_int(&value, TSDB_DATA_INT_NULL);
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_null(&branch);
                         } else {
-                            avro_value_set_int(&value, *((int32_t *)row[col]));
+                            avro_value_set_branch(&value, 1, &branch);
+                            avro_value_set_int(&branch, *((int32_t *)row[col]));
                         }
                         break;
 
@@ -3679,50 +3683,49 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_SMALLINT:
                             {
-                                int32_t *n16 = malloc(sizeof(int32_t));
-                                assert(n16);
+                                avro_value_t smallint_branch;
+                                avro_value_get_current_branch(&field_value, &smallint_branch);
 
-                                avro_value_get_int(&field_value, n16);
-
-                                verbosePrint("%s() LN%d: *n16=%d null=%d\n",
-                                        __func__, __LINE__, (int16_t)*n16,
-                                        (int16_t)TSDB_DATA_SMALLINT_NULL);
-
-                                if ((int16_t)TSDB_DATA_SMALLINT_NULL == (int16_t)*n16) {
+                                if (0 == avro_value_get_null(&smallint_branch)) {
                                     debugPrint2("%s | ", "null");
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
+                                    int32_t *n16 = malloc(sizeof(int32_t));
+                                    assert(n16);
+
+                                    avro_value_get_int(&smallint_branch, n16);
+
                                     debugPrint2("%d | ", *n16);
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "%d,", *n16);
+                                    free(n16);
                                 }
-                                free(n16);
                             }
                             break;
 
                         case TSDB_DATA_TYPE_INT:
                             {
-                                int32_t *n32 = malloc(sizeof(int32_t));
-                                assert(n32);
+                                avro_value_t int_branch;
+                                avro_value_get_current_branch(&field_value, &int_branch);
 
-                                avro_value_get_int(&field_value, n32);
-
-                                verbosePrint("%s() LN%d: *n32=%d null=%d\n",
-                                        __func__, __LINE__, *n32,
-                                        (int32_t)TSDB_DATA_INT_NULL);
-
-                                if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
+                                if (0 == avro_value_get_null(&int_branch)) {
                                     debugPrint2("%s | ", "null");
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
+                                    int32_t *n32 = malloc(sizeof(int32_t));
+                                    assert(n32);
+
+                                    avro_value_get_int(&int_branch, n32);
+
+
                                     debugPrint2("%d | ", *n32);
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len,
                                             "%d,", *n32);
+                                    free(n32);
                                 }
-                                free(n32);
                             }
                             break;
 
@@ -4290,65 +4293,66 @@ static int dumpInAvroDataImpl(
                 switch(tableDes->cols[i].type) {
                     case TSDB_DATA_TYPE_INT:
                         {
-                            int32_t *n32 = malloc(sizeof(int32_t));
-                            assert(n32);
-
-                            avro_value_get_int(&field_value, n32);
-
-                            if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
-                                debugPrint2("%s | ", "null");
+                            avro_value_t int_branch;
+                            avro_value_get_current_branch(&field_value, &int_branch);
+                            if (0 == avro_value_get_null(&int_branch)) {
                                 bind->is_null = &is_null;
-                                free(n32);
+                                debugPrint2("%s | ", "null");
                             } else {
-                                debugPrint2("%d | ", *n32);
-                                bind->buffer_length = sizeof(int32_t);
-                                bind->buffer = n32;
+                                int32_t *n32 = malloc(sizeof(int32_t));
+                                assert(n32);
+
+                                avro_value_get_int(&int_branch, n32);
+
+                                if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
+                                    debugPrint2("%s | ", "null");
+                                    bind->is_null = &is_null;
+                                    free(n32);
+                                } else {
+                                    debugPrint2("%d | ", *n32);
+                                    bind->buffer_length = sizeof(int32_t);
+                                    bind->buffer = n32;
+                                }
                             }
                         }
                         break;
 
                     case TSDB_DATA_TYPE_TINYINT:
                         {
-                            int32_t *n8 = malloc(sizeof(int32_t));
-                            assert(n8);
-
-                            avro_value_get_int(&field_value, n8);
-
-                            verbosePrint("%s() LN%d: *n8=%d null=%d\n",
-                                    __func__, __LINE__, *n8,
-                                    (int8_t)TSDB_DATA_TINYINT_NULL);
-
-                            if ((int8_t)TSDB_DATA_TINYINT_NULL == *n8) {
-                                debugPrint2("%s | ", "null");
+                            avro_value_t tinyint_branch;
+                            avro_value_get_current_branch(&field_value, &tinyint_branch);
+                            if (0 == avro_value_get_null(&tinyint_branch)) {
                                 bind->is_null = &is_null;
-                                free(n8);
+                                debugPrint2("%s | ", "null");
                             } else {
+                                int32_t *n8 = malloc(sizeof(int32_t));
+                                assert(n8);
+
+                                avro_value_get_int(&tinyint_branch, n8);
+
                                 debugPrint2("%d | ", *n8);
                                 bind->buffer_length = sizeof(int8_t);
-                                bind->buffer = (int8_t *)n8;
+                                bind->buffer = n8;
                             }
                         }
                         break;
 
                     case TSDB_DATA_TYPE_SMALLINT:
                         {
-                            int32_t *n16 = malloc(sizeof(int32_t));
-                            assert(n16);
-
-                            avro_value_get_int(&field_value, n16);
-
-                            verbosePrint("%s() LN%d: *n16=%d null=%d\n",
-                                    __func__, __LINE__, *n16,
-                                    (int16_t)TSDB_DATA_SMALLINT_NULL);
-
-                            if ((int16_t)TSDB_DATA_SMALLINT_NULL == *n16) {
-                                debugPrint2("%s | ", "null");
+                            avro_value_t smallint_branch;
+                            avro_value_get_current_branch(&field_value, &smallint_branch);
+                            if (0 == avro_value_get_null(&smallint_branch)) {
                                 bind->is_null = &is_null;
-                                free(n16);
+                                debugPrint2("%s | ", "null");
                             } else {
+                                int32_t *n16 = malloc(sizeof(int32_t));
+                                assert(n16);
+
+                                avro_value_get_int(&smallint_branch, n16);
+
                                 debugPrint2("%d | ", *n16);
                                 bind->buffer_length = sizeof(int16_t);
-                                bind->buffer = (int32_t*)n16;
+                                bind->buffer = n16;
                             }
                         }
                         break;
@@ -5569,9 +5573,11 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    avro_value_set_int(&value, TSDB_DATA_TINYINT_NULL);
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
-                    avro_value_set_int(&value,
+                    avro_value_set_branch(&value, 1, &branch);
+                    avro_value_set_int(&branch,
                             (int8_t)atoi((const char *)
                                 subTableDes->cols[subTableDes->columns
                                 + tag].value));
@@ -5582,9 +5588,11 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    avro_value_set_int(&value, TSDB_DATA_SMALLINT_NULL);
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
-                    avro_value_set_int(&value,
+                    avro_value_set_branch(&value, 1, &branch);
+                    avro_value_set_int(&branch,
                             (int16_t)atoi((const char *)
                                 subTableDes->cols[subTableDes->columns
                                 + tag].value));
@@ -5595,13 +5603,14 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    avro_value_set_int(&value, TSDB_DATA_INT_NULL);
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
-                    avro_value_set_int(&value,
+                    avro_value_set_branch(&value, 1, &branch);
+                    avro_value_set_int(&branch,
                             (int32_t)atoi((const char *)
                                 subTableDes->cols[subTableDes->columns
                                 + tag].value));
-
                 }
                 break;
 
@@ -7241,12 +7250,12 @@ static void checkOutDirAndWarn(char *outpath)
                 || (0 != checkFileExistsExt(outpath, "avro-ntb"))
                 || (0 != checkFileExistsExt(outpath, "avro"))) {
         if (strlen(outpath)) {
-            warnPrint("Found data file(s) exists in %s!"
-                    " Continue to dump out will overwrite exist file(s)!\n",
+            errorPrint("Found data file(s) exists in %s!"
+                    " Please use other place to dump out!\n",
                     outpath);
         } else {
-            warnPrint("Found data file(s) exists in %s!"
-                    " Continue to dump out will overwrite exist file(s)!\n",
+            errorPrint("Found data file(s) exists in %s!"
+                    " Please use other place to dump out!\n",
                     "current path");
         }
         exit(-1);
