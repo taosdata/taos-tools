@@ -3331,9 +3331,11 @@ static int64_t writeResultToAvro(
 
                     case TSDB_DATA_TYPE_TINYINT:
                         if (NULL == row[col]) {
-                            avro_value_set_int(&value, TSDB_DATA_TINYINT_NULL);
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_null(&branch);
                         } else {
-                            avro_value_set_int(&value, *((int8_t *)row[col]));
+                            avro_value_set_branch(&value, 1, &branch);
+                            avro_value_set_int(&branch, *((int8_t *)row[col]));
                         }
                         break;
 
@@ -3659,25 +3661,23 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_TINYINT:
                             {
-                                int32_t *n8 = malloc(sizeof(int32_t));
-                                assert(n8);
+                                avro_value_t tinyint_branch;
+                                avro_value_get_current_branch(&field_value, &tinyint_branch);
 
-                                avro_value_get_int(&field_value, n8);
-
-                                verbosePrint("%s() LN%d: *n8=%d null=%d\n",
-                                        __func__, __LINE__, (int8_t)*n8,
-                                        (int8_t)TSDB_DATA_TINYINT_NULL);
-
-                                if ((int8_t)TSDB_DATA_TINYINT_NULL == (int8_t)*n8) {
+                                if (0 == avro_value_get_null(&tinyint_branch)) {
                                     debugPrint2("%s | ", "null");
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
+                                    int32_t *n8 = malloc(sizeof(int32_t));
+                                    assert(n8);
+
+                                    avro_value_get_int(&tinyint_branch, n8);
                                     debugPrint2("%d | ", *n8);
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "%d,", *n8);
+                                    free(n8);
                                 }
-                                free(n8);
                             }
                             break;
 
