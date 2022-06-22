@@ -1986,8 +1986,27 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                                                             "null")) {
                                                     field->nullable = true;
                                                 } else {
-                                                    field->type =
-                                                        typeStrToType(arr_type_ele_value_str);
+                                                    if (0 == strcmp(arr_type_ele_value_str,
+                                                                "array")) {
+                                                        field->is_array = true;
+                                                    } else {
+                                                        field->type =
+                                                            typeStrToType(arr_type_ele_value_str);
+                                                    }
+                                                }
+                                            } else if (JSON_OBJECT == json_typeof(arr_type_ele_value)) {
+                                                const char *arr_type_ele_value_key;
+                                                json_t *arr_type_ele_value_value;
+
+                                                json_object_foreach(arr_type_ele_value,
+                                                        arr_type_ele_value_key,
+                                                        arr_type_ele_value_value) {
+                                                    if (JSON_STRING == json_typeof(arr_type_ele_value_value)) {
+                                                        const char *arr_type_ele_value_value_str =
+                                                            json_string_value(arr_type_ele_value_value);
+                                                        field->array_type = typeStrToType(
+                                                                arr_type_ele_value_value_str);
+                                                    }
                                                 }
                                             }
                                         }
@@ -2632,7 +2651,7 @@ static int convertTbDesToJsonImplMore(
 
         case TSDB_DATA_TYPE_UINT:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\",\"type\":{\"type\":\"array\",\"items\":\"%s\"}",
+                    "{\"name\":\"%s%d\",\"type\":[{\"type\":\"null\"},{\"type\":\"array\",\"items\":\"%s\"}]",
                     colOrTag, i-adjust, "int");
             break;
 
@@ -2779,7 +2798,7 @@ static int convertTbTagsDesToJsonLoose(
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
             + 10                                /* fields section */
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
-            + (TSDB_COL_NAME_LEN + 50) * tableDes->tags + 4);    /* fields section */
+            + (TSDB_COL_NAME_LEN + 70) * tableDes->tags + 4);    /* fields section */
 
     if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
@@ -2844,7 +2863,7 @@ static int convertTbTagsDesToJson(
             + 10                                /* fields section */
             + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
             + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
-            + (TSDB_COL_NAME_LEN + 50) * tableDes->tags + 4);    /* fields section */
+            + (TSDB_COL_NAME_LEN + 70) * tableDes->tags + 4);    /* fields section */
     if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
@@ -2922,7 +2941,7 @@ static int convertTbDesToJsonLoose(
             + 17                                /* type: record */
             + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
             + 10                                /* fields section */
-            + (TSDB_COL_NAME_LEN + 50) * colCount + 4);    /* fields section */
+            + (TSDB_COL_NAME_LEN + 70) * colCount + 4);    /* fields section */
     if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
@@ -2976,7 +2995,7 @@ static int convertTbDesToJson(
             + 17                                /* type: record */
             + 11 + TSDB_TABLE_NAME_LEN          /* tbname section */
             + 10                                /* fields section */
-            + (TSDB_COL_NAME_LEN + 50) * colCount + 4);    /* fields section */
+            + (TSDB_COL_NAME_LEN + 70) * colCount + 4);    /* fields section */
     if (NULL == *jsonSchema) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
@@ -3397,19 +3416,21 @@ static int64_t writeResultToAvro(
 
                     case TSDB_DATA_TYPE_UINT:
                         if (NULL == row[col]) {
-                            u32Temp = TSDB_DATA_UINT_NULL;
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_null(&branch);
                         } else {
+                            avro_value_set_branch(&value, 1, &branch);
                             u32Temp = *((uint32_t *)row[col]);
-                        }
 
-                        int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
-                        avro_value_append(&value, &firsthalf, NULL);
-                        avro_value_set_int(&firsthalf, n32tmp);
-                        debugPrint("%s() LN%d, first half is: %d, ",
-                                __func__, __LINE__, n32tmp);
-                        avro_value_append(&value, &secondhalf, NULL);
-                        avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
-                        debugPrint("second half is: %d\n", INT_MAX);
+                            int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
+                            avro_value_append(&branch, &firsthalf, NULL);
+                            avro_value_set_int(&firsthalf, n32tmp);
+                            debugPrint("%s() LN%d, first half is: %d, ",
+                                    __func__, __LINE__, n32tmp);
+                            avro_value_append(&branch, &secondhalf, NULL);
+                            avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
+                            debugPrint("second half is: %d\n", INT_MAX);
+                        }
 
                         break;
 
@@ -3963,44 +3984,47 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_UINT:
                             {
-                                if (TSDB_DATA_TYPE_INT == field->array_type) {
-                                    uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                                    assert(array_u32);
-                                    *array_u32 = 0;
+                                avro_value_t uint_branch;
+                                avro_value_get_current_branch(&field_value, &uint_branch);
 
-                                    size_t array_size = 0;
-                                    int32_t n32tmp;
-                                    avro_value_get_size(&field_value, &array_size);
-
-                                    debugPrint("%s() LN%d, array_size: %d\n",
-                                            __func__, __LINE__, (int)array_size);
-                                    for (size_t item = 0; item < array_size; item ++) {
-                                        avro_value_t item_value;
-                                        avro_value_get_by_index(&field_value, item,
-                                                &item_value, NULL);
-                                        avro_value_get_int(&item_value, &n32tmp);
-                                        *array_u32 += n32tmp;
-                                        debugPrint("%s() LN%d, array index: %d, n32tmp: %d, array_u32: %u\n",
-                                                __func__, __LINE__,
-                                                (int)item, n32tmp,
-                                                (uint32_t)*array_u32);
-                                    }
-
-                                    if (TSDB_DATA_UINT_NULL == *array_u32) {
-                                        debugPrint2("%s |", "null");
-                                        curr_sqlstr_len += sprintf(
+                                if (0 == avro_value_get_null(&uint_branch)) {
+                                    debugPrint2("%s | ", "null");
+                                    curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
-                                    } else {
+                                } else {
+                                    if (TSDB_DATA_TYPE_INT == field->array_type) {
+                                        uint32_t *array_u32 = malloc(sizeof(uint32_t));
+                                        assert(array_u32);
+                                        *array_u32 = 0;
+
+                                        size_t array_size = 0;
+                                        int32_t n32tmp;
+                                        avro_value_get_size(&uint_branch, &array_size);
+
+                                        debugPrint("%s() LN%d, array_size: %d\n",
+                                                __func__, __LINE__, (int)array_size);
+                                        for (size_t item = 0; item < array_size; item ++) {
+                                            avro_value_t item_value;
+                                            avro_value_get_by_index(&uint_branch, item,
+                                                    &item_value, NULL);
+                                            avro_value_get_int(&item_value, &n32tmp);
+                                            *array_u32 += n32tmp;
+                                            debugPrint("%s() LN%d, array index: %d, n32tmp: %d, array_u32: %u\n",
+                                                    __func__, __LINE__,
+                                                    (int)item, n32tmp,
+                                                    (uint32_t)*array_u32);
+                                        }
+
                                         debugPrint2("%u | ", (uint32_t)*array_u32);
                                         curr_sqlstr_len += sprintf(
-                                            sqlstr+curr_sqlstr_len, "%u,",
-                                            (uint32_t)*array_u32);
+                                                sqlstr+curr_sqlstr_len, "%u,",
+                                                (uint32_t)*array_u32);
+                                        free(array_u32);
+                                    } else {
+                                        errorPrint("%s() LN%d mix type %s with int array",
+                                                __func__, __LINE__,
+                                                typeToStr(field->array_type));
                                     }
-                                    free(array_u32);
-                                } else {
-                                    errorPrint("%s() LN%d mix type %s with int array",
-                                            __func__, __LINE__,
-                                            typeToStr(field->array_type));
                                 }
                             }
                             break;
@@ -4527,35 +4551,43 @@ static int dumpInAvroDataImpl(
 
                     case TSDB_DATA_TYPE_UINT:
                         {
-                            if (TSDB_DATA_TYPE_INT == field->array_type) {
-                                uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                                assert(array_u32);
-                                *array_u32 = 0;
+                            avro_value_t uint_branch;
+                            avro_value_get_current_branch(&field_value, &uint_branch);
 
-                                size_t array_size = 0;
-                                int32_t n32tmp;
-                                avro_value_get_size(&field_value, &array_size);
-
-                                debugPrint("%s() LN%d, array_size: %d\n",
-                                        __func__, __LINE__, (int)array_size);
-                                for (size_t item = 0; item < array_size; item ++) {
-                                    avro_value_t item_value;
-                                    avro_value_get_by_index(&field_value, item,
-                                            &item_value, NULL);
-                                    avro_value_get_int(&item_value, &n32tmp);
-                                    *array_u32 += n32tmp;
-                                    debugPrint("%s() LN%d, array index: %d, n32tmp: %d, array_u32: %u\n",
-                                            __func__, __LINE__,
-                                            (int)item, n32tmp,
-                                            (uint32_t)*array_u32);
-                                }
-                                debugPrint2("%u | ", (uint32_t)*array_u32);
-                                bind->buffer_length = sizeof(uint32_t);
-                                bind->buffer = array_u32;
+                            if (0 == avro_value_get_null(&uint_branch)) {
+                                bind->is_null = &is_null;
+                                debugPrint2("%s | ", "null");
                             } else {
-                                errorPrint("%s() LN%d mix type %s with int array",
-                                        __func__, __LINE__,
-                                        typeToStr(field->array_type));
+                                if (TSDB_DATA_TYPE_INT == field->array_type) {
+                                    uint32_t *array_u32 = malloc(sizeof(uint32_t));
+                                    assert(array_u32);
+                                    *array_u32 = 0;
+
+                                    size_t array_size = 0;
+                                    int32_t n32tmp;
+                                    avro_value_get_size(&uint_branch, &array_size);
+
+                                    debugPrint("%s() LN%d, array_size: %d\n",
+                                            __func__, __LINE__, (int)array_size);
+                                    for (size_t item = 0; item < array_size; item ++) {
+                                        avro_value_t item_value;
+                                        avro_value_get_by_index(&uint_branch, item,
+                                                &item_value, NULL);
+                                        avro_value_get_int(&item_value, &n32tmp);
+                                        *array_u32 += n32tmp;
+                                        debugPrint("%s() LN%d, array index: %d, n32tmp: %d, array_u32: %u\n",
+                                                __func__, __LINE__,
+                                                (int)item, n32tmp,
+                                                (uint32_t)*array_u32);
+                                    }
+                                    debugPrint2("%u | ", (uint32_t)*array_u32);
+                                    bind->buffer_length = sizeof(uint32_t);
+                                    bind->buffer = array_u32;
+                                } else {
+                                    errorPrint("%s() LN%d mix type %s with int array",
+                                            __func__, __LINE__,
+                                            typeToStr(field->array_type));
+                                }
                             }
                         }
                         break;
@@ -5815,20 +5847,22 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    u32Temp = TSDB_DATA_UINT_NULL;
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
+                    avro_value_set_branch(&value, 1, &branch);
                     u32Temp = (int32_t)atoi((const char *)
                             subTableDes->cols[subTableDes->columns + tag].value);
-                }
 
-                int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
-                avro_value_append(&value, &firsthalf, NULL);
-                avro_value_set_int(&firsthalf, n32tmp);
-                debugPrint("%s() LN%d, first half is: %d, ",
-                        __func__, __LINE__, n32tmp);
-                avro_value_append(&value, &secondhalf, NULL);
-                avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
-                debugPrint("second half is: %d\n", INT_MAX);
+                    int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
+                    avro_value_append(&branch, &firsthalf, NULL);
+                    avro_value_set_int(&firsthalf, n32tmp);
+                    debugPrint("%s() LN%d, first half is: %d, ",
+                            __func__, __LINE__, n32tmp);
+                    avro_value_append(&branch, &secondhalf, NULL);
+                    avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
+                    debugPrint("second half is: %d\n", INT_MAX);
+                }
 
                 break;
 
@@ -7924,10 +7958,31 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
                                                 if(0 == strcmp(arr_type_ele_value_str,
                                                             "null")) {
                                                     field->nullable = true;
+                                                } else if(0 == strcmp(arr_type_ele_value_str,
+                                                            "array")) {
+                                                    field->is_array = true;
+                                                    tstrncpy(field->type,
+                                                            arr_type_ele_value_str,
+                                                            TYPE_NAME_LEN-1);
                                                 } else {
                                                     tstrncpy(field->type,
                                                             arr_type_ele_value_str,
                                                             TYPE_NAME_LEN-1);
+                                                }
+                                            } else if (JSON_OBJECT == json_typeof(arr_type_ele_value)) {
+                                                const char *arr_type_ele_value_key;
+                                                json_t *arr_type_ele_value_value;
+
+                                                json_object_foreach(arr_type_ele_value,
+                                                        arr_type_ele_value_key,
+                                                        arr_type_ele_value_value) {
+                                                    if (JSON_STRING == json_typeof(arr_type_ele_value_value)) {
+                                                        const char *arr_type_ele_value_value_str =
+                                                            json_string_value(arr_type_ele_value_value);
+                                                        tstrncpy(field->array_type,
+                                                                arr_type_ele_value_value_str,
+                                                                TYPE_NAME_LEN-1);
+                                                    }
                                                 }
                                             }
                                         }
