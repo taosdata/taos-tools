@@ -2688,7 +2688,7 @@ static int convertTbDesToJsonImpl(
             pstr += sprintf(pstr,
                     "{\"name\":\"%s\",\"type\":%s",
                     isColumn?"ts":"tbname",
-                    isColumn?"\"long\"":"[\"null\",\"string\"]");
+                    isColumn?"[\"null\",\"long\"]":"[\"null\",\"string\"]");
         } else {
             int pos = i;
             if (g_args.loose_mode) {
@@ -8091,8 +8091,20 @@ int inspectAvroFile(char *filename) {
                         avro_value_get_double(&field_value, &dbl);
                         fprintf(stdout, "%f |\t", dbl);
                     } else if (0 == strcmp(field->type, "long")) {
-                        avro_value_get_long(&field_value, &n64);
-                        fprintf(stdout, "%"PRId64" |\t", n64);
+                        if (field->nullable) {
+                            avro_value_t branch;
+                            avro_value_get_current_branch(&field_value,
+                                    &branch);
+                            if (0 == avro_value_get_null(&branch)) {
+                                fprintf(stdout, "%s |\t", "null");
+                            } else {
+                                avro_value_get_long(&branch, &n64);
+                                fprintf(stdout, "%"PRId64" |\t", n64);
+                            }
+                        } else {
+                            avro_value_get_long(&field_value, &n64);
+                            fprintf(stdout, "%"PRId64" |\t", n64);
+                        }
                     } else if (0 == strcmp(field->type, "string")) {
                         if (field->nullable) {
                             avro_value_t branch;
