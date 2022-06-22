@@ -2596,7 +2596,7 @@ static int convertTbDesToJsonImplMore(
 
         case TSDB_DATA_TYPE_BIGINT:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "long");
             break;
 
@@ -2614,7 +2614,7 @@ static int convertTbDesToJsonImplMore(
 
         case TSDB_DATA_TYPE_TIMESTAMP:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "long");
             break;
 
@@ -3433,9 +3433,11 @@ static int64_t writeResultToAvro(
 
                     case TSDB_DATA_TYPE_BIGINT:
                         if (NULL == row[col]) {
-                            avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_null(&branch);
                         } else {
-                            avro_value_set_long(&value, *((int64_t *)row[col]));
+                            avro_value_set_branch(&value, 1, &branch);
+                            avro_value_set_long(&branch, *((int64_t *)row[col]));
                         }
                         break;
 
@@ -3483,9 +3485,11 @@ static int64_t writeResultToAvro(
 
                     case TSDB_DATA_TYPE_TIMESTAMP:
                         if (NULL == row[col]) {
-                            avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_null(&branch);
                         } else {
-                            avro_value_set_long(&value, *((int64_t *)row[col]));
+                            avro_value_set_branch(&value, 1, &branch);
+                            avro_value_set_long(&branch, *((int64_t *)row[col]));
                         }
                         break;
 
@@ -3731,26 +3735,28 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_BIGINT:
                             {
-                                int64_t *n64 = malloc(sizeof(int64_t));
-                                assert(n64);
-
-                                avro_value_get_long(&field_value, n64);
-
-                                verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
-                                        __func__, __LINE__, *n64,
-                                        (int64_t)TSDB_DATA_BIGINT_NULL);
-
-                                if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                                avro_value_t bigint_branch;
+                                avro_value_get_current_branch(&field_value, &bigint_branch);
+                                if (0 == avro_value_get_null(&bigint_branch)) {
                                     debugPrint2("%s | ", "null");
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
-                                    debugPrint2("%"PRId64" | ", *n64);
-                                    curr_sqlstr_len += sprintf(
-                                            sqlstr+curr_sqlstr_len,
-                                            "%"PRId64",", *n64);
+
+                                    int64_t *n64 = malloc(sizeof(int64_t));
+                                    assert(n64);
+
+                                    avro_value_get_long(&bigint_branch, n64);
+
+                                    if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                                    } else {
+                                        debugPrint2("%"PRId64" | ", *n64);
+                                        curr_sqlstr_len += sprintf(
+                                                sqlstr+curr_sqlstr_len,
+                                                "%"PRId64",", *n64);
+                                    }
+                                    free(n64);
                                 }
-                                free(n64);
                             }
                             break;
 
@@ -3845,26 +3851,25 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_TIMESTAMP:
                             {
-                                int64_t *n64 = malloc(sizeof(int64_t));
-                                assert(n64);
-
-                                avro_value_get_long(&field_value, n64);
-
-                                verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
-                                        __func__, __LINE__, *n64,
-                                        (int64_t)TSDB_DATA_BIGINT_NULL);
-
-                                if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                                avro_value_t ts_branch;
+                                avro_value_get_current_branch(&field_value, &ts_branch);
+                                if (0 == avro_value_get_null(&ts_branch)) {
                                     debugPrint2("%s | ", "null");
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
+
+                                    int64_t *n64 = malloc(sizeof(int64_t));
+                                    assert(n64);
+
+                                    avro_value_get_long(&ts_branch, n64);
+
                                     debugPrint2("%"PRId64" | ", *n64);
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len,
                                             "%"PRId64",", *n64);
+                                    free(n64);
                                 }
-                                free(n64);
                             }
                             break;
 
@@ -4359,20 +4364,22 @@ static int dumpInAvroDataImpl(
 
                     case TSDB_DATA_TYPE_BIGINT:
                         {
-                            int64_t *n64 = malloc(sizeof(int64_t));
-                            assert(n64);
-
-                            avro_value_get_long(&field_value, n64);
-
-                            verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
-                                    __func__, __LINE__, *n64,
-                                    (int64_t)TSDB_DATA_BIGINT_NULL);
-
-                            if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
-                                debugPrint2("%s | ", "null");
+                            avro_value_t bigint_branch;
+                            avro_value_get_current_branch(&field_value, &bigint_branch);
+                            if (0 == avro_value_get_null(&bigint_branch)) {
                                 bind->is_null = &is_null;
-                                free(n64);
+                                debugPrint2("%s | ", "null");
                             } else {
+
+                                int64_t *n64 = malloc(sizeof(int64_t));
+                                assert(n64);
+
+                                avro_value_get_long(&bigint_branch, n64);
+
+                                verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
+                                        __func__, __LINE__, *n64,
+                                        (int64_t)TSDB_DATA_BIGINT_NULL);
+
                                 debugPrint2("%"PRId64" | ", *n64);
                                 bind->buffer_length = sizeof(int64_t);
                                 bind->buffer = n64;
@@ -4382,13 +4389,21 @@ static int dumpInAvroDataImpl(
 
                     case TSDB_DATA_TYPE_TIMESTAMP:
                         {
-                            int64_t *n64 = malloc(sizeof(int64_t));
-                            assert(n64);
+                            avro_value_t ts_branch;
+                            avro_value_get_current_branch(&field_value, &ts_branch);
+                            if (0 == avro_value_get_null(&ts_branch)) {
+                                bind->is_null = &is_null;
+                                debugPrint2("%s | ", "null");
+                            } else {
 
-                            avro_value_get_long(&field_value, n64);
-                            debugPrint2("%"PRId64" | ", *n64);
-                            bind->buffer_length = sizeof(int64_t);
-                            bind->buffer = n64;
+                                int64_t *n64 = malloc(sizeof(int64_t));
+                                assert(n64);
+
+                                avro_value_get_long(&ts_branch, n64);
+                                debugPrint2("%"PRId64" | ", *n64);
+                                bind->buffer_length = sizeof(int64_t);
+                                bind->buffer = n64;
+                            }
                         }
                         break;
 
@@ -5618,9 +5633,11 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
-                    avro_value_set_long(&value,
+                    avro_value_set_branch(&value, 1, &branch);
+                    avro_value_set_long(&branch,
                             (int64_t)atoll((const char *)
                                 subTableDes->cols[subTableDes->columns + tag].value));
                 }
@@ -5717,9 +5734,11 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    avro_value_set_long(&value, TSDB_DATA_BIGINT_NULL);
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
-                    avro_value_set_long(&value,
+                    avro_value_set_branch(&value, 1, &branch);
+                    avro_value_set_long(&branch,
                             (int64_t)atoll((const char *)
                                 subTableDes->cols[subTableDes->columns + tag].value));
                 }
