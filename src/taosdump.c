@@ -2602,13 +2602,13 @@ static int convertTbDesToJsonImplMore(
 
         case TSDB_DATA_TYPE_FLOAT:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "float");
             break;
 
         case TSDB_DATA_TYPE_DOUBLE:
             ret = sprintf(pstr,
-                    "{\"name\":\"%s%d\",\"type\":\"%s\"",
+                    "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "double");
             break;
 
@@ -3443,17 +3443,21 @@ static int64_t writeResultToAvro(
 
                     case TSDB_DATA_TYPE_FLOAT:
                         if (NULL == row[col]) {
-                            avro_value_set_float(&value, TSDB_DATA_FLOAT_NULL);
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_float(&branch, TSDB_DATA_FLOAT_NULL);
                         } else {
-                            avro_value_set_float(&value, GET_FLOAT_VAL(row[col]));
+                            avro_value_set_branch(&value, 1, &branch);
+                            avro_value_set_float(&branch, GET_FLOAT_VAL(row[col]));
                         }
                         break;
 
                     case TSDB_DATA_TYPE_DOUBLE:
                         if (NULL == row[col]) {
-                            avro_value_set_double(&value, TSDB_DATA_DOUBLE_NULL);
+                            avro_value_set_branch(&value, 0, &branch);
+                            avro_value_set_double(&branch, TSDB_DATA_DOUBLE_NULL);
                         } else {
-                            avro_value_set_double(&value, GET_DOUBLE_VAL(row[col]));
+                            avro_value_set_branch(&value, 1, &branch);
+                            avro_value_set_double(&branch, GET_DOUBLE_VAL(row[col]));
                         }
                         break;
 
@@ -3762,39 +3766,43 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_FLOAT:
                             {
-                                float *f = malloc(sizeof(float));
-                                assert(f);
-
-                                avro_value_get_float(&field_value, f);
-                                if (TSDB_DATA_FLOAT_NULL == *f) {
+                                avro_value_t float_branch;
+                                avro_value_get_current_branch(&field_value, &float_branch);
+                                if (0 == avro_value_get_null(&float_branch)) {
                                     debugPrint2("%s | ", "NULL");
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
+                                    float *f = malloc(sizeof(float));
+                                    assert(f);
+
+                                    avro_value_get_float(&float_branch, f);
                                     debugPrint2("%f | ", *f);
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "%f,", *f);
+                                    free(f);
                                 }
-                                free(f);
                             }
                             break;
 
                         case TSDB_DATA_TYPE_DOUBLE:
                             {
-                                double *dbl = malloc(sizeof(double));
-                                assert(dbl);
-
-                                avro_value_get_double(&field_value, dbl);
-                                if (TSDB_DATA_DOUBLE_NULL == *dbl) {
+                                avro_value_t dbl_branch;
+                                avro_value_get_current_branch(&field_value, &dbl_branch);
+                                if (0 == avro_value_get_null(&dbl_branch)) {
                                     debugPrint2("%s | ", "NULL");
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
+                                    double *dbl = malloc(sizeof(double));
+                                    assert(dbl);
+
+                                    avro_value_get_double(&dbl_branch, dbl);
                                     debugPrint2("%f | ", *dbl);
                                     curr_sqlstr_len += sprintf(
                                             sqlstr+curr_sqlstr_len, "%f,", *dbl);
+                                    free(dbl);
                                 }
-                                free(dbl);
                             }
                             break;
 
@@ -4417,35 +4425,40 @@ static int dumpInAvroDataImpl(
 
                     case TSDB_DATA_TYPE_FLOAT:
                         {
-                            float *f = malloc(sizeof(float));
-                            assert(f);
-
-                            avro_value_get_float(&field_value, f);
-                            if (TSDB_DATA_FLOAT_NULL == *f) {
+                            avro_value_t float_branch;
+                            avro_value_get_current_branch(&field_value, &float_branch);
+                            if (0 == avro_value_get_null(&float_branch)) {
                                 debugPrint2("%s | ", "NULL");
                                 bind->is_null = &is_null;
                             } else {
+
+                                float *f = malloc(sizeof(float));
+                                assert(f);
+
+                                avro_value_get_float(&float_branch, f);
                                 debugPrint2("%f | ", *f);
+                                bind->buffer = f;
+                                bind->buffer_length = sizeof(float);
                             }
-                            bind->buffer = f;
-                            bind->buffer_length = sizeof(float);
                         }
                         break;
 
                     case TSDB_DATA_TYPE_DOUBLE:
                         {
-                            double *dbl = malloc(sizeof(double));
-                            assert(dbl);
-
-                            avro_value_get_double(&field_value, dbl);
-                            if (TSDB_DATA_DOUBLE_NULL == *dbl) {
+                            avro_value_t dbl_branch;
+                            avro_value_get_current_branch(&field_value, &dbl_branch);
+                            if (0 == avro_value_get_null(&dbl_branch)) {
                                 debugPrint2("%s | ", "NULL");
                                 bind->is_null = &is_null;
                             } else {
+                                double *dbl = malloc(sizeof(double));
+                                assert(dbl);
+
+                                avro_value_get_double(&dbl_branch, dbl);
                                 debugPrint2("%f | ", *dbl);
+                                bind->buffer = dbl;
+                                bind->buffer_length = sizeof(double);
                             }
-                            bind->buffer = dbl;
-                            bind->buffer_length = sizeof(double);
                         }
                         break;
 
@@ -5655,14 +5668,16 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    avro_value_set_float(&value, TSDB_DATA_FLOAT_NULL);
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
+                    avro_value_set_branch(&value, 1, &branch);
                     if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                        avro_value_set_float(&value,
+                        avro_value_set_float(&branch,
                                 atof(subTableDes->cols[subTableDes->columns
                                     + tag].var_value));
                     } else {
-                        avro_value_set_float(&value,
+                        avro_value_set_float(&branch,
                                 atof(subTableDes->cols[subTableDes->columns
                                     + tag].value));
                     }
@@ -5673,14 +5688,16 @@ static int createMTableAvroHeadImp(
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
-                    avro_value_set_double(&value, TSDB_DATA_DOUBLE_NULL);
+                    avro_value_set_branch(&value, 0, &branch);
+                    avro_value_set_null(&branch);
                 } else {
+                    avro_value_set_branch(&value, 1, &branch);
                     if (subTableDes->cols[subTableDes->columns + tag].var_value) {
-                        avro_value_set_double(&value,
+                        avro_value_set_double(&branch,
                                 atof(subTableDes->cols[subTableDes->columns
                                     + tag].var_value));
                     } else {
-                        avro_value_set_double(&value,
+                        avro_value_set_double(&branch,
                                 atof(subTableDes->cols[subTableDes->columns
                                     + tag].value));
                     }
