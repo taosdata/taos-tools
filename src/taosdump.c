@@ -4281,18 +4281,26 @@ static int dumpInAvroDataImpl(
 
             bind->is_null = NULL;
             if (0 == i) {
-                int64_t *ts = malloc(sizeof(int64_t));
-                assert(ts);
-
                 avro_value_get_by_name(&value,
                         field->name, &field_value, NULL);
-                avro_value_get_long(&field_value, ts);
+                avro_value_t ts_branch;
+                avro_value_get_current_branch(&field_value, &ts_branch);
+                if (0 == avro_value_get_null(&ts_branch)) {
+                    errorPrint("%s() LN%d, first column timestamp should never be a NULL!\n",
+                            __func__, __LINE__);
+                } else {
 
-                debugPrint2("%"PRId64" | ", *ts);
-                bind->buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
-                bind->buffer_length = sizeof(int64_t);
-                bind->buffer = ts;
-                bind->length = (int32_t*)&bind->buffer_length;
+                    int64_t *ts = malloc(sizeof(int64_t));
+                    assert(ts);
+
+                    avro_value_get_long(&ts_branch, ts);
+
+                    debugPrint2("%"PRId64" | ", *ts);
+                    bind->buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
+                    bind->buffer_length = sizeof(int64_t);
+                    bind->buffer = ts;
+                    bind->length = (int32_t*)&bind->buffer_length;
+                }
             } else if (0 == avro_value_get_by_name(
                         &value, field->name, &field_value, NULL)) {
                 switch(tableDes->cols[i].type) {
