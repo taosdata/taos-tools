@@ -99,6 +99,8 @@ jobs:
         run: |
           cd TDengine/tests/develop-test
 
+          python3 ./test.py -f 5-taos-tools/taosdump/taosdumpTestInspect.py
+
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
             for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
