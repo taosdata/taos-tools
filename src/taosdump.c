@@ -8179,10 +8179,8 @@ int inspectAvroFile(char *filename) {
                 InspectStruct *field = (InspectStruct *)(recordSchema->fields
                         + sizeof(InspectStruct) * i);
                 avro_value_t field_value;
-                int32_t n32 = 0;
                 float f = 0.0;
                 double dbl = 0.0;
-                int64_t n64 = 0;
                 int b = 0;
                 const char *buf = NULL;
                 size_t size;
@@ -8191,6 +8189,9 @@ int inspectAvroFile(char *filename) {
                 if (0 == avro_value_get_by_name(&value, field->name,
                             &field_value, NULL)) {
                     if (0 == strcmp(field->type, "int")) {
+                        int32_t *n32 = malloc(sizeof(int32_t));
+                        assert(n32);
+
                         if (field->nullable) {
                             avro_value_t branch;
                             avro_value_get_current_branch(&field_value,
@@ -8198,13 +8199,14 @@ int inspectAvroFile(char *filename) {
                             if (0 == avro_value_get_null(&branch)) {
                                 fprintf(stdout, "%s |\t", "null");
                             } else {
-                                avro_value_get_int(&branch, &n32);
-                                fprintf(stdout, "%d |\t", n32);
+                                avro_value_get_int(&branch, n32);
+                                fprintf(stdout, "%d |\t", *n32);
                             }
                         } else {
-                            avro_value_get_int(&field_value, &n32);
-                            fprintf(stdout, "%d |\t", n32);
+                            avro_value_get_int(&field_value, n32);
+                            fprintf(stdout, "%d |\t", *n32);
                         }
+                        free(n32);
                     } else if (0 == strcmp(field->type, "float")) {
                         if (field->nullable) {
                             avro_value_t branch;
@@ -8224,6 +8226,9 @@ int inspectAvroFile(char *filename) {
                         avro_value_get_double(&field_value, &dbl);
                         fprintf(stdout, "%f |\t", dbl);
                     } else if (0 == strcmp(field->type, "long")) {
+                        int64_t *n64 = malloc(sizeof(int64_t));
+                        assert(n64);
+
                         if (field->nullable) {
                             avro_value_t branch;
                             avro_value_get_current_branch(&field_value,
@@ -8231,13 +8236,14 @@ int inspectAvroFile(char *filename) {
                             if (0 == avro_value_get_null(&branch)) {
                                 fprintf(stdout, "%s |\t", "null");
                             } else {
-                                avro_value_get_long(&branch, &n64);
-                                fprintf(stdout, "%"PRId64" |\t", n64);
+                                avro_value_get_long(&branch, n64);
+                                fprintf(stdout, "%"PRId64" |\t", *n64);
                             }
                         } else {
-                            avro_value_get_long(&field_value, &n64);
-                            fprintf(stdout, "%"PRId64" |\t", n64);
+                            avro_value_get_long(&field_value, n64);
+                            fprintf(stdout, "%"PRId64" |\t", *n64);
                         }
+                        free(n64);
                     } else if (0 == strcmp(field->type, "string")) {
                         if (field->nullable) {
                             avro_value_t branch;
@@ -8281,25 +8287,33 @@ int inspectAvroFile(char *filename) {
 
                         debugPrint("array_size is %d\n", (int) array_size);
                         if (0 == strcmp(field->array_type, "int")) {
+                            int32_t *n32 = malloc(sizeof(int32_t));
+                            assert(n32);
+
                             uint32_t array_u32 = 0;
                             for (size_t item = 0; item < array_size; item ++) {
                                 avro_value_t item_value;
                                 avro_value_get_by_index(&field_value, item,
                                         &item_value, NULL);
-                                avro_value_get_int(&item_value, &n32);
-                                array_u32 += n32;
+                                avro_value_get_int(&item_value, n32);
+                                array_u32 += *n32;
                             }
                             fprintf(stdout, "%u |\t", array_u32);
+                            free(n32);
                         } else if (0 == strcmp(field->array_type, "long")) {
+                            int64_t *n64 = malloc(sizeof(int64_t));
+                            assert(n64);
+
                             uint64_t array_u64 = 0;
                             for (size_t item = 0; item < array_size; item ++) {
                                 avro_value_t item_value;
                                 avro_value_get_by_index(&field_value, item,
                                         &item_value, NULL);
-                                avro_value_get_long(&item_value, &n64);
-                                array_u64 += n64;
+                                avro_value_get_long(&item_value, n64);
+                                array_u64 += *n64;
                             }
                             fprintf(stdout, "%"PRIu64" |\t", array_u64);
+                            free(n64);
                         } else {
                             errorPrint("%s is not supported!\n",
                                     field->array_type);
