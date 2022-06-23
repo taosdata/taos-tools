@@ -8282,37 +8282,88 @@ int inspectAvroFile(char *filename) {
                             fprintf(stdout, "%s |\t", b?"true":"false");
                         }
                     } else if (0 == strcmp(field->type, "array")) {
-                        size_t array_size;
-                        avro_value_get_size(&field_value, &array_size);
-
-                        debugPrint("array_size is %d\n", (int) array_size);
                         if (0 == strcmp(field->array_type, "int")) {
                             int32_t *n32 = malloc(sizeof(int32_t));
                             assert(n32);
 
-                            uint32_t array_u32 = 0;
-                            for (size_t item = 0; item < array_size; item ++) {
-                                avro_value_t item_value;
-                                avro_value_get_by_index(&field_value, item,
-                                        &item_value, NULL);
-                                avro_value_get_int(&item_value, n32);
-                                array_u32 += *n32;
+                            if (field->nullable) {
+                                avro_value_t branch;
+                                avro_value_get_current_branch(&field_value,
+                                        &branch);
+                                if (0 == avro_value_get_null(&branch)) {
+                                    fprintf(stdout, "%s |\t", "null");
+                                } else {
+                                    size_t array_size;
+                                    avro_value_get_size(&branch, &array_size);
+
+                                    debugPrint("array_size is %d\n", (int) array_size);
+
+                                    uint32_t array_u32 = 0;
+                                    for (size_t item = 0; item < array_size; item ++) {
+                                        avro_value_t item_value;
+                                        avro_value_get_by_index(&branch, item,
+                                                &item_value, NULL);
+                                        avro_value_get_int(&item_value, n32);
+                                        array_u32 += *n32;
+                                    }
+                                    fprintf(stdout, "%u |\t", array_u32);
+                                }
+                            } else {
+                                size_t array_size;
+                                avro_value_get_size(&field_value, &array_size);
+
+                                debugPrint("array_size is %d\n", (int) array_size);
+                                uint32_t array_u32 = 0;
+                                for (size_t item = 0; item < array_size; item ++) {
+                                    avro_value_t item_value;
+                                    avro_value_get_by_index(&field_value, item,
+                                            &item_value, NULL);
+                                    avro_value_get_int(&item_value, n32);
+                                    array_u32 += *n32;
+                                }
+                                fprintf(stdout, "%u |\t", array_u32);
                             }
-                            fprintf(stdout, "%u |\t", array_u32);
                             free(n32);
                         } else if (0 == strcmp(field->array_type, "long")) {
                             int64_t *n64 = malloc(sizeof(int64_t));
                             assert(n64);
 
-                            uint64_t array_u64 = 0;
-                            for (size_t item = 0; item < array_size; item ++) {
-                                avro_value_t item_value;
-                                avro_value_get_by_index(&field_value, item,
-                                        &item_value, NULL);
-                                avro_value_get_long(&item_value, n64);
-                                array_u64 += *n64;
+                            if (field->nullable) {
+                                avro_value_t branch;
+                                avro_value_get_current_branch(&field_value,
+                                        &branch);
+                                if (0 == avro_value_get_null(&branch)) {
+                                    fprintf(stdout, "%s |\t", "null");
+                                } else {
+                                    size_t array_size;
+                                    avro_value_get_size(&branch, &array_size);
+
+                                    debugPrint("array_size is %d\n", (int) array_size);
+                                    uint64_t array_u64 = 0;
+                                    for (size_t item = 0; item < array_size; item ++) {
+                                        avro_value_t item_value;
+                                        avro_value_get_by_index(&branch, item,
+                                                &item_value, NULL);
+                                        avro_value_get_long(&item_value, n64);
+                                        array_u64 += *n64;
+                                    }
+                                    fprintf(stdout, "%"PRIu64" |\t", array_u64);
+                                }
+                            } else {
+                                size_t array_size;
+                                avro_value_get_size(&field_value, &array_size);
+
+                                debugPrint("array_size is %d\n", (int) array_size);
+                                uint64_t array_u64 = 0;
+                                for (size_t item = 0; item < array_size; item ++) {
+                                    avro_value_t item_value;
+                                    avro_value_get_by_index(&field_value, item,
+                                            &item_value, NULL);
+                                    avro_value_get_long(&item_value, n64);
+                                    array_u64 += *n64;
+                                }
+                                fprintf(stdout, "%"PRIu64" |\t", array_u64);
                             }
-                            fprintf(stdout, "%"PRIu64" |\t", array_u64);
                             free(n64);
                         } else {
                             errorPrint("%s is not supported!\n",
