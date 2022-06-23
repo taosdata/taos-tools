@@ -926,7 +926,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
 
         case 's':
-            g_args.schemaonly = true;
             break;
 
         case 'L':
@@ -1025,6 +1024,10 @@ static void parse_args(
             }
         } else if (strcmp(argv[i], "-n") == 0) {
             g_args.escape_char = false;
+            strcpy(argv[i], "");
+        } else if ((strcmp(argv[i], "-s") == 0)
+                || (0 == strcmp(argv[i], "--schemaonly"))) {
+            g_args.schemaonly = true;
             strcpy(argv[i], "");
         } else if ((strcmp(argv[i], "-I") == 0)
                 || (0 == strcmp(argv[i], "--inspect"))) {
