@@ -371,10 +371,9 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
 
     int      bytes, sent, received, req_str_len, resp_len;
-    char *   request_buf;
-    char *   response_buf;
+    char *   request_buf = NULL;
+    char *   response_buf = NULL;
     uint16_t rest_port = g_arguments->port + TSDB_PORT_HTTP;
-
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = calloc(1, req_buf_len);
@@ -405,6 +404,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
     if (r >= req_buf_len) {
         free(request_buf);
+        free(response_buf);
         ERROR_EXIT("too long request");
     }
 
