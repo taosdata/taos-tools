@@ -55,7 +55,7 @@
 static char    **g_tsDumpInDebugFiles     = NULL;
 static char      g_dumpInCharset[64] = {0};
 static char      g_dumpInServerVer[64] = {0};
-static char      g_dumpInTaosdumpVer[64] = {0};
+static int       g_dumpInDataMajorVer;
 static char      g_dumpInEscapeChar[64] = {0};
 static char      g_dumpInLooseMode[64] = {0};
 static bool      g_dumpInLooseModeFlag = false;
@@ -96,7 +96,7 @@ static void print_json_aux(json_t *element, int indent);
 #define SET_THREAD_NAME(name)  do {prctl(PR_SET_NAME, (name));} while(0)
 #endif
 
-static int  converStringToReadable(char *str, int size, char *buf, int bufsize);
+static int  convertStringToReadable(char *str, int size, char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size, char *buf, int bufsize);
 
 typedef struct {
@@ -1713,7 +1713,7 @@ static int getTableDes(
                     }
                 } else {
                     if (length[TSDB_SHOW_TABLES_NAME_INDEX] < (COL_VALUEBUF_LEN - 2)) {
-                        converStringToReadable(
+                        convertStringToReadable(
                                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                                 length[TSDB_SHOW_TABLES_NAME_INDEX],
                                 tableDes->cols[i].value,
@@ -1732,7 +1732,7 @@ static int getTableDes(
                             taos_free_result(res);
                             return -1;
                         }
-                        converStringToReadable((char *)row[0],
+                        convertStringToReadable((char *)row[0],
                                 length[0],
                                 (char *)(tableDes->cols[i].var_value),
                                 length[TSDB_SHOW_TABLES_NAME_INDEX]);
@@ -1783,7 +1783,7 @@ static int getTableDes(
                                 taos_free_result(res);
                                 return -1;
                             }
-                            converStringToReadable(
+                            convertStringToReadable(
                                     (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                                     length[0],
                                     (char *)(tableDes->cols[i].var_value), nlen);
@@ -3699,22 +3699,42 @@ static int dumpInAvroTbTagsImpl(
 
                         case TSDB_DATA_TYPE_TINYINT:
                             {
-                                avro_value_t tinyint_branch;
-                                avro_value_get_current_branch(&field_value, &tinyint_branch);
+                                if (field->nullable) {
+                                    avro_value_t tinyint_branch;
+                                    avro_value_get_current_branch(&field_value, &tinyint_branch);
 
-                                if (0 == avro_value_get_null(&tinyint_branch)) {
-                                    debugPrint2("%s | ", "null");
-                                    curr_sqlstr_len += sprintf(
-                                            sqlstr+curr_sqlstr_len, "NULL,");
+                                    if (0 == avro_value_get_null(&tinyint_branch)) {
+                                        debugPrint2("%s | ", "null");
+                                        curr_sqlstr_len += sprintf(
+                                                sqlstr+curr_sqlstr_len, "NULL,");
+                                    } else {
+                                        int32_t *n8 = malloc(sizeof(int32_t));
+                                        assert(n8);
+
+                                        avro_value_get_int(&tinyint_branch, n8);
+                                        debugPrint2("%d | ", *n8);
+                                        curr_sqlstr_len += sprintf(
+                                                sqlstr+curr_sqlstr_len, "%d,", *n8);
+                                        free(n8);
+                                    }
                                 } else {
-                                    int32_t *n8 = malloc(sizeof(int32_t));
-                                    assert(n8);
+                                    avro_value_t tinyint_branch;
+                                    avro_value_get_current_branch(&field_value, &tinyint_branch);
 
-                                    avro_value_get_int(&tinyint_branch, n8);
-                                    debugPrint2("%d | ", *n8);
-                                    curr_sqlstr_len += sprintf(
-                                            sqlstr+curr_sqlstr_len, "%d,", *n8);
-                                    free(n8);
+                                    if (0 == avro_value_get_null(&tinyint_branch)) {
+                                        debugPrint2("%s | ", "null");
+                                        curr_sqlstr_len += sprintf(
+                                                sqlstr+curr_sqlstr_len, "NULL,");
+                                    } else {
+                                        int32_t *n8 = malloc(sizeof(int32_t));
+                                        assert(n8);
+
+                                        avro_value_get_int(&tinyint_branch, n8);
+                                        debugPrint2("%d | ", *n8);
+                                        curr_sqlstr_len += sprintf(
+                                                sqlstr+curr_sqlstr_len, "%d,", *n8);
+                                        free(n8);
+                                    }
                                 }
                             }
                             break;
@@ -5245,7 +5265,7 @@ static int64_t writeResultDebug(TAOS_RES *res, FILE *fp,
                     break;
 
                 case TSDB_DATA_TYPE_BINARY:
-                    converStringToReadable((char *)row[col], length[col],
+                    convertStringToReadable((char *)row[col], length[col],
                             tbuf, COMMAND_SIZE);
                     curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len,
                             "\'%s\'", tbuf);
@@ -6429,7 +6449,7 @@ char *ascii_literal_list[] = {
     "\\xea", "\\xeb", "\\xec", "\\xed", "\\xee", "\\xef", "\\xf0", "\\xf1", "\\xf2", "\\xf3", "\\xf4", "\\xf5", "\\xf6",
     "\\xf7", "\\xf8", "\\xf9", "\\xfa", "\\xfb", "\\xfc", "\\xfd", "\\xfe", "\\xff"};
 
-static int converStringToReadable(char *str, int size, char *buf, int bufsize) {
+static int convertStringToReadable(char *str, int size, char *buf, int bufsize) {
     char *pstr = str;
     char *pbuf = buf;
     while (size > 0) {
@@ -6567,10 +6587,51 @@ _exit_no_charset:
     return;
 }
 
+bool convertDbClauseForV3(char **cmd)
+{
+    if (NULL == *cmd) {
+        errorPrint("%s() LN%d, **cmd is NULL\n", __func__, __LINE__);
+        return false;
+    }
+
+    int lenOfCmd = strlen(*cmd);
+    if (0 == lenOfCmd) {
+        errorPrint("%s() LN%d, length of cmd is 0\n", __func__, __LINE__);
+        return false;
+    }
+
+    char *dup_str = strdup(*cmd);
+
+    char *running = dup_str;
+    char *sub_str = strsep(&running, " ");
+
+    int pos = 0;
+    while(sub_str) {
+        if (0 == strcmp(sub_str, "QUORUM")) {
+            sub_str = strsep(&running, " ");
+        } else if (0 == strcmp(sub_str, "DAYS")) {
+            sub_str = strsep(&running, " ");
+            pos += sprintf(*cmd + pos, "DURATION %dm ", atoi(sub_str)*24*60);
+        } else if (0 == strcmp(sub_str, "CACHE")) {
+            sub_str = strsep(&running, " ");
+        } else if (0 == strcmp(sub_str, "BLOCKS")) {
+            sub_str = strsep(&running, " ");
+        } else {
+            pos += sprintf(*cmd + pos, "%s ", sub_str);
+        }
+
+        sub_str = strsep(&running, " ");
+    }
+
+    free(dup_str);
+    return true;
+}
+
 // dumpIn support multi threads functions
 static int64_t dumpInOneDebugFile(
         TAOS* taos, FILE* fp, char* fcharset,
-        char* fileName) {
+        char* fileName)
+{
     int       read_len = 0;
     char *    cmd      = NULL;
     size_t    cmd_len  = 0;
@@ -6590,7 +6651,13 @@ static int64_t dumpInOneDebugFile(
     int64_t failed = 0;
     while ((read_len = getline(&line, &line_len, fp)) != -1) {
         ++lineNo;
-        if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN) continue;
+
+        if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN){
+            errorPrint("the No.%"PRId64" line is exceed max allowed SQL length!\n", lineNo);
+            debugPrint("%s() LN%d, line: %s", __func__, __LINE__, line);
+            continue;
+        }
+
         line[--read_len] = '\0';
 
         //if (read_len == 0 || isCommentLine(line)) {  // line starts with #
@@ -6611,17 +6678,23 @@ static int64_t dumpInOneDebugFile(
 
         memcpy(cmd + cmd_len, line, read_len);
         cmd[read_len + cmd_len]= '\0';
-        bool isRows = (0 == strncmp(cmd, "INSERT ", strlen("INSERT ")));
+        bool isInsert = (0 == strncmp(cmd, "INSERT ", strlen("INSERT ")));
+        bool isCreateDb = (0 == strncmp(cmd, "CREATE DATABASE ", strlen("CREATE DATABASE ")));
+        if (isCreateDb && (1 == g_dumpInDataMajorVer)) {
+            if (3 == g_majorVersionOfClient) {
+                convertDbClauseForV3(&cmd);
+            }
+        }
 
         if (queryDbImpl(taos, cmd)) {
             errorPrint("%s() LN%d, SQL: lineno:%"PRId64", file:%s\n",
                     __func__, __LINE__, lineNo, fileName);
             fprintf(g_fpOfResult, "SQL: lineno:%"PRId64", file:%s\n",
                     lineNo, fileName);
-            if (isRows)
+            if (isInsert)
                 failed ++;
         } else {
-            if (isRows)
+            if (isInsert)
                 success ++;
         }
 
@@ -6800,15 +6873,17 @@ static int dumpInDbs()
     loadFileMark(fp, charSetMark, g_dumpInServerVer);
 
     charSetMark = "#!taosdump_ver: ";
-    loadFileMark(fp, charSetMark, g_dumpInTaosdumpVer);
+    char dumpInTaosdumpVer[64] = {0};
+    loadFileMark(fp, charSetMark, dumpInTaosdumpVer);
 
-    int dumpInDataMajorVer = atoi(g_dumpInTaosdumpVer);
+    g_dumpInDataMajorVer = atoi(dumpInTaosdumpVer);
+
     int taosToolsMajorVer = atoi(TAOSTOOLS_TAG);
-    if ((dumpInDataMajorVer > 1) && (1 == taosToolsMajorVer)) {
+    if ((g_dumpInDataMajorVer > 1) && (1 == taosToolsMajorVer)) {
         errorPrint("\tThe data file was generated by version %d\n"
                    "\tCannot be restored by current version: %d\n\n"
                    "\tPlease use a correct version taosdump to restore them.\n\n",
-                dumpInDataMajorVer, taosToolsMajorVer);
+                g_dumpInDataMajorVer, taosToolsMajorVer);
         return -1;
     }
 
