@@ -441,6 +441,7 @@ static struct argp_option options[] = {
     {"inspect",  'I', 0,  0,
         "inspect avro file content and print on screen", 10},
     {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
+    {"cloud",  'C', "CLOUD_DSN",  0,  "specify a DSN to access TDengine cloud service", 11},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
 };
@@ -494,6 +495,12 @@ typedef struct arguments {
     bool     performance_print;
 
     int      dumpDbCount;
+
+    char    *cloudDsn;
+    bool     cloud;
+    char     cloudHost[255];
+    int      cloudPort;
+    char    *cloudToken;
 } SArguments;
 
 /* Our argp parser. */
@@ -551,6 +558,11 @@ struct arguments g_args = {
     false,      // verbose_print
     false,      // performance_print
         0,      // dumpDbCount
+    NULL,       // cloudDsn
+    false,      // cloud
+    {0},        // cloudHost
+    0,          // cloudPort
+    NULL,       // cloudToken
 };
 
 // get taosdump commit number version
@@ -953,6 +965,15 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             g_args.thread_num = atoi((const char *)arg);
             break;
 
+        case 'C':
+            if (arg) {
+                g_args.cloudDsn = arg;
+            } else {
+                errorPrint("%s", "\n\t-C need a valid cloud DSN following!\n");
+                exit(EXIT_FAILURE);
+            }
+            break;
+
         case OPT_ABORT:
             g_args.abort = 1;
             break;
@@ -1303,7 +1324,11 @@ static int inDatabasesSeq(
     return -1;
 }
 
-static int getDumpDbCount()
+static int getDumpDbCountWS() {
+    return 0;
+}
+
+static int getDumpDbCountTaos()
 {
     int count = 0;
 
@@ -1356,6 +1381,18 @@ static int getDumpDbCount()
     taos_free_result(result);
     taos_close(taos);
     return count;
+}
+
+static int getDumpDbCount() {
+    int ret = 0; 
+
+    if (g_args.cloud) {
+        ret = getDumpDbCountWS();
+    } else {
+        ret = getDumpDbCountTaos();
+    }
+
+    return ret;
 }
 
 static int dumpCreateMTableClause(
@@ -6177,7 +6214,96 @@ static void *dumpNtbOfDb(void *arg) {
     return NULL;
 }
 
+static void printArgs(FILE *file)
+{
+
+    fprintf(file, "========== arguments config =========\n");
+
+    printVersion(file);
+
+    fprintf(file, "host: %s\n", g_args.host);
+    fprintf(file, "user: %s\n", g_args.user);
+    fprintf(file, "port: %u\n", g_args.port);
+    fprintf(file, "outpath: %s\n", g_args.outpath);
+    fprintf(file, "inpath: %s\n", g_args.inpath);
+    fprintf(file, "resultFile: %s\n", g_args.resultFile);
+    fprintf(file, "all_databases: %s\n", g_args.all_databases?"true":"false");
+    fprintf(file, "databases: %s\n", g_args.databases?"true":"false");
+    fprintf(file, "databasesSeq: %s\n", g_args.databasesSeq);
+    fprintf(file, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
+    fprintf(file, "with_property: %s\n", g_args.with_property?"true":"false");
+    fprintf(file, "answer_yes: %s\n", g_args.answer_yes?"true":"false");
+    fprintf(file, "avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
+
+    if (strlen(g_args.humanStartTime)) {
+        fprintf(file, "human readable start time: %s \n", g_args.humanStartTime);
+    } else if (DEFAULT_START_TIME != g_args.start_time) {
+        fprintf(file, "start_time: %" PRId64 "\n", g_args.start_time);
+    }
+    if (strlen(g_args.humanEndTime)) {
+        fprintf(file, "human readable end time: %s \n", g_args.humanEndTime);
+    } else if (DEFAULT_END_TIME != g_args.end_time) {
+        fprintf(file, "end_time: %" PRId64 "\n", g_args.end_time);
+    }
+    // use database's precision, should not print default precision
+    // fprintf(file, "precision: %s\n", g_args.precision);
+    fprintf(file, "data_batch: %d\n", g_args.data_batch);
+    // use max_sql_len, should not print max_sql_len
+    // fprintf(file, "max_sql_len: %d\n", g_args.max_sql_len);
+    fprintf(file, "thread_num: %d\n", g_args.thread_num);
+    fprintf(file, "allow_sys: %s\n", g_args.allow_sys?"true":"false");
+    fprintf(file, "escape_char: %s\n", g_args.escape_char?"true":"false");
+    fprintf(file, "loose_mode: %s\n", g_args.loose_mode?"true":"false");
+    // should not print abort
+    // fprintf(file, "abort: %d\n", g_args.abort);
+    fprintf(file, "isDumpIn: %s\n", g_args.isDumpIn?"true":"false");
+    fprintf(file, "arg_list_len: %d\n", g_args.arg_list_len);
+    if (g_args.cloud) {
+        fprintf(file, "cloud: %s\n", g_args.cloud?"true":"false");
+        fprintf(file, "cloudHost: %s\n", g_args.cloudHost);
+        fprintf(file, "cloud port: %d\n", g_args.cloudPort);
+        char first4OfToken[5] = {0};
+        char last4OfToken[5] = {0};
+
+        if (strlen(g_args.cloudToken) > 12) {
+            strncpy(first4OfToken, g_args.cloudToken, 4);
+            strncpy(last4OfToken, g_args.cloudToken + strlen(g_args.cloudToken) - 4, 4);
+            fprintf(file, "first 4 letter of cloud token: %s\n", first4OfToken);
+            fprintf(file, "last 4 letter of cloud token: %s\n", last4OfToken);
+        }
+    }
+
+    fflush(file);
+}
+
 static int checkParam() {
+    if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
+        if (g_args.debug_print || g_args.verbose_print) {
+            g_args.avro = false;
+        } else {
+            errorPrint("%s", "Unknown AVRO codec inputed. Exit program!\n");
+            exit(1);
+        }
+    }
+
+    if (!g_args.escape_char || g_args.loose_mode) {
+        strcpy(g_escapeChar, "");
+    }
+
+    printf("==============================\n");
+    printArgs(stdout);
+
+    for (int32_t i = 0; i < g_args.arg_list_len; i++) {
+        if (g_args.databases || g_args.all_databases) {
+            errorPrint("%s is an invalid input if database(s) "
+                    "be already specified.\n",
+                    g_args.arg_list[i]);
+            exit(EXIT_FAILURE);
+        } else {
+            printf("arg_list[%d]: %s\n", i, g_args.arg_list[i]);
+        }
+    }
+
     if (g_args.all_databases && g_args.databases) {
         errorPrint("%s", "conflict option --all-databases and --databases\n");
         return -1;
@@ -6209,6 +6335,12 @@ static int checkParam() {
         warnPrint("%s", "Data batch option '-B' is not used for dump out\n");
         prompt();
     }
+
+    g_fpOfResult = fopen(g_args.resultFile, "a");
+    if (NULL == g_fpOfResult) {
+        errorPrint("Failed to open %s for save result\n", g_args.resultFile);
+        exit(EXIT_FAILURE);
+    };
 
     return 0;
 }
@@ -7236,14 +7368,15 @@ static bool checkFileExistsExt(char *path, char *ext)
     return bRet;
 }
 
-static void checkOutDirAndWarn(char *outpath)
+static bool checkOutDir(char *outpath)
 {
+    bool ret = true;
     DIR *pDir = NULL;
 
     if (strlen(outpath)) {
         if (NULL == (pDir= opendir(outpath))) {
             errorPrint("%s is not exist!\n", outpath);
-            return;
+            return false;
         }
     } else {
         outpath = ".";
@@ -7262,14 +7395,14 @@ static void checkOutDirAndWarn(char *outpath)
                     " Continue to dump out will overwrite exist file(s)!\n",
                     "current path");
         }
-        exit(-1);
+        ret = false;
     }
 
     if (pDir) {
         closedir(pDir);
     }
 
-    return;
+    return ret;
 }
 
 static int dumpOut() {
@@ -7280,7 +7413,9 @@ static int dumpOut() {
     FILE *fp = NULL;
     int32_t count = 0;
 
-    checkOutDirAndWarn(g_args.outpath);
+    if (false == checkOutDir(g_args.outpath)) {
+        return -1;
+    }
 
     char dumpFilename[MAX_PATH_LEN] = {0};
     sprintf(dumpFilename, "%sdbs.sql", g_args.outpath);
@@ -7616,93 +7751,12 @@ _exit_failure:
     return -1;
 }
 
-void printArgs(FILE *file)
-{
-
-    fprintf(file, "========== arguments config =========\n");
-
-    printVersion(file);
-
-    fprintf(file, "host: %s\n", g_args.host);
-    fprintf(file, "user: %s\n", g_args.user);
-    fprintf(file, "port: %u\n", g_args.port);
-    fprintf(file, "outpath: %s\n", g_args.outpath);
-    fprintf(file, "inpath: %s\n", g_args.inpath);
-    fprintf(file, "resultFile: %s\n", g_args.resultFile);
-    fprintf(file, "all_databases: %s\n", g_args.all_databases?"true":"false");
-    fprintf(file, "databases: %s\n", g_args.databases?"true":"false");
-    fprintf(file, "databasesSeq: %s\n", g_args.databasesSeq);
-    fprintf(file, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
-    fprintf(file, "with_property: %s\n", g_args.with_property?"true":"false");
-    fprintf(file, "answer_yes: %s\n", g_args.answer_yes?"true":"false");
-    fprintf(file, "avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
-
-    if (strlen(g_args.humanStartTime)) {
-        fprintf(file, "human readable start time: %s \n", g_args.humanStartTime);
-    } else if (DEFAULT_START_TIME != g_args.start_time) {
-        fprintf(file, "start_time: %" PRId64 "\n", g_args.start_time);
-    }
-    if (strlen(g_args.humanEndTime)) {
-        fprintf(file, "human readable end time: %s \n", g_args.humanEndTime);
-    } else if (DEFAULT_END_TIME != g_args.end_time) {
-        fprintf(file, "end_time: %" PRId64 "\n", g_args.end_time);
-    }
-    // use database's precision, should not print default precision
-    // fprintf(file, "precision: %s\n", g_args.precision);
-    fprintf(file, "data_batch: %d\n", g_args.data_batch);
-    // use max_sql_len, should not print max_sql_len
-    // fprintf(file, "max_sql_len: %d\n", g_args.max_sql_len);
-    fprintf(file, "thread_num: %d\n", g_args.thread_num);
-    fprintf(file, "allow_sys: %s\n", g_args.allow_sys?"true":"false");
-    fprintf(file, "escape_char: %s\n", g_args.escape_char?"true":"false");
-    fprintf(file, "loose_mode: %s\n", g_args.loose_mode?"true":"false");
-    // should not print abort
-    // fprintf(file, "abort: %d\n", g_args.abort);
-    fprintf(file, "isDumpIn: %s\n", g_args.isDumpIn?"true":"false");
-    fprintf(file, "arg_list_len: %d\n", g_args.arg_list_len);
-
-    fflush(file);
-}
-
-int dump() {
+static int dumpEntry() {
     int ret = 0;
-
-    if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
-        if (g_args.debug_print || g_args.verbose_print) {
-            g_args.avro = false;
-        } else {
-            errorPrint("%s", "Unknown AVRO codec inputed. Exit program!\n");
-            exit(1);
-        }
-    }
-
-    if (!g_args.escape_char || g_args.loose_mode) {
-        strcpy(g_escapeChar, "");
-    }
-
-    printf("==============================\n");
-    printArgs(stdout);
-
-    for (int32_t i = 0; i < g_args.arg_list_len; i++) {
-        if (g_args.databases || g_args.all_databases) {
-            errorPrint("%s is an invalid input if database(s) "
-                    "be already specified.\n",
-                    g_args.arg_list[i]);
-            exit(EXIT_FAILURE);
-        } else {
-            printf("arg_list[%d]: %s\n", i, g_args.arg_list[i]);
-        }
-    }
 
     if (checkParam() < 0) {
         exit(EXIT_FAILURE);
     }
-
-    g_fpOfResult = fopen(g_args.resultFile, "a");
-    if (NULL == g_fpOfResult) {
-        errorPrint("Failed to open %s for save result\n", g_args.resultFile);
-        exit(-1);
-    };
 
     printArgs(g_fpOfResult);
 
@@ -8159,7 +8213,7 @@ int inspectAvroFile(char *filename) {
     return ret;
 }
 
-int inspect(int argc, char *argv[]) {
+static int inspectAvroFiles(int argc, char *argv[]) {
     int ret = 0;
 
     for (int i = 1; i < argc; i++) {
@@ -8170,6 +8224,45 @@ int inspect(int argc, char *argv[]) {
         }
     }
     return ret;
+}
+
+bool splitCloudDsn() {
+    if (g_args.cloudDsn) {
+        char *token = strstr(g_args.cloudDsn, "?token=");
+        if (NULL == token) {
+            return false;
+        } else {
+            g_args.cloudToken = token + strlen("?token=");
+        }
+
+        char *http = NULL, *https = NULL;
+        http = strstr(g_args.cloudDsn, "http://");
+        if (NULL == http) {
+            https = strstr(g_args.cloudDsn, "https://");
+            if (NULL == https) {
+                strncpy(g_args.cloudHost, https + strlen("https://"),
+                        strlen(g_args.cloudDsn) - strlen("https://")
+                        - strlen(token));
+            } else {
+                strncpy(g_args.cloudHost, g_args.cloudDsn,
+                        strlen(g_args.cloudDsn) - strlen(token));
+            }
+        } else {
+            strncpy(g_args.cloudHost, http + strlen("http://"),
+                    strlen(g_args.cloudDsn) - strlen("http://")
+                    - strlen(token));
+        }
+
+        char *colon = strstr(g_args.cloudHost, ":");
+        if (colon) {
+            g_args.cloudHost[strlen(g_args.cloudHost) - strlen(colon)] = '\0';
+            g_args.cloudPort = atoi(colon + 1);
+        }
+
+        return true;
+    }
+
+    return false;
 }
 
 int main(int argc, char *argv[])
@@ -8194,14 +8287,29 @@ int main(int argc, char *argv[])
         abort();
     }
 
+    if (NULL == g_args.cloudDsn) {
+        g_args.cloudDsn = getenv("TDENGINE_CLOUD_DSN");
+        if (NULL == g_args.cloudDsn) {
+            g_args.cloud = false;
+        } else {
+            g_args.cloud = true;
+        }
+    } else {
+        g_args.cloud = true;
+    }
+
+    if (g_args.cloud) {
+        splitCloudDsn();
+    }
+
     sprintf(g_client_info, "%s", taos_get_client_info());
     g_majorVersionOfClient = atoi(g_client_info);
     debugPrint("Client info: %s, major version: %d\n", g_client_info, g_majorVersionOfClient);
 
     if (g_args.inspect) {
-        ret = inspect(argc, argv);
+        ret = inspectAvroFiles(argc, argv);
     } else {
-        ret = dump();
+        ret = dumpEntry();
     }
     return ret;
 }
