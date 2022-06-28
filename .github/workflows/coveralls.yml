@@ -194,6 +194,12 @@ jobs:
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -f *.sql *.avro*
 
+          echo "TEST: dump old format data in"
+          ./build/bin/taos -s "drop database test"
+          tar xvJf ../src/kit/taos-tools/example-data/example-data.tar.xz -C .
+          ./build/bin/taosdump -i dump -gg
+          rm -f *.sql *.avro*
+
           cd ../tests/pytest
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :
