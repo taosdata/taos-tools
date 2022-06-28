@@ -90,12 +90,12 @@ jobs:
           ./build/bin/taosdump --help > /dev/null
           echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
-          echo "TEST: taodump --port 10000"
-          ./build/bin/taosdump --port 10000 > /dev/null 2>&1 || :
+          echo "TEST: taodump --port 100000"
+          ./build/bin/taosdump --port 100000 > /dev/null 2>&1 || :
           echo "TEST: taodump -D"
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
-          echo "TEST: taodump --databases"
-          ./build/bin/taosdump --databases > /dev/null 2>&1 || :
+          echo "TEST: taodump --databases -h localhost -u root"
+          ./build/bin/taosdump --databases -h localhost -u root > /dev/null 2>&1 || :
 
           nohup sudo taosd > /dev/null &
           sleep 10
