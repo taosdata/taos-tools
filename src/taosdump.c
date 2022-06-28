@@ -8819,8 +8819,10 @@ int inspectAvroFile(char *filename) {
                             }
                         } else {
                             avro_value_get_int(&field_value, n32);
-                            if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
-                                fprintf(stdout, "%s |\t", "NULL");
+                            if (((int32_t)TSDB_DATA_INT_NULL == *n32)
+                                    || (TSDB_DATA_SMALLINT_NULL == *n32)
+                                    || (TSDB_DATA_TINYINT_NULL == *n32)) {
+                                fprintf(stdout, "%s |\t", "null?");
                             } else {
                                 fprintf(stdout, "%d |\t", *n32);
                             }
@@ -8964,7 +8966,13 @@ int inspectAvroFile(char *filename) {
                                     avro_value_get_int(&item_value, n32);
                                     array_u32 += *n32;
                                 }
-                                fprintf(stdout, "%u |\t", array_u32);
+                                if ((TSDB_DATA_UINT_NULL == array_u32)
+                                        || (TSDB_DATA_USMALLINT_NULL == array_u32)
+                                        || (TSDB_DATA_UTINYINT_NULL == array_u32)) {
+                                    fprintf(stdout, "%s |\t", "null?");
+                                } else {
+                                    fprintf(stdout, "%u |\t", array_u32);
+                                }
                             }
                             free(n32);
                         } else if (0 == strcmp(field->array_type, "long")) {
@@ -9005,7 +9013,11 @@ int inspectAvroFile(char *filename) {
                                     avro_value_get_long(&item_value, n64);
                                     array_u64 += *n64;
                                 }
-                                fprintf(stdout, "%"PRIu64" |\t", array_u64);
+                                if (TSDB_DATA_UBIGINT_NULL == array_u64) {
+                                    fprintf(stdout, "%s |\t", "null?");
+                                } else {
+                                    fprintf(stdout, "%"PRIu64" |\t", array_u64);
+                                }
                             }
                             free(n64);
                         } else {
