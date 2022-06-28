@@ -8819,7 +8819,11 @@ int inspectAvroFile(char *filename) {
                             }
                         } else {
                             avro_value_get_int(&field_value, n32);
-                            fprintf(stdout, "%d |\t", *n32);
+                            if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
+                                fprintf(stdout, "%s |\t", "null");
+                            } else {
+                                fprintf(stdout, "%d |\t", *n32);
+                            }
                         }
                         free(n32);
                     } else if (0 == strcmp(field->type, "float")) {
@@ -8835,11 +8839,31 @@ int inspectAvroFile(char *filename) {
                             }
                         } else {
                             avro_value_get_float(&field_value, &f);
-                            fprintf(stdout, "%f |\t", f);
+                            if (TSDB_DATA_FLOAT_NULL == f) {
+                                fprintf(stdout, "%s |\t", "null");
+                            } else {
+                                fprintf(stdout, "%f |\t", f);
+                            }
                         }
                     } else if (0 == strcmp(field->type, "double")) {
-                        avro_value_get_double(&field_value, &dbl);
-                        fprintf(stdout, "%f |\t", dbl);
+                        if (field->nullable) {
+                            avro_value_t branch;
+                            avro_value_get_current_branch(&field_value,
+                                    &branch);
+                            if (0 == avro_value_get_null(&branch)) {
+                                fprintf(stdout, "%s |\t", "null");
+                            } else {
+                                avro_value_get_double(&branch, &dbl);
+                                fprintf(stdout, "%f |\t", dbl);
+                            }
+                        } else {
+                            avro_value_get_double(&field_value, &dbl);
+                            if (TSDB_DATA_DOUBLE_NULL == dbl) {
+                                fprintf(stdout, "%s |\t", "null");
+                            } else {
+                                fprintf(stdout, "%f |\t", dbl);
+                            }
+                        }
                     } else if (0 == strcmp(field->type, "long")) {
                         int64_t *n64 = malloc(sizeof(int64_t));
                         assert(n64);
@@ -8856,7 +8880,11 @@ int inspectAvroFile(char *filename) {
                             }
                         } else {
                             avro_value_get_long(&field_value, n64);
-                            fprintf(stdout, "%"PRId64" |\t", *n64);
+                            if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                                fprintf(stdout, "%s |\t", "null");
+                            } else {
+                                fprintf(stdout, "%"PRId64" |\t", *n64);
+                            }
                         }
                         free(n64);
                     } else if (0 == strcmp(field->type, "string")) {
