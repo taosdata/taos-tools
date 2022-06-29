@@ -1343,10 +1343,17 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
 
     if (stbInfo->interlaceRows > stbInfo->insertRows) {
         infoPrint(stdout,
-                  "interlaceRows larger than insertRows %d > %" PRId64 "\n\n",
+                  "interlaceRows larger than insertRows %d > %" PRId64 "\n",
                   stbInfo->interlaceRows, stbInfo->insertRows);
-        infoPrint(stdout, "%s", "interlaceRows will be set to 0\n\n");
+        infoPrint(stdout, "%s", "interlaceRows will be set to 0\n");
         stbInfo->interlaceRows = 0;
+    }
+
+    if (stbInfo->interlaceRows == 0 && g_arguments->reqPerReq > stbInfo->insertRows) {
+        infoPrint(stdout, "record per request (%u) is larger than insert rows (%"PRIu64")"
+                  " in progressive mode, which will be set to %"PRIu64"\n",
+                  g_arguments->reqPerReq, stbInfo->insertRows, stbInfo->insertRows);
+        g_arguments->reqPerReq = stbInfo->insertRows;
     }
 
     if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE &&

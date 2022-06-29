@@ -568,8 +568,16 @@ static int getStableInfo(cJSON *dbinfos, int index) {
                     g_arguments->prepared_rand = g_arguments->reqPerReq;
                 }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
+                if (g_arguments->reqPerReq > SML_MAX_BATCH) {
+                    errorPrint(stderr, "reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    return -1;
+                }
                 superTable->iface = SML_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
+                if (g_arguments->reqPerReq > SML_MAX_BATCH) {
+                    errorPrint(stderr, "reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    return -1;
+                }
                 superTable->iface = SML_REST_IFACE;
             }
         }

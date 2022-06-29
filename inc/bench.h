@@ -139,7 +139,7 @@
 #define EXTRA_SQL_LEN     256
 #define SMALL_BUFF_LEN    8
 #define DATATYPE_BUFF_LEN (SMALL_BUFF_LEN * 3)
-
+#define SML_MAX_BATCH          65536 * 32
 #define DEFAULT_NTHREADS       8
 #define DEFAULT_CHILDTABLES    10000
 #define DEFAULT_PORT           6030
