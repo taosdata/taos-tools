@@ -125,7 +125,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     ENDIF ()
 
     IF (${COVER} MATCHES "true")
-        MESSAGE("${Green} build with coverage ${ColourReSET}")
+        MESSAGE("${Green} build with coverage ${ColourReset}")
         SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
         SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov --coverage")
     ENDIF ()
