@@ -38,11 +38,7 @@ void selectAndGetResult(threadInfo *pThreadInfo, char *command) {
 
 static void *specifiedTableQuery(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    int32_t *   code = calloc(1, sizeof(int32_t));
-    if (code == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    int32_t *   code = benchCalloc(1, sizeof(int32_t), false);
     *code = -1;
 #ifdef LINUX
     prctl(PR_SET_NAME, "specTableQuery");
@@ -55,11 +51,7 @@ static void *specifiedTableQuery(void *sarg) {
     int32_t  index = 0;
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
-    pThreadInfo->query_delay_list = calloc(queryTimes, sizeof(uint64_t));
-    if (pThreadInfo->query_delay_list == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    pThreadInfo->query_delay_list = benchCalloc(queryTimes, sizeof(uint64_t), false);
     uint64_t  lastPrintTime = toolsGetTimestampMs();
     uint64_t  startTs = toolsGetTimestampMs();
 
@@ -146,17 +138,9 @@ static void *specifiedTableQuery(void *sarg) {
 }
 
 static void *superTableQuery(void *sarg) {
-    int32_t *code = calloc(1, sizeof(int32_t));
-    if (code == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
     *code = -1;
-    char *sqlstr = calloc(1, BUFFER_SIZE);
-    if (sqlstr == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *sqlstr = benchCalloc(1, BUFFER_SIZE, false);
     threadInfo *pThreadInfo = (threadInfo *)sarg;
 #ifdef LINUX
     prctl(PR_SET_NAME, "superTableQuery");
@@ -255,11 +239,7 @@ int queryTestProcess() {
                   g_queryInfo.superQueryInfo.childTblCount);
         taos_free_result(res);
         g_queryInfo.superQueryInfo.childTblName =
-            calloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *));
-        if (g_queryInfo.superQueryInfo.childTblName == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
+                benchCalloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *), false);
         if (getAllChildNameOfSuperTable(
                 taos, g_arguments->db->dbName,
                 g_queryInfo.superQueryInfo.stbName,
@@ -289,16 +269,8 @@ int queryTestProcess() {
     uint64_t startTs = toolsGetTimestampMs();
 
     if ((nSqlCount > 0) && (nConcurrent > 0)) {
-        pids = calloc(1, nConcurrent * nSqlCount * sizeof(pthread_t));
-        if (pids == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        infos = calloc(1, nConcurrent * nSqlCount * sizeof(threadInfo));
-        if (infos == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
+        pids = benchCalloc(1, nConcurrent * nSqlCount * sizeof(pthread_t), false);
+        infos = benchCalloc(1, nConcurrent * nSqlCount * sizeof(threadInfo), false);
         for (uint64_t i = 0; i < nSqlCount; i++) {
             for (int j = 0; j < nConcurrent; j++) {
                 uint64_t    seq = i * nConcurrent + j;
@@ -411,19 +383,8 @@ int queryTestProcess() {
     //==== create sub threads for query from all sub table of the super table
     if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
         (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-        pidsOfSub =
-            calloc(1, g_queryInfo.superQueryInfo.threadCnt * sizeof(pthread_t));
-        if (pidsOfSub == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        infosOfSub = calloc(
-            1, g_queryInfo.superQueryInfo.threadCnt * sizeof(threadInfo));
-        
-        if (infosOfSub == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
+        pidsOfSub = benchCalloc(1, g_queryInfo.superQueryInfo.threadCnt * sizeof(pthread_t), false);
+        infosOfSub = benchCalloc(1, g_queryInfo.superQueryInfo.threadCnt * sizeof(threadInfo), false);
 
         int64_t ntables = g_queryInfo.superQueryInfo.childTblCount;
         int     threads = g_queryInfo.superQueryInfo.threadCnt;
