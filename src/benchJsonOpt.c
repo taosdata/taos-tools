@@ -882,8 +882,6 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             g_arguments->db->superTbls->iface = REST_IFACE;
         }
     }
-    // init sqls
-    g_queryInfo.specifiedQueryInfo.sqls = benchArrayInit(1, sizeof(SSQL));
 
     // specified_table_query
     cJSON *specifiedQuery = cJSON_GetObjectItem(json, "specified_table_query");
@@ -962,52 +960,34 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             g_queryInfo.specifiedQueryInfo.subscribeKeepProgress = 0;
         }
 
-        // read sqls from file
-        cJSON *sqlFileObj = cJSON_GetObjectItem(specifiedQuery, "sql_file");
-        if (cJSON_IsString(sqlFileObj)) {
-            FILE * fp = fopen(sqlFileObj->valuestring, "r");
-            if (fp == NULL) {
-                errorPrint(stderr, "failed to open file: %s\n", sqlFileObj->valuestring);
-                goto PARSE_OVER;
-            }
-            char buf[BUFFER_SIZE];
-            memset(buf, 0, BUFFER_SIZE);
-            while (fgets(buf, BUFFER_SIZE, fp)) {
-                SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
-                sql->command = benchCalloc(1, strlen(buf) + 1, true);
-                sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
-                tstrncpy(buf, sql->command, strlen(buf) + 1);
-                benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
-                memset(buf, 0, BUFFER_SIZE);
-            }
-        }
+        g_queryInfo.specifiedQueryInfo.sqlCount = 0;
         // sqls
         cJSON *specifiedSqls = cJSON_GetObjectItem(specifiedQuery, "sqls");
         if (cJSON_IsArray(specifiedSqls)) {
-            int specifiedSqlSize = cJSON_GetArraySize(specifiedSqls);
-            if (specifiedSqlSize * g_queryInfo.specifiedQueryInfo.concurrent >
+            int superSqlSize = cJSON_GetArraySize(specifiedSqls);
+            if (superSqlSize * g_queryInfo.specifiedQueryInfo.concurrent >
                 MAX_QUERY_SQL_COUNT) {
                 errorPrint(
                     stderr,
                     "failed to read json, query sql(%d) * concurrent(%d) "
                     "overflow, max is %d\n",
-                    specifiedSqlSize, g_queryInfo.specifiedQueryInfo.concurrent,
+                    superSqlSize, g_queryInfo.specifiedQueryInfo.concurrent,
                     MAX_QUERY_SQL_COUNT);
                 goto PARSE_OVER;
             }
 
-            for (int j = 0; j < specifiedSqlSize; ++j) {
-                cJSON *sqlObj = cJSON_GetArrayItem(specifiedSqls, j);
-                if (cJSON_IsObject(sqlObj)) {
-                    SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
-                    sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
+            g_queryInfo.specifiedQueryInfo.sqlCount = superSqlSize;
+            for (int j = 0; j < superSqlSize; ++j) {
+                cJSON *sql = cJSON_GetArrayItem(specifiedSqls, j);
+                if (cJSON_IsObject(sql)) {
+                    g_queryInfo.specifiedQueryInfo.sql[j].delay_list =
+                            benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
                     
-                    cJSON *sqlStr = cJSON_GetObjectItem(sqlObj, "sql");
+                    cJSON *sqlStr = cJSON_GetObjectItem(sql, "sql");
                     if (cJSON_IsString(sqlStr)) {
-                        sql->command = benchCalloc(1, strlen(sqlStr->valuestring) + 1, true);
-                        tstrncpy(sql->command, sqlStr->valuestring, strlen(sqlStr->valuestring) + 1);
+                        tstrncpy(g_queryInfo.specifiedQueryInfo.sql[j].command,
+                                sqlStr->valuestring, BUFFER_SIZE);
                         // default value is -1, which mean infinite loop
                         g_queryInfo.specifiedQueryInfo.endAfterConsume[j] = -1;
                         cJSON *endAfterConsume =
@@ -1030,11 +1010,13 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
                         if (g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] < -1)
                             g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
 
-                        cJSON *result = cJSON_GetObjectItem(sqlObj, "result");
+                        cJSON *result = cJSON_GetObjectItem(sql, "result");
                         if (cJSON_IsString(result)) {
-                            tstrncpy(sql->result, result->valuestring, MAX_FILE_NAME_LEN);
+                            tstrncpy(g_queryInfo.specifiedQueryInfo.sql[j].result,
+                                    result->valuestring, MAX_FILE_NAME_LEN);
                         } else {
-                            memset(sql->result, 0, MAX_FILE_NAME_LEN);
+                            memset(g_queryInfo.specifiedQueryInfo.sql[j].result, 0,
+                                MAX_FILE_NAME_LEN);
                         }
                     } else {
                         errorPrint(stderr, "%s","Invalid sql in json\n");

@@ -80,13 +80,15 @@ static void *specifiedSubscribe(void *sarg) {
     sprintf(g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
             "taosbenchmark-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
             pThreadInfo->threadID);
-    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, pThreadInfo->querySeq);
-    if (sql->result[0] !=
+    if (g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result[0] !=
         '\0') {
-        sprintf(pThreadInfo->filePath, "%s-%d", sql->result, pThreadInfo->threadID);
+        sprintf(pThreadInfo->filePath, "%s-%d",
+                g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result,
+                pThreadInfo->threadID);
     }
     g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID] = subscribeImpl(
-        SPECIFIED_CLASS, pThreadInfo, sql->command,
+        SPECIFIED_CLASS, pThreadInfo,
+        g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command,
         g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
         g_queryInfo.specifiedQueryInfo.subscribeRestart,
         g_queryInfo.specifiedQueryInfo.subscribeInterval);
@@ -114,8 +116,12 @@ static void *specifiedSubscribe(void *sarg) {
             taos_consume(
                 g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID]);
         if (g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]) {
-            if (sql->result[0] != 0) {
-                sprintf(pThreadInfo->filePath, "%s-%d", sql->result, pThreadInfo->threadID);
+            if (g_queryInfo.specifiedQueryInfo
+                    .sql[pThreadInfo->querySeq].result[0] != 0) {
+                sprintf(pThreadInfo->filePath, "%s-%d",
+                        g_queryInfo.specifiedQueryInfo
+                            .sql[pThreadInfo->querySeq].result,
+                        pThreadInfo->threadID);
             }
             fetchResult(
                 g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID],
@@ -140,7 +146,8 @@ static void *specifiedSubscribe(void *sarg) {
                     g_queryInfo.specifiedQueryInfo.subscribeKeepProgress);
                 g_queryInfo.specifiedQueryInfo
                     .tsub[pThreadInfo->threadID] = subscribeImpl(
-                    SPECIFIED_CLASS, pThreadInfo, sql->command,
+                    SPECIFIED_CLASS, pThreadInfo,
+                    g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command,
                     g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
                     g_queryInfo.specifiedQueryInfo.subscribeRestart,
                     g_queryInfo.specifiedQueryInfo.subscribeInterval);
@@ -328,13 +335,14 @@ int subscribeTestProcess() {
     threadInfo *infosOfStable = NULL;
 
     //==== create threads for query for specified table
-    int sqlCount = g_queryInfo.specifiedQueryInfo.sqls->size;
-    if (sqlCount > 0) {
-        pids = benchCalloc(1, sqlCount * g_queryInfo.specifiedQueryInfo.concurrent *
+    if (g_queryInfo.specifiedQueryInfo.sqlCount > 0) {
+        pids = benchCalloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
+                             g_queryInfo.specifiedQueryInfo.concurrent *
                              sizeof(pthread_t), false);
-        infos = benchCalloc(1, sqlCount * g_queryInfo.specifiedQueryInfo.concurrent *
+        infos = benchCalloc(1, g_queryInfo.specifiedQueryInfo.sqlCount *
+                              g_queryInfo.specifiedQueryInfo.concurrent *
                               sizeof(threadInfo), false);
-        for (int i = 0; i < sqlCount; i++) {
+        for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
             for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent;
                  j++) {
                 uint64_t seq =
@@ -350,7 +358,7 @@ int subscribeTestProcess() {
             }
         }
 
-        for (int i = 0; i < sqlCount; i++) {
+        for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqlCount; i++) {
             for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent;
                  j++) {
                 uint64_t seq =
