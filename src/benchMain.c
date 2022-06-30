@@ -39,11 +39,9 @@ int main(int argc, char* argv[]) {
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) exit(EXIT_FAILURE);
     } else if (g_arguments->test_mode == QUERY_TEST) {
-        if (queryTestProcess(g_arguments)) exit(EXIT_FAILURE);
-        for (int64_t i = 0; i < g_queryInfo.superQueryInfo.childTblCount; ++i) {
-            tmfree(g_queryInfo.superQueryInfo.childTblName[i]);
+        if (queryTestProcess(g_arguments)) {
+            exit(EXIT_FAILURE);
         }
-        tmfree(g_queryInfo.superQueryInfo.childTblName);
     } else if (g_arguments->test_mode == SUBSCRIBE_TEST) {
         if (subscribeTestProcess(g_arguments)) exit(EXIT_FAILURE);
     }
