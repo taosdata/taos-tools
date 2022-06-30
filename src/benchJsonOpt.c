@@ -974,11 +974,13 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             memset(buf, 0, BUFFER_SIZE);
             while (fgets(buf, BUFFER_SIZE, fp)) {
                 SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
-                sql->command = benchCalloc(1, strlen(buf) + 1, true);
+                benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
+                sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size - 1);
+                sql->command = benchCalloc(1, strlen(buf), true);
                 sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
-                tstrncpy(buf, sql->command, strlen(buf) + 1);
-                benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
+                tstrncpy(sql->command, buf, strlen(buf));
+                debugPrint(stdout, "read file buffer: %s\n", sql->command);
                 memset(buf, 0, BUFFER_SIZE);
             }
         }
@@ -1001,6 +1003,8 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
                 cJSON *sqlObj = cJSON_GetArrayItem(specifiedSqls, j);
                 if (cJSON_IsObject(sqlObj)) {
                     SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
+                    benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
+                    sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size -1);
                     sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
                     

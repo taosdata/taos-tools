@@ -73,11 +73,9 @@ static void *specifiedTableQuery(void *sarg) {
         }
 
         st = toolsGetTimestampUs();
-        debugPrint(stdout, "st: %" PRId64 "\n", st);
         selectAndGetResult(pThreadInfo, sql->command);
 
         et = toolsGetTimestampUs();
-        debugPrint(stdout, "et: %" PRId64 "\n", et);
         uint64_t delay = et - st;
         pThreadInfo->query_delay_list[index] = delay;
         index++;
@@ -102,19 +100,7 @@ static void *specifiedTableQuery(void *sarg) {
             lastPrintTime = currentPrintTime;
         }
     }
-    if (g_arguments->debug_print) {
-        for (int i = 0; i < queryTimes; ++i) {
-            debugPrint(stdout, "pThreadInfo->query_delay_list[%d]: %" PRIu64 "\n", i,
-                       pThreadInfo->query_delay_list[i]);
-        }
-    }
     qsort(pThreadInfo->query_delay_list, queryTimes, sizeof(uint64_t), compare);
-    if (g_arguments->debug_print) {
-        for (int i = 0; i < queryTimes; ++i) {
-            debugPrint(stdout, "pThreadInfo->query_delay_list[%d]: %" PRIu64 "\n", i,
-                       pThreadInfo->query_delay_list[i]);
-        }
-    }
     pThreadInfo->avg_delay = (double)totalDelay / queryTimes;
     debugPrint(stdout,
               "thread[%d] complete query <%s> %" PRIu64
@@ -374,6 +360,11 @@ int queryTestProcess() {
 
     tmfree((char *)pids);
     tmfree((char *)infos);
+    for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqls->size; ++i) {
+        SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
+        tmfree(sql->command);
+        tmfree(sql->delay_list);
+    }
     benchArrayDestroy(g_queryInfo.specifiedQueryInfo.sqls);
 
     // start super table query
