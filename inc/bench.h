@@ -597,6 +597,7 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     int64_t childTblCountOfSuperTbl);
 void    delay_list_init(delayList *list);
 void    delay_list_destroy(delayList *list);
+void*   benchCalloc(size_t nmemb, size_t size, bool record);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

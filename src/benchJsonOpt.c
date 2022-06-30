@@ -39,13 +39,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             col_count++;
         }
     }
-    superTbls->columns = calloc(col_count, sizeof(Column));
-    if (superTbls->columns == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    g_memoryUsage += col_count * sizeof(Column);
+    superTbls->columns = benchCalloc(col_count, sizeof(Column), true);
     for (int k = 0; k < columnSize; ++k) {
         bool   customName = false;
         bool   customMax = false;
@@ -193,12 +187,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
     }
 
     superTbls->use_metric = true;
-    superTbls->tags = calloc(tag_count, sizeof(Column));
-    if (superTbls->tags == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += tag_count * sizeof(Column);
+    superTbls->tags = benchCalloc(tag_count, sizeof(Column), true);
     superTbls->tagCount = tag_count;
     for (int k = 0; k < tagSize; ++k) {
         cJSON *tag = cJSON_GetArrayItem(tags, k);
@@ -478,12 +467,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         return -1;
     }
     int stbSize = cJSON_GetArraySize(stables);
-    database->superTbls = calloc(stbSize, sizeof(SSuperTable));
-    if (database->superTbls == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += stbSize * sizeof(SSuperTable);
+    database->superTbls = benchCalloc(stbSize, sizeof(SSuperTable), true);
     database->superTblCount = stbSize;
     for (int i = 0; i < database->superTblCount; ++i) {
         SSuperTable *superTable = &(database->superTbls[i]);
@@ -800,13 +784,7 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     tmfree(g_arguments->db->superTbls->tags);
     tmfree(g_arguments->db->superTbls);
     tmfree(g_arguments->db);
-    g_arguments->db = calloc(dbSize, sizeof(SDataBase));
-    if (g_arguments->db == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    g_memoryUsage += dbSize * sizeof(SDataBase);
+    g_arguments->db = benchCalloc(dbSize, sizeof(SDataBase), true);
     g_arguments->dbCount = dbSize;
 
     for (int i = 0; i < dbSize; ++i) {
@@ -1002,13 +980,9 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             for (int j = 0; j < superSqlSize; ++j) {
                 cJSON *sql = cJSON_GetArrayItem(specifiedSqls, j);
                 if (cJSON_IsObject(sql)) {
-                    g_queryInfo.specifiedQueryInfo.sql[j].delay_list = 
-                        calloc(g_queryInfo.specifiedQueryInfo.queryTimes * 
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t));
-                    if (g_queryInfo.specifiedQueryInfo.sql[j].delay_list == NULL) {
-                        errorPrint(stderr,"%s","failed to allocate memory\n");
-                        exit(EXIT_FAILURE);
-                    }
+                    g_queryInfo.specifiedQueryInfo.sql[j].delay_list =
+                            benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
+                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
                     
                     cJSON *sqlStr = cJSON_GetObjectItem(sql, "sql");
                     if (cJSON_IsString(sqlStr)) {
@@ -1217,11 +1191,7 @@ int getInfoFromJsonFile() {
     }
 
     int   maxLen = MAX_JSON_BUFF;
-    char *content = calloc(1, maxLen + 1);
-    if (content == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *content = benchCalloc(1, maxLen + 1, false);
     int   len = (int)fread(content, 1, maxLen, fp);
     if (len <= 0) {
         errorPrint(stderr, "failed to read %s, content is null", file);

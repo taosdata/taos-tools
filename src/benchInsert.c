@@ -59,13 +59,7 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
             columnIndex++;
         }
     }
-    int32_t *tmp_length_list = calloc(columnIndex, sizeof(int32_t));
-    if (tmp_length_list == NULL) {
-        taos_free_result(res);
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += columnIndex * sizeof(int32_t);
+    int32_t *tmp_length_list = benchCalloc(columnIndex, sizeof(int32_t), true);
     columnIndex -= 1;
     if (columnIndex == stbInfo->columnCount) {
         for (int i = 0; i < stbInfo->columnCount; ++i) {
@@ -82,24 +76,10 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     }
     stbInfo->tagCount = tagIndex;
     tmfree(stbInfo->tags);
-    stbInfo->tags = calloc(tagIndex, sizeof(Column));
-    if (stbInfo->tags == NULL) {
-        taos_free_result(res);
-        tmfree(tmp_length_list);
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += tagIndex * sizeof(Column);
+    stbInfo->tags = benchCalloc(tagIndex, sizeof(Column), true);
     tmfree(stbInfo->columns);
     stbInfo->columnCount = columnIndex;
-    stbInfo->columns = calloc(columnIndex, sizeof(Column));
-    if (stbInfo->columns == NULL) {
-        taos_free_result(res);
-        tmfree(tmp_length_list);
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += columnIndex * sizeof(Column);
+    stbInfo->columns = benchCalloc(columnIndex, sizeof(Column), true);
     infoPrint(stdout, "stable<%s> with %u columns and %u tags\n",
               stbInfo->stbName, stbInfo->tagCount, stbInfo->columnCount);
     taos_free_result(res);
@@ -167,16 +147,8 @@ static int createSuperTable(int db_index, int stb_index) {
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
     TAOS *       taos = select_one_from_pool(NULL);
     uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->columnCount;
-    char         *cols = calloc(1, col_buffer_len);
-    if (cols == NULL) {
-        errorPrint(stderr, "%s", "failed to allocate memeory\n");
-        exit(EXIT_FAILURE);
-    }
-    char*         command = calloc(1, BUFFER_SIZE);
-    if (command == NULL) {
-        errorPrint(stderr, "%s", "failed to allocate memory\n");
-        exit(EXIT_FAILURE);
-    }
+    char         *cols = benchCalloc(1, col_buffer_len, false);
+    char*         command = benchCalloc(1, BUFFER_SIZE, false);
     int          len = 0;
 
     for (int colIndex = 0; colIndex < stbInfo->columnCount; colIndex++) {
@@ -195,12 +167,7 @@ static int createSuperTable(int db_index, int stb_index) {
 
     // save for creating child table
     stbInfo->colsOfCreateChildTable =
-        (char *)calloc(len + TIMESTAMP_BUFF_LEN, 1);
-    if (stbInfo->colsOfCreateChildTable == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += len + TIMESTAMP_BUFF_LEN;
+        (char *)benchCalloc(len + TIMESTAMP_BUFF_LEN, 1, true);
 
     snprintf(stbInfo->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
              "(ts timestamp%s)", cols);
@@ -212,11 +179,7 @@ static int createSuperTable(int db_index, int stb_index) {
     }
 
     uint32_t tag_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->tagCount;
-    char *tags = calloc(1, tag_buffer_len);
-    if (tags == NULL) {
-        errorPrint(stderr, "%s", "failed to allocate memory\n");
-        exit(EXIT_FAILURE);
-    }
+    char *tags = benchCalloc(1, tag_buffer_len, false);
     int  tagIndex;
     len = 0;
 
@@ -422,11 +385,7 @@ int createDatabase(int db_index) {
 }
 
 static void *createTable(void *sarg) {
-    int32_t *code = calloc(1, sizeof(int32_t));
-    if (code == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
     *code = -1;
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
@@ -435,11 +394,7 @@ static void *createTable(void *sarg) {
     prctl(PR_SET_NAME, "createTable");
 #endif
     uint64_t lastPrintTime = toolsGetTimestampMs();
-    pThreadInfo->buffer = calloc(1, TSDB_MAX_SQL_LEN);
-    if (pThreadInfo->buffer == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
     int len = 0;
     int batchNum = 0;
     infoPrint(stdout,
@@ -519,19 +474,8 @@ static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
     SDataBase *  database = &(g_arguments->db[db_index]);
     SSuperTable *stbInfo = &(database->superTbls[stb_index]);
     int64_t      ntables = stbInfo->childTblCount;
-    pthread_t *  pids = calloc(1, threads * sizeof(pthread_t));
-    if (pids == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    threadInfo * infos = calloc(1, threads * sizeof(threadInfo));
-    if (infos == NULL) {
-        // if the infos == NULL but the pids is not NULL
-        // we should free the pids when the function exit()
-        free(pids);
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    pthread_t *  pids = benchCalloc(1, threads * sizeof(pthread_t), false);
+    threadInfo * infos = benchCalloc(1, threads * sizeof(threadInfo), false);
     uint64_t     tableFrom = 0;
     if (threads < 1) {
         threads = 1;
@@ -788,11 +732,7 @@ static void *syncWriteInterlace(void *sarg) {
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-    int32_t *code = calloc(1, sizeof(int32_t));
-    if (code == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
     *code = -1;
 
     int64_t insertRows = stbInfo->insertRows;
@@ -1007,11 +947,7 @@ static void *syncWriteInterlace(void *sarg) {
 
         if (delay > pThreadInfo->maxDelay) pThreadInfo->maxDelay = delay;
         if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
-        current_delay_node = calloc(1, sizeof(delayNode));
-        if (current_delay_node == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
+        current_delay_node = benchCalloc(1, sizeof(delayNode), false);
         current_delay_node->value = delay;
         if (pThreadInfo->delayList.size == 0) {
             pThreadInfo->delayList.head = current_delay_node;
@@ -1056,11 +992,7 @@ void *syncWriteProgressive(void *sarg) {
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-    int32_t *code = calloc(1, sizeof(int32_t));
-    if (code == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
     *code = -1;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     uint64_t   startTs = toolsGetTimestampMs();
@@ -1280,11 +1212,7 @@ void *syncWriteProgressive(void *sarg) {
             if (delay > pThreadInfo->maxDelay) pThreadInfo->maxDelay = delay;
             if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
             pThreadInfo->cntDelay++;
-            current_delay_node = calloc(1, sizeof(delayNode));
-            if (current_delay_node == NULL) {
-                errorPrint(stderr, "%s", "memory allocation failed\n");
-                exit(EXIT_FAILURE);
-            }
+            current_delay_node = benchCalloc(1, sizeof(delayNode), false);
             current_delay_node->value = delay;
             if (pThreadInfo->delayList.size == 0) {
                 pThreadInfo->delayList.head = current_delay_node;
@@ -1366,20 +1294,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
 
     uint64_t tableFrom = 0;
     uint64_t ntables = stbInfo->childTblCount;
-    stbInfo->childTblName = calloc(stbInfo->childTblCount, sizeof(char *));
-    if (stbInfo->childTblName == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    g_memoryUsage += stbInfo->childTblCount * 8;
+    stbInfo->childTblName = benchCalloc(stbInfo->childTblCount, sizeof(char *), true);
     for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
-        stbInfo->childTblName[i] = calloc(1, TSDB_TABLE_NAME_LEN);
-        if (NULL ==  stbInfo->childTblName[i]) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        g_memoryUsage += TSDB_TABLE_NAME_LEN;
+        stbInfo->childTblName[i] = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
     }
 
     if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) &&
@@ -1453,18 +1370,8 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         b = ntables % threads;
     }
 
-    pthread_t * pids = calloc(1, threads * sizeof(pthread_t));
-    if (pids == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += threads * sizeof(pthread_t);
-    threadInfo *infos = calloc(1, threads * sizeof(threadInfo));
-    if (infos == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += threads * sizeof(threadInfo);
+    pthread_t * pids = benchCalloc(1, threads * sizeof(pthread_t), true);
+    threadInfo *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
@@ -1484,13 +1391,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         delay_list_init(&(pThreadInfo->delayList));
         switch (stbInfo->iface) {
             case REST_IFACE: {
-                pThreadInfo->buffer = calloc(1, MAX_SQL_LEN);
-                if (pThreadInfo->buffer == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                
-                g_memoryUsage += MAX_SQL_LEN;
+                pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, false);
 #ifdef WINDOWS
                 WSADATA wsaData;
                 WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -1542,27 +1443,12 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     }
                 }
 
-                pThreadInfo->bind_ts = calloc(1, sizeof(int64_t));
-                g_memoryUsage += sizeof(int64_t);
+                pThreadInfo->bind_ts = benchCalloc(1, sizeof(int64_t), true);
                 pThreadInfo->bind_ts_array =
-                    calloc(1, sizeof(int64_t) * g_arguments->reqPerReq);
-                if (NULL == pThreadInfo->bind_ts_array) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                pThreadInfo->bindParams = calloc(
-                    1, sizeof(TAOS_MULTI_BIND) * (stbInfo->columnCount + 1));
-                if (pThreadInfo->bindParams == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                g_memoryUsage += sizeof(TAOS_MULTI_BIND) * (stbInfo->columnCount + 1);
-                pThreadInfo->is_null = calloc(1, g_arguments->reqPerReq);
-                if (NULL == pThreadInfo->is_null) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                g_memoryUsage += g_arguments->reqPerReq;
+                        benchCalloc(1, sizeof(int64_t) * g_arguments->reqPerReq, true);
+                pThreadInfo->bindParams = benchCalloc(
+                    1, sizeof(TAOS_MULTI_BIND) * (stbInfo->columnCount + 1), true);
+                pThreadInfo->is_null = benchCalloc(1, g_arguments->reqPerReq, true);
 
                 break;
             }
@@ -1610,31 +1496,15 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     stbInfo->lenOfCols + stbInfo->lenOfTags;
                 if (stbInfo->iface == SML_REST_IFACE) {
                     pThreadInfo->buffer =
-                        calloc(1, g_arguments->reqPerReq *
-                                      (1 + pThreadInfo->max_sql_len));
-                    if (pThreadInfo->buffer == NULL) {
-                        errorPrint(stderr, "%s", "memory allocation failed\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    g_memoryUsage += g_arguments->reqPerReq *
-                                      (1 + pThreadInfo->max_sql_len);
+                            benchCalloc(1, g_arguments->reqPerReq *
+                                      (1 + pThreadInfo->max_sql_len), true);
                 }
                 if (stbInfo->lineProtocol != TSDB_SML_JSON_PROTOCOL) {
                     pThreadInfo->sml_tags =
-                        (char **)calloc(pThreadInfo->ntables, sizeof(char *));
-                    if (pThreadInfo->sml_tags == NULL) {
-                        errorPrint(stderr, "%s", "memory allocation failed\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    g_memoryUsage += pThreadInfo->ntables * sizeof(char *);
+                        (char **)benchCalloc(pThreadInfo->ntables, sizeof(char *), true);
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         pThreadInfo->sml_tags[t] =
-                            calloc(1, stbInfo->lenOfTags);
-                        if (pThreadInfo->sml_tags[t] == NULL) {
-                            errorPrint(stderr, "%s", "memory allocation failed\n");
-                            exit(EXIT_FAILURE);
-                        }
-                        g_memoryUsage += stbInfo->lenOfTags;
+                                benchCalloc(1, stbInfo->lenOfTags, true);
                     }
 
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
@@ -1646,21 +1516,11 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                                    pThreadInfo->sml_tags[t]);
                     }
                     pThreadInfo->lines =
-                        calloc(g_arguments->reqPerReq, sizeof(char *));
-                    
-                    if (pThreadInfo->lines == NULL) {
-                        errorPrint(stderr, "%s", "memory allocation failed\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    g_memoryUsage += g_arguments->reqPerReq * sizeof(char *);
+                            benchCalloc(g_arguments->reqPerReq, sizeof(char *), true);
+
                     for (int j = 0; j < g_arguments->reqPerReq; j++) {
                         pThreadInfo->lines[j] =
-                            calloc(1, pThreadInfo->max_sql_len);
-                        if (pThreadInfo->lines[j] == NULL) {
-                            errorPrint(stderr, "%s", "memory allocation failed\n");
-                            exit(EXIT_FAILURE);
-                        }
-                        g_memoryUsage += pThreadInfo->max_sql_len;
+                                benchCalloc(1, pThreadInfo->max_sql_len, true);
                     }
                 } else {
                     pThreadInfo->json_array = cJSON_CreateArray();
@@ -1672,12 +1532,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                             return -1;
                         }
                     }
-                    pThreadInfo->lines = (char **)calloc(1, sizeof(char *));
-                    if (pThreadInfo->lines == NULL) {
-                        errorPrint(stderr, "%s", "memory allocation failed\n");
-                        exit(EXIT_FAILURE);
-                    }
-                    g_memoryUsage += sizeof(char *);
+                    pThreadInfo->lines = (char **)benchCalloc(1, sizeof(char *), true);
                 }
                 break;
             }
@@ -1690,16 +1545,11 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     } else {
                         pThreadInfo->max_sql_len = g_arguments->reqPerReq * stbInfo->lenOfCols + 1024;
                     }
-                    pThreadInfo->buffer = calloc(1, pThreadInfo->max_sql_len);
+                    pThreadInfo->buffer = benchCalloc(1, pThreadInfo->max_sql_len, true);
                 } else {
-                    pThreadInfo->buffer = calloc(1, MAX_SQL_LEN);
+                    pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, true);
                 }
-                
-                if (pThreadInfo->buffer == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                g_memoryUsage += MAX_SQL_LEN;
+
                 break;
             }
             default:
@@ -1800,11 +1650,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
     }
 
-    total_delay_list = calloc(cntDelay, sizeof(uint64_t));
-    if (total_delay_list == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    total_delay_list = benchCalloc(cntDelay, sizeof(uint64_t), false);
     uint64_t index = 0;
     for (int i = 0; i < threads; ++i) {
         threadInfo *pThreadInfo = infos + i;
