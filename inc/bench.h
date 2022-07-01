@@ -400,12 +400,23 @@ typedef struct SDbCfg_S {
 
 } SDbCfg;
 
+typedef struct SSTREAM_S {
+    char stream_name[TSDB_TABLE_NAME_LEN];
+    char stream_stb[TSDB_TABLE_NAME_LEN];
+    char trigger_mode[BIGINT_BUFF_LEN];
+    char max_delay[BIGINT_BUFF_LEN];
+    char watermark[BIGINT_BUFF_LEN];
+    char source_sql[TSDB_MAX_SQL_LEN];
+    bool drop;
+} SSTREAM;
+
 typedef struct SDataBase_S {
     char *       dbName;
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
     SDbCfg       dbCfg;
     uint64_t     superTblCount;
     SSuperTable *superTbls;
+    BArray*      streams;
 } SDataBase;
 
 typedef struct SSQL_S {
