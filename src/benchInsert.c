@@ -883,12 +883,11 @@ static void *syncWriteInterlace(void *sarg) {
                 }
             }
             tableSeq++;
+            pThreadInfo->totalInsertRows += interlaceRows;
             if (tableSeq > pThreadInfo->end_table_to) {
                 tableSeq = pThreadInfo->start_table_from;
                 pThreadInfo->start_time +=
                     interlaceRows * stbInfo->timestamp_step;
-                pThreadInfo->totalInsertRows +=
-                    pThreadInfo->ntables * interlaceRows;
                 if (!stbInfo->non_stop) {
                     insertRows -= interlaceRows;
                 }
