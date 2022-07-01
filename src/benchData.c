@@ -351,7 +351,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     pos += sprintf(sampleDataBuf + pos, "null,");
                     continue;
                 }
-                if (columns[i].type == TSDB_DATA_TYPE_TIMESTAMP) {
+                if (columns[i].type == TSDB_DATA_TYPE_TIMESTAMP && !tag) {
                     pos += sprintf(sampleDataBuf + pos, "now,");
                     continue;
                 }
