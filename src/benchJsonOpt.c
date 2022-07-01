@@ -693,48 +693,46 @@ static int getStreamInfo(cJSON* dbinfos, int index) {
     database->streams = benchArrayInit(1, sizeof(SSTREAM));
     cJSON* dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON* streamsObj = cJSON_GetObjectItem(dbinfo, "stream");
-    if (!cJSON_IsArray(streamsObj)) {
-        errorPrint(stderr, "%s", "invalid stream format in json\n");
-        return -1;
-    }
-    int streamCnt = cJSON_GetArraySize(streamsObj);
-    for (int i = 0; i < streamCnt; ++i) {
-        cJSON* streamObj = cJSON_GetArrayItem(streamsObj, i);
-        if (!cJSON_IsObject(streamObj)) {
-            errorPrint(stderr, "%s", "invalid stream format in json\n");
-            return -1;
-        }
-        cJSON* stream_name = cJSON_GetObjectItem(streamObj, "stream_name");
-        cJSON* stream_stb = cJSON_GetObjectItem(streamObj, "stream_stb");
-        cJSON* source_sql = cJSON_GetObjectItem(streamObj, "source_sql");
-        if (!cJSON_IsString(stream_name) || !cJSON_IsString(stream_stb) || !cJSON_IsString(source_sql)) {
-            errorPrint(stderr, "%s", "Invalid or miss 'stream_name'/'stream_stb'/'source_sql' key in json\n");
-            return -1;
-        }
-        SSTREAM * stream = benchCalloc(1, sizeof(SSTREAM), true);
-        tstrncpy(stream->stream_name, stream_name->valuestring, TSDB_TABLE_NAME_LEN);
-        tstrncpy(stream->stream_stb, stream_stb->valuestring, TSDB_TABLE_NAME_LEN);
-        tstrncpy(stream->source_sql, source_sql->valuestring, TSDB_MAX_SQL_LEN);
-        cJSON* trigger_mode = cJSON_GetObjectItem(streamObj, "trigger_mode");
-        if (cJSON_IsString(trigger_mode)) {
-            tstrncpy(stream->trigger_mode, trigger_mode->valuestring, BIGINT_BUFF_LEN);
-        }
-        cJSON* watermark = cJSON_GetObjectItem(streamObj, "watermark");
-        if (cJSON_IsString(watermark)) {
-            tstrncpy(stream->watermark, watermark->valuestring, BIGINT_BUFF_LEN);
-        }
-        cJSON* drop = cJSON_GetObjectItem(streamObj, "drop");
-        if (cJSON_IsString(drop)) {
-            if (0 == strcasecmp(drop->valuestring, "yes")) {
-                stream->drop = true;
-            } else if (0 == strcasecmp(drop->valuestring, "no")) {
-                stream->drop = false;
-            } else {
-                errorPrint(stderr, "invalid value for drop field: %s\n", drop->valuestring);
+    if (cJSON_IsArray(streamsObj)) {
+        int streamCnt = cJSON_GetArraySize(streamsObj);
+        for (int i = 0; i < streamCnt; ++i) {
+            cJSON* streamObj = cJSON_GetArrayItem(streamsObj, i);
+            if (!cJSON_IsObject(streamObj)) {
+                errorPrint(stderr, "%s", "invalid stream format in json\n");
                 return -1;
             }
+            cJSON* stream_name = cJSON_GetObjectItem(streamObj, "stream_name");
+            cJSON* stream_stb = cJSON_GetObjectItem(streamObj, "stream_stb");
+            cJSON* source_sql = cJSON_GetObjectItem(streamObj, "source_sql");
+            if (!cJSON_IsString(stream_name) || !cJSON_IsString(stream_stb) || !cJSON_IsString(source_sql)) {
+                errorPrint(stderr, "%s", "Invalid or miss 'stream_name'/'stream_stb'/'source_sql' key in json\n");
+                return -1;
+            }
+            SSTREAM * stream = benchCalloc(1, sizeof(SSTREAM), true);
+            tstrncpy(stream->stream_name, stream_name->valuestring, TSDB_TABLE_NAME_LEN);
+            tstrncpy(stream->stream_stb, stream_stb->valuestring, TSDB_TABLE_NAME_LEN);
+            tstrncpy(stream->source_sql, source_sql->valuestring, TSDB_MAX_SQL_LEN);
+            cJSON* trigger_mode = cJSON_GetObjectItem(streamObj, "trigger_mode");
+            if (cJSON_IsString(trigger_mode)) {
+                tstrncpy(stream->trigger_mode, trigger_mode->valuestring, BIGINT_BUFF_LEN);
+            }
+            cJSON* watermark = cJSON_GetObjectItem(streamObj, "watermark");
+            if (cJSON_IsString(watermark)) {
+                tstrncpy(stream->watermark, watermark->valuestring, BIGINT_BUFF_LEN);
+            }
+            cJSON* drop = cJSON_GetObjectItem(streamObj, "drop");
+            if (cJSON_IsString(drop)) {
+                if (0 == strcasecmp(drop->valuestring, "yes")) {
+                    stream->drop = true;
+                } else if (0 == strcasecmp(drop->valuestring, "no")) {
+                    stream->drop = false;
+                } else {
+                    errorPrint(stderr, "invalid value for drop field: %s\n", drop->valuestring);
+                    return -1;
+                }
+            }
+            benchArrayPush(database->streams, stream);
         }
-        benchArrayPush(database->streams, stream);
     }
     return 0;
 }
