@@ -154,11 +154,17 @@
 #define DEFAULT_CREATE_BATCH   10
 #define DEFAULT_SUB_INTERVAL   10000
 #define DEFAULT_QUERY_INTERVAL 10000
-
+#define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
 #if _MSC_VER <= 1900
 #define __func__ __FUNCTION__
+#endif
+
+#if defined(__GNUC__)
+#define FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define FORCE_INLINE
 #endif
 
 #define debugPrint(fp, fmt, ...)                                             \
@@ -292,6 +298,13 @@ enum _describe_table_index {
     TSDB_MAX_DESCRIBE_METRIC
 };
 
+typedef struct BArray {
+    size_t   size;
+    uint32_t capacity;
+    uint32_t elemSize;
+    void*    pData;
+} BArray;
+
 typedef struct TAOS_POOL_S {
     int    size;
     int    current;
@@ -396,7 +409,7 @@ typedef struct SDataBase_S {
 } SDataBase;
 
 typedef struct SSQL_S {
-    char command[BUFFER_SIZE + 1];
+    char *command;
     char result[MAX_FILE_NAME_LEN];
     int64_t* delay_list;
 } SSQL;
@@ -404,13 +417,12 @@ typedef struct SSQL_S {
 typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
     uint32_t  concurrent;
-    int       sqlCount;
     uint32_t  asyncMode;          // 0: sync, 1: async
     uint64_t  subscribeInterval;  // ms
     uint64_t  queryTimes;
     bool      subscribeRestart;
     int       subscribeKeepProgress;
-    SSQL      sql[MAX_QUERY_SQL_COUNT];
+    BArray*   sqls;
     int       resubAfterConsume[MAX_QUERY_SQL_COUNT];
     int       endAfterConsume[MAX_QUERY_SQL_COUNT];
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
@@ -554,6 +566,7 @@ extern uint64_t       g_memoryUsage;
         strncpy((dst), (src), (size)); \
         (dst)[(size)-1] = 0;           \
     } while (0)
+#define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
 void commandLineParseArgument(int argc, char *argv[]);
@@ -598,6 +611,11 @@ int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 void    delay_list_init(delayList *list);
 void    delay_list_destroy(delayList *list);
 void*   benchCalloc(size_t nmemb, size_t size, bool record);
+BArray* benchArrayInit(size_t size, size_t elemSize);
+void* benchArrayPush(BArray* pArray, void* pData);
+void* benchArrayDestroy(BArray* pArray);
+void benchArrayClear(BArray* pArray);
+void* benchArrayGet(const BArray* pArray, size_t index);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

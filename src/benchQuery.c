@@ -55,11 +55,10 @@ static void *specifiedTableQuery(void *sarg) {
     uint64_t  lastPrintTime = toolsGetTimestampMs();
     uint64_t  startTs = toolsGetTimestampMs();
 
-    if (g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result[0] !=
-        '\0') {
-        sprintf(pThreadInfo->filePath, "%s-%d",
-                g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].result,
-                pThreadInfo->threadID);
+    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, pThreadInfo->querySeq);
+
+    if (sql->result[0] != '\0') {
+        sprintf(pThreadInfo->filePath, "%s-%d", sql->result, pThreadInfo->threadID);
     }
 
     while (index < queryTimes) {
@@ -81,9 +80,7 @@ static void *specifiedTableQuery(void *sarg) {
             g_fail = true;
         }
 
-
         et = toolsGetTimestampUs();
-        debugPrint(stdout, "et: %" PRId64 "\n", et);
         uint64_t delay = et - st;
         pThreadInfo->query_delay_list[index] = delay;
         index++;
@@ -108,19 +105,7 @@ static void *specifiedTableQuery(void *sarg) {
             lastPrintTime = currentPrintTime;
         }
     }
-    if (g_arguments->debug_print) {
-        for (int i = 0; i < queryTimes; ++i) {
-            debugPrint(stdout, "pThreadInfo->query_delay_list[%d]: %" PRIu64 "\n", i,
-                       pThreadInfo->query_delay_list[i]);
-        }
-    }
     qsort(pThreadInfo->query_delay_list, queryTimes, sizeof(uint64_t), compare);
-    if (g_arguments->debug_print) {
-        for (int i = 0; i < queryTimes; ++i) {
-            debugPrint(stdout, "pThreadInfo->query_delay_list[%d]: %" PRIu64 "\n", i,
-                       pThreadInfo->query_delay_list[i]);
-        }
-    }
     pThreadInfo->avg_delay = (double)totalDelay / queryTimes;
     debugPrint(stdout,
               "thread[%d] complete query <%s> %" PRIu64
@@ -131,7 +116,7 @@ static void *specifiedTableQuery(void *sarg) {
               "us,"
               " max: %5" PRIu64 "us\n\n ",
               pThreadInfo->threadID,
-              g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command,
+              sql->command,
               queryTimes, minDelay, pThreadInfo->avg_delay,
               pThreadInfo->query_delay_list[(int32_t)(queryTimes * 0.9)],
               pThreadInfo->query_delay_list[(int32_t)(queryTimes * 0.95)],
@@ -265,7 +250,7 @@ int queryTestProcess() {
     threadInfo *infos = NULL;
     //==== create sub threads for query from specify table
     int      nConcurrent = g_queryInfo.specifiedQueryInfo.concurrent;
-    uint64_t nSqlCount = g_queryInfo.specifiedQueryInfo.sqlCount;
+    uint64_t nSqlCount = g_queryInfo.specifiedQueryInfo.sqls->size;
 
     uint64_t startTs = toolsGetTimestampMs();
 
@@ -273,6 +258,7 @@ int queryTestProcess() {
         pids = benchCalloc(1, nConcurrent * nSqlCount * sizeof(pthread_t), false);
         infos = benchCalloc(1, nConcurrent * nSqlCount * sizeof(threadInfo), false);
         for (uint64_t i = 0; i < nSqlCount; i++) {
+            SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
             for (int j = 0; j < nConcurrent; j++) {
                 uint64_t    seq = i * nConcurrent + j;
                 threadInfo *pThreadInfo = infos + seq;
@@ -355,23 +341,22 @@ int queryTestProcess() {
                 threadInfo *pThreadInfo = infos + seq;
                 avg_delay += pThreadInfo->avg_delay;
                 for (uint64_t k = 0; k < g_queryInfo.specifiedQueryInfo.queryTimes; k++) {
-                    g_queryInfo.specifiedQueryInfo.sql[i].delay_list[j*query_times + k] = 
-                        pThreadInfo->query_delay_list[k];
+                    sql->delay_list[j*query_times + k] = pThreadInfo->query_delay_list[k];
                 }
                 tmfree(pThreadInfo->query_delay_list);
             }
             avg_delay /= nConcurrent;
-            qsort(g_queryInfo.specifiedQueryInfo.sql[i].delay_list, total_query_times, sizeof(uint64_t), compare);
+            qsort(sql->delay_list, total_query_times, sizeof(uint64_t), compare);
             infoPrint(stdout, "complete query <%s> with %d threads and %"PRIu64
-                        " times for each, query delay min: %.6fs,"
-                        "avg: %.6fs, p90: %.6fs, p95: %.6fs, p99: %.6fs, max: %.6fs\n",
-                        g_queryInfo.specifiedQueryInfo.sql[i].command, nConcurrent, query_times, 
-                        g_queryInfo.specifiedQueryInfo.sql[i].delay_list[0]/1E6,
-                        avg_delay/1E6,
-                        g_queryInfo.specifiedQueryInfo.sql[i].delay_list[(int32_t)(total_query_times * 0.90)]/1E6,
-                        g_queryInfo.specifiedQueryInfo.sql[i].delay_list[(int32_t)(total_query_times * 0.95)]/1E6,
-                        g_queryInfo.specifiedQueryInfo.sql[i].delay_list[(int32_t)(total_query_times * 0.99)]/1E6,
-                        g_queryInfo.specifiedQueryInfo.sql[i].delay_list[(int32_t)total_query_times - 1]/1E6);
+                    " times for each, query delay min: %.6fs,"
+                    "avg: %.6fs, p90: %.6fs, p95: %.6fs, p99: %.6fs, max: %.6fs\n",
+                    sql->command, nConcurrent, query_times,
+                    sql->delay_list[0]/1E6,
+                    avg_delay/1E6,
+                    sql->delay_list[(int32_t)(total_query_times * 0.90)]/1E6,
+                    sql->delay_list[(int32_t)(total_query_times * 0.95)]/1E6,
+                    sql->delay_list[(int32_t)(total_query_times * 0.99)]/1E6,
+                    sql->delay_list[(int32_t)total_query_times - 1]/1E6);
         }
     } else {
         g_queryInfo.specifiedQueryInfo.concurrent = 0;
@@ -379,7 +364,14 @@ int queryTestProcess() {
 
     tmfree((char *)pids);
     tmfree((char *)infos);
+    for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqls->size; ++i) {
+        SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
+        tmfree(sql->command);
+        tmfree(sql->delay_list);
+    }
+    benchArrayDestroy(g_queryInfo.specifiedQueryInfo.sqls);
 
+    // start super table query
     pthread_t * pidsOfSub = NULL;
     threadInfo *infosOfSub = NULL;
     //==== create sub threads for query from all sub table of the super table
