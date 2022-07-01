@@ -76,7 +76,7 @@ static void *specifiedTableQuery(void *sarg) {
         debugPrint(stdout, "st: %" PRId64 "\n", st);
         if (selectAndGetResult(
                 pThreadInfo,
-                g_queryInfo.specifiedQueryInfo.sql[pThreadInfo->querySeq].command)) {
+                sql->command)) {
             g_fail = true;
         }
 
