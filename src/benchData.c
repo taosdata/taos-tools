@@ -619,8 +619,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     }
                     break;
                 }
-                case TSDB_DATA_TYPE_UBIGINT:
-                case TSDB_DATA_TYPE_TIMESTAMP: {
+                case TSDB_DATA_TYPE_UBIGINT: {
                     if (columns[i].min < 0) {
                         columns[i].min = 0;
                     }
