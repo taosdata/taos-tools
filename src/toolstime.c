@@ -167,7 +167,8 @@ int64_t parseFraction(char* str, char** end, int32_t timePrec) {
 
   return fraction;
 }
-#ifdef LINUX
+
+#if defined(LINUX) || defined(DARWIN)
 int64_t user_mktime64(const unsigned int year0, const unsigned int mon0,
 		const unsigned int day, const unsigned int hour,
 		const unsigned int min, const unsigned int sec, int64_t time_zone)
