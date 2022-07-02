@@ -340,36 +340,21 @@ int parse_col_datatype(char *dataType, Column *columns) {
 
 static SSuperTable *init_stable() {
     SDataBase *database = g_arguments->db;
-    database->superTbls = calloc(1, sizeof(SSuperTable));
-    if (database->superTbls == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += sizeof(SSuperTable);
+    database->superTbls = benchCalloc(1, sizeof(SSuperTable), true);
     SSuperTable *stbInfo = database->superTbls;
     stbInfo->iface = TAOSC_IFACE;
     stbInfo->stbName = "meters";
     stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
     stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
-    stbInfo->columns = calloc(3, sizeof(Column));
-    if (stbInfo->columns == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += 3 * sizeof(Column);
+    stbInfo->columns = benchCalloc(3, sizeof(Column), true);
     stbInfo->columns[0].type = TSDB_DATA_TYPE_FLOAT;
     stbInfo->columns[1].type = TSDB_DATA_TYPE_INT;
     stbInfo->columns[2].type = TSDB_DATA_TYPE_FLOAT;
     stbInfo->columns[0].length = sizeof(float);
     stbInfo->columns[1].length = sizeof(int32_t);
     stbInfo->columns[2].length = sizeof(float);
-    stbInfo->tags = calloc(3, sizeof(Column));
-    if (stbInfo->tags == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += 3 * sizeof(Column);
+    stbInfo->tags = benchCalloc(3, sizeof(Column), true);
     stbInfo->tags[0].type = TSDB_DATA_TYPE_INT;
     stbInfo->tags[1].type = TSDB_DATA_TYPE_BINARY;
     stbInfo->tags[0].length = sizeof(int32_t);
@@ -397,12 +382,7 @@ static SSuperTable *init_stable() {
 }
 
 static SDataBase *init_database() {
-    g_arguments->db = calloc(1, sizeof(SDataBase));
-    if (g_arguments->db == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += sizeof(SDataBase);
+    g_arguments->db = benchCalloc(1, sizeof(SDataBase), true);
     SDataBase *database = g_arguments->db;
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
@@ -432,23 +412,13 @@ static SDataBase *init_database() {
     return database;
 }
 void init_argument() {
-    g_arguments = calloc(1, sizeof(SArguments));
-    if (g_arguments == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += sizeof(SArguments);
+    g_arguments = benchCalloc(1, sizeof(SArguments), true);
     if (taos_get_client_info()[0] == '3') {
         g_arguments->taosc_version = 3;
     } else {
         g_arguments->taosc_version = 2;
     }
-    g_arguments->pool = calloc(1, sizeof(TAOS_POOL));
-    if (g_arguments->pool == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += sizeof(TAOS_POOL);
+    g_arguments->pool = benchCalloc(1, sizeof(TAOS_POOL), true);
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
     g_arguments->dbCount = 1;
@@ -555,11 +525,7 @@ static void *queryStableAggrFunc(void *sarg) {
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryStableAggrFunc");
 #endif
-    char *command = calloc(1, BUFFER_SIZE);
-    if (command == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
     int64_t totalData = g_arguments->db->superTbls->insertRows *
                         g_arguments->db->superTbls->childTblCount;
@@ -644,11 +610,7 @@ static void *queryNtableAggrFunc(void *sarg) {
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
 #endif
-    char *  command = calloc(1, BUFFER_SIZE);
-    if (command == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *  command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
     int64_t totalData = g_arguments->db->superTbls->childTblCount *
                         g_arguments->db->superTbls->insertRows;
@@ -727,11 +689,7 @@ static void *queryNtableAggrFunc(void *sarg) {
 
 void queryAggrFunc() {
     pthread_t   read_id;
-    threadInfo *pThreadInfo = calloc(1, sizeof(threadInfo));
-    if (pThreadInfo == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), false);
     pThreadInfo->taos = select_one_from_pool(g_arguments->db->dbName);
     if (g_arguments->db->superTbls->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
