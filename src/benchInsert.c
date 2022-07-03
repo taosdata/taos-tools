@@ -604,6 +604,7 @@ void postFreeResource() {
     SDataBase *database = g_arguments->db;
     for (int i = 0; i < g_arguments->dbCount; i++) {
         for (uint64_t j = 0; j < database[i].superTblCount; j++) {
+            benchArrayDestroy(database[i].streams);
             tmfree(database[i].superTbls[j].colsOfCreateChildTable);
             tmfree(database[i].superTbls[j].sampleDataBuf);
             tmfree(database[i].superTbls[j].tagDataBuf);
