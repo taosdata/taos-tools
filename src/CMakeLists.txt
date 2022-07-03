@@ -150,7 +150,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
         IF (${OS_ID} MATCHES "alpine")
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
-        ELSE()
+        ELSEIF(NOT ${OS_ID} MATCHES "Darwin")
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
         ENDIF()
 
