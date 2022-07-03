@@ -37,6 +37,11 @@ sudo yum install xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic
 （参考 [链接](https://github.com/google/snappy/pull/86)），会导致
  cmake 提示无法发现 libsnappy，实际上工作正常。
 
+#### 对于 macOS 系统 (目前仅支持 taosBenchmark)
+```
+brew install argp-standalone
+```
+
 ### 安装 TDengine 客户端软件
 
 请从 [taosdata.com](https://www.taosdata.com/cn/all-downloads/) 下载
