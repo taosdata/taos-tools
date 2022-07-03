@@ -1728,6 +1728,34 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     return 0;
 }
 
+static int createStream(SSTREAM* stream, char* dbName) {
+    int code = -1;
+    TAOS *       taos = select_one_from_pool(dbName);
+    char * command = benchCalloc(1, BUFFER_SIZE, false);
+    snprintf(command, BUFFER_SIZE, "drop stream if exists %s", stream->stream_name);
+    infoPrint(stderr, "%s\n", command);
+    if (queryDbExec(taos, command, NO_INSERT_TYPE, false)){
+        goto END;
+    }
+    memset(command, 0, BUFFER_SIZE);
+    int pos = snprintf(command, BUFFER_SIZE, "create stream if not exists %s ", stream->stream_name);
+    if (stream->trigger_mode[0] != '\0') {
+        pos += snprintf(command + pos, BUFFER_SIZE - pos, "trigger %s ", stream->trigger_mode);
+    }
+    if (stream->watermark[0] != '\0') {
+        pos += snprintf(command + pos, BUFFER_SIZE - pos, "watermark %s ", stream->watermark);
+    }
+    snprintf(command + pos, BUFFER_SIZE - pos, "into %s as %s", stream->stream_stb, stream->source_sql);
+    infoPrint(stderr, "%s\n", command);
+    if (queryDbExec(taos, command, NO_INSERT_TYPE, false)) {
+        goto END;
+    }
+    code = 0;
+    END:
+    tmfree(command);
+    return code;
+}
+
 int insertTestProcess() {
     SDataBase *database = g_arguments->db;
 
@@ -1755,6 +1783,19 @@ int insertTestProcess() {
     }
 
     if (createChildTables()) return -1;
+
+    if (g_arguments->taosc_version == 3) {
+        for (int i = 0; i < g_arguments->dbCount; ++i) {
+            for (int j = 0; j < database[i].streams->size; ++j) {
+                SSTREAM * stream = benchArrayGet(database[i].streams, j);
+                if (stream->drop) {
+                    if (createStream(stream, database[i].dbName)) {
+                        return -1;
+                    }
+                }
+            }
+        }
+    }
 
     // create sub threads for inserting data
     for (int i = 0; i < g_arguments->dbCount; i++) {
