@@ -61,9 +61,8 @@ jobs:
         run: |
           brew update
           brew upgrade
-          brew install argp-standalone tree
+          brew install argp-standalone
           brew info argp-standalone
-          tree /usr/local/
 
       - name: Set up Go
         uses: actions/setup-go@v2
