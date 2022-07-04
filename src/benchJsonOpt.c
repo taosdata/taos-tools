@@ -322,7 +322,13 @@ PARSE_OVER:
 }
 
 static int getDatabaseInfo(cJSON *dbinfos, int index) {
-    SDataBase *database = &(g_arguments->db[index]);
+    SDataBase *database;
+    if (index > 0) {
+        database = benchCalloc(1, sizeof(SDataBase), true);
+        benchArrayPush(g_arguments->databases, database);
+
+    }
+    database = benchArrayGet(g_arguments->databases, index);
     database->drop = true;
     database->dbCfg.minRows = -1;
     database->dbCfg.maxRows = -1;
@@ -459,18 +465,22 @@ static int getDatabaseInfo(cJSON *dbinfos, int index) {
 }
 
 static int getStableInfo(cJSON *dbinfos, int index) {
-    SDataBase *database = &(g_arguments->db[index]);
+    SDataBase *database = benchArrayGet(g_arguments->databases, index);
     cJSON *    dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON *    stables = cJSON_GetObjectItem(dbinfo, "super_tables");
     if (!cJSON_IsArray(stables)) {
         errorPrint(stderr, "%s", "invalid super_tables format in json\n");
         return -1;
     }
-    int stbSize = cJSON_GetArraySize(stables);
-    database->superTbls = benchCalloc(stbSize, sizeof(SSuperTable), true);
-    database->superTblCount = stbSize;
-    for (int i = 0; i < database->superTblCount; ++i) {
-        SSuperTable *superTable = &(database->superTbls[i]);
+    for (int i = 0; i < cJSON_GetArraySize(stables); ++i) {
+        SSuperTable *superTable;
+        if (index > 0 || i > 0) {
+            superTable = benchCalloc(1, sizeof(SSuperTable), true);
+            benchArrayPush(database->superTbls, superTable);
+        }
+        superTable = benchArrayGet(database->superTbls, i);
+        tmfree(superTable->columns);
+        tmfree(superTable->tags);
         superTable->escape_character = false;
         superTable->autoCreateTable = false;
         superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
@@ -680,8 +690,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
                 superTable->rollup = rollup->valuestring;
             }
         }
-        if (getColumnAndTagTypeFromInsertJsonFile(stbInfo,
-                                                  &database->superTbls[i])) {
+        if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {
             return -1;
         }
     }
@@ -689,7 +698,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
 }
 
 static int getStreamInfo(cJSON* dbinfos, int index) {
-    SDataBase *database = &(g_arguments->db[index]);
+    SDataBase *database = benchArrayGet(g_arguments->databases, index);
     cJSON* dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON* streamsObj = cJSON_GetObjectItem(dbinfo, "stream");
     if (cJSON_IsArray(streamsObj)) {
@@ -828,12 +837,6 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
         return -1;
     }
     int dbSize = cJSON_GetArraySize(dbinfos);
-    tmfree(g_arguments->db->superTbls->columns);
-    tmfree(g_arguments->db->superTbls->tags);
-    tmfree(g_arguments->db->superTbls);
-    tmfree(g_arguments->db);
-    g_arguments->db = benchCalloc(dbSize, sizeof(SDataBase), true);
-    g_arguments->dbCount = dbSize;
 
     for (int i = 0; i < dbSize; ++i) {
         if (getDatabaseInfo(dbinfos, i)) {
@@ -857,6 +860,7 @@ PARSE_OVER:
 
 static int getMetaFromQueryJsonFile(cJSON *json) {
     int32_t code = -1;
+    SDataBase * dataBase = benchArrayGet(g_arguments->databases, 0);
 
     cJSON *cfgdir = cJSON_GetObjectItem(json, "cfgdir");
     if (cJSON_IsString(cfgdir)) {
@@ -926,13 +930,14 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
 
     cJSON *dbs = cJSON_GetObjectItem(json, "databases");
     if (cJSON_IsString(dbs)) {
-        g_arguments->db->dbName = dbs->valuestring;
+        dataBase->dbName = dbs->valuestring;
     }
 
     cJSON *queryMode = cJSON_GetObjectItem(json, "query_mode");
     if (cJSON_IsString(queryMode)) {
         if (0 == strcasecmp(queryMode->valuestring, "rest")) {
-            g_arguments->db->superTbls->iface = REST_IFACE;
+            SSuperTable * stbInfo = benchArrayGet(dataBase->superTbls, 0);
+            stbInfo->iface = REST_IFACE;
         }
     }
     // init sqls

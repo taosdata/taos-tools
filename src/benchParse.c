@@ -89,6 +89,8 @@ static struct argp_option options[] = {
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   SArguments *arguments = state->input;
+  SDataBase *database = benchArrayGet(g_arguments->databases, 0);
+  SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
   switch (key) {
     case 'F':
       arguments->prepared_rand = atol(arg);
@@ -117,18 +119,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       break;
     case 'I':
       if (0 == strcasecmp(arg, "taosc")) {
-        arguments->db->superTbls->iface = TAOSC_IFACE;
+          stbInfo->iface = TAOSC_IFACE;
       } else if (0 == strcasecmp(arg, "stmt")) {
-        arguments->db->superTbls->iface = STMT_IFACE;
+          stbInfo->iface = STMT_IFACE;
       } else if (0 == strcasecmp(arg, "rest")) {
-        arguments->db->superTbls->iface = REST_IFACE;
+          stbInfo->iface = REST_IFACE;
       } else if (0 == strcasecmp(arg, "sml")) {
-        arguments->db->superTbls->iface = SML_IFACE;
+          stbInfo->iface = SML_IFACE;
       } else {
         errorPrint(stderr,
                    "Invalid -I: %s, will auto set to default (taosc)\n",
                    arg);
-        arguments->db->superTbls->iface = TAOSC_IFACE;
+          stbInfo->iface = TAOSC_IFACE;
       }
       break;
     case 'p':
@@ -162,30 +164,30 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       }
       break;
     case 'i':
-      arguments->db->superTbls->insert_interval = atoi(arg);
-      if (arguments->db->superTbls->insert_interval <= 0) {
+        stbInfo->insert_interval = atoi(arg);
+      if (stbInfo->insert_interval <= 0) {
         errorPrint(stderr,
                    "Invalid -i: %s, will auto set to default(0)\n",
                    arg);
-        arguments->db->superTbls->insert_interval = 0;
+          stbInfo->insert_interval = 0;
       }
       break;
     case 'S':
-      arguments->db->superTbls->timestamp_step = atol(arg);
-      if (arguments->db->superTbls->timestamp_step <= 0) {
+        stbInfo->timestamp_step = atol(arg);
+      if (stbInfo->timestamp_step <= 0) {
         errorPrint(stderr,
                    "Invalid -S: %s, will auto set to default(1)\n",
                    arg);
-        arguments->db->superTbls->timestamp_step = 1;
+          stbInfo->timestamp_step = 1;
       }
       break;
     case 'B':
-      arguments->db->superTbls->interlaceRows = atoi(arg);
-      if (arguments->db->superTbls->interlaceRows <= 0) {
+        stbInfo->interlaceRows = atoi(arg);
+      if (stbInfo->interlaceRows <= 0) {
         errorPrint(stderr,
                    "Invalid -B: %s, will auto set to default(0)\n",
                    arg);
-        arguments->db->superTbls->interlaceRows = 0;
+          stbInfo->interlaceRows = 0;
       }
       break;
     case 'r':
@@ -199,27 +201,27 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       }
       break;
     case 't':
-      arguments->db->superTbls->childTblCount = atoi(arg);
-      if (arguments->db->superTbls->childTblCount <= 0) {
+        stbInfo->childTblCount = atoi(arg);
+      if (stbInfo->childTblCount <= 0) {
         errorPrint(stderr,
                    "Invalid -t: %s, will auto set to default(10000)\n",
                    arg);
-        arguments->db->superTbls->childTblCount = DEFAULT_CHILDTABLES;
+          stbInfo->childTblCount = DEFAULT_CHILDTABLES;
       }
       g_arguments->g_totalChildTables =
-          arguments->db->superTbls->childTblCount;
+              stbInfo->childTblCount;
       break;
     case 'n':
-      arguments->db->superTbls->insertRows = atol(arg);
-      if (arguments->db->superTbls->insertRows <= 0) {
+      stbInfo->insertRows = atol(arg);
+      if (stbInfo->insertRows <= 0) {
         errorPrint(stderr,
                    "Invalid -n: %s, will auto set to default(10000)\n",
                    arg);
-        arguments->db->superTbls->insertRows = DEFAULT_INSERT_ROWS;
+        stbInfo->insertRows = DEFAULT_INSERT_ROWS;
       }
       break;
     case 'd':
-      arguments->db->dbName = arg;
+      database->dbName = arg;
       break;
     case 'l':
       arguments->demo_mode = false;
@@ -233,23 +235,23 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       break;
     case 'A':
       arguments->demo_mode = false;
-      count_datatype(arg, &(arguments->db->superTbls->tagCount));
-      tmfree(arguments->db->superTbls->tags);
-      arguments->db->superTbls->tags =
-              benchCalloc(arguments->db->superTbls->tagCount, sizeof(Column), true);
-      if (parse_tag_datatype(arg, arguments->db->superTbls->tags)) {
-        tmfree(arguments->db->superTbls->tags);
+      count_datatype(arg, &(stbInfo->tagCount));
+      tmfree(stbInfo->tags);
+      stbInfo->tags =
+              benchCalloc(stbInfo->tagCount, sizeof(Column), true);
+      if (parse_tag_datatype(arg, stbInfo->tags)) {
+        tmfree(stbInfo->tags);
         exit(EXIT_FAILURE);
       }
       break;
     case 'b':
       arguments->demo_mode = false;
-      tmfree(arguments->db->superTbls->columns);
-      count_datatype(arg, &(arguments->db->superTbls->columnCount));
-      arguments->db->superTbls->columns =
-              benchCalloc(arguments->db->superTbls->columnCount, sizeof(Column), true);
-      if (parse_col_datatype(arg, arguments->db->superTbls->columns)) {
-        tmfree(arguments->db->superTbls->columns);
+      tmfree(stbInfo->columns);
+      count_datatype(arg, &(stbInfo->columnCount));
+      stbInfo->columns =
+              benchCalloc(stbInfo->columnCount, sizeof(Column), true);
+      if (parse_col_datatype(arg, stbInfo->columns)) {
+        tmfree(stbInfo->columns);
         exit(EXIT_FAILURE);
       }
       break;
@@ -270,18 +272,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       }
       break;
     case 'm':
-      arguments->db->superTbls->childTblPrefix = arg;
+      stbInfo->childTblPrefix = arg;
       break;
     case 'E':
-      arguments->db->superTbls->escape_character = true;
+      stbInfo->escape_character = true;
       break;
     case 'C':
       arguments->chinese = true;
       break;
     case 'N':
       arguments->demo_mode = false;
-      arguments->db->superTbls->use_metric = false;
-      arguments->db->superTbls->tagCount = 0;
+      stbInfo->use_metric = false;
+      stbInfo->tagCount = 0;
       break;
     case 'M':
       arguments->demo_mode = false;
@@ -293,34 +295,34 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       arguments->answer_yes = true;
       break;
     case 'R':
-      arguments->db->superTbls->disorderRange = atoi(arg);
-      if (arguments->db->superTbls->disorderRange <= 0) {
+      stbInfo->disorderRange = atoi(arg);
+      if (stbInfo->disorderRange <= 0) {
         errorPrint(stderr,
                    "Invalid value for -R: %s, will auto set to "
                    "default(1000)\n",
                    arg);
-        arguments->db->superTbls->disorderRange =
+        stbInfo->disorderRange =
             DEFAULT_DISORDER_RANGE;
       }
       break;
     case 'O':
-      arguments->db->superTbls->disorderRatio = atoi(arg);
-      if (arguments->db->superTbls->disorderRatio <= 0) {
+      stbInfo->disorderRatio = atoi(arg);
+      if (stbInfo->disorderRatio <= 0) {
         errorPrint(
             stderr,
             "Invalid value for -O: %s, will auto set to default(0)\n",
             arg);
-        arguments->db->superTbls->disorderRatio = 0;
+        stbInfo->disorderRatio = 0;
       }
       break;
     case 'a':
-      arguments->db->dbCfg.replica = atoi(arg);
-      if (arguments->db->dbCfg.replica <= 0) {
+      database->dbCfg.replica = atoi(arg);
+      if (database->dbCfg.replica <= 0) {
         errorPrint(
             stderr,
             "Invalid value for -a: %s, will auto set to default(1)\n",
             arg);
-        arguments->db->dbCfg.replica = 1;
+        database->dbCfg.replica = 1;
       }
       break;
     case 'g':

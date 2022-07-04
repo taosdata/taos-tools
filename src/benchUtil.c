@@ -223,7 +223,8 @@ static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    sprintf(subTblName, "%s.%s", g_arguments->db->dbName,
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    sprintf(subTblName, "%s.%s", database->dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
@@ -357,8 +358,8 @@ void encode_base_64() {
 }
 
 int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
@@ -499,11 +500,51 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         goto free_of_post;
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
+    if (NULL != strstr(response_buf, succMessage) && stbInfo->iface == REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+    
+    if (NULL != strstr(response_buf, influxHttpOk) &&
+        stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && stbInfo->iface == SML_REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+    if (g_arguments->test_mode == INSERT_TEST) {
+        debugPrint(stdout, "Response: \n%s\n", response_buf);
+        char* start = strstr(response_buf, "{");
+        if (start == NULL) {
+            errorPrint(stderr, "Invalid response format: %s\n", response_buf);
+            goto free_of_post;
+        }
+        cJSON* resObj = cJSON_Parse(start);
+        if (resObj == NULL) {
+            errorPrint(stderr, "Cannot parse response into json: %s\n", start);
+        }
+        cJSON* codeObj = cJSON_GetObjectItem(resObj, "code");
+        if (!cJSON_IsNumber(codeObj)) {
+            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", cJSON_Print(resObj));
+            cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        if (codeObj->valueint != 0 &&
+            (stbInfo->iface == SML_REST_IFACE && stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
+            cJSON* desc = cJSON_GetObjectItem(resObj, "desc");
+            if (!cJSON_IsString(desc)) {
+                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", cJSON_Print(resObj));
+                goto free_of_post;
+            }
+            errorPrint(stderr, "insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
+            cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        cJSON_Delete(resObj);
     }
     code = 0;
 free_of_post:
+    if (strlen(pThreadInfo->filePath) > 0) {
+        appendResultBufToFile(response_buf, pThreadInfo);
+    }
     tmfree(request_buf);
     tmfree(response_buf);
     return code;
@@ -807,6 +848,7 @@ void* benchArrayGet(const BArray* pArray, size_t index) {
     return BARRAY_GET_ELEM(pArray, index);
 }
 
+#ifdef LINUX
 int32_t bsem_wait(sem_t* sem) {
     int ret = 0;
     do {
@@ -822,3 +864,4 @@ void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
     act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) sigfp;
     sigaction(signum, &act, NULL);
 }
+#endif

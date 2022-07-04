@@ -338,10 +338,12 @@ int parse_col_datatype(char *dataType, Column *columns) {
     return 0;
 }
 
-static SSuperTable *init_stable() {
-    SDataBase *database = g_arguments->db;
-    database->superTbls = benchCalloc(1, sizeof(SSuperTable), true);
-    SSuperTable *stbInfo = database->superTbls;
+static void init_stable() {
+    SDataBase *database = benchArrayGet(g_arguments->databases, 0);
+    database->superTbls = benchArrayInit(1, sizeof(SSuperTable));
+    SSuperTable * stbInfo = benchCalloc(1, sizeof(SSuperTable), true);
+    benchArrayPush(database->superTbls, stbInfo);
+    stbInfo = benchArrayGet(database->superTbls, 0);
     stbInfo->iface = TAOSC_IFACE;
     stbInfo->stbName = "meters";
     stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
@@ -378,16 +380,16 @@ static SSuperTable *init_stable() {
     stbInfo->disorderRatio = 0;
     stbInfo->file_factor = -1;
     stbInfo->delay = -1;
-    return stbInfo;
 }
 
-static SDataBase *init_database() {
-    g_arguments->db = benchCalloc(1, sizeof(SDataBase), true);
-    SDataBase *database = g_arguments->db;
+static void init_database() {
+    g_arguments->databases = benchArrayInit(1, sizeof(SDataBase));
+    SDataBase *database = benchCalloc(1, sizeof(SDataBase), true);
+    benchArrayPush(g_arguments->databases, database);
+    database = benchArrayGet(g_arguments->databases, 0);
     database->streams = benchArrayInit(1, sizeof(SSTREAM));
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
-    database->superTblCount = 1;
     database->dbCfg.minRows = -1;
     database->dbCfg.maxRows = -1;
     database->dbCfg.comp = -1;
@@ -410,7 +412,6 @@ static SDataBase *init_database() {
     database->dbCfg.strict = -1;
     database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
     database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-    return database;
 }
 void init_argument() {
     g_arguments = benchCalloc(1, sizeof(SArguments), true);
@@ -422,7 +423,6 @@ void init_argument() {
     g_arguments->pool = benchCalloc(1, sizeof(TAOS_POOL), true);
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
-    g_arguments->dbCount = 1;
     g_arguments->host = NULL;
     g_arguments->port = DEFAULT_PORT;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
@@ -445,15 +445,16 @@ void init_argument() {
     g_arguments->chinese = 0;
     g_arguments->aggr_func = 0;
     g_arguments->terminate = false;
-    g_arguments->db = init_database();
-    g_arguments->db->superTbls = init_stable();
+    init_database();
+    init_stable();
 }
 
 void modify_argument() {
-    SSuperTable *superTable = g_arguments->db->superTbls;
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable *superTable = benchArrayGet(database->superTbls, 0);
     if (init_taos_list()) exit(EXIT_FAILURE);
 
-    if (g_arguments->db->superTbls->iface == STMT_IFACE) {
+    if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
             g_arguments->reqPerReq = INT16_MAX;
         }
@@ -529,8 +530,9 @@ static void *queryStableAggrFunc(void *sarg) {
 #endif
     char *command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
-    int64_t totalData = g_arguments->db->superTbls->insertRows *
-                        g_arguments->db->superTbls->childTblCount;
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    int64_t totalData = stbInfo->insertRows * stbInfo->childTblCount;
     char **aggreFunc;
     int    n;
 
@@ -550,9 +552,7 @@ static void *queryStableAggrFunc(void *sarg) {
         char condition[COND_BUF_LEN] = "\0";
         char tempS[64] = "\0";
 
-        int64_t m = 10 < g_arguments->db->superTbls->childTblCount
-                        ? 10
-                        : g_arguments->db->superTbls->childTblCount;
+        int64_t m = 10 < stbInfo->childTblCount ? 10 : stbInfo->childTblCount;
 
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
@@ -614,8 +614,9 @@ static void *queryNtableAggrFunc(void *sarg) {
 #endif
     char *  command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
-    int64_t totalData = g_arguments->db->superTbls->childTblCount *
-                        g_arguments->db->superTbls->insertRows;
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    int64_t totalData = stbInfo->childTblCount * stbInfo->insertRows;
     char **aggreFunc;
     int    n;
 
@@ -637,18 +638,17 @@ static void *queryNtableAggrFunc(void *sarg) {
     for (int j = 0; j < n; j++) {
         double   totalT = 0;
         uint64_t count = 0;
-        for (int64_t i = 0; i < g_arguments->db->superTbls->childTblCount;
-             i++) {
-            if (g_arguments->db->superTbls->escape_character) {
+        for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+            if (stbInfo->escape_character) {
                 sprintf(command,
                         "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
                         aggreFunc[j],
-                        g_arguments->db->superTbls->childTblPrefix, i,
+                        stbInfo->childTblPrefix, i,
                         (uint64_t) DEFAULT_START_TIME);
             } else {
                 sprintf(
                     command, "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
-                    aggreFunc[j], g_arguments->db->superTbls->childTblPrefix, i,
+                    aggreFunc[j], stbInfo->childTblPrefix, i,
                     (uint64_t)DEFAULT_START_TIME);
             }
 
@@ -675,11 +675,8 @@ static void *queryNtableAggrFunc(void *sarg) {
         }
         if (fp) {
             fprintf(fp, "|%10s  |   %" PRId64 "   |  %12.2f   |   %10.2f  |\n",
-                    aggreFunc[j][0] == '*' ? "   *   " : aggreFunc[j],
-                    totalData,
-                    (double)(g_arguments->db->superTbls->childTblCount *
-                             g_arguments->db->superTbls->insertRows) /
-                        totalT,
+                    aggreFunc[j][0] == '*' ? "   *   " : aggreFunc[j], totalData,
+                    (double)(stbInfo->childTblCount * stbInfo->insertRows) / totalT,
                     totalT / 1000000);
         }
         infoPrint(stdout, "<%s> took %.6f second(s)\n", command,
@@ -692,8 +689,10 @@ static void *queryNtableAggrFunc(void *sarg) {
 void queryAggrFunc() {
     pthread_t   read_id;
     threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), false);
-    pThreadInfo->taos = select_one_from_pool(g_arguments->db->dbName);
-    if (g_arguments->db->superTbls->use_metric) {
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    pThreadInfo->taos = select_one_from_pool(database->dbName);
+    if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
