@@ -690,7 +690,6 @@ static int getStableInfo(cJSON *dbinfos, int index) {
 
 static int getStreamInfo(cJSON* dbinfos, int index) {
     SDataBase *database = &(g_arguments->db[index]);
-    database->streams = benchArrayInit(1, sizeof(SSTREAM));
     cJSON* dbinfo = cJSON_GetArrayItem(dbinfos, index);
     cJSON* streamsObj = cJSON_GetObjectItem(dbinfo, "stream");
     if (cJSON_IsArray(streamsObj)) {

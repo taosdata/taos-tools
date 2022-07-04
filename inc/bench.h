@@ -38,6 +38,7 @@
 #include <unistd.h>
 #include <wordexp.h>
 #include <sys/ioctl.h>
+#include <signal.h>
 
 #elif DARWIN
 
@@ -506,6 +507,8 @@ typedef struct SArguments_S {
     FILE *             fpOfInsertResult;
     SDataBase *        db;
     char *             base64_buf;
+    sem_t              cancelSem;
+    bool               terminate;
 } SArguments;
 
 typedef struct delayNode_S {
@@ -560,6 +563,8 @@ typedef struct SThreadInfo_S {
     uint64_t*  query_delay_list;
     double     avg_delay;
 } threadInfo;
+
+typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
 
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
@@ -627,6 +632,8 @@ void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
+int32_t bsem_wait(sem_t* sem);
+void benchSetSignal(int32_t signum, FSignalHandler sigfp);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

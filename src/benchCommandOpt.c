@@ -384,6 +384,7 @@ static SSuperTable *init_stable() {
 static SDataBase *init_database() {
     g_arguments->db = benchCalloc(1, sizeof(SDataBase), true);
     SDataBase *database = g_arguments->db;
+    database->streams = benchArrayInit(1, sizeof(SSTREAM));
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
     database->superTblCount = 1;
@@ -443,6 +444,7 @@ void init_argument() {
     g_arguments->g_existedChildTables = 0;
     g_arguments->chinese = 0;
     g_arguments->aggr_func = 0;
+    g_arguments->terminate = false;
     g_arguments->db = init_database();
     g_arguments->db->superTbls = init_stable();
 }

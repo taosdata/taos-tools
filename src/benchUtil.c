@@ -835,3 +835,19 @@ void* benchArrayGet(const BArray* pArray, size_t index) {
     }
     return BARRAY_GET_ELEM(pArray, index);
 }
+
+int32_t bsem_wait(sem_t* sem) {
+    int ret = 0;
+    do {
+        ret = sem_wait(sem);
+    } while (ret != 0 && errno  == EINTR);
+    return ret;
+}
+
+void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_flags = SA_SIGINFO | SA_RESTART;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) sigfp;
+    sigaction(signum, &act, NULL);
+}
