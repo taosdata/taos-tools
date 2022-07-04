@@ -32,8 +32,8 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     char         command[SQL_BUFF_LEN] = "\0";
     TAOS_RES *   res;
     TAOS_ROW     row = NULL;
-    SDataBase *  database = &(g_arguments->db[db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
     TAOS *       taos = select_one_from_pool(NULL);
     snprintf(command, SQL_BUFF_LEN, "describe %s.`%s`", database->dbName,
              stbInfo->stbName);
@@ -143,8 +143,8 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
 }
 
 static int createSuperTable(int db_index, int stb_index) {
-    SDataBase *  database = &(g_arguments->db[db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
     TAOS *       taos = select_one_from_pool(NULL);
     uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->columnCount;
     char         *cols = benchCalloc(1, col_buffer_len, false);
@@ -261,7 +261,7 @@ skip:
 
 int createDatabase(int db_index) {
     char       command[SQL_BUFF_LEN] = "\0";
-    SDataBase *database = &(g_arguments->db[db_index]);
+    SDataBase *database = benchArrayGet(g_arguments->databases, db_index);
     TAOS *     taos = NULL;
     taos = select_one_from_pool(NULL);
     sprintf(command, "drop database if exists %s;", database->dbName);
@@ -388,8 +388,8 @@ static void *createTable(void *sarg) {
     int32_t *code = benchCalloc(1, sizeof(int32_t), false);
     *code = -1;
     threadInfo * pThreadInfo = (threadInfo *)sarg;
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
 #ifdef LINUX
     prctl(PR_SET_NAME, "createTable");
 #endif
@@ -474,8 +474,8 @@ create_table_end:
 
 static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
     int          threads = g_arguments->table_threads;
-    SDataBase *  database = &(g_arguments->db[db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
     int64_t      ntables = stbInfo->childTblCount;
     pthread_t *  pids = benchCalloc(1, threads * sizeof(pthread_t), false);
     threadInfo * infos = benchCalloc(1, threads * sizeof(threadInfo), false);
@@ -536,7 +536,6 @@ static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
 
 static int createChildTables() {
     int32_t    code;
-    SDataBase *database = g_arguments->db;
     infoPrint(stdout, "start creating %" PRId64 " table(s) with %d thread(s)\n",
               g_arguments->g_totalChildTables, g_arguments->table_threads);
     if (g_arguments->fpOfInsertResult) {
@@ -546,22 +545,23 @@ static int createChildTables() {
     }
     double start = (double)toolsGetTimestampMs();
 
-    for (int i = 0; i < g_arguments->dbCount; i++) {
-        for (int j = 0; j < database[i].superTblCount; j++) {
-            if (database[i].superTbls[j].autoCreateTable ||
-                database[i].superTbls[j].iface == SML_IFACE ||
-                database[i].superTbls[j].iface == SML_REST_IFACE) {
+    for (int i = 0; i < g_arguments->databases->size; i++) {
+        SDataBase * database = benchArrayGet(g_arguments->databases, i);
+        for (int j = 0; j < database->superTbls->size; j++) {
+            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+            if (stbInfo->autoCreateTable || stbInfo->iface == SML_IFACE ||
+                    stbInfo->iface == SML_REST_IFACE) {
                 g_arguments->g_autoCreatedChildTables +=
-                    database[i].superTbls[j].childTblCount;
+                        stbInfo->childTblCount;
                 continue;
             }
-            if (database[i].superTbls[j].childTblExists) {
+            if (stbInfo->childTblExists) {
                 g_arguments->g_existedChildTables +=
-                    database[i].superTbls[j].childTblCount;
+                        stbInfo->childTblCount;
                 continue;
             }
             debugPrint(stdout, "colsOfCreateChildTable: %s\n",
-                       database[i].superTbls[j].colsOfCreateChildTable);
+                       stbInfo->colsOfCreateChildTable);
 
             code = startMultiThreadCreateChildTable(i, j);
             if (code && !g_arguments->terminate) {
@@ -601,43 +601,44 @@ static int createChildTables() {
 void postFreeResource() {
     tmfree(g_arguments->base64_buf);
     tmfclose(g_arguments->fpOfInsertResult);
-    SDataBase *database = g_arguments->db;
-    for (int i = 0; i < g_arguments->dbCount; i++) {
-        for (uint64_t j = 0; j < database[i].superTblCount; j++) {
-            benchArrayDestroy(database[i].streams);
-            tmfree(database[i].superTbls[j].colsOfCreateChildTable);
-            tmfree(database[i].superTbls[j].sampleDataBuf);
-            tmfree(database[i].superTbls[j].tagDataBuf);
-            tmfree(database[i].superTbls[j].partialColumnNameBuf);
-            for (int k = 0; k < database[i].superTbls[j].tagCount; ++k) {
-                tmfree(database[i].superTbls[j].tags[k].data);
+    for (int i = 0; i < g_arguments->databases->size; i++) {
+        SDataBase * database = benchArrayGet(g_arguments->databases, i);
+        benchArrayDestroy(database[i].streams);
+        for (uint64_t j = 0; j < database->superTbls->size; j++) {
+            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+            tmfree(stbInfo->colsOfCreateChildTable);
+            tmfree(stbInfo->sampleDataBuf);
+            tmfree(stbInfo->tagDataBuf);
+            tmfree(stbInfo->partialColumnNameBuf);
+            for (int k = 0; k < stbInfo->tagCount; ++k) {
+                tmfree(stbInfo->tags[k].data);
             }
-            tmfree(database[i].superTbls[j].tags);
+            tmfree(stbInfo->tags);
 
-            for (int k = 0; k < database[i].superTbls[j].columnCount; ++k) {
-                tmfree(database[i].superTbls[j].columns[k].data);
+            for (int k = 0; k < stbInfo->columnCount; ++k) {
+                tmfree(stbInfo->columns[k].data);
             }
-            tmfree(database[i].superTbls[j].columns);
+            tmfree(stbInfo->columns);
             if (g_arguments->test_mode == INSERT_TEST &&
-                database[i].superTbls[j].insertRows != 0) {
-                for (int64_t k = 0; k < database[i].superTbls[j].childTblCount;
+                    stbInfo->insertRows != 0) {
+                for (int64_t k = 0; k < stbInfo->childTblCount;
                      ++k) {
-                    tmfree(database[i].superTbls[j].childTblName[k]);
+                    tmfree(stbInfo->childTblName[k]);
                 }
             }
-            tmfree(database[i].superTbls[j].childTblName);
+            tmfree(stbInfo->childTblName);
         }
-        tmfree(database[i].superTbls);
+        benchArrayDestroy(database->superTbls);
     }
-    tmfree(database);
+    benchArrayDestroy(g_arguments->databases);
     cJSON_Delete(root);
     cleanup_taos_list();
     tmfree(g_arguments->pool);
 }
 
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
     int32_t      affectedRows = 0;
     TAOS_RES *   res = NULL;
     int32_t      code;
@@ -729,8 +730,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
     infoPrint(stdout,
               "thread[%d] start interlace inserting into table from "
               "%" PRIu64 " to %" PRIu64 "\n",
@@ -989,8 +990,8 @@ free_of_interlace:
 
 void *syncWriteProgressive(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
     infoPrint(stdout,
               "thread[%d] start progressive inserting into table from "
               "%" PRIu64 " to %" PRIu64 "\n",
@@ -1258,8 +1259,8 @@ free_of_progressive:
 }
 
 static int startMultiThreadInsertData(int db_index, int stb_index) {
-    SDataBase *  database = &(g_arguments->db[db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) &&
         !stbInfo->use_metric) {
         errorPrint(stderr, "%s", "schemaless cannot work without stable\n");
@@ -1752,21 +1753,22 @@ static int createStream(SSTREAM* stream, char* dbName) {
 }
 
 int insertTestProcess() {
-    SDataBase *database = g_arguments->db;
 
     prompt(0);
 
     encode_base_64();
 
-    for (int i = 0; i < g_arguments->dbCount; ++i) {
-        if (database[i].drop) {
+    for (int i = 0; i < g_arguments->databases->size; ++i) {
+        SDataBase * database = benchArrayGet(g_arguments->databases, i);
+        if (database->drop) {
             if (createDatabase(i)) return -1;
         }
     }
-    for (int i = 0; i < g_arguments->dbCount; ++i) {
-        for (int j = 0; j < database[i].superTblCount; ++j) {
-            if (database[i].superTbls[j].iface != SML_IFACE &&
-                database[i].superTbls[j].iface != SML_REST_IFACE) {
+    for (int i = 0; i < g_arguments->databases->size; ++i) {
+        SDataBase * database = benchArrayGet(g_arguments->databases, i);
+        for (int j = 0; j < database->superTbls->size; ++j) {
+            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+            if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
                 if (getSuperTableFromServer(i, j)) {
                     if (createSuperTable(i, j)) return -1;
                 }
@@ -1780,8 +1782,9 @@ int insertTestProcess() {
     if (createChildTables()) return -1;
 
     if (g_arguments->taosc_version == 3) {
-        for (int i = 0; i < g_arguments->dbCount; ++i) {
-            for (int j = 0; j < database[i].streams->size; ++j) {
+        for (int i = 0; i < g_arguments->databases->size; ++i) {
+            SDataBase * database = benchArrayGet(g_arguments->databases, i);
+            for (int j = 0; j < database->streams->size; ++j) {
                 SSTREAM * stream = benchArrayGet(database[i].streams, j);
                 if (stream->drop) {
                     if (createStream(stream, database[i].dbName)) {
@@ -1793,12 +1796,14 @@ int insertTestProcess() {
     }
 
     // create sub threads for inserting data
-    for (int i = 0; i < g_arguments->dbCount; i++) {
-        for (uint64_t j = 0; j < database[i].superTblCount; j++) {
-            if (database[i].superTbls[j].insertRows == 0) {
+    for (int i = 0; i < g_arguments->databases->size; i++) {
+        SDataBase * database = benchArrayGet(g_arguments->databases, i);
+        for (uint64_t j = 0; j < database->superTbls->size; j++) {
+            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+            if (stbInfo->insertRows == 0) {
                 continue;
             }
-            prompt(database[i].superTbls[j].non_stop);
+            prompt(stbInfo->non_stop);
             if (startMultiThreadInsertData(i, j)) {
                 return -1;
             }

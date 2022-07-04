@@ -223,7 +223,8 @@ static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    sprintf(subTblName, "%s.%s", g_arguments->db->dbName,
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    sprintf(subTblName, "%s.%s", database->dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
@@ -357,8 +358,8 @@ void encode_base_64() {
 }
 
 int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
@@ -498,6 +499,17 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         errorPrint(stderr, "Response:\n%s\n", response_buf);
         goto free_of_post;
     }
+
+    if (NULL != strstr(response_buf, succMessage) && stbInfo->iface == REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+    
+    if (NULL != strstr(response_buf, influxHttpOk) &&
+        stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && stbInfo->iface == SML_REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
     if (g_arguments->test_mode == INSERT_TEST) {
         debugPrint(stdout, "Response: \n%s\n", response_buf);
         char* start = strstr(response_buf, "{");
@@ -515,7 +527,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
             cJSON_Delete(resObj);
             goto free_of_post;
         }
-        if (codeObj->valueint) {
+        if (codeObj->valueint != 0 &&
+            (stbInfo->iface == SML_REST_IFACE && stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
             cJSON* desc = cJSON_GetObjectItem(resObj, "desc");
             if (!cJSON_IsString(desc)) {
                 errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", cJSON_Print(resObj));
