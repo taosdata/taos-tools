@@ -848,6 +848,7 @@ void* benchArrayGet(const BArray* pArray, size_t index) {
     return BARRAY_GET_ELEM(pArray, index);
 }
 
+#ifdef LINUX
 int32_t bsem_wait(sem_t* sem) {
     int ret = 0;
     do {
@@ -863,3 +864,4 @@ void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
     act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) sigfp;
     sigaction(signum, &act, NULL);
 }
+#endif

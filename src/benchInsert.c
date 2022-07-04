@@ -450,7 +450,7 @@ static void *createTable(void *sarg) {
         batchNum = 0;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
-            debugPrint(stdout,
+            infoPrint(stdout,
                        "thread[%d] already created %" PRId64 " tables\n",
                        pThreadInfo->threadID, pThreadInfo->tables_created);
             lastPrintTime = currentPrintTime;

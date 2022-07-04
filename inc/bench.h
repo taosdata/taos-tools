@@ -41,7 +41,6 @@
 #include <signal.h>
 
 #elif DARWIN
-#include <semaphore.h>
 #include <argp.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -634,8 +633,10 @@ void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
+#ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, FSignalHandler sigfp);
+#endif
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
