@@ -41,7 +41,6 @@
 #include <signal.h>
 
 #elif DARWIN
-
 #include <argp.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -415,8 +414,7 @@ typedef struct SDataBase_S {
     char *       dbName;
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
     SDbCfg       dbCfg;
-    uint64_t     superTblCount;
-    SSuperTable *superTbls;
+    BArray*      superTbls;
     BArray*      streams;
 } SDataBase;
 
@@ -497,7 +495,6 @@ typedef struct SArguments_S {
     uint64_t           insert_interval;
     bool               demo_mode;
     bool               aggr_func;
-    uint32_t           dbCount;
     struct sockaddr_in serv_addr;
     TAOS_POOL *        pool;
     uint64_t           g_totalChildTables;
@@ -505,9 +502,11 @@ typedef struct SArguments_S {
     uint64_t           g_autoCreatedChildTables;
     uint64_t           g_existedChildTables;
     FILE *             fpOfInsertResult;
-    SDataBase *        db;
+    BArray *           databases;
     char *             base64_buf;
+#ifdef LINUX
     sem_t              cancelSem;
+#endif
     bool               terminate;
 } SArguments;
 
@@ -632,8 +631,10 @@ void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
+#ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, FSignalHandler sigfp);
+#endif
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
