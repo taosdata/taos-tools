@@ -506,8 +506,6 @@ typedef struct SArguments_S {
     char *             base64_buf;
 #ifdef LINUX
     sem_t              cancelSem;
-#elif DARWIN
-    sem_t *            cancelSem;
 #endif
     bool               terminate;
 } SArguments;
