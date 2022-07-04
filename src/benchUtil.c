@@ -540,12 +540,11 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         }
         cJSON_Delete(resObj);
     }
-    
+    code = 0;
+free_of_post:
     if (strlen(pThreadInfo->filePath) > 0) {
         appendResultBufToFile(response_buf, pThreadInfo);
     }
-    code = 0;
-free_of_post:
     tmfree(request_buf);
     tmfree(response_buf);
     return code;

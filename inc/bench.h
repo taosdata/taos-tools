@@ -41,7 +41,7 @@
 #include <signal.h>
 
 #elif DARWIN
-
+#include <semaphore.h>
 #include <argp.h>
 #include <unistd.h>
 #include <sys/socket.h>
