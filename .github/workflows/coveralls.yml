@@ -76,7 +76,7 @@ jobs:
         with:
           go-version: 1.14
 
-      - name: Install tdengine
+      - name: Build & Install TDengine
         run: |
           cd TDengine
           mkdir debug
@@ -84,18 +84,22 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true > /dev/null 2>&1
           make > /dev/null 2>&1
           sudo make install > /dev/null
+
+      - name: Test
+        run: |
+          cd TDengine/debug
           echo "TEST: taosBenchmark --help"
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taodump --help"
           ./build/bin/taosdump --help > /dev/null
           echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
-          echo "TEST: taodump --port 10000"
-          ./build/bin/taosdump --port 10000 > /dev/null 2>&1 || :
+          echo "TEST: taodump --port 100000"
+          ./build/bin/taosdump --port 100000 > /dev/null 2>&1 || :
           echo "TEST: taodump -D"
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
-          echo "TEST: taodump --databases"
-          ./build/bin/taosdump --databases > /dev/null 2>&1 || :
+          echo "TEST: taodump --databases -h localhost -u root"
+          ./build/bin/taosdump --databases -h localhost -u root > /dev/null 2>&1 || :
 
           nohup sudo taosd > /dev/null &
           sleep 10
@@ -192,6 +196,12 @@ jobs:
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
+          rm -f *.sql *.avro*
+
+          echo "TEST: dump old format data in"
+          ./build/bin/taos -s "drop database test"
+          tar xvJf ../src/kit/taos-tools/example-data/example-data.tar.xz -C .
+          ./build/bin/taosdump -i dump -gg
           rm -f *.sql *.avro*
 
           cd ../tests/pytest

@@ -236,12 +236,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       count_datatype(arg, &(arguments->db->superTbls->tagCount));
       tmfree(arguments->db->superTbls->tags);
       arguments->db->superTbls->tags =
-          calloc(arguments->db->superTbls->tagCount, sizeof(Column));
-      if (arguments->db->superTbls->tags == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-      }
-      g_memoryUsage += arguments->db->superTbls->tagCount * sizeof(Column);
+              benchCalloc(arguments->db->superTbls->tagCount, sizeof(Column), true);
       if (parse_tag_datatype(arg, arguments->db->superTbls->tags)) {
         tmfree(arguments->db->superTbls->tags);
         exit(EXIT_FAILURE);
@@ -252,12 +247,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       tmfree(arguments->db->superTbls->columns);
       count_datatype(arg, &(arguments->db->superTbls->columnCount));
       arguments->db->superTbls->columns =
-          calloc(arguments->db->superTbls->columnCount, sizeof(Column));
-      if (arguments->db->superTbls->columns == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-      }
-      g_memoryUsage += arguments->db->superTbls->columnCount * sizeof(Column);
+              benchCalloc(arguments->db->superTbls->columnCount, sizeof(Column), true);
       if (parse_col_datatype(arg, arguments->db->superTbls->columns)) {
         tmfree(arguments->db->superTbls->columns);
         exit(EXIT_FAILURE);

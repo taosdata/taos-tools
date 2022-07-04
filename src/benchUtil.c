@@ -15,9 +15,22 @@
 
 #include "bench.h"
 
+inline void* benchCalloc(size_t nmemb, size_t size, bool record) {
+    void* ret = calloc(nmemb, size);
+    if (NULL == ret) {
+        errorPrint(stderr, "%s", "failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    if (record) {
+        g_memoryUsage += nmemb * size;
+    }
+    return ret;
+}
+
 inline void tmfclose(FILE *fp) {
     if (NULL != fp) {
         fclose(fp);
+        fp = NULL;
     }
 }
 
@@ -136,13 +149,12 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                        count);
             return -1;
         }
-        childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
-        if (childTblNameOfSuperTbl[count] == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
-                 (char *)row[0]);
+        int32_t * lengths = taos_fetch_lengths(res);
+        childTblNameOfSuperTbl[count] = benchCalloc(1, TSDB_TABLE_NAME_LEN + 3, true);
+        childTblNameOfSuperTbl[count][0] = '`';
+        strncpy(childTblNameOfSuperTbl[count] + 1, row[0], lengths[0]);
+        childTblNameOfSuperTbl[count][lengths[0] + 1] = '`';
+        childTblNameOfSuperTbl[count][lengths[0] + 2] = '\0';
         debugPrint(stdout, "childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
                    childTblNameOfSuperTbl[count]);
         count++;
@@ -323,11 +335,7 @@ void encode_base_64() {
     size_t userpass_buf_len = strlen(userpass_buf);
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
-    g_arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
-    if (g_arguments->base64_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    g_arguments->base64_buf = benchCalloc(1, INPUT_BUF_LEN, true);
 
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
@@ -376,28 +384,19 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
 
     int      bytes, sent, received, req_str_len, resp_len;
-    char *   request_buf;
-    char *   response_buf;
+    char *   request_buf = NULL;
+    char *   response_buf = NULL;
     uint16_t rest_port = g_arguments->port + TSDB_PORT_HTTP;
-
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
-    request_buf = calloc(1, req_buf_len);
-    if (request_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    request_buf = benchCalloc(1, req_buf_len, false);
     uint64_t response_length;
     if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
     } else {
         response_length = g_queryInfo.response_buffer;
     }
-    response_buf = calloc(1, response_length);
-    if (response_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    response_buf = benchCalloc(1, response_length, false);
 
     int r;
     if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
@@ -410,6 +409,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
     if (r >= req_buf_len) {
         free(request_buf);
+        free(response_buf);
         ERROR_EXIT("too long request");
     }
 
@@ -417,13 +417,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     debugPrint(stdout, "request buffer: %s\n", request_buf);
     sent = 0;
     do {
-#ifdef WINDOWS
         bytes = send(pThreadInfo->sockfd, request_buf + sent,
                      req_str_len - sent, 0);
-#else
-        bytes =
-            write(pThreadInfo->sockfd, request_buf + sent, req_str_len - sent);
-#endif
         if (bytes < 0) {
             errorPrint(stderr, "%s", "writing no message to socket\n");
             goto free_of_post;
@@ -520,12 +515,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     int         num_fields = taos_field_count(res);
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
-    char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
-
-    if (databuf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *databuf = (char *)benchCalloc(1, FETCH_BUFFER_SIZE, true);
 
     int64_t totalLen = 0;
 
@@ -683,12 +673,7 @@ int init_taos_list() {
 #endif
     int        size = g_arguments->connection_pool;
     TAOS_POOL *pool = g_arguments->pool;
-    pool->taos_list = calloc(size, sizeof(TAOS *));
-    if (pool->taos_list == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += size * sizeof(TAOS *);
+    pool->taos_list = benchCalloc(size, sizeof(TAOS *), true);
     pool->current = 0;
     pool->size = size;
     for (int i = 0; i < size; ++i) {
@@ -745,4 +730,95 @@ void delay_list_destroy(delayList *list) {
 
 int compare(const void *a, const void *b) {
     return *(uint64_t *)a - *(uint64_t *)b;
+}
+
+BArray* benchArrayInit(size_t size, size_t elemSize) {
+    assert(elemSize > 0);
+
+    if (size < BARRAY_MIN_SIZE) {
+        size = BARRAY_MIN_SIZE;
+    }
+
+    BArray* pArray = (BArray *)benchCalloc(1, sizeof(BArray), true);
+
+    pArray->size = 0;
+    pArray->pData = benchCalloc(size, elemSize, true);
+
+    pArray->capacity = size;
+    pArray->elemSize = elemSize;
+    return pArray;
+}
+
+static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
+    if (newCap > pArray->capacity) {
+        size_t tsize = (pArray->capacity << 1u);
+        while (newCap > tsize) {
+            tsize = (tsize << 1u);
+        }
+
+        pArray->pData = realloc(pArray->pData, tsize * pArray->elemSize);
+        if (pArray->pData == NULL) {
+            return -1;
+        }
+
+        pArray->capacity = tsize;
+    }
+    return 0;
+}
+
+static void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles) {
+    if (pData == NULL) {
+        return NULL;
+    }
+
+    if (benchArrayEnsureCap(pArray, pArray->size + nEles) != 0) {
+        return NULL;
+    }
+
+    void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
+    memcpy(dst, pData, pArray->elemSize * nEles);
+    tmfree(pData);
+    pArray->size += nEles;
+    return dst;
+}
+
+FORCE_INLINE void* benchArrayPush(BArray* pArray, void* pData) {
+    return benchArrayAddBatch(pArray, pData, 1);
+}
+
+void* benchArrayDestroy(BArray* pArray) {
+    if (pArray) {
+        tmfree(pArray->pData);
+        tmfree(pArray);
+    }
+    return NULL;
+}
+
+void benchArrayClear(BArray* pArray) {
+    if (pArray == NULL) return;
+    pArray->size = 0;
+}
+
+void* benchArrayGet(const BArray* pArray, size_t index) {
+    if (index >= pArray->size) {
+        errorPrint(stderr, "index(%zu) greater than BArray size(%zu)\n", index, pArray->size);
+        exit(EXIT_FAILURE);
+    }
+    return BARRAY_GET_ELEM(pArray, index);
+}
+
+int32_t bsem_wait(sem_t* sem) {
+    int ret = 0;
+    do {
+        ret = sem_wait(sem);
+    } while (ret != 0 && errno  == EINTR);
+    return ret;
+}
+
+void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_flags = SA_SIGINFO | SA_RESTART;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) sigfp;
+    sigaction(signum, &act, NULL);
 }

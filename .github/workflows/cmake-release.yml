@@ -58,7 +58,7 @@ jobs:
         with:
           go-version: 1.14
 
-      - name: Install tdengine
+      - name: Build & Install TDengine
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make && sudo make install

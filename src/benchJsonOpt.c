@@ -39,13 +39,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
             col_count++;
         }
     }
-    superTbls->columns = calloc(col_count, sizeof(Column));
-    if (superTbls->columns == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    g_memoryUsage += col_count * sizeof(Column);
+    superTbls->columns = benchCalloc(col_count, sizeof(Column), true);
     for (int k = 0; k < columnSize; ++k) {
         bool   customName = false;
         bool   customMax = false;
@@ -193,12 +187,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON *      stbInfo,
     }
 
     superTbls->use_metric = true;
-    superTbls->tags = calloc(tag_count, sizeof(Column));
-    if (superTbls->tags == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += tag_count * sizeof(Column);
+    superTbls->tags = benchCalloc(tag_count, sizeof(Column), true);
     superTbls->tagCount = tag_count;
     for (int k = 0; k < tagSize; ++k) {
         cJSON *tag = cJSON_GetArrayItem(tags, k);
@@ -478,12 +467,7 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         return -1;
     }
     int stbSize = cJSON_GetArraySize(stables);
-    database->superTbls = calloc(stbSize, sizeof(SSuperTable));
-    if (database->superTbls == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += stbSize * sizeof(SSuperTable);
+    database->superTbls = benchCalloc(stbSize, sizeof(SSuperTable), true);
     database->superTblCount = stbSize;
     for (int i = 0; i < database->superTblCount; ++i) {
         SSuperTable *superTable = &(database->superTbls[i]);
@@ -568,8 +552,16 @@ static int getStableInfo(cJSON *dbinfos, int index) {
                     g_arguments->prepared_rand = g_arguments->reqPerReq;
                 }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
+                if (g_arguments->reqPerReq > SML_MAX_BATCH) {
+                    errorPrint(stderr, "reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    return -1;
+                }
                 superTable->iface = SML_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
+                if (g_arguments->reqPerReq > SML_MAX_BATCH) {
+                    errorPrint(stderr, "reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    return -1;
+                }
                 superTable->iface = SML_REST_IFACE;
             }
         }
@@ -696,6 +688,54 @@ static int getStableInfo(cJSON *dbinfos, int index) {
     return 0;
 }
 
+static int getStreamInfo(cJSON* dbinfos, int index) {
+    SDataBase *database = &(g_arguments->db[index]);
+    cJSON* dbinfo = cJSON_GetArrayItem(dbinfos, index);
+    cJSON* streamsObj = cJSON_GetObjectItem(dbinfo, "stream");
+    if (cJSON_IsArray(streamsObj)) {
+        int streamCnt = cJSON_GetArraySize(streamsObj);
+        for (int i = 0; i < streamCnt; ++i) {
+            cJSON* streamObj = cJSON_GetArrayItem(streamsObj, i);
+            if (!cJSON_IsObject(streamObj)) {
+                errorPrint(stderr, "%s", "invalid stream format in json\n");
+                return -1;
+            }
+            cJSON* stream_name = cJSON_GetObjectItem(streamObj, "stream_name");
+            cJSON* stream_stb = cJSON_GetObjectItem(streamObj, "stream_stb");
+            cJSON* source_sql = cJSON_GetObjectItem(streamObj, "source_sql");
+            if (!cJSON_IsString(stream_name) || !cJSON_IsString(stream_stb) || !cJSON_IsString(source_sql)) {
+                errorPrint(stderr, "%s", "Invalid or miss 'stream_name'/'stream_stb'/'source_sql' key in json\n");
+                return -1;
+            }
+            SSTREAM * stream = benchCalloc(1, sizeof(SSTREAM), true);
+            tstrncpy(stream->stream_name, stream_name->valuestring, TSDB_TABLE_NAME_LEN);
+            tstrncpy(stream->stream_stb, stream_stb->valuestring, TSDB_TABLE_NAME_LEN);
+            tstrncpy(stream->source_sql, source_sql->valuestring, TSDB_MAX_SQL_LEN);
+            cJSON* trigger_mode = cJSON_GetObjectItem(streamObj, "trigger_mode");
+            if (cJSON_IsString(trigger_mode)) {
+                tstrncpy(stream->trigger_mode, trigger_mode->valuestring, BIGINT_BUFF_LEN);
+            }
+            cJSON* watermark = cJSON_GetObjectItem(streamObj, "watermark");
+            if (cJSON_IsString(watermark)) {
+                tstrncpy(stream->watermark, watermark->valuestring, BIGINT_BUFF_LEN);
+            }
+            cJSON* drop = cJSON_GetObjectItem(streamObj, "drop");
+            if (cJSON_IsString(drop)) {
+                if (0 == strcasecmp(drop->valuestring, "yes")) {
+                    stream->drop = true;
+                } else if (0 == strcasecmp(drop->valuestring, "no")) {
+                    stream->drop = false;
+                } else {
+                    errorPrint(stderr, "invalid value for drop field: %s\n", drop->valuestring);
+                    return -1;
+                }
+            }
+            benchArrayPush(database->streams, stream);
+        }
+    }
+    return 0;
+}
+
 static int getMetaFromInsertJsonFile(cJSON *json) {
     int32_t code = -1;
 
@@ -792,18 +832,17 @@ static int getMetaFromInsertJsonFile(cJSON *json) {
     tmfree(g_arguments->db->superTbls->tags);
     tmfree(g_arguments->db->superTbls);
     tmfree(g_arguments->db);
-    g_arguments->db = calloc(dbSize, sizeof(SDataBase));
-    if (g_arguments->db == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    g_memoryUsage += dbSize * sizeof(SDataBase);
+    g_arguments->db = benchCalloc(dbSize, sizeof(SDataBase), true);
     g_arguments->dbCount = dbSize;
 
     for (int i = 0; i < dbSize; ++i) {
         if (getDatabaseInfo(dbinfos, i)) {
             goto PARSE_OVER;
+        }
+        if (g_arguments->taosc_version == 3) {
+            if (getStreamInfo(dbinfos, i)) {
+                goto PARSE_OVER;
+            }
         }
         if (getStableInfo(dbinfos, i)) {
             goto PARSE_OVER;
@@ -896,6 +935,8 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             g_arguments->db->superTbls->iface = REST_IFACE;
         }
     }
+    // init sqls
+    g_queryInfo.specifiedQueryInfo.sqls = benchArrayInit(1, sizeof(SSQL));
 
     // specified_table_query
     cJSON *specifiedQuery = cJSON_GetObjectItem(json, "specified_table_query");
@@ -974,38 +1015,56 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
             g_queryInfo.specifiedQueryInfo.subscribeKeepProgress = 0;
         }
 
-        g_queryInfo.specifiedQueryInfo.sqlCount = 0;
+        // read sqls from file
+        cJSON *sqlFileObj = cJSON_GetObjectItem(specifiedQuery, "sql_file");
+        if (cJSON_IsString(sqlFileObj)) {
+            FILE * fp = fopen(sqlFileObj->valuestring, "r");
+            if (fp == NULL) {
+                errorPrint(stderr, "failed to open file: %s\n", sqlFileObj->valuestring);
+                goto PARSE_OVER;
+            }
+            char buf[BUFFER_SIZE];
+            memset(buf, 0, BUFFER_SIZE);
+            while (fgets(buf, BUFFER_SIZE, fp)) {
+                SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
+                benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
+                sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size - 1);
+                sql->command = benchCalloc(1, strlen(buf), true);
+                sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
+                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
+                tstrncpy(sql->command, buf, strlen(buf));
+                debugPrint(stdout, "read file buffer: %s\n", sql->command);
+                memset(buf, 0, BUFFER_SIZE);
+            }
+        }
         // sqls
         cJSON *specifiedSqls = cJSON_GetObjectItem(specifiedQuery, "sqls");
         if (cJSON_IsArray(specifiedSqls)) {
-            int superSqlSize = cJSON_GetArraySize(specifiedSqls);
-            if (superSqlSize * g_queryInfo.specifiedQueryInfo.concurrent >
+            int specifiedSqlSize = cJSON_GetArraySize(specifiedSqls);
+            if (specifiedSqlSize * g_queryInfo.specifiedQueryInfo.concurrent >
                 MAX_QUERY_SQL_COUNT) {
                 errorPrint(
                     stderr,
                     "failed to read json, query sql(%d) * concurrent(%d) "
                     "overflow, max is %d\n",
-                    superSqlSize, g_queryInfo.specifiedQueryInfo.concurrent,
+                    specifiedSqlSize, g_queryInfo.specifiedQueryInfo.concurrent,
                     MAX_QUERY_SQL_COUNT);
                 goto PARSE_OVER;
             }
 
-            g_queryInfo.specifiedQueryInfo.sqlCount = superSqlSize;
-            for (int j = 0; j < superSqlSize; ++j) {
-                cJSON *sql = cJSON_GetArrayItem(specifiedSqls, j);
-                if (cJSON_IsObject(sql)) {
-                    g_queryInfo.specifiedQueryInfo.sql[j].delay_list = 
-                        calloc(g_queryInfo.specifiedQueryInfo.queryTimes * 
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t));
-                    if (g_queryInfo.specifiedQueryInfo.sql[j].delay_list == NULL) {
-                        errorPrint(stderr,"%s","failed to allocate memory\n");
-                        exit(EXIT_FAILURE);
-                    }
+            for (int j = 0; j < specifiedSqlSize; ++j) {
+                cJSON *sqlObj = cJSON_GetArrayItem(specifiedSqls, j);
+                if (cJSON_IsObject(sqlObj)) {
+                    SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
+                    benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
+                    sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size -1);
+                    sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
+                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
                     
-                    cJSON *sqlStr = cJSON_GetObjectItem(sql, "sql");
+                    cJSON *sqlStr = cJSON_GetObjectItem(sqlObj, "sql");
                     if (cJSON_IsString(sqlStr)) {
-                        tstrncpy(g_queryInfo.specifiedQueryInfo.sql[j].command,
-                                sqlStr->valuestring, BUFFER_SIZE);
+                        sql->command = benchCalloc(1, strlen(sqlStr->valuestring) + 1, true);
+                        tstrncpy(sql->command, sqlStr->valuestring, strlen(sqlStr->valuestring) + 1);
                         // default value is -1, which mean infinite loop
                         g_queryInfo.specifiedQueryInfo.endAfterConsume[j] = -1;
                         cJSON *endAfterConsume =
@@ -1028,13 +1087,11 @@ static int getMetaFromQueryJsonFile(cJSON *json) {
                         if (g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] < -1)
                             g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
 
-                        cJSON *result = cJSON_GetObjectItem(sql, "result");
+                        cJSON *result = cJSON_GetObjectItem(sqlObj, "result");
                         if (cJSON_IsString(result)) {
-                            tstrncpy(g_queryInfo.specifiedQueryInfo.sql[j].result,
-                                    result->valuestring, MAX_FILE_NAME_LEN);
+                            tstrncpy(sql->result, result->valuestring, MAX_FILE_NAME_LEN);
                         } else {
-                            memset(g_queryInfo.specifiedQueryInfo.sql[j].result, 0,
-                                MAX_FILE_NAME_LEN);
+                            memset(sql->result, 0, MAX_FILE_NAME_LEN);
                         }
                     } else {
                         errorPrint(stderr, "%s","Invalid sql in json\n");
@@ -1209,11 +1266,7 @@ int getInfoFromJsonFile() {
     }
 
     int   maxLen = MAX_JSON_BUFF;
-    char *content = calloc(1, maxLen + 1);
-    if (content == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *content = benchCalloc(1, maxLen + 1, false);
     int   len = (int)fread(content, 1, maxLen, fp);
     if (len <= 0) {
         errorPrint(stderr, "failed to read %s, content is null", file);
