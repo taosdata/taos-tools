@@ -278,11 +278,13 @@ int subscribeTestProcess() {
     if (init_taos_list()) return -1;
     encode_base_64();
 
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        TAOS *taos = select_one_from_pool(g_arguments->db->dbName);
+        TAOS *taos = select_one_from_pool(database->dbName);
         char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
-                 g_arguments->db->dbName, g_queryInfo.superQueryInfo.stbName);
+                 database->dbName, g_queryInfo.superQueryInfo.stbName);
         TAOS_RES *res = taos_query(taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
@@ -313,7 +315,7 @@ int subscribeTestProcess() {
         g_queryInfo.superQueryInfo.childTblName =
                 benchCalloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *), false);
         if (getAllChildNameOfSuperTable(
-                taos, g_arguments->db->dbName,
+                taos, database->dbName,
                 g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
@@ -344,7 +346,7 @@ int subscribeTestProcess() {
                 pThreadInfo->querySeq = i;
                 pThreadInfo->db_index = 0;
                 pThreadInfo->taos =
-                    select_one_from_pool(g_arguments->db->dbName);
+                    select_one_from_pool(database->dbName);
                 pthread_create(pids + seq, NULL, specifiedSubscribe,
                                pThreadInfo);
             }
@@ -404,7 +406,7 @@ int subscribeTestProcess() {
                     j < b ? tableFrom + a : tableFrom + a - 1;
                 tableFrom = pThreadInfo->end_table_to + 1;
                 pThreadInfo->taos =
-                    select_one_from_pool(g_arguments->db->dbName);
+                    select_one_from_pool(database->dbName);
                 pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                pThreadInfo);
             }
