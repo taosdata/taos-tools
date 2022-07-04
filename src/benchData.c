@@ -817,8 +817,8 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
 }
 
 int prepare_sample_data(int db_index, int stb_index) {
-    SDataBase *  database = &(g_arguments->db[db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
     calcRowLen(stbInfo);
     if (stbInfo->partialColumnNum != 0 &&
         (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
@@ -919,8 +919,8 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     TAOS_STMT *  stmt = pThreadInfo->stmt;
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
+    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
     uint32_t     columnCount = stbInfo->columnCount;
     memset(pThreadInfo->bindParams, 0,
            (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
