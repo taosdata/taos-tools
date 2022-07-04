@@ -405,6 +405,9 @@ static void *createTable(void *sarg) {
 
     for (uint64_t i = pThreadInfo->start_table_from;
          i <= pThreadInfo->end_table_to; i++) {
+        if (g_arguments->terminate) {
+            goto create_table_end;
+        }
         if (!stbInfo->use_metric) {
             snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
                      stbInfo->escape_character
@@ -561,7 +564,7 @@ static int createChildTables() {
                        database[i].superTbls[j].colsOfCreateChildTable);
 
             code = startMultiThreadCreateChildTable(i, j);
-            if (code) {
+            if (code && !g_arguments->terminate) {
                 errorPrint(stderr,
                            "startMultiThreadCreateChildTable() "
                            "failed for db %d stable %d\n",
@@ -601,6 +604,7 @@ void postFreeResource() {
     SDataBase *database = g_arguments->db;
     for (int i = 0; i < g_arguments->dbCount; i++) {
         for (uint64_t j = 0; j < database[i].superTblCount; j++) {
+            benchArrayDestroy(database[i].streams);
             tmfree(database[i].superTbls[j].colsOfCreateChildTable);
             tmfree(database[i].superTbls[j].sampleDataBuf);
             tmfree(database[i].superTbls[j].tagDataBuf);
@@ -634,7 +638,7 @@ void postFreeResource() {
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
     SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
-    int32_t      affectedRows;
+    int32_t      affectedRows = 0;
     TAOS_RES *   res = NULL;
     int32_t      code;
     uint16_t     iface = stbInfo->iface;
@@ -732,8 +736,6 @@ static void *syncWriteInterlace(void *sarg) {
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
-    *code = -1;
 
     int64_t insertRows = stbInfo->insertRows;
     int32_t interlaceRows = stbInfo->interlaceRows;
@@ -743,7 +745,7 @@ static void *syncWriteInterlace(void *sarg) {
 
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     uint64_t   startTs = toolsGetTimestampMs();
-    uint64_t   endTs;
+    uint64_t   endTs = toolsGetTimestampMs();
     delayNode *current_delay_node;
     int32_t    generated = 0;
     int        len = 0;
@@ -754,6 +756,9 @@ static void *syncWriteInterlace(void *sarg) {
             interlaceRows = insertRows;
         }
         for (int i = 0; i < batchPerTblTimes; ++i) {
+            if (g_arguments->terminate) {
+                goto free_of_interlace;
+            }
             int64_t timestamp = pThreadInfo->start_time;
             char *  tableName = stbInfo->childTblName[tableSeq];
             switch (stbInfo->iface) {
@@ -826,6 +831,7 @@ static void *syncWriteInterlace(void *sarg) {
                             stderr,
                             "taos_stmt_set_tbname(%s) failed, reason: %s\n",
                             tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                        g_fail = true;
                         goto free_of_interlace;
                     }
                     generated =
@@ -938,6 +944,7 @@ static void *syncWriteInterlace(void *sarg) {
                 break;
         }
         if (affectedRows < 0) {
+            g_fail = true;
             goto free_of_interlace;
         }
         uint64_t delay = endTs - startTs;
@@ -975,11 +982,9 @@ static void *syncWriteInterlace(void *sarg) {
                    pThreadInfo->threadID, pThreadInfo->totalInsertRows,
                    pThreadInfo->totalAffectedRows);
     }
-
-    *code = 0;
-    printStatPerThread(pThreadInfo);
 free_of_interlace:
-    return code;
+    printStatPerThread(pThreadInfo);
+    return NULL;
 }
 
 void *syncWriteProgressive(void *sarg) {
@@ -991,8 +996,6 @@ void *syncWriteProgressive(void *sarg) {
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-    int32_t *code = benchCalloc(1, sizeof(int32_t), false);
-    *code = -1;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     uint64_t   startTs = toolsGetTimestampMs();
     uint64_t   endTs;
@@ -1009,11 +1012,15 @@ void *syncWriteProgressive(void *sarg) {
             taos_stmt_close(pThreadInfo->stmt);
             pThreadInfo->stmt = taos_stmt_init(pThreadInfo->taos);
             if (stmt_prepare(stbInfo, pThreadInfo->stmt, tableSeq)) {
+                g_fail = true;
                 goto free_of_progressive;
             }
         }
 
         for (uint64_t i = 0; i < stbInfo->insertRows;) {
+            if (g_arguments->terminate) {
+                goto free_of_progressive;
+            }
             int32_t generated = 0;
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
@@ -1093,6 +1100,7 @@ void *syncWriteProgressive(void *sarg) {
                             stderr,
                             "taos_stmt_set_tbname(%s) failed, reason: %s\n",
                             tableName, taos_stmt_errstr(pThreadInfo->stmt));
+                        g_fail = true;
                         goto free_of_progressive;
                     }
                     generated = bindParamBatch(
@@ -1172,6 +1180,7 @@ void *syncWriteProgressive(void *sarg) {
             int32_t affectedRows = execInsert(pThreadInfo, generated);
             endTs = toolsGetTimestampUs();
             if (affectedRows < 0) {
+                g_fail = true;
                 goto free_of_progressive;
             }
             switch (stbInfo->iface) {
@@ -1243,10 +1252,9 @@ void *syncWriteProgressive(void *sarg) {
             }
         }  // insertRows
     }      // tableSeq
-    *code = 0;
-    printStatPerThread(pThreadInfo);
 free_of_progressive:
-    return code;
+    printStatPerThread(pThreadInfo);
+    return NULL;
 }
 
 static int startMultiThreadInsertData(int db_index, int stb_index) {
@@ -1573,12 +1581,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     int64_t start = toolsGetTimestampUs();
 
     for (int i = 0; i < threads; i++) {
-        void *result;
-        pthread_join(pids[i], &result);
-        if (*(int32_t *)result) {
-            g_fail = true;
-        }
-        tmfree(result);
+        pthread_join(pids[i], NULL);
     }
 
     int64_t end = toolsGetTimestampUs();
@@ -1672,11 +1675,6 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     free(pids);
     free(infos);
 
-    if (g_fail) {
-        tmfree(total_delay_list);
-        return -1;
-    }
-
     if (cntDelay == 0) cntDelay = 1;
     avgDelay = (double)totalDelay / cntDelay;
 
@@ -1725,6 +1723,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
     }
     tmfree(total_delay_list);
+    if (g_fail) {
+        return -1;
+    }
     return 0;
 }
 

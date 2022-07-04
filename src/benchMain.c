@@ -20,8 +20,28 @@ bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 cJSON*         root;
 
+void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
+    sem_post(&g_arguments->cancelSem);
+}
+
+void* benchCancelHandler(void* arg) {
+    if (bsem_wait(&g_arguments->cancelSem) != 0) {
+        taosMsleep(10);
+    }
+    infoPrint(stdout, "%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
+    g_arguments->terminate = true;
+    return NULL;
+}
+
 int main(int argc, char* argv[]) {
     init_argument();
+    if (sem_init(&g_arguments->cancelSem, 0, 0) != 0) {
+        errorPrint(stderr, "%s", "failed to create cancel semphore\n");
+        exit(EXIT_FAILURE);
+    }
+    pthread_t spid = {0};
+    pthread_create(&spid, NULL, benchCancelHandler, NULL);
+    benchSetSignal(SIGINT, benchQueryInterruptHandler);
     commandLineParseArgument(argc, argv);
     if (g_arguments->metaFile) {
         g_arguments->g_totalChildTables = 0;
