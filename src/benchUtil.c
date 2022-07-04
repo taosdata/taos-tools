@@ -498,7 +498,36 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         errorPrint(stderr, "Response:\n%s\n", response_buf);
         goto free_of_post;
     }
-
+    if (g_arguments->test_mode == INSERT_TEST) {
+        debugPrint(stdout, "Response: \n%s\n", response_buf);
+        char* start = strstr(response_buf, "{");
+        if (start == NULL) {
+            errorPrint(stderr, "Invalid response format: %s\n", response_buf);
+            goto free_of_post;
+        }
+        cJSON* resObj = cJSON_Parse(start);
+        if (resObj == NULL) {
+            errorPrint(stderr, "Cannot parse response into json: %s\n", start);
+        }
+        cJSON* codeObj = cJSON_GetObjectItem(resObj, "code");
+        if (!cJSON_IsNumber(codeObj)) {
+            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", cJSON_Print(resObj));
+            cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        if (codeObj->valueint) {
+            cJSON* desc = cJSON_GetObjectItem(resObj, "desc");
+            if (!cJSON_IsString(desc)) {
+                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", cJSON_Print(resObj));
+                goto free_of_post;
+            }
+            errorPrint(stderr, "insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
+            cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        cJSON_Delete(resObj);
+    }
+    
     if (strlen(pThreadInfo->filePath) > 0) {
         appendResultBufToFile(response_buf, pThreadInfo);
     }

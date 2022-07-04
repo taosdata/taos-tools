@@ -1662,12 +1662,6 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         delay_list_destroy(&(pThreadInfo->delayList));
     }
     qsort(total_delay_list, cntDelay, sizeof(uint64_t), compare);
-    if (g_arguments->debug_print) {
-        for (int i = 0; i < cntDelay; ++i) {
-            debugPrint(stdout, "total_delay_list[%d]: %" PRIu64 "\n", i,
-                       total_delay_list[i]);
-        }
-    }
 
     free(pids);
     free(infos);
