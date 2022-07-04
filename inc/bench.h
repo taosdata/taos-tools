@@ -505,7 +505,11 @@ typedef struct SArguments_S {
     FILE *             fpOfInsertResult;
     BArray *           databases;
     char *             base64_buf;
-    sem_t*             cancelSem;
+#ifdef LINUX
+    sem_t              cancelSem;
+#elif DARWIN
+    sem_t *            cancelSem;
+#endif
     bool               terminate;
 } SArguments;
 
