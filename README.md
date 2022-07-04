@@ -32,7 +32,7 @@ taosdump is a tool for backing up and restoring TDengine data to/from local dire
 sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 ```
 
-#### For CentOS
+#### For CentOS/RHEL
 
 ```
 sudo yum install zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static
@@ -40,6 +40,11 @@ sudo yum install zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfi
 
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)),
  it lead a cmake prompt libsnappy not found. But snappy will works well.
+
+#### For macOS (only taosBenchmark for now)
+```
+brew install argp-standalone
+```
 
 ### install TDengine client
 
