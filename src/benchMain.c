@@ -21,11 +21,11 @@ uint64_t       g_memoryUsage = 0;
 cJSON*         root;
 
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
-    sem_post(&g_arguments->cancelSem);
+    sem_post(g_arguments->cancelSem);
 }
 
 void* benchCancelHandler(void* arg) {
-    if (bsem_wait(&g_arguments->cancelSem) != 0) {
+    if (bsem_wait(g_arguments->cancelSem) != 0) {
         taosMsleep(10);
     }
     infoPrint(stdout, "%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
@@ -35,10 +35,18 @@ void* benchCancelHandler(void* arg) {
 
 int main(int argc, char* argv[]) {
     init_argument();
-    if (sem_init(&g_arguments->cancelSem, 0, 0) != 0) {
-        errorPrint(stderr, "%s", "failed to create cancel semphore\n");
+#ifdef LINUX
+    if (sem_init(g_arguments->cancelSem, 0, 0) != 0) {
+        errorPrint(stderr, "%s", "failed to create cancel semaphore\n");
         exit(EXIT_FAILURE);
     }
+#elif DARWIN
+    g_arguments->cancelSem = sem_open("cancelSem", O_CREAT|O_EXCL, S_IRWXU, 0);
+    if (g_arguments->cancelSem == SEM_FAILED) {
+        errorPrint(stderr, "failed to create cancel semaphore, reason: %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+#endif
     pthread_t spid = {0};
     pthread_create(&spid, NULL, benchCancelHandler, NULL);
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
