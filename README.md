@@ -32,10 +32,19 @@ taosdump is a tool for backing up and restoring TDengine data to/from local dire
 sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
 ```
 
-#### For CentOS/RHEL
+#### For CentOS 7/RHEL
 
 ```
-sudo yum install zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static
+sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static
+```
+
+#### For CentOS 8/Rocky Linux
+
+```
+sudo yum install -y epel-release
+sudo yum install -y dnf-plugins-core
+sudo yum config-manager --set-enabled powertools
+sudo yum install -y zlib-devel xz-devel csnappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static
 ```
 
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)),
