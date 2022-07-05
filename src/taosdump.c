@@ -42,6 +42,7 @@
 #include "taos.h"
 
 #include "toolsdef.h"
+#include "bench.h"
 
 #include <avro.h>
 #include <jansson.h>
