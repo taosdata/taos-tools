@@ -42,7 +42,6 @@
 #include "taos.h"
 
 #include "toolsdef.h"
-#include "bench.h"
 
 #include <avro.h>
 #include <jansson.h>
@@ -572,7 +571,7 @@ static uint64_t getUniqueIDFromEpoch()
 {
     struct timeval tv;
 
-    toolsGetTimeOfDay(&tv);
+    gettimeofday(&tv, NULL);
 
     uint64_t id =
         (unsigned long long)(tv.tv_sec) * 1000 +
