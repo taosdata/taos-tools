@@ -106,6 +106,10 @@ IF (${VERBOSE} MATCHES "true")
     SET(CMAKE_VERBOSE_MAKEFILE ON)
 ENDIF ()
 
+IF (${TOOLS_3})
+    add_definitions(-DTOOLS_3)
+ENDIF ()
+
 ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
 

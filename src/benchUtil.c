@@ -242,20 +242,20 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
 
 int64_t toolsGetTimestampMs() {
     struct timeval systemTime;
-    gettimeofday(&systemTime, NULL);
+    toolsGetTimeOfDay(&systemTime);
     return (int64_t)systemTime.tv_sec * 1000L +
            (int64_t)systemTime.tv_usec / 1000;
 }
 
 int64_t toolsGetTimestampUs() {
     struct timeval systemTime;
-    gettimeofday(&systemTime, NULL);
+    toolsGetTimeOfDay(&systemTime);
     return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
 }
 
 int64_t toolsGetTimestampNs() {
     struct timespec systemTime = {0};
-    clock_gettime(CLOCK_REALTIME, &systemTime);
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
     return (int64_t)systemTime.tv_sec * 1000000000L +
            (int64_t)systemTime.tv_nsec;
 }
@@ -270,7 +270,7 @@ int64_t toolsGetTimestamp(int32_t precision) {
     }
 }
 
-void taosMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
+void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;

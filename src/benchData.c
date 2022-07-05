@@ -148,7 +148,12 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
     }
     while (1) {
 #if defined(WIN32) || defined(WIN64)
-        readLen = tgetline(&line, &n, fp);
+    #ifdef TOOLS_3
+        toolsGetLineFile(&line, &n, fp);
+        readLen = n;
+    #else
+        readLen = toolsGetLineFile(&line, &n, fp);
+    #endif
 #else
         readLen = getline(&line, &n, fp);
 #endif

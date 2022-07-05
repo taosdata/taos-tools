@@ -901,7 +901,7 @@ static void *syncWriteInterlace(void *sarg) {
                 if (stbInfo->insert_interval > 0) {
                     performancePrint(stdout, "sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval);
-                    taosMsleep((int32_t)stbInfo->insert_interval);
+                    toolsMsleep((int32_t)stbInfo->insert_interval);
                 }
                 break;
             }

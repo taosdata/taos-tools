@@ -18,6 +18,7 @@
 
 #define _GNU_SOURCE
 #define CURL_STATICLIB
+#define ALLOW_FORBID_FUNC
 
 #ifdef LINUX
 #include <argp.h>
@@ -58,7 +59,11 @@
 #include <regex.h>
 #include <stdio.h>
 #include <assert.h>
+#ifdef USE_CJSON
+#include <cJSON.h>
+#else
 #include <cJSONDEMO.h>
+#endif
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -167,15 +172,36 @@
 #define FORCE_INLINE
 #endif
 
+#ifdef TOOLS_3
+#define toolsGetTimeOfDay taosGetTimeOfDay
+#define toolsLocalTime taosLocalTime
+#define toolsStrpTime taosStrpTime
+#define toolsClockGetTime taosClockGetTime
+#define toolsGetLineFile(__pLine,__pN, __pFp)                      \
+do {                                                               \
+  *(__pLine) = taosMemoryMalloc(1024);                             \
+  fgets(*(__pLine), 1023, (__pFp));                                \
+  (*(__pLine))[1023] = 0;                                          \
+  *(__pN)=strlen(*(__pLine));                                      \
+} while(0)
+#else
+#define toolsGetTimeOfDay(__tv) gettimeofday(__tv, NULL)
+#define toolsLocalTime localtime_r
+#define toolsStrpTime strptime
+#define toolsClockGetTime clock_gettime
+#define toolsGetLineFile tgetline
+>>>>>>> Stashed changes
+#endif
+
 #define debugPrint(fp, fmt, ...)                                             \
     do {                                                                     \
         if (g_arguments->debug_print) {                                      \
             struct tm      Tm, *ptm;                                         \
             struct timeval timeSecs;                                         \
             time_t         curTime;                                          \
-            gettimeofday(&timeSecs, NULL);                                   \
+            toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
-            ptm = localtime_r(&curTime, &Tm);                                \
+            ptm = toolsLocalTime(&curTime, &Tm);                                \
             fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
@@ -190,9 +216,9 @@
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
         time_t         curTime;                                          \
-        gettimeofday(&timeSecs, NULL);                                   \
+        toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
-        ptm = localtime_r(&curTime, &Tm);                                \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
         fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
@@ -205,9 +231,9 @@
             struct tm      Tm, *ptm;                                         \
             struct timeval timeSecs;                                         \
             time_t         curTime;                                          \
-            gettimeofday(&timeSecs, NULL);                                   \
+            toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
-            ptm = localtime_r(&curTime, &Tm);                                \
+            ptm = toolsLocalTime(&curTime, &Tm);                                \
             fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
@@ -220,9 +246,9 @@
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
         time_t         curTime;                                          \
-        gettimeofday(&timeSecs, NULL);                                   \
+        toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
-        ptm = localtime_r(&curTime, &Tm);                                \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
         fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
@@ -603,7 +629,7 @@ int64_t toolsGetTimestampMs();
 int64_t toolsGetTimestampUs();
 int64_t toolsGetTimestampNs();
 int64_t toolsGetTimestamp(int32_t precision);
-void    taosMsleep(int32_t mseconds);
+void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
