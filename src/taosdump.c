@@ -42,7 +42,6 @@
 #include "taos.h"
 
 #include "toolsdef.h"
-#include "bench.h"
 
 #include <avro.h>
 #include <jansson.h>
@@ -95,6 +94,26 @@ static void print_json_aux(json_t *element, int indent);
 #define SET_THREAD_NAME(name)
 #else
 #define SET_THREAD_NAME(name)  do {prctl(PR_SET_NAME, (name));} while(0)
+#endif
+
+#ifdef TDENGINE_3
+#define toolsGetTimeOfDay taosGetTimeOfDay
+#define toolsLocalTime taosLocalTime
+#define toolsStrpTime taosStrpTime
+#define toolsClockGetTime taosClockGetTime
+#define toolsGetLineFile(__pLine,__pN, __pFp)                      \
+do {                                                               \
+  *(__pLine) = taosMemoryMalloc(1024);                             \
+  fgets(*(__pLine), 1023, (__pFp));                                \
+  (*(__pLine))[1023] = 0;                                          \
+  *(__pN)=strlen(*(__pLine));                                      \
+} while(0)
+#else
+#define toolsGetTimeOfDay(__tv) gettimeofday(__tv, NULL)
+#define toolsLocalTime localtime_r
+#define toolsStrpTime strptime
+#define toolsClockGetTime clock_gettime
+#define toolsGetLineFile tgetline
 #endif
 
 static int  convertStringToReadable(char *str, int size, char *buf, int bufsize);
