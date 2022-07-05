@@ -28,7 +28,7 @@ void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
 
 void* benchCancelHandler(void* arg) {
     if (bsem_wait(&g_arguments->cancelSem) != 0) {
-        taosMsleep(10);
+        toolsMsleep(10);
     }
     infoPrint(stdout, "%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
     g_arguments->terminate = true;
