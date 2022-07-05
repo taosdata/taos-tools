@@ -153,7 +153,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
         IF (${OS_ID} MATCHES "alpine")
             MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
-            TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
+            TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp os)
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson)
         ELSEIF(${OS_ID} MATCHES "Darwin")
             ADD_LIBRARY(argp STATIC IMPORTED)
@@ -167,7 +167,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp)
         ElSE ()
             MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
-            TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
+            TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread os)
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson)
         ENDIF()
 
@@ -214,9 +214,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
 
             IF (${OS_ID} MATCHES "alpine")
-                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp)
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp os)
             ELSE()
-                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread)
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread os)
             ENDIF()
 
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson)
