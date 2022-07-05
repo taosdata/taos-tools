@@ -66,7 +66,7 @@ static void *specifiedTableQuery(void *sarg) {
     while (index < queryTimes) {
         if (g_queryInfo.specifiedQueryInfo.queryInterval &&
             (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval) {
-            taosMsleep((int32_t)(g_queryInfo.specifiedQueryInfo.queryInterval -
+            toolsMsleep((int32_t)(g_queryInfo.specifiedQueryInfo.queryInterval -
                                  (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
@@ -143,7 +143,7 @@ static void *superTableQuery(void *sarg) {
     while (queryTimes--) {
         if (g_queryInfo.superQueryInfo.queryInterval &&
             (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval) {
-            taosMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval -
+            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval -
                                  (et - st)));
         }
 

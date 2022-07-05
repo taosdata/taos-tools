@@ -27,8 +27,8 @@ void    generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
 int     stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int prepare_sample_data(int a, int b);
-void generateSmlJsonTags(cJSON *tagsList, SSuperTable *stbInfo,
+void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq);
-void generateSmlJsonCols(cJSON *array, cJSON *tag, SSuperTable *stbInfo,
+void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,
                             uint32_t time_precision, int64_t timestamp);
 #endif

@@ -37,6 +37,7 @@
 #include <time.h>
 
 
+#include "bench.h"
 #include "toolsdef.h"
 
 static int32_t parseLocaltime(char* timestr, int64_t* time, int32_t timePrec, char delim);
@@ -167,8 +168,6 @@ int64_t parseFraction(char* str, char** end, int32_t timePrec) {
 
   return fraction;
 }
-
-#if defined(LINUX) || defined(DARWIN)
 int64_t user_mktime64(const unsigned int year0, const unsigned int mon0,
 		const unsigned int day, const unsigned int hour,
 		const unsigned int min, const unsigned int sec, int64_t time_zone)
@@ -193,6 +192,7 @@ int64_t user_mktime64(const unsigned int year0, const unsigned int mon0,
 }
 
 
+#if defined(LINUX) || defined(DARWIN)
 int32_t parseTimezone(char* str, int64_t* tzOffset) {
   int64_t hour = 0;
 
@@ -246,9 +246,9 @@ int32_t parseTimeWithTz(char* timestr, int64_t* time, int32_t timePrec, char del
 
   char* str;
   if (delim == 'T') {
-    str = strptime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
   } else if (delim == 0) {
-    str = strptime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
   } else {
     str = NULL;
   }
@@ -329,9 +329,9 @@ int32_t parseLocaltime(char* timestr, int64_t* time, int32_t timePrec, char deli
 
   char* str;
   if (delim == 'T') {
-    str = strptime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
   } else if (delim == 0) {
-    str = strptime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
   } else {
     str = NULL;
   }
@@ -371,9 +371,9 @@ int32_t parseLocaltimeWithDst(char* timestr, int64_t* time, int32_t timePrec, ch
 
   char* str;
   if (delim == 'T') {
-    str = strptime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
   } else if (delim == 0) {
-    str = strptime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
   } else {
     str = NULL;
   }
