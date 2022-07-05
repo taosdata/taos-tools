@@ -297,7 +297,7 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
+int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check) {
     TAOS_RES *res = taos_query(taos, command);
     int32_t   code = taos_errno(res);
 
@@ -310,7 +310,7 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
         return -1;
     }
 
-    if (INSERT_TYPE == type) {
+    if (INSERT_TYPE == type && !check) {
         int affectedRows = taos_affected_rows(res);
         taos_free_result(res);
         return affectedRows;

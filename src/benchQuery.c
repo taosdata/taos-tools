@@ -70,8 +70,7 @@ static void *specifiedTableQuery(void *sarg) {
                                  (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE,
-                        false);
+            queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE, false, false);
         }
 
         st = toolsGetTimestampUs();
