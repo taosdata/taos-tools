@@ -537,10 +537,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
         }
-<<<<<<< HEAD
 
-        cJSON *affectRowObj = cJSON_GetObjectItem(stbInfo, "no_check_for_affected_rows");
-        if (cJSON_IsString(affectRowObj)) {
+        tools_cJSON *affectRowObj = tools_cJSON_GetObjectItem(stbInfo, "no_check_for_affected_rows");
+        if (tools_cJSON_IsString(affectRowObj)) {
             if (0 == strcasecmp(affectRowObj->valuestring, "yes")) {
                 superTable->no_check_for_affected_rows = true;
             } else if (0 == strcasecmp(affectRowObj->valuestring, "no")) {
@@ -551,12 +550,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             }
         }
 
-        cJSON *count = cJSON_GetObjectItem(stbInfo, "childtable_count");
-        if (cJSON_IsNumber(count)) {
-=======
         tools_cJSON *count = tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
         if (tools_cJSON_IsNumber(count)) {
->>>>>>> e8267dfc130bb83c7370bd073dbecbf4f641698a
             superTable->childTblCount = count->valueint;
             g_arguments->g_totalChildTables += superTable->childTblCount;
         } else {
