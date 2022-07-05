@@ -235,25 +235,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       break;
     case 'A':
       arguments->demo_mode = false;
-      count_datatype(arg, &(stbInfo->tagCount));
-      tmfree(stbInfo->tags);
-      stbInfo->tags =
-              benchCalloc(stbInfo->tagCount, sizeof(Column), true);
-      if (parse_tag_datatype(arg, stbInfo->tags)) {
-        tmfree(stbInfo->tags);
-        exit(EXIT_FAILURE);
-      }
+      parse_field_datatype(arg, stbInfo->tags, true);
       break;
     case 'b':
       arguments->demo_mode = false;
-      tmfree(stbInfo->columns);
-      count_datatype(arg, &(stbInfo->columnCount));
-      stbInfo->columns =
-              benchCalloc(stbInfo->columnCount, sizeof(Column), true);
-      if (parse_col_datatype(arg, stbInfo->columns)) {
-        tmfree(stbInfo->columns);
-        exit(EXIT_FAILURE);
-      }
+      parse_field_datatype(arg, stbInfo->tags, false);
       break;
     case 'w':
       arguments->binwidth = atoi(arg);
@@ -283,7 +269,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     case 'N':
       arguments->demo_mode = false;
       stbInfo->use_metric = false;
-      stbInfo->tagCount = 0;
+      benchArrayClear(stbInfo->tags);
       break;
     case 'M':
       arguments->demo_mode = false;
