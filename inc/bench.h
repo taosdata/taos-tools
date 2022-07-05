@@ -18,6 +18,7 @@
 
 #define _GNU_SOURCE
 #define CURL_STATICLIB
+#define ALLOW_FORBID_FUNC
 
 #ifdef LINUX
 #include <argp.h>
@@ -58,7 +59,7 @@
 #include <regex.h>
 #include <stdio.h>
 #include <assert.h>
-#include <cJSONDEMO.h>
+#include <toolscJson.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -173,9 +174,9 @@
             struct tm      Tm, *ptm;                                         \
             struct timeval timeSecs;                                         \
             time_t         curTime;                                          \
-            gettimeofday(&timeSecs, NULL);                                   \
+            toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
-            ptm = localtime_r(&curTime, &Tm);                                \
+            ptm = toolsLocalTime(&curTime, &Tm);                                \
             fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
@@ -190,9 +191,9 @@
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
         time_t         curTime;                                          \
-        gettimeofday(&timeSecs, NULL);                                   \
+        toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
-        ptm = localtime_r(&curTime, &Tm);                                \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
         fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
@@ -205,9 +206,9 @@
             struct tm      Tm, *ptm;                                         \
             struct timeval timeSecs;                                         \
             time_t         curTime;                                          \
-            gettimeofday(&timeSecs, NULL);                                   \
+            toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
-            ptm = localtime_r(&curTime, &Tm);                                \
+            ptm = toolsLocalTime(&curTime, &Tm);                                \
             fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
@@ -220,9 +221,9 @@
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
         time_t         curTime;                                          \
-        gettimeofday(&timeSecs, NULL);                                   \
+        toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
-        ptm = localtime_r(&curTime, &Tm);                                \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
         fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
@@ -319,7 +320,7 @@ typedef struct COLUMN_S {
     void *   data;
     int64_t  max;
     int64_t  min;
-    cJSON *  values;
+    tools_cJSON *  values;
     bool     sma;
 } Column;
 
@@ -553,8 +554,8 @@ typedef struct SThreadInfo_S {
     uint32_t   db_index;
     uint32_t   stb_index;
     char **    sml_tags;
-    cJSON *    json_array;
-    cJSON *    sml_json_tags;
+    tools_cJSON *    json_array;
+    tools_cJSON *    sml_json_tags;
     uint64_t   start_time;
     uint64_t   max_sql_len;
     FILE *     fp;
@@ -573,7 +574,7 @@ extern SArguments *   g_arguments;
 extern SQueryMetaInfo g_queryInfo;
 extern bool           g_fail;
 extern char           configDir[];
-extern cJSON *        root;
+extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -604,7 +605,7 @@ int64_t toolsGetTimestampMs();
 int64_t toolsGetTimestampUs();
 int64_t toolsGetTimestampNs();
 int64_t toolsGetTimestamp(int32_t precision);
-void    taosMsleep(int32_t mseconds);
+void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);

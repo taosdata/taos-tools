@@ -18,7 +18,7 @@ SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
-cJSON*         root;
+tools_cJSON*   root;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
@@ -28,7 +28,7 @@ void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
 
 void* benchCancelHandler(void* arg) {
     if (bsem_wait(&g_arguments->cancelSem) != 0) {
-        taosMsleep(10);
+        toolsMsleep(10);
     }
     infoPrint(stdout, "%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
     g_arguments->terminate = true;
