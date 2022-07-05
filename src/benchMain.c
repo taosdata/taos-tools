@@ -18,7 +18,7 @@ SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
-cJSON*         root;
+tools_cJSON*   root;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {

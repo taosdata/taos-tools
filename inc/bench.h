@@ -59,11 +59,7 @@
 #include <regex.h>
 #include <stdio.h>
 #include <assert.h>
-#ifdef USE_CJSON
-#include <cJSON.h>
-#else
-#include <cJSONDEMO.h>
-#endif
+#include <toolscJson.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -172,7 +168,7 @@
 #define FORCE_INLINE
 #endif
 
-#ifdef TOOLS_3
+#ifdef TDENGINE_3
 #define toolsGetTimeOfDay taosGetTimeOfDay
 #define toolsLocalTime taosLocalTime
 #define toolsStrpTime taosStrpTime
@@ -344,7 +340,7 @@ typedef struct COLUMN_S {
     void *   data;
     int64_t  max;
     int64_t  min;
-    cJSON *  values;
+    tools_cJSON *  values;
     bool     sma;
 } Column;
 
@@ -577,8 +573,8 @@ typedef struct SThreadInfo_S {
     uint32_t   db_index;
     uint32_t   stb_index;
     char **    sml_tags;
-    cJSON *    json_array;
-    cJSON *    sml_json_tags;
+    tools_cJSON *    json_array;
+    tools_cJSON *    sml_json_tags;
     uint64_t   start_time;
     uint64_t   max_sql_len;
     FILE *     fp;
@@ -597,7 +593,7 @@ extern SArguments *   g_arguments;
 extern SQueryMetaInfo g_queryInfo;
 extern bool           g_fail;
 extern char           configDir[];
-extern cJSON *        root;
+extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))

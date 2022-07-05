@@ -517,28 +517,28 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
             errorPrint(stderr, "Invalid response format: %s\n", response_buf);
             goto free_of_post;
         }
-        cJSON* resObj = cJSON_Parse(start);
+        tools_cJSON* resObj = tools_cJSON_Parse(start);
         if (resObj == NULL) {
             errorPrint(stderr, "Cannot parse response into json: %s\n", start);
         }
-        cJSON* codeObj = cJSON_GetObjectItem(resObj, "code");
-        if (!cJSON_IsNumber(codeObj)) {
-            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", cJSON_Print(resObj));
-            cJSON_Delete(resObj);
+        tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
+        if (!tools_cJSON_IsNumber(codeObj)) {
+            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", tools_cJSON_Print(resObj));
+            tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
         if (codeObj->valueint != 0 &&
             (stbInfo->iface == SML_REST_IFACE && stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
-            cJSON* desc = cJSON_GetObjectItem(resObj, "desc");
-            if (!cJSON_IsString(desc)) {
-                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", cJSON_Print(resObj));
+            tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
+            if (!tools_cJSON_IsString(desc)) {
+                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
                 goto free_of_post;
             }
             errorPrint(stderr, "insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
-            cJSON_Delete(resObj);
+            tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
-        cJSON_Delete(resObj);
+        tools_cJSON_Delete(resObj);
     }
     code = 0;
 free_of_post:

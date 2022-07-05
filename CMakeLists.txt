@@ -106,8 +106,8 @@ IF (${VERBOSE} MATCHES "true")
     SET(CMAKE_VERBOSE_MAKEFILE ON)
 ENDIF ()
 
-IF (${TOOLS_3})
-    add_definitions(-DTOOLS_3)
+IF (${TDENGINE_3})
+    add_definitions(-DTDENGINE_3)
 ENDIF ()
 
 ADD_SUBDIRECTORY(deps)
@@ -119,7 +119,7 @@ ELSEIF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     #    ADD_DEPENDENCIES(taosdump avro)
 endif()
 
-ADD_DEPENDENCIES(taosBenchmark cJsonDemo)
+ADD_DEPENDENCIES(taosBenchmark toolscJson)
 
 SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.sh")
 INSTALL(CODE "execute_process(COMMAND bash ${MAKE_INSTALL_SH} ${CMAKE_BINARY_DIR})")
