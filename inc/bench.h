@@ -190,7 +190,6 @@ do {                                                               \
 #define toolsStrpTime strptime
 #define toolsClockGetTime clock_gettime
 #define toolsGetLineFile tgetline
->>>>>>> Stashed changes
 #endif
 
 #define debugPrint(fp, fmt, ...)                                             \
