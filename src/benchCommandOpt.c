@@ -28,8 +28,8 @@ char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
 
 void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
     char *dup_str;
+    benchArrayClear(fields);
     if (strstr(dataType, ",") == NULL) {
-        benchArrayClear(fields);
         Field * field = benchCalloc(1, sizeof(Field), true);
         benchArrayPush(fields, field);
         field = benchArrayGet(fields, 0);
@@ -43,6 +43,8 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
             field->type = taos_convert_string_to_datatype(dataType, 0);
             field->length = taos_convert_type_to_length(field->type);
         }
+        field->min = taos_convert_datatype_to_default_min(field->type);
+        field->max = taos_convert_datatype_to_default_max(field->type);
         tstrncpy(field->name, isTag?"t0":"c0", TSDB_COL_NAME_LEN);
     } else {
         dup_str = strdup(dataType);
@@ -50,7 +52,7 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
         char *token = strsep(&running, ",");
         int   index = 0;
         while (token != NULL) {
-            benchArrayClear(fields);
+
             Field * field = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(fields, field);
             field = benchArrayGet(fields, index);
@@ -64,6 +66,8 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
                 field->type = taos_convert_string_to_datatype(token, 0);
                 field->length = taos_convert_type_to_length(field->type);
             }
+            field->max = taos_convert_datatype_to_default_max(field->type);
+            field->min = taos_convert_datatype_to_default_min(field->type);
             snprintf(field->name, TSDB_COL_NAME_LEN, isTag?"t%d":"c%d", index);
             index++;
             token = strsep(&running, ",");

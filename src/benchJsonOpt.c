@@ -89,7 +89,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON * superTblObj, SSuperTabl
         if (cJSON_IsNumber(dataLen)) {
             length = (int32_t)dataLen->valueint;
         } else {
-            length = taos_convert_type_to_length(type);
+            if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
+                length = g_arguments->binwidth;
+            } else {
+                length = taos_convert_type_to_length(type);
+            }
         }
 
         for (int n = 0; n < count; ++n) {
@@ -98,6 +102,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON * superTblObj, SSuperTabl
             col = benchArrayGet(stbInfo->cols, stbInfo->cols->size - 1);
             col->type = type;
             col->length = length;
+            if (length == 0) {
+                col->null = true;
+            }
             col->sma = sma;
             col->max = max;
             col->min = min;
@@ -191,7 +198,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON * superTblObj, SSuperTabl
         if (cJSON_IsNumber(dataLen)) {
             length = (int32_t)dataLen->valueint;
         } else {
-            length = taos_convert_type_to_length(type);
+            if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
+                length = g_arguments->binwidth;
+            } else {
+                length = taos_convert_type_to_length(type);
+            }
         }
 
         for (int n = 0; n < count; ++n) {
@@ -200,6 +211,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(cJSON * superTblObj, SSuperTabl
             tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
             tag->type = type;
             tag->length = length;
+            if (length == 0) {
+                tag->null = true;
+            }
             tag->max = max;
             tag->min = min;
             tag->values = dataValues;
@@ -376,8 +390,12 @@ static int getStableInfo(cJSON *dbinfos, int index) {
         if (index > 0 || i > 0) {
             superTable = benchCalloc(1, sizeof(SSuperTable), true);
             benchArrayPush(database->superTbls, superTable);
+            superTable = benchArrayGet(database->superTbls, i);
+            superTable->cols = benchArrayInit(1, sizeof(Field));
+            superTable->tags = benchArrayInit(1, sizeof(Field));
+        } else {
+            superTable = benchArrayGet(database->superTbls, i);
         }
-        superTable = benchArrayGet(database->superTbls, i);
         superTable->escape_character = false;
         superTable->autoCreateTable = false;
         superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;

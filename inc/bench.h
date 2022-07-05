@@ -315,6 +315,7 @@ typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
+    bool     none;
     bool     null;
     void *   data;
     int64_t  max;

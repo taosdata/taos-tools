@@ -299,10 +299,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         for (int i = 0; i < fields->size; ++i) {
             Field * field = benchArrayGet(fields, i);
             if (iface == TAOSC_IFACE || iface == REST_IFACE) {
-                if (field->null) {
+                if (field->none) {
                     continue;
                 }
-                if (field->length == 0) {
+                if (field->null) {
                     pos += sprintf(sampleDataBuf + pos, "null,");
                     continue;
                 }
@@ -724,7 +724,7 @@ int prepare_sample_data(int db_index, int stb_index) {
             }
             for (int i = stbInfo->partialColumnNum; i < stbInfo->cols->size; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
-                col->null = true;
+                col->none = true;
             }
             debugPrint(stdout, "partialColumnNameBuf: %s\n",
                        stbInfo->partialColumnNameBuf);

@@ -239,7 +239,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       break;
     case 'b':
       arguments->demo_mode = false;
-      parse_field_datatype(arg, stbInfo->tags, false);
+      parse_field_datatype(arg, stbInfo->cols, false);
       break;
     case 'w':
       arguments->binwidth = atoi(arg);
