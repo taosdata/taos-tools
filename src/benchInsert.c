@@ -631,7 +631,7 @@ void postFreeResource() {
         benchArrayDestroy(database->superTbls);
     }
     benchArrayDestroy(g_arguments->databases);
-    cJSON_Delete(root);
+    tools_cJSON_Delete(root);
     cleanup_taos_list();
     tmfree(g_arguments->pool);
 }
@@ -672,7 +672,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
         case SML_IFACE:
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                pThreadInfo->lines[0] = cJSON_Print(pThreadInfo->json_array);
+                pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
             }
             res = taos_schemaless_insert(
                 pThreadInfo->taos, pThreadInfo->lines,
@@ -694,7 +694,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
         case SML_REST_IFACE: {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                pThreadInfo->lines[0] = cJSON_Print(pThreadInfo->json_array);
+                pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
                 if (0 != postProceSql(pThreadInfo->lines[0], pThreadInfo)) {
                     affectedRows = -1;
                 } else {
@@ -843,8 +843,8 @@ static void *syncWriteInterlace(void *sarg) {
                 case SML_IFACE: {
                     for (int64_t j = 0; j < interlaceRows; ++j) {
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                            cJSON *tag = cJSON_Duplicate(
-                                cJSON_GetArrayItem(
+                            tools_cJSON *tag = tools_cJSON_Duplicate(
+                                tools_cJSON_GetArrayItem(
                                     pThreadInfo->sml_json_tags,
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
@@ -901,7 +901,7 @@ static void *syncWriteInterlace(void *sarg) {
                 if (stbInfo->insert_interval > 0) {
                     performancePrint(stdout, "sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval);
-                    taosMsleep((int32_t)stbInfo->insert_interval);
+                    toolsMsleep((int32_t)stbInfo->insert_interval);
                 }
                 break;
             }
@@ -927,8 +927,8 @@ static void *syncWriteInterlace(void *sarg) {
                 if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                     debugPrint(stdout, "pThreadInfo->lines[0]: %s\n",
                                pThreadInfo->lines[0]);
-                    cJSON_Delete(pThreadInfo->json_array);
-                    pThreadInfo->json_array = cJSON_CreateArray();
+                    tools_cJSON_Delete(pThreadInfo->json_array);
+                    pThreadInfo->json_array = tools_cJSON_CreateArray();
                     tmfree(pThreadInfo->lines[0]);
                 } else {
                     for (int j = 0; j < generated; ++j) {
@@ -1117,8 +1117,8 @@ void *syncWriteProgressive(void *sarg) {
                 case SML_IFACE: {
                     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                            cJSON *tag = cJSON_Duplicate(
-                                cJSON_GetArrayItem(
+                            tools_cJSON *tag = tools_cJSON_Duplicate(
+                                tools_cJSON_GetArrayItem(
                                     pThreadInfo->sml_json_tags,
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
@@ -1196,8 +1196,8 @@ void *syncWriteProgressive(void *sarg) {
                                (pThreadInfo->max_sql_len + 1));
                 case SML_IFACE:
                     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                        cJSON_Delete(pThreadInfo->json_array);
-                        pThreadInfo->json_array = cJSON_CreateArray();
+                        tools_cJSON_Delete(pThreadInfo->json_array);
+                        pThreadInfo->json_array = tools_cJSON_CreateArray();
                         tmfree(pThreadInfo->lines[0]);
                     } else {
                         for (int j = 0; j < generated; ++j) {
@@ -1531,8 +1531,8 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                                 benchCalloc(1, pThreadInfo->max_sql_len, true);
                     }
                 } else {
-                    pThreadInfo->json_array = cJSON_CreateArray();
-                    pThreadInfo->sml_json_tags = cJSON_CreateArray();
+                    pThreadInfo->json_array = tools_cJSON_CreateArray();
+                    pThreadInfo->sml_json_tags = tools_cJSON_CreateArray();
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         if (generateSmlJsonTags(
                                 pThreadInfo->sml_json_tags, stbInfo,
@@ -1621,8 +1621,8 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     tmfree(pThreadInfo->sml_tags);
 
                 } else {
-                    cJSON_Delete(pThreadInfo->sml_json_tags);
-                    cJSON_Delete(pThreadInfo->json_array);
+                    tools_cJSON_Delete(pThreadInfo->sml_json_tags);
+                    tools_cJSON_Delete(pThreadInfo->json_array);
                 }
                 tmfree(pThreadInfo->lines);
                 break;
