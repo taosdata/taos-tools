@@ -370,6 +370,7 @@ typedef struct SSuperTable_S {
     int   delay;
     int   file_factor;
     char *rollup;
+    bool no_check_for_affected_rows;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -611,7 +612,7 @@ void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
-int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
+int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
