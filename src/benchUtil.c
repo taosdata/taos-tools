@@ -242,20 +242,20 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
 
 int64_t toolsGetTimestampMs() {
     struct timeval systemTime;
-    gettimeofday(&systemTime, NULL);
+    toolsGetTimeOfDay(&systemTime);
     return (int64_t)systemTime.tv_sec * 1000L +
            (int64_t)systemTime.tv_usec / 1000;
 }
 
 int64_t toolsGetTimestampUs() {
     struct timeval systemTime;
-    gettimeofday(&systemTime, NULL);
+    toolsGetTimeOfDay(&systemTime);
     return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
 }
 
 int64_t toolsGetTimestampNs() {
     struct timespec systemTime = {0};
-    clock_gettime(CLOCK_REALTIME, &systemTime);
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
     return (int64_t)systemTime.tv_sec * 1000000000L +
            (int64_t)systemTime.tv_nsec;
 }
@@ -270,7 +270,7 @@ int64_t toolsGetTimestamp(int32_t precision) {
     }
 }
 
-void taosMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
+void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;
@@ -517,28 +517,28 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
             errorPrint(stderr, "Invalid response format: %s\n", response_buf);
             goto free_of_post;
         }
-        cJSON* resObj = cJSON_Parse(start);
+        tools_cJSON* resObj = tools_cJSON_Parse(start);
         if (resObj == NULL) {
             errorPrint(stderr, "Cannot parse response into json: %s\n", start);
         }
-        cJSON* codeObj = cJSON_GetObjectItem(resObj, "code");
-        if (!cJSON_IsNumber(codeObj)) {
-            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", cJSON_Print(resObj));
-            cJSON_Delete(resObj);
+        tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
+        if (!tools_cJSON_IsNumber(codeObj)) {
+            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", tools_cJSON_Print(resObj));
+            tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
         if (codeObj->valueint != 0 &&
             (stbInfo->iface == SML_REST_IFACE && stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
-            cJSON* desc = cJSON_GetObjectItem(resObj, "desc");
-            if (!cJSON_IsString(desc)) {
-                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", cJSON_Print(resObj));
+            tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
+            if (!tools_cJSON_IsString(desc)) {
+                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
                 goto free_of_post;
             }
             errorPrint(stderr, "insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
-            cJSON_Delete(resObj);
+            tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
-        cJSON_Delete(resObj);
+        tools_cJSON_Delete(resObj);
     }
     code = 0;
 free_of_post:

@@ -571,7 +571,7 @@ static uint64_t getUniqueIDFromEpoch()
 {
     struct timeval tv;
 
-    gettimeofday(&tv, NULL);
+    toolsGetTimeOfDay(&tv);
 
     uint64_t id =
         (unsigned long long)(tv.tv_sec) * 1000 +
