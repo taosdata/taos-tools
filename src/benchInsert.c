@@ -1340,6 +1340,15 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
         ntables = count;
         taos_free_result(res);
+    }
+    else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
+        if (stbInfo->escape_character) {
+            snprintf(stbInfo->childTblName[0], TSDB_TABLE_NAME_LEN,
+                     "`%s`", stbInfo->stbName);
+        } else {
+            snprintf(stbInfo->childTblName[0], TSDB_TABLE_NAME_LEN,
+                     "%s", stbInfo->stbName);
+        }
     } else {
         for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
             if (stbInfo->escape_character) {
