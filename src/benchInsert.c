@@ -49,51 +49,8 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
     }
     infoPrint(stdout, "find stable<%s>, will get meta data from server\n",
               stbInfo->stbName);
-    int tagIndex = 0;
-    int columnIndex = 0;
-    while ((row = taos_fetch_row(res)) != NULL) {
-        if (strncasecmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
-                        strlen("tag")) == 0) {
-            tagIndex++;
-        } else {
-            columnIndex++;
-        }
-    }
-    int32_t *tmp_length_list = benchCalloc(columnIndex, sizeof(int32_t), true);
-    columnIndex -= 1;
-    if (columnIndex == stbInfo->columnCount) {
-        for (int i = 0; i < stbInfo->columnCount; ++i) {
-            if (stbInfo->columns[i].length == 0) {
-                tmp_length_list[i] = 0;
-            } else {
-                tmp_length_list[i] = 1;
-            }
-        }
-    } else {
-        for (int i = 0; i < columnIndex; ++i) {
-            tmp_length_list[i] = 1;
-        }
-    }
-    stbInfo->tagCount = tagIndex;
-    tmfree(stbInfo->tags);
-    stbInfo->tags = benchCalloc(tagIndex, sizeof(Column), true);
-    tmfree(stbInfo->columns);
-    stbInfo->columnCount = columnIndex;
-    stbInfo->columns = benchCalloc(columnIndex, sizeof(Column), true);
-    infoPrint(stdout, "stable<%s> with %u columns and %u tags\n",
-              stbInfo->stbName, stbInfo->tagCount, stbInfo->columnCount);
-    taos_free_result(res);
-    res = taos_query(taos, command);
-    code = taos_errno(res);
-    if (code != 0) {
-        errorPrint(stderr, "failed to run command %s, reason: %s\n", command,
-                   taos_errstr(res));
-        taos_free_result(res);
-        tmfree(tmp_length_list);
-        return -1;
-    }
-    tagIndex = 0;
-    columnIndex = 0;
+    benchArrayClear(stbInfo->tags);
+    benchArrayClear(stbInfo->cols);
     int count = 0;
     while ((row = taos_fetch_row(res)) != NULL) {
         if (count == 0) {
@@ -103,41 +60,38 @@ static int getSuperTableFromServer(int db_index, int stb_index) {
         int32_t *lengths = taos_fetch_lengths(res);
         if (lengths == NULL) {
             errorPrint(stderr, "%s", "failed to execute taos_fetch_length\n");
-            tmfree(tmp_length_list);
             taos_free_result(res);
             return -1;
         }
         if (strncasecmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
                         strlen("tag")) == 0) {
-            stbInfo->tags[tagIndex].type = taos_convert_string_to_datatype(
-                (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
-                lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            stbInfo->tags[tagIndex].length =
-                *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            stbInfo->tags[tagIndex].max = RAND_MAX >> 1;
-            stbInfo->tags[tagIndex].min = (RAND_MAX >> 1) * -1;
-
-            tagIndex++;
-        } else {
-            stbInfo->columns[columnIndex].type =
-                taos_convert_string_to_datatype(
+            Field* tag = benchCalloc(1, sizeof(Field), true);
+            benchArrayPush(stbInfo->tags, tag);
+            tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
+            tag->type = taos_convert_string_to_datatype(
                     (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            if (tmp_length_list[columnIndex] != 0) {
-                stbInfo->columns[columnIndex].length =
-                    *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            } else {
-                stbInfo->columns[columnIndex].length = 0;
-            }
-            stbInfo->columns[columnIndex].max = RAND_MAX >> 1;
-            stbInfo->columns[columnIndex].min = (RAND_MAX >> 1) * -1;
-            tstrncpy(stbInfo->columns[columnIndex].name,
+            tag->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
+            tag->min = taos_convert_datatype_to_default_min(tag->type);
+            tag->max = taos_convert_datatype_to_default_max(tag->type);
+            tstrncpy(tag->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                      strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
-            columnIndex++;
+        } else {
+            Field * col = benchCalloc(1, sizeof(Field), true);
+            benchArrayPush(stbInfo->cols, col);
+            col = benchArrayGet(stbInfo->cols, stbInfo->cols->size - 1);
+            col->type = taos_convert_string_to_datatype(
+                    (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+                    lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
+            col->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
+            col->min = taos_convert_datatype_to_default_min(col->type);
+            col->max = taos_convert_datatype_to_default_max(col->type);
+            tstrncpy(col->name,
+                     (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
         }
     }
-    tmfree(tmp_length_list);
     taos_free_result(res);
     return 0;
 }
@@ -146,22 +100,20 @@ static int createSuperTable(int db_index, int stb_index) {
     SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
     SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
     TAOS *       taos = select_one_from_pool(NULL);
-    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->columnCount;
+    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->cols->size;
     char         *cols = benchCalloc(1, col_buffer_len, false);
     char*         command = benchCalloc(1, BUFFER_SIZE, false);
     int          len = 0;
 
-    for (int colIndex = 0; colIndex < stbInfo->columnCount; colIndex++) {
-        if (stbInfo->columns[colIndex].type == TSDB_DATA_TYPE_BINARY ||
-                stbInfo->columns[colIndex].type == TSDB_DATA_TYPE_NCHAR){
-            len += snprintf(cols + len, col_buffer_len - len, ",%s %s(%d)",
-                            stbInfo->columns[colIndex].name,
-                            taos_convert_datatype_to_string(stbInfo->columns[colIndex].type),
-                            stbInfo->columns[colIndex].length);
+    for (int colIndex = 0; colIndex < stbInfo->cols->size; colIndex++) {
+        Field * col = benchArrayGet(stbInfo->cols, colIndex);
+        if (col->type == TSDB_DATA_TYPE_BINARY ||
+                col->type == TSDB_DATA_TYPE_NCHAR){
+            len += snprintf(cols + len, col_buffer_len - len, ",%s %s(%d)", col->name,
+                            taos_convert_datatype_to_string(col->type), col->length);
         } else {
-            len += snprintf(cols + len, col_buffer_len - len, ",%s %s",
-                            stbInfo->columns[colIndex].name,
-                            taos_convert_datatype_to_string(stbInfo->columns[colIndex].type));
+            len += snprintf(cols + len, col_buffer_len - len, ",%s %s",col->name,
+                            taos_convert_datatype_to_string(col->type));
         }
     }
 
@@ -172,33 +124,30 @@ static int createSuperTable(int db_index, int stb_index) {
     snprintf(stbInfo->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
              "(ts timestamp%s)", cols);
 
-    if (stbInfo->tagCount == 0) {
+    if (stbInfo->tags->size == 0) {
         free(cols);
         free(command);
         return 0;
     }
 
-    uint32_t tag_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->tagCount;
+    uint32_t tag_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->tags->size;
     char *tags = benchCalloc(1, tag_buffer_len, false);
     int  tagIndex;
     len = 0;
 
     len += snprintf(tags + len, tag_buffer_len - len, "(");
-    for (tagIndex = 0; tagIndex < stbInfo->tagCount; tagIndex++) {
-        if (stbInfo->tags[tagIndex].type == TSDB_DATA_TYPE_BINARY ||
-                stbInfo->tags[tagIndex].type == TSDB_DATA_TYPE_NCHAR) {
-            len += snprintf(tags + len, tag_buffer_len - len,
-                            "%s %s(%d),", stbInfo->tags[tagIndex].name,
-                            taos_convert_datatype_to_string(stbInfo->tags[tagIndex].type),
-                            stbInfo->tags[tagIndex].length);
-        } else if (stbInfo->tags[tagIndex].type == TSDB_DATA_TYPE_JSON) {
-            len += snprintf(tags + len, tag_buffer_len - len, "%s json",
-                            stbInfo->tags[tagIndex].name);
+    for (tagIndex = 0; tagIndex < stbInfo->tags->size; tagIndex++) {
+        Field * tag = benchArrayGet(stbInfo->tags, tagIndex);
+        if (tag->type == TSDB_DATA_TYPE_BINARY ||
+                tag->type == TSDB_DATA_TYPE_NCHAR) {
+            len += snprintf(tags + len, tag_buffer_len - len, "%s %s(%d),", tag->name,
+                            taos_convert_datatype_to_string(tag->type), tag->length);
+        } else if (tag->type == TSDB_DATA_TYPE_JSON) {
+            len += snprintf(tags + len, tag_buffer_len - len, "%s json", tag->name);
             goto skip;
         } else {
-            len += snprintf(tags + len, tag_buffer_len - len, "%s %s,",
-                            stbInfo->tags[tagIndex].name,
-                            taos_convert_datatype_to_string(stbInfo->tags[tagIndex].type));
+            len += snprintf(tags + len, tag_buffer_len - len, "%s %s,", tag->name,
+                            taos_convert_datatype_to_string(tag->type));
         }
     }
     len -= 1;
@@ -229,15 +178,14 @@ skip:
                            " ROLLUP(%s)", stbInfo->rollup);
     }
     bool first_sma = true;
-    for (int i = 0; i < stbInfo->columnCount; ++i) {
-        if (stbInfo->columns[i].sma) {
+    for (int i = 0; i < stbInfo->cols->size; ++i) {
+        Field * col = benchArrayGet(stbInfo->cols, i);
+        if (col->sma) {
             if (first_sma) {
-                length += snprintf(command + length, BUFFER_SIZE - length,
-                                   " SMA(%s", stbInfo->columns[i].name);
+                length += snprintf(command + length, BUFFER_SIZE - length, " SMA(%s", col->name);
                 first_sma = false;
             } else {
-                length += snprintf(command + length, BUFFER_SIZE - length,
-                                   ",%s", stbInfo->columns[i].name);
+                length += snprintf(command + length, BUFFER_SIZE - length, ",%s", col->name);
             }
         }
     }
@@ -408,13 +356,22 @@ static void *createTable(void *sarg) {
         if (g_arguments->terminate) {
             goto create_table_end;
         }
-        if (!stbInfo->use_metric) {
-            snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
-                     stbInfo->escape_character
+        if (!stbInfo->use_metric || stbInfo->tags->size == 0) {
+            if (stbInfo->childTblCount == 1) {
+                snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
+                         stbInfo->escape_character
+                         ? "CREATE TABLE IF NOT EXISTS %s.`%s` %s;"
+                         : "CREATE TABLE IF NOT EXISTS %s.%s %s;",
+                         database->dbName, stbInfo->stbName,
+                         stbInfo->colsOfCreateChildTable);
+            } else {
+                snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
+                         stbInfo->escape_character
                          ? "CREATE TABLE IF NOT EXISTS %s.`%s%" PRIu64 "` %s;"
                          : "CREATE TABLE IF NOT EXISTS %s.%s%" PRIu64 " %s;",
-                     database->dbName, stbInfo->childTblPrefix, i,
-                     stbInfo->colsOfCreateChildTable);
+                         database->dbName, stbInfo->childTblPrefix, i,
+                         stbInfo->colsOfCreateChildTable);
+            }
             batchNum++;
         } else {
             if (0 == len) {
@@ -610,15 +567,17 @@ void postFreeResource() {
             tmfree(stbInfo->sampleDataBuf);
             tmfree(stbInfo->tagDataBuf);
             tmfree(stbInfo->partialColumnNameBuf);
-            for (int k = 0; k < stbInfo->tagCount; ++k) {
-                tmfree(stbInfo->tags[k].data);
+            for (int k = 0; k < stbInfo->tags->size; ++k) {
+                Field * tag = benchArrayGet(stbInfo->tags, k);
+                tmfree(tag->data);
             }
-            tmfree(stbInfo->tags);
+            benchArrayDestroy(stbInfo->tags);
 
-            for (int k = 0; k < stbInfo->columnCount; ++k) {
-                tmfree(stbInfo->columns[k].data);
+            for (int k = 0; k < stbInfo->cols->size; ++k) {
+                Field * col = benchArrayGet(stbInfo->cols, k);
+                tmfree(col->data);
             }
-            tmfree(stbInfo->columns);
+            benchArrayDestroy(stbInfo->cols);
             if (g_arguments->test_mode == INSERT_TEST &&
                     stbInfo->insertRows != 0) {
                 for (int64_t k = 0; k < stbInfo->childTblCount;
@@ -770,7 +729,7 @@ static void *syncWriteInterlace(void *sarg) {
                                        strlen(STR_INSERT_INTO) + 1, "%s",
                                        STR_INSERT_INTO);
                     }
-                    if (stbInfo->partialColumnNum == stbInfo->columnCount) {
+                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             len += snprintf(
                                 pThreadInfo->buffer + len,
@@ -1026,7 +985,7 @@ void *syncWriteProgressive(void *sarg) {
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE: {
-                    if (stbInfo->partialColumnNum == stbInfo->columnCount) {
+                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             len =
                                 snprintf(pstr, MAX_SQL_LEN,
@@ -1455,7 +1414,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                 pThreadInfo->bind_ts_array =
                         benchCalloc(1, sizeof(int64_t) * g_arguments->reqPerReq, true);
                 pThreadInfo->bindParams = benchCalloc(
-                    1, sizeof(TAOS_MULTI_BIND) * (stbInfo->columnCount + 1), true);
+                    1, sizeof(TAOS_MULTI_BIND) * (stbInfo->cols->size + 1), true);
                 pThreadInfo->is_null = benchCalloc(1, g_arguments->reqPerReq, true);
 
                 break;
@@ -1519,7 +1478,7 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                         generateRandData(
                             stbInfo, pThreadInfo->sml_tags[t],
                             stbInfo->lenOfCols + stbInfo->lenOfTags,
-                            stbInfo->tags, stbInfo->tagCount, 1, true);
+                            stbInfo->tags, 1, true);
                         debugPrint(stdout, "pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }
@@ -1534,11 +1493,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
                     pThreadInfo->json_array = tools_cJSON_CreateArray();
                     pThreadInfo->sml_json_tags = tools_cJSON_CreateArray();
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
-                        if (generateSmlJsonTags(
+                        generateSmlJsonTags(
                                 pThreadInfo->sml_json_tags, stbInfo,
-                                pThreadInfo->start_table_from, t)) {
-                            return -1;
-                        }
+                                pThreadInfo->start_table_from, t);
                     }
                     pThreadInfo->lines = (char **)benchCalloc(1, sizeof(char *), true);
                 }
