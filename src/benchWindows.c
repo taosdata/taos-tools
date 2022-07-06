@@ -252,30 +252,14 @@ void commandLineParseArgument(int argc, char *argv[]) {
         } else if (strcmp(argv[i] , "-A") == 0) {
             if (i < argc - 1) {
                 g_arguments->demo_mode = false;
-                char* tags = argv[++i];
-                count_datatype(tags, &(stbInfo->tagCount));
-                tmfree(stbInfo->tags);
-                stbInfo->tags =
-                        benchCalloc(stbInfo->tagCount, sizeof(Column), true);
-                if (parse_tag_datatype(tags, stbInfo->tags)) {
-                    tmfree(stbInfo->tags);
-                    exit(EXIT_FAILURE);
-                }
+                parse_field_datatype(argv[++i], stbInfo->tags, true);
             } else {
                 exit_required("-A");
             }
         } else if (strcmp(argv[i], "-b") == 0) {
             if (i < argc - 1) {
                 g_arguments->demo_mode = false;
-                char* cols = argv[++i];
-                tmfree(stbInfo->columns);
-                count_datatype(cols, &(stbInfo->columnCount));
-                stbInfo->columns =
-                        benchCalloc(stbInfo->columnCount, sizeof(Column), true);
-                if (parse_col_datatype(cols, stbInfo->columns)) {
-                    tmfree(stbInfo->columns);
-                    exit(EXIT_FAILURE);
-                }
+                parse_field_datatype(argv[++i], stbInfo->cols, false);
             } else {
                 exit_required("-b");
             }
@@ -298,7 +282,7 @@ void commandLineParseArgument(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "-N") == 0) {
             g_arguments->demo_mode = false;
             stbInfo->use_metric = false;
-            stbInfo->tagCount = 0;
+            benchArrayClear(stbInfo->tags);
         } else if (strcmp(argv[i], "-M") == 0) {
             g_arguments->demo_mode = false;
         } else if (strcmp(argv[i], "-x") == 0) {

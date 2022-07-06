@@ -297,7 +297,7 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
+int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check) {
     TAOS_RES *res = taos_query(taos, command);
     int32_t   code = taos_errno(res);
 
@@ -310,7 +310,7 @@ int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
         return -1;
     }
 
-    if (INSERT_TYPE == type) {
+    if (INSERT_TYPE == type && !check) {
         int affectedRows = taos_affected_rows(res);
         taos_free_result(res);
         return affectedRows;
@@ -620,6 +620,92 @@ char *taos_convert_datatype_to_string(int type) {
             break;
     }
     return "unknown type";
+}
+
+int taos_convert_type_to_length(uint8_t type) {
+    uint8_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_BIGINT:
+            ret = sizeof(int64_t);
+            break;
+        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_UTINYINT:
+            ret = sizeof(int8_t);
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+            ret = sizeof(int16_t);
+            break;
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_UINT:
+            ret = sizeof(int32_t);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            ret = sizeof(float);
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            ret = sizeof(double);
+            break;
+        default:
+            break;
+    }
+    return ret;
+}
+
+int64_t taos_convert_datatype_to_default_min(uint8_t type) {
+    int64_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TINYINT:
+            ret = -127;
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+            ret = -32767;
+            break;
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_FLOAT:
+        case TSDB_DATA_TYPE_DOUBLE:
+            ret = -1 * (RAND_MAX >> 1);
+            break;
+        default:
+            break;
+    }
+    return ret;
+}
+
+int64_t taos_convert_datatype_to_default_max(uint8_t type) {
+    int64_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TINYINT:
+            ret = 128;
+            break;
+        case TSDB_DATA_TYPE_UTINYINT:
+            ret = 254;
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+            ret = 32767;
+            break;
+        case TSDB_DATA_TYPE_USMALLINT:
+            ret = 65534;
+            break;
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_DOUBLE:
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_FLOAT:
+            ret = RAND_MAX >> 1;
+            break;
+        case TSDB_DATA_TYPE_UINT:
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            ret = RAND_MAX;
+            break;
+        default:
+            break;
+    }
+    return ret;
 }
 
 int taos_convert_string_to_datatype(char *type, int length) {

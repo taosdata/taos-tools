@@ -15,41 +15,35 @@
 
 #include "bench.h"
 
-static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON *      stbInfo,
-                                                 SSuperTable *superTbls) {
+static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSuperTable *stbInfo) {
     int32_t code = -1;
 
     // columns
-    tools_cJSON *columns = tools_cJSON_GetObjectItem(stbInfo, "columns");
-    if (!columns || columns->type != tools_cJSON_Array) goto PARSE_OVER;
-
-    int columnSize = tools_cJSON_GetArraySize(columns);
-
-    int count = 1;
-    int index = 0;
-    int col_count = 0;
-    for (int k = 0; k < columnSize; ++k) {
-        tools_cJSON *column = tools_cJSON_GetArrayItem(columns, k);
-        if (column == NULL) continue;
-        tools_cJSON *countObj = tools_cJSON_GetObjectItem(column, "count");
-        if (countObj && countObj->type == tools_cJSON_Number &&
-            (int)countObj->valueint != 0) {
-            col_count += (int)countObj->valueint;
-        } else {
-            col_count++;
-        }
+    tools_cJSON *columnsObj = tools_cJSON_GetObjectItem(superTblObj, "columns");
+    if (!tools_cJSON_IsArray(columnsObj)) {
+        goto PARSE_OVER;
     }
-    superTbls->columns = benchCalloc(col_count, sizeof(Column), true);
-    for (int k = 0; k < columnSize; ++k) {
-        bool   customName = false;
-        bool   customMax = false;
-        bool   customMin = false;
-        tools_cJSON *column = tools_cJSON_GetArrayItem(columns, k);
-        if (column == NULL) continue;
+    benchArrayClear(stbInfo->cols);
 
-        count = 1;
+    int columnSize = tools_cJSON_GetArraySize(columnsObj);
+
+    int index = 0;
+    for (int k = 0; k < columnSize; ++k) {
+        bool sma = false;
+        bool customName = false;
+        uint8_t type = 0;
+        int count = 1;
+        int64_t max = RAND_MAX >> 1;
+        int64_t min = 0;
+        int32_t length = 4;
+
+        tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
+        if (!tools_cJSON_IsObject(column)) {
+            errorPrint(stderr, "%s", "Invalid column format in json\n");
+            goto PARSE_OVER;
+        }
         tools_cJSON *countObj = tools_cJSON_GetObjectItem(column, "count");
-        if (countObj && countObj->type == tools_cJSON_Number) {
+        if (tools_cJSON_IsNumber(countObj)) {
             count = (int)countObj->valueint;
         } else {
             count = 1;
@@ -62,28 +56,27 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON *      stbInfo,
 
         // column info
         tools_cJSON *dataType = tools_cJSON_GetObjectItem(column, "type");
-        if (!tools_cJSON_IsString(dataType)) goto PARSE_OVER;
+        if (!tools_cJSON_IsString(dataType)) {
+            goto PARSE_OVER;
+        }
+        type = taos_convert_string_to_datatype(dataType->valuestring, 0);
 
         tools_cJSON *dataMax = tools_cJSON_GetObjectItem(column, "max");
-        if (dataMax && tools_cJSON_IsNumber(dataMax) &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_NCHAR) {
-            customMax = true;
+        if (tools_cJSON_IsNumber(dataMax)) {
+            max = dataMax->valueint;
+        } else {
+            max = taos_convert_datatype_to_default_max(type);
         }
 
         tools_cJSON *dataMin = tools_cJSON_GetObjectItem(column, "min");
-        if (dataMin && tools_cJSON_IsNumber(dataMin) &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_NCHAR) {
-            customMin = true;
+        if (tools_cJSON_IsNumber(dataMin)) {
+            min = dataMin->valueint;
+        } else {
+            min = taos_convert_datatype_to_default_min(type);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
-        bool   sma = false;
+
         if (g_arguments->taosc_version == 3) {
             tools_cJSON *sma_value = tools_cJSON_GetObjectItem(column, "sma");
             if (tools_cJSON_IsString(sma_value) &&
@@ -93,230 +86,150 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON *      stbInfo,
         }
 
         tools_cJSON * dataLen = tools_cJSON_GetObjectItem(column, "len");
-        int32_t length;
-        if (dataLen && dataLen->type == tools_cJSON_Number) {
+        if (tools_cJSON_IsNumber(dataLen)) {
             length = (int32_t)dataLen->valueint;
         } else {
-            switch (taos_convert_string_to_datatype(dataType->valuestring, 0)) {
-                case TSDB_DATA_TYPE_BOOL:
-                case TSDB_DATA_TYPE_TINYINT:
-                case TSDB_DATA_TYPE_UTINYINT:
-                    length = sizeof(int8_t);
-                    break;
-                case TSDB_DATA_TYPE_SMALLINT:
-                case TSDB_DATA_TYPE_USMALLINT:
-                    length = sizeof(int16_t);
-                    break;
-                case TSDB_DATA_TYPE_INT:
-                case TSDB_DATA_TYPE_UINT:
-                    length = sizeof(int32_t);
-                    break;
-                case TSDB_DATA_TYPE_BIGINT:
-                case TSDB_DATA_TYPE_UBIGINT:
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    length = sizeof(int64_t);
-                    break;
-                case TSDB_DATA_TYPE_FLOAT:
-                    length = sizeof(float);
-                    break;
-                case TSDB_DATA_TYPE_DOUBLE:
-                    length = sizeof(double);
-                    break;
-                default:
-                    length = g_arguments->binwidth;
-                    break;
+            if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
+                length = g_arguments->binwidth;
+            } else {
+                length = taos_convert_type_to_length(type);
             }
         }
 
         for (int n = 0; n < count; ++n) {
-            superTbls->columns[index].type =
-                taos_convert_string_to_datatype(dataType->valuestring, 0);
-            superTbls->columns[index].length = length;
-            superTbls->columns[index].sma = sma;
-            if (customMax) {
-                superTbls->columns[index].max = dataMax->valueint;
-            } else {
-                superTbls->columns[index].max = RAND_MAX >> 1;
+            Field * col = benchCalloc(1, sizeof(Field), true);
+            benchArrayPush(stbInfo->cols, col);
+            col = benchArrayGet(stbInfo->cols, stbInfo->cols->size - 1);
+            col->type = type;
+            col->length = length;
+            if (length == 0) {
+                col->null = true;
             }
-            if (customMin) {
-                superTbls->columns[index].min = dataMin->valueint;
-            } else {
-                superTbls->columns[index].min = (RAND_MAX >> 1) * -1;
-            }
-            if (customMin && customMax && dataMin->valueint > dataMax->valueint) {
-                errorPrint(stderr, "%s", "Invalid max and min column value in json\n");
-                goto PARSE_OVER;
-            }
-            
-            superTbls->columns[index].values = dataValues;
-
+            col->sma = sma;
+            col->max = max;
+            col->min = min;
+            col->values = dataValues;
             if (customName) {
                 if (n >= 1) {
-                    sprintf(superTbls->columns[index].name, "%s_%d",
-                            dataName->valuestring, n);
+                    sprintf(col->name, "%s_%d", dataName->valuestring, n);
                 } else {
-                    sprintf(superTbls->columns[index].name, "%s",
-                            dataName->valuestring);
+                    sprintf(col->name, "%s", dataName->valuestring);
                 }
             } else {
-                sprintf(superTbls->columns[index].name, "c%d", index);
+                sprintf(col->name, "c%d", index);
             }
             index++;
         }
     }
 
-    superTbls->columnCount = index;
-
-    count = 1;
     index = 0;
     // tags
-    tools_cJSON *tags = tools_cJSON_GetObjectItem(stbInfo, "tags");
-    if (!tags || tags->type != tools_cJSON_Array) goto PARSE_OVER;
-    int tag_count = 0;
-    int tagSize = tools_cJSON_GetArraySize(tags);
-
-    for (int k = 0; k < tagSize; ++k) {
-        tools_cJSON *tag = tools_cJSON_GetArrayItem(tags, k);
-        tools_cJSON *countObj = tools_cJSON_GetObjectItem(tag, "count");
-        if (countObj && countObj->type == tools_cJSON_Number &&
-            (int)countObj->valueint != 0) {
-            tag_count += (int)countObj->valueint;
-        } else {
-            tag_count += 1;
-        }
+    benchArrayClear(stbInfo->tags);
+    tools_cJSON *tags = tools_cJSON_GetObjectItem(superTblObj, "tags");
+    if (!tools_cJSON_IsArray(tags)) {
+        return 0;
     }
 
-    superTbls->use_metric = true;
-    superTbls->tags = benchCalloc(tag_count, sizeof(Column), true);
-    superTbls->tagCount = tag_count;
+    int tagSize = tools_cJSON_GetArraySize(tags);
+
+    stbInfo->use_metric = true;
     for (int k = 0; k < tagSize; ++k) {
-        tools_cJSON *tag = tools_cJSON_GetArrayItem(tags, k);
-        if (tag == NULL) continue;
-        bool   customMax = false;
-        bool   customMin = false;
-        bool   customName = false;
-        tools_cJSON *dataType = tools_cJSON_GetObjectItem(tag, "type");
-        if (!tools_cJSON_IsString(dataType)) goto PARSE_OVER;
-        int    data_length = 0;
-        tools_cJSON *dataLen = tools_cJSON_GetObjectItem(tag, "len");
-        if (tools_cJSON_IsNumber(dataLen)) {
-            data_length = (int32_t)dataLen->valueint;
-        } else {
-            switch (taos_convert_string_to_datatype(dataType->valuestring, 0)) {
-                case TSDB_DATA_TYPE_BOOL:
-                case TSDB_DATA_TYPE_TINYINT:
-                case TSDB_DATA_TYPE_UTINYINT:
-                    data_length = sizeof(int8_t);
-                    break;
-                case TSDB_DATA_TYPE_SMALLINT:
-                case TSDB_DATA_TYPE_USMALLINT:
-                    data_length = sizeof(int16_t);
-                    break;
-                case TSDB_DATA_TYPE_INT:
-                case TSDB_DATA_TYPE_UINT:
-                    data_length = sizeof(int32_t);
-                    break;
-                case TSDB_DATA_TYPE_BIGINT:
-                case TSDB_DATA_TYPE_UBIGINT:
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    data_length = sizeof(int64_t);
-                    break;
-                case TSDB_DATA_TYPE_FLOAT:
-                    data_length = sizeof(float);
-                    break;
-                case TSDB_DATA_TYPE_DOUBLE:
-                    data_length = sizeof(double);
-                    break;
-                default:
-                    data_length = g_arguments->binwidth;
-                    break;
-            }
+        bool customName = false;
+        uint8_t type = 0;
+        int count = 1;
+        int64_t max = RAND_MAX >> 1;
+        int64_t min = 0;
+        int32_t length = 4;
+        tools_cJSON *tagObj = tools_cJSON_GetArrayItem(tags, k);
+        if (!tools_cJSON_IsObject(tagObj)) {
+            errorPrint(stderr, "%s", "Invalid tag format in json\n");
+            goto PARSE_OVER;
         }
-
-        tools_cJSON *dataMax = tools_cJSON_GetObjectItem(tag, "max");
-        if (tools_cJSON_IsNumber(dataMax) &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_NCHAR) {
-            customMax = true;
-        }
-
-        tools_cJSON *dataMin = tools_cJSON_GetObjectItem(tag, "min");
-        if (tools_cJSON_IsNumber(dataMin) &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_BINARY &&
-            taos_convert_string_to_datatype(dataType->valuestring, 0) !=
-                TSDB_DATA_TYPE_NCHAR) {
-            customMin = true;
-        }
-
-        tools_cJSON *dataValues = tools_cJSON_GetObjectItem(tag, "values");
-
-        tools_cJSON *dataName = tools_cJSON_GetObjectItem(tag, "name");
-        if (dataName && dataName->type == tools_cJSON_String &&
-            dataName->valuestring != NULL) {
-            customName = true;
-        }
-        tools_cJSON *countObj = tools_cJSON_GetObjectItem(tag, "count");
+        tools_cJSON *countObj = tools_cJSON_GetObjectItem(tagObj, "count");
         if (tools_cJSON_IsNumber(countObj)) {
             count = (int)countObj->valueint;
         } else {
             count = 1;
         }
 
-        if ((tagSize == 1) &&
-            (0 == strcasecmp(dataType->valuestring, "JSON"))) {
-            if (customName) {
-                sprintf(superTbls->tags[0].name, "%s", dataName->valuestring);
-            } else {
-                sprintf(superTbls->tags[0].name, "jtag");
-            }
-            superTbls->tags[0].type = TSDB_DATA_TYPE_JSON;
-            superTbls->tags[0].length = data_length;
-            superTbls->tagCount = count;
-            code = 0;
+        tools_cJSON *dataName = tools_cJSON_GetObjectItem(tagObj, "name");
+        if (tools_cJSON_IsString(dataName)) {
+            customName = true;
+        }
+
+        tools_cJSON *dataType = tools_cJSON_GetObjectItem(tagObj, "type");
+        if (!tools_cJSON_IsString(dataType)) {
             goto PARSE_OVER;
+        }
+        type = taos_convert_string_to_datatype(dataType->valuestring, 0);
+
+        if ((tagSize == 1) && (type == TSDB_DATA_TYPE_JSON)) {
+            Field * tag = benchCalloc(1, sizeof(Field), true);
+            benchArrayPush(stbInfo->tags, tag);
+            tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
+            if (customName) {
+                sprintf(tag->name, "%s", dataName->valuestring);
+            } else {
+                sprintf(tag->name, "jtag");
+            }
+            tag->type = type;
+            tag->length = length;
+            stbInfo->tags->size = count;
+            return 0;
+        }
+
+        tools_cJSON *dataMax = tools_cJSON_GetObjectItem(tagObj, "max");
+        if (tools_cJSON_IsNumber(dataMax)) {
+            max = dataMax->valueint;
+        } else {
+            max = taos_convert_datatype_to_default_max(type);
+        }
+
+        tools_cJSON *dataMin = tools_cJSON_GetObjectItem(tagObj, "min");
+        if (tools_cJSON_IsNumber(dataMin)) {
+            min = dataMin->valueint;
+        } else {
+            min = taos_convert_datatype_to_default_min(type);
+        }
+
+        tools_cJSON *dataValues = tools_cJSON_GetObjectItem(tagObj, "values");
+
+        tools_cJSON * dataLen = tools_cJSON_GetObjectItem(tagObj, "len");
+        if (tools_cJSON_IsNumber(dataLen)) {
+            length = (int32_t)dataLen->valueint;
+        } else {
+            if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
+                length = g_arguments->binwidth;
+            } else {
+                length = taos_convert_type_to_length(type);
+            }
         }
 
         for (int n = 0; n < count; ++n) {
-            if (customMax) {
-                superTbls->tags[index].max = dataMax->valueint;
-            } else {
-                superTbls->tags[index].max = RAND_MAX >> 1;
+            Field * tag = benchCalloc(1, sizeof(Field), true);
+            benchArrayPush(stbInfo->tags, tag);
+            tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
+            tag->type = type;
+            tag->length = length;
+            if (length == 0) {
+                tag->null = true;
             }
-            if (customMin) {
-                superTbls->tags[index].min = dataMin->valueint;
-            } else {
-                superTbls->tags[index].min = (RAND_MAX >> 1) * -1;
-            }
-            if (customMax && customMin && dataMin->valueint > dataMax->valueint) {
-                errorPrint(stderr, "%s","Invalid max and min tag value in json\n");
-                goto PARSE_OVER;
-            }
-            
-            superTbls->tags[index].values = dataValues;
+            tag->max = max;
+            tag->min = min;
+            tag->values = dataValues;
             if (customName) {
                 if (n >= 1) {
-                    sprintf(superTbls->tags[index].name, "%s_%d",
-                            dataName->valuestring, n);
+                    sprintf(tag->name, "%s_%d", dataName->valuestring, n);
                 } else {
-                    sprintf(superTbls->tags[index].name, "%s",
-                            dataName->valuestring);
+                    sprintf(tag->name, "%s", dataName->valuestring);
                 }
             } else {
-                sprintf(superTbls->tags[index].name, "t%d", index);
+                sprintf(tag->name, "t%d", index);
             }
-            superTbls->tags[index].type =
-                taos_convert_string_to_datatype(dataType->valuestring, 0);
-            superTbls->tags[index].length = data_length;
             index++;
         }
     }
-
-    superTbls->tagCount = index;
     code = 0;
-
 PARSE_OVER:
     return code;
 }
@@ -477,12 +390,15 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (index > 0 || i > 0) {
             superTable = benchCalloc(1, sizeof(SSuperTable), true);
             benchArrayPush(database->superTbls, superTable);
+            superTable = benchArrayGet(database->superTbls, i);
+            superTable->cols = benchArrayInit(1, sizeof(Field));
+            superTable->tags = benchArrayInit(1, sizeof(Field));
+        } else {
+            superTable = benchArrayGet(database->superTbls, i);
         }
-        superTable = benchArrayGet(database->superTbls, i);
-        tmfree(superTable->columns);
-        tmfree(superTable->tags);
         superTable->escape_character = false;
         superTable->autoCreateTable = false;
+        superTable->no_check_for_affected_rows = false;
         superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
         superTable->childTblExists = false;
         superTable->random_data_source = true;
@@ -536,6 +452,19 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
         }
+
+        tools_cJSON *affectRowObj = tools_cJSON_GetObjectItem(stbInfo, "no_check_for_affected_rows");
+        if (tools_cJSON_IsString(affectRowObj)) {
+            if (0 == strcasecmp(affectRowObj->valuestring, "yes")) {
+                superTable->no_check_for_affected_rows = true;
+            } else if (0 == strcasecmp(affectRowObj->valuestring, "no")) {
+                superTable->no_check_for_affected_rows = false;
+            } else {
+                errorPrint(stderr, "Invalid value for 'no_check_for_affected_rows': %s\n", affectRowObj->valuestring);
+                return -1;
+            }
+        }
+
         tools_cJSON *count = tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
         if (tools_cJSON_IsNumber(count)) {
             superTable->childTblCount = count->valueint;
