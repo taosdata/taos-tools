@@ -398,6 +398,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
         superTable->escape_character = false;
         superTable->autoCreateTable = false;
+        superTable->no_check_for_affected_rows = false;
         superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
         superTable->childTblExists = false;
         superTable->random_data_source = true;
@@ -451,6 +452,19 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
         }
+
+        tools_cJSON *affectRowObj = tools_cJSON_GetObjectItem(stbInfo, "no_check_for_affected_rows");
+        if (tools_cJSON_IsString(affectRowObj)) {
+            if (0 == strcasecmp(affectRowObj->valuestring, "yes")) {
+                superTable->no_check_for_affected_rows = true;
+            } else if (0 == strcasecmp(affectRowObj->valuestring, "no")) {
+                superTable->no_check_for_affected_rows = false;
+            } else {
+                errorPrint(stderr, "Invalid value for 'no_check_for_affected_rows': %s\n", affectRowObj->valuestring);
+                return -1;
+            }
+        }
+
         tools_cJSON *count = tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
         if (tools_cJSON_IsNumber(count)) {
             superTable->childTblCount = count->valueint;
