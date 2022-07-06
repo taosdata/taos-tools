@@ -70,26 +70,33 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          python3 ./test.py -f tools/taosdumpTest.py
-          python3 ./test.py -f tools/taosdumpTest2.py
-          python3 ./test.py -f tools/taosdumpTest3.py
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+          python3 ./test.py -f tools/taosdumpTest.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
       - name: System Test
         run: |
           cd TDengine/tests/system-test
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
           fi
 
           if [ -d 5-taos-tools/taosbenchmark ];
           then
             if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
             then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
+              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt; done
             fi
           fi
+
+      - name: Old Test
+        run: |
+          cd TDengine/tests/pytest
+          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
+
+          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
 
       - name: Develop Test
         run: |
@@ -97,22 +104,22 @@ jobs:
 
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
           if [ -d 5-taos-tools/taosbenchmark ];
           then
             if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
             then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
+              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt; done
             fi
           fi
 
-          if [ -f taosdump-failed.txt ];then
-            cat taosdump-failed.txt;
+          if [ -f ~/taosdump-failed.txt ];then
+            cat ~/taosdump-failed.txt;
             exit 1;
           fi
-          if [ -f taosbenchmark-failed.txt ];then
-            cat taosbenchmark-failed.txt;
+          if [ -f ~/taosbenchmark-failed.txt ];then
+            cat ~/taosbenchmark-failed.txt;
             exit 1;
           fi
