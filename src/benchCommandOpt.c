@@ -237,6 +237,9 @@ void modify_argument() {
 
     for (int i = 0; i < superTable->cols->size; ++i) {
         Field * col = benchArrayGet(superTable->cols, i);
+        if (!g_arguments->demo_mode) {
+            snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", i);
+        }
         if (col->length == 0) {
             col->length = g_arguments->binwidth;
         }
@@ -244,6 +247,9 @@ void modify_argument() {
 
     for (int i = 0; i < superTable->tags->size; ++i) {
         Field* tag = benchArrayGet(superTable->tags, i);
+        if (!g_arguments->demo_mode) {
+            snprintf(tag->name, TSDB_COL_NAME_LEN, "t%d", i);
+        }
         if (tag->length == 0) {
             tag->length = g_arguments->binwidth;
         }
