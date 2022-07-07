@@ -312,17 +312,18 @@ typedef struct TAOS_POOL_S {
     TAOS **taos_list;
 } TAOS_POOL;
 
-typedef struct COLUMN_S {
-    char     type;
+typedef struct SField {
+    uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
+    bool     none;
     bool     null;
     void *   data;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
     bool     sma;
-} Column;
+} Field;
 
 typedef struct SSuperTable_S {
     char *   stbName;
@@ -348,17 +349,13 @@ typedef struct SSuperTable_S {
     uint64_t insert_interval;
     uint64_t insertRows;
     uint64_t timestamp_step;
-    int      tsPrecision;
     int64_t  startTimestamp;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
-
-    uint32_t columnCount;
     uint32_t partialColumnNum;
     char *   partialColumnNameBuf;
-    Column * columns;
-    Column * tags;
-    uint32_t tagCount;
+    BArray * cols;
+    BArray * tags;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -373,6 +370,7 @@ typedef struct SSuperTable_S {
     int   delay;
     int   file_factor;
     char *rollup;
+    bool no_check_for_affected_rows;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -405,7 +403,6 @@ typedef struct SSTREAM_S {
     char stream_name[TSDB_TABLE_NAME_LEN];
     char stream_stb[TSDB_TABLE_NAME_LEN];
     char trigger_mode[BIGINT_BUFF_LEN];
-    char max_delay[BIGINT_BUFF_LEN];
     char watermark[BIGINT_BUFF_LEN];
     char source_sql[TSDB_MAX_SQL_LEN];
     bool drop;
@@ -589,9 +586,7 @@ void commandLineParseArgument(int argc, char *argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
-int count_datatype(char *dataType, uint32_t *number);
-int parse_tag_datatype(char *dataType, Column *tags);
-int parse_col_datatype(char *dataType, Column *columns);
+void parse_field_datatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
@@ -617,7 +612,7 @@ void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
-int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
+int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
@@ -636,6 +631,9 @@ void* benchArrayGet(const BArray* pArray, size_t index);
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, FSignalHandler sigfp);
 #endif
+int taos_convert_type_to_length(uint8_t type);
+int64_t taos_convert_datatype_to_default_max(uint8_t type);
+int64_t taos_convert_datatype_to_default_min(uint8_t type);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
