@@ -205,19 +205,16 @@ void prompt(bool nonStopMode) {
     }
 }
 
-static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
-    pThreadInfo->fp = fopen(pThreadInfo->filePath, "at");
-    if (pThreadInfo->fp == NULL) {
+static void appendResultBufToFile(char *resultBuf, char * filePath) {
+    FILE* fp = fopen(filePath, "at");
+    if (fp == NULL) {
         errorPrint(stderr,
                    "failed to open result file: %s, result will not save "
-                   "to file\n",
-                   pThreadInfo->filePath);
+                   "to file\n", filePath);
         return;
     }
-
-    fprintf(pThreadInfo->fp, "%s", resultBuf);
-    tmfclose(pThreadInfo->fp);
-    pThreadInfo->fp = NULL;
+    fprintf(fp, "%s", resultBuf);
+    tmfclose(fp);
 }
 
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
@@ -357,31 +354,27 @@ void encode_base_64() {
         g_arguments->base64_buf[encoded_len - 1 - l] = '=';
 }
 
-int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
-    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
+int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath) {
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
     char url[1024];
-    if (stbInfo->iface == REST_IFACE) {
-        sprintf(url, "/rest/sql/%s", database->dbName);
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
-        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", database->dbName,
-                database->dbCfg.precision == TSDB_TIME_PRECISION_MILLI
+    if (iface == REST_IFACE) {
+        sprintf(url, "/rest/sql/%s", dbName);
+    } else if (iface == SML_REST_IFACE &&
+               protocol == TSDB_SML_LINE_PROTOCOL) {
+        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", dbName,
+                precision == TSDB_TIME_PRECISION_MILLI
                     ? "ms"
-                    : database->dbCfg.precision == TSDB_TIME_PRECISION_NANO
+                    : precision == TSDB_TIME_PRECISION_NANO
                           ? "ns"
                           : "u");
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-        sprintf(url, "/opentsdb/v1/put/telnet/%s", database->dbName);
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-        sprintf(url, "/opentsdb/v1/put/json/%s", database->dbName);
+    } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_TELNET_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/telnet/%s", dbName);
+    } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_JSON_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/json/%s", dbName);
     }
 
     int      bytes, sent, received, req_str_len, resp_len;
@@ -400,8 +393,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     response_buf = benchCalloc(1, response_length, false);
 
     int r;
-    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-        stbInfo->tcpTransfer) {
+    if (protocol == TSDB_SML_TELNET_PROTOCOL && tcp) {
         r = snprintf(request_buf, req_buf_len, "%s", sqlstr);
     } else {
         r = snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
@@ -418,7 +410,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     debugPrint(stdout, "request buffer: %s\n", request_buf);
     sent = 0;
     do {
-        bytes = send(pThreadInfo->sockfd, request_buf + sent,
+        bytes = send(sockfd, request_buf + sent,
                      req_str_len - sent, 0);
         if (bytes < 0) {
             errorPrint(stderr, "%s", "writing no message to socket\n");
@@ -428,8 +420,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         sent += bytes;
     } while (sent < req_str_len);
 
-    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-        stbInfo->iface == SML_REST_IFACE && stbInfo->tcpTransfer) {
+    if (protocol == TSDB_SML_TELNET_PROTOCOL && iface == SML_REST_IFACE && tcp) {
         code = 0;
         goto free_of_post;
     }
@@ -442,17 +433,12 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     char resHttp[] = "HTTP/1.1 ";
     char resHttpOk[] = "HTTP/1.1 200 OK";
     char influxHttpOk[] = "HTTP/1.1 204";
+    char opentsdbHttpOk[] = "HTTP/1.1 400";
     bool chunked = false;
 
     do {
-#ifdef WINDOWS
-        bytes = recv(pThreadInfo->sockfd, response_buf + received,
+        bytes = recv(sockfd, response_buf + received,
                      resp_len - received, 0);
-#else
-        bytes = read(pThreadInfo->sockfd, response_buf + received,
-                     resp_len - received);
-#endif
-
         debugPrint(stdout, "response_buffer: %s\n", response_buf);
         if (NULL != strstr(response_buf, resEncodingChunk)) {
             chunked = true;
@@ -481,7 +467,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
                 if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                      (NULL != strstr(response_buf, resHttp))) ||
                     ((NULL != strstr(response_buf, resHttpOk)) ||
-                     (NULL != strstr(response_buf, influxHttpOk)))) {
+                     (NULL != strstr(response_buf, influxHttpOk)) ||
+                     (NULL != strstr(response_buf, opentsdbHttpOk)))) {
                     break;
                 }
             }
@@ -495,21 +482,29 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
 
     if (NULL == strstr(response_buf, resHttpOk) &&
         NULL == strstr(response_buf, influxHttpOk) &&
-        NULL == strstr(response_buf, succMessage)) {
+        NULL == strstr(response_buf, succMessage) &&
+        NULL == strstr(response_buf, opentsdbHttpOk)) {
         errorPrint(stderr, "Response:\n%s\n", response_buf);
         goto free_of_post;
     }
 
-    if (NULL != strstr(response_buf, succMessage) && stbInfo->iface == REST_IFACE) {
+    if (NULL != strstr(response_buf, succMessage) && iface == REST_IFACE) {
         code = 0;
         goto free_of_post;
     }
     
     if (NULL != strstr(response_buf, influxHttpOk) &&
-        stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && stbInfo->iface == SML_REST_IFACE) {
+        protocol == TSDB_SML_LINE_PROTOCOL && iface == SML_REST_IFACE) {
         code = 0;
         goto free_of_post;
     }
+
+    if (NULL != strstr(response_buf, opentsdbHttpOk) &&
+            (protocol == TSDB_SML_TELNET_PROTOCOL || protocol == TSDB_SML_JSON_PROTOCOL) && iface == SML_REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+    
     if (g_arguments->test_mode == INSERT_TEST) {
         debugPrint(stdout, "Response: \n%s\n", response_buf);
         char* start = strstr(response_buf, "{");
@@ -528,7 +523,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
             goto free_of_post;
         }
         if (codeObj->valueint != 0 &&
-            (stbInfo->iface == SML_REST_IFACE && stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
+            (iface == SML_REST_IFACE && protocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
             tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
             if (!tools_cJSON_IsString(desc)) {
                 errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
@@ -542,8 +537,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
     code = 0;
 free_of_post:
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
+    if (strlen(filePath) > 0) {
+        appendResultBufToFile(response_buf, filePath);
     }
     tmfree(request_buf);
     tmfree(response_buf);
@@ -564,7 +559,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     while ((row = taos_fetch_row(res))) {
         if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
             if (strlen(pThreadInfo->filePath) > 0) {
-                appendResultBufToFile(databuf, pThreadInfo);
+                appendResultBufToFile(databuf, pThreadInfo->filePath);
             }
             totalLen = 0;
             memset(databuf, 0, FETCH_BUFFER_SIZE);
@@ -579,7 +574,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     }
 
     if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(databuf, pThreadInfo);
+        appendResultBufToFile(databuf, pThreadInfo->filePath);
     }
     free(databuf);
 }
@@ -840,23 +835,9 @@ void cleanup_taos_list() {
     }
     tmfree(g_arguments->pool->taos_list);
 }
-void delay_list_init(delayList *list) {
-    list->size = 0;
-    list->head = NULL;
-    list->tail = NULL;
-}
-
-void delay_list_destroy(delayList *list) {
-    while (list->size > 0) {
-        delayNode *current = list->head;
-        list->head = list->head->next;
-        tmfree(current);
-        list->size--;
-    }
-}
 
 int compare(const void *a, const void *b) {
-    return *(uint64_t *)a - *(uint64_t *)b;
+    return *(int64_t *)a - *(int64_t *)b;
 }
 
 BArray* benchArrayInit(size_t size, size_t elemSize) {
@@ -893,7 +874,7 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
     return 0;
 }
 
-static void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles) {
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles) {
     if (pData == NULL) {
         return NULL;
     }
