@@ -581,7 +581,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
     infoPrint(stdout,
               "spend %.6fs using "
-              "%d threads complete query %"PRIu64" times,cd  "
+              "%d threads complete query %d times,cd  "
               "min delay: %.6fs, "
               "avg delay: %.6fs, "
               "p90: %.6fs, "
@@ -589,7 +589,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
               "p99: %.6fs, "
               "max: %.6fs\n",
               (end - start)/1E6,
-              thread, delay_list->size,
+              thread, (int)delay_list->size,
               *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
               (double)total_delay/delay_list->size/1E6,
               *(int64_t *)(benchArrayGet(delay_list, (int32_t)(delay_list->size * 0.9)))/1E6,
