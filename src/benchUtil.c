@@ -220,8 +220,7 @@ static void appendResultBufToFile(char *resultBuf, char * filePath) {
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
-    sprintf(subTblName, "%s.%s", database->dbName,
+    sprintf(subTblName, "%s.%s", g_queryInfo.dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);

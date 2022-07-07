@@ -559,7 +559,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
     }
     int64_t end = toolsGetTimestampUs();
 
-    //statisic
+    //statistic
     BArray * delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t total_delay = 0;
     for (int i = 0; i < thread; ++i) {
