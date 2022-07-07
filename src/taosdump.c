@@ -43,6 +43,10 @@
 
 #include "toolsdef.h"
 
+#ifdef WEBSOCKET
+#include "taosws.h"
+#endif
+
 #include <avro.h>
 #include <jansson.h>
 
@@ -441,6 +445,7 @@ static struct argp_option options[] = {
     {"inspect",  'I', 0,  0,
         "inspect avro file content and print on screen", 10},
     {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
+    {"restful",  'R', 0,  0,  "Use RESTful interface to connect TDengine", 11},
     {"cloud",  'C', "CLOUD_DSN",  0,  "specify a DSN to access TDengine cloud service", 11},
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -496,6 +501,7 @@ typedef struct arguments {
 
     int      dumpDbCount;
 
+    bool     restful;
     char    *cloudDsn;
     bool     cloud;
     char     cloudHost[255];
@@ -558,6 +564,7 @@ struct arguments g_args = {
     false,      // verbose_print
     false,      // performance_print
         0,      // dumpDbCount
+    false,      // restful
     NULL,       // cloudDsn
     false,      // cloud
     {0},        // cloudHost
@@ -963,6 +970,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 exit(EXIT_FAILURE);
             }
             g_args.thread_num = atoi((const char *)arg);
+            break;
+
+        case 'R':
+            g_args.restful = true;
             break;
 
         case 'C':
@@ -8503,8 +8514,62 @@ _exit_failure:
     return -1;
 }
 
+bool splitCloudDsn() {
+    if (g_args.cloudDsn) {
+        char *token = strstr(g_args.cloudDsn, "?token=");
+        if (NULL == token) {
+            return false;
+        } else {
+            g_args.cloudToken = token + strlen("?token=");
+        }
+
+        char *http = NULL, *https = NULL;
+        http = strstr(g_args.cloudDsn, "http://");
+        if (NULL == http) {
+            https = strstr(g_args.cloudDsn, "https://");
+            if (NULL == https) {
+                strncpy(g_args.cloudHost, https + strlen("https://"),
+                        strlen(g_args.cloudDsn) - strlen("https://")
+                        - strlen(token));
+            } else {
+                strncpy(g_args.cloudHost, g_args.cloudDsn,
+                        strlen(g_args.cloudDsn) - strlen(token));
+            }
+        } else {
+            strncpy(g_args.cloudHost, http + strlen("http://"),
+                    strlen(g_args.cloudDsn) - strlen("http://")
+                    - strlen(token));
+        }
+
+        char *colon = strstr(g_args.cloudHost, ":");
+        if (colon) {
+            g_args.cloudHost[strlen(g_args.cloudHost) - strlen(colon)] = '\0';
+            g_args.cloudPort = atoi(colon + 1);
+        }
+
+        return true;
+    }
+
+    return false;
+}
+
 static int dumpEntry() {
     int ret = 0;
+
+    if (NULL == g_args.cloudDsn) {
+        g_args.cloudDsn = getenv("TDENGINE_CLOUD_DSN");
+        if (NULL == g_args.cloudDsn) {
+            g_args.cloud = false;
+        } else {
+            g_args.cloud = true;
+        }
+    } else {
+        g_args.cloud = true;
+    }
+
+    if (g_args.cloud) {
+        splitCloudDsn();
+    }
 
     if (checkParam() < 0) {
         exit(EXIT_FAILURE);
@@ -9116,45 +9181,6 @@ static int inspectAvroFiles(int argc, char *argv[]) {
     return ret;
 }
 
-bool splitCloudDsn() {
-    if (g_args.cloudDsn) {
-        char *token = strstr(g_args.cloudDsn, "?token=");
-        if (NULL == token) {
-            return false;
-        } else {
-            g_args.cloudToken = token + strlen("?token=");
-        }
-
-        char *http = NULL, *https = NULL;
-        http = strstr(g_args.cloudDsn, "http://");
-        if (NULL == http) {
-            https = strstr(g_args.cloudDsn, "https://");
-            if (NULL == https) {
-                strncpy(g_args.cloudHost, https + strlen("https://"),
-                        strlen(g_args.cloudDsn) - strlen("https://")
-                        - strlen(token));
-            } else {
-                strncpy(g_args.cloudHost, g_args.cloudDsn,
-                        strlen(g_args.cloudDsn) - strlen(token));
-            }
-        } else {
-            strncpy(g_args.cloudHost, http + strlen("http://"),
-                    strlen(g_args.cloudDsn) - strlen("http://")
-                    - strlen(token));
-        }
-
-        char *colon = strstr(g_args.cloudHost, ":");
-        if (colon) {
-            g_args.cloudHost[strlen(g_args.cloudHost) - strlen(colon)] = '\0';
-            g_args.cloudPort = atoi(colon + 1);
-        }
-
-        return true;
-    }
-
-    return false;
-}
-
 int main(int argc, char *argv[])
 {
     static char verType[32] = {0};
@@ -9175,21 +9201,6 @@ int main(int argc, char *argv[])
 
     if (g_args.abort) {
         abort();
-    }
-
-    if (NULL == g_args.cloudDsn) {
-        g_args.cloudDsn = getenv("TDENGINE_CLOUD_DSN");
-        if (NULL == g_args.cloudDsn) {
-            g_args.cloud = false;
-        } else {
-            g_args.cloud = true;
-        }
-    } else {
-        g_args.cloud = true;
-    }
-
-    if (g_args.cloud) {
-        splitCloudDsn();
     }
 
     sprintf(g_client_info, "%s", taos_get_client_info());

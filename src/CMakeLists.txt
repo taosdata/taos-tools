@@ -131,6 +131,15 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET(GCC_COVERAGE_LINK_FLAGS    "-lgcov --coverage")
     ENDIF ()
 
+    IF (${WEBSOCKET})
+        INCLUDE_DIRECTORIES(/usr/local/include/)
+        SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
+        ADD_DEPENDENCIES(taosBenchmark taosws-rs)
+        ADD_DEPENDENCIES(taosdump taosws-rs)
+    ELSE ()
+        SET(WEBSOCKET_LINK_FLAGS "")
+    ENDIF ()
+
     IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
 
         IF (${TOOLS_SANITIZE} MATCHES "true")
@@ -146,10 +155,10 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
         IF(CMAKE_C_COMPILER_VERSION VERSION_GREATER 4.8.5)
             MESSAGE("${Green} GCC version is ${CMAKE_C_COMPILER_VERSION}${ColourReset}")
-            SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 ${TOOLS_SANITIZE_FLAG} -O0 -g3 -DDEBUG0ww0 ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+            SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 ${TOOLS_SANITIZE_FLAG} -O0 -g3 -DDEBUG0ww0 ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS}")
         ELSE()
             MESSAGE("${Yellow} GCC version is equal or less than 4.8.5, which does not support memory sanitizer. Please upgrade to a higher version if you want to use it. ${ColourReset}")
-            SET(CMAKE_C_FLAGS "-std=c99 -O0 -g3 -DDEBUG")
+            SET(CMAKE_C_FLAGS "-std=c99 -O0 -g3 -DDEBUG ${WEBSOCKET_LINK_FLAGS}")
         ENDIF()
 
         IF (${OS_ID} MATCHES "alpine")
@@ -174,7 +183,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
     ELSE ()
         MESSAGE("${Green} RELEASE mode use static avro library to link for release ${ColourReset}")
-        SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS}")
+        SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -DRELEASE ${GCC_COVERAGE_COMPILE_FLAGS} ${GCC_COVERAGE_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS}")
 
         IF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             #            ADD_LIBRARY(jansson STATIC IMPORTED)
@@ -192,7 +201,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 INCLUDE_DIRECTORIES(/opt/homebrew/opt/argp-standalone/include/)
             ELSE ()
                 SET_PROPERTY(TARGET argp PROPERTY IMPORTED_LOCATION "/usr/local/lib/libargp.a")
-                INCLUDE_DIRECTORIES(/usr/local/include/include/)
+                INCLUDE_DIRECTORIES(/usr/local/include/)
             ENDIF ()
 
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp)
