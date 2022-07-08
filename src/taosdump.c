@@ -445,8 +445,10 @@ static struct argp_option options[] = {
     {"inspect",  'I', 0,  0,
         "inspect avro file content and print on screen", 10},
     {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
+#ifdef WEBSOCKET
     {"restful",  'R', 0,  0,  "Use RESTful interface to connect TDengine", 11},
     {"cloud",  'C', "CLOUD_DSN",  0,  "specify a DSN to access TDengine cloud service", 11},
+#endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
 };
@@ -459,7 +461,7 @@ typedef struct arguments {
     // connection option
     char    *host;
     char    *user;
-    char    password[SHELL_MAX_PASSWORD_LEN];
+    char     password[SHELL_MAX_PASSWORD_LEN];
     uint16_t port;
     // output file
     char     outpath[MAX_DIR_LEN];
@@ -501,12 +503,14 @@ typedef struct arguments {
 
     int      dumpDbCount;
 
+#ifdef WEBSOCKET
     bool     restful;
     char    *cloudDsn;
     bool     cloud;
     char     cloudHost[255];
     int      cloudPort;
     char    *cloudToken;
+#endif
 } SArguments;
 
 /* Our argp parser. */
@@ -564,12 +568,14 @@ struct arguments g_args = {
     false,      // verbose_print
     false,      // performance_print
         0,      // dumpDbCount
+#ifdef WEBSOCKET
     false,      // restful
     NULL,       // cloudDsn
     false,      // cloud
     {0},        // cloudHost
     0,          // cloudPort
     NULL,       // cloudToken
+#endif // WEBSOCKET
 };
 
 // get taosdump commit number version
@@ -972,6 +978,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             g_args.thread_num = atoi((const char *)arg);
             break;
 
+#ifdef WEBSOCKET
         case 'R':
             g_args.restful = true;
             break;
@@ -984,6 +991,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 exit(EXIT_FAILURE);
             }
             break;
+#endif // WEBSOCKET
 
         case OPT_ABORT:
             g_args.abort = 1;
@@ -1335,36 +1343,72 @@ static int inDatabasesSeq(
     return -1;
 }
 
-static int getDumpDbCountWS() {
-    return 0;
-}
-
-static int getDumpDbCountTaos()
-{
+#ifdef WEBSOCKET
+static int getDbCountWS(WS_RS *result) {
     int count = 0;
+    int32_t code;
 
-    TAOS     *taos = NULL;
-    TAOS_RES *result     = NULL;
-    char     *command    = "SHOW DATABASES";
+    while (true) {
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(result, &data, &rows);
+        if (code) {
+            errorPrint("%s() LN%d, ws_fetch_block() error. reason: %s!\n",
+                    __func__, __LINE__,
+                    ws_query_errstr(result));
+            return 0;
+        }
+
+        if (0 == rows) {
+            break;
+        }
+
+        uint8_t colType;
+        uint32_t length;
+        char buffer[4096];
+
+        for (int row = 0; row < rows; row++) {
+            const void *value = ws_get_value_in_block(result, row,
+                    TSDB_SHOW_DB_NAME_INDEX,
+                    &colType, &length);
+            if (NULL == value) {
+                errorPrint("%s error!\n", "ws_get_value_in_block()");
+                continue;
+            }
+
+            memset(buffer, 0, 4096);
+            memcpy(buffer, value, length);
+            debugPrint("%s() LN%d, dbname: %s\n", __func__, __LINE__, buffer);
+
+            if (isSystemDatabase(buffer,
+                        length)) {
+                if (!g_args.allow_sys) {
+                    continue;
+                }
+            } else if (g_args.databases) {  // input multi dbs
+                if (inDatabasesSeq(
+                            buffer,
+                            length) != 0) {
+                    continue;
+                }
+            } else if (!g_args.all_databases) {  // only input one db
+                if (strcmp(g_args.arg_list[0],
+                            buffer)) {
+                    continue;
+                }
+            }
+
+            count++;
+        }
+    }
+
+    return count;
+}
+#endif // WEBSOCKET
+
+static int getDbCount(TAOS_RES *result) {
+    int count = 0;
     TAOS_ROW row;
-
-    /* Connect to server */
-    taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            NULL, g_args.port);
-    if (NULL == taos) {
-        errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
-        return 0;
-    }
-
-    result = taos_query(taos, command);
-    int32_t code = taos_errno(result);
-
-    if (0 != code) {
-        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
-                __func__, __LINE__, command, taos_errstr(result));
-        taos_close(taos);
-        return 0;
-    }
 
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
@@ -1389,22 +1433,76 @@ static int getDumpDbCountTaos()
         count++;
     }
 
-    taos_free_result(result);
-    taos_close(taos);
     return count;
 }
 
 static int getDumpDbCount() {
-    int ret = 0; 
+    int count = 0;
 
-    if (g_args.cloud) {
-        ret = getDumpDbCountWS();
+    TAOS     *taos = NULL;
+    TAOS_RES *result     = NULL;
+    char     *command    = "SHOW DATABASES";
+
+    int32_t   code;
+
+#ifdef WEBSOCKET
+    WS_TAOS  *ws_taos = NULL;
+    WS_RS    *ws_result;
+    /* Connect to server */
+    if (g_args.cloud || g_args.restful) {
+        ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
+        code = ws_connect_errno(ws_taos);
+        if (code) {
+            errorPrint("Failed to connect to TDengine %s, reason: %s!\n", g_args.cloudDsn, ws_connect_errstr(ws_taos));
+            ws_close(ws_taos);
+            return 0;
+        }
+
+        ws_result = ws_query(ws_taos, command);
+        code = ws_query_errno(ws_result);
+        if (0 != code) {
+            errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                    __func__, __LINE__, command,
+                    ws_query_errstr(ws_result)
+                    );
+            ws_close(ws_taos);
+            return 0;
+        }
+
+        count = getDbCountWS(ws_result);
+        ws_free_result(ws_result);
+        ws_close(ws_taos);
     } else {
-        ret = getDumpDbCountTaos();
-    }
+#endif
+        taos = taos_connect(g_args.host, g_args.user, g_args.password,
+                NULL, g_args.port);
+        if (NULL == taos) {
+            errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+            return 0;
+        }
+        result = taos_query(taos, command);
+        code = taos_errno(result);
 
-    return ret;
+        if (0 != code) {
+            errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                    __func__, __LINE__, command,
+                    taos_errstr(result)
+                    );
+            taos_close(taos);
+            return 0;
+        }
+
+        count = getDbCount(result);
+        taos_free_result(result);
+        taos_close(taos);
+#ifdef WEBSOCKET
+    }
+#endif
+
+    return count;
 }
+
+
 
 static int dumpCreateMTableClause(
         char* dbName,
@@ -6966,6 +7064,7 @@ static void printArgs(FILE *file)
     // fprintf(file, "abort: %d\n", g_args.abort);
     fprintf(file, "isDumpIn: %s\n", g_args.isDumpIn?"true":"false");
     fprintf(file, "arg_list_len: %d\n", g_args.arg_list_len);
+#ifdef WEBSOCKET
     if (g_args.cloud) {
         fprintf(file, "cloud: %s\n", g_args.cloud?"true":"false");
         fprintf(file, "cloudHost: %s\n", g_args.cloudHost);
@@ -6980,6 +7079,7 @@ static void printArgs(FILE *file)
             fprintf(file, "last 4 letter of cloud token: %s\n", last4OfToken);
         }
     }
+#endif
 
     fflush(file);
 }
@@ -7171,7 +7271,7 @@ static int convertNCharToReadable(char *str, int size, char *buf, int bufsize) {
     return 0;
 }
 
-static int dumpExtraInfo(TAOS *taos, FILE *fp) {
+static int dumpExtraInfo(void *taos, FILE *fp) {
     int ret = 0;
 
     char buffer[BUFFER_LEN];
@@ -7181,7 +7281,16 @@ static int dumpExtraInfo(TAOS *taos, FILE *fp) {
         return -1;
     }
 
-    snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", taos_get_server_info(taos));
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        // TODO: 
+        snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", "ws unknown");
+        // TODO: ws_taos_get_server_info(taos));
+    } else {
+#endif
+        snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n",
+                taos_get_server_info(taos));
+
     char *firstline = strchr(buffer, '\n');
 
     if (NULL == firstline) {
@@ -8168,13 +8277,170 @@ static bool checkOutDir(char *outpath)
     return ret;
 }
 
+static bool fillDBInfoWithFields(const int no,
+        const TAOS_FIELD *fields, const TAOS_ROW row,
+        const int *lengths, int fieldCount) {
+    for (int f = 0; f < fieldCount; f++) {
+        if (0 == strcmp(fields[f].name, "name")) {
+            tstrncpy(g_dbInfos[no]->name,
+                    (char *)row[f],
+                    min(TSDB_DB_NAME_LEN,
+                        lengths[f] + 1));
+
+        } else if (0 == strcmp(fields[f].name, "vgroups")) {
+            if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                g_dbInfos[no]->vgroups = *((int32_t *)row[f]);
+            } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
+                g_dbInfos[no]->vgroups = *((int16_t *)row[f]);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "ntables")) {
+            if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                g_dbInfos[no]->ntables = *((int32_t *)row[f]);
+            } else if (TSDB_DATA_TYPE_BIGINT == fields[f].type) {
+                g_dbInfos[no]->ntables = *((int64_t *)row[f]);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "replica")) {
+            if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                g_dbInfos[no]->replica = *((int8_t *)row[f]);
+            } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
+                g_dbInfos[no]->replica = *((int16_t *)row[f]);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "strict")) {
+            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    (char*)row[f], lengths[f]);
+            tstrncpy(g_dbInfos[no]->strict,
+                    (char *)row[f],
+                    min(STRICT_LEN, lengths[f] + 1));
+        } else if (0 == strcmp(fields[f].name, "quorum")) {
+            g_dbInfos[no]->quorum =
+                *((int16_t *)row[f]);
+        } else if (0 == strcmp(fields[f].name, "days")) {
+            g_dbInfos[no]->days = *((int16_t *)row[f]);
+        } else if ((0 == strcmp(fields[f].name, "keep"))
+                || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
+            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    (char*)row[f], lengths[f]);
+            tstrncpy(g_dbInfos[no]->keeplist,
+                    (char *)row[f],
+                    min(KEEPLIST_LEN, lengths[f] + 1));
+        } else if (0 == strcmp(fields[f].name, "duration")) {
+            debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    (char*)row[f], lengths[f]);
+            tstrncpy(g_dbInfos[no]->duration,
+                    (char *)row[f],
+                    min(DURATION_LEN, lengths[f] + 1));
+        } else if ((0 == strcmp(fields[f].name, "cache"))
+                || (0 == strcmp(fields[f].name, "cache(MB)"))) {
+            g_dbInfos[no]->cache = *((int32_t *)row[f]);
+        } else if (0 == strcmp(fields[f].name, "blocks")) {
+            g_dbInfos[no]->blocks = *((int32_t *)row[f]);
+        } else if (0 == strcmp(fields[f].name, "minrows")) {
+            if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                g_dbInfos[no]->minrows = *((int32_t *)row[f]);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "maxrows")) {
+            if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                g_dbInfos[no]->maxrows = *((int32_t *)row[f]);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "wallevel")) {
+            g_dbInfos[no]->wallevel = *((int8_t *)row[f]);
+        } else if (0 == strcmp(fields[f].name, "wal")) {
+            if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                g_dbInfos[no]->wal = *((int8_t *)row[f]);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "fsync")) {
+            if (TSDB_DATA_TYPE_INT == fields[f].type) {
+                g_dbInfos[no]->fsync = *((int32_t *)row[f]);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "comp")) {
+            if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                g_dbInfos[no]->comp = (int8_t)(*((int8_t *)row[f]));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "cachelast")) {
+            if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                g_dbInfos[no]->cachelast = (int8_t)(*((int8_t *)row[f]));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "cache_model")) {
+            if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
+                g_dbInfos[no]->cache_model = (int8_t)(*((int8_t*)row[f]));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
+            if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
+                g_dbInfos[no]->single_stable_model = (bool)(*((bool*)row[f]));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, fields[f].type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "precision")) {
+            tstrncpy(g_dbInfos[no]->precision,
+                    (char *)row[f],
+                    min(lengths[f] + 1, DB_PRECISION_LEN));
+        } else if (0 == strcmp(fields[f].name, "update")) {
+            g_dbInfos[no]->update = *((int8_t *)row[f]);
+        }
+    }
+
+    return true;
+}
+
 static int dumpOut() {
     TAOS     *taos       = NULL;
     TAOS_RES *result     = NULL;
 
+#ifdef WEBSOCKET
+    WS_TAOS  *ws_taos    = NULL;
+    WS_RS    *ws_result;
+#endif
+
+    int32_t   code;
+
     TAOS_ROW row;
     FILE *fp = NULL;
-    int32_t count = 0;
+    int32_t dbCount = 0;
 
     if (false == checkOutDir(g_args.outpath)) {
         return -1;
@@ -8209,45 +8475,81 @@ static int dumpOut() {
 
     char command[COMMAND_SIZE];
 
-    /* Connect to server */
-    taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            NULL, g_args.port);
-    if (NULL == taos) {
-        errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
-        goto _exit_failure;
+    /* Connect to server and dump extra info*/
+    int ret;
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
+        code = ws_connect_errno(ws_taos);
+        if (code) {
+            errorPrint("Failed to connect to TDengine %s, reason: %s!\n", g_args.cloudDsn, ws_connect_errstr(ws_taos));
+            ws_close(ws_taos);
+            goto _exit_failure;
+        }
+
+        ret = dumpExtraInfo(ws_taos, fp);
+
+        if (ret < 0) {
+            goto _exit_failure;
+        }
+    } else {
+#endif
+        taos = taos_connect(g_args.host, g_args.user, g_args.password,
+                NULL, g_args.port);
+        if (NULL == taos) {
+            errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+            goto _exit_failure;
+        }
+
+        ret = dumpExtraInfo(taos, fp);
+
+        if (ret < 0) {
+            goto _exit_failure;
+        }
+#ifdef WEBSOCKET
     }
+#endif
 
     /* --------------------------------- Main Code -------------------------------- */
-    int ret = dumpExtraInfo(taos, fp);
-    if (ret < 0) {
-        goto _exit_failure;
-    }
-
     sprintf(command, "SHOW DATABASES");
-    result = taos_query(taos, command);
-    int32_t code = taos_errno(result);
 
-    if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
-                __func__, __LINE__, command, taos_errstr(result));
-        goto _exit_failure;
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ws_result = ws_query(ws_taos, command);
+        code = ws_query_errno(ws_result);
+        if (code != 0) {
+            errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                    __func__, __LINE__, command, ws_query_errstr(ws_result));
+            goto _exit_failure;
+        }
+    } else {
+#endif
+        result = taos_query(taos, command);
+        code = taos_errno(result);
+        if (code != 0) {
+            errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                    __func__, __LINE__, command, taos_errstr(result));
+            goto _exit_failure;
+        }
+#ifdef WEBSOCKET
     }
+#endif
 
     TAOS_FIELD *fields = taos_fetch_fields(result);
     int fieldCount = taos_field_count(result);
 
     while ((row = taos_fetch_row(result)) != NULL) {
-        int32_t* length = taos_fetch_lengths(result);
+        int32_t* lengths = taos_fetch_lengths(result);
         if (isSystemDatabase(
                     row[TSDB_SHOW_DB_NAME_INDEX],
-                    length[TSDB_SHOW_DB_NAME_INDEX])) {
+                    lengths[TSDB_SHOW_DB_NAME_INDEX])) {
             if (!g_args.allow_sys) {
                 continue;
             }
         } else if (g_args.databases) {
             if (inDatabasesSeq(
                         (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
+                        lengths[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
                 continue;
             }
         } else if (!g_args.all_databases) {
@@ -8257,8 +8559,8 @@ static int dumpOut() {
             }
         }
 
-        g_dbInfos[count] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
-        if (NULL == g_dbInfos[count]) {
+        g_dbInfos[dbCount] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
+        if (NULL == g_dbInfos[dbCount]) {
             errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
                     __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
             goto _exit_failure;
@@ -8266,169 +8568,30 @@ static int dumpOut() {
 
         okPrint("Database:%s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
 
-        for (int f = 0; f < fieldCount; f++) {
-            if (0 == strcmp(fields[f].name, "name")) {
-                tstrncpy(g_dbInfos[count]->name,
-                        (char *)row[f],
-                        min(TSDB_DB_NAME_LEN,
-                            length[f] + 1));
-
-            } else if (0 == strcmp(fields[f].name, "vgroups")) {
-                if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                    g_dbInfos[count]->vgroups = *((int32_t *)row[f]);
-                } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
-                    g_dbInfos[count]->vgroups = *((int16_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "ntables")) {
-                if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                    g_dbInfos[count]->ntables = *((int32_t *)row[f]);
-                } else if (TSDB_DATA_TYPE_BIGINT == fields[f].type) {
-                    g_dbInfos[count]->ntables = *((int64_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "replica")) {
-                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                    g_dbInfos[count]->replica = *((int8_t *)row[f]);
-                } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
-                    g_dbInfos[count]->replica = *((int16_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "strict")) {
-                debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                        __func__, __LINE__, f,
-                        (char*)row[f], length[f]);
-                tstrncpy(g_dbInfos[count]->strict,
-                        (char *)row[f],
-                        min(STRICT_LEN, length[f] + 1));
-            } else if (0 == strcmp(fields[f].name, "quorum")) {
-                g_dbInfos[count]->quorum =
-                    *((int16_t *)row[f]);
-            } else if (0 == strcmp(fields[f].name, "days")) {
-                g_dbInfos[count]->days = *((int16_t *)row[f]);
-            } else if ((0 == strcmp(fields[f].name, "keep"))
-                || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
-                debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                        __func__, __LINE__, f,
-                        (char*)row[f], length[f]);
-                tstrncpy(g_dbInfos[count]->keeplist,
-                        (char *)row[f],
-                        min(KEEPLIST_LEN, length[f] + 1));
-            } else if (0 == strcmp(fields[f].name, "duration")) {
-                debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
-                        __func__, __LINE__, f,
-                        (char*)row[f], length[f]);
-                tstrncpy(g_dbInfos[count]->duration,
-                        (char *)row[f],
-                        min(DURATION_LEN, length[f] + 1));
-            } else if ((0 == strcmp(fields[f].name, "cache"))
-                        || (0 == strcmp(fields[f].name, "cache(MB)"))) {
-                g_dbInfos[count]->cache = *((int32_t *)row[f]);
-            } else if (0 == strcmp(fields[f].name, "blocks")) {
-                g_dbInfos[count]->blocks = *((int32_t *)row[f]);
-            } else if (0 == strcmp(fields[f].name, "minrows")) {
-                if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                    g_dbInfos[count]->minrows = *((int32_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "maxrows")) {
-                if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                    g_dbInfos[count]->maxrows = *((int32_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "wallevel")) {
-                g_dbInfos[count]->wallevel = *((int8_t *)row[f]);
-            } else if (0 == strcmp(fields[f].name, "wal")) {
-                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                    g_dbInfos[count]->wal = *((int8_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "fsync")) {
-                if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                    g_dbInfos[count]->fsync = *((int32_t *)row[f]);
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "comp")) {
-                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                    g_dbInfos[count]->comp = (int8_t)(*((int8_t *)row[f]));
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "cachelast")) {
-                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                    g_dbInfos[count]->cachelast = (int8_t)(*((int8_t *)row[f]));
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "cache_model")) {
-                if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                    g_dbInfos[count]->cache_model = (int8_t)(*((int8_t*)row[f]));
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
-                if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
-                    g_dbInfos[count]->single_stable_model = (bool)(*((bool*)row[f]));
-                } else {
-                    errorPrint("%s() LN%d, unexpected type: %d\n",
-                            __func__, __LINE__, fields[f].type);
-                    goto _exit_failure;
-                }
-            } else if (0 == strcmp(fields[f].name, "precision")) {
-                tstrncpy(g_dbInfos[count]->precision,
-                        (char *)row[f],
-                        min(length[f] + 1, DB_PRECISION_LEN));
-            } else if (0 == strcmp(fields[f].name, "update")) {
-                g_dbInfos[count]->update = *((int8_t *)row[f]);
-            }
+        if (false == fillDBInfoWithFields(dbCount,
+                    fields, row, lengths, fieldCount)) {
+            goto _exit_failure;
         }
 
-        count++;
+        dbCount++;
 
         if (g_args.databases) {
-            if (count > g_args.dumpDbCount)
+            if (dbCount > g_args.dumpDbCount)
                 break;
         } else if (!g_args.all_databases) {
-            if (count >= 1)
+            if (dbCount >= 1)
                 break;
         }
     }
 
-    if (count == 0) {
-        errorPrint("%d databases valid to dump\n", count);
+    if (dbCount == 0) {
+        errorPrint("%d databases valid to dump\n", dbCount);
         goto _exit_failure;
     }
 
     // case: taosdump --databases dbx,dby ...   OR  taosdump --all-databases
     if (g_args.databases || g_args.all_databases) {
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < dbCount; i++) {
             int64_t records = 0;
             records = dumpWholeDatabase(g_dbInfos[i], fp);
             if (records >= 0) {
@@ -8514,6 +8677,28 @@ _exit_failure:
     return -1;
 }
 
+#ifdef WEBSOCKET
+bool jointCloudDsn() {
+    if ((NULL != g_args.host) && strlen(g_args.host)) {
+        if (0 == g_args.port) {
+            sprintf(g_args.cloudHost, "ws://%s:6041", g_args.host);
+        } else {
+            sprintf(g_args.cloudHost, "ws://%s:%d", g_args.host, g_args.port);
+        }
+    } else {
+        if (0 == g_args.port) {
+            sprintf(g_args.cloudHost, "ws://localhost:6041");
+        } else {
+            sprintf(g_args.cloudHost, "ws://localhost:%d", g_args.port);
+        }
+    }
+
+    g_args.cloudDsn = g_args.cloudHost;
+    debugPrint("%s() LN%d, cloudDsn: %s\n", __func__, __LINE__,
+            g_args.cloudDsn);
+    return true;
+}
+
 bool splitCloudDsn() {
     if (g_args.cloudDsn) {
         char *token = strstr(g_args.cloudDsn, "?token=");
@@ -8552,10 +8737,12 @@ bool splitCloudDsn() {
 
     return false;
 }
+#endif
 
 static int dumpEntry() {
     int ret = 0;
 
+#ifdef WEBSOCKET
     if (NULL == g_args.cloudDsn) {
         g_args.cloudDsn = getenv("TDENGINE_CLOUD_DSN");
         if (NULL == g_args.cloudDsn) {
@@ -8569,7 +8756,10 @@ static int dumpEntry() {
 
     if (g_args.cloud) {
         splitCloudDsn();
+    } else if (g_args.restful) {
+        jointCloudDsn();
     }
+#endif
 
     if (checkParam() < 0) {
         exit(EXIT_FAILURE);
