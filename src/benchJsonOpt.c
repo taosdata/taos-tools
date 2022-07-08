@@ -789,7 +789,6 @@ PARSE_OVER:
 
 static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     int32_t code = -1;
-    SDataBase * dataBase = benchArrayGet(g_arguments->databases, 0);
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (tools_cJSON_IsString(cfgdir)) {
@@ -859,14 +858,18 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
     tools_cJSON *dbs = tools_cJSON_GetObjectItem(json, "databases");
     if (tools_cJSON_IsString(dbs)) {
-        dataBase->dbName = dbs->valuestring;
+        g_queryInfo.dbName = dbs->valuestring;
     }
 
     tools_cJSON *queryMode = tools_cJSON_GetObjectItem(json, "query_mode");
     if (tools_cJSON_IsString(queryMode)) {
         if (0 == strcasecmp(queryMode->valuestring, "rest")) {
-            SSuperTable * stbInfo = benchArrayGet(dataBase->superTbls, 0);
-            stbInfo->iface = REST_IFACE;
+            g_queryInfo.iface = REST_IFACE;
+        } else if (0 == strcasecmp(queryMode->valuestring, "taosc")) {
+            g_queryInfo.iface = TAOSC_IFACE;
+        } else {
+            errorPrint(stderr, "Invalid query_mode value: %s\n", queryMode->valuestring);
+            goto PARSE_OVER;
         }
     }
     // init sqls
@@ -892,6 +895,18 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 specifiedQueryTimes->valueint;
         } else {
             g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
+        }
+        
+        tools_cJSON *mixedQueryObj = tools_cJSON_GetObjectItem(specifiedQuery, "mixed_query");
+        if (tools_cJSON_IsString(mixedQueryObj)) {
+            if (0 == strcasecmp(mixedQueryObj->valuestring, "yes")) {
+                g_queryInfo.specifiedQueryInfo.mixed_query = true;
+            } else if (0 == strcasecmp(mixedQueryObj->valuestring, "no")) {
+                g_queryInfo.specifiedQueryInfo.mixed_query = false;
+            } else {
+                errorPrint(stderr, "Invalid mixed_query value: %s\n", mixedQueryObj->valuestring);
+                goto PARSE_OVER;
+            }
         }
 
         tools_cJSON *concurrent = tools_cJSON_GetObjectItem(specifiedQuery, "concurrent");
@@ -975,17 +990,6 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         tools_cJSON *specifiedSqls = tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
         if (tools_cJSON_IsArray(specifiedSqls)) {
             int specifiedSqlSize = tools_cJSON_GetArraySize(specifiedSqls);
-            if (specifiedSqlSize * g_queryInfo.specifiedQueryInfo.concurrent >
-                MAX_QUERY_SQL_COUNT) {
-                errorPrint(
-                    stderr,
-                    "failed to read json, query sql(%d) * concurrent(%d) "
-                    "overflow, max is %d\n",
-                    specifiedSqlSize, g_queryInfo.specifiedQueryInfo.concurrent,
-                    MAX_QUERY_SQL_COUNT);
-                goto PARSE_OVER;
-            }
-
             for (int j = 0; j < specifiedSqlSize; ++j) {
                 tools_cJSON *sqlObj = tools_cJSON_GetArrayItem(specifiedSqls, j);
                 if (tools_cJSON_IsObject(sqlObj)) {

@@ -452,7 +452,6 @@ static int startMultiThreadCreateChildTable(int db_index, int stb_index) {
         pThreadInfo->ntables = i < b ? a + 1 : a;
         pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
         tableFrom = pThreadInfo->end_table_to + 1;
-        pThreadInfo->minDelay = UINT64_MAX;
         pThreadInfo->tables_created = 0;
         pthread_create(pids + i, NULL, createTable, pThreadInfo);
     }
@@ -600,7 +599,14 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case REST_IFACE:
 
-            if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo)) {
+            if (0 != postProceSql(pThreadInfo->buffer,
+                                  database->dbName,
+                                  database->dbCfg.precision,
+                                  stbInfo->iface,
+                                  stbInfo->lineProtocol,
+                                  stbInfo->tcpTransfer,
+                                  pThreadInfo->sockfd,
+                                  pThreadInfo->filePath)) {
                 affectedRows = -1;
             } else {
                 affectedRows = k;
@@ -646,7 +652,10 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case SML_REST_IFACE: {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
-                if (0 != postProceSql(pThreadInfo->lines[0], pThreadInfo)) {
+                if (0 != postProceSql(pThreadInfo->lines[0], database->dbName,
+                                      database->dbCfg.precision, stbInfo->iface,
+                                      stbInfo->lineProtocol, stbInfo->tcpTransfer,
+                                      pThreadInfo->sockfd, pThreadInfo->filePath)) {
                     affectedRows = -1;
                 } else {
                     affectedRows = k;
@@ -667,7 +676,9 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                         break;
                     }
                 }
-                if (0 != postProceSql(pThreadInfo->buffer, pThreadInfo)) {
+                if (0 != postProceSql(pThreadInfo->buffer, database->dbName, database->dbCfg.precision,
+                                      stbInfo->iface, stbInfo->lineProtocol, stbInfo->tcpTransfer,
+                                      pThreadInfo->sockfd, pThreadInfo->filePath)) {
                     affectedRows = -1;
                 } else {
                     affectedRows = k;
@@ -696,9 +707,8 @@ static void *syncWriteInterlace(void *sarg) {
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
 
     uint64_t   lastPrintTime = toolsGetTimestampMs();
-    uint64_t   startTs = toolsGetTimestampMs();
-    uint64_t   endTs = toolsGetTimestampMs();
-    delayNode *current_delay_node;
+    int64_t   startTs = toolsGetTimestampMs();
+    int64_t   endTs = toolsGetTimestampMs();
     int32_t    generated = 0;
     int        len = 0;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
@@ -899,24 +909,13 @@ static void *syncWriteInterlace(void *sarg) {
             g_fail = true;
             goto free_of_interlace;
         }
-        uint64_t delay = endTs - startTs;
+        int64_t delay = endTs - startTs;
         performancePrint(stdout, "insert execution time is %10.2f ms\n",
                          delay / 1000.0);
 
-        if (delay > pThreadInfo->maxDelay) pThreadInfo->maxDelay = delay;
-        if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
-        current_delay_node = benchCalloc(1, sizeof(delayNode), false);
-        current_delay_node->value = delay;
-        if (pThreadInfo->delayList.size == 0) {
-            pThreadInfo->delayList.head = current_delay_node;
-            pThreadInfo->delayList.tail = current_delay_node;
-            pThreadInfo->delayList.size++;
-        } else {
-            pThreadInfo->delayList.tail->next = current_delay_node;
-            pThreadInfo->delayList.tail = current_delay_node;
-            pThreadInfo->delayList.size++;
-        }
-        pThreadInfo->cntDelay++;
+        int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
+        *pdelay = delay;
+        benchArrayPush(pThreadInfo->delayList, pdelay);
         pThreadInfo->totalDelay += delay;
 
         int64_t currentPrintTime = toolsGetTimestampMs();
@@ -967,9 +966,8 @@ void *syncWriteProgressive(void *sarg) {
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
     uint64_t   lastPrintTime = toolsGetTimestampMs();
-    uint64_t   startTs = toolsGetTimestampMs();
-    uint64_t   endTs;
-    delayNode *current_delay_node;
+    int64_t   startTs = toolsGetTimestampMs();
+    int64_t   endTs;
 
     char *  pstr = pThreadInfo->buffer;
     int32_t pos = 0;
@@ -1183,24 +1181,13 @@ void *syncWriteProgressive(void *sarg) {
                     break;
             }
 
-            uint64_t delay = endTs - startTs;
-            performancePrint(stdout, "insert execution time is %10.f ms\n",
-                             delay / 1000.0);
+            int64_t delay = endTs - startTs;
+            performancePrint(stdout, "insert execution time is %.6f s\n",
+                             delay / 1E6);
 
-            if (delay > pThreadInfo->maxDelay) pThreadInfo->maxDelay = delay;
-            if (delay < pThreadInfo->minDelay) pThreadInfo->minDelay = delay;
-            pThreadInfo->cntDelay++;
-            current_delay_node = benchCalloc(1, sizeof(delayNode), false);
-            current_delay_node->value = delay;
-            if (pThreadInfo->delayList.size == 0) {
-                pThreadInfo->delayList.head = current_delay_node;
-                pThreadInfo->delayList.tail = current_delay_node;
-                pThreadInfo->delayList.size++;
-            } else {
-                pThreadInfo->delayList.tail->next = current_delay_node;
-                pThreadInfo->delayList.tail = current_delay_node;
-                pThreadInfo->delayList.size++;
-            }
+            int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
+            *pDelay = delay;
+            benchArrayPush(pThreadInfo->delayList, pDelay);
             pThreadInfo->totalDelay += delay;
 
             int64_t currentPrintTime = toolsGetTimestampMs();
@@ -1361,6 +1348,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
         ntables = stbInfo->childTblCount;
     }
+    if (ntables == 0) {
+        return 0;
+    }
     int     threads = g_arguments->nthreads;
     int64_t a = ntables / threads;
     if (a < 1) {
@@ -1384,13 +1374,11 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         pThreadInfo->totalInsertRows = 0;
         pThreadInfo->totalAffectedRows = 0;
         pThreadInfo->samplePos = 0;
-        pThreadInfo->maxDelay = 0;
-        pThreadInfo->minDelay = UINT64_MAX;
         pThreadInfo->start_table_from = tableFrom;
         pThreadInfo->ntables = i < b ? a + 1 : a;
         pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
         tableFrom = pThreadInfo->end_table_to + 1;
-        delay_list_init(&(pThreadInfo->delayList));
+        pThreadInfo->delayList = benchArrayInit(1, sizeof(int64_t));
         switch (stbInfo->iface) {
             case REST_IFACE: {
                 pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, false);
@@ -1571,20 +1559,16 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
     }
 
-    int64_t start = toolsGetTimestampUs();
+    int64_t start = toolsGetTimestampNs();
 
     for (int i = 0; i < threads; i++) {
         pthread_join(pids[i], NULL);
     }
 
-    int64_t end = toolsGetTimestampUs();
+    int64_t end = toolsGetTimestampNs();
 
-    uint64_t  totalDelay = 0;
-    uint64_t  maxDelay = 0;
-    uint64_t  minDelay = UINT64_MAX;
-    uint64_t  cntDelay = 0;
-    uint64_t *total_delay_list;
-    double    avgDelay = 0;
+    BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
+    int64_t   totalDelay = 0;
     uint64_t  totalInsertRows = 0;
     uint64_t  totalAffectedRows = 0;
 
@@ -1634,98 +1618,77 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         totalAffectedRows += pThreadInfo->totalAffectedRows;
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
-        cntDelay += pThreadInfo->cntDelay;
-
-        if (pThreadInfo->maxDelay > maxDelay) {
-            maxDelay = pThreadInfo->maxDelay;
-        }
-
-        if (pThreadInfo->minDelay < minDelay) {
-            minDelay = pThreadInfo->minDelay;
-        }
+        benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData, pThreadInfo->delayList->size);
+        tmfree(pThreadInfo->delayList);
     }
-
-    total_delay_list = benchCalloc(cntDelay, sizeof(uint64_t), false);
-    uint64_t index = 0;
-    for (int i = 0; i < threads; ++i) {
-        threadInfo *pThreadInfo = infos + i;
-        delayNode * node = pThreadInfo->delayList.head;
-        for (int j = 0; j < pThreadInfo->delayList.size; ++j) {
-            total_delay_list[index] = node->value;
-            node = node->next;
-            index++;
-        }
-        delay_list_destroy(&(pThreadInfo->delayList));
-    }
-    qsort(total_delay_list, cntDelay, sizeof(uint64_t), compare);
+    qsort(total_delay_list->pData, total_delay_list->size, total_delay_list->elemSize, compare);
 
     free(pids);
     free(infos);
 
-    if (cntDelay == 0) cntDelay = 1;
-    avgDelay = (double)totalDelay / cntDelay;
-
-    int64_t t = end - start;
-    if (0 == t) t = 1;
-
-    double tInMs = (double)t / 1000000.0;
-
     if (stbInfo->no_check_for_affected_rows) {
         infoPrint(stdout,
-                  "Spent %.4f seconds to insert rows: %" PRIu64
-                          "with %d thread(s) into %s %.2f records/second\n\n",
-                  tInMs, totalInsertRows, threads,
-                  database->dbName, (double)(totalInsertRows / tInMs));
+                  "Spent %.6f seconds to insert rows: %" PRIu64
+                          "with %d thread(s) into %s %.6f records/second\n",
+                  (end - start)/1E9, totalInsertRows, threads,
+                  database->dbName, (double)(totalInsertRows / ((end - start)/1E9)));
     } else {
         infoPrint(stdout,
-                  "Spent %.4f seconds to insert rows: %" PRIu64
+                  "Spent %.6f seconds to insert rows: %" PRIu64
                           ", affected rows: %" PRIu64
-                          " with %d thread(s) into %s %.2f records/second\n\n",
-                  tInMs, totalInsertRows, totalAffectedRows, threads,
-                  database->dbName, (double)(totalInsertRows / tInMs));
+                          " with %d thread(s) into %s %.6f records/second\n",
+                  (end - start)/1E9, totalInsertRows, totalAffectedRows, threads,
+                  database->dbName, (double)(totalInsertRows / ((end - start)/1E9)));
     }
 
     if (g_arguments->fpOfInsertResult) {
         if (stbInfo->no_check_for_affected_rows) {
             infoPrint(g_arguments->fpOfInsertResult,
-                      "Spent %.4f seconds to insert rows: %" PRIu64
-                              "with %d thread(s) into %s %.2f records/second\n\n",
-                      tInMs, totalInsertRows, threads,
-                      database->dbName, (double)(totalInsertRows / tInMs));
+                      "Spent %.6f seconds to insert rows: %" PRIu64
+                              "with %d thread(s) into %s %.6f records/second\n",
+                      (end - start)/1E6, totalInsertRows, threads,
+                      database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
         } else {
             infoPrint(g_arguments->fpOfInsertResult,
-                      "Spent %.4f seconds to insert rows: %" PRIu64
+                      "Spent %.6f seconds to insert rows: %" PRIu64
                               ", affected rows: %" PRIu64
-                              " with %d thread(s) into %s %.2f records/second\n\n",
-                      tInMs, totalInsertRows, totalAffectedRows, threads,
-                      database->dbName, (double)(totalInsertRows / tInMs));
+                              " with %d thread(s) into %s %.6f records/second\n",
+                      (end - start)/1E6, totalInsertRows, totalAffectedRows, threads,
+                      database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
         }
     }
 
-    if (minDelay != UINT64_MAX) {
-        infoPrint(
-            stdout,
-            "insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, p95: "
-            "%5.2fms, p99: %5.2fms, max: %5.2fms\n\n",
-            (double)minDelay / 1000.0, (double)avgDelay / 1000.0,
-            (double)total_delay_list[(int32_t)(cntDelay * 0.9)] / 1000.0,
-            (double)total_delay_list[(int32_t)(cntDelay * 0.95)] / 1000.0,
-            (double)total_delay_list[(int32_t)(cntDelay * 0.99)] / 1000.0,
-            (double)maxDelay / 1000.0);
+    infoPrint(stdout, "insert delay, "
+                      "min: %.6fs, "
+                      "avg: %.6fs, "
+                      "p90: %.6fs, "
+                      "p95: %.6fs, "
+                      "p99: %.6fs, "
+                      "max: %.6fs\n",
+                      *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E6,
+                      (double)totalDelay/total_delay_list->size/1E6,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E6,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E6,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E6,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E6);
 
-        if (g_arguments->fpOfInsertResult) {
-            fprintf(
-                g_arguments->fpOfInsertResult,
-                "insert delay, min: %5.2fms, avg: %5.2fms, p90: %5.2fms, p95: "
-                "%5.2fms, p99: %5.2fms, max: %5.2fms\n\n",
-                (double)minDelay / 1000.0, (double)avgDelay / 1000.0,
-                (double)total_delay_list[(int32_t)(cntDelay * 0.9)] / 1000.0,
-                (double)total_delay_list[(int32_t)(cntDelay * 0.95)] / 1000.0,
-                (double)total_delay_list[(int32_t)(cntDelay * 0.99)] / 1000.0,
-                (double)maxDelay / 1000.0);
-        }
+    if (g_arguments->fpOfInsertResult) {
+        infoPrint(g_arguments->fpOfInsertResult,
+                  "insert delay, "
+                  "min: %5.2fms, "
+                  "avg: %5.2fms, "
+                  "p90: %5.2fms, "
+                  "p95: %5.2fms, "
+                  "p99: %5.2fms, "
+                  "max: %5.2fms\n",
+                  *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E6,
+                  (double)totalDelay/total_delay_list->size/1E6,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E6,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E6,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E6,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E6);
     }
-    tmfree(total_delay_list);
+    benchArrayDestroy(total_delay_list);
     if (g_fail) {
         return -1;
     }
