@@ -18,7 +18,7 @@ for details on how to use it.
 
 ## How to build from source
 
-### install dependencies
+### Install dependencies
 
 #### For Ubuntu/Debian system
 
@@ -50,13 +50,13 @@ it lead a cmake prompt libsnappy not found. But snappy will works well.
 brew install argp-standalone
 ```
 
-### install TDengine client
+### Install TDengine client
 
 Please download TDengine client package from [taosdata.com](https://www.taosdata.com/cn/all-downloads/)
 or compile TDengine source from [GitHub](github.com/taosdata/TDengine)
 and install to your system.
 
-### clone source code and compile
+### Clone source code and compile
 
 ```
 git clone https://github.com/taosdata/taos-tools
@@ -68,7 +68,7 @@ cmake ..
 make
 ```
 
-### install
+### Install
 
 ```
 sudo make install

@@ -11,7 +11,7 @@ taosdump 是用于备份 TDengine 数据到本地目录和从本地目录恢复�
 
 ## 安装 taosTools
 
-## 如何通过源代码构建？
+## 如何通过源代码构建
 
 ### 安装依赖软件包
 
@@ -40,7 +40,7 @@ sudo yum install -y zlib-devel xz-devel csnappy-devel jansson jansson-devel pkgc
 （参考 [链接](https://github.com/google/snappy/pull/86)），会导致
 cmake 提示无法发现 libsnappy，实际上工作正常。
 
-#### 对于 macOS 系统 (目前仅支持 taosBenchmark)
+#### 对于 macOS 系统（目前仅支持 taosBenchmark）
 
 ```
 brew install argp-standalone
