@@ -438,6 +438,7 @@ typedef struct SpecifiedQueryInfo_S {
     int       consumed[MAX_QUERY_SQL_COUNT];
     TAOS_RES *res[MAX_QUERY_SQL_COUNT];
     uint64_t  totalQueried;
+    bool      mixed_query;
 } SpecifiedQueryInfo;
 
 typedef struct SuperQueryInfo_S {
@@ -467,6 +468,8 @@ typedef struct SQueryMetaInfo_S {
     uint64_t           query_times;
     uint64_t           response_buffer;
     bool               reset_query_cache;
+    uint16_t           iface;
+    char*              dbName;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
@@ -508,17 +511,6 @@ typedef struct SArguments_S {
     bool               terminate;
 } SArguments;
 
-typedef struct delayNode_S {
-    uint64_t            value;
-    struct delayNode_S *next;
-} delayNode;
-
-typedef struct delayList_S {
-    uint64_t   size;
-    delayNode *head;
-    delayNode *tail;
-} delayList;
-
 typedef struct SThreadInfo_S {
     TAOS *     taos;
     TAOS_STMT *stmt;
@@ -539,10 +531,7 @@ typedef struct SThreadInfo_S {
     uint64_t   totalInsertRows;
     uint64_t   totalQueried;
     uint64_t   totalAffectedRows;
-    uint64_t   cntDelay;
-    uint64_t   totalDelay;
-    uint64_t   maxDelay;
-    uint64_t   minDelay;
+    int64_t   totalDelay;
     uint64_t   querySeq;
     TAOS_SUB * tsub;
     char **    lines;
@@ -556,10 +545,20 @@ typedef struct SThreadInfo_S {
     uint64_t   max_sql_len;
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
-    delayList  delayList;
+    BArray*    delayList;
     uint64_t*  query_delay_list;
     double     avg_delay;
 } threadInfo;
+
+typedef struct SQueryThreadInfo_S {
+    int start_sql;
+    int end_sql;
+    int threadId;
+    BArray*  query_delay_list;
+    int   sockfd;
+    TAOS* taos;
+    int64_t total_delay;
+} queryThreadInfo;
 
 typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
 
@@ -611,7 +610,7 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
-int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
+int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
 int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
@@ -619,14 +618,13 @@ int     convertHostToServAddr(char *host, uint16_t port,
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
-void    delay_list_init(delayList *list);
-void    delay_list_destroy(delayList *list);
 void*   benchCalloc(size_t nmemb, size_t size, bool record);
 BArray* benchArrayInit(size_t size, size_t elemSize);
 void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, FSignalHandler sigfp);

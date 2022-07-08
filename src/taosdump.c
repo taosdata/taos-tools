@@ -1473,7 +1473,7 @@ static int getDumpDbCount() {
         ws_free_result(ws_result);
         ws_close(ws_taos);
     } else {
-#endif
+#endif // WEBSOCKET
         taos = taos_connect(g_args.host, g_args.user, g_args.password,
                 NULL, g_args.port);
         if (NULL == taos) {
@@ -7079,7 +7079,7 @@ static void printArgs(FILE *file)
             fprintf(file, "last 4 letter of cloud token: %s\n", last4OfToken);
         }
     }
-#endif
+#endif // WEBSOCKET
 
     fflush(file);
 }
@@ -7290,6 +7290,9 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
 #endif
         snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n",
                 taos_get_server_info(taos));
+#ifdef WEBSOCKET
+    }
+#endif
 
     char *firstline = strchr(buffer, '\n');
 
@@ -8737,7 +8740,7 @@ bool splitCloudDsn() {
 
     return false;
 }
-#endif
+#endif // WEBSOCKET
 
 static int dumpEntry() {
     int ret = 0;
@@ -8759,7 +8762,7 @@ static int dumpEntry() {
     } else if (g_args.restful) {
         jointCloudDsn();
     }
-#endif
+#endif // WEBSOCKET
 
     if (checkParam() < 0) {
         exit(EXIT_FAILURE);
