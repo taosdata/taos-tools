@@ -1348,6 +1348,9 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
         ntables = stbInfo->childTblCount;
     }
+    if (ntables == 0) {
+        return 0;
+    }
     int     threads = g_arguments->nthreads;
     int64_t a = ntables / threads;
     if (a < 1) {
@@ -1556,13 +1559,13 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
     }
 
-    int64_t start = toolsGetTimestampUs();
+    int64_t start = toolsGetTimestampNs();
 
     for (int i = 0; i < threads; i++) {
         pthread_join(pids[i], NULL);
     }
 
-    int64_t end = toolsGetTimestampUs();
+    int64_t end = toolsGetTimestampNs();
 
     BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t   totalDelay = 0;
@@ -1627,15 +1630,15 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         infoPrint(stdout,
                   "Spent %.6f seconds to insert rows: %" PRIu64
                           "with %d thread(s) into %s %.6f records/second\n",
-                  (end - start)/1E6, totalInsertRows, threads,
-                  database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
+                  (end - start)/1E9, totalInsertRows, threads,
+                  database->dbName, (double)(totalInsertRows / ((end - start)/1E9)));
     } else {
         infoPrint(stdout,
                   "Spent %.6f seconds to insert rows: %" PRIu64
                           ", affected rows: %" PRIu64
                           " with %d thread(s) into %s %.6f records/second\n",
-                  (end - start)/1E6, totalInsertRows, totalAffectedRows, threads,
-                  database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
+                  (end - start)/1E9, totalInsertRows, totalAffectedRows, threads,
+                  database->dbName, (double)(totalInsertRows / ((end - start)/1E9)));
     }
 
     if (g_arguments->fpOfInsertResult) {
