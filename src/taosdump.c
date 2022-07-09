@@ -7271,11 +7271,95 @@ static int convertNCharToReadable(char *str, int size, char *buf, int bufsize) {
     return 0;
 }
 
-static int dumpExtraInfo(void *taos, FILE *fp) {
-    int ret = 0;
+#ifdef WEBSOCKET
+static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
+    char buffer[BUFFER_LEN];
+    char sqlstr[COMMAND_SIZE];
+    strcpy(sqlstr, "SHOW VARIABLES");
+
+    int32_t code;
+
+    WS_RS *ws_res = ws_query(taos, sqlstr);
+
+    code = ws_query_errno(ws_res);
+    if (0 != code) {
+        warnPrint("failed to run command %s, reason: %s. Will use default settings\n",
+                sqlstr, ws_query_errstr(ws_res));
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", ws_query_errstr(ws_res));
+        snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
+        fwrite(buffer, strlen(buffer), 1, fp);
+    } else {
+        while(true) {
+            int rows = 0;
+            const void *data = NULL;
+            code = ws_fetch_block(ws_res, &data, &rows);
+
+            uint8_t colType;
+            uint32_t len;
+            char tmp[BUFFER_LEN-12];
+
+            if (0 == rows) {
+                break;
+            }
+
+            for (int row = 0; row < rows; row ++) {
+                const void *value0 = ws_get_value_in_block(
+                        ws_res, row, 0, &colType, &len);
+                memset(tmp, 0, BUFFER_LEN-12);
+                memcpy(tmp, value0, len);
+
+                verbosePrint("%s() LN%d, value0: %s\n", __func__, __LINE__, tmp);
+                if (0 == strcmp(tmp, "charset")) {
+                    const void *value1 = ws_get_value_in_block(ws_res, row, 1,
+                            &colType, &len);
+                    memset(tmp, 0, BUFFER_LEN-12);
+                    memcpy(tmp, value1, min(BUFFER_LEN-13, len));
+                    snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tmp);
+                    debugPrint("%s() LN%d buffer: %s\n", __func__, __LINE__, buffer);
+                    fwrite(buffer, strlen(buffer), 1, fp);
+                }
+            }
+        }
+    }
+    ws_free_result(ws_res);
+}
+#endif // WEBSOCKET
+
+static void dumpExtraInfoVar(void *taos, FILE *fp) {
 
     char buffer[BUFFER_LEN];
     char sqlstr[COMMAND_SIZE];
+    strcpy(sqlstr, "SHOW VARIABLES");
+
+    int32_t code;
+    TAOS_RES* res = taos_query(taos, sqlstr);
+
+    code = taos_errno(res);
+    if (code != 0) {
+        warnPrint("failed to run command %s, reason: %s. Will use default settings\n",
+                sqlstr, taos_errstr(res));
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", taos_errstr(res));
+        fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
+        snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
+        fwrite(buffer, strlen(buffer), 1, fp);
+    } else {
+        TAOS_ROW row;
+
+        while ((row = taos_fetch_row(res)) != NULL) {
+            debugPrint("row[0]=%s, row[1]=%s\n",
+                    (char *)row[0], (char *)row[1]);
+            if (0 == strcmp((char *)row[0], "charset")) {
+                snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
+                fwrite(buffer, strlen(buffer), 1, fp);
+            }
+        }
+    }
+    taos_free_result(res);
+}
+
+static int dumpExtraInfo(void *taos, FILE *fp) {
+
+    char buffer[BUFFER_LEN];
 
     if (fseek(fp, 0, SEEK_SET) != 0) {
         return -1;
@@ -7317,34 +7401,18 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
                 g_args.loose_mode?"true":"false");
     fwrite(buffer, strlen(buffer), 1, fp);
 
-    strcpy(sqlstr, "SHOW VARIABLES");
-
-    TAOS_RES* res = taos_query(taos, sqlstr);
-
-    int32_t code = taos_errno(res);
-    if (code != 0) {
-        warnPrint("failed to run command %s, reason: %s. Will use default settings\n",
-                sqlstr, taos_errstr(res));
-        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", taos_errstr(res));
-        fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
-        snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
-        fwrite(buffer, strlen(buffer), 1, fp);
-        taos_free_result(res);
+    
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        dumpExtraInfoVarWS(taos, fp);
     } else {
-        TAOS_ROW row;
-
-        while ((row = taos_fetch_row(res)) != NULL) {
-            debugPrint("row[0]=%s, row[1]=%s\n",
-                    (char *)row[0], (char *)row[1]);
-            if (0 == strcmp((char *)row[0], "charset")) {
-                snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
-                fwrite(buffer, strlen(buffer), 1, fp);
-            }
-        }
-        taos_free_result(res);
+#endif
+        dumpExtraInfoVar(taos, fp);
+#ifdef WEBSOCKET
     }
+#endif
 
-    ret = ferror(fp);
+    int ret = ferror(fp);
 
     return ret;
 }
@@ -8476,8 +8544,6 @@ static int dumpOut() {
         goto _exit_failure;
     }
 
-    char command[COMMAND_SIZE];
-
     /* Connect to server and dump extra info*/
     int ret;
 #ifdef WEBSOCKET
@@ -8514,6 +8580,7 @@ static int dumpOut() {
 #endif
 
     /* --------------------------------- Main Code -------------------------------- */
+    char command[COMMAND_SIZE];
     sprintf(command, "SHOW DATABASES");
 
 #ifdef WEBSOCKET
