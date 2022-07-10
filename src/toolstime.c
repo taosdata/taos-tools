@@ -23,17 +23,21 @@
 
 #define _DEFAULT_SOURCE
 
+#ifdef LINUX
+#include <unistd.h>
+#include <strings.h>
+#include <sys/time.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <assert.h>
 #include <string.h>
-#include <strings.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <time.h>
-#include <sys/time.h>
 
+
+#include "bench.h"
 #include "toolsdef.h"
 
 static int32_t parseLocaltime(char* timestr, int64_t* time, int32_t timePrec, char delim);
@@ -44,6 +48,7 @@ static int32_t (*parseLocaltimeFp[]) (char* timestr, int64_t* time, int32_t time
   parseLocaltimeWithDst
 };
 
+#ifdef LINUX
 char *strnchr(char *haystack, char needle, int32_t len, bool skipquote) {
   for (int32_t i = 0; i < len; ++i) {
 
@@ -63,6 +68,7 @@ char *strnchr(char *haystack, char needle, int32_t len, bool skipquote) {
 
   return NULL;
 }
+#endif
 
 char* forwardToTimeStringEnd(char* str) {
   int32_t i = 0;
@@ -80,7 +86,7 @@ char* forwardToTimeStringEnd(char* str) {
 
   return &str[i];
 }
-
+#ifdef LINUX
 int64_t strnatoi(char *num, int32_t len) {
   int64_t ret = 0, i, dig, base = 1;
 
@@ -114,6 +120,7 @@ int64_t strnatoi(char *num, int32_t len) {
 
   return ret;
 }
+#endif
 
 int64_t parseFraction(char* str, char** end, int32_t timePrec) {
   int32_t i = 0;
@@ -161,7 +168,6 @@ int64_t parseFraction(char* str, char** end, int32_t timePrec) {
 
   return fraction;
 }
-
 int64_t user_mktime64(const unsigned int year0, const unsigned int mon0,
 		const unsigned int day, const unsigned int hour,
 		const unsigned int min, const unsigned int sec, int64_t time_zone)
@@ -185,6 +191,8 @@ int64_t user_mktime64(const unsigned int year0, const unsigned int mon0,
   return (res + time_zone);
 }
 
+
+#if defined(LINUX) || defined(DARWIN)
 int32_t parseTimezone(char* str, int64_t* tzOffset) {
   int64_t hour = 0;
 
@@ -226,6 +234,7 @@ int32_t parseTimezone(char* str, int64_t* tzOffset) {
 
   return 0;
 }
+#endif
 
 int32_t parseTimeWithTz(char* timestr, int64_t* time, int32_t timePrec, char delim) {
 
@@ -237,9 +246,9 @@ int32_t parseTimeWithTz(char* timestr, int64_t* time, int32_t timePrec, char del
 
   char* str;
   if (delim == 'T') {
-    str = strptime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
   } else if (delim == 0) {
-    str = strptime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
   } else {
     str = NULL;
   }
@@ -320,9 +329,9 @@ int32_t parseLocaltime(char* timestr, int64_t* time, int32_t timePrec, char deli
 
   char* str;
   if (delim == 'T') {
-    str = strptime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
   } else if (delim == 0) {
-    str = strptime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
   } else {
     str = NULL;
   }
@@ -362,9 +371,9 @@ int32_t parseLocaltimeWithDst(char* timestr, int64_t* time, int32_t timePrec, ch
 
   char* str;
   if (delim == 'T') {
-    str = strptime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%dT%H:%M:%S", &tm);
   } else if (delim == 0) {
-    str = strptime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
+    str = toolsStrpTime(timestr, "%Y-%m-%d %H:%M:%S", &tm);
   } else {
     str = NULL;
   }
