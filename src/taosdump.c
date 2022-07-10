@@ -53,6 +53,7 @@
 #define BUFFER_LEN              256             // use 256 as normal buffer length
 #define MAX_FILE_NAME_LEN       256             // max file name length on Linux is 255
 #define MAX_PATH_LEN            4096            // max path length on Linux is 4095
+#define WS_VALUE_BUF_LEN        4096
 #define COMMAND_SIZE            65536
 #define MAX_RECORDS_PER_REQ     32766
 
@@ -243,8 +244,8 @@ typedef struct {
     TableRecord tableRecord;
 } TableRecordInfo;
 
-#define STRICT_LEN      16 
-#define DURATION_LEN    16 
+#define STRICT_LEN      16
+#define DURATION_LEN    16
 #define KEEPLIST_LEN    48
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
@@ -1365,18 +1366,19 @@ static int getDbCountWS(WS_RES *result) {
 
         uint8_t colType;
         uint32_t length;
-        char buffer[4096];
+        char buffer[WS_VALUE_BUF_LEN];
 
         for (int row = 0; row < rows; row++) {
             const void *value = ws_get_value_in_block(result, row,
                     TSDB_SHOW_DB_NAME_INDEX,
                     &colType, &length);
             if (NULL == value) {
-                errorPrint("%s error!\n", "ws_get_value_in_block()");
+                errorPrint("row: %d, ws_get_value_in_block() error!\n",
+                        row);
                 continue;
             }
 
-            memset(buffer, 0, 4096);
+            memset(buffer, 0, WS_VALUE_BUF_LEN);
             memcpy(buffer, value, length);
             debugPrint("%s() LN%d, dbname: %s\n", __func__, __LINE__, buffer);
 
@@ -7294,13 +7296,13 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
             const void *data = NULL;
             code = ws_fetch_block(ws_res, &data, &rows);
 
-            uint8_t colType;
-            uint32_t len;
-            char tmp[BUFFER_LEN-12];
-
             if (0 == rows) {
                 break;
             }
+
+            uint8_t colType;
+            uint32_t len;
+            char tmp[BUFFER_LEN-12];
 
             for (int row = 0; row < rows; row ++) {
                 const void *value0 = ws_get_value_in_block(
@@ -7367,7 +7369,7 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        // TODO: 
+        // TODO:
         snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", "ws unknown");
         // TODO: ws_taos_get_server_info(taos));
     } else {
@@ -7401,7 +7403,6 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
                 g_args.loose_mode?"true":"false");
     fwrite(buffer, strlen(buffer), 1, fp);
 
-    
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         dumpExtraInfoVarWS(taos, fp);
@@ -8348,21 +8349,194 @@ static bool checkOutDir(char *outpath)
     return ret;
 }
 
-static bool fillDBInfoWithFields(const int no,
+#ifdef WEBSOCKET
+static bool fillDBInfoWithFieldsWS_V2(const int index,
+        const struct WS_FIELD_V2 *fields, const int row,
+        const int fieldCount, WS_RES *res) {
+    uint8_t type;
+    uint32_t len;
+    char tmp[WS_VALUE_BUF_LEN];
+
+    for (int f = 0; f < fieldCount; f++) {
+        const void *value = ws_get_value_in_block(
+                res, row, f, &type, &len);
+        if (0 == strcmp(fields[f].name, "name")) {
+            if (NULL == value) {
+                errorPrint("%s() LN%d, row: %d, field: %d,ws_get_value_in_block error!\n",
+                        __func__, __LINE__, row, f);
+                return false;
+            } else {
+                memset(tmp, 0, 4096);
+                memcpy(tmp, value, len);
+                strncpy(g_dbInfos[index]->name,
+                        tmp, len);
+            }
+        } else if (0 == strcmp(fields[f].name, "vgroups")) {
+            if (TSDB_DATA_TYPE_INT == type) {
+                g_dbInfos[index]->vgroups = *((int32_t *)value);
+            } else if (TSDB_DATA_TYPE_SMALLINT == type) {
+                g_dbInfos[index]->vgroups = *((int16_t *)value);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "ntables")) {
+            if (TSDB_DATA_TYPE_INT == type) {
+                g_dbInfos[index]->ntables = *((int32_t *)value);
+            } else if (TSDB_DATA_TYPE_BIGINT == type) {
+                g_dbInfos[index]->ntables = *((int64_t *)value);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "replica")) {
+            if (TSDB_DATA_TYPE_TINYINT == type) {
+                g_dbInfos[index]->replica = *((int8_t *)value);
+            } else if (TSDB_DATA_TYPE_SMALLINT == type) {
+                g_dbInfos[index]->replica = *((int16_t *)value);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "strict")) {
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memcpy(tmp, value, len);
+            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    tmp, len);
+            strncpy(g_dbInfos[index]->strict,
+                    tmp,
+                    min(STRICT_LEN, len));
+        } else if (0 == strcmp(fields[f].name, "quorum")) {
+            g_dbInfos[index]->quorum =
+                *((int16_t *)value);
+        } else if (0 == strcmp(fields[f].name, "days")) {
+            g_dbInfos[index]->days = *((int16_t *)value);
+        } else if ((0 == strcmp(fields[f].name, "keep"))
+                || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memcpy(tmp, value, len);
+            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    tmp, len);
+            strncpy(g_dbInfos[index]->keeplist,
+                    tmp,
+                    min(KEEPLIST_LEN, len));
+        } else if (0 == strcmp(fields[f].name, "duration")) {
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memcpy(tmp, value, len);
+            debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    tmp, len);
+            tstrncpy(g_dbInfos[index]->duration,
+                    tmp,
+                    min(DURATION_LEN, len));
+        } else if ((0 == strcmp(fields[f].name, "cache"))
+                || (0 == strcmp(fields[f].name, "cache(MB)"))) {
+            g_dbInfos[index]->cache = *((int32_t *)value);
+        } else if (0 == strcmp(fields[f].name, "blocks")) {
+            g_dbInfos[index]->blocks = *((int32_t *)value);
+        } else if (0 == strcmp(fields[f].name, "minrows")) {
+            if (TSDB_DATA_TYPE_INT == type) {
+                g_dbInfos[index]->minrows = *((int32_t *)value);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "maxrows")) {
+            if (TSDB_DATA_TYPE_INT == type) {
+                g_dbInfos[index]->maxrows = *((int32_t *)value);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "wallevel")) {
+            g_dbInfos[index]->wallevel = *((int8_t *)value);
+        } else if (0 == strcmp(fields[f].name, "wal")) {
+            if (TSDB_DATA_TYPE_TINYINT == type) {
+                g_dbInfos[index]->wal = *((int8_t *)value);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "fsync")) {
+            if (TSDB_DATA_TYPE_INT == type) {
+                g_dbInfos[index]->fsync = *((int32_t *)value);
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "comp")) {
+            if (TSDB_DATA_TYPE_TINYINT == type) {
+                g_dbInfos[index]->comp = (int8_t)(*((int8_t *)value));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "cachelast")) {
+            if (TSDB_DATA_TYPE_TINYINT == type) {
+                g_dbInfos[index]->cachelast = (int8_t)(*((int8_t *)value));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "cache_model")) {
+            if (TSDB_DATA_TYPE_TINYINT == type) {
+                g_dbInfos[index]->cache_model = (int8_t)(*((int8_t*)value));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
+            if (TSDB_DATA_TYPE_BOOL == type) {
+                g_dbInfos[index]->single_stable_model =
+                    (bool)(*((bool*)value));
+            } else {
+                errorPrint("%s() LN%d, unexpected type: %d\n",
+                        __func__, __LINE__, type);
+                return false;
+            }
+        } else if (0 == strcmp(fields[f].name, "precision")) {
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memcpy(tmp, value, len);
+            strncpy(g_dbInfos[index]->precision,
+                    tmp,
+                    min(len, DB_PRECISION_LEN));
+        } else if (0 == strcmp(fields[f].name, "update")) {
+            g_dbInfos[index]->update = *((int8_t *)value);
+        }
+    }
+
+    return true;
+}
+
+#endif // WEBSOCKET
+      //
+static bool fillDBInfoWithFields(const int index,
         const TAOS_FIELD *fields, const TAOS_ROW row,
         const int *lengths, int fieldCount) {
     for (int f = 0; f < fieldCount; f++) {
         if (0 == strcmp(fields[f].name, "name")) {
-            tstrncpy(g_dbInfos[no]->name,
+            tstrncpy(g_dbInfos[index]->name,
                     (char *)row[f],
                     min(TSDB_DB_NAME_LEN,
                         lengths[f] + 1));
 
         } else if (0 == strcmp(fields[f].name, "vgroups")) {
             if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                g_dbInfos[no]->vgroups = *((int32_t *)row[f]);
+                g_dbInfos[index]->vgroups = *((int32_t *)row[f]);
             } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
-                g_dbInfos[no]->vgroups = *((int16_t *)row[f]);
+                g_dbInfos[index]->vgroups = *((int16_t *)row[f]);
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8370,9 +8544,9 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "ntables")) {
             if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                g_dbInfos[no]->ntables = *((int32_t *)row[f]);
+                g_dbInfos[index]->ntables = *((int32_t *)row[f]);
             } else if (TSDB_DATA_TYPE_BIGINT == fields[f].type) {
-                g_dbInfos[no]->ntables = *((int64_t *)row[f]);
+                g_dbInfos[index]->ntables = *((int64_t *)row[f]);
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8380,9 +8554,9 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "replica")) {
             if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                g_dbInfos[no]->replica = *((int8_t *)row[f]);
+                g_dbInfos[index]->replica = *((int8_t *)row[f]);
             } else if (TSDB_DATA_TYPE_SMALLINT == fields[f].type) {
-                g_dbInfos[no]->replica = *((int16_t *)row[f]);
+                g_dbInfos[index]->replica = *((int16_t *)row[f]);
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8392,37 +8566,37 @@ static bool fillDBInfoWithFields(const int no,
             debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                     __func__, __LINE__, f,
                     (char*)row[f], lengths[f]);
-            tstrncpy(g_dbInfos[no]->strict,
+            tstrncpy(g_dbInfos[index]->strict,
                     (char *)row[f],
                     min(STRICT_LEN, lengths[f] + 1));
         } else if (0 == strcmp(fields[f].name, "quorum")) {
-            g_dbInfos[no]->quorum =
+            g_dbInfos[index]->quorum =
                 *((int16_t *)row[f]);
         } else if (0 == strcmp(fields[f].name, "days")) {
-            g_dbInfos[no]->days = *((int16_t *)row[f]);
+            g_dbInfos[index]->days = *((int16_t *)row[f]);
         } else if ((0 == strcmp(fields[f].name, "keep"))
                 || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
             debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                     __func__, __LINE__, f,
                     (char*)row[f], lengths[f]);
-            tstrncpy(g_dbInfos[no]->keeplist,
+            tstrncpy(g_dbInfos[index]->keeplist,
                     (char *)row[f],
                     min(KEEPLIST_LEN, lengths[f] + 1));
         } else if (0 == strcmp(fields[f].name, "duration")) {
             debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
                     __func__, __LINE__, f,
                     (char*)row[f], lengths[f]);
-            tstrncpy(g_dbInfos[no]->duration,
+            tstrncpy(g_dbInfos[index]->duration,
                     (char *)row[f],
                     min(DURATION_LEN, lengths[f] + 1));
         } else if ((0 == strcmp(fields[f].name, "cache"))
                 || (0 == strcmp(fields[f].name, "cache(MB)"))) {
-            g_dbInfos[no]->cache = *((int32_t *)row[f]);
+            g_dbInfos[index]->cache = *((int32_t *)row[f]);
         } else if (0 == strcmp(fields[f].name, "blocks")) {
-            g_dbInfos[no]->blocks = *((int32_t *)row[f]);
+            g_dbInfos[index]->blocks = *((int32_t *)row[f]);
         } else if (0 == strcmp(fields[f].name, "minrows")) {
             if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                g_dbInfos[no]->minrows = *((int32_t *)row[f]);
+                g_dbInfos[index]->minrows = *((int32_t *)row[f]);
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8430,17 +8604,17 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "maxrows")) {
             if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                g_dbInfos[no]->maxrows = *((int32_t *)row[f]);
+                g_dbInfos[index]->maxrows = *((int32_t *)row[f]);
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
                 return false;
             }
         } else if (0 == strcmp(fields[f].name, "wallevel")) {
-            g_dbInfos[no]->wallevel = *((int8_t *)row[f]);
+            g_dbInfos[index]->wallevel = *((int8_t *)row[f]);
         } else if (0 == strcmp(fields[f].name, "wal")) {
             if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                g_dbInfos[no]->wal = *((int8_t *)row[f]);
+                g_dbInfos[index]->wal = *((int8_t *)row[f]);
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8448,7 +8622,7 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "fsync")) {
             if (TSDB_DATA_TYPE_INT == fields[f].type) {
-                g_dbInfos[no]->fsync = *((int32_t *)row[f]);
+                g_dbInfos[index]->fsync = *((int32_t *)row[f]);
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8456,7 +8630,7 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "comp")) {
             if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                g_dbInfos[no]->comp = (int8_t)(*((int8_t *)row[f]));
+                g_dbInfos[index]->comp = (int8_t)(*((int8_t *)row[f]));
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8464,7 +8638,7 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "cachelast")) {
             if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                g_dbInfos[no]->cachelast = (int8_t)(*((int8_t *)row[f]));
+                g_dbInfos[index]->cachelast = (int8_t)(*((int8_t *)row[f]));
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8472,7 +8646,7 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "cache_model")) {
             if (TSDB_DATA_TYPE_TINYINT == fields[f].type) {
-                g_dbInfos[no]->cache_model = (int8_t)(*((int8_t*)row[f]));
+                g_dbInfos[index]->cache_model = (int8_t)(*((int8_t*)row[f]));
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -8480,45 +8654,123 @@ static bool fillDBInfoWithFields(const int no,
             }
         } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
             if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
-                g_dbInfos[no]->single_stable_model = (bool)(*((bool*)row[f]));
+                g_dbInfos[index]->single_stable_model = (bool)(*((bool*)row[f]));
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
                 return false;
             }
         } else if (0 == strcmp(fields[f].name, "precision")) {
-            tstrncpy(g_dbInfos[no]->precision,
+            tstrncpy(g_dbInfos[index]->precision,
                     (char *)row[f],
                     min(lengths[f] + 1, DB_PRECISION_LEN));
         } else if (0 == strcmp(fields[f].name, "update")) {
-            g_dbInfos[no]->update = *((int8_t *)row[f]);
+            g_dbInfos[index]->update = *((int8_t *)row[f]);
         }
     }
 
     return true;
 }
 
+#ifdef WEBSOCKET
 static int fillDbInfoWS(void *taos) {
-    int dbCount = 0;
+    int ret = 0;
+    int dbIndex = 0;
 
     char command[COMMAND_SIZE];
     sprintf(command, "SHOW DATABASES");
 
-    WS_RES *ws_result = ws_query(taos, command);
-    int32_t code = ws_query_errno(ws_result);
+    WS_RES *ws_res = ws_query(taos, command);
+    int32_t code = ws_query_errno(ws_res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
-                __func__, __LINE__, command, ws_query_errstr(ws_result));
+                __func__, __LINE__, command, ws_query_errstr(ws_res));
         return -1;
+    } else {
+        int fieldCount = ws_num_of_fields(ws_res);
+        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+
+        while(true) {
+            int rows = 0;
+            const void *data = NULL;
+            code = ws_fetch_block(ws_res, &data, &rows);
+
+            if (0 == rows) {
+                break;
+            }
+
+            uint8_t colType;
+            uint32_t len;
+            char buffer[WS_VALUE_BUF_LEN];
+
+            for (int row = 0; row < rows; row ++) {
+                const void *value0 = ws_get_value_in_block(ws_res, row,
+                        TSDB_SHOW_DB_NAME_INDEX,
+                        &colType, &len);
+                if (NULL == value0) {
+                    errorPrint("row: %d, ws_get_value_in_block() error!\n",
+                            row);
+                    continue;
+                }
+                memset(buffer, 0, WS_VALUE_BUF_LEN);
+                memcpy(buffer, value0, len);
+                debugPrint("%s() LN%d, dbname: %s\n",
+                        __func__, __LINE__, buffer);
+
+                if (isSystemDatabase(buffer, len)) {
+                    if (!g_args.allow_sys) {
+                        continue;
+                    }
+                } else if (g_args.databases) {
+                    if (inDatabasesSeq(buffer, len) != 0) {
+                        continue;
+                    }
+                } else if (!g_args.all_databases) {
+                    if (strcmp(g_args.arg_list[0], buffer)) {
+                        continue;
+                    }
+                }
+
+                g_dbInfos[dbIndex] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
+                if (NULL == g_dbInfos[dbIndex]) {
+                    errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                            __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
+                    ret = -1;
+                    break;
+                }
+
+                okPrint("Database: %s exists\n", buffer);
+                if (false == fillDBInfoWithFieldsWS_V2(dbIndex,
+                            ws_fields, row, fieldCount, ws_res)) {
+                    ret = -1;
+                    break;
+                }
+
+                dbIndex ++;
+
+                if (g_args.databases) {
+                    if (dbIndex > g_args.dumpDbCount)
+                        break;
+                } else if (!g_args.all_databases) {
+                    if (dbIndex >= 1)
+                        break;
+                }
+            }
+        }
     }
 
-    ws_free_result(ws_result);
+    ws_free_result(ws_res);
+    if (0 != ret) {
+        return ret;
+    }
 
-    return dbCount;
+    return dbIndex;
 }
+#endif // WEBSOCKET
 
 static int fillDbInfo(void *taos) {
-    int dbCount = 0;
+    int ret = 0;
+    int dbIndex = 0;
 
     char command[COMMAND_SIZE];
     sprintf(command, "SHOW DATABASES");
@@ -8528,7 +8780,7 @@ static int fillDbInfo(void *taos) {
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(result));
-        dbCount = -1;
+        ret = -1;
     } else {
         TAOS_ROW row;
         TAOS_FIELD *fields = taos_fetch_fields(result);
@@ -8555,43 +8807,45 @@ static int fillDbInfo(void *taos) {
                 }
             }
 
-            g_dbInfos[dbCount] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
-            if (NULL == g_dbInfos[dbCount]) {
+            g_dbInfos[dbIndex] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
+            if (NULL == g_dbInfos[dbIndex]) {
                 errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
                         __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
-                dbCount = -1;
+                ret = -1;
                 break;
             }
 
-            okPrint("Database:%s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
+            okPrint("Database: %s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
 
-            if (false == fillDBInfoWithFields(dbCount,
+            if (false == fillDBInfoWithFields(dbIndex,
                         fields, row, lengths, fieldCount)) {
-                dbCount = -1;
+                ret = -1;
                 break;
             }
 
-            dbCount++;
+            dbIndex ++;
 
             if (g_args.databases) {
-                if (dbCount > g_args.dumpDbCount)
+                if (dbIndex > g_args.dumpDbCount)
                     break;
             } else if (!g_args.all_databases) {
-                if (dbCount >= 1)
+                if (dbIndex >= 1)
                     break;
             }
         }
     }
 
     taos_free_result(result);
-    return dbCount;
+    if (0 != ret) {
+        return ret;
+    }
+
+    return dbIndex;
 }
 
 static int dumpOut() {
     int ret = 0;
     TAOS     *taos       = NULL;
-
-    int32_t   code;
 
     FILE *fp = NULL;
     int32_t dbCount = 0;
@@ -8634,7 +8888,7 @@ static int dumpOut() {
 
     if (g_args.cloud || g_args.restful) {
         ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
-        code = ws_connect_errno(ws_taos);
+        int32_t code = ws_connect_errno(ws_taos);
         if (code) {
             errorPrint("Failed to connect to TDengine %s, reason: %s!\n", g_args.cloudDsn, ws_connect_errstr(ws_taos));
             ws_close(ws_taos);
