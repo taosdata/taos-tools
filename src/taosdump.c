@@ -1344,7 +1344,7 @@ static int inDatabasesSeq(
 }
 
 #ifdef WEBSOCKET
-static int getDbCountWS(WS_RS *result) {
+static int getDbCountWS(WS_RES *result) {
     int count = 0;
     int32_t code;
 
@@ -1447,7 +1447,7 @@ static int getDumpDbCount() {
 
 #ifdef WEBSOCKET
     WS_TAOS  *ws_taos = NULL;
-    WS_RS    *ws_result;
+    WS_RES   *ws_result;
     /* Connect to server */
     if (g_args.cloud || g_args.restful) {
         ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
@@ -7279,7 +7279,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 
     int32_t code;
 
-    WS_RS *ws_res = ws_query(taos, sqlstr);
+    WS_RES *ws_res = ws_query(taos, sqlstr);
 
     code = ws_query_errno(ws_res);
     if (0 != code) {
@@ -8504,7 +8504,7 @@ static int fillDbInfoWS(void *taos) {
     char command[COMMAND_SIZE];
     sprintf(command, "SHOW DATABASES");
 
-    WS_RS *ws_result = ws_query(taos, command);
+    WS_RES *ws_result = ws_query(taos, command);
     int32_t code = ws_query_errno(ws_result);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
