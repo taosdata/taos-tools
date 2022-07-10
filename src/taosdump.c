@@ -8498,18 +8498,101 @@ static bool fillDBInfoWithFields(const int no,
     return true;
 }
 
-static int dumpOut() {
-    TAOS     *taos       = NULL;
-    TAOS_RES *result     = NULL;
+static int fillDbInfoWS(void *taos) {
+    int dbCount = 0;
 
-#ifdef WEBSOCKET
-    WS_TAOS  *ws_taos    = NULL;
-    WS_RS    *ws_result;
-#endif
+    char command[COMMAND_SIZE];
+    sprintf(command, "SHOW DATABASES");
+
+    WS_RS *ws_result = ws_query(taos, command);
+    int32_t code = ws_query_errno(ws_result);
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                __func__, __LINE__, command, ws_query_errstr(ws_result));
+        return -1;
+    }
+
+    ws_free_result(ws_result);
+
+    return dbCount;
+}
+
+static int fillDbInfo(void *taos) {
+    int dbCount = 0;
+
+    char command[COMMAND_SIZE];
+    sprintf(command, "SHOW DATABASES");
+
+    TAOS_RES *result = taos_query(taos, command);
+    int32_t code = taos_errno(result);
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                __func__, __LINE__, command, taos_errstr(result));
+        dbCount = -1;
+    } else {
+        TAOS_ROW row;
+        TAOS_FIELD *fields = taos_fetch_fields(result);
+        int fieldCount = taos_field_count(result);
+
+        while ((row = taos_fetch_row(result)) != NULL) {
+            int32_t* lengths = taos_fetch_lengths(result);
+            if (isSystemDatabase(
+                        row[TSDB_SHOW_DB_NAME_INDEX],
+                        lengths[TSDB_SHOW_DB_NAME_INDEX])) {
+                if (!g_args.allow_sys) {
+                    continue;
+                }
+            } else if (g_args.databases) {
+                if (inDatabasesSeq(
+                            (char *)row[TSDB_SHOW_DB_NAME_INDEX],
+                            lengths[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
+                    continue;
+                }
+            } else if (!g_args.all_databases) {
+                if (strcmp(g_args.arg_list[0],
+                            (char *)row[TSDB_SHOW_DB_NAME_INDEX])) {
+                    continue;
+                }
+            }
+
+            g_dbInfos[dbCount] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
+            if (NULL == g_dbInfos[dbCount]) {
+                errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                        __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
+                dbCount = -1;
+                break;
+            }
+
+            okPrint("Database:%s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
+
+            if (false == fillDBInfoWithFields(dbCount,
+                        fields, row, lengths, fieldCount)) {
+                dbCount = -1;
+                break;
+            }
+
+            dbCount++;
+
+            if (g_args.databases) {
+                if (dbCount > g_args.dumpDbCount)
+                    break;
+            } else if (!g_args.all_databases) {
+                if (dbCount >= 1)
+                    break;
+            }
+        }
+    }
+
+    taos_free_result(result);
+    return dbCount;
+}
+
+static int dumpOut() {
+    int ret = 0;
+    TAOS     *taos       = NULL;
 
     int32_t   code;
 
-    TAOS_ROW row;
     FILE *fp = NULL;
     int32_t dbCount = 0;
 
@@ -8541,18 +8624,21 @@ static int dumpOut() {
     if (NULL == g_dbInfos) {
         errorPrint("%s() LN%d, failed to allocate memory\n",
                 __func__, __LINE__);
+        ret = -1;
         goto _exit_failure;
     }
 
     /* Connect to server and dump extra info*/
-    int ret;
 #ifdef WEBSOCKET
+    WS_TAOS  *ws_taos    = NULL;
+
     if (g_args.cloud || g_args.restful) {
         ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
         code = ws_connect_errno(ws_taos);
         if (code) {
             errorPrint("Failed to connect to TDengine %s, reason: %s!\n", g_args.cloudDsn, ws_connect_errstr(ws_taos));
             ws_close(ws_taos);
+            ret = -1;
             goto _exit_failure;
         }
 
@@ -8561,12 +8647,15 @@ static int dumpOut() {
         if (ret < 0) {
             goto _exit_failure;
         }
+
+        dbCount = fillDbInfoWS(ws_taos);
     } else {
 #endif
         taos = taos_connect(g_args.host, g_args.user, g_args.password,
                 NULL, g_args.port);
         if (NULL == taos) {
             errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+            ret = -1;
             goto _exit_failure;
         }
 
@@ -8575,87 +8664,15 @@ static int dumpOut() {
         if (ret < 0) {
             goto _exit_failure;
         }
+
+        dbCount = fillDbInfo(taos);
 #ifdef WEBSOCKET
     }
 #endif
 
-    /* --------------------------------- Main Code -------------------------------- */
-    char command[COMMAND_SIZE];
-    sprintf(command, "SHOW DATABASES");
-
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        ws_result = ws_query(ws_taos, command);
-        code = ws_query_errno(ws_result);
-        if (code != 0) {
-            errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
-                    __func__, __LINE__, command, ws_query_errstr(ws_result));
-            goto _exit_failure;
-        }
-    } else {
-#endif
-        result = taos_query(taos, command);
-        code = taos_errno(result);
-        if (code != 0) {
-            errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
-                    __func__, __LINE__, command, taos_errstr(result));
-            goto _exit_failure;
-        }
-#ifdef WEBSOCKET
-    }
-#endif
-
-    TAOS_FIELD *fields = taos_fetch_fields(result);
-    int fieldCount = taos_field_count(result);
-
-    while ((row = taos_fetch_row(result)) != NULL) {
-        int32_t* lengths = taos_fetch_lengths(result);
-        if (isSystemDatabase(
-                    row[TSDB_SHOW_DB_NAME_INDEX],
-                    lengths[TSDB_SHOW_DB_NAME_INDEX])) {
-            if (!g_args.allow_sys) {
-                continue;
-            }
-        } else if (g_args.databases) {
-            if (inDatabasesSeq(
-                        (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        lengths[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
-                continue;
-            }
-        } else if (!g_args.all_databases) {
-            if (strcmp(g_args.arg_list[0],
-                        (char *)row[TSDB_SHOW_DB_NAME_INDEX])) {
-                continue;
-            }
-        }
-
-        g_dbInfos[dbCount] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
-        if (NULL == g_dbInfos[dbCount]) {
-            errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
-                    __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
-            goto _exit_failure;
-        }
-
-        okPrint("Database:%s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
-
-        if (false == fillDBInfoWithFields(dbCount,
-                    fields, row, lengths, fieldCount)) {
-            goto _exit_failure;
-        }
-
-        dbCount++;
-
-        if (g_args.databases) {
-            if (dbCount > g_args.dumpDbCount)
-                break;
-        } else if (!g_args.all_databases) {
-            if (dbCount >= 1)
-                break;
-        }
-    }
-
-    if (dbCount == 0) {
+    if (dbCount <= 0) {
         errorPrint("%d databases valid to dump\n", dbCount);
+        ret = -1;
         goto _exit_failure;
     }
 
@@ -8730,21 +8747,31 @@ static int dumpOut() {
     }
 
     /* Close the handle and return */
-    fclose(fp);
-    taos_free_result(result);
-    taos_close(taos);
-    freeDbInfos();
-    okPrint("%" PRId64 " row(s) dumped out!\n", g_totalDumpOutRows);
-    g_resultStatistics.totalRowsOfDumpOut += g_totalDumpOutRows;
-    return 0;
+    ret = 0;
 
 _exit_failure:
-    fclose(fp);
-    taos_free_result(result);
-    taos_close(taos);
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ws_close(ws_taos);
+    } else {
+#endif
+        taos_close(taos);
+#ifdef WEBSOCKET
+    }
+#endif
     freeDbInfos();
-    errorPrint("%" PRId64 " row(s) dumped out!\n", g_totalDumpOutRows);
-    return -1;
+    fclose(fp);
+    if (0 == ret) {
+        okPrint("%" PRId64 " row(s) dumped out!\n",
+                g_totalDumpOutRows);
+        g_resultStatistics.totalRowsOfDumpOut +=
+            g_totalDumpOutRows;
+    } else {
+        errorPrint("%" PRId64 " row(s) dumped out!\n",
+                g_totalDumpOutRows);
+    }
+
+    return ret;
 }
 
 #ifdef WEBSOCKET
