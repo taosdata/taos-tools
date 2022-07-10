@@ -119,9 +119,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         ENDIF()
         ADD_DEFINITIONS(-DLINUX)
         EXECUTE_PROCESS (
-            COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
-            OUTPUT_VARIABLE OS_ID
-            )
+                COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+                OUTPUT_VARIABLE OS_ID
+        )
     ELSE ()
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
@@ -163,7 +163,11 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         IF (${OS_ID} MATCHES "alpine")
             MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp)
-            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson os)
+            IF(${TDENGINE_3})
+                TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson os)
+            ELSE()
+                TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson)
+            ENDIF()
         ELSEIF(${OS_ID} MATCHES "Darwin")
             ADD_LIBRARY(argp STATIC IMPORTED)
             IF (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
@@ -173,7 +177,11 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 SET_PROPERTY(TARGET argp PROPERTY IMPORTED_LOCATION "/usr/local/lib/libargp.a")
                 INCLUDE_DIRECTORIES(/usr/local/include/include/)
             ENDIF ()
-            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp os)
+            IF(${TDENGINE_3})
+                TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp)
+            ELSE()
+                TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp os)
+            ENDIF()
         ElSE ()
             MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread)
@@ -213,9 +221,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ENDIF()
 
             EXECUTE_PROCESS (
-                COMMAND gcc -print-file-name=libstdc++.a
-                OUTPUT_VARIABLE LIBSTDCXX_PATH
-                )
+                    COMMAND gcc -print-file-name=libstdc++.a
+                    OUTPUT_VARIABLE LIBSTDCXX_PATH
+            )
 
             STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
             MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
@@ -227,8 +235,12 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ELSE()
                 TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread)
             ENDIF()
+            IF (${TDENGINE_3})
+                TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson os)
+            ELSE()
+                TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson)
+            ENDIF()
 
-            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson os)
         ENDIF ()
 
     ENDIF ()
@@ -237,9 +249,9 @@ ELSE ()
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
     IF (${TDENGINE_3})
         ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson os)
     ELSE()
         ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson)
     ENDIF()
-    TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson os)
 ENDIF ()
-
