@@ -1202,10 +1202,166 @@ static void freeDbInfos() {
     tfree(g_dbInfos);
 }
 
-// check table is normal table or super table
-static int getTableRecordInfo(
+#ifdef WEBSOCKET
+static int getTableRecordInfoWSImpl(
+        char *dbName,
+        char *table, TableRecordInfo *pTableRecordInfo,
+        bool tryStable) {
+
+    WS_TAOS *ws_taos = NULL;
+    WS_RES  *ws_res;
+    int32_t code;
+
+    ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
+    code = ws_connect_errno(ws_taos);
+    if (code) {
+        errorPrint("Failed to connector to TDengine %s, reason: %s!\n",
+                g_args.cloudDsn, ws_connect_errstr(ws_taos));
+        ws_close(ws_taos);
+        return -1;
+    }
+    memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
+
+    char command[COMMAND_SIZE] = {0};
+
+    sprintf(command, "USE %s", dbName);
+    ws_res = ws_query(ws_taos, command);
+    code = ws_query_errno(ws_res);
+    if (code != 0) {
+        errorPrint("Invalid database %s, reason: %s\n",
+                dbName, ws_query_errstr(ws_res));
+        ws_free_result(ws_res);
+        return 0;
+    }
+
+    if (tryStable) {
+        sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+    } else {
+        sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+    }
+
+    ws_res = ws_query(ws_taos, command);
+    code = ws_query_errno(ws_res);
+
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
+                __func__, __LINE__, command, ws_query_errstr(ws_res));
+        ws_free_result(ws_res);
+        ws_close(ws_taos);
+        return -1;
+    }
+
+    bool isSet = false;
+
+    while (true) {
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(ws_res, &data, &rows);
+        if (code) {
+            errorPrint("%s() LN%d, ws_fetch_block() error. reason: %s!\n",
+                    __func__, __LINE__,
+                    ws_query_errstr(ws_res));
+            ws_free_result(ws_res);
+            ws_close(ws_taos);
+            return 0;
+        }
+
+        if (0 == rows) {
+            break;
+        }
+
+        uint8_t type;
+        uint32_t length;
+        char buffer[WS_VALUE_BUF_LEN];
+
+        for (int row = 0; row < rows; row ++) {
+            const void *value0 = ws_get_value_in_block(ws_res, row,
+                    TSDB_SHOW_DB_NAME_INDEX,
+                    &type, &length);
+            if (NULL == value0) {
+                errorPrint("row: %d, col: %d, ws_get_value_in_block() error!\n",
+                        row, TSDB_SHOW_DB_NAME_INDEX);
+                continue;
+            }
+
+            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memcpy(buffer, value0, length);
+
+            if (0 == strcmp(buffer, table)) {
+                if (tryStable) {
+                    pTableRecordInfo->isStb = true;
+                    tstrncpy(pTableRecordInfo->tableRecord.stable,
+                            buffer,
+                            min(TSDB_TABLE_NAME_LEN, length + 1));
+                    isSet = true;
+                } else {
+                    pTableRecordInfo->isStb = false;
+                    tstrncpy(pTableRecordInfo->tableRecord.name,
+                            buffer,
+                            min(TSDB_TABLE_NAME_LEN,
+                                length + 1));
+                    const void *value1 = ws_get_value_in_block(
+                            ws_res,
+                            row, TSDB_SHOW_TABLES_METRIC_INDEX,
+                            &type, &length);
+                    if (length) {
+                        if (NULL == value1) {
+                            errorPrint("row: %d, col: %d, ws_get_value_in_block() error!\n",
+                                    row, TSDB_SHOW_TABLES_METRIC_INDEX);
+                            break;
+                        }
+
+                        pTableRecordInfo->belongStb = true;
+                        memset(buffer, 0, WS_VALUE_BUF_LEN);
+                        memcpy(buffer, value1, length);
+                        tstrncpy(pTableRecordInfo->tableRecord.stable,
+                                buffer,
+                                min(TSDB_TABLE_NAME_LEN,
+                                    length + 1));
+                    } else {
+                        pTableRecordInfo->belongStb = false;
+                    }
+                    isSet = true;
+                    break;
+                }
+            }
+        }
+
+        if (isSet) {
+            break;
+        }
+    }
+
+    ws_free_result(ws_res);
+    ws_close(ws_taos);
+
+    if (isSet) {
+        return 0;
+    }
+    return -1;
+}
+
+static int getTableRecordInfoWS(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo) {
+    if (0 == getTableRecordInfoWSImpl(
+                dbName, table, pTableRecordInfo, false)) {
+        return 0;
+    } else if (0 == getTableRecordInfoWSImpl(
+                dbName, table, pTableRecordInfo, true)) {
+        return 0;
+    }
+
+    errorPrint("Invalid table/stable %s\n", table);
+    return -1;
+}
+#endif
+
+// check table is normal table or super table
+static int getTableRecordInfoNativeImpl(
+        char *dbName,
+        char *table, TableRecordInfo *pTableRecordInfo,
+        bool tryStable) {
     TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
             dbName, g_args.port);
     if (taos == NULL) {
@@ -1225,12 +1381,17 @@ static int getTableRecordInfo(
     result = taos_query(taos, command);
     int32_t code = taos_errno(result);
     if (code != 0) {
-        errorPrint("invalid database %s, reason: %s\n",
+        errorPrint("Invalid database %s, reason: %s\n",
                 dbName, taos_errstr(result));
+        taos_free_result(result);
         return 0;
     }
 
-    sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+    if (tryStable) {
+        sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+    } else {
+        sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+    }
 
     result = taos_query(taos, command);
     code = taos_errno(result);
@@ -1244,22 +1405,33 @@ static int getTableRecordInfo(
 
     while ((row = taos_fetch_row(result)) != NULL) {
         int32_t* length = taos_fetch_lengths(result);
-        isSet = true;
-        pTableRecordInfo->isStb = false;
-        tstrncpy(pTableRecordInfo->tableRecord.name,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN,
-                    length[TSDB_SHOW_TABLES_NAME_INDEX] + 1));
-        if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
-            pTableRecordInfo->belongStb = true;
-            tstrncpy(pTableRecordInfo->tableRecord.stable,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                    min(TSDB_TABLE_NAME_LEN,
-                        length[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+
+        if (tryStable) {
+            pTableRecordInfo->isStb = true;
+            tstrncpy(pTableRecordInfo->tableRecord.stable, table,
+                    TSDB_TABLE_NAME_LEN);
+            isSet = true;
         } else {
-            pTableRecordInfo->belongStb = false;
+            pTableRecordInfo->isStb = false;
+            tstrncpy(pTableRecordInfo->tableRecord.name,
+                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                    min(TSDB_TABLE_NAME_LEN,
+                        length[TSDB_SHOW_TABLES_NAME_INDEX] + 1));
+            if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
+                pTableRecordInfo->belongStb = true;
+                tstrncpy(pTableRecordInfo->tableRecord.stable,
+                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                        min(TSDB_TABLE_NAME_LEN,
+                            length[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+            } else {
+                pTableRecordInfo->belongStb = false;
+            }
+            isSet = true;
         }
-        break;
+
+        if (isSet) {
+            break;
+        }
     }
 
     taos_free_result(result);
@@ -1269,34 +1441,40 @@ static int getTableRecordInfo(
         return 0;
     }
 
-    sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
-
-    result = taos_query(taos, command);
-    code = taos_errno(result);
-
-    if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
-                __func__, __LINE__, command, taos_errstr(result));
-        taos_free_result(result);
-        return -1;
-    }
-
-    while ((row = taos_fetch_row(result)) != NULL) {
-        isSet = true;
-        pTableRecordInfo->isStb = true;
-        tstrncpy(pTableRecordInfo->tableRecord.stable, table,
-                TSDB_TABLE_NAME_LEN);
-        break;
-    }
-
-    taos_free_result(result);
-    result = NULL;
-
-    if (isSet) {
-        return 0;
-    }
     errorPrint("invalid table/stable %s\n", table);
     return -1;
+}
+
+static int getTableRecordInfoNative(
+        char *dbName,
+        char *table, TableRecordInfo *pTableRecordInfo) {
+    if (0 == getTableRecordInfoNativeImpl(
+                dbName, table, pTableRecordInfo, false)) {
+        return 0;
+    } else if (0 == getTableRecordInfoNativeImpl(
+                dbName, table, pTableRecordInfo, true)) {
+        return 0;
+    }
+
+    errorPrint("Invalid table/stable %s\n", table);
+    return -1;
+}
+
+static int getTableRecordInfo(
+        char *dbName,
+        char *table, TableRecordInfo *pTableRecordInfo) {
+    int ret;
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ret = getTableRecordInfoWS(dbName, table, pTableRecordInfo);
+    } else {
+#endif
+        ret = getTableRecordInfoNative(dbName, table, pTableRecordInfo);
+#ifdef WEBSOCKET
+            
+    }
+#endif
+    return ret;
 }
 
 static bool isSystemDatabase(char *name, int len) {
@@ -1364,14 +1542,14 @@ static int getDbCountWS(WS_RES *result) {
             break;
         }
 
-        uint8_t colType;
+        uint8_t type;
         uint32_t length;
         char buffer[WS_VALUE_BUF_LEN];
 
         for (int row = 0; row < rows; row++) {
             const void *value = ws_get_value_in_block(result, row,
                     TSDB_SHOW_DB_NAME_INDEX,
-                    &colType, &length);
+                    &type, &length);
             if (NULL == value) {
                 errorPrint("row: %d, ws_get_value_in_block() error!\n",
                         row);
@@ -1455,7 +1633,8 @@ static int getDumpDbCount() {
         ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
         code = ws_connect_errno(ws_taos);
         if (code) {
-            errorPrint("Failed to connect to TDengine %s, reason: %s!\n", g_args.cloudDsn, ws_connect_errstr(ws_taos));
+            errorPrint("Failed to connect to TDengine %s, reason: %s!\n",
+                    g_args.cloudDsn, ws_connect_errstr(ws_taos));
             ws_close(ws_taos);
             return 0;
         }
@@ -7300,20 +7479,20 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                 break;
             }
 
-            uint8_t colType;
+            uint8_t type;
             uint32_t len;
             char tmp[BUFFER_LEN-12];
 
             for (int row = 0; row < rows; row ++) {
                 const void *value0 = ws_get_value_in_block(
-                        ws_res, row, 0, &colType, &len);
+                        ws_res, row, 0, &type, &len);
                 memset(tmp, 0, BUFFER_LEN-12);
                 memcpy(tmp, value0, len);
 
                 verbosePrint("%s() LN%d, value0: %s\n", __func__, __LINE__, tmp);
                 if (0 == strcmp(tmp, "charset")) {
                     const void *value1 = ws_get_value_in_block(ws_res, row, 1,
-                            &colType, &len);
+                            &type, &len);
                     memset(tmp, 0, BUFFER_LEN-12);
                     memcpy(tmp, value1, min(BUFFER_LEN-13, len));
                     snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tmp);
@@ -8362,7 +8541,7 @@ static bool fillDBInfoWithFieldsWS_V2(const int index,
                 res, row, f, &type, &len);
         if (0 == strcmp(fields[f].name, "name")) {
             if (NULL == value) {
-                errorPrint("%s() LN%d, row: %d, field: %d,ws_get_value_in_block error!\n",
+                errorPrint("%s() LN%d, row: %d, field: %d, ws_get_value_in_block error!\n",
                         __func__, __LINE__, row, f);
                 return false;
             } else {
@@ -8699,14 +8878,14 @@ static int fillDbInfoWS(void *taos) {
                 break;
             }
 
-            uint8_t colType;
+            uint8_t type;
             uint32_t len;
             char buffer[WS_VALUE_BUF_LEN];
 
             for (int row = 0; row < rows; row ++) {
                 const void *value0 = ws_get_value_in_block(ws_res, row,
                         TSDB_SHOW_DB_NAME_INDEX,
-                        &colType, &len);
+                        &type, &len);
                 if (NULL == value0) {
                     errorPrint("row: %d, ws_get_value_in_block() error!\n",
                             row);
