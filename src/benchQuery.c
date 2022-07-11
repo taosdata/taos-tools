@@ -66,8 +66,12 @@ static void *mixedQuery(void *sarg) {
                 }
             } else {
                 TAOS_RES *res = taos_query(pThreadInfo->taos, sql->command);
-                if (res == NULL) {
-                    errorPrint(stderr, "thread[%d]: failed to execute sql :%s, reason: %s\n",pThreadInfo->threadId, sql->command, taos_errstr(res));
+                if (res == NULL || taos_errno(res) != 0) {
+                    errorPrint(stderr, "thread[%d]: failed to execute sql :%s, code: %d, reason: %s\n",pThreadInfo->threadId, sql->command, taos_errno(res), taos_errstr(res));
+                    //todo: remove magic number
+                    if (-2147483390 == taos_errno(res)) {
+                        return NULL;
+                    }
                     continue;
                 }
             }
