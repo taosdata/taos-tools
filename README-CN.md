@@ -18,13 +18,13 @@ taosdump 是用于备份 TDengine 数据到本地目录和从本地目录恢复�
 #### 对于 Ubuntu/Debian 系统
 
 ```
-sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config
+sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev
 ```
 
 #### 对于 CentOS 7/RHEL 系统
 
 ```
-sudo yum install -y xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static
+sudo yum install -y xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
 ```
 
 #### 对于 CentOS 8/Rocky Linux 系统
@@ -33,7 +33,7 @@ sudo yum install -y xz-devel snappy-devel jansson jansson-devel pkgconfig libato
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
-sudo yum install -y zlib-devel xz-devel csnappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static
+sudo yum install -y zlib-devel xz-devel csnappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
 ```
 
 注意：由于 snappy 缺乏 pkg-config 支持
