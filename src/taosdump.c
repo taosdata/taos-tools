@@ -1213,11 +1213,10 @@ static int getTableRecordInfoWSImpl(
     int32_t code;
 
     ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
-    code = ws_connect_errno(ws_taos);
-    if (code) {
+    if (NULL == ws_taos) {
+        code = ws_errno(ws_taos);
         errorPrint("Failed to connector to TDengine %s, reason: %s!\n",
-                g_args.cloudDsn, ws_connect_errstr(ws_taos));
-        ws_close(ws_taos);
+                g_args.cloudDsn, ws_errstr(ws_taos));
         return -1;
     }
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
@@ -1226,10 +1225,10 @@ static int getTableRecordInfoWSImpl(
 
     sprintf(command, "USE %s", dbName);
     ws_res = ws_query(ws_taos, command);
-    code = ws_query_errno(ws_res);
+    code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
-                dbName, ws_query_errstr(ws_res));
+                dbName, ws_errstr(ws_res));
         ws_free_result(ws_res);
         return 0;
     }
@@ -1241,11 +1240,11 @@ static int getTableRecordInfoWSImpl(
     }
 
     ws_res = ws_query(ws_taos, command);
-    code = ws_query_errno(ws_res);
+    code = ws_errno(ws_res);
 
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
-                __func__, __LINE__, command, ws_query_errstr(ws_res));
+                __func__, __LINE__, command, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_close(ws_taos);
         return -1;
@@ -1260,7 +1259,7 @@ static int getTableRecordInfoWSImpl(
         if (code) {
             errorPrint("%s() LN%d, ws_fetch_block() error. reason: %s!\n",
                     __func__, __LINE__,
-                    ws_query_errstr(ws_res));
+                    ws_errstr(ws_res));
             ws_free_result(ws_res);
             ws_close(ws_taos);
             return 0;
@@ -1522,18 +1521,18 @@ static int inDatabasesSeq(
 }
 
 #ifdef WEBSOCKET
-static int getDbCountWS(WS_RES *result) {
+static int getDbCountWS(WS_RES *ws_res) {
     int count = 0;
     int32_t code;
 
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        code = ws_fetch_block(result, &data, &rows);
+        code = ws_fetch_block(ws_res, &data, &rows);
         if (code) {
             errorPrint("%s() LN%d, ws_fetch_block() error. reason: %s!\n",
                     __func__, __LINE__,
-                    ws_query_errstr(result));
+                    ws_errstr(ws_res));
             return 0;
         }
 
@@ -1546,7 +1545,7 @@ static int getDbCountWS(WS_RES *result) {
         char buffer[WS_VALUE_BUF_LEN];
 
         for (int row = 0; row < rows; row++) {
-            const void *value = ws_get_value_in_block(result, row,
+            const void *value = ws_get_value_in_block(ws_res, row,
                     TSDB_SHOW_DB_NAME_INDEX,
                     &type, &length);
             if (NULL == value) {
@@ -1630,20 +1629,19 @@ static int getDumpDbCount() {
     /* Connect to server */
     if (g_args.cloud || g_args.restful) {
         ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
-        code = ws_connect_errno(ws_taos);
-        if (code) {
+        if (NULL == ws_taos) {
+            code = ws_errno(ws_taos);
             errorPrint("Failed to connect to TDengine %s, reason: %s!\n",
-                    g_args.cloudDsn, ws_connect_errstr(ws_taos));
-            ws_close(ws_taos);
+                    g_args.cloudDsn, ws_errstr(ws_taos));
             return 0;
         }
 
         ws_res = ws_query(ws_taos, command);
-        code = ws_query_errno(ws_res);
+        code = ws_errno(ws_res);
         if (0 != code) {
             errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                     __func__, __LINE__, command,
-                    ws_query_errstr(ws_res)
+                    ws_errstr(ws_res)
                     );
             ws_free_result(ws_res);
             ws_close(ws_taos);
@@ -1682,8 +1680,6 @@ static int getDumpDbCount() {
 
     return count;
 }
-
-
 
 static int dumpCreateMTableClause(
         char* dbName,
@@ -1821,10 +1817,10 @@ static int getTableDesWS(
             dbName, g_escapeChar, table, g_escapeChar);
 
     WS_RES *ws_res = ws_query(ws_taos, sqlstr);
-    int32_t code = ws_query_errno(ws_res);
+    int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>, ws_taos: %p, reason: %s\n",
-                __func__, __LINE__, sqlstr, ws_taos, ws_query_errstr(ws_res));
+                __func__, __LINE__, sqlstr, ws_taos, ws_errstr(ws_res));
         taos_free_result(ws_res);
         return -1;
     } else {
@@ -7599,11 +7595,11 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 
     WS_RES *ws_res = ws_query(taos, sqlstr);
 
-    code = ws_query_errno(ws_res);
+    code = ws_errno(ws_res);
     if (0 != code) {
         warnPrint("failed to run command %s, reason: %s. Will use default settings\n",
-                sqlstr, ws_query_errstr(ws_res));
-        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", ws_query_errstr(ws_res));
+                sqlstr, ws_errstr(ws_res));
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", ws_errstr(ws_res));
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
         fwrite(buffer, strlen(buffer), 1, fp);
     } else {
@@ -8518,11 +8514,9 @@ static int64_t dumpCreateSTableClauseOfDbWS(
         SDbInfo *dbInfo, FILE *fp)
 {
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
-    int32_t code = ws_connect_errno(ws_taos);
-    if (code) {
-        errorPrint("Failed to connect to TDengine %s, reason: %s!\n",
-                g_args.cloudDsn, ws_connect_errstr(ws_taos));
-        ws_close(ws_taos);
+    if (NULL == ws_taos) {
+        errorPrint("Failed to connect to TDengine %s, code: %d, reason: %s!\n",
+                g_args.cloudDsn, ws_errno(ws_taos), ws_errstr(ws_taos));
         return -1;
     }
 
@@ -8531,11 +8525,11 @@ static int64_t dumpCreateSTableClauseOfDbWS(
     sprintf(command, "SHOW %s.STABLES", dbInfo->name);
 
     WS_RES *ws_res = ws_query(ws_taos, command);
-    code = ws_query_errno(ws_res);
+    int32_t code = ws_errno(ws_res);
     if (0 != code) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                 __func__, __LINE__, command,
-                ws_query_errstr(ws_res)
+                ws_errstr(ws_res)
                 );
         ws_free_result(ws_res);
         ws_close(ws_taos);
@@ -9094,10 +9088,10 @@ static int fillDbInfoWS(void *taos) {
     sprintf(command, "SHOW DATABASES");
 
     WS_RES *ws_res = ws_query(taos, command);
-    int32_t code = ws_query_errno(ws_res);
+    int32_t code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
-                __func__, __LINE__, command, ws_query_errstr(ws_res));
+                __func__, __LINE__, command, ws_errstr(ws_res));
         return -1;
     } else {
         int fieldCount = ws_num_of_fields(ws_res);
@@ -9301,10 +9295,9 @@ static int dumpOut() {
 
     if (g_args.cloud || g_args.restful) {
         ws_taos = ws_connect_with_dsn(g_args.cloudDsn);
-        int32_t code = ws_connect_errno(ws_taos);
-        if (code) {
-            errorPrint("Failed to connect to TDengine %s, reason: %s!\n", g_args.cloudDsn, ws_connect_errstr(ws_taos));
-            ws_close(ws_taos);
+        if (NULL == ws_taos) {
+            errorPrint("Failed to connect to TDengine %s, code: %d, reason: %s!\n",
+                    g_args.cloudDsn, ws_errno(ws_taos), ws_errstr(ws_taos));
             ret = -1;
             goto _exit_failure;
         }
