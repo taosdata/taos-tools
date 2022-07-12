@@ -4630,6 +4630,7 @@ static int dumpInAvroDataImpl(
         TAOS_MULTI_BIND *bind;
 
         char is_null = 1;
+        int64_t ts_debug = -1;
         for (int i = 0; i < recordSchema->num_fields-colAdj; i++) {
             bind = (TAOS_MULTI_BIND *)((char *)bindArray
                     + (sizeof(TAOS_MULTI_BIND) * i));
@@ -4657,6 +4658,7 @@ static int dumpInAvroDataImpl(
 
                         avro_value_get_long(&ts_branch, ts);
 
+                        ts_debug = *ts;
                         debugPrint2("%"PRId64" | ", *ts);
                         bind->buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
                         bind->buffer_length = sizeof(int64_t);
@@ -4669,6 +4671,7 @@ static int dumpInAvroDataImpl(
 
                     avro_value_get_long(&field_value, ts);
 
+                    ts_debug = *ts;
                     debugPrint2("%"PRId64" | ", *ts);
                     bind->buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
                     bind->buffer_length = sizeof(int64_t);
@@ -5325,8 +5328,8 @@ static int dumpInAvroDataImpl(
             continue;
         }
         if (0 != taos_stmt_execute(stmt)) {
-            errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt));
+            errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s, timestamp: %"PRId64"\n",
+                    __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
             failed -= stmt_count;
         } else {
             success ++;
