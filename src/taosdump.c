@@ -2610,7 +2610,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
 }
 
 static avro_value_iface_t* prepareAvroWface(
-        char *avroFilename,
+        const char *avroFilename,
         char *jsonSchema,
         avro_schema_t *schema,
         RecordSchema **recordSchema,
@@ -3674,9 +3674,11 @@ static void printDotOrX(int64_t count, bool *printDot)
 
 #ifdef WEBSOCKET
 int64_t queryDbForDumpOutCountWS(
-        char *sqlstr,
+        const char *sqlstr,
         WS_TAOS *ws_taos,
-        char *dbName, char *tbName, int precision)
+        const char *dbName,
+        const char *tbName,
+        const int precision)
 {
     int64_t count = -1;
     WS_RES* ws_res = ws_query(ws_taos, sqlstr);
@@ -3711,9 +3713,11 @@ int64_t queryDbForDumpOutCountWS(
 #endif
 
 int64_t queryDbForDumpOutCountNative(
-        char *sqlstr,
+        const char *sqlstr,
         TAOS *taos,
-        char *dbName, char *tbName, int precision)
+        const char *dbName,
+        const char *tbName,
+        const int precision)
 {
     int64_t count = -1;
 
@@ -3747,8 +3751,11 @@ int64_t queryDbForDumpOutCountNative(
     return count;
 }
 
-int64_t queryDbForDumpOutCount(void *taos,
-        char *dbName, char *tbName, int precision)
+int64_t queryDbForDumpOutCount(
+        void *taos,
+        const char *dbName,
+        const char *tbName,
+        const int precision)
 {
     int64_t count = -1;
     char sqlstr[COMMAND_SIZE] = {0};
@@ -3777,20 +3784,23 @@ int64_t queryDbForDumpOutCount(void *taos,
     return count;
 }
 
-TAOS_RES *queryDbForDumpOutOffset(TAOS *taos,
-        char *dbName, char *tbName, int precision,
-        int64_t start_time, int64_t end_time,
-        int64_t limit,
-        int64_t offset)
-{
-    char sqlstr[COMMAND_SIZE] = {0};
+#ifdef WEBSOCKET
+TAOS_RES *queryDbForDumpOutOffsetWS(
+        WS_TAOS *ws_taos,
+        const char *sqlstr) {
+    WS_RES* ws_res = ws_query(ws_taos, sqlstr);
+    int32_t code = ws_errno(ws_res);
+    if (code) {
+        errorPrint("Failed to run command %s, code: %d, reason: %s\n",
+                sqlstr, code, ws_errstr(ws_res));
+        ws_free_result(ws_res);
+        return NULL;
+    }
+    return ws_res;
+}
+#endif // WEBSOCKET
 
-    sprintf(sqlstr,
-            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
-            dbName, g_escapeChar, tbName, g_escapeChar,
-            start_time, end_time, limit, offset);
-
+TAOS_RES *queryDbForDumpOutOffsetNative(TAOS *taos, const char *sqlstr) {
     TAOS_RES* res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
     if (code != 0) {
@@ -3803,36 +3813,135 @@ TAOS_RES *queryDbForDumpOutOffset(TAOS *taos,
     return res;
 }
 
+void *queryDbForDumpOutOffset(
+        void *taos,
+        const char *dbName,
+        const char *tbName,
+        const int precision,
+        const int64_t start_time,
+        const int64_t end_time,
+        const int64_t limit,
+        const int64_t offset)
+{
+    char sqlstr[COMMAND_SIZE] = {0};
+
+    sprintf(sqlstr,
+            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
+            dbName, g_escapeChar, tbName, g_escapeChar,
+            start_time, end_time, limit, offset);
+    void *res = NULL;
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        res = queryDbForDumpOutOffsetWS(taos, sqlstr);
+    } else {
+#endif
+        res = queryDbForDumpOutOffsetNative(taos, sqlstr);
+#ifdef WEBSOCKET
+    }
+#endif
+    return res;
+}
+
 #ifdef WEBSOCKET
 static int64_t writeResultToAvroWS(
-        char *avroFilename,
-        char *dbName,
-        char *tbName,
+        const char *avroFilename,
+        const char *dbName,
+        const char *tbName,
         char *jsonSchema,
-        void *taos,
-        int precision)
+        WS_TAOS *ws_taos,
+        int precision,
+        int64_t start_time,
+        int64_t end_time
+        )
 {
-    // TODO
-    return -1;
+    int64_t queryCount = queryDbForDumpOutCount(
+            ws_taos, dbName, tbName, precision);
+    if (queryCount <=0) {
+        return 0;
+    }
+
+    avro_schema_t schema;
+    RecordSchema *recordSchema;
+    avro_file_writer_t db;
+
+    avro_value_iface_t *wface = prepareAvroWface(
+            avroFilename,
+            jsonSchema, &schema, &recordSchema, &db);
+
+    int64_t success = 0;
+//    int64_t failed = 0;
+
+//    bool printDot = true;
+
+//    int numFields = -1;
+//    WS_FIELD *fields = NULL;
+
+    int currentPercent = 0;
+    int percentComplete = 0;
+
+    int64_t limit = g_args.data_batch;
+    int64_t offset = 0;
+
+    do {
+        if (queryCount > limit) {
+            if (limit < (queryCount - offset )) {
+                limit = queryCount - offset;
+            }
+        } else {
+            limit = queryCount;
+        }
+
+        WS_RES *ws_res = queryDbForDumpOutOffset(
+                ws_taos, dbName, tbName, precision,
+                start_time, end_time, limit, offset);
+        if (NULL == ws_res) {
+            break;
+        }
+        // TODO
+        break;
+/*
+        numFields = taos_field_count(res);
+
+        fields = taos_fetch_fields(res);
+        assert(fields);
+
+        int32_t countInBatch = 0;
+        TAOS_ROW row;
+
+        while(NULL != (row = taos_fetch_row(res))) {
+            int32_t *length = taos_fetch_lengths(res);
+
+        }
+        */
+        currentPercent = ((offset) * 100 / queryCount);
+        if (currentPercent > percentComplete) {
+            printf("%d%% of %s\n", currentPercent, tbName);
+            percentComplete = currentPercent;
+        }
+    } while (offset < queryCount);
+
+    if (percentComplete < 100) {
+        errorPrint("%d%% of %s\n", percentComplete, tbName);
+    }
+
+    avro_value_iface_decref(wface);
+
+    return success;
 }
 #endif
 
-static int64_t writeResultToAvro(
-        char *avroFilename,
-        char *dbName,
-        char *tbName,
+static int64_t writeResultToAvroNative(
+        const char *avroFilename,
+        const char *dbName,
+        const char *tbName,
         char *jsonSchema,
         void *taos,
-        int precision)
+        int precision,
+        int64_t start_time,
+        int64_t end_time
+        )
 {
-    assert(avroFilename);
-
-    int64_t start_time = getStartTime(precision);
-    int64_t end_time = getEndTime(precision);
-    if ((-1 == start_time) || (-1 == end_time)) {
-        return -1;
-    }
-
     int64_t queryCount = queryDbForDumpOutCount(
             taos, dbName, tbName, precision);
     if (queryCount <=0) {
@@ -3871,7 +3980,7 @@ static int64_t writeResultToAvro(
             limit = queryCount;
         }
 
-        TAOS_RES *res = queryDbForDumpOutOffset(
+        void *res = queryDbForDumpOutOffset(
                 taos, dbName, tbName, precision,
                 start_time, end_time, limit, offset);
         if (NULL == res) {
@@ -6642,7 +6751,9 @@ static int64_t dumpTableDataAvroWS(
         char* dbName,
         int precision,
         int colCount,
-        TableDef *tableDes
+        TableDef *tableDes,
+        int64_t start_time,
+        int64_t end_time
         ) {
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
     if (NULL == ws_taos) {
@@ -6664,7 +6775,8 @@ static int64_t dumpTableDataAvroWS(
     }
 
     int64_t totalRows = writeResultToAvroWS(
-            dataFilename, dbName, tbName, jsonSchema, ws_taos, precision);
+            dataFilename, dbName, tbName, jsonSchema, ws_taos, precision,
+            start_time, end_time);
 
     ws_close(ws_taos);
     tfree(jsonSchema);
@@ -6681,7 +6793,9 @@ static int64_t dumpTableDataAvroNative(
         char* dbName,
         int precision,
         int colCount,
-        TableDef *tableDes
+        TableDef *tableDes,
+        int64_t start_time,
+        int64_t end_time
         ) {
     TAOS *taos = taos_connect(g_args.host,
             g_args.user, g_args.password, dbName, g_args.port);
@@ -6703,8 +6817,9 @@ static int64_t dumpTableDataAvroNative(
         return -1;
     }
 
-    int64_t totalRows = writeResultToAvro(
-            dataFilename, dbName, tbName, jsonSchema, taos, precision);
+    int64_t totalRows = writeResultToAvroNative(
+            dataFilename, dbName, tbName, jsonSchema, taos, precision,
+            start_time, end_time);
 
     taos_close(taos);
     tfree(jsonSchema);
@@ -6736,14 +6851,23 @@ static int64_t dumpTableDataAvro(
     }
 
     int64_t rows;
+
+    int64_t start_time = getStartTime(precision);
+    int64_t end_time = getEndTime(precision);
+    if ((-1 == start_time) || (-1 == end_time)) {
+        return -1;
+    }
+
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         rows = dumpTableDataAvroWS(dataFilename, index, tbName,
-                belongStb, dbName, precision, colCount, tableDes);
+                belongStb, dbName, precision, colCount, tableDes,
+                start_time, end_time);
     } else {
 #endif
         rows = dumpTableDataAvroNative(dataFilename, index, tbName,
-                belongStb, dbName, precision, colCount, tableDes);
+                belongStb, dbName, precision, colCount, tableDes,
+                start_time, end_time);
 #ifdef WEBSOCKET
     }
 #endif
