@@ -210,7 +210,6 @@ jobs:
           sudo pkill -9 taosd || :
 
           echo "TEST: old cases"
-          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest3.py > /dev/null
@@ -231,6 +230,8 @@ jobs:
           then
             for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
+
+          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m"
 
           echo "TEST: taosdemo develop test cases"
           cd ../develop-test
