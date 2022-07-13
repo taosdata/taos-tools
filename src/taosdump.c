@@ -1871,17 +1871,18 @@ static int64_t getNtbCountOfStbNative(char *dbName, char *stbName, const char *c
 #ifdef WEBSOCKET
 static int getTableDesColWS(
         WS_TAOS *ws_taos,
-        char *dbName,
-        char *table,
+        const char *dbName,
+        const char *table,
         TableDef *tableDes,
         int colCount
         ) {
+    // TODO
     return -1;
 }
 
 static int getTableDesWS(
         WS_TAOS *ws_taos,
-        char* dbName, char *table,
+        const char* dbName, const char *table,
         TableDef *tableDes, bool colOnly) {
     int colCount = 0;
     char sqlstr[COMMAND_SIZE];
@@ -1986,7 +1987,7 @@ static int getTableDesWS(
 }
 #endif // WEBSOCKET
 
-static int getTableDesCol(
+static int getTableDesColNative(
         TAOS *taos,
         char *dbName,
         char *table,
@@ -2327,7 +2328,7 @@ static int getTableDes(
     }
 
     // if child-table have tag, using  select tagName from table to get tagValue
-    return getTableDesCol(taos, dbName, table, tableDes, colCount);
+    return getTableDesColNative(taos, dbName, table, tableDes, colCount);
 }
 
 static int convertTableDesToSql(char *dbName,
@@ -5250,48 +5251,48 @@ static int dumpInAvroNtbImpl(
     return success;
 }
 
+static int dumpInAvroDataImpl(
+        void *taos,
+        char *namespace,
+        avro_schema_t schema,
+        avro_file_reader_t reader,
+        RecordSchema *recordSchema,
+        char *fileName)
+{
+    TAOS_STMT *stmt = NULL;
 #ifdef WEBSOCKET
-static int dumpInAvroDataImplWS(
-        WS_TAOS *ws_taos,
-        char *namespace,
-        avro_schema_t schema,
-        avro_file_reader_t reader,
-        RecordSchema *recordSchema,
-        char *fileName)
-{
-    // TODO
-/*    WS_STMT *ws_stmt = ws_stmt_init(ws_taos);
-    if (NULL == ws_stmt) {
-        errorPrint("%s() LN%d, stmt init failed! code: %d, reason: %s\n",
-                __func__, __LINE__, ws_errno(NULL), ws_errstr(NULL));
-        return -1;
+    WS_STMT *ws_stmt = NULL;
+    if (g_args.cloud || g_args.restful) {
+        ws_stmt = ws_stmt_init(taos);
+        if (NULL == ws_stmt) {
+            errorPrint("%s() LN%d, stmt init failed! code: %d, reason: %s\n",
+                    __func__, __LINE__, ws_errno(NULL), ws_errstr(NULL));
+            return -1;
+        }
+    } else {
+#endif
+        stmt = taos_stmt_init(taos);
+        if (NULL == stmt) {
+            errorPrint("%s() LN%d, stmt init failed! reason: %s\n",
+                    __func__, __LINE__, taos_errstr(NULL));
+            return -1;
+        }
+#ifdef WEBSOCKET
     }
-
-    ws_stmt_close(ws_stmt);
-*/
-    return -1;
-}
-#endif // WEBSOCKET
-static int dumpInAvroDataImplNative(
-        TAOS *taos,
-        char *namespace,
-        avro_schema_t schema,
-        avro_file_reader_t reader,
-        RecordSchema *recordSchema,
-        char *fileName)
-{
-    TAOS_STMT *stmt = taos_stmt_init(taos);
-    if (NULL == stmt) {
-        errorPrint("%s() LN%d, stmt init failed! reason: %s\n",
-                __func__, __LINE__, taos_errstr(NULL));
-        return -1;
-    }
-
+#endif
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
     if (NULL == tableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
-        taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            ws_stmt_close(ws_stmt);
+        } else {
+#endif
+            taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+        }
+#endif
         return -1;
     }
 
@@ -5299,14 +5300,22 @@ static int dumpInAvroDataImplNative(
     if (NULL == stmtBuffer) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         free(tableDes);
-        taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            ws_stmt_close(ws_stmt);
+        } else {
+#endif
+            taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+        }
+#endif
         return -1;
     }
 
     char *pstr = stmtBuffer;
     pstr += sprintf(pstr, "INSERT INTO ? VALUES(?");
 
-    int onlyCol = 1; // at least timestamp
+    int32_t onlyCol = 1; // at least timestamp
     for (int col = 1; col < recordSchema->num_fields
             -(g_dumpInLooseModeFlag?0:1); col++) {
         pstr += sprintf(pstr, ",?");
@@ -5316,15 +5325,32 @@ static int dumpInAvroDataImplNative(
     debugPrint("%s() LN%d, stmt buffer: %s\n",
             __func__, __LINE__, stmtBuffer);
 
-    if (0 != taos_stmt_prepare(stmt, stmtBuffer, 0)) {
-        errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
-                taos_stmt_errstr(stmt));
+#ifdef WEBSOCKET
+    int code;
+    if (g_args.cloud || g_args.restful) {
+        if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, 0))) {
+            errorPrint("Failed to execute ws_stmt_prepare(). code: %d, reason: %s\n",
+                    code, ws_errstr(ws_stmt));
 
-        free(stmtBuffer);
-        free(tableDes);
-        taos_stmt_close(stmt);
-        return -1;
+            free(stmtBuffer);
+            free(tableDes);
+            ws_stmt_close(ws_stmt);
+            return -1;
+        }
+    } else {
+#endif
+        if (0 != taos_stmt_prepare(stmt, stmtBuffer, 0)) {
+            errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
+                    taos_stmt_errstr(stmt));
+
+            free(stmtBuffer);
+            free(tableDes);
+            taos_stmt_close(stmt);
+            return -1;
+        }
+#ifdef WEBSOCKET
     }
+#endif
 
     avro_value_iface_t *value_class = avro_generic_class_from_schema(schema);
     avro_value_t value;
@@ -5336,7 +5362,15 @@ static int dumpInAvroDataImplNative(
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         free(stmtBuffer);
         free(tableDes);
-        taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            ws_stmt_close(ws_stmt);
+        } else {
+#endif
+            taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+        }
+#endif
         return -1;
     }
 
@@ -5381,7 +5415,15 @@ static int dumpInAvroDataImplNative(
             free(stmtBuffer);
             free(tableDes);
             tfree(tbName);
-            taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+            if (g_args.cloud || g_args.restful) {
+                ws_stmt_close(ws_stmt);
+            } else {
+#endif
+                taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+            }
+#endif
             return -1;
         }
 
@@ -5391,16 +5433,33 @@ static int dumpInAvroDataImplNative(
         debugPrint("%s() LN%d escaped table: %s\n",
                 __func__, __LINE__, escapedTbName);
 
-        if (0 != taos_stmt_set_tbname(stmt, escapedTbName)) {
-            errorPrint("Failed to execute taos_stmt_set_tbname(%s)."
-                    "reason: %s\n",
-                    escapedTbName, taos_stmt_errstr(stmt));
-            free(escapedTbName);
-            if (g_dumpInLooseModeFlag) {
-                free(tbName);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            if (0 != (code = ws_stmt_set_tbname(ws_stmt, escapedTbName))) {
+                errorPrint("Failed to execute ws_stmt_set_tbname(%s)."
+                        "code: %d, reason: %s\n",
+                        escapedTbName, code, ws_errstr(ws_stmt));
+                free(escapedTbName);
+                if (g_dumpInLooseModeFlag) {
+                    free(tbName);
+                }
+                continue;
             }
-            continue;
+        } else {
+#endif
+            if (0 != taos_stmt_set_tbname(stmt, escapedTbName)) {
+                errorPrint("Failed to execute taos_stmt_set_tbname(%s)."
+                        "reason: %s\n",
+                        escapedTbName, taos_stmt_errstr(stmt));
+                free(escapedTbName);
+                if (g_dumpInLooseModeFlag) {
+                    free(tbName);
+                }
+                continue;
+            }
+#ifdef WEBSOCKET
         }
+#endif
         free(escapedTbName);
 
         if ((0 == strlen(tableDes->name))
@@ -6106,29 +6165,60 @@ static int dumpInAvroDataImplNative(
 
         debugPrint2("%s", "\n");
 
-        if (0 != taos_stmt_bind_param_batch(stmt, (TAOS_MULTI_BIND *)bindArray)) {
-            errorPrint("%s() LN%d stmt_bind_param_batch() failed! reason: %s\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt));
-            freeBindArray(bindArray, onlyCol);
-            failed++;
-            continue;
-        }
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            if (0 != (code = ws_stmt_bind_param_batch(ws_stmt,
+                            (const WS_MULTI_BIND *)bindArray, onlyCol))) {
+                errorPrint("%s() LN%d ws_stmt_bind_param_batch() failed! code: %d, reason: %s\n",
+                        __func__, __LINE__, code, ws_errstr(ws_stmt));
+                freeBindArray(bindArray, onlyCol);
+                failed++;
+                continue;
+            }
 
-        if (0 != taos_stmt_add_batch(stmt)) {
-            errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt));
-            freeBindArray(bindArray, onlyCol);
-            failed++;
-            continue;
-        }
-        if (0 != taos_stmt_execute(stmt)) {
-            errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s, timestamp: %"PRId64"\n",
-                    __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
-            failed -= stmt_count;
+            if (0 != (code = ws_stmt_add_batch(ws_stmt))) {
+                errorPrint("%s() LN%d stmt_bind_param() failed! code: %d, reason: %s\n",
+                        __func__, __LINE__, code, ws_errstr(ws_stmt));
+                freeBindArray(bindArray, onlyCol);
+                failed++;
+                continue;
+            }
+            int32_t affected_rows;
+            if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
+                errorPrint("%s() LN%d ws_taos_stmt_execute() failed! code: %d, reason: %s, timestamp: %"PRId64"\n",
+                        __func__, __LINE__, code, ws_errstr(stmt), ts_debug);
+                failed -= stmt_count;
+            } else {
+                success ++;
+            }
         } else {
-            success ++;
+#endif
+            if (0 != taos_stmt_bind_param_batch(stmt, (TAOS_MULTI_BIND *)bindArray)) {
+                errorPrint("%s() LN%d stmt_bind_param_batch() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+                freeBindArray(bindArray, onlyCol);
+                failed++;
+                continue;
+            }
 
+            if (0 != taos_stmt_add_batch(stmt)) {
+                errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt));
+                freeBindArray(bindArray, onlyCol);
+                failed++;
+                continue;
+            }
+            if (0 != taos_stmt_execute(stmt)) {
+                errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s, timestamp: %"PRId64"\n",
+                        __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
+                failed -= stmt_count;
+            } else {
+                success ++;
+
+            }
+#ifdef WEBSOCKET
         }
+#endif
         freeBindArray(bindArray, onlyCol);
 
         if (g_dumpInLooseModeFlag) {
@@ -6143,7 +6233,15 @@ static int dumpInAvroDataImplNative(
 
     tfree(stmtBuffer);
     freeTbDes(tableDes);
-    taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ws_stmt_close(ws_stmt);
+    } else {
+#endif
+        taos_stmt_close(stmt);
+#ifdef WEBSOCKET
+    }
+#endif
 
     if (failed)
         return (-failed);
@@ -6290,22 +6388,10 @@ static int64_t dumpInOneAvroFile(
         case WHICH_AVRO_DATA:
             debugPrint("%s() LN%d will dump %s's data\n",
                     __func__, __LINE__, namespace);
-#ifdef WEBSOCKET
-            if (g_args.cloud || g_args.restful) {
-                retExec = dumpInAvroDataImplWS(ws_taos,
-                        (char *)namespace,
-                        schema, reader, recordSchema,
-                        fileName);
-
-            } else {
-#endif
-                retExec = dumpInAvroDataImplNative(taos,
-                        (char *)namespace,
-                        schema, reader, recordSchema,
-                        fileName);
-#ifdef WEBSOCKET
-            }
-#endif
+            retExec = dumpInAvroDataImpl(taos,
+                    (char *)namespace,
+                    schema, reader, recordSchema,
+                    fileName);
             break;
 
         case WHICH_AVRO_TBTAGS:
