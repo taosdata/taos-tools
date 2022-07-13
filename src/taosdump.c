@@ -9681,21 +9681,24 @@ static int64_t dumpCreateSTableClauseOfDbNative(
 
     int64_t superTblCnt = 0;
     while ((row = taos_fetch_row(res)) != NULL) {
-        if (0 == dumpStableClasuse(
-                    taos, dbInfo,
-                    row[TSDB_SHOW_TABLES_NAME_INDEX],
+        char stable[TSDB_TABLE_NAME_LEN] = {0};
+        int32_t* lengths = taos_fetch_lengths(res);
+        strncpy(stable,row[TSDB_SHOW_TABLES_NAME_INDEX],
+                lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+        if (0 == dumpStableClasuse(taos, dbInfo,
+                    stable,
                     fp)) {
             superTblCnt ++;
         }
 
         if (g_args.avro) {
             printf("Start to dump out super table: %s of %s\n",
-                    (char*)row[TSDB_SHOW_TABLES_NAME_INDEX], dbInfo->name);
+                    stable, dbInfo->name);
             dumpTbTagsToAvro(
                     superTblCnt,
                     taos,
                     dbInfo,
-                    row[TSDB_SHOW_TABLES_NAME_INDEX]);
+                    stable);
         }
     }
 
