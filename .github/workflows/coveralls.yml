@@ -210,6 +210,7 @@ jobs:
           sudo pkill -9 taosd || :
 
           echo "TEST: old cases"
+          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest3.py > /dev/null
