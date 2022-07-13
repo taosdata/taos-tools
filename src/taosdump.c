@@ -7839,8 +7839,13 @@ static int createMTableAvroHead(
 
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
-            dbName, g_escapeChar, stable, g_escapeChar);
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) FROM %s.%s%s%s)",
+                dbName, g_escapeChar, stable, g_escapeChar);
+    } else {
+        sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+                dbName, g_escapeChar, stable, g_escapeChar);
+    }
 
     int64_t preCount = 0;
     if (INT64_MAX == limit) {
@@ -7868,10 +7873,17 @@ static int createMTableAvroHead(
         return -1;
     }
 
-    sprintf(command,
-            "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-            dbName, g_escapeChar, stable, g_escapeChar,
-            limit, offset);
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command,
+                "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                dbName, g_escapeChar, stable, g_escapeChar,
+                limit, offset);
+    } else {
+        sprintf(command,
+                "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                dbName, g_escapeChar, stable, g_escapeChar,
+                limit, offset);
+    }
 
     debugPrint("%s() LN%d, run command <%s>.\n",
                 __func__, __LINE__, command);
@@ -9121,10 +9133,17 @@ static void *dumpNormalTablesOfStb(void *arg) {
     }
 
     char command[COMMAND_SIZE];
-    sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-            pThreadInfo->dbName,
-            g_escapeChar, pThreadInfo->stbName, g_escapeChar,
-            pThreadInfo->count, pThreadInfo->from);
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                pThreadInfo->dbName,
+                g_escapeChar, pThreadInfo->stbName, g_escapeChar,
+                pThreadInfo->count, pThreadInfo->from);
+    } else {
+        sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                pThreadInfo->dbName,
+                g_escapeChar, pThreadInfo->stbName, g_escapeChar,
+                pThreadInfo->count, pThreadInfo->from);
+    }
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -9427,8 +9446,13 @@ static int64_t dumpNtbOfStbByThreads(
     int64_t ntbCount;
     char command[COMMAND_SIZE];
 
-    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
-            dbInfo->name, g_escapeChar, stbName, g_escapeChar);
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) from %s.%s%s%s)",
+                dbInfo->name, g_escapeChar, stbName, g_escapeChar);
+    } else {
+        sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+                dbInfo->name, g_escapeChar, stbName, g_escapeChar);
+    }
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
