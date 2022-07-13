@@ -1025,7 +1025,28 @@ static void freeTbDes(TableDef *tableDes)
     free(tableDes);
 }
 
+#ifdef WEBSOCKET
+static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
+    int ret = 0;
+    WS_RES *ws_res = NULL;
+    int32_t   code = 0;
+
+    ws_res = ws_query(ws_taos, command);
+    code = ws_errno(ws_res);
+
+    if (code) {
+        errorPrint("Failed to run <%s>, code: %d, reason: %s\n",
+                command, code, ws_errstr(ws_res));
+        ret = -1;;
+    }
+
+    ws_free_result(ws_res);
+    return ret;
+}
+#endif
+
 static int queryDbImpl(TAOS *taos, char *command) {
+    int ret = 0;
     TAOS_RES *res = NULL;
     int32_t   code = -1;
 
@@ -1035,13 +1056,11 @@ static int queryDbImpl(TAOS *taos, char *command) {
     if (code != 0) {
         errorPrint("Failed to run <%s>, reason: %s\n",
                 command, taos_errstr(res));
-        taos_free_result(res);
-        //taos_close(taos);
-        return code;
+        ret = -1;
     }
 
     taos_free_result(res);
-    return 0;
+    return ret;
 }
 
 static void parse_args(
@@ -1203,7 +1222,7 @@ static void freeDbInfos() {
 }
 
 #ifdef WEBSOCKET
-static int getTableRecordInfoWSImpl(
+static int getTableRecordInfoImplWS(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo,
         bool tryStable) {
@@ -1343,10 +1362,10 @@ static int getTableRecordInfoWSImpl(
 static int getTableRecordInfoWS(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo) {
-    if (0 == getTableRecordInfoWSImpl(
+    if (0 == getTableRecordInfoImplWS(
                 dbName, table, pTableRecordInfo, false)) {
         return 0;
-    } else if (0 == getTableRecordInfoWSImpl(
+    } else if (0 == getTableRecordInfoImplWS(
                 dbName, table, pTableRecordInfo, true)) {
         return 0;
     }
@@ -1357,7 +1376,7 @@ static int getTableRecordInfoWS(
 #endif
 
 // check table is normal table or super table
-static int getTableRecordInfoNativeImpl(
+static int getTableRecordInfoImplNative(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo,
         bool tryStable) {
@@ -1447,10 +1466,10 @@ static int getTableRecordInfoNativeImpl(
 static int getTableRecordInfoNative(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo) {
-    if (0 == getTableRecordInfoNativeImpl(
+    if (0 == getTableRecordInfoImplNative(
                 dbName, table, pTableRecordInfo, false)) {
         return 0;
-    } else if (0 == getTableRecordInfoNativeImpl(
+    } else if (0 == getTableRecordInfoImplNative(
                 dbName, table, pTableRecordInfo, true)) {
         return 0;
     }
@@ -1758,7 +1777,7 @@ static int dumpCreateMTableClause(
 }
 
 #ifdef WEBSOCKET
-static int64_t getNtbCountOfStbWS(char *dbName, char *stbName)
+static int64_t getNtbCountOfStbWS(const char *command)
 {
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
     if (NULL == ws_taos) {
@@ -1769,11 +1788,6 @@ static int64_t getNtbCountOfStbWS(char *dbName, char *stbName)
 
     int64_t count = 0;
 
-    char command[COMMAND_SIZE];
-
-    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
-            dbName, g_escapeChar, stbName, g_escapeChar);
-
     WS_RES *ws_res = ws_query(ws_taos, command);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
@@ -1783,8 +1797,32 @@ static int64_t getNtbCountOfStbWS(char *dbName, char *stbName)
         ws_close(ws_taos);
         return -1;
     }
-    // TODO
 
+    while(true) {
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(ws_res, &data, &rows);
+        if (0 == rows) {
+            break;
+        }
+
+        uint8_t type;
+        uint32_t len;
+
+        for (int row = 0; row < rows; row ++) {
+            const void *value = ws_get_value_in_block(ws_res, row,
+                    TSDB_SHOW_TABLES_NAME_INDEX,
+                    &type, &len);
+            if (0 == len) {
+                errorPrint("row: %d, col: %d, ws_get_value_in_block() error!\n",
+                        TSDB_DESCRIBE_METRIC_FIELD_INDEX,
+                        row);
+                continue;
+            }
+            count = *(int64_t*)value;
+        }
+        break;
+    }
     debugPrint("%s() LN%d, COUNT(TBNAME): %"PRId64"\n",
             __func__, __LINE__, count);
 
@@ -1794,21 +1832,17 @@ static int64_t getNtbCountOfStbWS(char *dbName, char *stbName)
 }
 #endif // WEBSOCKET
 
-static int64_t getNtbCountOfStbNative(char *dbName, char *stbName)
+static int64_t getNtbCountOfStbNative(char *dbName, char *stbName, const char *command)
 {
     TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
             dbName, g_args.port);
-    if (taos == NULL) {
-        errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+    if (NULL == taos) {
+        errorPrint("Failed to connect to TDengine server %s, code: %d, reason: %s!\n",
+                g_args.host, taos_errno(NULL), taos_errstr(NULL));
         return -1;
     }
 
     int64_t count = 0;
-
-    char command[COMMAND_SIZE];
-
-    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
-            dbName, g_escapeChar, stbName, g_escapeChar);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
@@ -3246,12 +3280,6 @@ static int convertTbTagsDesToJsonLoose(
         char *dbName, char *stbName, TableDef *tableDes,
         char **jsonSchema)
 {
-/*    if (!g_args.verbose_print) {
-        errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
-        return -1;
-    }
-*/
-
     // {
     // "type": "record",
     // "name": "stbName",
@@ -3395,12 +3423,6 @@ static int convertTbDesToJsonLoose(
         char *dbName, char *tbName, TableDef *tableDes, int colCount,
         char **jsonSchema)
 {
-/*    if (!g_args.verbose_print) {
-        errorPrint("TODO: %s() LN%d\n", __func__, __LINE__);
-        return -1;
-    }
-    */
-
     // {
     // "type": "record",
     // "name": "tbname",
@@ -3790,6 +3812,7 @@ static int64_t writeResultToAvroWS(
         void *taos,
         int precision)
 {
+    // TODO
     return -1;
 }
 #endif
@@ -5081,9 +5104,9 @@ static int dumpInAvroNtbImpl(
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
                             " Failed to execute ws_query(%s)."
-                            " reason: %s\n",
+                            " code: %d, reason: %s\n",
                             __func__, __LINE__, buf,
-                            ws_errstr(ws_res));
+                            code, ws_errstr(ws_res));
                     failed ++;
                 } else {
                     success ++;
@@ -5096,9 +5119,9 @@ static int dumpInAvroNtbImpl(
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
                             " Failed to execute taos_query(%s)."
-                            " reason: %s\n",
+                            " code: %d, reason: %s\n",
                             __func__, __LINE__, buf,
-                            taos_errstr(res));
+                            code, taos_errstr(res));
                     failed ++;
                 } else {
                     success ++;
@@ -7470,6 +7493,95 @@ static int createMTableAvroHeadSpecified(
     return 0;
 }
 
+#ifdef WEBSOCKET
+static int createMTableAvroHeadFillTBNameWS(
+        WS_TAOS *ws_taos,
+        const char *command,
+        char *tbNameArr,
+        const char *stable) {
+
+    WS_RES *ws_res = ws_query(ws_taos, command);
+    int32_t code = taos_errno(ws_res);
+    if (code) {
+        errorPrint("%s() LN%d, failed to run command <%s>. code: %d, reason: %s\n",
+                __func__, __LINE__, command, code, taos_errstr(ws_res));
+        ws_free_result(ws_res);
+        return -1;
+    }
+
+    int64_t ntbCount = 0;
+    while(true) {
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(ws_res, &data, &rows);
+
+        if (0 == rows) {
+            break;
+        }
+
+        uint8_t type;
+        uint32_t len;
+        char tmp[WS_VALUE_BUF_LEN] = {0};
+
+        for (int row = 0; row < rows; row ++) {
+            const void *value0 = ws_get_value_in_block(
+                    ws_res, row,
+                    TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memcpy(tmp, value0, len);
+
+            strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                    tmp,
+                    min(TSDB_TABLE_NAME_LEN,
+                        len));
+
+            debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
+                    tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                    ntbCount, stable);
+            ++ntbCount;
+        }
+    }
+
+    return ntbCount;
+}
+#endif // WEBSOCKET
+
+static int createMTableAvroHeadFillTBNameNative(
+        TAOS *taos,
+        const char *command,
+        char *tbNameArr,
+        const char *stable) {
+
+    TAOS_RES *res = taos_query(taos, command);
+    int32_t code = taos_errno(res);
+    if (code) {
+        errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
+                __func__, __LINE__, command, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    TAOS_ROW row = NULL;
+    int64_t ntbCount = 0;
+
+    while((row = taos_fetch_row(res)) != NULL) {
+        int32_t *length = taos_fetch_lengths(res);
+
+        strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
+                min(TSDB_TABLE_NAME_LEN,
+                    length[TSDB_SHOW_TABLES_NAME_INDEX]));
+
+        debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
+                tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                ntbCount, stable);
+        ++ntbCount;
+    }
+
+    taos_free_result(res);
+    return ntbCount;
+}
+
 static int createMTableAvroHead(
         void *taos,
         char *dumpFilename,
@@ -7517,14 +7629,17 @@ static int createMTableAvroHead(
 
     char command[COMMAND_SIZE];
 
+    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+            dbName, g_escapeChar, stable, g_escapeChar);
+
     int64_t preCount = 0;
     if (INT64_MAX == limit) {
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            preCount = getNtbCountOfStbWS(dbName, stable);
+            preCount = getNtbCountOfStbWS(command);
         } else {
 #endif
-            preCount = getNtbCountOfStbNative(dbName, stable);
+            preCount = getNtbCountOfStbNative(dbName, stable, command);
 #ifdef WEBSOCKET
         }
 #endif
@@ -7550,33 +7665,25 @@ static int createMTableAvroHead(
 
     debugPrint("%s() LN%d, run command <%s>.\n",
                 __func__, __LINE__, command);
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
-    if (code) {
-        errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
-                __func__, __LINE__, command, taos_errstr(res));
-        taos_free_result(res);
+
+    int64_t ntbCount;
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ntbCount = createMTableAvroHeadFillTBNameWS(
+                taos, command, tbNameArr, stable);
+    } else {
+#endif
+        ntbCount = createMTableAvroHeadFillTBNameNative(
+                taos, command, tbNameArr, stable);
+#ifdef WEBSOCKET
+    }
+#endif
+
+    if (ntbCount < 0) {
         free(tbNameArr);
         tfree(jsonTagsSchema);
         freeTbDes(tableDes);
         return -1;
-    }
-
-    TAOS_ROW row = NULL;
-    int64_t ntbCount = 0;
-
-    while((row = taos_fetch_row(res)) != NULL) {
-        int32_t *length = taos_fetch_lengths(res);
-
-        strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN,
-                    length[TSDB_SHOW_TABLES_NAME_INDEX]));
-
-        debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
-                tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                ntbCount, stable);
-        ++ntbCount;
     }
 
     int currentPercent = 0;
@@ -7613,7 +7720,6 @@ static int createMTableAvroHead(
     avro_file_writer_close(db);
     avro_schema_decref(schema);
 
-    taos_free_result(res);
     tfree(jsonTagsSchema);
     freeTbDes(tableDes);
 
@@ -8058,39 +8164,41 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         fprintf(g_fpOfResult, "# SHOW VARIABLES failed, reason:%s\n", ws_errstr(ws_res));
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
         fwrite(buffer, strlen(buffer), 1, fp);
-    } else {
-        while(true) {
-            int rows = 0;
-            const void *data = NULL;
-            code = ws_fetch_block(ws_res, &data, &rows);
+        ws_free_result(ws_res);
+        return;
+    }
+    while(true) {
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(ws_res, &data, &rows);
 
-            if (0 == rows) {
-                break;
-            }
+        if (0 == rows) {
+            break;
+        }
 
-            uint8_t type;
-            uint32_t len;
-            char tmp[BUFFER_LEN-12];
+        uint8_t type;
+        uint32_t len;
+        char tmp[BUFFER_LEN-12] = {0};
 
-            for (int row = 0; row < rows; row ++) {
-                const void *value0 = ws_get_value_in_block(
-                        ws_res, row, 0, &type, &len);
+        for (int row = 0; row < rows; row ++) {
+            const void *value0 = ws_get_value_in_block(
+                    ws_res, row, 0, &type, &len);
+            memset(tmp, 0, BUFFER_LEN-12);
+            memcpy(tmp, value0, len);
+
+            verbosePrint("%s() LN%d, value0: %s\n", __func__, __LINE__, tmp);
+            if (0 == strcmp(tmp, "charset")) {
+                const void *value1 = ws_get_value_in_block(ws_res, row, 1,
+                        &type, &len);
                 memset(tmp, 0, BUFFER_LEN-12);
-                memcpy(tmp, value0, len);
-
-                verbosePrint("%s() LN%d, value0: %s\n", __func__, __LINE__, tmp);
-                if (0 == strcmp(tmp, "charset")) {
-                    const void *value1 = ws_get_value_in_block(ws_res, row, 1,
-                            &type, &len);
-                    memset(tmp, 0, BUFFER_LEN-12);
-                    memcpy(tmp, value1, min(BUFFER_LEN-13, len));
-                    snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tmp);
-                    debugPrint("%s() LN%d buffer: %s\n", __func__, __LINE__, buffer);
-                    fwrite(buffer, strlen(buffer), 1, fp);
-                }
+                memcpy(tmp, value1, min(BUFFER_LEN-13, len));
+                snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tmp);
+                debugPrint("%s() LN%d buffer: %s\n", __func__, __LINE__, buffer);
+                fwrite(buffer, strlen(buffer), 1, fp);
             }
         }
     }
+
     ws_free_result(ws_res);
 }
 #endif // WEBSOCKET
@@ -8112,16 +8220,17 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
         fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
         fwrite(buffer, strlen(buffer), 1, fp);
-    } else {
-        TAOS_ROW row;
+        taos_free_result(res);
+        return;
+    }
 
-        while ((row = taos_fetch_row(res)) != NULL) {
-            debugPrint("row[0]=%s, row[1]=%s\n",
-                    (char *)row[0], (char *)row[1]);
-            if (0 == strcmp((char *)row[0], "charset")) {
-                snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
-                fwrite(buffer, strlen(buffer), 1, fp);
-            }
+    TAOS_ROW row;
+    while ((row = taos_fetch_row(res)) != NULL) {
+        debugPrint("row[0]=%s, row[1]=%s\n",
+                (char *)row[0], (char *)row[1]);
+        if (0 == strcmp((char *)row[0], "charset")) {
+            snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
+            fwrite(buffer, strlen(buffer), 1, fp);
         }
     }
     taos_free_result(res);
@@ -8260,17 +8369,8 @@ bool convertDbClauseForV3(char **cmd)
 }
 
 // dumpIn support multi threads functions
-#ifdef WEBSOCKET
-static int64_t dumpInOneDebugFileWS(
-        WS_TAOS* ws_taos, FILE* fp, char* fcharset,
-        char* fileName)
-{
-    return -1;
-}
-#endif
-
 static int64_t dumpInOneDebugFile(
-        TAOS* taos, FILE* fp, char* fcharset,
+        void* taos, FILE* fp, char* fcharset,
         char* fileName)
 {
     int       read_len = 0;
@@ -8327,7 +8427,17 @@ static int64_t dumpInOneDebugFile(
             }
         }
 
-        if (queryDbImpl(taos, cmd)) {
+        int ret;
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            ret = queryDbImplWS(taos,cmd);
+        } else {
+#endif
+            ret = queryDbImpl(taos,cmd);
+#ifdef WEBSOCKET
+        }
+#endif
+        if (ret) {
             errorPrint("%s() LN%d, SQL: lineno:%"PRId64", file:%s\n",
                     __func__, __LINE__, lineNo, fileName);
             fprintf(g_fpOfResult, "SQL: lineno:%"PRId64", file:%s\n",
@@ -8377,19 +8487,10 @@ static void* dumpInDebugWorkThreadFp(void *arg)
         }
 
         int64_t rows;
-#ifdef WEBSOCKET
-        if (g_args.cloud || g_args.restful) {
-            rows = dumpInOneDebugFileWS(
-                    pThread->taos, fp, g_dumpInCharset,
-                    sqlFile);
-        } else {
-#endif
-            rows = dumpInOneDebugFile(
-                    pThread->taos, fp, g_dumpInCharset,
-                    sqlFile);
-#ifdef WEBSOCKET
-        }
-#endif
+        rows = dumpInOneDebugFile(
+                pThread->taos, fp, g_dumpInCharset,
+                sqlFile);
+
         if (rows > 0) {
             atomic_add_fetch_64(&pThread->recSuccess, rows);
             okPrint("[%d] Total %"PRId64" line(s) "
@@ -8585,17 +8686,8 @@ static int dumpInDbs()
     loadFileMark(fp, charSetMark, g_dumpInCharset);
 
     int64_t rows;
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        rows = dumpInOneDebugFileWS(
-                ws_taos, fp, g_dumpInCharset, dbsSql);
-    } else {
-#endif
-        rows = dumpInOneDebugFile(
-                taos, fp, g_dumpInCharset, dbsSql);
-#ifdef WEBSOCKET
-    }
-#endif
+    rows = dumpInOneDebugFile(
+            taos, fp, g_dumpInCharset, dbsSql);
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
                 rows, dbsSql);
@@ -8972,34 +9064,57 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
     g_tablesList = calloc(1, dbInfo->ntables * sizeof(TableInfo));
     if (NULL == g_tablesList) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        ws_free_result(ws_res);
+        ws_close(ws_taos);
         return 0;
     }
 
     int64_t count = 0;
     while(true) {
-/* TODO
-        ws_fetch_block(ws_res, &data, &rows);
-        strncpy(((TableInfo *)(g_tablesList + count))->name,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
-        debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s, lenth: %d\n",
-                __func__, __LINE__,
-                count,
-                ((TableInfo *)(g_tablesList + count))->name,
-                length[TSDB_SHOW_TABLES_NAME_INDEX]);
-        if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
-            strncpy(((TableInfo *)(g_tablesList + count))->stable,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                    min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_METRIC_INDEX]));
-            debugPrint("%s() LN%d stbName: %s, length: %d\n",
-                    __func__, __LINE__,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                    length[TSDB_SHOW_TABLES_METRIC_INDEX]);
-            ((TableInfo *)(g_tablesList + count))->belongStb = true;
-        } else {
-            ((TableInfo *)(g_tablesList + count))->belongStb = false;
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(ws_res, &data, &rows);
+
+        if (0 == rows) {
+            break;
         }
-        */
+
+        uint8_t type;
+        uint32_t len;
+        char tmp[WS_VALUE_BUF_LEN] = {0};
+
+        for (int row = 0; row < rows; row ++) {
+            const void *value0 = ws_get_value_in_block(
+                    ws_res, row,
+                    TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memcpy(tmp, value0, len);
+            verbosePrint("%s() LN%d, value0: %s\n", __func__, __LINE__, tmp);
+            strncpy(((TableInfo *)(g_tablesList + count))->name,
+                    tmp,
+                    min(TSDB_TABLE_NAME_LEN, len));
+            debugPrint("%s() LN%d table name: %s, length: %d\n",
+                    __func__, __LINE__,
+                    tmp, len);
+            const void *value1 = ws_get_value_in_block(
+                    ws_res, row,
+                    TSDB_SHOW_TABLES_METRIC_INDEX,
+                    &type, &len);
+            if (len) {
+                memset(tmp, 0, WS_VALUE_BUF_LEN);
+                memcpy(tmp, value1, len);
+
+                strncpy(((TableInfo *)(g_tablesList + count))->stable,
+                        tmp,
+                        min(TSDB_TABLE_NAME_LEN, len));
+                debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                        __func__, __LINE__,
+                        tmp, len);
+                ((TableInfo *)(g_tablesList + count))->belongStb = true;
+            } else {
+                ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            }
+        }
         count ++;
     }
 
@@ -9100,12 +9215,17 @@ static int64_t dumpNtbOfStbByThreads(
         SDbInfo *dbInfo, char *stbName)
 {
     int64_t ntbCount;
+    char command[COMMAND_SIZE];
+
+    sprintf(command, "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+            dbInfo->name, g_escapeChar, stbName, g_escapeChar);
+
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-       ntbCount  = getNtbCountOfStbWS(dbInfo->name, stbName);
+       ntbCount  = getNtbCountOfStbWS(command);
     } else {
 #endif
-       ntbCount  = getNtbCountOfStbNative(dbInfo->name, stbName);
+       ntbCount  = getNtbCountOfStbNative(dbInfo->name, stbName, command);
 #ifdef WEBSOCKET
     }
 #endif
