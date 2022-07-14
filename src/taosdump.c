@@ -1702,8 +1702,8 @@ static int getDumpDbCount() {
 }
 
 static int dumpCreateMTableClause(
-        char* dbName,
-        char *stable,
+        const char* dbName,
+        const char *stable,
         TableDef *tableDes,
         int numColsAndTags,
         FILE *fp
@@ -1868,6 +1868,237 @@ static int64_t getNtbCountOfStbNative(char *dbName, char *stbName, const char *c
     return count;
 }
 
+static int processFieldsValue(
+        const void *pFields,
+        int index,
+        TableDef *tableDes,
+        const void *value,
+        int32_t len) {
+    uint8_t type;
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        type = ((WS_FIELD_V2 *)pFields)[0].type;
+    } else {
+#endif
+        type = ((TAOS_FIELD *)pFields)[0].type;
+#ifdef WEBSOCKET
+    }
+#endif
+    switch (type) {
+        case TSDB_DATA_TYPE_BOOL:
+            sprintf(tableDes->cols[index].value, "%d",
+                    ((((int32_t)(*((char *)value)))==1)?1:0));
+            break;
+
+        case TSDB_DATA_TYPE_TINYINT:
+            sprintf(tableDes->cols[index].value, "%d", *((int8_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_INT:
+            sprintf(tableDes->cols[index].value, "%d", *((int32_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_BIGINT:
+            sprintf(tableDes->cols[index].value, "%" PRId64 "", *((int64_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_UTINYINT:
+            sprintf(tableDes->cols[index].value, "%u", *((uint8_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_SMALLINT:
+            sprintf(tableDes->cols[index].value, "%d", *((int16_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_USMALLINT:
+            sprintf(tableDes->cols[index].value, "%u", *((uint16_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_UINT:
+            sprintf(tableDes->cols[index].value, "%u", *((uint32_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_UBIGINT:
+            sprintf(tableDes->cols[index].value, "%" PRIu64 "", *((uint64_t *)value));
+            break;
+
+        case TSDB_DATA_TYPE_FLOAT:
+            {
+                char tmpFloat[512] = {0};
+                sprintf(tmpFloat, "%f", GET_FLOAT_VAL(value));
+                verbosePrint("%s() LN%d, float value: %s\n",
+                        __func__, __LINE__, tmpFloat);
+                int bufLenOfFloat = strlen(tmpFloat);
+
+                if (bufLenOfFloat < (COL_VALUEBUF_LEN -1)) {
+                    sprintf(tableDes->cols[index].value, "%f", GET_FLOAT_VAL(value));
+                } else {
+                    if (tableDes->cols[index].var_value) {
+                        free(tableDes->cols[index].var_value);
+                        tableDes->cols[index].var_value = NULL;
+                    }
+                    tableDes->cols[index].var_value =
+                        calloc(1, bufLenOfFloat + 1);
+
+                    if (NULL == tableDes->cols[index].var_value) {
+                        errorPrint("%s() LN%d, memory allocation failed!\n",
+                                __func__, __LINE__);
+                        return -1;
+                    }
+                    sprintf(tableDes->cols[index].var_value, "%f", GET_FLOAT_VAL(value));
+                }
+            }
+            break;
+
+        case TSDB_DATA_TYPE_DOUBLE:
+            {
+                char tmpDouble[512] = {0};
+                sprintf(tmpDouble, "%f",
+                        GET_DOUBLE_VAL(value));
+                verbosePrint("%s() LN%d, double value: %s\n",
+                        __func__, __LINE__, tmpDouble);
+                int bufLenOfDouble = strlen(tmpDouble);
+
+                if (bufLenOfDouble < (COL_VALUEBUF_LEN -1)) {
+                    sprintf(tableDes->cols[index].value, "%f",
+                            GET_DOUBLE_VAL(value));
+                } else {
+                    if (tableDes->cols[index].var_value) {
+                        free(tableDes->cols[index].var_value);
+                        tableDes->cols[index].var_value = NULL;
+                    }
+                    tableDes->cols[index].var_value =
+                        calloc(1, bufLenOfDouble + 1);
+
+                    if (NULL == tableDes->cols[index].var_value) {
+                        errorPrint("%s() LN%d, memory allocation failed!\n",
+                                __func__, __LINE__);
+                        return -1;
+                    }
+                    sprintf(tableDes->cols[index].var_value, "%f",
+                            GET_DOUBLE_VAL(value));
+                }
+            }
+            break;
+
+        case TSDB_DATA_TYPE_BINARY:
+            memset(tableDes->cols[index].value, 0,
+                    sizeof(tableDes->cols[index].value));
+
+            if (g_args.avro) {
+                if (len < (COL_VALUEBUF_LEN - 1)) {
+                    strcpy(tableDes->cols[index].value, (char *)value);
+                } else {
+                    if (tableDes->cols[index].var_value) {
+                        free(tableDes->cols[index].var_value);
+                        tableDes->cols[index].var_value = NULL;
+                    }
+                    tableDes->cols[index].var_value = calloc(1,
+                            1 + len);
+
+                    if (NULL == tableDes->cols[index].var_value) {
+                        errorPrint("%s() LN%d, memory allocation failed!\n",
+                                __func__, __LINE__);
+                        return -1;
+                    }
+                    strncpy(
+                            (char *)(tableDes->cols[index].var_value),
+                            (char *)value,
+                            min(TSDB_TABLE_NAME_LEN,
+                                len));
+                }
+            } else {
+                if (len < (COL_VALUEBUF_LEN - 2)) {
+                    convertStringToReadable(
+                            (char *)value,
+                            len,
+                            tableDes->cols[index].value,
+                            len);
+                } else {
+                    if (tableDes->cols[index].var_value) {
+                        free(tableDes->cols[index].var_value);
+                        tableDes->cols[index].var_value = NULL;
+                    }
+                    tableDes->cols[index].var_value = calloc(1,
+                            len * 2);
+
+                    if (NULL == tableDes->cols[index].var_value) {
+                        errorPrint("%s() LN%d, memory allocation failed!\n",
+                                __func__, __LINE__);
+                        return -1;
+                    }
+                    convertStringToReadable((char *)value,
+                            len,
+                            (char *)(tableDes->cols[index].var_value),
+                            len);
+                }
+            }
+            break;
+
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_JSON:
+            {
+                int nlen = strlen((char *)value);
+
+                if (g_args.avro) {
+                    if (nlen < (COL_VALUEBUF_LEN - 1)) {
+                        strncpy(tableDes->cols[index].value,
+                                (char *)value,
+                                nlen);
+                    } else {
+                        tableDes->cols[index].var_value = calloc(1, nlen + 1);
+
+                        if (NULL == tableDes->cols[index].var_value) {
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
+                                    __func__, __LINE__);
+                            return -1;
+                        }
+                        strncpy(
+                                (char *)(tableDes->cols[index].var_value),
+                                (char *)value, nlen);
+                    }
+                } else {
+                    if (nlen < (COL_VALUEBUF_LEN-2)) {
+                        char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
+                        convertNCharToReadable(
+                                (char *)value,
+                                len, tbuf, COL_VALUEBUF_LEN-2);
+                        sprintf(tableDes->cols[index].value, "%s", tbuf);
+                    } else {
+                        if (tableDes->cols[index].var_value) {
+                            free(tableDes->cols[index].var_value);
+                            tableDes->cols[index].var_value = NULL;
+                        }
+                        tableDes->cols[index].var_value = calloc(1, nlen * 5);
+
+                        if (NULL == tableDes->cols[index].var_value) {
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
+                                    __func__, __LINE__);
+                            return -1;
+                        }
+                        convertStringToReadable(
+                                (char *)value,
+                                len,
+                                (char *)(tableDes->cols[index].var_value), nlen);
+                    }
+                }
+            }
+            break;
+
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            sprintf(tableDes->cols[index].value, "%" PRId64 "",
+                    *(int64_t *)value);
+            break;
+
+        default:
+            errorPrint("%s() LN%d, unknown type: %d\n",
+                    __func__, __LINE__, type);
+            break;
+    }
+
+    return 0;
+}
+
 #ifdef WEBSOCKET
 static int getTableDesColWS(
         WS_TAOS *ws_taos,
@@ -1876,14 +2107,76 @@ static int getTableDesColWS(
         TableDef *tableDes,
         int colCount
         ) {
-    // TODO
-    return -1;
+    for (int i = 0 ; i < colCount; i++) {
+        if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
+
+        char sqlstr[COMMAND_SIZE] = {0};
+        sprintf(sqlstr, "SELECT %s FROM %s.%s%s%s",
+                tableDes->cols[i].field,
+                dbName, g_escapeChar, table, g_escapeChar);
+
+        debugPrint("%s() LN%d, sqlstr: %s\n", __func__, __LINE__, sqlstr);
+
+        WS_RES *ws_res = ws_query(ws_taos, sqlstr);
+        int32_t code = ws_errno(ws_res);
+        if (code) {
+            errorPrint("%s() LN%d, failed to run command <%s>, code: %d, reason: %s\n",
+                    __func__, __LINE__, sqlstr, code, ws_errstr(ws_res));
+            ws_free_result(ws_res);
+            return -1;
+        }
+
+        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+
+        while(true) {
+            int rows = 0;
+            const void *data = NULL;
+            code = ws_fetch_block(ws_res, &data, &rows);
+
+            if (0 == rows) {
+                debugPrint("No data from fetch to run command <%s>, "
+                        "code: %d, reason:%s\n",
+                        sqlstr, ws_errno(ws_res), ws_errstr(ws_res));
+                break;
+            }
+
+            uint8_t type;
+            uint32_t len;
+            for (int row = 0; row < rows; row ++) {
+                const void *value0 = ws_get_value_in_block(
+                        ws_res, row,
+                    TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
+
+                if (NULL == value0) {
+                    sprintf(tableDes->cols[i].note, "%s", "NUL");
+                    sprintf(tableDes->cols[i].value, "%s", "NULL");
+                    ws_free_result(ws_res);
+                    continue;
+                }
+
+                if (0 != processFieldsValue(
+                            (const void *)ws_fields,
+                            i, tableDes,
+                            value0,
+                            len)) {
+                    ws_free_result(ws_res);
+                    return -1;
+                }
+            }
+        }
+
+        ws_free_result(ws_res);
+    }
+
+    return colCount;
 }
 
 static int getTableDesWS(
         WS_TAOS *ws_taos,
-        const char* dbName, const char *table,
-        TableDef *tableDes, bool colOnly) {
+        const char* dbName,
+        const char *table,
+        TableDef *tableDes,
+        const bool colOnly) {
     int colCount = 0;
     char sqlstr[COMMAND_SIZE];
     sprintf(sqlstr, "DESCRIBE %s.%s%s%s",
@@ -1892,8 +2185,10 @@ static int getTableDesWS(
     WS_RES *ws_res = ws_query(ws_taos, sqlstr);
     int32_t code = ws_errno(ws_res);
     if (code) {
-        errorPrint("%s() LN%d, failed to run command <%s>, ws_taos: %p, reason: %s\n",
-                __func__, __LINE__, sqlstr, ws_taos, ws_errstr(ws_res));
+        errorPrint("%s() LN%d, failed to run command <%s>, "
+                "ws_taos: %p, code: %d, reason: %s\n",
+                __func__, __LINE__, sqlstr,
+                ws_taos, code, ws_errstr(ws_res));
         taos_free_result(ws_res);
         return -1;
     } else {
@@ -1901,7 +2196,6 @@ static int getTableDesWS(
                 __func__, __LINE__, sqlstr, ws_taos);
     }
 
-    //const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
     while(true) {
         int rows = 0;
         const void *data = NULL;
@@ -1987,12 +2281,13 @@ static int getTableDesWS(
 }
 #endif // WEBSOCKET
 
+
 static int getTableDesColNative(
         TAOS *taos,
-        char *dbName,
-        char *table,
+        const char *dbName,
+        const char *table,
         TableDef *tableDes,
-        int colCount
+        const int colCount
         ) {
     for (int i = 0 ; i < colCount; i++) {
         if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
@@ -2004,9 +2299,9 @@ static int getTableDesColNative(
 
         TAOS_RES *res = taos_query(taos, sqlstr);
         int32_t code = taos_errno(res);
-        if (code != 0) {
-            errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
-                    __func__, __LINE__, sqlstr, taos_errstr(res));
+        if (code) {
+            errorPrint("%s() LN%d, failed to run command <%s>, code: %d, reason: %s\n",
+                    __func__, __LINE__, sqlstr, code, taos_errstr(res));
             taos_free_result(res);
             return -1;
         }
@@ -2032,236 +2327,11 @@ static int getTableDesColNative(
             continue;
         }
 
-        switch (fields[0].type) {
-            case TSDB_DATA_TYPE_BOOL:
-                sprintf(tableDes->cols[i].value, "%d",
-                        ((((int32_t)(*((char *)
-                                       row[TSDB_SHOW_TABLES_NAME_INDEX])))==1)
-                         ?1:0));
-                break;
-
-            case TSDB_DATA_TYPE_TINYINT:
-                sprintf(tableDes->cols[i].value, "%d",
-                        *((int8_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_INT:
-                sprintf(tableDes->cols[i].value, "%d",
-                        *((int32_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_BIGINT:
-                sprintf(tableDes->cols[i].value, "%" PRId64 "",
-                        *((int64_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_UTINYINT:
-                sprintf(tableDes->cols[i].value, "%u",
-                        *((uint8_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_SMALLINT:
-                sprintf(tableDes->cols[i].value, "%d",
-                        *((int16_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_USMALLINT:
-                sprintf(tableDes->cols[i].value, "%u",
-                        *((uint16_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_UINT:
-                sprintf(tableDes->cols[i].value, "%u",
-                        *((uint32_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_UBIGINT:
-                sprintf(tableDes->cols[i].value, "%" PRIu64 "",
-                        *((uint64_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                break;
-
-            case TSDB_DATA_TYPE_FLOAT:
-                {
-                    char tmpFloat[512] = {0};
-                    sprintf(tmpFloat, "%f",
-                        GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                    verbosePrint("%s() LN%d, float value: %s\n",
-                            __func__, __LINE__, tmpFloat);
-                    int bufLenOfFloat = strlen(tmpFloat);
-
-                    if (bufLenOfFloat < (COL_VALUEBUF_LEN -1)) {
-                        sprintf(tableDes->cols[i].value, "%f",
-                                GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                    } else {
-                        if (tableDes->cols[i].var_value) {
-                            free(tableDes->cols[i].var_value);
-                            tableDes->cols[i].var_value = NULL;
-                        }
-                        tableDes->cols[i].var_value =
-                            calloc(1, bufLenOfFloat + 1);
-
-                        if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory allocation failed!\n",
-                                    __func__, __LINE__);
-                            taos_free_result(res);
-                            return -1;
-                        }
-                        sprintf(tableDes->cols[i].var_value, "%f",
-                                GET_FLOAT_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                    }
-                }
-                break;
-
-            case TSDB_DATA_TYPE_DOUBLE:
-                {
-                    char tmpDouble[512] = {0};
-                    sprintf(tmpDouble, "%f",
-                            GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                    verbosePrint("%s() LN%d, double value: %s\n",
-                            __func__, __LINE__, tmpDouble);
-                    int bufLenOfDouble = strlen(tmpDouble);
-
-                    if (bufLenOfDouble < (COL_VALUEBUF_LEN -1)) {
-                        sprintf(tableDes->cols[i].value, "%f",
-                                GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                    } else {
-                        if (tableDes->cols[i].var_value) {
-                            free(tableDes->cols[i].var_value);
-                            tableDes->cols[i].var_value = NULL;
-                        }
-                        tableDes->cols[i].var_value =
-                            calloc(1, bufLenOfDouble + 1);
-
-                        if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory allocation failed!\n",
-                                    __func__, __LINE__);
-                            taos_free_result(res);
-                            return -1;
-                        }
-                        sprintf(tableDes->cols[i].var_value, "%f",
-                                GET_DOUBLE_VAL(row[TSDB_SHOW_TABLES_NAME_INDEX]));
-                    }
-                }
-                break;
-
-            case TSDB_DATA_TYPE_BINARY:
-                memset(tableDes->cols[i].value, 0,
-                        sizeof(tableDes->cols[i].value));
-
-                if (g_args.avro) {
-                    if (length[TSDB_SHOW_TABLES_NAME_INDEX] < (COL_VALUEBUF_LEN - 1)) {
-                        strcpy(tableDes->cols[i].value,
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
-                    } else {
-                        if (tableDes->cols[i].var_value) {
-                            free(tableDes->cols[i].var_value);
-                            tableDes->cols[i].var_value = NULL;
-                        }
-                        tableDes->cols[i].var_value = calloc(1,
-                                1 + length[TSDB_SHOW_TABLES_NAME_INDEX]);
-
-                        if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory allocation failed!\n",
-                                    __func__, __LINE__);
-                            taos_free_result(res);
-                            return -1;
-                        }
-                        strncpy(
-                                (char *)(tableDes->cols[i].var_value),
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                min(TSDB_TABLE_NAME_LEN,
-                                    length[TSDB_SHOW_TABLES_NAME_INDEX]));
-                    }
-                } else {
-                    if (length[TSDB_SHOW_TABLES_NAME_INDEX] < (COL_VALUEBUF_LEN - 2)) {
-                        convertStringToReadable(
-                                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                length[TSDB_SHOW_TABLES_NAME_INDEX],
-                                tableDes->cols[i].value,
-                                length[TSDB_SHOW_TABLES_NAME_INDEX]);
-                    } else {
-                        if (tableDes->cols[i].var_value) {
-                            free(tableDes->cols[i].var_value);
-                            tableDes->cols[i].var_value = NULL;
-                        }
-                        tableDes->cols[i].var_value = calloc(1,
-                                length[TSDB_SHOW_TABLES_NAME_INDEX] * 2);
-
-                        if (NULL == tableDes->cols[i].var_value) {
-                            errorPrint("%s() LN%d, memory allocation failed!\n",
-                                    __func__, __LINE__);
-                            taos_free_result(res);
-                            return -1;
-                        }
-                        convertStringToReadable((char *)row[0],
-                                length[0],
-                                (char *)(tableDes->cols[i].var_value),
-                                length[TSDB_SHOW_TABLES_NAME_INDEX]);
-                    }
-                }
-                break;
-
-            case TSDB_DATA_TYPE_NCHAR:
-            case TSDB_DATA_TYPE_JSON:
-                {
-                    int nlen = strlen((char *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
-
-                    if (g_args.avro) {
-                        if (nlen < (COL_VALUEBUF_LEN - 1)) {
-                            strncpy(tableDes->cols[i].value,
-                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                    nlen);
-                        } else {
-                            tableDes->cols[i].var_value = calloc(1, nlen + 1);
-
-                            if (NULL == tableDes->cols[i].var_value) {
-                                errorPrint("%s() LN%d, memory allocation failed!\n",
-                                        __func__, __LINE__);
-                                taos_free_result(res);
-                                return -1;
-                            }
-                            strncpy(
-                                    (char *)(tableDes->cols[i].var_value),
-                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], nlen);
-                        }
-                    } else {
-                        if (nlen < (COL_VALUEBUF_LEN-2)) {
-                            char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
-                            convertNCharToReadable(
-                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                    length[0], tbuf, COL_VALUEBUF_LEN-2);
-                            sprintf(tableDes->cols[i].value, "%s", tbuf);
-                        } else {
-                            if (tableDes->cols[i].var_value) {
-                                free(tableDes->cols[i].var_value);
-                                tableDes->cols[i].var_value = NULL;
-                            }
-                            tableDes->cols[i].var_value = calloc(1, nlen * 5);
-
-                            if (NULL == tableDes->cols[i].var_value) {
-                                errorPrint("%s() LN%d, memory allocation failed!\n",
-                                        __func__, __LINE__);
-                                taos_free_result(res);
-                                return -1;
-                            }
-                            convertStringToReadable(
-                                    (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                                    length[0],
-                                    (char *)(tableDes->cols[i].var_value), nlen);
-                        }
-                    }
-                }
-                break;
-
-            case TSDB_DATA_TYPE_TIMESTAMP:
-                sprintf(tableDes->cols[i].value, "%" PRId64 "",
-                        *(int64_t *)row[TSDB_SHOW_TABLES_NAME_INDEX]);
-                break;
-
-            default:
-                errorPrint("%s() LN%d, unknown type: %d\n",
-                        __func__, __LINE__, fields[0].type);
-                break;
+        if (0 != processFieldsValue(fields, i, tableDes,
+                row[TSDB_SHOW_TABLES_NAME_INDEX],
+                length[TSDB_SHOW_TABLES_NAME_INDEX])) {
+            taos_free_result(res);
+            return -1;
         }
 
         taos_free_result(res);
@@ -2272,8 +2342,10 @@ static int getTableDesColNative(
 
 static int getTableDes(
         TAOS *taos,
-        char* dbName, char *table,
-        TableDef *tableDes, bool colOnly) {
+        const char* dbName,
+        const char *table,
+        TableDef *tableDes,
+        const bool colOnly) {
     TAOS_ROW row = NULL;
     TAOS_RES* res = NULL;
     int colCount = 0;
@@ -2331,7 +2403,8 @@ static int getTableDes(
     return getTableDesColNative(taos, dbName, table, tableDes, colCount);
 }
 
-static int convertTableDesToSql(char *dbName,
+static int convertTableDesToSql(
+        const char *dbName,
         TableDef *tableDes, char **buffer)
 {
     int counter = 0;
@@ -2660,9 +2733,10 @@ static avro_value_iface_t* prepareAvroWface(
 }
 
 static int dumpCreateTableClauseAvro(
-        char *dumpFilename,
-        TableDef *tableDes, int numOfCols,
-        char* dbName) {
+        const char *dumpFilename,
+        TableDef *tableDes,
+        int numOfCols,
+        const char* dbName) {
     assert(dumpFilename);
     // {
     // "type": "record",
@@ -2751,8 +2825,11 @@ static int dumpCreateTableClauseAvro(
     return 0;
 }
 
-static int dumpCreateTableClause(TableDef *tableDes, int numOfCols,
-        FILE *fp, char* dbName) {
+static int dumpCreateTableClause(
+        TableDef *tableDes,
+        int numOfCols,
+        FILE *fp,
+        const char* dbName) {
     char *sqlstr = calloc(1, COMMAND_SIZE);
     if (NULL == sqlstr) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
@@ -3207,8 +3284,8 @@ static int convertTbDesToJsonImplMore(
 }
 
 static int convertTbDesToJsonImpl(
-        char *namespace,
-        char *tbName,
+        const char *namespace,
+        const char *tbName,
         TableDef *tableDes,
         char **jsonSchema, bool isColumn)
 {
@@ -3421,7 +3498,9 @@ static int convertTbTagsDesToJsonWrap(
 }
 
 static int convertTbDesToJsonLoose(
-        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        const char *dbName,
+        const char *tbName,
+        TableDef *tableDes, int colCount,
         char **jsonSchema)
 {
     // {
@@ -3475,7 +3554,8 @@ static int convertTbDesToJsonLoose(
 }
 
 static int convertTbDesToJson(
-        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        const char *dbName,
+        const char *tbName, TableDef *tableDes, int colCount,
         char **jsonSchema)
 {
     // {
@@ -3529,7 +3609,8 @@ static int convertTbDesToJson(
 }
 
 static int convertTbDesToJsonWrap(
-        char *dbName, char *tbName, TableDef *tableDes, int colCount,
+        const char *dbName, const char *tbName,
+        TableDef *tableDes, int colCount,
         char **jsonSchema)
 {
     int ret = -1;
@@ -6612,16 +6693,21 @@ static int dumpInAvroWorkThreads(char *whichExt)
 }
 
 #ifdef WEBSOCKET
-static int64_t writeResultDebugWS(WS_RES *ws_res, FILE *fp,
-        char *dbName, char *tbName)
+static int64_t writeResultDebugWS(
+        WS_RES *ws_res, FILE *fp,
+        const char *dbName,
+        const char *tbName)
 {
     int64_t    totalRows     = 0;
+    // TODO
     return totalRows;
 }
 #endif
 
-static int64_t writeResultDebug(TAOS_RES *res, FILE *fp,
-        char *dbName, char *tbName)
+static int64_t writeResultDebug(
+        TAOS_RES *res, FILE *fp,
+        const char *dbName,
+        const char *tbName)
 {
     int64_t    totalRows     = 0;
 
@@ -6780,7 +6866,9 @@ static int64_t writeResultDebug(TAOS_RES *res, FILE *fp,
 
 #ifdef WEBSOCKET
 WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
-        char *dbName, char *tbName, int precision,
+        const char *dbName,
+        const char *tbName,
+        const int precision,
         int64_t start_time, int64_t end_time)
 {
     char sqlstr[COMMAND_SIZE] = {0};
@@ -6805,7 +6893,9 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
 #endif
 
 TAOS_RES *queryDbForDumpOut(TAOS *taos,
-        char *dbName, char *tbName, int precision,
+        const char *dbName,
+        const char *tbName,
+        const int precision,
         int64_t start_time, int64_t end_time)
 {
     char sqlstr[COMMAND_SIZE] = {0};
@@ -6832,10 +6922,10 @@ TAOS_RES *queryDbForDumpOut(TAOS *taos,
 static int64_t dumpTableDataAvroWS(
         char *dataFilename,
         int64_t index,
-        char *tbName,
-        bool belongStb,
-        char* dbName,
-        int precision,
+        const char *tbName,
+        const bool belongStb,
+        const char* dbName,
+        const int precision,
         int colCount,
         TableDef *tableDes,
         int64_t start_time,
@@ -6874,10 +6964,10 @@ static int64_t dumpTableDataAvroWS(
 static int64_t dumpTableDataAvroNative(
         char *dataFilename,
         int64_t index,
-        char *tbName,
-        bool belongStb,
-        char* dbName,
-        int precision,
+        const char *tbName,
+        const bool belongStb,
+        const char* dbName,
+        const int precision,
         int colCount,
         TableDef *tableDes,
         int64_t start_time,
@@ -6914,12 +7004,12 @@ static int64_t dumpTableDataAvroNative(
 }
 
 static int64_t dumpTableDataAvro(
-        int64_t index,
-        char *tbName,
-        bool belongStb,
-        char* dbName,
-        int precision,
-        int colCount,
+        const int64_t index,
+        const char *tbName,
+        const bool belongStb,
+        const char* dbName,
+        const int precision,
+        const int colCount,
         TableDef *tableDes
         ) {
 
@@ -6964,9 +7054,9 @@ static int64_t dumpTableDataAvro(
 static int64_t dumpTableDataWS(
         int64_t index,
         FILE *fp,
-        char *tbName,
-        char* dbName,
-        int precision,
+        const char *tbName,
+        const char* dbName,
+        const int precision,
         TableDef *tableDes,
         int64_t start_time,
         int64_t end_time
@@ -6999,9 +7089,9 @@ static int64_t dumpTableDataWS(
 static int64_t dumpTableDataNative(
         int64_t index,
         FILE *fp,
-        char *tbName,
-        char* dbName,
-        int precision,
+        const char *tbName,
+        const char* dbName,
+        const int precision,
         TableDef *tableDes,
         int64_t start_time,
         int64_t end_time
@@ -7028,11 +7118,11 @@ static int64_t dumpTableDataNative(
 }
 
 static int64_t dumpTableData(
-        int64_t index,
+        const int64_t index,
         FILE *fp,
-        char *tbName,
-        char* dbName,
-        int precision,
+        const char *tbName,
+        const char* dbName,
+        const int precision,
         TableDef *tableDes
         ) {
 
@@ -7059,13 +7149,13 @@ static int64_t dumpTableData(
 }
 
 static int64_t dumpNormalTable(
-        int64_t index,
+        const int64_t index,
         void *taos,
-        char *dbName,
-        bool belongStb,
-        char *stable,
-        char *tbName,
-        int precision,
+        const char *dbName,
+        const bool belongStb,
+        const char *stable,
+        const char *tbName,
+        const int precision,
         char *dumpFilename,
         FILE *fp
         ) {
@@ -10179,75 +10269,75 @@ static int fillDbInfoWS(void *taos) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                 __func__, __LINE__, command, ws_errstr(ws_res));
         return -1;
-    } else {
-        int fieldCount = ws_num_of_fields(ws_res);
-        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+    }
 
-        while(true) {
-            int rows = 0;
-            const void *data = NULL;
-            code = ws_fetch_block(ws_res, &data, &rows);
+    int fieldCount = ws_num_of_fields(ws_res);
+    const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
 
-            if (0 == rows) {
+    while(true) {
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(ws_res, &data, &rows);
+
+        if (0 == rows) {
+            break;
+        }
+
+        uint8_t type;
+        uint32_t len;
+        char buffer[WS_VALUE_BUF_LEN];
+
+        for (int row = 0; row < rows; row ++) {
+            const void *value0 = ws_get_value_in_block(ws_res, row,
+                    TSDB_SHOW_DB_NAME_INDEX,
+                    &type, &len);
+            if (NULL == value0) {
+                errorPrint("row: %d, ws_get_value_in_block() error!\n",
+                        row);
+                continue;
+            }
+            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memcpy(buffer, value0, len);
+            debugPrint("%s() LN%d, dbname: %s\n",
+                    __func__, __LINE__, buffer);
+
+            if (isSystemDatabase(buffer, len)) {
+                if (!g_args.allow_sys) {
+                    continue;
+                }
+            } else if (g_args.databases) {
+                if (inDatabasesSeq(buffer, len) != 0) {
+                    continue;
+                }
+            } else if (!g_args.all_databases) {
+                if (strcmp(g_args.arg_list[0], buffer)) {
+                    continue;
+                }
+            }
+
+            g_dbInfos[dbIndex] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
+            if (NULL == g_dbInfos[dbIndex]) {
+                errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                        __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
+                ret = -1;
                 break;
             }
 
-            uint8_t type;
-            uint32_t len;
-            char buffer[WS_VALUE_BUF_LEN];
+            okPrint("Database: %s exists\n", buffer);
+            if (false == fillDBInfoWithFieldsWS_V2(dbIndex,
+                        ws_fields, row, fieldCount, ws_res)) {
+                ret = -1;
+                break;
+            }
 
-            for (int row = 0; row < rows; row ++) {
-                const void *value0 = ws_get_value_in_block(ws_res, row,
-                        TSDB_SHOW_DB_NAME_INDEX,
-                        &type, &len);
-                if (NULL == value0) {
-                    errorPrint("row: %d, ws_get_value_in_block() error!\n",
-                            row);
-                    continue;
-                }
-                memset(buffer, 0, WS_VALUE_BUF_LEN);
-                memcpy(buffer, value0, len);
-                debugPrint("%s() LN%d, dbname: %s\n",
-                        __func__, __LINE__, buffer);
+            dbIndex ++;
 
-                if (isSystemDatabase(buffer, len)) {
-                    if (!g_args.allow_sys) {
-                        continue;
-                    }
-                } else if (g_args.databases) {
-                    if (inDatabasesSeq(buffer, len) != 0) {
-                        continue;
-                    }
-                } else if (!g_args.all_databases) {
-                    if (strcmp(g_args.arg_list[0], buffer)) {
-                        continue;
-                    }
-                }
-
-                g_dbInfos[dbIndex] = (SDbInfo *)calloc(1, sizeof(SDbInfo));
-                if (NULL == g_dbInfos[dbIndex]) {
-                    errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
-                            __func__, __LINE__, (uint64_t)sizeof(SDbInfo));
-                    ret = -1;
+            if (g_args.databases) {
+                if (dbIndex > g_args.dumpDbCount)
                     break;
-                }
-
-                okPrint("Database: %s exists\n", buffer);
-                if (false == fillDBInfoWithFieldsWS_V2(dbIndex,
-                            ws_fields, row, fieldCount, ws_res)) {
-                    ret = -1;
+            } else if (!g_args.all_databases) {
+                if (dbIndex >= 1)
                     break;
-                }
-
-                dbIndex ++;
-
-                if (g_args.databases) {
-                    if (dbIndex > g_args.dumpDbCount)
-                        break;
-                } else if (!g_args.all_databases) {
-                    if (dbIndex >= 1)
-                        break;
-                }
             }
         }
     }
