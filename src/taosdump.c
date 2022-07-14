@@ -6730,8 +6730,92 @@ static int64_t writeResultDebugWS(
 }
 #endif
 
-static int64_t writeResultDebug(
-        TAOS_RES *res, FILE *fp,
+static int processResultValue(
+        char *pstr,
+        const int curr_sqlstr_len,
+        const uint8_t type,
+        void *value,
+        const int32_t len) {
+
+    if (NULL == value) {
+        return sprintf(pstr + curr_sqlstr_len, "NULL");
+    }
+
+    char tbuf[COMMAND_SIZE] = {0};
+    switch (type) {
+        case TSDB_DATA_TYPE_BOOL:
+            return sprintf(pstr + curr_sqlstr_len, "%d",
+                    ((((int32_t)(*((char *)value)))==1)?1:0));
+
+        case TSDB_DATA_TYPE_TINYINT:
+            return sprintf(pstr + curr_sqlstr_len, "%d",
+                    *((int8_t *)value));
+
+        case TSDB_DATA_TYPE_SMALLINT:
+            return sprintf(pstr + curr_sqlstr_len, "%d",
+                    *((int16_t *)value));
+
+        case TSDB_DATA_TYPE_INT:
+            return sprintf(pstr + curr_sqlstr_len, "%d",
+                    *((int32_t *)value));
+
+        case TSDB_DATA_TYPE_BIGINT:
+            return sprintf(pstr + curr_sqlstr_len,
+                    "%" PRId64 "",
+                    *((int64_t *)value));
+
+        case TSDB_DATA_TYPE_UTINYINT:
+            return sprintf(pstr + curr_sqlstr_len, "%d",
+                    *((uint8_t *)value));
+
+        case TSDB_DATA_TYPE_USMALLINT:
+            return sprintf(pstr + curr_sqlstr_len, "%d",
+                    *((uint16_t *)value));
+
+        case TSDB_DATA_TYPE_UINT:
+            return sprintf(pstr + curr_sqlstr_len, "%d",
+                    *((uint32_t *)value));
+
+        case TSDB_DATA_TYPE_UBIGINT:
+            return sprintf(pstr + curr_sqlstr_len,
+                    "%" PRIu64 "",
+                    *((uint64_t *)value));
+
+        case TSDB_DATA_TYPE_FLOAT:
+            return sprintf(pstr + curr_sqlstr_len, "%f",
+                    GET_FLOAT_VAL(value));
+
+        case TSDB_DATA_TYPE_DOUBLE:
+            return sprintf(pstr + curr_sqlstr_len, "%f",
+                    GET_DOUBLE_VAL(value));
+
+        case TSDB_DATA_TYPE_BINARY:
+            convertStringToReadable((char *)value, len,
+                    tbuf, COMMAND_SIZE);
+            return sprintf(pstr + curr_sqlstr_len,
+                    "\'%s\'", tbuf);
+
+        case TSDB_DATA_TYPE_NCHAR:
+            convertNCharToReadable((char *)value, len,
+                    tbuf, COMMAND_SIZE);
+            return sprintf(pstr + curr_sqlstr_len,
+                    "\'%s\'", tbuf);
+
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            return sprintf(pstr + curr_sqlstr_len,
+                    "%" PRId64 "",
+                    *(int64_t *)value);
+
+        default:
+            break;
+    }
+
+    return 0;
+}
+
+static int64_t writeResultDebugNative(
+        TAOS_RES *res,
+        FILE *fp,
         const char *dbName,
         const char *tbName)
 {
@@ -6770,95 +6854,13 @@ static int64_t writeResultDebug(
         }
 
         for (int col = 0; col < numFields; col++) {
-            if (col != 0) curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, ", ");
-
-            if (row[col] == NULL) {
-                curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "NULL");
-                continue;
+            if (col != 0) {
+                curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, ", ");
             }
 
-            char tbuf[COMMAND_SIZE] = {0};
-            switch (fields[col].type) {
-                case TSDB_DATA_TYPE_BOOL:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
-                            ((((int32_t)(*((char *)row[col])))==1)?1:0));
-                    break;
-
-                case TSDB_DATA_TYPE_TINYINT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
-                            *((int8_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_SMALLINT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
-                            *((int16_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_INT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
-                            *((int32_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_BIGINT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len,
-                            "%" PRId64 "",
-                            *((int64_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_UTINYINT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
-                            *((uint8_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_USMALLINT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
-                            *((uint16_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_UINT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%d",
-                            *((uint32_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_UBIGINT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len,
-                            "%" PRIu64 "",
-                            *((uint64_t *)row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_FLOAT:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%f",
-                            GET_FLOAT_VAL(row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_DOUBLE:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, "%f",
-                            GET_DOUBLE_VAL(row[col]));
-                    break;
-
-                case TSDB_DATA_TYPE_BINARY:
-                    convertStringToReadable((char *)row[col], length[col],
-                            tbuf, COMMAND_SIZE);
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len,
-                            "\'%s\'", tbuf);
-                    break;
-
-                case TSDB_DATA_TYPE_NCHAR:
-                    convertNCharToReadable((char *)row[col], length[col],
-                            tbuf, COMMAND_SIZE);
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len,
-                            "\'%s\'", tbuf);
-                    break;
-
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len,
-                            "%" PRId64 "",
-                            *(int64_t *)row[col]);
-                    break;
-
-                default:
-                    break;
-            }
+            curr_sqlstr_len += processResultValue(
+                    pstr,
+                    curr_sqlstr_len, fields[col].type, row[col], length[col]);
         }
 
         curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, ")");
@@ -6895,7 +6897,8 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
         const char *dbName,
         const char *tbName,
         const int precision,
-        int64_t start_time, int64_t end_time)
+        const int64_t start_time,
+        const int64_t end_time)
 {
     char sqlstr[COMMAND_SIZE] = {0};
 
@@ -6919,11 +6922,12 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
 }
 #endif
 
-TAOS_RES *queryDbForDumpOut(TAOS *taos,
+TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
         const char *dbName,
         const char *tbName,
         const int precision,
-        int64_t start_time, int64_t end_time)
+        const int64_t start_time,
+        const int64_t end_time)
 {
     char sqlstr[COMMAND_SIZE] = {0};
 
@@ -7081,14 +7085,14 @@ static int64_t dumpTableDataAvro(
 
 #ifdef WEBSOCKET
 static int64_t dumpTableDataWS(
-        int64_t index,
+        const int64_t index,
         FILE *fp,
         const char *tbName,
         const char* dbName,
         const int precision,
         TableDef *tableDes,
-        int64_t start_time,
-        int64_t end_time
+        const int64_t start_time,
+        const int64_t end_time
         ) {
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
     if (NULL == ws_taos) {
@@ -7117,14 +7121,14 @@ static int64_t dumpTableDataWS(
 #endif
 
 static int64_t dumpTableDataNative(
-        int64_t index,
+        const int64_t index,
         FILE *fp,
         const char *tbName,
         const char* dbName,
         const int precision,
         TableDef *tableDes,
-        int64_t start_time,
-        int64_t end_time
+        const int64_t start_time,
+        const int64_t end_time
         ) {
     TAOS *taos = taos_connect(g_args.host,
             g_args.user, g_args.password, dbName, g_args.port);
@@ -7136,10 +7140,10 @@ static int64_t dumpTableDataNative(
         return -1;
     }
 
-    TAOS_RES *res = queryDbForDumpOut(
+    TAOS_RES *res = queryDbForDumpOutNative(
             taos, dbName, tbName, precision, start_time, end_time);
 
-    int64_t totalRows = writeResultDebug(res, fp, dbName, tbName);
+    int64_t totalRows = writeResultDebugNative(res, fp, dbName, tbName);
 
     taos_free_result(res);
     taos_close(taos);
