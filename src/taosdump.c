@@ -8601,9 +8601,8 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        // TODO:
-        snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n", "ws unknown");
-        // TODO: ws_taos_get_server_info(taos));
+        snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n",
+                ws_get_server_info(taos));
     } else {
 #endif
         snprintf(buffer, BUFFER_LEN, "#!server_ver: %s\n",
