@@ -30,7 +30,7 @@ jobs:
           submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: 'chore/sangshuduo/TD-15140-libtaos-ws-submodule'
 
       - name: Change time zone
         run: |

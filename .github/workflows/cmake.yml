@@ -97,14 +97,19 @@ jobs:
             fi
           fi
 
-      - name: Old Test
+      - name: Old Test for taodump
+        run: |
+          cd TDengine/tests/system-test
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
+
+      - name: Old Test for taodemo
         run: |
           cd TDengine/tests/pytest
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
-
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
+          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m TD-5213/insertSigcolumnsNum4096.py success! \033[0m"|| echo -e "\033[31m TD-5213/insertSigcolumnsNum4096.py failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
 
       - name: Develop Test
         run: |
