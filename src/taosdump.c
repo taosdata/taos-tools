@@ -3978,10 +3978,7 @@ static int64_t writeResultToAvroWS(
     int64_t success = 0;
 //    int64_t failed = 0;
 
-//    bool printDot = true;
-
-//    int numFields = -1;
-//    WS_FIELD *fields = NULL;
+    bool printDot = true;
 
     int currentPercent = 0;
     int percentComplete = 0;
@@ -4005,21 +4002,25 @@ static int64_t writeResultToAvroWS(
             break;
         }
         // TODO
-        break;
-/*
-        numFields = taos_field_count(res);
-
-        fields = taos_fetch_fields(res);
-        assert(fields);
+//        int numFields = ws_num_of_fields(ws_res);
+//        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
 
         int32_t countInBatch = 0;
-        TAOS_ROW row;
 
+/*
         while(NULL != (row = taos_fetch_row(res))) {
             int32_t *length = taos_fetch_lengths(res);
 
         }
         */
+        if (countInBatch != limit) {
+            errorPrint("actual dump out: %d, batch %" PRId64 "\n",
+                    countInBatch, limit);
+        }
+        ws_free_result(ws_res);
+        printDotOrX(offset, &printDot);
+        offset += limit;
+
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
             printf("%d%% of %s\n", currentPercent, tbName);
@@ -4036,6 +4037,240 @@ static int64_t writeResultToAvroWS(
     return success;
 }
 #endif
+
+static int processValueToAvro(
+        const int32_t col,
+        avro_value_t record,
+        avro_value_t avro_value,
+        avro_value_t branch,
+        const char *name,
+        const uint8_t type,
+        const int32_t bytes,
+        const void *value,
+        const int32_t len
+        ) {
+
+    char tmpBuf[TSDB_COL_NAME_LEN] = {0};
+
+    if (0 == col) {
+        sprintf(tmpBuf, "ts");
+    } else {
+        sprintf(tmpBuf, "col%d", col-1);
+    }
+
+    if (0 != avro_value_get_by_name(
+                &record,
+                tmpBuf,
+                &avro_value, NULL)) {
+        errorPrint("%s() LN%d, avro_value_get_by_name(%s) failed\n",
+                __func__, __LINE__, name);
+        return -1;
+    }
+
+    avro_value_t firsthalf, secondhalf;
+    uint8_t u8Temp = 0;
+    uint16_t u16Temp = 0;
+    uint32_t u32Temp = 0;
+    uint64_t u64Temp = 0;
+
+    switch (type) {
+        case TSDB_DATA_TYPE_BOOL:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                verbosePrint("%s() LN%d, before set_bool() null\n",
+                        __func__, __LINE__);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                char tmp = *(char*)value;
+                verbosePrint("%s() LN%d, before set_bool() tmp=%d\n",
+                        __func__, __LINE__, (int)tmp);
+                avro_value_set_boolean(&branch, (tmp)?1:0);
+            }
+            break;
+
+        case TSDB_DATA_TYPE_TINYINT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_int(&branch, *((int8_t *)value));
+            }
+            break;
+
+        case TSDB_DATA_TYPE_SMALLINT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_int(&branch, *((int16_t *)value));
+            }
+            break;
+
+        case TSDB_DATA_TYPE_INT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_int(&branch, *((int32_t *)value));
+            }
+            break;
+
+        case TSDB_DATA_TYPE_UTINYINT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                u8Temp = *((uint8_t *)value);
+
+                int8_t n8tmp = (int8_t)(u8Temp - SCHAR_MAX);
+                avro_value_append(&branch, &firsthalf, NULL);
+                avro_value_set_int(&firsthalf, n8tmp);
+                debugPrint("%s() LN%d, first half is: %d, ",
+                        __func__, __LINE__, (int32_t)n8tmp);
+                avro_value_append(&branch, &secondhalf, NULL);
+                avro_value_set_int(&secondhalf, (int32_t)SCHAR_MAX);
+                debugPrint("second half is: %d\n", (int32_t)SCHAR_MAX);
+            }
+
+            break;
+
+        case TSDB_DATA_TYPE_USMALLINT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                u16Temp = *((uint16_t *)value);
+
+                int16_t n16tmp = (int16_t)(u16Temp - SHRT_MAX);
+                avro_value_append(&branch, &firsthalf, NULL);
+                avro_value_set_int(&firsthalf, n16tmp);
+                debugPrint("%s() LN%d, first half is: %d, ",
+                        __func__, __LINE__, (int32_t)n16tmp);
+                avro_value_append(&branch, &secondhalf, NULL);
+                avro_value_set_int(&secondhalf, (int32_t)SHRT_MAX);
+                debugPrint("second half is: %d\n", (int32_t)SHRT_MAX);
+            }
+
+            break;
+
+        case TSDB_DATA_TYPE_UINT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                u32Temp = *((uint32_t *)value);
+
+                int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
+                avro_value_append(&branch, &firsthalf, NULL);
+                avro_value_set_int(&firsthalf, n32tmp);
+                debugPrint("%s() LN%d, first half is: %d, ",
+                        __func__, __LINE__, n32tmp);
+                avro_value_append(&branch, &secondhalf, NULL);
+                avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
+                debugPrint("second half is: %d\n", INT_MAX);
+            }
+
+            break;
+
+        case TSDB_DATA_TYPE_UBIGINT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                u64Temp = *((uint64_t *)value);
+
+                int64_t n64tmp = (int64_t)(u64Temp - LONG_MAX);
+                avro_value_append(&branch, &firsthalf, NULL);
+                avro_value_set_long(&firsthalf, n64tmp);
+                debugPrint("%s() LN%d, first half is: %"PRId64", ",
+                        __func__, __LINE__, n64tmp);
+                avro_value_append(&branch, &secondhalf, NULL);
+                avro_value_set_long(&secondhalf, LONG_MAX);
+                debugPrint("second half is: %"PRId64"\n", (int64_t) LONG_MAX);
+            }
+
+            break;
+
+        case TSDB_DATA_TYPE_BIGINT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_long(&branch, *((int64_t *)value));
+            }
+            break;
+
+        case TSDB_DATA_TYPE_FLOAT:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_float(&branch, TSDB_DATA_FLOAT_NULL);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_float(&branch, GET_FLOAT_VAL(value));
+            }
+            break;
+
+        case TSDB_DATA_TYPE_DOUBLE:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_double(&branch, TSDB_DATA_DOUBLE_NULL);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_double(&branch, GET_DOUBLE_VAL(value));
+            }
+            break;
+
+        case TSDB_DATA_TYPE_BINARY:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                char *binTemp = calloc(1, 1+bytes);
+                assert(binTemp);
+                strncpy(binTemp, (char*)value, len);
+                avro_value_set_string(&branch, binTemp);
+                free(binTemp);
+            }
+            break;
+
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_JSON:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_bytes(&branch, (void*)(value),
+                        len);
+            }
+            break;
+
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            if (NULL == value) {
+                avro_value_set_branch(&avro_value, 0, &branch);
+                avro_value_set_null(&branch);
+            } else {
+                avro_value_set_branch(&avro_value, 1, &branch);
+                avro_value_set_long(&branch, *((int64_t *)value));
+            }
+            break;
+
+        default:
+            break;
+    }
+
+    return 0;
+}
 
 static int64_t writeResultToAvroNative(
         const char *avroFilename,
@@ -4121,224 +4356,8 @@ static int64_t writeResultToAvroNative(
             }
 
             for (int32_t col = 0; col < numFields; col++) {
-                char tmpBuf[TSDB_COL_NAME_LEN] = {0};
-
-                if (0 == col) {
-                    sprintf(tmpBuf, "ts");
-                } else {
-                    sprintf(tmpBuf, "col%d", col-1);
-                }
-
-                if (0 != avro_value_get_by_name(
-                            &record,
-                            tmpBuf,
-                            &value, NULL)) {
-                    errorPrint("%s() LN%d, avro_value_get_by_name(%s) failed\n",
-                            __func__, __LINE__, fields[col].name);
-                    break;
-                }
-
-                avro_value_t firsthalf, secondhalf;
-                uint8_t u8Temp = 0;
-                uint16_t u16Temp = 0;
-                uint32_t u32Temp = 0;
-                uint64_t u64Temp = 0;
-
-                switch (fields[col].type) {
-                    case TSDB_DATA_TYPE_BOOL:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            verbosePrint("%s() LN%d, before set_bool() null\n",
-                                    __func__, __LINE__);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            char tmp = *(char*)row[col];
-                            verbosePrint("%s() LN%d, before set_bool() tmp=%d\n",
-                                    __func__, __LINE__, (int)tmp);
-                            avro_value_set_boolean(&branch, (tmp)?1:0);
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_TINYINT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_int(&branch, *((int8_t *)row[col]));
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_SMALLINT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_int(&branch, *((int16_t *)row[col]));
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_INT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_int(&branch, *((int32_t *)row[col]));
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_UTINYINT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            u8Temp = *((uint8_t *)row[col]);
-
-                            int8_t n8tmp = (int8_t)(u8Temp - SCHAR_MAX);
-                            avro_value_append(&branch, &firsthalf, NULL);
-                            avro_value_set_int(&firsthalf, n8tmp);
-                            debugPrint("%s() LN%d, first half is: %d, ",
-                                    __func__, __LINE__, (int32_t)n8tmp);
-                            avro_value_append(&branch, &secondhalf, NULL);
-                            avro_value_set_int(&secondhalf, (int32_t)SCHAR_MAX);
-                            debugPrint("second half is: %d\n", (int32_t)SCHAR_MAX);
-                        }
-
-                        break;
-
-                    case TSDB_DATA_TYPE_USMALLINT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            u16Temp = *((uint16_t *)row[col]);
-
-                            int16_t n16tmp = (int16_t)(u16Temp - SHRT_MAX);
-                            avro_value_append(&branch, &firsthalf, NULL);
-                            avro_value_set_int(&firsthalf, n16tmp);
-                            debugPrint("%s() LN%d, first half is: %d, ",
-                                    __func__, __LINE__, (int32_t)n16tmp);
-                            avro_value_append(&branch, &secondhalf, NULL);
-                            avro_value_set_int(&secondhalf, (int32_t)SHRT_MAX);
-                            debugPrint("second half is: %d\n", (int32_t)SHRT_MAX);
-                        }
-
-                        break;
-
-                    case TSDB_DATA_TYPE_UINT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            u32Temp = *((uint32_t *)row[col]);
-
-                            int32_t n32tmp = (int32_t)(u32Temp - INT_MAX);
-                            avro_value_append(&branch, &firsthalf, NULL);
-                            avro_value_set_int(&firsthalf, n32tmp);
-                            debugPrint("%s() LN%d, first half is: %d, ",
-                                    __func__, __LINE__, n32tmp);
-                            avro_value_append(&branch, &secondhalf, NULL);
-                            avro_value_set_int(&secondhalf, (int32_t)INT_MAX);
-                            debugPrint("second half is: %d\n", INT_MAX);
-                        }
-
-                        break;
-
-                    case TSDB_DATA_TYPE_UBIGINT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            u64Temp = *((uint64_t *)row[col]);
-
-                            int64_t n64tmp = (int64_t)(u64Temp - LONG_MAX);
-                            avro_value_append(&branch, &firsthalf, NULL);
-                            avro_value_set_long(&firsthalf, n64tmp);
-                            debugPrint("%s() LN%d, first half is: %"PRId64", ",
-                                    __func__, __LINE__, n64tmp);
-                            avro_value_append(&branch, &secondhalf, NULL);
-                            avro_value_set_long(&secondhalf, LONG_MAX);
-                            debugPrint("second half is: %"PRId64"\n", (int64_t) LONG_MAX);
-                        }
-
-                        break;
-
-                    case TSDB_DATA_TYPE_BIGINT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_long(&branch, *((int64_t *)row[col]));
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_FLOAT:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_float(&branch, TSDB_DATA_FLOAT_NULL);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_float(&branch, GET_FLOAT_VAL(row[col]));
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_DOUBLE:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_double(&branch, TSDB_DATA_DOUBLE_NULL);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_double(&branch, GET_DOUBLE_VAL(row[col]));
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_BINARY:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            char *binTemp = calloc(1, 1+fields[col].bytes);
-                            assert(binTemp);
-                            strncpy(binTemp, (char*)row[col], length[col]);
-                            avro_value_set_string(&branch, binTemp);
-                            free(binTemp);
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_NCHAR:
-                    case TSDB_DATA_TYPE_JSON:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_bytes(&branch, (void*)(row[col]),
-                                    length[col]);
-                        }
-                        break;
-
-                    case TSDB_DATA_TYPE_TIMESTAMP:
-                        if (NULL == row[col]) {
-                            avro_value_set_branch(&value, 0, &branch);
-                            avro_value_set_null(&branch);
-                        } else {
-                            avro_value_set_branch(&value, 1, &branch);
-                            avro_value_set_long(&branch, *((int64_t *)row[col]));
-                        }
-                        break;
-
-                    default:
-                        break;
-                }
+                processValueToAvro(col, record, value, branch,
+                        fields[col].name, fields[col].type, fields[col].bytes, row[col], length[col]);
             }
 
             if (0 != avro_file_writer_append_value(db, &record)) {
