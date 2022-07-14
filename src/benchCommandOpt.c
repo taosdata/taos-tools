@@ -192,7 +192,6 @@ void init_argument() {
     } else {
         g_arguments->taosc_version = 2;
     }
-    g_arguments->pool = benchCalloc(1, sizeof(TAOS_POOL), true);
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
     g_arguments->host = NULL;
@@ -206,7 +205,6 @@ void init_argument() {
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
     g_arguments->table_threads = DEFAULT_NTHREADS;
-    g_arguments->connection_pool = DEFAULT_NTHREADS;
     g_arguments->binwidth = DEFAULT_BINWIDTH;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
@@ -224,7 +222,17 @@ void init_argument() {
 void modify_argument() {
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable *superTable = benchArrayGet(database->superTbls, 0);
-    if (init_taos_list()) exit(EXIT_FAILURE);
+#ifdef LINUX
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint(stderr, "Invalid path %s\n", configDir);
+            exit(EXIT_FAILURE);
+        }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
+#endif
 
     if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
@@ -438,7 +446,7 @@ void queryAggrFunc() {
     threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), false);
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-    pThreadInfo->taos = select_one_from_pool(database->dbName);
+    pThreadInfo->taos = benchConnectTaos();
     if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {

@@ -812,8 +812,7 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     TAOS_STMT *  stmt = pThreadInfo->stmt;
-    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
-    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
     memset(pThreadInfo->bindParams, 0,
            (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));

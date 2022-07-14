@@ -55,7 +55,7 @@ static void *mixedQuery(void *sarg) {
                 return NULL;
             }
             if (g_queryInfo.reset_query_cache) {
-                queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE, false, false);
+                queryDbExec(pThreadInfo->taos, "reset query cache", false);
             }
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
@@ -116,7 +116,7 @@ static void *specifiedTableQuery(void *sarg) {
                                  (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE, false, false);
+            queryDbExec(pThreadInfo->taos, "reset query cache", false);
         }
 
         st = toolsGetTimestampUs();
@@ -248,8 +248,6 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
         for (int i = 0; i < threads; i++) {
             threadInfo *pThreadInfo = infosOfSub + i;
             pThreadInfo->threadID = i;
-            pThreadInfo->db_index = 0;
-            pThreadInfo->stb_index = 0;
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
             pThreadInfo->end_table_to =
@@ -282,8 +280,7 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                 }
                 pThreadInfo->sockfd = sockfd;
             } else {
-                pThreadInfo->taos =
-                        select_one_from_pool(dbName);
+                pThreadInfo->taos = benchConnectTaos();
                 if (pThreadInfo->taos == NULL) {
                     goto OVER;
                 }
@@ -343,8 +340,6 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
-                pThreadInfo->stb_index = 0;
 
                 if (iface == REST_IFACE) {
 #ifdef WINDOWS
@@ -386,11 +381,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     }
                     pThreadInfo->sockfd = sockfd;
                 } else {
-                    pThreadInfo->taos =
-                            select_one_from_pool(dbName);
-                    if (pThreadInfo->taos == NULL) {
-                        return -1;
-                    }
+                    pThreadInfo->taos = benchConnectTaos();
                 }
 
                 pthread_create(pids + seq, NULL, specifiedTableQuery,
@@ -505,10 +496,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
             }
             pQueryThreadInfo->sockfd = sockfd;
         } else {
-            pQueryThreadInfo->taos = select_one_from_pool(dbName);
-            if (pQueryThreadInfo->taos == NULL) {
-                goto OVER;
-            }
+            pQueryThreadInfo->taos = benchConnectTaos();
         }
         pthread_create(pids + i, NULL, mixedQuery, pQueryThreadInfo);
     }
@@ -565,7 +553,17 @@ OVER:
 }
 
 int queryTestProcess() {
-    if (init_taos_list()) return -1;
+#ifdef LINUX
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint(stderr, "Invalid path %s\n", configDir);
+            exit(EXIT_FAILURE);
+        }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
+#endif
     encode_base_64();
     prompt(0);
     if (g_queryInfo.iface == REST_IFACE) {
@@ -579,7 +577,7 @@ int queryTestProcess() {
 
     if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
         (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-        TAOS *taos = select_one_from_pool(g_queryInfo.dbName);
+        TAOS *taos = benchConnectTaos();
         char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
                  g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);

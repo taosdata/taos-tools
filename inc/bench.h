@@ -76,6 +76,10 @@
 #include "taos.h"
 #include "toolsdef.h"
 
+#ifdef WEBSOCKET
+#include "taosws.h"
+#endif
+
 #if defined(WIN32) || defined(WIN64)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -105,7 +109,7 @@
 #define RESP_BUF_LEN      4096
 #define SQL_BUFF_LEN      1024
 
-#define STR_INSERT_INTO "INSERT INTO "
+#define STR_INSERT_INTO "INSERT INTO"
 
 #define HEAD_BUFF_LEN \
     TSDB_MAX_COLUMNS * 24  // 16*MAX_COLUMNS + (192+32)*2 + insert into ..
@@ -259,12 +263,6 @@ typedef enum enumQUERY_CLASS {
     CLASS_BUT
 } QUERY_CLASS;
 
-typedef enum enumQUERY_TYPE {
-    NO_INSERT_TYPE,
-    INSERT_TYPE,
-    QUERY_TYPE_BUT
-} QUERY_TYPE;
-
 enum _show_db_index {
     TSDB_SHOW_DB_NAME_INDEX,
     TSDB_SHOW_DB_CREATED_TIME_INDEX,
@@ -306,12 +304,6 @@ typedef struct BArray {
     void*    pData;
 } BArray;
 
-typedef struct TAOS_POOL_S {
-    int    size;
-    int    current;
-    TAOS **taos_list;
-} TAOS_POOL;
-
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -332,7 +324,7 @@ typedef struct SSuperTable_S {
     bool     use_metric;
     char *   childTblPrefix;
     bool     childTblExists;
-    uint64_t childTblCount;
+    int64_t  childTblCount;
     uint64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
                                    // one sql
     bool     autoCreateTable;
@@ -370,7 +362,6 @@ typedef struct SSuperTable_S {
     int   delay;
     int   file_factor;
     char *rollup;
-    bool no_check_for_affected_rows;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -488,16 +479,14 @@ typedef struct SArguments_S {
     char *             output_file;
     uint32_t           binwidth;
     uint32_t           intColumnCount;
-    uint32_t           connection_pool;
-    uint32_t           nthreads;
+    int32_t            nthreads;
     uint32_t           table_threads;
     uint64_t           prepared_rand;
-    uint32_t           reqPerReq;
+    int32_t           reqPerReq;
     uint64_t           insert_interval;
     bool               demo_mode;
     bool               aggr_func;
     struct sockaddr_in serv_addr;
-    TAOS_POOL *        pool;
     uint64_t           g_totalChildTables;
     uint64_t           g_actualChildTables;
     uint64_t           g_autoCreatedChildTables;
@@ -519,10 +508,10 @@ typedef struct SThreadInfo_S {
     char *     bindParams;
     char *     is_null;
     uint32_t   threadID;
-    uint64_t   start_table_from;
-    uint64_t   end_table_to;
-    uint64_t   ntables;
-    uint64_t   tables_created;
+    int64_t    start_table_from;
+    int64_t    end_table_to;
+    int64_t    ntables;
+    int64_t    tables_created;
     char *     buffer;
     uint64_t   counter;
     uint64_t   st;
@@ -536,12 +525,12 @@ typedef struct SThreadInfo_S {
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    uint32_t   db_index;
-    uint32_t   stb_index;
+    SDataBase *db;
+    SSuperTable *stbInfo;
     char **    sml_tags;
     tools_cJSON *    json_array;
     tools_cJSON *    sml_json_tags;
-    uint64_t   start_time;
+    int64_t   start_time;
     uint64_t   max_sql_len;
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
@@ -591,9 +580,6 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int     init_taos_list();
-TAOS *  select_one_from_pool(char *db_name);
-void    cleanup_taos_list();
 int64_t toolsGetTimestampMs();
 int64_t toolsGetTimestampUs();
 int64_t toolsGetTimestampNs();
@@ -611,10 +597,9 @@ void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
-int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check);
+int     queryDbExec(TAOS *taos, char *command, bool quiet);
 int     regexMatch(const char *s, const char *reg, int cflags);
-int     convertHostToServAddr(char *host, uint16_t port,
-                              struct sockaddr_in *serv_addr);
+int     convertHostToServAddr(char *host, uint16_t port, struct sockaddr_in *serv_addr);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
@@ -632,9 +617,15 @@ void benchSetSignal(int32_t signum, FSignalHandler sigfp);
 int taos_convert_type_to_length(uint8_t type);
 int64_t taos_convert_datatype_to_default_max(uint8_t type);
 int64_t taos_convert_datatype_to_default_min(uint8_t type);
+TAOS* benchConnectTaos();
 /* demoInsert.c */
+void init_taosc_thread(threadInfo* pThreadInfo);
 int  insertTestProcess();
 void postFreeResource();
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
+void record_delay(threadInfo* pThreadInfo, int64_t st, int64_t et);
+void thread_print_insert_progress(threadInfo *pThreadInfo, int64_t* lastPrintTime);
+void* taosc_progressive_insert(void *sarg);
 /* demoQuery.c */
 int queryTestProcess();
 /* demoSubscribe.c */

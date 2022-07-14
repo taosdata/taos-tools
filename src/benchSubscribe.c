@@ -275,11 +275,21 @@ free_of_super_subscribe:
 int subscribeTestProcess() {
     prompt(0);
 
-    if (init_taos_list()) return -1;
+#ifdef LINUX
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint(stderr, "Invalid path %s\n", configDir);
+            exit(EXIT_FAILURE);
+        }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
+#endif
     encode_base_64();
 
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        TAOS *taos = select_one_from_pool(g_queryInfo.dbName);
+        TAOS *taos = benchConnectTaos();
         char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
                  g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
@@ -342,11 +352,8 @@ int subscribeTestProcess() {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
-                pThreadInfo->taos =
-                    select_one_from_pool(g_queryInfo.dbName);
-                pthread_create(pids + seq, NULL, specifiedSubscribe,
-                               pThreadInfo);
+                pThreadInfo->taos = benchConnectTaos();
+                pthread_create(pids + seq, NULL, specifiedSubscribe, pThreadInfo);
             }
         }
 
@@ -397,14 +404,12 @@ int subscribeTestProcess() {
                 threadInfo *pThreadInfo = infosOfStable + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
                 pThreadInfo->start_table_from = tableFrom;
                 pThreadInfo->ntables = j < b ? a + 1 : a;
                 pThreadInfo->end_table_to =
                     j < b ? tableFrom + a : tableFrom + a - 1;
                 tableFrom = pThreadInfo->end_table_to + 1;
-                pThreadInfo->taos =
-                    select_one_from_pool(g_queryInfo.dbName);
+                pThreadInfo->taos = benchConnectTaos();
                 pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                pThreadInfo);
             }

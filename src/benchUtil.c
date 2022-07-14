@@ -196,11 +196,17 @@ void prompt(bool nonStopMode) {
                 "Ctrl-C to "
                 "stop\n\n");
             (void)getchar();
+            if (g_arguments->terminate) {
+                exit(EXIT_FAILURE);
+            }
         } else {
             printf(
                 "\n\n         Press enter key to continue or Ctrl-C to "
                 "stop\n\n");
             (void)getchar();
+            if (g_arguments->terminate) {
+                exit(EXIT_FAILURE);
+            }
         }
     }
 }
@@ -293,25 +299,20 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check) {
+int queryDbExec(TAOS *taos, char *command, bool quiet) {
     TAOS_RES *res = taos_query(taos, command);
     int32_t   code = taos_errno(res);
 
     if (code != 0) {
-        if (!quiet) {
+        if (quiet && !g_arguments->debug_print) {
+            errorPrint(stderr, "Failed to execute sql, reason: %s\n", taos_errstr(res));
+        } else {
             errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
                        taos_errstr(res));
         }
         taos_free_result(res);
         return -1;
     }
-
-    if (INSERT_TYPE == type && !check) {
-        int affectedRows = taos_affected_rows(res);
-        taos_free_result(res);
-        return affectedRows;
-    }
-
     taos_free_result(res);
     return 0;
 }
@@ -780,61 +781,6 @@ int taos_convert_string_to_datatype(char *type, int length) {
     }
 }
 
-int init_taos_list() {
-#ifdef LINUX
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint(stderr, "Invalid path %s\n", configDir);
-            exit(EXIT_FAILURE);
-        }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
-#endif
-    int        size = g_arguments->connection_pool;
-    TAOS_POOL *pool = g_arguments->pool;
-    pool->taos_list = benchCalloc(size, sizeof(TAOS *), true);
-    pool->current = 0;
-    pool->size = size;
-    for (int i = 0; i < size; ++i) {
-        pool->taos_list[i] =
-            taos_connect(g_arguments->host, g_arguments->user,
-                         g_arguments->password, NULL, g_arguments->port);
-        if (pool->taos_list[i] == NULL) {
-            errorPrint(stderr, "Failed to connect to TDengine, reason:%s\n",
-                       taos_errstr(NULL));
-            return -1;
-        }
-    }
-    return 0;
-}
-
-TAOS *select_one_from_pool(char *db_name) {
-    TAOS_POOL *pool = g_arguments->pool;
-    TAOS *     taos = pool->taos_list[pool->current];
-    if (db_name != NULL) {
-        int code = taos_select_db(taos, db_name);
-        if (code) {
-            errorPrint(stderr, "failed to select %s, reason: %s\n", db_name,
-                       taos_errstr(NULL));
-            return NULL;
-        }
-    }
-    pool->current++;
-    if (pool->current >= pool->size) {
-        pool->current = 0;
-    }
-    return taos;
-}
-
-void cleanup_taos_list() {
-    for (int i = 0; i < g_arguments->pool->size; ++i) {
-        taos_close(g_arguments->pool->taos_list[i]);
-    }
-    tmfree(g_arguments->pool->taos_list);
-}
-
 int compare(const void *a, const void *b) {
     return *(int64_t *)a - *(int64_t *)b;
 }
@@ -931,3 +877,12 @@ void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
     sigaction(signum, &act, NULL);
 }
 #endif
+
+TAOS* benchConnectTaos() {
+    TAOS* taos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
+    if (taos == NULL) {
+        errorPrint(stderr, "%s", "failed to connect TDengine\n");
+        exit(EXIT_FAILURE);
+    }
+    return taos;
+}
