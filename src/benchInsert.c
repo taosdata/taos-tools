@@ -1559,13 +1559,13 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
         }
     }
 
-    int64_t start = toolsGetTimestampNs();
+    int64_t start = toolsGetTimestampUs();
 
     for (int i = 0; i < threads; i++) {
         pthread_join(pids[i], NULL);
     }
 
-    int64_t end = toolsGetTimestampNs();
+    int64_t end = toolsGetTimestampUs();
 
     BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t   totalDelay = 0;
@@ -1629,64 +1629,64 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     if (stbInfo->no_check_for_affected_rows) {
         infoPrint(stdout,
                   "Spent %.6f seconds to insert rows: %" PRIu64
-                          "with %d thread(s) into %s %.6f records/second\n",
-                  (end - start)/1E9, totalInsertRows, threads,
-                  database->dbName, (double)(totalInsertRows / ((end - start)/1E9)));
+                          "with %d thread(s) into %s %.2f records/second\n",
+                  (end - start)/1E6, totalInsertRows, threads,
+                  database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
     } else {
         infoPrint(stdout,
                   "Spent %.6f seconds to insert rows: %" PRIu64
                           ", affected rows: %" PRIu64
-                          " with %d thread(s) into %s %.6f records/second\n",
-                  (end - start)/1E9, totalInsertRows, totalAffectedRows, threads,
-                  database->dbName, (double)(totalInsertRows / ((end - start)/1E9)));
+                          " with %d thread(s) into %s %.2f records/second\n",
+                  (end - start)/1E6, totalInsertRows, totalAffectedRows, threads,
+                  database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
     }
 
     if (g_arguments->fpOfInsertResult) {
         if (stbInfo->no_check_for_affected_rows) {
             infoPrint(g_arguments->fpOfInsertResult,
                       "Spent %.6f seconds to insert rows: %" PRIu64
-                              "with %d thread(s) into %s %.6f records/second\n",
+                              "with %d thread(s) into %s %.2f records/second\n",
                       (end - start)/1E6, totalInsertRows, threads,
                       database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
         } else {
             infoPrint(g_arguments->fpOfInsertResult,
                       "Spent %.6f seconds to insert rows: %" PRIu64
                               ", affected rows: %" PRIu64
-                              " with %d thread(s) into %s %.6f records/second\n",
+                              " with %d thread(s) into %s %.2f records/second\n",
                       (end - start)/1E6, totalInsertRows, totalAffectedRows, threads,
                       database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
         }
     }
 
     infoPrint(stdout, "insert delay, "
-                      "min: %.6fs, "
-                      "avg: %.6fs, "
-                      "p90: %.6fs, "
-                      "p95: %.6fs, "
-                      "p99: %.6fs, "
-                      "max: %.6fs\n",
-                      *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E6,
-                      (double)totalDelay/total_delay_list->size/1E6,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E6,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E6,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E6,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E6);
+                      "min: %.2fms, "
+                      "avg: %.2fms, "
+                      "p90: %.2fms, "
+                      "p95: %.2fms, "
+                      "p99: %.2fms, "
+                      "max: %.2fms\n",
+                      *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
+                      (double)totalDelay/total_delay_list->size/1E3,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E3,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E3,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E3,
+                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E3);
 
     if (g_arguments->fpOfInsertResult) {
         infoPrint(g_arguments->fpOfInsertResult,
-                  "insert delay, "
-                  "min: %5.2fms, "
-                  "avg: %5.2fms, "
-                  "p90: %5.2fms, "
-                  "p95: %5.2fms, "
-                  "p99: %5.2fms, "
-                  "max: %5.2fms\n",
-                  *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E6,
-                  (double)totalDelay/total_delay_list->size/1E6,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E6,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E6,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E6,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E6);
+                          "insert delay, "
+                          "min: %.2fms, "
+                          "avg: %.2fms, "
+                          "p90: %.2fms, "
+                          "p95: %.2fms, "
+                          "p99: %.2fms, "
+                          "max: %.2fms\n",
+                  *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
+                  (double)totalDelay/total_delay_list->size/1E3,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E3,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E3,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E3,
+                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E3);
     }
     benchArrayDestroy(total_delay_list);
     if (g_fail) {
