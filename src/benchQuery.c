@@ -67,9 +67,8 @@ static void *mixedQuery(void *sarg) {
             } else {
                 TAOS_RES *res = taos_query(pThreadInfo->taos, sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
-                    errorPrint(stderr, "thread[%d]: failed to execute sql :%s, code: %d, reason: %s\n",pThreadInfo->threadId, sql->command, taos_errno(res), taos_errstr(res));
-                    //todo: remove magic number
-                    if (-2147483390 == taos_errno(res)) {
+                    errorPrint(stderr, "thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",pThreadInfo->threadId, sql->command, taos_errno(res), taos_errstr(res));
+                    if(TSDB_CODE_RPC_NETWORK_UNAVAIL == taos_errno(res)) {
                         return NULL;
                     }
                     continue;
@@ -539,7 +538,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
             close(pThreadInfo->sockfd);
 #endif
         } else {
-            taos_close(pThreadInfo->taos);
+           // taos_close(pThreadInfo->taos);
         }
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
