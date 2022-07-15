@@ -1814,6 +1814,10 @@ static int64_t getNtbCountOfStbWS(const char *command)
         const void *data = NULL;
         code = ws_fetch_block(ws_res, &data, &rows);
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -2141,7 +2145,14 @@ static int getTableDesColWS(
             return -1;
         }
 
-        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+        void *ws_fields = NULL;
+        if (3 == g_majorVersionOfClient) {
+            const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+            ws_fields = (void *)ws_fields_v3;
+        } else {
+            const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+            ws_fields = (void *)ws_fields_v2;
+        }
 
         while(true) {
             int rows = 0;
@@ -2228,6 +2239,10 @@ static int getTableDesWS(
         const void *data = NULL;
         code = ws_fetch_block(ws_res, &data, &rows);
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -3812,6 +3827,10 @@ int64_t queryDbForDumpOutCountWS(
         const void *data = NULL;
         code = ws_fetch_block(ws_res, &data, &rows);
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -4271,7 +4290,15 @@ static int64_t writeResultToAvroWS(
         }
 
         int numFields = ws_field_count(ws_res);
-        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+
+        void *ws_fields = NULL;
+        if (3 == g_majorVersionOfClient) {
+            const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+            ws_fields = (void *)ws_fields_v3;
+        } else {
+            const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+            ws_fields = (void *)ws_fields_v2;
+        }
 
         int32_t countInBatch = 0;
 
@@ -4325,13 +4352,25 @@ static int64_t writeResultToAvroWS(
                         continue;
                     }
 
-                    processValueToAvro(
-                            f, record,
-                            avro_value, branch,
-                            ws_fields[f].name,
-                            ws_fields[f].type,
-                            ws_fields[f].bytes,
-                            value, len);
+                    if (3 == g_majorVersionOfClient) {
+                        struct WS_FIELD *ws_fields_3 = (struct WS_FIELD *) ws_fields;
+                        processValueToAvro(
+                                f, record,
+                                avro_value, branch,
+                                ws_fields_3[f].name,
+                                ws_fields_3[f].type,
+                                ws_fields_3[f].bytes,
+                                value, len);
+                    } else {
+                        struct WS_FIELD_V2 *ws_fields_2 = (struct WS_FIELD_V2 *) ws_fields;
+                        processValueToAvro(
+                                f, record,
+                                avro_value, branch,
+                                ws_fields_2[f].name,
+                                ws_fields_2[f].type,
+                                ws_fields_2[f].bytes,
+                                value, len);
+                    }
                 }
 
                 if (0 != avro_file_writer_append_value(db, &record)) {
@@ -6964,7 +7003,15 @@ static int64_t writeResultDebugWS(
 
     int fieldCount  = ws_field_count(ws_res);
     assert(fieldCount > 0);
-    const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+
+    void *ws_fields = NULL;
+    if (3 == g_majorVersionOfClient) {
+        const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+        ws_fields = (void *)ws_fields_v3;
+    } else {
+        const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+        ws_fields = (void *)ws_fields_v2;
+    }
 
     int32_t  total_sqlstr_len = 0;
 
@@ -6980,6 +7027,10 @@ static int64_t writeResultDebugWS(
             break;
         }
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -7011,12 +7062,24 @@ static int64_t writeResultDebugWS(
                     continue;
                 }
 
-                curr_sqlstr_len += processResultValue(
-                        pstr,
-                        curr_sqlstr_len,
-                        ws_fields[f].type,
-                        value,
-                        len);
+                if (3 == g_majorVersionOfClient) {
+                    struct WS_FIELD *ws_fields_3 = (struct WS_FIELD *) ws_fields;
+                    curr_sqlstr_len += processResultValue(
+                            pstr,
+                            curr_sqlstr_len,
+                            ws_fields_3[f].type,
+                            value,
+                            len);
+                } else {
+                    struct WS_FIELD_V2 *ws_fields_2 = (struct WS_FIELD_V2 *) ws_fields;
+                    curr_sqlstr_len += processResultValue(
+                            pstr,
+                            curr_sqlstr_len,
+                            ws_fields_2[f].type,
+                            value,
+                            len);
+
+                }
             }
             curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, ")");
 
@@ -8113,6 +8176,10 @@ static int createMTableAvroHeadFillTBNameWS(
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -8140,7 +8207,7 @@ static int createMTableAvroHeadFillTBNameWS(
                     min(TSDB_TABLE_NAME_LEN,
                         len));
 
-            debugPrint("%s() LN%d, sub table name: %s. %"PRId64" of stable: %s\n",
+            debugPrint("%s() LN%d, sub table name: %s %"PRId64" of stable: %s\n",
                     __func__, __LINE__,
                     tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
                     ntbCount, stable);
@@ -8808,6 +8875,10 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -9411,6 +9482,10 @@ static void dumpNormalTablesOfStbWS(
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    pThreadInfo->taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -9773,6 +9848,10 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -10102,6 +10181,10 @@ static int64_t dumpCreateSTableClauseOfDbWS(
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -10327,180 +10410,179 @@ static bool checkOutDir(char *outpath)
 }
 
 #ifdef WEBSOCKET
-static bool fillDBInfoWithFieldsWS_V2(const int index,
-        const struct WS_FIELD_V2 *fields,
+static bool fillDBInfoWithFieldsWS(
+        const int index,
+        const char *name,
         const int row,
-        const int fieldCount,
+        const int f,
         WS_RES *res) {
     uint8_t type;
     uint32_t len;
     char tmp[WS_VALUE_BUF_LEN];
 
-    for (int f = 0; f < fieldCount; f++) {
-        const void *value = ws_get_value_in_block(
-                res, row, f, &type, &len);
-        if (0 == strcmp(fields[f].name, "name")) {
-            if (NULL == value) {
-                errorPrint("%s() LN%d, row: %d, field: %d, ws_get_value_in_block error!\n",
-                        __func__, __LINE__, row, f);
-                return false;
-            } else {
-                memset(tmp, 0, 4096);
-                memcpy(tmp, value, len);
-                strncpy(g_dbInfos[index]->name,
-                        tmp, len);
-            }
-        } else if (0 == strcmp(fields[f].name, "vgroups")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->vgroups = *((int32_t *)value);
-            } else if (TSDB_DATA_TYPE_SMALLINT == type) {
-                g_dbInfos[index]->vgroups = *((int16_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "ntables")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->ntables = *((int32_t *)value);
-            } else if (TSDB_DATA_TYPE_BIGINT == type) {
-                g_dbInfos[index]->ntables = *((int64_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "replica")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->replica = *((int8_t *)value);
-            } else if (TSDB_DATA_TYPE_SMALLINT == type) {
-                g_dbInfos[index]->replica = *((int16_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "strict")) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
+    const void *value = ws_get_value_in_block(
+            res, row, f, &type, &len);
+    if (0 == strcmp(name, "name")) {
+        if (NULL == value) {
+            errorPrint("%s() LN%d, row: %d, field: %d, ws_get_value_in_block error!\n",
+                    __func__, __LINE__, row, f);
+            return false;
+        } else {
+            memset(tmp, 0, 4096);
             memcpy(tmp, value, len);
-            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                    __func__, __LINE__, f,
+            strncpy(g_dbInfos[index]->name,
                     tmp, len);
-            strncpy(g_dbInfos[index]->strict,
-                    tmp,
-                    min(STRICT_LEN, len));
-        } else if (0 == strcmp(fields[f].name, "quorum")) {
-            g_dbInfos[index]->quorum =
-                *((int16_t *)value);
-        } else if (0 == strcmp(fields[f].name, "days")) {
-            g_dbInfos[index]->days = *((int16_t *)value);
-        } else if ((0 == strcmp(fields[f].name, "keep"))
-                || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
-            memcpy(tmp, value, len);
-            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    tmp, len);
-            strncpy(g_dbInfos[index]->keeplist,
-                    tmp,
-                    min(KEEPLIST_LEN, len));
-        } else if (0 == strcmp(fields[f].name, "duration")) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
-            memcpy(tmp, value, len);
-            strncpy(g_dbInfos[index]->duration,
-                    tmp,
-                    min(DURATION_LEN, len));
-            debugPrint("%s() LN%d: field: %d, tmp: %s, duration: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    tmp, g_dbInfos[index]->duration, len);
-        } else if ((0 == strcmp(fields[f].name, "cache"))
-                || (0 == strcmp(fields[f].name, "cache(MB)"))) {
-            g_dbInfos[index]->cache = *((int32_t *)value);
-        } else if (0 == strcmp(fields[f].name, "blocks")) {
-            g_dbInfos[index]->blocks = *((int32_t *)value);
-        } else if (0 == strcmp(fields[f].name, "minrows")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->minrows = *((int32_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "maxrows")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->maxrows = *((int32_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "wallevel")) {
-            g_dbInfos[index]->wallevel = *((int8_t *)value);
-        } else if (0 == strcmp(fields[f].name, "wal")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->wal = *((int8_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "fsync")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->fsync = *((int32_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "comp")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->comp = (int8_t)(*((int8_t *)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "cachelast")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->cachelast = (int8_t)(*((int8_t *)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "cache_model")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->cache_model = (int8_t)(*((int8_t*)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
-            if (TSDB_DATA_TYPE_BOOL == type) {
-                g_dbInfos[index]->single_stable_model =
-                    (bool)(*((bool*)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "precision")) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
-            memcpy(tmp, value, len);
-            strncpy(g_dbInfos[index]->precision,
-                    tmp,
-                    min(len, DB_PRECISION_LEN));
-        } else if (0 == strcmp(fields[f].name, "update")) {
-            g_dbInfos[index]->update = *((int8_t *)value);
         }
+    } else if (0 == strcmp(name, "vgroups")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->vgroups = *((int32_t *)value);
+        } else if (TSDB_DATA_TYPE_SMALLINT == type) {
+            g_dbInfos[index]->vgroups = *((int16_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "ntables")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->ntables = *((int32_t *)value);
+        } else if (TSDB_DATA_TYPE_BIGINT == type) {
+            g_dbInfos[index]->ntables = *((int64_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "replica")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->replica = *((int8_t *)value);
+        } else if (TSDB_DATA_TYPE_SMALLINT == type) {
+            g_dbInfos[index]->replica = *((int16_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "strict")) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                __func__, __LINE__, f,
+                tmp, len);
+        strncpy(g_dbInfos[index]->strict,
+                tmp,
+                min(STRICT_LEN, len));
+    } else if (0 == strcmp(name, "quorum")) {
+        g_dbInfos[index]->quorum =
+            *((int16_t *)value);
+    } else if (0 == strcmp(name, "days")) {
+        g_dbInfos[index]->days = *((int16_t *)value);
+    } else if ((0 == strcmp(name, "keep"))
+            || (0 == strcmp(name, "keep0,keep1,keep2"))) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                __func__, __LINE__, f,
+                tmp, len);
+        strncpy(g_dbInfos[index]->keeplist,
+                tmp,
+                min(KEEPLIST_LEN, len));
+    } else if (0 == strcmp(name, "duration")) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        strncpy(g_dbInfos[index]->duration,
+                tmp,
+                min(DURATION_LEN, len));
+        debugPrint("%s() LN%d: field: %d, tmp: %s, duration: %s, length:%d\n",
+                __func__, __LINE__, f,
+                tmp, g_dbInfos[index]->duration, len);
+    } else if ((0 == strcmp(name, "cache"))
+            || (0 == strcmp(name, "cache(MB)"))) {
+        g_dbInfos[index]->cache = *((int32_t *)value);
+    } else if (0 == strcmp(name, "blocks")) {
+        g_dbInfos[index]->blocks = *((int32_t *)value);
+    } else if (0 == strcmp(name, "minrows")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->minrows = *((int32_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "maxrows")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->maxrows = *((int32_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "wallevel")) {
+        g_dbInfos[index]->wallevel = *((int8_t *)value);
+    } else if (0 == strcmp(name, "wal")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->wal = *((int8_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "fsync")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->fsync = *((int32_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "comp")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->comp = (int8_t)(*((int8_t *)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "cachelast")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->cachelast = (int8_t)(*((int8_t *)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "cache_model")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->cache_model = (int8_t)(*((int8_t*)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "single_stable_model")) {
+        if (TSDB_DATA_TYPE_BOOL == type) {
+            g_dbInfos[index]->single_stable_model =
+                (bool)(*((bool*)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "precision")) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        strncpy(g_dbInfos[index]->precision,
+                tmp,
+                min(len, DB_PRECISION_LEN));
+    } else if (0 == strcmp(name, "update")) {
+        g_dbInfos[index]->update = *((int8_t *)value);
     }
 
     return true;
 }
 
 #endif // WEBSOCKET
-      //
+
 static bool fillDBInfoWithFields(const int index,
         const TAOS_FIELD *fields, const TAOS_ROW row,
         const int *lengths, int fieldCount) {
@@ -10668,7 +10750,14 @@ static int fillDbInfoWS(void *taos) {
     }
 
     int fieldCount = ws_field_count(ws_res);
-    const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+    void *ws_fields = NULL;
+    if (3 == g_majorVersionOfClient) {
+        const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+        ws_fields = (void *)ws_fields_v3;
+    } else {
+        const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+        ws_fields = (void *)ws_fields_v2;
+    }
 
     while(true) {
         int rows = 0;
@@ -10676,6 +10765,10 @@ static int fillDbInfoWS(void *taos) {
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -10720,10 +10813,30 @@ static int fillDbInfoWS(void *taos) {
             }
 
             okPrint("Database: %s exists\n", buffer);
-            if (false == fillDBInfoWithFieldsWS_V2(dbIndex,
-                        ws_fields, row, fieldCount, ws_res)) {
-                ret = -1;
-                break;
+            if (3 == g_majorVersionOfClient) {
+                struct WS_FIELD *fields = (struct WS_FIELD *) ws_fields;
+                for (int f = 0; f < fieldCount; f++) {
+                    if (false == fillDBInfoWithFieldsWS(
+                                dbIndex,
+                                fields[f].name,
+                                row, f,
+                                ws_res)) {
+                        ret = -1;
+                        break;
+                    }
+                }
+            } else {
+                struct WS_FIELD_V2 *fields = (struct WS_FIELD_V2 *) ws_fields;
+                for (int f = 0; f < fieldCount; f++) {
+                    if (false == fillDBInfoWithFieldsWS(
+                                dbIndex,
+                                fields[f].name,
+                                row, f,
+                                ws_res)) {
+                        ret = -1;
+                        break;
+                    }
+                }
             }
 
             dbIndex ++;
