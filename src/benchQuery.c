@@ -55,7 +55,7 @@ static void *mixedQuery(void *sarg) {
                 return NULL;
             }
             if (g_queryInfo.reset_query_cache) {
-                queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE, false, false);
+                queryDbExec(pThreadInfo->taos, "reset query cache");
             }
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
@@ -116,7 +116,7 @@ static void *specifiedTableQuery(void *sarg) {
                                  (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE, false, false);
+            queryDbExec(pThreadInfo->taos, "reset query cache");
         }
 
         st = toolsGetTimestampUs();

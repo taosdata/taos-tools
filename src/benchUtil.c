@@ -293,23 +293,15 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check) {
+int queryDbExec(TAOS *taos, char *command) {
     TAOS_RES *res = taos_query(taos, command);
     int32_t   code = taos_errno(res);
 
     if (code != 0) {
-        if (!quiet) {
-            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
                        taos_errstr(res));
-        }
         taos_free_result(res);
         return -1;
-    }
-
-    if (INSERT_TYPE == type && !check) {
-        int affectedRows = taos_affected_rows(res);
-        taos_free_result(res);
-        return affectedRows;
     }
 
     taos_free_result(res);

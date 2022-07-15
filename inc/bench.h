@@ -258,13 +258,7 @@ typedef enum enumQUERY_CLASS {
     STABLE_CLASS,
     CLASS_BUT
 } QUERY_CLASS;
-
-typedef enum enumQUERY_TYPE {
-    NO_INSERT_TYPE,
-    INSERT_TYPE,
-    QUERY_TYPE_BUT
-} QUERY_TYPE;
-
+ 
 enum _show_db_index {
     TSDB_SHOW_DB_NAME_INDEX,
     TSDB_SHOW_DB_CREATED_TIME_INDEX,
@@ -370,7 +364,6 @@ typedef struct SSuperTable_S {
     int   delay;
     int   file_factor;
     char *rollup;
-    bool no_check_for_affected_rows;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -530,7 +523,6 @@ typedef struct SThreadInfo_S {
     uint64_t   samplePos;
     uint64_t   totalInsertRows;
     uint64_t   totalQueried;
-    uint64_t   totalAffectedRows;
     int64_t   totalDelay;
     uint64_t   querySeq;
     TAOS_SUB * tsub;
@@ -611,7 +603,7 @@ void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
-int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check);
+int     queryDbExec(TAOS *taos, char *command);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
