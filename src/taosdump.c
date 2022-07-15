@@ -111,7 +111,7 @@ typedef struct {
 
 #define debugPrint(fmt, ...) \
     do { if (g_args.debug_print || g_args.verbose_print) \
-      fprintf(stdout, "DEBG: "fmt, __VA_ARGS__); } while(0)
+      fprintf(stderr, "DEBG: "fmt, __VA_ARGS__); } while(0)
 
 #define debugPrint2(fmt, ...) \
     do { if (g_args.debug_print || g_args.verbose_print) \
@@ -8524,11 +8524,10 @@ static void *dumpNtbOfDb(void *arg) {
 
     for (int64_t i = 0; i < pThreadInfo->count; i++) {
         debugPrint("[%d] No.\t%"PRId64" %s() LN%d,"
-                "table name: %s, belong to stable: %s\n",
+                "table name: %s\n",
                 pThreadInfo->threadIndex, i,
                 __func__, __LINE__,
-                ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
-                pThreadInfo->stbName);
+                ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name);
 
         if(0 == strlen(
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name)) {
@@ -9497,6 +9496,11 @@ static void dumpNormalTablesOfStbWS(
             const void *value0 = ws_get_value_in_block(
                     ws_res, row,
                     TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
+            if ((NULL == value0) || (0 == len)) {
+                errorPrint("%s() LN%d, value0: %p, type: %d, len: %d\n",
+                        __func__, __LINE__, value0, type, len);
+                continue;
+            }
             memset(tbName, 0, WS_VALUE_BUF_LEN);
             memcpy(tbName, value0, len);
             strncpy(((TableInfo *)(g_tablesList + count))->name,
@@ -9805,20 +9809,24 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
     WS_RES *ws_res;
     int32_t code;
 
-    sprintf(command, "USE %s", dbInfo->name);
-    ws_res = ws_query(ws_taos, command);
-    code = ws_errno(ws_res);
-    if (code) {
-        errorPrint("invalid database %s, code: %d, reason: %s\n",
-                dbInfo->name, code, ws_errstr(ws_res));
-        ws_free_result(ws_res);
-        ws_res = NULL;
-        ws_close(ws_taos);
-        ws_taos = NULL;
-        return 0;
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "USE %s", dbInfo->name);
+        ws_res = ws_query(ws_taos, command);
+        code = ws_errno(ws_res);
+        if (code) {
+            errorPrint("invalid database %s, code: %d, reason: %s\n",
+                    dbInfo->name, code, ws_errstr(ws_res));
+            ws_free_result(ws_res);
+            ws_res = NULL;
+            ws_close(ws_taos);
+            ws_taos = NULL;
+            return 0;
+        }
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
+    } else {
+        sprintf(command, "SHOW TABLES");
     }
 
-    sprintf(command, "SHOW TABLES");
     ws_res = ws_query(ws_taos, command);
     code = ws_errno(ws_res);
     if (code) {
@@ -9863,19 +9871,32 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
             const void *value0 = ws_get_value_in_block(
                     ws_res, row,
                     TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
+            if ((NULL == value0) || (0 == len)) {
+                errorPrint("%s() LN%d, value0: %p, type: %d, len: %d\n",
+                        __func__, __LINE__, value0, type, len);
+                continue;
+            }
             memset(tmp, 0, WS_VALUE_BUF_LEN);
             memcpy(tmp, value0, len);
             verbosePrint("%s() LN%d, value0: %s\n", __func__, __LINE__, tmp);
             strncpy(((TableInfo *)(g_tablesList + count))->name,
                     tmp,
                     min(TSDB_TABLE_NAME_LEN, len));
-            debugPrint("%s() LN%d table name: %s, length: %d\n",
+            debugPrint("%s() LN%d count: %"PRId64", table name: %s, length: %d\n",
                     __func__, __LINE__,
-                    tmp, len);
-            const void *value1 = ws_get_value_in_block(
-                    ws_res, row,
-                    TSDB_SHOW_TABLES_METRIC_INDEX,
-                    &type, &len);
+                    count, tmp, len);
+            const void *value1 = NULL;
+            if (3 == g_majorVersionOfClient) {
+                value1 = ws_get_value_in_block(
+                        ws_res, row,
+                        1,
+                        &type, &len);
+            } else {
+                value1 = ws_get_value_in_block(
+                        ws_res, row,
+                        TSDB_SHOW_TABLES_METRIC_INDEX,
+                        &type, &len);
+            }
             if (len) {
                 memset(tmp, 0, WS_VALUE_BUF_LEN);
                 memcpy(tmp, value1, len);
@@ -9883,9 +9904,11 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
                 strncpy(((TableInfo *)(g_tablesList + count))->stable,
                         tmp,
                         min(TSDB_TABLE_NAME_LEN, len));
-                debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                debugPrint("%s() LN%d tmp: %s, stbName: %s, length: %d\n",
                         __func__, __LINE__,
-                        tmp, len);
+                        tmp,
+                        ((TableInfo *)(g_tablesList + count))->stable,
+                        len);
                 ((TableInfo *)(g_tablesList + count))->belongStb = true;
             } else {
                 ((TableInfo *)(g_tablesList + count))->belongStb = false;
@@ -9922,18 +9945,24 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
     TAOS_RES *res;
     int32_t code;
 
-    sprintf(command, "USE %s", dbInfo->name);
-    res = taos_query(taos, command);
-    code = taos_errno(res);
-    if (code != 0) {
-        errorPrint("invalid database %s, reason: %s\n",
-                dbInfo->name, taos_errstr(res));
-        taos_free_result(res);
-        taos_close(taos);
-        return 0;
+
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
+    } else {
+        sprintf(command, "USE %s", dbInfo->name);
+        res = taos_query(taos, command);
+        code = taos_errno(res);
+        if (code != 0) {
+            errorPrint("invalid database %s, reason: %s\n",
+                    dbInfo->name, taos_errstr(res));
+            taos_free_result(res);
+            taos_close(taos);
+            return 0;
+        }
+
+        sprintf(command, "SHOW TABLES");
     }
 
-    sprintf(command, "SHOW TABLES");
     res = taos_query(taos, command);
     code = taos_errno(res);
     if (code != 0) {
@@ -9968,17 +9997,32 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
                 count,
                 ((TableInfo *)(g_tablesList + count))->name,
                 lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
-        if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
-            tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                    min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_METRIC_INDEX] +1));
-            debugPrint("%s() LN%d stbName: %s, length: %d\n",
-                    __func__, __LINE__,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                    lengths[TSDB_SHOW_TABLES_METRIC_INDEX]);
-            ((TableInfo *)(g_tablesList + count))->belongStb = true;
+        if (3 == g_majorVersionOfClient) {
+            if (strlen((char *)row[1])) {
+                tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
+                        (char *)row[1],
+                        min(TSDB_TABLE_NAME_LEN, lengths[1] +1));
+                debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                        __func__, __LINE__,
+                        (char *)row[1],
+                        lengths[1]);
+                ((TableInfo *)(g_tablesList + count))->belongStb = true;
+            } else {
+                ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            }
         } else {
-            ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
+                tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
+                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                        min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_METRIC_INDEX] +1));
+                debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                        __func__, __LINE__,
+                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                        lengths[TSDB_SHOW_TABLES_METRIC_INDEX]);
+                ((TableInfo *)(g_tablesList + count))->belongStb = true;
+            } else {
+                ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            }
         }
         count ++;
     }
@@ -9995,7 +10039,8 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
 }
 
 static int64_t dumpNtbOfStbByThreads(
-        SDbInfo *dbInfo, char *stbName)
+        SDbInfo *dbInfo,
+        const char *stbName)
 {
     int64_t ntbCount;
     char command[COMMAND_SIZE];
@@ -10105,7 +10150,8 @@ static int64_t dumpNtbOfStbByThreads(
 
 static int dumpTbTagsToAvro(
         int64_t index,
-        void *taos, SDbInfo *dbInfo, char *stable)
+        void *taos, SDbInfo *dbInfo,
+        const char *stable)
 {
     debugPrint("%s() LN%d dbName: %s, stable: %s\n",
             __func__, __LINE__,
@@ -11081,7 +11127,8 @@ static int dumpOut() {
                         fp);
                 if (ret >= 0) {
                     superTblCnt++;
-                    ret = dumpNtbOfStbByThreads(g_dbInfos[0], g_args.arg_list[i]);
+                    ret = dumpNtbOfStbByThreads(g_dbInfos[0],
+                            g_args.arg_list[i]);
                 }
             } else if (tableRecordInfo.belongStb){
                 dumpStableClasuse(
