@@ -194,13 +194,19 @@ void prompt(bool nonStopMode) {
                 "taosBenchmark will continuously insert data unless you press "
                 "Ctrl-C to end it.\n\n         press enter key to continue and "
                 "Ctrl-C to "
-                "stop\n\n");
+                "stop\n\n"); 
             (void)getchar();
+            if (g_arguments->terminate) {
+                exit(EXIT_SUCCESS);
+            }
         } else {
             printf(
                 "\n\n         Press enter key to continue or Ctrl-C to "
                 "stop\n\n");
             (void)getchar();
+            if (g_arguments->terminate) {
+                exit(EXIT_SUCCESS);
+            }
         }
     }
 }

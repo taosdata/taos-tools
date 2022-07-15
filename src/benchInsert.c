@@ -1559,14 +1559,14 @@ static int startMultiThreadInsertData(int db_index, int stb_index) {
     free(infos);
 
     infoPrint(stdout, "Spent %.6f seconds to insert rows: %" PRIu64
-                          "with %d thread(s) into %s %.2f records/second\n",
+                          " with %d thread(s) into %s %.2f records/second\n",
                   (end - start)/1E6, totalInsertRows, threads,
                   database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
 
     if (g_arguments->fpOfInsertResult) {
             infoPrint(g_arguments->fpOfInsertResult,
                       "Spent %.6f seconds to insert rows: %" PRIu64
-                              "with %d thread(s) into %s %.2f records/second\n",
+                              " with %d thread(s) into %s %.2f records/second\n",
                       (end - start)/1E6, totalInsertRows, threads,
                       database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
     }
