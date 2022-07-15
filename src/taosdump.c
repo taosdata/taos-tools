@@ -1035,8 +1035,8 @@ static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
     code = ws_errno(ws_res);
 
     if (code) {
-        errorPrint("Failed to run <%s>, code: %d, reason: %s\n",
-                command, code, ws_errstr(ws_res));
+        errorPrint("Failed to run <%s>, ws_taos: %p, code: 0x%08x, reason: %s\n",
+                command, ws_taos, code, ws_errstr(ws_res));
         ret = -1;;
     }
 
@@ -1046,7 +1046,7 @@ static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
 }
 #endif
 
-static int queryDbImpl(TAOS *taos, char *command) {
+static int queryDbImplNative(TAOS *taos, char *command) {
     int ret = 0;
     TAOS_RES *res = NULL;
     int32_t   code = -1;
@@ -2151,12 +2151,12 @@ static int getTableDesColWS(
             code = ws_fetch_block(ws_res, &data, &rows);
 
             if (code) {
-                errorPrint("%s() LN%d, ws_fetch_block() error, code: 0x%8x, reason: %s\n",
+                errorPrint("%s() LN%d, ws_fetch_block() error, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, code, ws_errstr(ws_res));
             }
             if (0 == rows) {
                 debugPrint("%s() LN%d, No more data from fetch to run command <%s>, "
-                        "ws_taos: %p, code: 0x%8x, reason:%s\n",
+                        "ws_taos: %p, code: 0x%08x, reason:%s\n",
                         __func__, __LINE__,
                         sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
                 break;
@@ -2212,7 +2212,7 @@ static int getTableDesWS(
     int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>, "
-                "ws_taos: %p, code: 0x%8x, reason: %s\n",
+                "ws_taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__, sqlstr,
                 ws_taos, code, ws_errstr(ws_res));
         ws_free_result(ws_res);
@@ -2329,7 +2329,7 @@ static int getTableDesColNative(
         TAOS_RES *res = taos_query(taos, sqlstr);
         int32_t code = taos_errno(res);
         if (code) {
-            errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, code: 0x%8x, reason: %s\n",
+            errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, code: 0x%08x, reason: %s\n",
                     __func__, __LINE__, sqlstr, taos, code, taos_errstr(res));
             taos_free_result(res);
             return -1;
@@ -2340,7 +2340,7 @@ static int getTableDesColNative(
         TAOS_ROW row = taos_fetch_row(res);
 
         if (NULL == row) {
-            debugPrint("%s() LN%d, No more data from fetch to run command <%s>, taos: %p, code: 0x%8x, reason:%s\n",
+            debugPrint("%s() LN%d, No more data from fetch to run command <%s>, taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     sqlstr, taos, taos_errno(res), taos_errstr(res));
             taos_free_result(res);
@@ -2387,7 +2387,7 @@ static int getTableDesNative(
     res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__, sqlstr, taos, taos_errno(res), taos_errstr(res));
         taos_free_result(res);
         return -1;
@@ -3796,7 +3796,7 @@ int64_t queryDbForDumpOutCountWS(
     WS_RES* ws_res = ws_query(ws_taos, sqlstr);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
         taos_free_result(ws_res);
@@ -3825,7 +3825,7 @@ int64_t queryDbForDumpOutCountWS(
                             sqlstr, count);
                 } else {
                     count = -1;
-                    errorPrint("failed run %s to fetch row, ws_taos: %p, code: 0x%8x, reason: %s\n",
+                    errorPrint("failed run %s to fetch row, ws_taos: %p, code: 0x%08x, reason: %s\n",
                             sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
                 }
             } else {
@@ -3855,7 +3855,7 @@ int64_t queryDbForDumpOutCountNative(
     TAOS_RES* res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command %s, taos: %p, code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command %s, taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, taos, taos_errno(res), taos_errstr(res));
         taos_free_result(res);
@@ -3870,7 +3870,7 @@ int64_t queryDbForDumpOutCountNative(
                     sqlstr, count);
         } else {
             count = -1;
-            errorPrint("%s() LN%d, failed run %s to fetch row, taos: %p, code: 0x%8x, reason: %s\n",
+            errorPrint("%s() LN%d, failed run %s to fetch row, taos: %p, code: 0x%08x, reason: %s\n",
                     __func__, __LINE__,
                     sqlstr, taos, code, taos_errstr(res));
         }
@@ -3924,7 +3924,7 @@ TAOS_RES *queryDbForDumpOutOffsetWS(
     WS_RES* ws_res = ws_query(ws_taos, sqlstr);
     int32_t code = ws_errno(ws_res);
     if (code) {
-        errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, ws_taos, code, ws_errstr(ws_res));
         ws_free_result(ws_res);
@@ -3939,7 +3939,7 @@ TAOS_RES *queryDbForDumpOutOffsetNative(TAOS *taos, const char *sqlstr) {
     TAOS_RES* res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command %s, taos: %p, code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command %s, taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, taos, code, taos_errstr(res));
         taos_free_result(res);
@@ -4277,14 +4277,14 @@ static int64_t writeResultToAvroWS(
             int code = ws_fetch_block(ws_res, &data, &rows);
 
             if (code) {
-                errorPrint("%s() LN%d, ws_fetch_blocK() error, ws_taos: %p, code: 0x%8x, reason: %s\n",
+                errorPrint("%s() LN%d, ws_fetch_blocK() error, ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
                 break;
             }
 
             if (0 == rows) {
                 debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
-                        "ws_taos: %p, code: 0x%8x, reason:%s\n",
+                        "ws_taos: %p, code: 0x%08x, reason:%s\n",
                         __func__, __LINE__,
                         ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
                 break;
@@ -5446,7 +5446,7 @@ static int dumpInAvroNtbImpl(
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
                             " Failed to execute ws_query(%s)."
-                            " ws_taos: %p, code: 0x%8x, reason: %s\n",
+                            " ws_taos: %p, code: 0x%08x, reason: %s\n",
                             __func__, __LINE__, buf,
                             taos, code, ws_errstr(ws_res));
                     failed ++;
@@ -5462,7 +5462,7 @@ static int dumpInAvroNtbImpl(
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
                             " Failed to execute taos_query(%s)."
-                            " taos: %p, code: 0x%8x, reason: %s\n",
+                            " taos: %p, code: 0x%08x, reason: %s\n",
                             __func__, __LINE__, buf,
                             taos, code, taos_errstr(res));
                     failed ++;
@@ -5497,16 +5497,17 @@ static int dumpInAvroDataImpl(
     WS_STMT *ws_stmt = NULL;
     if (g_args.cloud || g_args.restful) {
         ws_stmt = ws_stmt_init(taos);
-        if (NULL == ws_stmt) {
-            errorPrint("%s() LN%d, stmt init failed! ws_taos: %p, code: 0x%8x, reason: %s\n",
-                    __func__, __LINE__, taos, ws_errno(NULL), ws_errstr(NULL));
+        int32_t code = ws_errno(ws_stmt);
+        if (code) {
+            errorPrint("%s() LN%d, stmt init failed! ws_taos: %p, code: 0x%08x, reason: %s\n",
+                    __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
             return -1;
         }
     } else {
 #endif
         stmt = taos_stmt_init(taos);
         if (NULL == stmt) {
-            errorPrint("%s() LN%d, stmt init failed! taos: %p, code: 0x%8x, reason: %s\n",
+            errorPrint("%s() LN%d, stmt init failed! taos: %p, code: 0x%08x, reason: %s\n",
                     __func__, __LINE__, taos, taos_errno(NULL), taos_errstr(NULL));
             return -1;
         }
@@ -5563,7 +5564,7 @@ static int dumpInAvroDataImpl(
     if (g_args.cloud || g_args.restful) {
         if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, 0))) {
             errorPrint("%s() LN%d, failed to execute ws_stmt_prepare()."
-                    " ws_taos: %p, code: 0x%8x, reason: %s\n",
+                    " ws_taos: %p, code: 0x%08x, reason: %s\n",
                     __func__, __LINE__,
                     taos, code, ws_errstr(ws_stmt));
 
@@ -5672,7 +5673,7 @@ static int dumpInAvroDataImpl(
         if (g_args.cloud || g_args.restful) {
             if (0 != (code = ws_stmt_set_tbname(ws_stmt, escapedTbName))) {
                 errorPrint("%s() LN%d, failed to execute ws_stmt_set_tbname(%s)."
-                        " ws_taos: %p, code: 0x%8x, reason: %s\n",
+                        " ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__,
                         escapedTbName, taos, code, ws_errstr(ws_stmt));
                 free(escapedTbName);
@@ -6406,7 +6407,7 @@ static int dumpInAvroDataImpl(
             if (0 != (code = ws_stmt_bind_param_batch(ws_stmt,
                             (const WS_MULTI_BIND *)bindArray, onlyCol))) {
                 errorPrint("%s() LN%d ws_stmt_bind_param_batch() failed!"
-                        " ws_taos: %p, code: 0x%8x, reason: %s\n",
+                        " ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
                 freeBindArray(bindArray, onlyCol);
                 failed++;
@@ -6415,7 +6416,7 @@ static int dumpInAvroDataImpl(
 
             if (0 != (code = ws_stmt_add_batch(ws_stmt))) {
                 errorPrint("%s() LN%d stmt_bind_param() failed!"
-                        " ws_taos: %p, code: 0x%8x, reason: %s\n",
+                        " ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
                 freeBindArray(bindArray, onlyCol);
                 failed++;
@@ -6424,7 +6425,7 @@ static int dumpInAvroDataImpl(
             int32_t affected_rows;
             if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
                 errorPrint("%s() LN%d ws_taos_stmt_execute() failed!"
-                        " ws_taos: %p, code: 0x%8x, reason: %s, timestamp: %"PRId64"\n",
+                        " ws_taos: %p, code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
                         __func__, __LINE__, taos, code, ws_errstr(stmt), ts_debug);
                 failed -= stmt_count;
             } else {
@@ -6600,16 +6601,18 @@ static int64_t dumpInOneAvroFile(
             __func__, __LINE__, namespace);
 
     TAOS *taos = NULL;
+    void *taos_v = NULL;
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
         ws_taos = ws_connect_with_dsn(g_args.dsn);
         if (NULL == ws_taos) {
-            errorPrint("Failed to connect to TDengine server %s, code: 0x%8x, reason: %s!\n",
+            errorPrint("Failed to connect to TDengine server %s, code: 0x%08x, reason: %s!\n",
                     g_args.dsn,
                     ws_errno(NULL), ws_errstr(NULL));
             return -1;
         }
+        taos_v = ws_taos;
     } else {
 #endif
         taos = taos_connect(g_args.host, g_args.user, g_args.password,
@@ -6618,6 +6621,7 @@ static int64_t dumpInOneAvroFile(
             errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
             return -1;
         }
+        taos_v = taos;
 #ifdef WEBSOCKET
     }
 #endif
@@ -6627,7 +6631,7 @@ static int64_t dumpInOneAvroFile(
         case WHICH_AVRO_DATA:
             debugPrint("%s() LN%d will dump %s's data\n",
                     __func__, __LINE__, namespace);
-            retExec = dumpInAvroDataImpl(taos,
+            retExec = dumpInAvroDataImpl(taos_v,
                     (char *)namespace,
                     schema, reader, recordSchema,
                     fileName);
@@ -6637,7 +6641,7 @@ static int64_t dumpInOneAvroFile(
             debugPrint("%s() LN%d will dump %s's normal table with tags\n",
                     __func__, __LINE__, namespace);
             retExec = dumpInAvroTbTagsImpl(
-                    taos,
+                    taos_v,
                     (char *)namespace,
                     schema, reader,
                     fileName,
@@ -6647,7 +6651,7 @@ static int64_t dumpInOneAvroFile(
         case WHICH_AVRO_NTB:
             debugPrint("%s() LN%d will dump %s's normal tables\n",
                     __func__, __LINE__, namespace);
-            retExec = dumpInAvroNtbImpl(taos,
+            retExec = dumpInAvroNtbImpl(taos_v,
                     (char *)namespace,
                     schema, reader, recordSchema);
             break;
@@ -6966,7 +6970,7 @@ static int64_t writeResultDebugWS(
         int32_t code = ws_fetch_block(ws_res, &data, &rows);
 
         if (code) {
-            errorPrint("%s() LN%d, ws_fetch_blocK() error! code: 0x%8x, reason: %s\n",
+            errorPrint("%s() LN%d, ws_fetch_blocK() error! code: 0x%08x, reason: %s\n",
                     __func__, __LINE__,
                     code, ws_errstr(ws_res));
             break;
@@ -7142,7 +7146,7 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
     WS_RES* ws_res = ws_query(ws_taos, sqlstr);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command %s, code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command %s, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, ws_errno(ws_res), ws_errstr(ws_res));
         ws_free_result(ws_res);
@@ -7172,7 +7176,7 @@ TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
     TAOS_RES* res = taos_query(taos, sqlstr);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        errorPrint("%s() LN%d, failed to run command %s, code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command %s, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, code, taos_errstr(res));
         taos_free_result(res);
@@ -7199,7 +7203,7 @@ static int64_t dumpTableDataAvroWS(
     if (NULL == ws_taos) {
         errorPrint(
                 "%s() LN%d, failed to connect to TDengine server %s by "
-                "specified database %s, code: 0x%8x, reason: %s!\n",
+                "specified database %s, code: 0x%08x, reason: %s!\n",
                 __func__, __LINE__,
                 g_args.dsn, dbName, ws_errno(ws_taos), ws_errstr(ws_taos));
         return -1;
@@ -7331,7 +7335,7 @@ static int64_t dumpTableDataWS(
     if (NULL == ws_taos) {
         errorPrint(
                 "%s() LN%d, failed to connect to TDengine server %s by "
-                "specified database %s, code: 0x%8x, reason: %s\n",
+                "specified database %s, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 g_args.dsn, dbName, ws_errno(ws_taos), ws_errstr(ws_taos));
         return -1;
@@ -8071,7 +8075,7 @@ static int createMTableAvroHeadFillTBNameWS(
     WS_RES *ws_res = ws_query(ws_taos, command);
     int32_t code = taos_errno(ws_res);
     if (code) {
-        errorPrint("%s() LN%d, failed to run command <%s>. code: 0x%8x, reason: %s\n",
+        errorPrint("%s() LN%d, failed to run command <%s>. code: 0x%08x, reason: %s\n",
                 __func__, __LINE__, command, code, taos_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
@@ -8097,7 +8101,7 @@ static int createMTableAvroHeadFillTBNameWS(
                     ws_res, row,
                     TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
             if (NULL == value0) {
-                errorPrint("%s() LN%d, ws_get_value_in_blocK() return NULL. code: 0x%8x, reason: %s!\n",
+                errorPrint("%s() LN%d, ws_get_value_in_blocK() return NULL. code: 0x%08x, reason: %s!\n",
                         __func__, __LINE__, ws_errno(ws_res), ws_errstr(ws_res));
                 continue;
             } else {
@@ -8749,10 +8753,10 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 
     code = ws_errno(ws_res);
     if (0 != code) {
-        warnPrint("%s() LN%d, failed to run command %s, code: 0x%8x, reason: %s. Will use default settings\n",
+        warnPrint("%s() LN%d, failed to run command %s, code: 0x%08x, reason: %s. Will use default settings\n",
                 __func__, __LINE__,
                 sqlstr, ws_errno(ws_res), ws_errstr(ws_res));
-        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, code: 0x%8x, reason:%s\n",
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, code: 0x%08x, reason:%s\n",
                 ws_errno(ws_res), ws_errstr(ws_res));
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
         fwrite(buffer, strlen(buffer), 1, fp);
@@ -8809,9 +8813,9 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
     code = taos_errno(res);
     if (code != 0) {
         warnPrint("failed to run command %s, "
-                "code: 0x%8x, reason: %s. Will use default settings\n",
+                "code: 0x%08x, reason: %s. Will use default settings\n",
                 sqlstr, taos_errno(res), taos_errstr(res));
-        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, code: 0x%8x, reason:%s\n",
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, code: 0x%08x, reason:%s\n",
                 taos_errno(res), taos_errstr(res));
         fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
@@ -8965,7 +8969,8 @@ bool convertDbClauseForV3(char **cmd)
 
 // dumpIn support multi threads functions
 static int64_t dumpInOneDebugFile(
-        void* taos, FILE* fp, char* fcharset,
+        void* taos, FILE* fp,
+        char* fcharset,
         char* fileName)
 {
     int       read_len = 0;
@@ -9028,7 +9033,7 @@ static int64_t dumpInOneDebugFile(
             ret = queryDbImplWS(taos,cmd);
         } else {
 #endif
-            ret = queryDbImpl(taos,cmd);
+            ret = queryDbImplNative(taos,cmd);
 #ifdef WEBSOCKET
         }
 #endif
@@ -9161,7 +9166,7 @@ static int dumpInDebugWorkThreads()
             pThread->taos = ws_connect_with_dsn(g_args.dsn);
             if (pThread->taos == NULL) {
                 errorPrint("%s() LN%d, failed to connect to TDengine server %s, "
-                        "code: 0x%8x, reason: %s!\n",
+                        "code: 0x%08x, reason: %s!\n",
                         __func__, __LINE__,
                         g_args.dsn, ws_errno(NULL), ws_errstr(NULL));
                 free(infos);
@@ -9221,7 +9226,7 @@ static int dumpInDbs()
 
         if (ws_taos == NULL) {
             errorPrint("%s() LN%d, failed to connect to TDengine server %s, "
-                    "code: 0x%8x, reason: %s!\n",
+                    "code: 0x%08x, reason: %s!\n",
                     __func__, __LINE__, g_args.dsn,
                     ws_errno(ws_taos), ws_errstr(ws_taos));
             return -1;
@@ -9234,7 +9239,7 @@ static int dumpInDbs()
 
         if (taos == NULL) {
             errorPrint("%s() LN%d, failed to connect to TDengine server %s, "
-                    "code: 0x%8x, reason: %s!\n",
+                    "code: 0x%08x, reason: %s!\n",
                     __func__, __LINE__, g_args.host,
                     taos_errno(NULL), taos_errstr(NULL));
             return -1;
@@ -9285,8 +9290,17 @@ static int dumpInDbs()
     loadFileMark(fp, charSetMark, g_dumpInCharset);
 
     int64_t rows;
-    rows = dumpInOneDebugFile(
-            taos, fp, g_dumpInCharset, dbsSql);
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        rows = dumpInOneDebugFile(
+                ws_taos, fp, g_dumpInCharset, dbsSql);
+    } else {
+#endif
+        rows = dumpInOneDebugFile(
+                taos, fp, g_dumpInCharset, dbsSql);
+#ifdef WEBSOCKET
+    }
+#endif
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
                 rows, dbsSql);
@@ -9344,7 +9358,7 @@ static void dumpNormalTablesOfStbWS(
     int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>. "
-                "code: 0x%8x, reason: %s\n",
+                "code: 0x%08x, reason: %s\n",
                 __func__, __LINE__, command, code, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
@@ -9572,7 +9586,7 @@ static int64_t dumpNtbOfDbByThreads(
             pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
             if (NULL == pThreadInfo->taos) {
                 errorPrint("%s() LN%d, Failed to connect to TDengine %s, "
-                        "code: 0x%8x, reason: %s\n",
+                        "code: 0x%08x, reason: %s\n",
                         __func__,
                         __LINE__,
                         g_args.dsn,
@@ -9594,7 +9608,7 @@ static int64_t dumpNtbOfDbByThreads(
                     );
             if (NULL == pThreadInfo->taos) {
                 errorPrint("%s() LN%d, Failed to connect to TDengine, "
-                        "code: 0x%8x, reason: %s\n",
+                        "code: 0x%08x, reason: %s\n",
                         __func__,
                         __LINE__,
                         taos_errno(NULL),
@@ -10316,12 +10330,12 @@ static bool fillDBInfoWithFieldsWS_V2(const int index,
         } else if (0 == strcmp(fields[f].name, "duration")) {
             memset(tmp, 0, WS_VALUE_BUF_LEN);
             memcpy(tmp, value, len);
-            debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    tmp, len);
-            tstrncpy(g_dbInfos[index]->duration,
+            strncpy(g_dbInfos[index]->duration,
                     tmp,
                     min(DURATION_LEN, len));
+            debugPrint("%s() LN%d: field: %d, tmp: %s, duration: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    tmp, g_dbInfos[index]->duration, len);
         } else if ((0 == strcmp(fields[f].name, "cache"))
                 || (0 == strcmp(fields[f].name, "cache(MB)"))) {
             g_dbInfos[index]->cache = *((int32_t *)value);
@@ -10471,12 +10485,12 @@ static bool fillDBInfoWithFields(const int index,
                     (char *)row[f],
                     min(KEEPLIST_LEN, lengths[f] + 1));
         } else if (0 == strcmp(fields[f].name, "duration")) {
-            debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    (char*)row[f], lengths[f]);
             tstrncpy(g_dbInfos[index]->duration,
                     (char *)row[f],
                     min(DURATION_LEN, lengths[f] + 1));
+            debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    (char*)row[f], lengths[f]);
         } else if ((0 == strcmp(fields[f].name, "cache"))
                 || (0 == strcmp(fields[f].name, "cache(MB)"))) {
             g_dbInfos[index]->cache = *((int32_t *)row[f]);
