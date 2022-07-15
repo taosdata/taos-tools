@@ -188,6 +188,7 @@ int convertHostToServAddr(char *host, uint16_t port,
 
 void prompt(bool nonStopMode) {
     if (!g_arguments->answer_yes) {
+        g_arguments->in_prompt = true;
         if (nonStopMode) {
             printf(
                 "\n\n         Current is the Non-Stop insertion mode. "
@@ -196,18 +197,13 @@ void prompt(bool nonStopMode) {
                 "Ctrl-C to "
                 "stop\n\n"); 
             (void)getchar();
-            if (g_arguments->terminate) {
-                exit(EXIT_SUCCESS);
-            }
         } else {
             printf(
                 "\n\n         Press enter key to continue or Ctrl-C to "
                 "stop\n\n");
             (void)getchar();
-            if (g_arguments->terminate) {
-                exit(EXIT_SUCCESS);
-            }
         }
+        g_arguments->in_prompt = false;
     }
 }
 

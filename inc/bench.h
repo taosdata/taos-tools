@@ -502,6 +502,7 @@ typedef struct SArguments_S {
     sem_t              cancelSem;
 #endif
     bool               terminate;
+    bool               in_prompt;
 } SArguments;
 
 typedef struct SThreadInfo_S {
