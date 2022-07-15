@@ -75,7 +75,7 @@
 
 #include "taos.h"
 #include "toolsdef.h"
-
+#include "taoserror.h"
 #if defined(WIN32) || defined(WIN64)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp

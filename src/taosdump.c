@@ -3803,7 +3803,7 @@ int64_t queryDbForDumpOutCountWS(
         errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
-        taos_free_result(ws_res);
+        ws_free_result(ws_res);
         return -1;
     }
 
@@ -6428,9 +6428,9 @@ static int dumpInAvroDataImpl(
             }
             int32_t affected_rows;
             if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
-                errorPrint("%s() LN%d ws_taos_stmt_execute() failed!"
+                errorPrint("%s() LN%d ws_stmt_execute() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
-                        __func__, __LINE__, taos, code, ws_errstr(stmt), ts_debug);
+                        __func__, __LINE__, taos, code, ws_errstr(ws_stmt), ts_debug);
                 failed -= stmt_count;
             } else {
                 success ++;
@@ -7219,7 +7219,7 @@ static int64_t dumpTableDataAvroWS(
         errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
                 __func__,
                 __LINE__);
-        taos_close(ws_taos);
+        ws_close(ws_taos);
         return -1;
     }
 
@@ -8097,10 +8097,10 @@ static int createMTableAvroHeadFillTBNameWS(
         const char *stable) {
 
     WS_RES *ws_res = ws_query(ws_taos, command);
-    int32_t code = taos_errno(ws_res);
+    int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>. code: 0x%08x, reason: %s\n",
-                __func__, __LINE__, command, code, taos_errstr(ws_res));
+                __func__, __LINE__, command, code, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
         return -1;
@@ -8463,25 +8463,17 @@ static void *dumpNtbOfDb(void *arg) {
                 ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
                 pThreadInfo->stbName);
 
-        if (g_args.avro) {
-
-            debugPrint("%s() LN%d, %s belongStb %d stable: %s\n",
+        if(0 == strlen(
+                    ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name)) {
+            errorPrint("%s() LN%d, pass wrong tbname. from=%"PRId64", i=%"PRId64"\n",
                     __func__, __LINE__,
-                    ((TableInfo*)(g_tablesList+pThreadInfo->from+i))->name,
-                    ((TableInfo *)
-                     (g_tablesList + pThreadInfo->from+i))->belongStb,
-                    ((TableInfo *)
-                     (g_tablesList + pThreadInfo->from+i))->stable);
+                    pThreadInfo->from, i);
+            return NULL;
+        }
+        if (g_args.avro) {
 
             if (0 == currentPercent) {
                 printf("[%d]: Dumping 1%%\n", pThreadInfo->threadIndex);
-            }
-            if(0 == strlen(
-                        ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name)) {
-                errorPrint("%s() LN%d, pass wrong tbname. from=%"PRId64", i=%"PRId64"\n",
-                        __func__, __LINE__,
-                        pThreadInfo->from, i);
-                return NULL;
             }
 
             count = dumpNormalTable(
@@ -9825,7 +9817,7 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 
     ws_free_result(ws_res);
     ws_res = NULL;
-    taos_close(ws_taos);
+    ws_close(ws_taos);
 
     int64_t records = dumpNtbOfDbByThreads(dbInfo, count);
 
@@ -10156,7 +10148,7 @@ static int64_t dumpCreateSTableClauseOfDbWS(
             superTblCnt);
     g_resultStatistics.totalSuperTblsOfDumpOut += superTblCnt;
 
-    taos_close(ws_taos);
+    ws_close(ws_taos);
 
     return superTblCnt;
 }
