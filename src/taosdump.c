@@ -2155,7 +2155,7 @@ static int getTableDesColWS(
                         __func__, __LINE__, code, ws_errstr(ws_res));
             }
             if (0 == rows) {
-                debugPrint("%s() LN%d, No data from fetch to run command <%s>, "
+                debugPrint("%s() LN%d, No more data from fetch to run command <%s>, "
                         "ws_taos: %p, code: 0x%8x, reason:%s\n",
                         __func__, __LINE__,
                         sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -2177,6 +2177,7 @@ static int getTableDesColWS(
                     continue;
                 }
 
+                debugPrint("%s() LN%d, len=%d\n", __func__, __LINE__, len);
                 if (0 != processFieldsValue(
                             (const void *)ws_fields,
                             i, tableDes,
@@ -2222,6 +2223,7 @@ static int getTableDesWS(
                 __func__, __LINE__, sqlstr, ws_taos);
     }
 
+    tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
     while(true) {
         int rows = 0;
         const void *data = NULL;
@@ -2338,7 +2340,7 @@ static int getTableDesColNative(
         TAOS_ROW row = taos_fetch_row(res);
 
         if (NULL == row) {
-            debugPrint("%s() LN%d, No data from fetch to run command <%s>, taos: %p, code: 0x%8x, reason:%s\n",
+            debugPrint("%s() LN%d, No more data from fetch to run command <%s>, taos: %p, code: 0x%8x, reason:%s\n",
                     __func__, __LINE__,
                     sqlstr, taos, taos_errno(res), taos_errstr(res));
             taos_free_result(res);
@@ -2368,7 +2370,7 @@ static int getTableDesColNative(
     return colCount;
 }
 
-static int getTableDes(
+static int getTableDesNative(
         TAOS *taos,
         const char* dbName,
         const char *table,
@@ -2894,7 +2896,7 @@ static int dumpStableClasuse(void *taos, SDbInfo *dbInfo,
             stbName, tableDes, true);
     } else {
 #endif
-        colCount = getTableDes(taos, dbInfo->name,
+        colCount = getTableDesNative(taos, dbInfo->name,
             stbName, tableDes, true);
 #ifdef WEBSOCKET
     }
@@ -4281,7 +4283,7 @@ static int64_t writeResultToAvroWS(
             }
 
             if (0 == rows) {
-                debugPrint("%s() LN%d, No data from ws_fetch_block(), "
+                debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
                         "ws_taos: %p, code: 0x%8x, reason:%s\n",
                         __func__, __LINE__,
                         ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -4364,6 +4366,9 @@ static int64_t writeResultToAvroWS(
     }
 
     avro_value_iface_decref(wface);
+    freeRecordSchema(recordSchema);
+    avro_file_writer_close(db);
+    avro_schema_decref(schema);
 
     return success;
 }
@@ -4585,7 +4590,7 @@ static int dumpInAvroTbTagsImpl(
                                 stbName, tableDes, false);
                     } else {
 #endif
-                        getTableDes(taos, namespace,
+                        getTableDesNative(taos, namespace,
                                 stbName, tableDes, false);
 #ifdef WEBSOCKET
                     }
@@ -5701,7 +5706,7 @@ static int dumpInAvroDataImpl(
                         tbName, tableDes, true);
             } else {
 #endif
-                getTableDes(taos, namespace,
+                getTableDesNative(taos, namespace,
                         tbName, tableDes, true);
 #ifdef WEBSOCKET
             }
@@ -7440,7 +7445,7 @@ static int64_t dumpNormalTable(
                 numColsAndTags = getTableDesWS(taos, dbName, tbName, tableDes, false);
             } else {
 #endif
-                numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
+                numColsAndTags = getTableDesNative(taos, dbName, tbName, tableDes, false);
 #ifdef WEBSOCKET
             }
 #endif
@@ -7468,7 +7473,7 @@ static int64_t dumpNormalTable(
             numColsAndTags = getTableDesWS(taos, dbName, tbName, tableDes, false);
         } else {
 #endif
-            numColsAndTags = getTableDes(taos, dbName, tbName, tableDes, false);
+            numColsAndTags = getTableDesNative(taos, dbName, tbName, tableDes, false);
 #ifdef WEBSOCKET
         }
 #endif
@@ -7529,7 +7534,7 @@ static int64_t dumpNormalTable(
 
                 } else {
 #endif
-                    numColsAndTags = getTableDes(
+                    numColsAndTags = getTableDesNative(
                             taos, dbName, tbName, tableDes, false);
 #ifdef WEBSOCKET
                 }
@@ -7668,7 +7673,7 @@ static int createMTableAvroHeadImp(
                 subTableDes, false);
     } else {
 #endif // WEBSOCKET
-        getTableDes(taos, dbName,
+        getTableDesNative(taos, dbName,
                 tbName,
                 subTableDes, false);
 #ifdef WEBSOCKET
@@ -8014,7 +8019,7 @@ static int createMTableAvroHeadSpecified(
         colCount = getTableDesWS(taos, dbName, stable, tableDes, false);
     } else {
 #endif
-        colCount = getTableDes(taos, dbName, stable, tableDes, false);
+        colCount = getTableDesNative(taos, dbName, stable, tableDes, false);
 #ifdef WEBSOCKET
     }
 #endif
@@ -8174,7 +8179,7 @@ static int createMTableAvroHead(
         colCount = getTableDesWS(taos, dbName, stable, tableDes, false);
     } else {
 #endif // WEBSOCKET
-        colCount = getTableDes(taos, dbName, stable, tableDes, false);
+        colCount = getTableDesNative(taos, dbName, stable, tableDes, false);
 #ifdef WEBSOCKET
     }
 #endif
@@ -9727,8 +9732,8 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
             } else {
                 ((TableInfo *)(g_tablesList + count))->belongStb = false;
             }
+            count ++;
         }
-        count ++;
     }
 
     ws_free_result(ws_res);
