@@ -8402,9 +8402,6 @@ static int createMTableAvroHead(
             freeTbDes(tableDes);
             return -1;
         }
-    } else {
-        errorPrint("%s() LN%d, preCount=%"PRIu64" is impossible\n", __func__, __LINE__, preCount);
-        return -1;
     }
 
     if (3 == g_majorVersionOfClient) {
@@ -8469,7 +8466,7 @@ static int createMTableAvroHead(
             tb, stable);
     }
 
-    free(tbNameArr);
+    tfree(tbNameArr);
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
@@ -9190,7 +9187,7 @@ static int64_t dumpInOneDebugFile(
         cmd[read_len + cmd_len]= '\0';
         bool isInsert = (0 == strncmp(cmd, "INSERT ", strlen("INSERT ")));
         bool isCreateDb = (0 == strncmp(cmd, "CREATE DATABASE ", strlen("CREATE DATABASE ")));
-        if (isCreateDb && (1 == g_dumpInDataMajorVer)) {
+        if (isCreateDb && (0 == strncmp(g_dumpInServerVer, "2.", 2))) {
             if (3 == g_majorVersionOfClient) {
                 convertDbClauseForV3(&cmd);
             }
