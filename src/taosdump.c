@@ -4616,9 +4616,9 @@ void freeBindArray(char *bindArray, int elements)
     }
 }
 
-static int dumpInAvroTbTagsImpl(
+static int64_t dumpInAvroTbTagsImpl(
         void *taos,
-        char *namespace,
+        const char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
         char *fileName,
@@ -5506,9 +5506,9 @@ static int dumpInAvroTbTagsImpl(
     return success;
 }
 
-static int dumpInAvroNtbImpl(
+static int64_t dumpInAvroNtbImpl(
         TAOS *taos,
-        char *namespace,
+        const char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
         RecordSchema *recordSchema)
@@ -5582,7 +5582,7 @@ static int dumpInAvroNtbImpl(
     return success;
 }
 
-static int dumpInAvroDataImpl(
+static int64_t dumpInAvroDataImpl(
         void *taos,
         char *namespace,
         avro_schema_t schema,
@@ -5769,6 +5769,8 @@ static int dumpInAvroDataImpl(
 
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
+            debugPrint("%s() LN%d, stmt: %p, will call ws_stmt_set_tbname(%s)\n",
+                    __func__, __LINE__, ws_stmt, escapedTbName);
             if (0 != (code = ws_stmt_set_tbname(ws_stmt, escapedTbName))) {
                 errorPrint("%s() LN%d, failed to execute ws_stmt_set_tbname(%s)."
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
@@ -5780,6 +5782,8 @@ static int dumpInAvroDataImpl(
                 }
                 continue;
             }
+            debugPrint("%s() LN%d, stmt: %p, ws_stmt_set_tbname(%s) done\n",
+                    __func__, __LINE__, ws_stmt, escapedTbName);
         } else {
 #endif
             if (0 != taos_stmt_set_tbname(stmt, escapedTbName)) {
@@ -5812,6 +5816,8 @@ static int dumpInAvroDataImpl(
 #endif
         }
 
+        debugPrint("%s() LN%d, count: %"PRId64"\n",
+                    __func__, __LINE__, count);
         printDotOrX(count, &printDot);
         count++;
 
@@ -6724,7 +6730,7 @@ static int64_t dumpInOneAvroFile(
     }
 #endif
 
-    int retExec = 0;
+    int64_t retExec = 0;
     switch (which) {
         case WHICH_AVRO_DATA:
             debugPrint("%s() LN%d will dump %s's data\n",
