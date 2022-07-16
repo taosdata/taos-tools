@@ -30,11 +30,9 @@
 #else
 #include <sys/prctl.h>
 #endif
-// #include <error.h>
 #include <inttypes.h>
 #include <dirent.h>
 #include <wordexp.h>
-#include <assert.h>
 #include <termios.h>
 #include <sys/time.h>
 #include <limits.h>
@@ -50,12 +48,21 @@
 #include <avro.h>
 #include <jansson.h>
 
+#ifdef RELEASE
+#define ASSERT(x)   do { if (!(x)) errorPrint("%s() LN%d, %s\n", __func__, __LINE__, "assertion");} while(0)
+#else
+#include <assert.h>
+#define ASSERT(x)   do { assert(x); } while(0)
+#endif // RELEASE
+
 #define BUFFER_LEN              256             // use 256 as normal buffer length
 #define MAX_FILE_NAME_LEN       256             // max file name length on Linux is 255
 #define MAX_PATH_LEN            4096            // max path length on Linux is 4095
 #define WS_VALUE_BUF_LEN        4096
 #define COMMAND_SIZE            65536
 #define MAX_RECORDS_PER_REQ     32766
+
+#define NEED_CALC_COUNT         UINT64_MAX
 
 static char    **g_tsDumpInDebugFiles     = NULL;
 static char      g_dumpInCharset[64] = {0};
@@ -294,7 +301,7 @@ typedef struct {
     char      stbName[TSDB_TABLE_NAME_LEN];
     int       precision;
     void      *taos;
-    int64_t   count;
+    uint64_t  count;
     int64_t   from;
     int64_t   stbSuccess;
     int64_t   stbFailed;
@@ -1254,10 +1261,24 @@ static int getTableRecordInfoImplWS(
         return 0;
     }
 
-    if (tryStable) {
-        sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+    if (3 == g_majorVersionOfClient) {
+        if (tryStable) {
+            sprintf(command,
+                    "SELECT STABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND stable_name='%s'",
+                    dbName, table);
+        } else {
+            sprintf(command,
+                    "SELECT TABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND table_name='%s'",
+                    dbName, table);
+        }
     } else {
-        sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        if (tryStable) {
+            sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+        } else {
+            sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        }
     }
 
     ws_res = ws_query(ws_taos, command);
@@ -1324,10 +1345,18 @@ static int getTableRecordInfoImplWS(
                             buffer,
                             min(TSDB_TABLE_NAME_LEN,
                                 length + 1));
-                    const void *value1 = ws_get_value_in_block(
-                            ws_res,
-                            row, TSDB_SHOW_TABLES_METRIC_INDEX,
-                            &type, &length);
+                    const void *value1 = NULL;
+                    if (3 == g_majorVersionOfClient) {
+                        ws_get_value_in_block(
+                                ws_res,
+                                row, 1,
+                                &type, &length);
+                    } else {
+                        ws_get_value_in_block(
+                                ws_res,
+                                row, TSDB_SHOW_TABLES_METRIC_INDEX,
+                                &type, &length);
+                    }
                     if (length) {
                         if (NULL == value1) {
                             errorPrint("row: %d, col: %d, ws_get_value_in_block() error!\n",
@@ -1413,10 +1442,22 @@ static int getTableRecordInfoImplNative(
         return 0;
     }
 
-    if (tryStable) {
-        sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+    if (3 == g_majorVersionOfClient) {
+        if (tryStable) {
+            sprintf(command,
+                    "SELECT STABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
+        } else {
+            sprintf(command,
+                    "SELECT TABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND table_name='%s'", dbName, table);
+        }
     } else {
-        sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        if (tryStable) {
+            sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+        } else {
+            sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        }
     }
 
     res = taos_query(taos, command);
@@ -1430,27 +1471,39 @@ static int getTableRecordInfoImplNative(
     }
 
     while ((row = taos_fetch_row(res)) != NULL) {
-        int32_t* length = taos_fetch_lengths(res);
+        int32_t* lengths = taos_fetch_lengths(res);
 
         if (tryStable) {
             pTableRecordInfo->isStb = true;
             tstrncpy(pTableRecordInfo->tableRecord.stable, table,
-                    TSDB_TABLE_NAME_LEN);
+                    min(TSDB_TABLE_NAME_LEN,strlen(table)+1));
             isSet = true;
         } else {
             pTableRecordInfo->isStb = false;
             tstrncpy(pTableRecordInfo->tableRecord.name,
                     (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                     min(TSDB_TABLE_NAME_LEN,
-                        length[TSDB_SHOW_TABLES_NAME_INDEX] + 1));
-            if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
-                pTableRecordInfo->belongStb = true;
-                tstrncpy(pTableRecordInfo->tableRecord.stable,
-                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                        min(TSDB_TABLE_NAME_LEN,
-                            length[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+                        lengths[TSDB_SHOW_TABLES_NAME_INDEX] + 1));
+            if (3 == g_majorVersionOfClient) {
+                if (strlen((char *)row[1]) > 0) {
+                    pTableRecordInfo->belongStb = true;
+                    tstrncpy(pTableRecordInfo->tableRecord.stable,
+                            (char *)row[1],
+                            min(TSDB_TABLE_NAME_LEN,
+                                lengths[1] + 1));
+                } else {
+                    pTableRecordInfo->belongStb = false;
+                }
             } else {
-                pTableRecordInfo->belongStb = false;
+                if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
+                    pTableRecordInfo->belongStb = true;
+                    tstrncpy(pTableRecordInfo->tableRecord.stable,
+                            (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                            min(TSDB_TABLE_NAME_LEN,
+                                lengths[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+                } else {
+                    pTableRecordInfo->belongStb = false;
+                }
             }
             isSet = true;
         }
@@ -1502,14 +1555,14 @@ static int getTableRecordInfo(
     return ret;
 }
 
-static bool isSystemDatabase(char *name, int len) {
+static bool isSystemDatabase(char *dbName) {
     if (g_majorVersionOfClient == 3) {
-        if ((strcmp(name, "information_schema") == 0)
-                || (strcmp(name, "performance_schema") == 0)) {
+        if ((strcmp(dbName, "information_schema") == 0)
+                || (strcmp(dbName, "performance_schema") == 0)) {
             return true;
         }
     } else if (g_majorVersionOfClient == 2) {
-        if (strcmp(name, "log") == 0) {
+        if (strcmp(dbName, "log") == 0) {
             return true;
         }
     } else {
@@ -1519,26 +1572,23 @@ static bool isSystemDatabase(char *name, int len) {
     return false;
 }
 
-static int inDatabasesSeq(
-        char *name,
-        int len)
+static int inDatabasesSeq(const char *dbName)
 {
-    name[len] = '\0';
     if (strstr(g_args.databasesSeq, ",") == NULL) {
-        if (0 == strcmp(g_args.databasesSeq, name)) {
+        if (0 == strcmp(g_args.databasesSeq, dbName)) {
             return 0;
         }
     } else {
         char *dupSeq = strdup(g_args.databasesSeq);
         char *running = dupSeq;
-        char *dbname = strsep(&running, ",");
-        while (dbname) {
-            if (0 == strcmp(dbname, name)) {
+        char *name = strsep(&running, ",");
+        while (name) {
+            if (0 == strcmp(name, dbName)) {
                 tfree(dupSeq);
                 return 0;
             }
 
-            dbname = strsep(&running, ",");
+            name = strsep(&running, ",");
         }
 
         free(dupSeq);
@@ -1585,24 +1635,19 @@ static int getDbCountWS(WS_RES *ws_res) {
             memcpy(buffer, value, length);
             debugPrint("%s() LN%d, dbname: %s\n", __func__, __LINE__, buffer);
 
-            if (isSystemDatabase(buffer,
-                        length)) {
+            if (isSystemDatabase(buffer)) {
                 if (!g_args.allow_sys) {
                     continue;
                 }
             } else if (g_args.databases) {  // input multi dbs
-                if (inDatabasesSeq(
-                            buffer,
-                            length) != 0) {
+                if (inDatabasesSeq(buffer) != 0) {
                     continue;
                 }
             } else if (!g_args.all_databases) {  // only input one db
-                if (strcmp(g_args.arg_list[0],
-                            buffer)) {
+                if (strcmp(g_args.arg_list[0], buffer)) {
                     continue;
                 }
             }
-
             count++;
         }
     }
@@ -1611,26 +1656,31 @@ static int getDbCountWS(WS_RES *ws_res) {
 }
 #endif // WEBSOCKET
 
-static int getDbCount(TAOS_RES *res) {
+static int getDbCountNative(TAOS_RES *res) {
     int count = 0;
     TAOS_ROW row;
 
     while ((row = taos_fetch_row(res)) != NULL) {
-        int32_t* length = taos_fetch_lengths(res);
-        if (isSystemDatabase(row[TSDB_SHOW_DB_NAME_INDEX],
-                    length[TSDB_SHOW_DB_NAME_INDEX])) {
+        int32_t* lengths = taos_fetch_lengths(res);
+        if (lengths[TSDB_SHOW_DB_NAME_INDEX] < 0) {
+            errorPrint("%s() LN%d, fetch_row() get %d length!\n",
+                    __func__, __LINE__, lengths[TSDB_SHOW_DB_NAME_INDEX]);
+            continue;
+        }
+
+        char dbName[TSDB_DB_NAME_LEN] = {0};
+        strncpy(dbName, (char*)row[TSDB_SHOW_DB_NAME_INDEX],
+                lengths[TSDB_SHOW_DB_NAME_INDEX]);
+        if (isSystemDatabase(dbName)) {
             if (!g_args.allow_sys) {
                 continue;
             }
         } else if (g_args.databases) {  // input multi dbs
-            if (inDatabasesSeq(
-                        (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                        length[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
+            if (inDatabasesSeq(dbName) != 0) {
                 continue;
             }
         } else if (!g_args.all_databases) {  // only input one db
-            if (strcmp(g_args.arg_list[0],
-                        (char *)row[TSDB_SHOW_DB_NAME_INDEX])) {
+            if (strcmp(g_args.arg_list[0], dbName)) {
                 continue;
             }
         }
@@ -1703,7 +1753,7 @@ static int getDumpDbCount() {
             return 0;
         }
 
-        count = getDbCount(res);
+        count = getDbCountNative(res);
         taos_free_result(res);
         taos_close(taos);
 #ifdef WEBSOCKET
@@ -1742,7 +1792,7 @@ static int dumpCreateMTableClause(
         if (tableDes->cols[counter].note[0] != '\0') break;
     }
 
-    assert(counter < numColsAndTags);
+    ASSERT(counter < numColsAndTags);
     count_temp = counter;
 
     for (; counter < numColsAndTags; counter++) {
@@ -1817,6 +1867,10 @@ static int64_t getNtbCountOfStbWS(const char *command)
         const void *data = NULL;
         code = ws_fetch_block(ws_res, &data, &rows);
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -1848,7 +1902,8 @@ static int64_t getNtbCountOfStbWS(const char *command)
 }
 #endif // WEBSOCKET
 
-static int64_t getNtbCountOfStbNative(char *dbName, char *stbName, const char *command)
+static int64_t getNtbCountOfStbNative(
+        const char *dbName, const char *stbName, const char *command)
 {
     TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
             dbName, g_args.port);
@@ -2003,7 +2058,7 @@ static int processFieldsValue(
 
             if (g_args.avro) {
                 if (len < (COL_VALUEBUF_LEN - 1)) {
-                    strcpy(tableDes->cols[index].value, (char *)value);
+                    strncpy(tableDes->cols[index].value, (char *)value, len);
                 } else {
                     if (tableDes->cols[index].var_value) {
                         free(tableDes->cols[index].var_value);
@@ -2143,7 +2198,14 @@ static int getTableDesColWS(
             return -1;
         }
 
-        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+        void *ws_fields = NULL;
+        if (3 == g_majorVersionOfClient) {
+            const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+            ws_fields = (void *)ws_fields_v3;
+        } else {
+            const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+            ws_fields = (void *)ws_fields_v2;
+        }
 
         while(true) {
             int rows = 0;
@@ -2229,6 +2291,10 @@ static int getTableDesWS(
         const void *data = NULL;
         code = ws_fetch_block(ws_res, &data, &rows);
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -2400,19 +2466,19 @@ static int getTableDesNative(
     while ((row = taos_fetch_row(res)) != NULL) {
         int32_t* lengths = taos_fetch_lengths(res);
         char type[20] = {0};
-        strncpy(tableDes->cols[colCount].field,
+        tstrncpy(tableDes->cols[colCount].field,
                 (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX]);
-        strncpy(type, (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
-                lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
+                lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX]+1);
+        tstrncpy(type, (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+                lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]+1);
         tableDes->cols[colCount].type = typeStrToType(type);
         tableDes->cols[colCount].length =
             *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
 
         if (lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX] > 0) {
-            strncpy(tableDes->cols[colCount].note,
+            tstrncpy(tableDes->cols[colCount].note,
                     (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
-                    lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX]);
+                    lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX]+1);
         }
 
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
@@ -2560,7 +2626,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
 
                 recordSchema->num_fields = size;
                 recordSchema->fields = calloc(1, sizeof(FieldStruct) * size);
-                assert(recordSchema->fields);
+                ASSERT(recordSchema->fields);
 
                 for (i = 0; i < size; i++) {
                     FieldStruct *field = (FieldStruct *)
@@ -2721,7 +2787,7 @@ static avro_value_iface_t* prepareAvroWface(
         avro_file_writer_t *db
         )
 {
-    assert(avroFilename);
+    ASSERT(avroFilename);
     if (avro_schema_from_json_length(jsonSchema, strlen(jsonSchema), schema)) {
         errorPrint("%s() LN%d, Unable to parse:\n%s \nto schema\nerror message: %s\n",
                 __func__, __LINE__, jsonSchema, avro_strerror());
@@ -2767,7 +2833,7 @@ static int dumpCreateTableClauseAvro(
         TableDef *tableDes,
         int numOfCols,
         const char* dbName) {
-    assert(dumpFilename);
+    ASSERT(dumpFilename);
     // {
     // "type": "record",
     // "name": "_ntb",
@@ -2876,8 +2942,10 @@ static int dumpCreateTableClause(
     return ret;
 }
 
-static int dumpStableClasuse(void *taos, SDbInfo *dbInfo,
-        char *stbName, FILE *fp)
+static int dumpStableClasuse(
+        void *taos,
+        SDbInfo *dbInfo,
+        const char *stbName, FILE *fp)
 {
     uint64_t sizeOfTableDes =
         (uint64_t)(sizeof(TableDef) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
@@ -3103,41 +3171,41 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
     switch (which) {
         case WHICH_UNKNOWN:
             g_tsDumpInDebugFiles = (char **)calloc(count, sizeof(char *));
-            assert(g_tsDumpInDebugFiles);
+            ASSERT(g_tsDumpInDebugFiles);
 
             for (int64_t i = 0; i < count; i++) {
                 g_tsDumpInDebugFiles[i] = calloc(1, MAX_FILE_NAME_LEN);
-                assert(g_tsDumpInDebugFiles[i]);
+                ASSERT(g_tsDumpInDebugFiles[i]);
             }
             break;
 
         case WHICH_AVRO_NTB:
             g_tsDumpInAvroNtbs = (char **)calloc(count, sizeof(char *));
-            assert(g_tsDumpInAvroNtbs);
+            ASSERT(g_tsDumpInAvroNtbs);
 
             for (int64_t i = 0; i < count; i++) {
                 g_tsDumpInAvroNtbs[i] = calloc(1, MAX_FILE_NAME_LEN);
-                assert(g_tsDumpInAvroNtbs[i]);
+                ASSERT(g_tsDumpInAvroNtbs[i]);
             }
             break;
 
         case WHICH_AVRO_TBTAGS:
             g_tsDumpInAvroTagsTbs = (char **)calloc(count, sizeof(char *));
-            assert(g_tsDumpInAvroTagsTbs);
+            ASSERT(g_tsDumpInAvroTagsTbs);
 
             for (int64_t i = 0; i < count; i++) {
                 g_tsDumpInAvroTagsTbs[i] = calloc(1, MAX_FILE_NAME_LEN);
-                assert(g_tsDumpInAvroTagsTbs[i]);
+                ASSERT(g_tsDumpInAvroTagsTbs[i]);
             }
             break;
 
         case WHICH_AVRO_DATA:
             g_tsDumpInAvroFiles = (char **)calloc(count, sizeof(char *));
-            assert(g_tsDumpInAvroFiles);
+            ASSERT(g_tsDumpInAvroFiles);
 
             for (int64_t i = 0; i < count; i++) {
                 g_tsDumpInAvroFiles[i] = calloc(1, MAX_FILE_NAME_LEN);
-                assert(g_tsDumpInAvroFiles[i]);
+                ASSERT(g_tsDumpInAvroFiles[i]);
             }
             break;
 
@@ -3385,7 +3453,7 @@ static int convertTbDesToJsonImpl(
 
 
 static int convertTbTagsDesToJsonLoose(
-        char *dbName, char *stbName, TableDef *tableDes,
+        const char *dbName, const char *stbName, TableDef *tableDes,
         char **jsonSchema)
 {
     // {
@@ -3446,7 +3514,7 @@ static int convertTbTagsDesToJsonLoose(
 }
 
 static int convertTbTagsDesToJson(
-        char *dbName, char *stbName, TableDef *tableDes,
+        const char *dbName, const char *stbName, TableDef *tableDes,
         char **jsonSchema)
 {
     // {
@@ -3510,7 +3578,9 @@ static int convertTbTagsDesToJson(
 }
 
 static int convertTbTagsDesToJsonWrap(
-        char *dbName, char *stbName, TableDef *tableDes,
+        const char *dbName,
+        const char *stbName,
+        TableDef *tableDes,
         char **jsonSchema)
 {
     int ret = -1;
@@ -3799,7 +3869,7 @@ int64_t queryDbForDumpOutCountWS(
         errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
                 sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
-        taos_free_result(ws_res);
+        ws_free_result(ws_res);
         return -1;
     }
 
@@ -3808,6 +3878,10 @@ int64_t queryDbForDumpOutCountWS(
         const void *data = NULL;
         code = ws_fetch_block(ws_res, &data, &rows);
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -4177,7 +4251,7 @@ static int processValueToAvro(
             } else {
                 avro_value_set_branch(&avro_value, 1, &branch);
                 char *binTemp = calloc(1, 1+bytes);
-                assert(binTemp);
+                ASSERT(binTemp);
                 strncpy(binTemp, (char*)value, len);
                 avro_value_set_string(&branch, binTemp);
                 free(binTemp);
@@ -4267,7 +4341,15 @@ static int64_t writeResultToAvroWS(
         }
 
         int numFields = ws_field_count(ws_res);
-        const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+
+        void *ws_fields = NULL;
+        if (3 == g_majorVersionOfClient) {
+            const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+            ws_fields = (void *)ws_fields_v3;
+        } else {
+            const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+            ws_fields = (void *)ws_fields_v2;
+        }
 
         int32_t countInBatch = 0;
 
@@ -4321,13 +4403,25 @@ static int64_t writeResultToAvroWS(
                         continue;
                     }
 
-                    processValueToAvro(
-                            f, record,
-                            avro_value, branch,
-                            ws_fields[f].name,
-                            ws_fields[f].type,
-                            ws_fields[f].bytes,
-                            value, len);
+                    if (3 == g_majorVersionOfClient) {
+                        struct WS_FIELD *ws_fields_3 = (struct WS_FIELD *) ws_fields;
+                        processValueToAvro(
+                                f, record,
+                                avro_value, branch,
+                                ws_fields_3[f].name,
+                                ws_fields_3[f].type,
+                                ws_fields_3[f].bytes,
+                                value, len);
+                    } else {
+                        struct WS_FIELD_V2 *ws_fields_2 = (struct WS_FIELD_V2 *) ws_fields;
+                        processValueToAvro(
+                                f, record,
+                                avro_value, branch,
+                                ws_fields_2[f].name,
+                                ws_fields_2[f].type,
+                                ws_fields_2[f].bytes,
+                                value, len);
+                    }
                 }
 
                 if (0 != avro_file_writer_append_value(db, &record)) {
@@ -4432,13 +4526,13 @@ static int64_t writeResultToAvroNative(
         numFields = taos_field_count(res);
 
         fields = taos_fetch_fields(res);
-        assert(fields);
+        ASSERT(fields);
 
         int32_t countInBatch = 0;
         TAOS_ROW row;
 
         while(NULL != (row = taos_fetch_row(res))) {
-            int32_t *length = taos_fetch_lengths(res);
+            int32_t *lengths = taos_fetch_lengths(res);
 
             avro_value_t record;
             avro_generic_value_new(wface, &record);
@@ -4464,7 +4558,7 @@ static int64_t writeResultToAvroNative(
                         fields[col].type,
                         fields[col].bytes,
                         row[col],
-                        length[col]);
+                        lengths[col]);
             }
 
             if (0 != avro_file_writer_append_value(db, &record)) {
@@ -4569,7 +4663,7 @@ static int dumpInAvroTbTagsImpl(
                             (const char **)&stbName, &size);
                 } else {
                     stbName = malloc(TSDB_TABLE_NAME_LEN);
-                    assert(stbName);
+                    ASSERT(stbName);
 
                     char *dupSeq = strdup(fileName);
                     char *running = dupSeq;
@@ -4627,7 +4721,7 @@ static int dumpInAvroTbTagsImpl(
                                             sqlstr+curr_sqlstr_len, "NULL,");
                                 } else {
                                     int32_t *bl = malloc(sizeof(int32_t));
-                                    assert(bl);
+                                    ASSERT(bl);
 
                                     avro_value_get_boolean(&bool_branch, bl);
                                     verbosePrint("%s() LN%d, *bl=%d\n",
@@ -4653,7 +4747,7 @@ static int dumpInAvroTbTagsImpl(
                                                 sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         int32_t *n8 = malloc(sizeof(int32_t));
-                                        assert(n8);
+                                        ASSERT(n8);
 
                                         avro_value_get_int(&tinyint_branch, n8);
                                         debugPrint2("%d | ", *n8);
@@ -4663,7 +4757,7 @@ static int dumpInAvroTbTagsImpl(
                                     }
                                 } else {
                                     int32_t *n8 = malloc(sizeof(int32_t));
-                                    assert(n8);
+                                    ASSERT(n8);
 
                                     avro_value_get_int(&field_value, n8);
 
@@ -4697,7 +4791,7 @@ static int dumpInAvroTbTagsImpl(
                                                 sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         int32_t *n16 = malloc(sizeof(int32_t));
-                                        assert(n16);
+                                        ASSERT(n16);
 
                                         avro_value_get_int(&smallint_branch, n16);
 
@@ -4708,7 +4802,7 @@ static int dumpInAvroTbTagsImpl(
                                     }
                                 } else {
                                     int32_t *n16 = malloc(sizeof(int32_t));
-                                    assert(n16);
+                                    ASSERT(n16);
 
                                     avro_value_get_int(&field_value, n16);
 
@@ -4742,7 +4836,7 @@ static int dumpInAvroTbTagsImpl(
                                                 sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         int32_t *n32 = malloc(sizeof(int32_t));
-                                        assert(n32);
+                                        ASSERT(n32);
 
                                         avro_value_get_int(&int_branch, n32);
 
@@ -4755,7 +4849,7 @@ static int dumpInAvroTbTagsImpl(
                                     }
                                 } else {
                                     int32_t *n32 = malloc(sizeof(int32_t));
-                                    assert(n32);
+                                    ASSERT(n32);
 
                                     avro_value_get_int(&field_value, n32);
 
@@ -4790,7 +4884,7 @@ static int dumpInAvroTbTagsImpl(
                                     } else {
 
                                         int64_t *n64 = malloc(sizeof(int64_t));
-                                        assert(n64);
+                                        ASSERT(n64);
 
                                         avro_value_get_long(&bigint_branch, n64);
 
@@ -4805,7 +4899,7 @@ static int dumpInAvroTbTagsImpl(
                                     }
                                 } else {
                                     int64_t *n64 = malloc(sizeof(int64_t));
-                                    assert(n64);
+                                    ASSERT(n64);
 
                                     avro_value_get_long(&field_value, n64);
 
@@ -4840,7 +4934,7 @@ static int dumpInAvroTbTagsImpl(
                                                 sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         float *f = malloc(sizeof(float));
-                                        assert(f);
+                                        ASSERT(f);
 
                                         avro_value_get_float(&float_branch, f);
                                         debugPrint2("%f | ", *f);
@@ -4850,7 +4944,7 @@ static int dumpInAvroTbTagsImpl(
                                     }
                                 } else {
                                     float *f = malloc(sizeof(float));
-                                    assert(f);
+                                    ASSERT(f);
 
                                     avro_value_get_float(&field_value, f);
                                     if (TSDB_DATA_FLOAT_NULL == *f) {
@@ -4879,7 +4973,7 @@ static int dumpInAvroTbTagsImpl(
                                                 sqlstr+curr_sqlstr_len, "NULL,");
                                     } else {
                                         double *dbl = malloc(sizeof(double));
-                                        assert(dbl);
+                                        ASSERT(dbl);
 
                                         avro_value_get_double(&dbl_branch, dbl);
                                         debugPrint2("%f | ", *dbl);
@@ -4889,7 +4983,7 @@ static int dumpInAvroTbTagsImpl(
                                     }
                                 } else {
                                     double *dbl = malloc(sizeof(double));
-                                    assert(dbl);
+                                    ASSERT(dbl);
 
                                     avro_value_get_double(&field_value, dbl);
                                     if (TSDB_DATA_DOUBLE_NULL == *dbl) {
@@ -4969,7 +5063,7 @@ static int dumpInAvroTbTagsImpl(
                                     } else {
 
                                         int64_t *n64 = malloc(sizeof(int64_t));
-                                        assert(n64);
+                                        ASSERT(n64);
 
                                         avro_value_get_long(&ts_branch, n64);
 
@@ -4981,7 +5075,7 @@ static int dumpInAvroTbTagsImpl(
                                     }
                                 } else {
                                     int64_t *n64 = malloc(sizeof(int64_t));
-                                    assert(n64);
+                                    ASSERT(n64);
 
                                     avro_value_get_long(&field_value, n64);
 
@@ -5018,7 +5112,7 @@ static int dumpInAvroTbTagsImpl(
                                     } else {
                                         if (TSDB_DATA_TYPE_INT == field->array_type) {
                                             uint8_t *array_u8 = malloc(sizeof(uint8_t));
-                                            assert(array_u8);
+                                            ASSERT(array_u8);
                                             *array_u8 = 0;
 
                                             size_t array_size = 0;
@@ -5049,7 +5143,7 @@ static int dumpInAvroTbTagsImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_INT == field->array_type) {
                                         uint8_t *array_u8 = malloc(sizeof(uint8_t));
-                                        assert(array_u8);
+                                        ASSERT(array_u8);
                                         *array_u8 = 0;
 
                                         size_t array_size = 0;
@@ -5100,7 +5194,7 @@ static int dumpInAvroTbTagsImpl(
                                     } else {
                                         if (TSDB_DATA_TYPE_INT == field->array_type) {
                                             uint16_t *array_u16 = malloc(sizeof(uint16_t));
-                                            assert(array_u16);
+                                            ASSERT(array_u16);
                                             *array_u16 = 0;
 
                                             size_t array_size = 0;
@@ -5131,7 +5225,7 @@ static int dumpInAvroTbTagsImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_INT == field->array_type) {
                                         uint16_t *array_u16 = malloc(sizeof(uint16_t));
-                                        assert(array_u16);
+                                        ASSERT(array_u16);
                                         *array_u16 = 0;
 
                                         size_t array_size = 0;
@@ -5181,7 +5275,7 @@ static int dumpInAvroTbTagsImpl(
                                     } else {
                                         if (TSDB_DATA_TYPE_INT == field->array_type) {
                                             uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                                            assert(array_u32);
+                                            ASSERT(array_u32);
                                             *array_u32 = 0;
 
                                             size_t array_size = 0;
@@ -5216,7 +5310,7 @@ static int dumpInAvroTbTagsImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_INT == field->array_type) {
                                         uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                                        assert(array_u32);
+                                        ASSERT(array_u32);
                                         *array_u32 = 0;
 
                                         size_t array_size = 0;
@@ -5270,7 +5364,7 @@ static int dumpInAvroTbTagsImpl(
                                     } else {
                                         if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
                                             uint64_t *array_u64 = malloc(sizeof(uint64_t));
-                                            assert(array_u64);
+                                            ASSERT(array_u64);
                                             *array_u64 = 0;
 
                                             size_t array_size = 0;
@@ -5307,7 +5401,7 @@ static int dumpInAvroTbTagsImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
                                         uint64_t *array_u64 = malloc(sizeof(uint64_t));
-                                        assert(array_u64);
+                                        ASSERT(array_u64);
                                         *array_u64 = 0;
 
                                         size_t array_size = 0;
@@ -5439,6 +5533,10 @@ static int dumpInAvroNtbImpl(
                     &field_value, &field_branch);
             avro_value_get_string(&field_branch, (const char **)&buf, &size);
 
+            if (NULL == buf) {
+                errorPrint("%s() LN%d, buf is NULL is impossible\n", __func__, __LINE__);
+                continue;
+            }
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
                 WS_RES *ws_res = ws_query(taos, buf);
@@ -5630,7 +5728,7 @@ static int dumpInAvroDataImpl(
                     (const char **)&tbName, &tbname_size);
         } else {
             tbName = malloc(TSDB_TABLE_NAME_LEN);
-            assert(tbName);
+            ASSERT(tbName);
 
             char *dupSeq = strdup(fileName);
             char *running = dupSeq;
@@ -5744,7 +5842,7 @@ static int dumpInAvroDataImpl(
                     } else {
 
                         int64_t *ts = malloc(sizeof(int64_t));
-                        assert(ts);
+                        ASSERT(ts);
 
                         avro_value_get_long(&ts_branch, ts);
 
@@ -5757,7 +5855,7 @@ static int dumpInAvroDataImpl(
                     }
                 } else {
                     int64_t *ts = malloc(sizeof(int64_t));
-                    assert(ts);
+                    ASSERT(ts);
 
                     avro_value_get_long(&field_value, ts);
 
@@ -5780,7 +5878,7 @@ static int dumpInAvroDataImpl(
                                     debugPrint2("%s | ", "null");
                                 } else {
                                     int32_t *n32 = malloc(sizeof(int32_t));
-                                    assert(n32);
+                                    ASSERT(n32);
 
                                     avro_value_get_int(&int_branch, n32);
 
@@ -5796,7 +5894,7 @@ static int dumpInAvroDataImpl(
                                 }
                             } else {
                                 int32_t *n32 = malloc(sizeof(int32_t));
-                                assert(n32);
+                                ASSERT(n32);
 
                                 avro_value_get_int(&field_value, n32);
 
@@ -5823,7 +5921,7 @@ static int dumpInAvroDataImpl(
                                     debugPrint2("%s | ", "null");
                                 } else {
                                     int32_t *n8 = malloc(sizeof(int32_t));
-                                    assert(n8);
+                                    ASSERT(n8);
 
                                     avro_value_get_int(&tinyint_branch, n8);
 
@@ -5833,7 +5931,7 @@ static int dumpInAvroDataImpl(
                                 }
                             } else {
                                 int32_t *n8 = malloc(sizeof(int32_t));
-                                assert(n8);
+                                ASSERT(n8);
 
                                 avro_value_get_int(&field_value, n8);
 
@@ -5864,7 +5962,7 @@ static int dumpInAvroDataImpl(
                                     debugPrint2("%s | ", "null");
                                 } else {
                                     int32_t *n16 = malloc(sizeof(int32_t));
-                                    assert(n16);
+                                    ASSERT(n16);
 
                                     avro_value_get_int(&smallint_branch, n16);
 
@@ -5874,7 +5972,7 @@ static int dumpInAvroDataImpl(
                                 }
                             } else {
                                 int32_t *n16 = malloc(sizeof(int32_t));
-                                assert(n16);
+                                ASSERT(n16);
 
                                 avro_value_get_int(&field_value, n16);
 
@@ -5906,7 +6004,7 @@ static int dumpInAvroDataImpl(
                                 } else {
 
                                     int64_t *n64 = malloc(sizeof(int64_t));
-                                    assert(n64);
+                                    ASSERT(n64);
 
                                     avro_value_get_long(&bigint_branch, n64);
 
@@ -5920,7 +6018,7 @@ static int dumpInAvroDataImpl(
                                 }
                             } else {
                                 int64_t *n64 = malloc(sizeof(int64_t));
-                                assert(n64);
+                                ASSERT(n64);
 
                                 avro_value_get_long(&field_value, n64);
 
@@ -5951,7 +6049,7 @@ static int dumpInAvroDataImpl(
                                     debugPrint2("%s | ", "null");
                                 } else {
                                     int64_t *n64 = malloc(sizeof(int64_t));
-                                    assert(n64);
+                                    ASSERT(n64);
 
                                     avro_value_get_long(&ts_branch, n64);
                                     debugPrint2("%"PRId64" | ", *n64);
@@ -5960,7 +6058,7 @@ static int dumpInAvroDataImpl(
                                 }
                             } else {
                                 int64_t *n64 = malloc(sizeof(int64_t));
-                                assert(n64);
+                                ASSERT(n64);
 
                                 avro_value_get_long(&field_value, n64);
                                 debugPrint2("%"PRId64" | ", *n64);
@@ -5981,7 +6079,7 @@ static int dumpInAvroDataImpl(
                                 } else {
 
                                     float *f = malloc(sizeof(float));
-                                    assert(f);
+                                    ASSERT(f);
 
                                     avro_value_get_float(&float_branch, f);
                                     debugPrint2("%f | ", *f);
@@ -5990,7 +6088,7 @@ static int dumpInAvroDataImpl(
                                 }
                             } else {
                                 float *f = malloc(sizeof(float));
-                                assert(f);
+                                ASSERT(f);
 
                                 avro_value_get_float(&field_value, f);
                                 if (TSDB_DATA_FLOAT_NULL == *f) {
@@ -6015,7 +6113,7 @@ static int dumpInAvroDataImpl(
                                     bind->is_null = &is_null;
                                 } else {
                                     double *dbl = malloc(sizeof(double));
-                                    assert(dbl);
+                                    ASSERT(dbl);
 
                                     avro_value_get_double(&dbl_branch, dbl);
                                     debugPrint2("%f | ", *dbl);
@@ -6024,7 +6122,7 @@ static int dumpInAvroDataImpl(
                                 }
                             } else {
                                 double *dbl = malloc(sizeof(double));
-                                assert(dbl);
+                                ASSERT(dbl);
 
                                 avro_value_get_double(&field_value, dbl);
                                 if (TSDB_DATA_DOUBLE_NULL == *dbl) {
@@ -6090,7 +6188,7 @@ static int dumpInAvroDataImpl(
                                 debugPrint2("%s | ", "null");
                             } else {
                                 int32_t *bl = malloc(sizeof(int32_t));
-                                assert(bl);
+                                ASSERT(bl);
 
                                 avro_value_get_boolean(&bool_branch, bl);
                                 verbosePrint("%s() LN%d, *bl=%d\n",
@@ -6114,7 +6212,7 @@ static int dumpInAvroDataImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_INT == field->array_type) {
                                         uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                                        assert(array_u32);
+                                        ASSERT(array_u32);
                                         *array_u32 = 0;
 
                                         size_t array_size = 0;
@@ -6146,7 +6244,7 @@ static int dumpInAvroDataImpl(
                             } else {
                                 if (TSDB_DATA_TYPE_INT == field->array_type) {
                                     uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                                    assert(array_u32);
+                                    ASSERT(array_u32);
                                     *array_u32 = 0;
 
                                     size_t array_size = 0;
@@ -6191,7 +6289,7 @@ static int dumpInAvroDataImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_INT == field->array_type) {
                                         uint8_t *array_u8 = malloc(sizeof(uint8_t));
-                                        assert(array_u8);
+                                        ASSERT(array_u8);
                                         *array_u8 = 0;
 
                                         size_t array_size = 0;
@@ -6219,7 +6317,7 @@ static int dumpInAvroDataImpl(
                             } else {
                                 if (TSDB_DATA_TYPE_INT == field->array_type) {
                                     uint8_t *array_u8 = malloc(sizeof(uint8_t));
-                                    assert(array_u8);
+                                    ASSERT(array_u8);
                                     *array_u8 = 0;
 
                                     size_t array_size = 0;
@@ -6260,7 +6358,7 @@ static int dumpInAvroDataImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_INT == field->array_type) {
                                         uint16_t *array_u16 = malloc(sizeof(uint16_t));
-                                        assert(array_u16);
+                                        ASSERT(array_u16);
                                         *array_u16 = 0;
 
                                         size_t array_size = 0;
@@ -6288,7 +6386,7 @@ static int dumpInAvroDataImpl(
                             } else {
                                 if (TSDB_DATA_TYPE_INT == field->array_type) {
                                     uint16_t *array_u16 = malloc(sizeof(uint16_t));
-                                    assert(array_u16);
+                                    ASSERT(array_u16);
                                     *array_u16 = 0;
 
                                     size_t array_size = 0;
@@ -6329,7 +6427,7 @@ static int dumpInAvroDataImpl(
                                 } else {
                                     if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
                                         uint64_t *array_u64 = malloc(sizeof(uint64_t));
-                                        assert(array_u64);
+                                        ASSERT(array_u64);
                                         *array_u64 = 0;
 
                                         size_t array_size = 0;
@@ -6357,7 +6455,7 @@ static int dumpInAvroDataImpl(
                             } else {
                                 if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
                                     uint64_t *array_u64 = malloc(sizeof(uint64_t));
-                                    assert(array_u64);
+                                    ASSERT(array_u64);
                                     *array_u64 = 0;
 
                                     size_t array_size = 0;
@@ -6424,9 +6522,9 @@ static int dumpInAvroDataImpl(
             }
             int32_t affected_rows;
             if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
-                errorPrint("%s() LN%d ws_taos_stmt_execute() failed!"
+                errorPrint("%s() LN%d ws_stmt_execute() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
-                        __func__, __LINE__, taos, code, ws_errstr(stmt), ts_debug);
+                        __func__, __LINE__, taos, code, ws_errstr(ws_stmt), ts_debug);
                 failed -= stmt_count;
             } else {
                 success ++;
@@ -6818,8 +6916,8 @@ static int dumpInAvroWorkThreads(char *whichExt)
     pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
     threadInfo *infos = (threadInfo *)calloc(
             threads, sizeof(threadInfo));
-    assert(pids);
-    assert(infos);
+    ASSERT(pids);
+    ASSERT(infos);
 
     int64_t from = 0;
 
@@ -6959,8 +7057,16 @@ static int64_t writeResultDebugWS(
     int count = 0;
 
     int fieldCount  = ws_field_count(ws_res);
-    assert(fieldCount > 0);
-    const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+    ASSERT(fieldCount > 0);
+
+    void *ws_fields = NULL;
+    if (3 == g_majorVersionOfClient) {
+        const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+        ws_fields = (void *)ws_fields_v3;
+    } else {
+        const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+        ws_fields = (void *)ws_fields_v2;
+    }
 
     int32_t  total_sqlstr_len = 0;
 
@@ -6976,6 +7082,10 @@ static int64_t writeResultDebugWS(
             break;
         }
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -7007,12 +7117,24 @@ static int64_t writeResultDebugWS(
                     continue;
                 }
 
-                curr_sqlstr_len += processResultValue(
-                        pstr,
-                        curr_sqlstr_len,
-                        ws_fields[f].type,
-                        value,
-                        len);
+                if (3 == g_majorVersionOfClient) {
+                    struct WS_FIELD *ws_fields_3 = (struct WS_FIELD *) ws_fields;
+                    curr_sqlstr_len += processResultValue(
+                            pstr,
+                            curr_sqlstr_len,
+                            ws_fields_3[f].type,
+                            value,
+                            len);
+                } else {
+                    struct WS_FIELD_V2 *ws_fields_2 = (struct WS_FIELD_V2 *) ws_fields;
+                    curr_sqlstr_len += processResultValue(
+                            pstr,
+                            curr_sqlstr_len,
+                            ws_fields_2[f].type,
+                            value,
+                            len);
+
+                }
             }
             curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, ")");
 
@@ -7067,13 +7189,13 @@ static int64_t writeResultDebugNative(
     int count = 0;
 
     int numFields = taos_field_count(res);
-    assert(numFields > 0);
+    ASSERT(numFields > 0);
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
     int32_t  total_sqlstr_len = 0;
 
     while ((row = taos_fetch_row(res)) != NULL) {
-        int32_t* length = taos_fetch_lengths(res);   // act len
+        int32_t* lengths = taos_fetch_lengths(res);   // act len
 
         int32_t curr_sqlstr_len = 0;
 
@@ -7095,7 +7217,7 @@ static int64_t writeResultDebugNative(
                     curr_sqlstr_len,
                     fields[col].type,
                     row[col],
-                    length[col]);
+                    lengths[col]);
         }
 
         curr_sqlstr_len += sprintf(pstr + curr_sqlstr_len, ")");
@@ -7215,7 +7337,7 @@ static int64_t dumpTableDataAvroWS(
         errorPrint("%s() LN%d, convertTbDesToJsonWrap failed\n",
                 __func__,
                 __LINE__);
-        taos_close(ws_taos);
+        ws_close(ws_taos);
         return -1;
     }
 
@@ -7431,6 +7553,10 @@ static int64_t dumpNormalTable(
         char *dumpFilename,
         FILE *fp
         ) {
+    if(0 == strlen(tbName)) {
+        errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+        return -1;
+    }
     int numColsAndTags = 0;
     TableDef *tableDes = NULL;
 
@@ -7585,6 +7711,10 @@ static int64_t dumpNormalTableWithoutStb(
                     getUniqueIDFromEpoch(),
                     index);
         }
+        if(0 == strlen(ntbName)) {
+            errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+            return -1;
+        }
         count = dumpNormalTable(
                 index,
                 taos,
@@ -7606,6 +7736,10 @@ static int64_t dumpNormalTableWithoutStb(
             return -1;
         }
 
+        if(0 == strlen(ntbName)) {
+            errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+            return -1;
+        }
         count = dumpNormalTable(
                 index,
                 taos,
@@ -7628,13 +7762,17 @@ static int64_t dumpNormalTableWithoutStb(
 
 static int createMTableAvroHeadImp(
         TAOS *taos,
-        char *dbName,
-        char *stable,
-        char *tbName,
-        int colCount,
+        const char *dbName,
+        const char *stable,
+        const char *tbName,
+        const int colCount,
         avro_file_writer_t db,
         avro_value_iface_t *wface)
 {
+    if(0 == strlen(tbName)) {
+        errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+        return -1;
+    }
     avro_value_t record;
     avro_generic_value_new(wface, &record);
 
@@ -7660,8 +7798,7 @@ static int createMTableAvroHeadImp(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch,
-            tbName);
+    avro_value_set_string(&branch, tbName);
 
     TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * colCount);
@@ -7862,7 +7999,7 @@ static int createMTableAvroHeadImp(
                                 subTableDes->cols[subTableDes->columns
                                 + tag].var_value);
                         char *bytes = malloc(nlen+1);
-                        assert(bytes);
+                        ASSERT(bytes);
 
                         strncpy(bytes,
                                 subTableDes->cols[subTableDes->columns
@@ -8007,9 +8144,14 @@ static int createMTableAvroHeadImp(
 static int createMTableAvroHeadSpecified(
         void *taos,
         char *dumpFilename,
-        char *dbName, char *stable,
-        char *specifiedTb)
+        const char *dbName,
+        const char *stable,
+        const char *specifiedTb)
 {
+    if(0 == strlen(stable)) {
+        errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+        return -1;
+    }
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
     if (NULL == tableDes) {
@@ -8073,10 +8215,10 @@ static int createMTableAvroHeadFillTBNameWS(
         const char *stable) {
 
     WS_RES *ws_res = ws_query(ws_taos, command);
-    int32_t code = taos_errno(ws_res);
+    int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>. code: 0x%08x, reason: %s\n",
-                __func__, __LINE__, command, code, taos_errstr(ws_res));
+                __func__, __LINE__, command, code, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
         return -1;
@@ -8089,6 +8231,10 @@ static int createMTableAvroHeadFillTBNameWS(
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -8116,7 +8262,7 @@ static int createMTableAvroHeadFillTBNameWS(
                     min(TSDB_TABLE_NAME_LEN,
                         len));
 
-            debugPrint("%s() LN%d, sub table name: %s. %"PRId64" of stable: %s\n",
+            debugPrint("%s() LN%d, sub table name: %s %"PRId64" of stable: %s\n",
                     __func__, __LINE__,
                     tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
                     ntbCount, stable);
@@ -8147,12 +8293,17 @@ static int createMTableAvroHeadFillTBNameNative(
     int64_t ntbCount = 0;
 
     while((row = taos_fetch_row(res)) != NULL) {
-        int32_t *length = taos_fetch_lengths(res);
+        int32_t *lengths = taos_fetch_lengths(res);
+        if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
+            errorPrint("%s() LN%d, fetch_row() get %d length!\n",
+                    __func__, __LINE__, lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+            continue;
+        }
 
-        strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+        tstrncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                 min(TSDB_TABLE_NAME_LEN,
-                    length[TSDB_SHOW_TABLES_NAME_INDEX]));
+                    lengths[TSDB_SHOW_TABLES_NAME_INDEX]+1));
 
         debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
                 tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
@@ -8167,9 +8318,14 @@ static int createMTableAvroHeadFillTBNameNative(
 static int createMTableAvroHead(
         void *taos,
         char *dumpFilename,
-        char *dbName, char *stable,
-        int64_t limit, int64_t offset)
+        const char *dbName,
+        const char *stable,
+        uint64_t limit, int64_t offset)
 {
+    if(0 == strlen(stable)) {
+        errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+        return -1;
+    }
     TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
     if (NULL == tableDes) {
@@ -8219,8 +8375,8 @@ static int createMTableAvroHead(
                 dbName, g_escapeChar, stable, g_escapeChar);
     }
 
-    int64_t preCount = 0;
-    if (INT64_MAX == limit) {
+    uint64_t preCount = 0;
+    if (NEED_CALC_COUNT == limit) {
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             preCount = getNtbCountOfStbWS(command);
@@ -8237,12 +8393,15 @@ static int createMTableAvroHead(
             "sub table(s) of %s from offset %"PRId64"\n",
             taos, preCount, stable, offset);
 
-    char *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
-    if (NULL == tbNameArr) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
-        tfree(jsonTagsSchema);
-        freeTbDes(tableDes);
-        return -1;
+    char *tbNameArr = NULL;
+    if (preCount > 0) {
+        tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
+        if (NULL == tbNameArr) {
+            errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+            tfree(jsonTagsSchema);
+            freeTbDes(tableDes);
+            return -1;
+        }
     }
 
     if (3 == g_majorVersionOfClient) {
@@ -8307,7 +8466,7 @@ static int createMTableAvroHead(
             tb, stable);
     }
 
-    free(tbNameArr);
+    tfree(tbNameArr);
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
@@ -8364,6 +8523,10 @@ static int64_t dumpNormalTableBelongStb(
         }
     }
 
+    if(0 == strlen(ntbName)) {
+        errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+        return -1;
+    }
     count = dumpNormalTable(
             index,
             taos,
@@ -8419,25 +8582,24 @@ static void *dumpNtbOfDb(void *arg) {
 
     for (int64_t i = 0; i < pThreadInfo->count; i++) {
         debugPrint("[%d] No.\t%"PRId64" %s() LN%d,"
-                "table name: %s, belong to stable: %s\n",
+                "table name: %s\n",
                 pThreadInfo->threadIndex, i,
                 __func__, __LINE__,
-                ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
-                pThreadInfo->stbName);
+                ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name);
 
-        if (g_args.avro) {
-
-            debugPrint("%s() LN%d, %s belongStb %d stable: %s\n",
+        if(0 == strlen(
+                    ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name)) {
+            errorPrint("%s() LN%d, pass wrong tbname. from=%"PRId64", i=%"PRId64"\n",
                     __func__, __LINE__,
-                    ((TableInfo*)(g_tablesList+pThreadInfo->from+i))->name,
-                    ((TableInfo *)
-                     (g_tablesList + pThreadInfo->from+i))->belongStb,
-                    ((TableInfo *)
-                     (g_tablesList + pThreadInfo->from+i))->stable);
+                    pThreadInfo->from, i);
+            return NULL;
+        }
+        if (g_args.avro) {
 
             if (0 == currentPercent) {
                 printf("[%d]: Dumping 1%%\n", pThreadInfo->threadIndex);
             }
+
             count = dumpNormalTable(
                     pThreadInfo->from+i,
                     pThreadInfo->taos,
@@ -8770,6 +8932,10 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -9021,7 +9187,7 @@ static int64_t dumpInOneDebugFile(
         cmd[read_len + cmd_len]= '\0';
         bool isInsert = (0 == strncmp(cmd, "INSERT ", strlen("INSERT ")));
         bool isCreateDb = (0 == strncmp(cmd, "CREATE DATABASE ", strlen("CREATE DATABASE ")));
-        if (isCreateDb && (1 == g_dumpInDataMajorVer)) {
+        if (isCreateDb && (0 == strncmp(g_dumpInServerVer, "2.", 2))) {
             if (3 == g_majorVersionOfClient) {
                 convertDbClauseForV3(&cmd);
             }
@@ -9126,8 +9292,8 @@ static int dumpInDebugWorkThreads()
     pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
     threadInfo *infos = (threadInfo *)calloc(
             threads, sizeof(threadInfo));
-    assert(pids);
-    assert(infos);
+    ASSERT(pids);
+    ASSERT(infos);
 
     int64_t a = sqlFileCount / threads;
     if (a < 1) {
@@ -9325,7 +9491,7 @@ static int dumpInDbs()
 }
 
 static int dumpIn() {
-    assert(g_args.isDumpIn);
+    ASSERT(g_args.isDumpIn);
 
     int ret = 0;
     if (dumpInDbs()) {
@@ -9353,7 +9519,9 @@ static int dumpIn() {
 #ifdef WEBSOCKET
 static void dumpNormalTablesOfStbWS(
         threadInfo *pThreadInfo,
-        char *command, FILE *fp, char *dumpFilename) {
+        const char *command,
+        FILE *fp,
+        char *dumpFilename) {
     WS_RES *ws_res = ws_query(pThreadInfo->taos, command);
     int32_t code = ws_errno(ws_res);
     if (code) {
@@ -9365,46 +9533,73 @@ static void dumpNormalTablesOfStbWS(
         return;
     }
 
-    TAOS_ROW row = NULL;
     int64_t i = 0;
-    int64_t count;
-    while((row = taos_fetch_row(ws_res)) != NULL) {
-        int32_t *length = taos_fetch_lengths(ws_res);
-        char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
-        strncpy(tbName,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
-        debugPrint("[%d] sub table %"PRId64": name: %s\n",
-                pThreadInfo->threadIndex, i++, tbName);
+    int64_t count = 0;
+    while(true) {
+        int rows = 0;
+        const void *data = NULL;
+        code = ws_fetch_block(ws_res, &data, &rows);
 
-        if (g_args.avro) {
-            count = dumpNormalTable(
-                    i,
-                    pThreadInfo->taos,
-                    pThreadInfo->dbName,
-                    true,
-                    pThreadInfo->stbName,
-                    tbName,
-                    pThreadInfo->precision,
-                    dumpFilename,
-                    NULL);
-        } else {
-            count = dumpNormalTable(
-                    i,
-                    pThreadInfo->taos,
-                    pThreadInfo->dbName,
-                    true,
-                    pThreadInfo->stbName,
-                    tbName,
-                    pThreadInfo->precision,
-                    NULL,
-                    fp);
+        if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    pThreadInfo->taos, ws_errno(ws_res), ws_errstr(ws_res));
+            break;
         }
 
-        if (count < 0) {
-            break;
-        } else {
-            atomic_add_fetch_64(&g_totalDumpOutRows, count);
+        uint8_t type;
+        uint32_t len;
+        char tbName[TSDB_TABLE_NAME_LEN] = {0};
+
+        for (int row = 0; row < rows; row ++) {
+            const void *value0 = ws_get_value_in_block(
+                    ws_res, row,
+                    TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
+            if ((NULL == value0) || (0 == len)) {
+                errorPrint("%s() LN%d, value0: %p, type: %d, len: %d\n",
+                        __func__, __LINE__, value0, type, len);
+                continue;
+            }
+            memset(tbName, 0, WS_VALUE_BUF_LEN);
+            memcpy(tbName, value0, len);
+            strncpy(((TableInfo *)(g_tablesList + count))->name,
+                    tbName,
+                    min(TSDB_TABLE_NAME_LEN, len));
+            i++;
+            debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s, length: %d\n",
+                    __func__, __LINE__,
+                    pThreadInfo->threadIndex, i, tbName, len);
+
+            if (g_args.avro) {
+                count = dumpNormalTable(
+                        i,
+                        pThreadInfo->taos,
+                        pThreadInfo->dbName,
+                        true,
+                        pThreadInfo->stbName,
+                        tbName,
+                        pThreadInfo->precision,
+                        dumpFilename,
+                        NULL);
+            } else {
+                count = dumpNormalTable(
+                        i,
+                        pThreadInfo->taos,
+                        pThreadInfo->dbName,
+                        true,
+                        pThreadInfo->stbName,
+                        tbName,
+                        pThreadInfo->precision,
+                        NULL,
+                        fp);
+            }
+
+            if (count < 0) {
+                break;
+            } else {
+                atomic_add_fetch_64(&g_totalDumpOutRows, count);
+            }
         }
     }
 
@@ -9414,7 +9609,9 @@ static void dumpNormalTablesOfStbWS(
 
 static void dumpNormalTablesOfStbNative(
         threadInfo *pThreadInfo,
-        char *command, FILE *fp, char *dumpFilename) {
+        const char *command,
+        FILE *fp,
+        char *dumpFilename) {
     TAOS_RES *res = taos_query(pThreadInfo->taos, command);
     int32_t code = taos_errno(res);
     if (code) {
@@ -9428,13 +9625,20 @@ static void dumpNormalTablesOfStbNative(
     int64_t i = 0;
     int64_t count;
     while((row = taos_fetch_row(res)) != NULL) {
-        int32_t *length = taos_fetch_lengths(res);
-        char tbName[TSDB_TABLE_NAME_LEN+1] = {0};
+        int32_t *lengths = taos_fetch_lengths(res);
+        if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
+            errorPrint("%s() LN%d, fetch_row() get %d length!\n",
+                    __func__, __LINE__, lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+            continue;
+        }
+        char tbName[TSDB_TABLE_NAME_LEN] = {0};
         strncpy(tbName,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
-        debugPrint("[%d] sub table %"PRId64": name: %s\n",
-                pThreadInfo->threadIndex, i++, tbName);
+                min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_NAME_INDEX]));
+        i++;
+        debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
+                __func__, __LINE__,
+                pThreadInfo->threadIndex, i, tbName);
 
         if (g_args.avro) {
             count = dumpNormalTable(
@@ -9571,13 +9775,13 @@ static int64_t dumpNtbOfDbByThreads(
         a = 1;
     }
 
-    assert(threads);
+    ASSERT(threads);
     int64_t b = ntbCount % threads;
 
     threadInfo *infos = calloc(1, threads * sizeof(threadInfo));
     pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
-    assert(pids);
-    assert(infos);
+    ASSERT(pids);
+    ASSERT(infos);
 
     for (int64_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
@@ -9665,20 +9869,24 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
     WS_RES *ws_res;
     int32_t code;
 
-    sprintf(command, "USE %s", dbInfo->name);
-    ws_res = ws_query(ws_taos, command);
-    code = ws_errno(ws_res);
-    if (code) {
-        errorPrint("invalid database %s, code: %d, reason: %s\n",
-                dbInfo->name, code, ws_errstr(ws_res));
-        ws_free_result(ws_res);
-        ws_res = NULL;
-        ws_close(ws_taos);
-        ws_taos = NULL;
-        return 0;
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
+    } else {
+        sprintf(command, "USE %s", dbInfo->name);
+        ws_res = ws_query(ws_taos, command);
+        code = ws_errno(ws_res);
+        if (code) {
+            errorPrint("invalid database %s, code: %d, reason: %s\n",
+                    dbInfo->name, code, ws_errstr(ws_res));
+            ws_free_result(ws_res);
+            ws_res = NULL;
+            ws_close(ws_taos);
+            ws_taos = NULL;
+            return 0;
+        }
+        sprintf(command, "SHOW TABLES");
     }
 
-    sprintf(command, "SHOW TABLES");
     ws_res = ws_query(ws_taos, command);
     code = ws_errno(ws_res);
     if (code) {
@@ -9708,6 +9916,10 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -9719,19 +9931,32 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
             const void *value0 = ws_get_value_in_block(
                     ws_res, row,
                     TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
+            if ((NULL == value0) || (0 == len)) {
+                errorPrint("%s() LN%d, value0: %p, type: %d, len: %d\n",
+                        __func__, __LINE__, value0, type, len);
+                continue;
+            }
             memset(tmp, 0, WS_VALUE_BUF_LEN);
             memcpy(tmp, value0, len);
             verbosePrint("%s() LN%d, value0: %s\n", __func__, __LINE__, tmp);
             strncpy(((TableInfo *)(g_tablesList + count))->name,
                     tmp,
                     min(TSDB_TABLE_NAME_LEN, len));
-            debugPrint("%s() LN%d table name: %s, length: %d\n",
+            debugPrint("%s() LN%d count: %"PRId64", table name: %s, length: %d\n",
                     __func__, __LINE__,
-                    tmp, len);
-            const void *value1 = ws_get_value_in_block(
-                    ws_res, row,
-                    TSDB_SHOW_TABLES_METRIC_INDEX,
-                    &type, &len);
+                    count, tmp, len);
+            const void *value1 = NULL;
+            if (3 == g_majorVersionOfClient) {
+                value1 = ws_get_value_in_block(
+                        ws_res, row,
+                        1,
+                        &type, &len);
+            } else {
+                value1 = ws_get_value_in_block(
+                        ws_res, row,
+                        TSDB_SHOW_TABLES_METRIC_INDEX,
+                        &type, &len);
+            }
             if (len) {
                 memset(tmp, 0, WS_VALUE_BUF_LEN);
                 memcpy(tmp, value1, len);
@@ -9739,9 +9964,11 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
                 strncpy(((TableInfo *)(g_tablesList + count))->stable,
                         tmp,
                         min(TSDB_TABLE_NAME_LEN, len));
-                debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                debugPrint("%s() LN%d tmp: %s, stbName: %s, length: %d\n",
                         __func__, __LINE__,
-                        tmp, len);
+                        tmp,
+                        ((TableInfo *)(g_tablesList + count))->stable,
+                        len);
                 ((TableInfo *)(g_tablesList + count))->belongStb = true;
             } else {
                 ((TableInfo *)(g_tablesList + count))->belongStb = false;
@@ -9752,7 +9979,7 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 
     ws_free_result(ws_res);
     ws_res = NULL;
-    taos_close(ws_taos);
+    ws_close(ws_taos);
 
     int64_t records = dumpNtbOfDbByThreads(dbInfo, count);
 
@@ -9778,18 +10005,24 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
     TAOS_RES *res;
     int32_t code;
 
-    sprintf(command, "USE %s", dbInfo->name);
-    res = taos_query(taos, command);
-    code = taos_errno(res);
-    if (code != 0) {
-        errorPrint("invalid database %s, reason: %s\n",
-                dbInfo->name, taos_errstr(res));
-        taos_free_result(res);
-        taos_close(taos);
-        return 0;
+
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
+    } else {
+        sprintf(command, "USE %s", dbInfo->name);
+        res = taos_query(taos, command);
+        code = taos_errno(res);
+        if (code != 0) {
+            errorPrint("invalid database %s, reason: %s\n",
+                    dbInfo->name, taos_errstr(res));
+            taos_free_result(res);
+            taos_close(taos);
+            return 0;
+        }
+
+        sprintf(command, "SHOW TABLES");
     }
 
-    sprintf(command, "SHOW TABLES");
     res = taos_query(taos, command);
     code = taos_errno(res);
     if (code != 0) {
@@ -9809,26 +10042,46 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
     TAOS_ROW row;
     int64_t count = 0;
     while(NULL != (row = taos_fetch_row(res))) {
-        int32_t *length = taos_fetch_lengths(res);
-        strncpy(((TableInfo *)(g_tablesList + count))->name,
+        int32_t *lengths = taos_fetch_lengths(res);
+        if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
+            errorPrint("%s() LN%d, fetch_row() get %d length!\n",
+                    __func__, __LINE__, lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+            continue;
+        }
+        tstrncpy(((TableInfo *)(g_tablesList + count))->name,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_NAME_INDEX]));
+                min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_NAME_INDEX] +1));
         debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s, lenth: %d\n",
                 __func__, __LINE__,
                 count,
                 ((TableInfo *)(g_tablesList + count))->name,
-                length[TSDB_SHOW_TABLES_NAME_INDEX]);
-        if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
-            strncpy(((TableInfo *)(g_tablesList + count))->stable,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                    min(TSDB_TABLE_NAME_LEN, length[TSDB_SHOW_TABLES_METRIC_INDEX]));
-            debugPrint("%s() LN%d stbName: %s, length: %d\n",
-                    __func__, __LINE__,
-                    (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                    length[TSDB_SHOW_TABLES_METRIC_INDEX]);
-            ((TableInfo *)(g_tablesList + count))->belongStb = true;
+                lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+        if (3 == g_majorVersionOfClient) {
+            if (strlen((char *)row[1])) {
+                tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
+                        (char *)row[1],
+                        min(TSDB_TABLE_NAME_LEN, lengths[1] +1));
+                debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                        __func__, __LINE__,
+                        (char *)row[1],
+                        lengths[1]);
+                ((TableInfo *)(g_tablesList + count))->belongStb = true;
+            } else {
+                ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            }
         } else {
-            ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
+                tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
+                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                        min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_METRIC_INDEX] +1));
+                debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                        __func__, __LINE__,
+                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                        lengths[TSDB_SHOW_TABLES_METRIC_INDEX]);
+                ((TableInfo *)(g_tablesList + count))->belongStb = true;
+            } else {
+                ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            }
         }
         count ++;
     }
@@ -9845,7 +10098,8 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
 }
 
 static int64_t dumpNtbOfStbByThreads(
-        SDbInfo *dbInfo, char *stbName)
+        SDbInfo *dbInfo,
+        const char *stbName)
 {
     int64_t ntbCount;
     char command[COMMAND_SIZE];
@@ -9880,13 +10134,13 @@ static int64_t dumpNtbOfStbByThreads(
         a = 1;
     }
 
-    assert(threads);
+    ASSERT(threads);
     int64_t b = ntbCount % threads;
 
     pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
     threadInfo *infos = calloc(1, threads * sizeof(threadInfo));
-    assert(pids);
-    assert(infos);
+    ASSERT(pids);
+    ASSERT(infos);
 
     for (int64_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
@@ -9955,7 +10209,8 @@ static int64_t dumpNtbOfStbByThreads(
 
 static int dumpTbTagsToAvro(
         int64_t index,
-        void *taos, SDbInfo *dbInfo, char *stable)
+        void *taos, SDbInfo *dbInfo,
+        const char *stable)
 {
     debugPrint("%s() LN%d dbName: %s, stable: %s\n",
             __func__, __LINE__,
@@ -9985,7 +10240,7 @@ static int dumpTbTagsToAvro(
             dumpFilename,
             dbInfo->name,
             stable,
-            INT64_MAX, 0);
+            NEED_CALC_COUNT, 0);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to open file %s\n",
                 __func__, __LINE__, dumpFilename);
@@ -10031,6 +10286,10 @@ static int64_t dumpCreateSTableClauseOfDbWS(
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -10077,7 +10336,7 @@ static int64_t dumpCreateSTableClauseOfDbWS(
             superTblCnt);
     g_resultStatistics.totalSuperTblsOfDumpOut += superTblCnt;
 
-    taos_close(ws_taos);
+    ws_close(ws_taos);
 
     return superTblCnt;
 }
@@ -10114,6 +10373,12 @@ static int64_t dumpCreateSTableClauseOfDbNative(
     while ((row = taos_fetch_row(res)) != NULL) {
         char stable[TSDB_TABLE_NAME_LEN] = {0};
         int32_t* lengths = taos_fetch_lengths(res);
+        if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
+            errorPrint("%s() LN%d, fetch_row() get %d length!\n",
+                    __func__, __LINE__, lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+            continue;
+        }
+
         strncpy(stable,row[TSDB_SHOW_TABLES_NAME_INDEX],
                 lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
         if (0 == dumpStableClasuse(taos, dbInfo,
@@ -10250,180 +10515,179 @@ static bool checkOutDir(char *outpath)
 }
 
 #ifdef WEBSOCKET
-static bool fillDBInfoWithFieldsWS_V2(const int index,
-        const struct WS_FIELD_V2 *fields,
+static bool fillDBInfoWithFieldsWS(
+        const int index,
+        const char *name,
         const int row,
-        const int fieldCount,
+        const int f,
         WS_RES *res) {
     uint8_t type;
     uint32_t len;
     char tmp[WS_VALUE_BUF_LEN];
 
-    for (int f = 0; f < fieldCount; f++) {
-        const void *value = ws_get_value_in_block(
-                res, row, f, &type, &len);
-        if (0 == strcmp(fields[f].name, "name")) {
-            if (NULL == value) {
-                errorPrint("%s() LN%d, row: %d, field: %d, ws_get_value_in_block error!\n",
-                        __func__, __LINE__, row, f);
-                return false;
-            } else {
-                memset(tmp, 0, 4096);
-                memcpy(tmp, value, len);
-                strncpy(g_dbInfos[index]->name,
-                        tmp, len);
-            }
-        } else if (0 == strcmp(fields[f].name, "vgroups")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->vgroups = *((int32_t *)value);
-            } else if (TSDB_DATA_TYPE_SMALLINT == type) {
-                g_dbInfos[index]->vgroups = *((int16_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "ntables")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->ntables = *((int32_t *)value);
-            } else if (TSDB_DATA_TYPE_BIGINT == type) {
-                g_dbInfos[index]->ntables = *((int64_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "replica")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->replica = *((int8_t *)value);
-            } else if (TSDB_DATA_TYPE_SMALLINT == type) {
-                g_dbInfos[index]->replica = *((int16_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "strict")) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
+    const void *value = ws_get_value_in_block(
+            res, row, f, &type, &len);
+    if (0 == strcmp(name, "name")) {
+        if (NULL == value) {
+            errorPrint("%s() LN%d, row: %d, field: %d, ws_get_value_in_block error!\n",
+                    __func__, __LINE__, row, f);
+            return false;
+        } else {
+            memset(tmp, 0, 4096);
             memcpy(tmp, value, len);
-            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                    __func__, __LINE__, f,
+            strncpy(g_dbInfos[index]->name,
                     tmp, len);
-            strncpy(g_dbInfos[index]->strict,
-                    tmp,
-                    min(STRICT_LEN, len));
-        } else if (0 == strcmp(fields[f].name, "quorum")) {
-            g_dbInfos[index]->quorum =
-                *((int16_t *)value);
-        } else if (0 == strcmp(fields[f].name, "days")) {
-            g_dbInfos[index]->days = *((int16_t *)value);
-        } else if ((0 == strcmp(fields[f].name, "keep"))
-                || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
-            memcpy(tmp, value, len);
-            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    tmp, len);
-            strncpy(g_dbInfos[index]->keeplist,
-                    tmp,
-                    min(KEEPLIST_LEN, len));
-        } else if (0 == strcmp(fields[f].name, "duration")) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
-            memcpy(tmp, value, len);
-            strncpy(g_dbInfos[index]->duration,
-                    tmp,
-                    min(DURATION_LEN, len));
-            debugPrint("%s() LN%d: field: %d, tmp: %s, duration: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    tmp, g_dbInfos[index]->duration, len);
-        } else if ((0 == strcmp(fields[f].name, "cache"))
-                || (0 == strcmp(fields[f].name, "cache(MB)"))) {
-            g_dbInfos[index]->cache = *((int32_t *)value);
-        } else if (0 == strcmp(fields[f].name, "blocks")) {
-            g_dbInfos[index]->blocks = *((int32_t *)value);
-        } else if (0 == strcmp(fields[f].name, "minrows")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->minrows = *((int32_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "maxrows")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->maxrows = *((int32_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "wallevel")) {
-            g_dbInfos[index]->wallevel = *((int8_t *)value);
-        } else if (0 == strcmp(fields[f].name, "wal")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->wal = *((int8_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "fsync")) {
-            if (TSDB_DATA_TYPE_INT == type) {
-                g_dbInfos[index]->fsync = *((int32_t *)value);
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "comp")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->comp = (int8_t)(*((int8_t *)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "cachelast")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->cachelast = (int8_t)(*((int8_t *)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "cache_model")) {
-            if (TSDB_DATA_TYPE_TINYINT == type) {
-                g_dbInfos[index]->cache_model = (int8_t)(*((int8_t*)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
-            if (TSDB_DATA_TYPE_BOOL == type) {
-                g_dbInfos[index]->single_stable_model =
-                    (bool)(*((bool*)value));
-            } else {
-                errorPrint("%s() LN%d, unexpected type: %d\n",
-                        __func__, __LINE__, type);
-                return false;
-            }
-        } else if (0 == strcmp(fields[f].name, "precision")) {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
-            memcpy(tmp, value, len);
-            strncpy(g_dbInfos[index]->precision,
-                    tmp,
-                    min(len, DB_PRECISION_LEN));
-        } else if (0 == strcmp(fields[f].name, "update")) {
-            g_dbInfos[index]->update = *((int8_t *)value);
         }
+    } else if (0 == strcmp(name, "vgroups")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->vgroups = *((int32_t *)value);
+        } else if (TSDB_DATA_TYPE_SMALLINT == type) {
+            g_dbInfos[index]->vgroups = *((int16_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "ntables")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->ntables = *((int32_t *)value);
+        } else if (TSDB_DATA_TYPE_BIGINT == type) {
+            g_dbInfos[index]->ntables = *((int64_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "replica")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->replica = *((int8_t *)value);
+        } else if (TSDB_DATA_TYPE_SMALLINT == type) {
+            g_dbInfos[index]->replica = *((int16_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "strict")) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                __func__, __LINE__, f,
+                tmp, len);
+        strncpy(g_dbInfos[index]->strict,
+                tmp,
+                min(STRICT_LEN, len));
+    } else if (0 == strcmp(name, "quorum")) {
+        g_dbInfos[index]->quorum =
+            *((int16_t *)value);
+    } else if (0 == strcmp(name, "days")) {
+        g_dbInfos[index]->days = *((int16_t *)value);
+    } else if ((0 == strcmp(name, "keep"))
+            || (0 == strcmp(name, "keep0,keep1,keep2"))) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                __func__, __LINE__, f,
+                tmp, len);
+        strncpy(g_dbInfos[index]->keeplist,
+                tmp,
+                min(KEEPLIST_LEN, len));
+    } else if (0 == strcmp(name, "duration")) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        strncpy(g_dbInfos[index]->duration,
+                tmp,
+                min(DURATION_LEN, len));
+        debugPrint("%s() LN%d: field: %d, tmp: %s, duration: %s, length:%d\n",
+                __func__, __LINE__, f,
+                tmp, g_dbInfos[index]->duration, len);
+    } else if ((0 == strcmp(name, "cache"))
+            || (0 == strcmp(name, "cache(MB)"))) {
+        g_dbInfos[index]->cache = *((int32_t *)value);
+    } else if (0 == strcmp(name, "blocks")) {
+        g_dbInfos[index]->blocks = *((int32_t *)value);
+    } else if (0 == strcmp(name, "minrows")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->minrows = *((int32_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "maxrows")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->maxrows = *((int32_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "wallevel")) {
+        g_dbInfos[index]->wallevel = *((int8_t *)value);
+    } else if (0 == strcmp(name, "wal")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->wal = *((int8_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "fsync")) {
+        if (TSDB_DATA_TYPE_INT == type) {
+            g_dbInfos[index]->fsync = *((int32_t *)value);
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "comp")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->comp = (int8_t)(*((int8_t *)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "cachelast")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->cachelast = (int8_t)(*((int8_t *)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "cache_model")) {
+        if (TSDB_DATA_TYPE_TINYINT == type) {
+            g_dbInfos[index]->cache_model = (int8_t)(*((int8_t*)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "single_stable_model")) {
+        if (TSDB_DATA_TYPE_BOOL == type) {
+            g_dbInfos[index]->single_stable_model =
+                (bool)(*((bool*)value));
+        } else {
+            errorPrint("%s() LN%d, unexpected type: %d\n",
+                    __func__, __LINE__, type);
+            return false;
+        }
+    } else if (0 == strcmp(name, "precision")) {
+        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memcpy(tmp, value, len);
+        strncpy(g_dbInfos[index]->precision,
+                tmp,
+                min(len, DB_PRECISION_LEN));
+    } else if (0 == strcmp(name, "update")) {
+        g_dbInfos[index]->update = *((int8_t *)value);
     }
 
     return true;
 }
 
 #endif // WEBSOCKET
-      //
+
 static bool fillDBInfoWithFields(const int index,
         const TAOS_FIELD *fields, const TAOS_ROW row,
         const int *lengths, int fieldCount) {
@@ -10591,7 +10855,14 @@ static int fillDbInfoWS(void *taos) {
     }
 
     int fieldCount = ws_field_count(ws_res);
-    const struct WS_FIELD_V2 *ws_fields = ws_fetch_fields_v2(ws_res);
+    void *ws_fields = NULL;
+    if (3 == g_majorVersionOfClient) {
+        const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+        ws_fields = (void *)ws_fields_v3;
+    } else {
+        const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+        ws_fields = (void *)ws_fields_v2;
+    }
 
     while(true) {
         int rows = 0;
@@ -10599,6 +10870,10 @@ static int fillDbInfoWS(void *taos) {
         code = ws_fetch_block(ws_res, &data, &rows);
 
         if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    taos, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -10620,12 +10895,12 @@ static int fillDbInfoWS(void *taos) {
             debugPrint("%s() LN%d, dbname: %s\n",
                     __func__, __LINE__, buffer);
 
-            if (isSystemDatabase(buffer, len)) {
+            if (isSystemDatabase(buffer)) {
                 if (!g_args.allow_sys) {
                     continue;
                 }
             } else if (g_args.databases) {
-                if (inDatabasesSeq(buffer, len) != 0) {
+                if (inDatabasesSeq(buffer) != 0) {
                     continue;
                 }
             } else if (!g_args.all_databases) {
@@ -10643,10 +10918,30 @@ static int fillDbInfoWS(void *taos) {
             }
 
             okPrint("Database: %s exists\n", buffer);
-            if (false == fillDBInfoWithFieldsWS_V2(dbIndex,
-                        ws_fields, row, fieldCount, ws_res)) {
-                ret = -1;
-                break;
+            if (3 == g_majorVersionOfClient) {
+                struct WS_FIELD *fields = (struct WS_FIELD *) ws_fields;
+                for (int f = 0; f < fieldCount; f++) {
+                    if (false == fillDBInfoWithFieldsWS(
+                                dbIndex,
+                                fields[f].name,
+                                row, f,
+                                ws_res)) {
+                        ret = -1;
+                        break;
+                    }
+                }
+            } else {
+                struct WS_FIELD_V2 *fields = (struct WS_FIELD_V2 *) ws_fields;
+                for (int f = 0; f < fieldCount; f++) {
+                    if (false == fillDBInfoWithFieldsWS(
+                                dbIndex,
+                                fields[f].name,
+                                row, f,
+                                ws_res)) {
+                        ret = -1;
+                        break;
+                    }
+                }
             }
 
             dbIndex ++;
@@ -10691,21 +10986,25 @@ static int fillDbInfo(void *taos) {
 
         while ((row = taos_fetch_row(res)) != NULL) {
             int32_t* lengths = taos_fetch_lengths(res);
-            if (isSystemDatabase(
-                        row[TSDB_SHOW_DB_NAME_INDEX],
-                        lengths[TSDB_SHOW_DB_NAME_INDEX])) {
+            if (lengths[TSDB_SHOW_DB_NAME_INDEX] <= 0) {
+                errorPrint("%s() LN%d, fetch_row() get %d length!\n",
+                        __func__, __LINE__, lengths[TSDB_SHOW_DB_NAME_INDEX]);
+                continue;
+            }
+
+            char dbName[TSDB_DB_NAME_LEN] = {0};
+            strncpy(dbName, row[TSDB_SHOW_DB_NAME_INDEX],
+                    lengths[TSDB_SHOW_DB_NAME_INDEX]);
+            if (isSystemDatabase(dbName)) {
                 if (!g_args.allow_sys) {
                     continue;
                 }
             } else if (g_args.databases) {
-                if (inDatabasesSeq(
-                            (char *)row[TSDB_SHOW_DB_NAME_INDEX],
-                            lengths[TSDB_SHOW_DB_NAME_INDEX]) != 0) {
+                if (inDatabasesSeq(dbName) != 0) {
                     continue;
                 }
             } else if (!g_args.all_databases) {
-                if (strcmp(g_args.arg_list[0],
-                            (char *)row[TSDB_SHOW_DB_NAME_INDEX])) {
+                if (strcmp(g_args.arg_list[0], dbName)) {
                     continue;
                 }
             }
@@ -10718,7 +11017,7 @@ static int fillDbInfo(void *taos) {
                 break;
             }
 
-            okPrint("Database: %s exists\n", (char *)row[TSDB_SHOW_DB_NAME_INDEX]);
+            okPrint("Database: %s exists\n", dbName);
 
             if (false == fillDBInfoWithFields(dbIndex,
                         fields, row, lengths, fieldCount)) {
@@ -10887,7 +11186,8 @@ static int dumpOut() {
                         fp);
                 if (ret >= 0) {
                     superTblCnt++;
-                    ret = dumpNtbOfStbByThreads(g_dbInfos[0], g_args.arg_list[i]);
+                    ret = dumpNtbOfStbByThreads(g_dbInfos[0],
+                            g_args.arg_list[i]);
                 }
             } else if (tableRecordInfo.belongStb){
                 dumpStableClasuse(
@@ -11123,6 +11423,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
     if (JSON_OBJECT != json_typeof(element)) {
         errorPrint("%s() LN%d, json passed is not an object\n",
                 __func__, __LINE__);
+        free(recordSchema);
         return NULL;
     }
 
@@ -11382,7 +11683,7 @@ int inspectAvroFile(char *filename) {
                             &field_value, NULL)) {
                     if (0 == strcmp(field->type, "int")) {
                         int32_t *n32 = malloc(sizeof(int32_t));
-                        assert(n32);
+                        ASSERT(n32);
 
                         if (field->nullable) {
                             avro_value_t branch;
@@ -11445,7 +11746,7 @@ int inspectAvroFile(char *filename) {
                         }
                     } else if (0 == strcmp(field->type, "long")) {
                         int64_t *n64 = malloc(sizeof(int64_t));
-                        assert(n64);
+                        ASSERT(n64);
 
                         if (field->nullable) {
                             avro_value_t branch;
@@ -11506,7 +11807,7 @@ int inspectAvroFile(char *filename) {
                     } else if (0 == strcmp(field->type, "array")) {
                         if (0 == strcmp(field->array_type, "int")) {
                             int32_t *n32 = malloc(sizeof(int32_t));
-                            assert(n32);
+                            ASSERT(n32);
 
                             if (field->nullable) {
                                 avro_value_t branch;
@@ -11554,7 +11855,7 @@ int inspectAvroFile(char *filename) {
                             free(n32);
                         } else if (0 == strcmp(field->array_type, "long")) {
                             int64_t *n64 = malloc(sizeof(int64_t));
-                            assert(n64);
+                            ASSERT(n64);
 
                             if (field->nullable) {
                                 avro_value_t branch;
