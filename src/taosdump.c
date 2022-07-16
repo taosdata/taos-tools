@@ -116,7 +116,7 @@ typedef struct {
 
 #define debugPrint(fmt, ...) \
     do { if (g_args.debug_print || g_args.verbose_print) \
-      fprintf(stderr, "DEBG: "fmt, __VA_ARGS__); } while(0)
+      fprintf(stdout, "DEBG: "fmt, __VA_ARGS__); } while(0)
 
 #define debugPrint2(fmt, ...) \
     do { if (g_args.debug_print || g_args.verbose_print) \
@@ -1490,16 +1490,18 @@ static int getTableRecordInfoImplNative(
                             min(TSDB_TABLE_NAME_LEN,
                                 lengths[1] + 1));
                 } else {
-                    if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
-                        pTableRecordInfo->belongStb = true;
-                        tstrncpy(pTableRecordInfo->tableRecord.stable,
-                                (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                                min(TSDB_TABLE_NAME_LEN,
-                                    lengths[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
-                    }
+                    pTableRecordInfo->belongStb = false;
                 }
             } else {
-                pTableRecordInfo->belongStb = false;
+                if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
+                    pTableRecordInfo->belongStb = true;
+                    tstrncpy(pTableRecordInfo->tableRecord.stable,
+                            (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                            min(TSDB_TABLE_NAME_LEN,
+                                lengths[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+                } else {
+                    pTableRecordInfo->belongStb = false;
+                }
             }
             isSet = true;
         }
