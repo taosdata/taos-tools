@@ -1254,10 +1254,24 @@ static int getTableRecordInfoImplWS(
         return 0;
     }
 
-    if (tryStable) {
-        sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+    if (3 == g_majorVersionOfClient) {
+        if (tryStable) {
+            sprintf(command,
+                    "SELECT STABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND stable_name='%s'",
+                    dbName, table);
+        } else {
+            sprintf(command,
+                    "SELECT TABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND table_name='%s'",
+                    dbName, table);
+        }
     } else {
-        sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        if (tryStable) {
+            sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+        } else {
+            sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        }
     }
 
     ws_res = ws_query(ws_taos, command);
@@ -1324,10 +1338,18 @@ static int getTableRecordInfoImplWS(
                             buffer,
                             min(TSDB_TABLE_NAME_LEN,
                                 length + 1));
-                    const void *value1 = ws_get_value_in_block(
-                            ws_res,
-                            row, TSDB_SHOW_TABLES_METRIC_INDEX,
-                            &type, &length);
+                    const void *value1 = NULL;
+                    if (3 == g_majorVersionOfClient) {
+                        ws_get_value_in_block(
+                                ws_res,
+                                row, 1,
+                                &type, &length);
+                    } else {
+                        ws_get_value_in_block(
+                                ws_res,
+                                row, TSDB_SHOW_TABLES_METRIC_INDEX,
+                                &type, &length);
+                    }
                     if (length) {
                         if (NULL == value1) {
                             errorPrint("row: %d, col: %d, ws_get_value_in_block() error!\n",
@@ -1413,10 +1435,22 @@ static int getTableRecordInfoImplNative(
         return 0;
     }
 
-    if (tryStable) {
-        sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+    if (3 == g_majorVersionOfClient) {
+        if (tryStable) {
+            sprintf(command,
+                    "SELECT STABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
+        } else {
+            sprintf(command,
+                    "SELECT TABLE_NAME FROM information_schema.user_tables "
+                    "WHERE db_name='%s' AND table_name='%s'", dbName, table);
+        }
     } else {
-        sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        if (tryStable) {
+            sprintf(command, "SHOW STABLES LIKE \'%s\'", table);
+        } else {
+            sprintf(command, "SHOW TABLES LIKE \'%s\'", table);
+        }
     }
 
     res = taos_query(taos, command);
@@ -1443,12 +1477,22 @@ static int getTableRecordInfoImplNative(
                     (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
                     min(TSDB_TABLE_NAME_LEN,
                         lengths[TSDB_SHOW_TABLES_NAME_INDEX] + 1));
-            if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
-                pTableRecordInfo->belongStb = true;
-                tstrncpy(pTableRecordInfo->tableRecord.stable,
-                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                        min(TSDB_TABLE_NAME_LEN,
-                            lengths[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+            if (3 == g_majorVersionOfClient) {
+                if (strlen((char *)row[1]) > 0) {
+                    pTableRecordInfo->belongStb = true;
+                    tstrncpy(pTableRecordInfo->tableRecord.stable,
+                            (char *)row[1],
+                            min(TSDB_TABLE_NAME_LEN,
+                                lengths[1] + 1));
+                } else {
+                    if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
+                        pTableRecordInfo->belongStb = true;
+                        tstrncpy(pTableRecordInfo->tableRecord.stable,
+                                (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
+                                min(TSDB_TABLE_NAME_LEN,
+                                    lengths[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+                    }
+                }
             } else {
                 pTableRecordInfo->belongStb = false;
             }
@@ -9810,6 +9854,8 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
     int32_t code;
 
     if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
+    } else {
         sprintf(command, "USE %s", dbInfo->name);
         ws_res = ws_query(ws_taos, command);
         code = ws_errno(ws_res);
@@ -9822,8 +9868,6 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
             ws_taos = NULL;
             return 0;
         }
-        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
-    } else {
         sprintf(command, "SHOW TABLES");
     }
 
