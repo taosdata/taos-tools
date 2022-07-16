@@ -62,6 +62,8 @@
 #define COMMAND_SIZE            65536
 #define MAX_RECORDS_PER_REQ     32766
 
+#define NEED_CALC_COUNT         UINT64_MAX
+
 static char    **g_tsDumpInDebugFiles     = NULL;
 static char      g_dumpInCharset[64] = {0};
 static char      g_dumpInServerVer[64] = {0};
@@ -299,7 +301,7 @@ typedef struct {
     char      stbName[TSDB_TABLE_NAME_LEN];
     int       precision;
     void      *taos;
-    int64_t   count;
+    uint64_t  count;
     int64_t   from;
     int64_t   stbSuccess;
     int64_t   stbFailed;
@@ -2056,7 +2058,7 @@ static int processFieldsValue(
 
             if (g_args.avro) {
                 if (len < (COL_VALUEBUF_LEN - 1)) {
-                    strcpy(tableDes->cols[index].value, (char *)value);
+                    strncpy(tableDes->cols[index].value, (char *)value, len);
                 } else {
                     if (tableDes->cols[index].var_value) {
                         free(tableDes->cols[index].var_value);
@@ -5531,6 +5533,10 @@ static int dumpInAvroNtbImpl(
                     &field_value, &field_branch);
             avro_value_get_string(&field_branch, (const char **)&buf, &size);
 
+            if (NULL == buf) {
+                errorPrint("%s() LN%d, buf is NULL is impossible\n", __func__, __LINE__);
+                continue;
+            }
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
                 WS_RES *ws_res = ws_query(taos, buf);
@@ -8314,7 +8320,7 @@ static int createMTableAvroHead(
         char *dumpFilename,
         const char *dbName,
         const char *stable,
-        int64_t limit, int64_t offset)
+        uint64_t limit, int64_t offset)
 {
     if(0 == strlen(stable)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
@@ -8369,8 +8375,8 @@ static int createMTableAvroHead(
                 dbName, g_escapeChar, stable, g_escapeChar);
     }
 
-    int64_t preCount = 0;
-    if (INT64_MAX == limit) {
+    uint64_t preCount = 0;
+    if (NEED_CALC_COUNT == limit) {
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             preCount = getNtbCountOfStbWS(command);
@@ -8387,11 +8393,17 @@ static int createMTableAvroHead(
             "sub table(s) of %s from offset %"PRId64"\n",
             taos, preCount, stable, offset);
 
-    char *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
-    if (NULL == tbNameArr) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
-        tfree(jsonTagsSchema);
-        freeTbDes(tableDes);
+    char *tbNameArr = NULL;
+    if (preCount > 0) {
+        tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
+        if (NULL == tbNameArr) {
+            errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+            tfree(jsonTagsSchema);
+            freeTbDes(tableDes);
+            return -1;
+        }
+    } else {
+        errorPrint("%s() LN%d, preCount=%"PRIu64" is impossible\n", __func__, __LINE__, preCount);
         return -1;
     }
 
@@ -9510,7 +9522,9 @@ static int dumpIn() {
 #ifdef WEBSOCKET
 static void dumpNormalTablesOfStbWS(
         threadInfo *pThreadInfo,
-        char *command, FILE *fp, char *dumpFilename) {
+        const char *command,
+        FILE *fp,
+        char *dumpFilename) {
     WS_RES *ws_res = ws_query(pThreadInfo->taos, command);
     int32_t code = ws_errno(ws_res);
     if (code) {
@@ -9598,7 +9612,9 @@ static void dumpNormalTablesOfStbWS(
 
 static void dumpNormalTablesOfStbNative(
         threadInfo *pThreadInfo,
-        char *command, FILE *fp, char *dumpFilename) {
+        const char *command,
+        FILE *fp,
+        char *dumpFilename) {
     TAOS_RES *res = taos_query(pThreadInfo->taos, command);
     int32_t code = taos_errno(res);
     if (code) {
@@ -10227,7 +10243,7 @@ static int dumpTbTagsToAvro(
             dumpFilename,
             dbInfo->name,
             stable,
-            INT64_MAX, 0);
+            NEED_CALC_COUNT, 0);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to open file %s\n",
                 __func__, __LINE__, dumpFilename);
@@ -11410,6 +11426,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
     if (JSON_OBJECT != json_typeof(element)) {
         errorPrint("%s() LN%d, json passed is not an object\n",
                 __func__, __LINE__);
+        free(recordSchema);
         return NULL;
     }
 
@@ -11932,7 +11949,6 @@ int main(int argc, char *argv[])
     sprintf(verType, "version: %s\n", version);
     argp_program_version = verType;
 
-    ASSERT(0);
     g_uniqueID = getUniqueIDFromEpoch();
 
     int ret = 0;
