@@ -31,6 +31,9 @@ void* benchCancelHandler(void* arg) {
         toolsMsleep(10);
     }
     infoPrint(stdout, "%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
+    if(g_arguments->in_prompt) {
+        exit(EXIT_SUCCESS);
+    }
     g_arguments->terminate = true;
     return NULL;
 }

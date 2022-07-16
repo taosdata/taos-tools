@@ -188,13 +188,14 @@ int convertHostToServAddr(char *host, uint16_t port,
 
 void prompt(bool nonStopMode) {
     if (!g_arguments->answer_yes) {
+        g_arguments->in_prompt = true;
         if (nonStopMode) {
             printf(
                 "\n\n         Current is the Non-Stop insertion mode. "
                 "taosBenchmark will continuously insert data unless you press "
                 "Ctrl-C to end it.\n\n         press enter key to continue and "
                 "Ctrl-C to "
-                "stop\n\n");
+                "stop\n\n"); 
             (void)getchar();
         } else {
             printf(
@@ -202,6 +203,7 @@ void prompt(bool nonStopMode) {
                 "stop\n\n");
             (void)getchar();
         }
+        g_arguments->in_prompt = false;
     }
 }
 
@@ -293,23 +295,15 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet, bool check) {
+int queryDbExec(TAOS *taos, char *command) {
     TAOS_RES *res = taos_query(taos, command);
     int32_t   code = taos_errno(res);
 
     if (code != 0) {
-        if (!quiet) {
-            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
                        taos_errstr(res));
-        }
         taos_free_result(res);
         return -1;
-    }
-
-    if (INSERT_TYPE == type && !check) {
-        int affectedRows = taos_affected_rows(res);
-        taos_free_result(res);
-        return affectedRows;
     }
 
     taos_free_result(res);
