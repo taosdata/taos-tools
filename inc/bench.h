@@ -76,6 +76,11 @@
 #include "taos.h"
 #include "toolsdef.h"
 #include "taoserror.h"
+
+#ifdef WEBSOCKET
+#include "taosws.h"
+#endif
+
 #if defined(WIN32) || defined(WIN64)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -258,7 +263,7 @@ typedef enum enumQUERY_CLASS {
     STABLE_CLASS,
     CLASS_BUT
 } QUERY_CLASS;
- 
+
 enum _show_db_index {
     TSDB_SHOW_DB_NAME_INDEX,
     TSDB_SHOW_DB_CREATED_TIME_INDEX,
@@ -503,11 +508,17 @@ typedef struct SArguments_S {
 #endif
     bool               terminate;
     bool               in_prompt;
+    char*              dsn;
 } SArguments;
 
 typedef struct SThreadInfo_S {
+#ifdef WEBSOCKET
+    WS_TAOS* taos;
+    WS_STMT* stmt;
+#else
     TAOS *     taos;
     TAOS_STMT *stmt;
+#endif
     uint64_t * bind_ts;
     uint64_t * bind_ts_array;
     char *     bindParams;
@@ -529,8 +540,8 @@ typedef struct SThreadInfo_S {
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    uint32_t   db_index;
-    uint32_t   stb_index;
+    SSuperTable* stbInfo;
+    SDataBase* dbInfo;
     char **    sml_tags;
     tools_cJSON *    json_array;
     tools_cJSON *    sml_json_tags;

@@ -489,6 +489,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                     return -1;
                 }
                 superTable->iface = SML_REST_IFACE;
+            } else if (0 == strcasecmp(stbIface->valuestring, "taosc")) {
+                superTable->iface = TAOSC_IFACE;
+            } else {
+                errorPrint(stderr, "Invalid insert_mode value: %s\n", stbIface->valuestring);
+                return -1;
             }
         }
         tools_cJSON *stbLineProtocol = tools_cJSON_GetObjectItem(stbInfo, "line_protocol");

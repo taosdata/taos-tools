@@ -30,7 +30,7 @@ static struct argp_option options[] = {
     {"port", 'P', "PORT", 0,
      "The TCP/IP port number to use for the connection, default is 6030."},
     {"interface", 'I', "IFACE", 0,
-     "insert mode, default is taosc, options: taosc|rest|stmt|sml"},
+     "insert mode, default is taosc, options: taosc|rest|stmt|sml|ws"},
     {"user", 'u', "USER", 0,
      "The user name to use when connecting to the server, default is root."},
     {"password", 'p', "PASSWORD", 0,
@@ -85,6 +85,8 @@ static struct argp_option options[] = {
      "Random data source size, default is 10000."},
     {"connection_pool", 'H', "NUMBER", 0,
      "size of the pre-connected client in connection pool, default is 8"},
+    {"cloudDsn", 's', "STRING", 0,
+      "The cloud dsn to connect"},
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -92,6 +94,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   SDataBase *database = benchArrayGet(g_arguments->databases, 0);
   SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
   switch (key) {
+    case 's':
+      arguments->dsn = arg;
+      break;
     case 'F':
       arguments->prepared_rand = atol(arg);
       if (arguments->prepared_rand <= 0) {

@@ -294,6 +294,20 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     }
     return 0;
 }
+#ifdef WEBOSCKET
+int wsQueryDbExec(WS_TAOS* taos, char *command) {
+    WS_RES* res = ws_query(taos, (const char *)command);
+    int code = ws_errno(res);
+    if (code) {
+        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", 
+                ws_errstr(res);
+        ws_free_result(res);
+        ws_close(taos);
+        return -1;
+    }
+    return 0;
+}
+#endif
 
 int queryDbExec(TAOS *taos, char *command) {
     TAOS_RES *res = taos_query(taos, command);

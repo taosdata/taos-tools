@@ -24,9 +24,13 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 void    generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                          int lenOfOneRow, BArray * fields, int64_t loop,
                          bool tag);
+#ifdef WEBSOCKET
+int stmt_prepare(SSuperTable* stbInfo, WS_STMT* stmt, uint64_t tableSeq);
+#else
 int     stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);
+#endif
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
-int prepare_sample_data(int a, int b);
+int prepare_sample_data(SDataBase* db, SSuperTable* stb);
 void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq);
 void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,

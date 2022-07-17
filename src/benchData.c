@@ -96,8 +96,11 @@ static void rand_string(char *str, int size, bool chinese) {
         }
     }
 }
-
+#ifdef WEBSOCKET
+int stmt_prepare(SSuperTable* stbInfo, WS_STMT* stmt, uint64_t tableSeq) {
+#else
 int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
+#endif
     int   len = 0;
     char *prepare = benchCalloc(1, BUFFER_SIZE, true);
     if (stbInfo->autoCreateTable) {
@@ -123,8 +126,13 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
                   g_arguments->prepared_rand);
         g_arguments->reqPerReq = g_arguments->prepared_rand;
     }
+#ifdef WEBSOCKET
+    if (ws_stmt_prepare(stmt, prepare, strlen(prepare))) {
+        errorPrint(stderr, "taos_stmt_prepare(%s) failed\n", prepare);
+#else
     if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
         errorPrint(stderr, "taos_stmt_prepare(%s) failed\n", prepare);
+#endif
         tmfree(prepare);
         return -1;
     }
@@ -710,9 +718,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     }
 }
 
-int prepare_sample_data(int db_index, int stb_index) {
-    SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
-    SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
+int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
     stbInfo->lenOfCols = calcRowLen(stbInfo->cols, stbInfo->iface);
     stbInfo->lenOfTags = calcRowLen(stbInfo->tags, stbInfo->iface);
     if (stbInfo->partialColumnNum != 0 &&
@@ -811,19 +817,31 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 }
 
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
+#ifdef WEBSOCKET
+    WS_STMT* stmt = pThreadInfo->stmt;
+#else
     TAOS_STMT *  stmt = pThreadInfo->stmt;
-    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
-    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
+#endif
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
+#ifdef WEBSOCKET
+    memset(pThreadInfo->bindParams, 0,
+            (sizeof(WS_MULTI_BIND) * (columnCount + 1)));
+#else
     memset(pThreadInfo->bindParams, 0,
            (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
+#endif
     memset(pThreadInfo->is_null, 0, batch);
 
     for (int c = 0; c < columnCount + 1; c++) {
+#ifdef WEBSOCKET
+        WS_MULTI_BIND* param = (WS_MULTI_BIND*)(pThreadInfo->bindParams +
+                sizeof(WS_MULTI_BIND) * c);
+#else
         TAOS_MULTI_BIND *param =
             (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
                                 sizeof(TAOS_MULTI_BIND) * c);
-
+#endif
         char data_type;
 
         if (c == 0) {
@@ -841,11 +859,12 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
                        col->length);
         }
         param->buffer_type = data_type;
-        param->length = benchCalloc(batch, sizeof(int32_t), true);
+        int32_t* length = benchCalloc(batch, sizeof(int32_t), true);
 
         for (int b = 0; b < batch; b++) {
-            param->length[b] = (int32_t)param->buffer_length;
+            length[b] = (int32_t)param->buffer_length;
         }
+        param->length = length;
         param->is_null = pThreadInfo->is_null;
         param->num = batch;
     }
@@ -862,25 +881,36 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
                 startTime + stbInfo->timestamp_step * k;
         }
     }
-
+#ifdef WEBSOCKET
+    if (ws_stmt_bind_param_batch(
+                stmt, (WS_MULTI_BIND *)pThreadInfo->bindParams, batch)) {
+        errorPrint(stderr, "%s", "ws_stmt_bind() failed\n");
+#else
     if (taos_stmt_bind_param_batch(
             stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
         errorPrint(stderr, "taos_stmt_bind_param_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
+#endif
         return -1;
     }
 
+#ifndef WEBSOCKET
     for (int c = 0; c < stbInfo->cols->size + 1; c++) {
         TAOS_MULTI_BIND *param =
             (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
                                 sizeof(TAOS_MULTI_BIND) * c);
         tmfree(param->length);
     }
-
+#endif
     // if msg > 3MB, break
+#ifdef WEBSOCKET
+    if (ws_stmt_add_batch(stmt)) {
+        errorPrint(stderr, "%s", "ws_stmt_add_batch failed\n");
+#else
     if (taos_stmt_add_batch(stmt)) {
         errorPrint(stderr, "taos_stmt_add_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
+#endif
         return -1;
     }
     return batch;

@@ -342,7 +342,6 @@ int subscribeTestProcess() {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
                 pThreadInfo->taos =
                     select_one_from_pool(g_queryInfo.dbName);
                 pthread_create(pids + seq, NULL, specifiedSubscribe,
@@ -397,7 +396,6 @@ int subscribeTestProcess() {
                 threadInfo *pThreadInfo = infosOfStable + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
                 pThreadInfo->start_table_from = tableFrom;
                 pThreadInfo->ntables = j < b ? a + 1 : a;
                 pThreadInfo->end_table_to =

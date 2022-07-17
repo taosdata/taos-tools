@@ -251,8 +251,6 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
         for (int i = 0; i < threads; i++) {
             threadInfo *pThreadInfo = infosOfSub + i;
             pThreadInfo->threadID = i;
-            pThreadInfo->db_index = 0;
-            pThreadInfo->stb_index = 0;
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
             pThreadInfo->end_table_to =
@@ -346,8 +344,6 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
-                pThreadInfo->stb_index = 0;
 
                 if (iface == REST_IFACE) {
 #ifdef WINDOWS
