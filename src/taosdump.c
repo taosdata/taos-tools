@@ -10731,7 +10731,7 @@ static bool fillDBInfoWithFieldsWS(
 
 #endif // WEBSOCKET
 
-static bool fillDBInfoWithFields(const int index,
+static bool fillDBInfoWithFieldsNative(const int index,
         const TAOS_FIELD *fields, const TAOS_ROW row,
         const int *lengths, int fieldCount) {
     for (int f = 0; f < fieldCount; f++) {
@@ -10882,6 +10882,58 @@ static bool fillDBInfoWithFields(const int index,
 }
 
 #ifdef WEBSOCKET
+static int fillDbExtraInfoV3WS(
+        void *ws_taos,
+        const char *dbName,
+        const int dbIndex) {
+    int ret = 0;
+    char command[COMMAND_SIZE];
+    sprintf(command, "select count(table_name) from information_schema.user_tables where db_name='%s'", dbName);
+
+    WS_RES *ws_res = ws_query(ws_taos, command);
+    int32_t code = ws_errno(ws_res);
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                __func__, __LINE__, command, ws_errstr(ws_res));
+        ret = -1;
+    } else{
+        while (true) {
+            int rows = 0;
+            const void *data = NULL;
+            code = ws_fetch_block(ws_res, &data, &rows);
+
+            if (0 == rows) {
+                debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                        "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                        __func__, __LINE__,
+                        ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                break;
+            }
+
+            uint8_t type;
+            uint32_t len;
+            for (int row = 0; row < rows; row ++) {
+                const void *value0 = ws_get_value_in_block(ws_res, row,
+                        TSDB_SHOW_DB_NAME_INDEX,
+                        &type, &len);
+                if (NULL == value0) {
+                    errorPrint("row: %d, ws_get_value_in_block() error!\n",
+                            row);
+                    continue;
+                }
+
+                if (TSDB_DATA_TYPE_BIGINT == type) {
+                    g_dbInfos[dbIndex]->ntables = *(int64_t*) value0;
+                } else {
+                    errorPrint("%s() LN%d, type: %d, not converted\n",
+                            __func__, __LINE__, type);
+                }
+            }
+        }
+    }
+
+    return ret;
+}
 static int fillDbInfoWS(void *taos) {
     int ret = 0;
     int dbIndex = 0;
@@ -10987,6 +11039,11 @@ static int fillDbInfoWS(void *taos) {
                 }
             }
 
+            if (3 == g_majorVersionOfClient) {
+                fillDbExtraInfoV3WS(taos,
+                        g_dbInfos[dbIndex]->name, dbIndex);
+            }
+
             dbIndex ++;
 
             if (g_args.databases) {
@@ -11009,7 +11066,38 @@ static int fillDbInfoWS(void *taos) {
 }
 #endif // WEBSOCKET
 
-static int fillDbInfo(void *taos) {
+static int fillDbExtraInfoV3Native(
+        void *taos,
+        const char *dbName,
+        const int dbIndex) {
+    int ret = 0;
+    char command[COMMAND_SIZE];
+    sprintf(command, "select count(table_name) from information_schema.user_tables where db_name='%s'", dbName);
+
+    TAOS_RES *res = taos_query(taos, command);
+    int32_t code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                __func__, __LINE__, command, taos_errstr(res));
+        ret = -1;
+    } else {
+        TAOS_ROW row;
+        TAOS_FIELD *fields = taos_fetch_fields(res);
+
+        while ((row = taos_fetch_row(res)) != NULL) {
+            if (TSDB_DATA_TYPE_BIGINT == fields[0].type) {
+                g_dbInfos[dbIndex]->ntables = *(int64_t *)row[0];
+            } else {
+                errorPrint("%s() LN%d, type: %d, not converted\n",
+                        __func__, __LINE__, fields[0].type);
+            }
+        }
+    }
+
+    return ret;
+}
+
+static int fillDbInfoNative(void *taos) {
     int ret = 0;
     int dbIndex = 0;
 
@@ -11062,10 +11150,14 @@ static int fillDbInfo(void *taos) {
 
             okPrint("Database: %s exists\n", dbName);
 
-            if (false == fillDBInfoWithFields(dbIndex,
+            if (false == fillDBInfoWithFieldsNative(dbIndex,
                         fields, row, lengths, fieldCount)) {
                 ret = -1;
                 break;
+            }
+
+            if (3 == g_majorVersionOfClient) {
+                fillDbExtraInfoV3Native(taos, dbName, dbIndex);
             }
 
             dbIndex ++;
@@ -11163,7 +11255,7 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
-        dbCount = fillDbInfo(taos);
+        dbCount = fillDbInfoNative(taos);
 #ifdef WEBSOCKET
     }
 #endif
