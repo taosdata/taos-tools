@@ -4035,11 +4035,36 @@ void *queryDbForDumpOutOffset(
 {
     char sqlstr[COMMAND_SIZE] = {0};
 
-    sprintf(sqlstr,
-            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
-            dbName, g_escapeChar, tbName, g_escapeChar,
-            start_time, end_time, limit, offset);
+    if (-1 == limit) {
+        if (offset) {
+            sprintf(sqlstr,
+                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC OFFSET %" PRId64 ";",
+                    dbName, g_escapeChar, tbName, g_escapeChar,
+                    start_time, end_time, offset);
+        } else {
+            sprintf(sqlstr,
+                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC ;",
+                    dbName, g_escapeChar, tbName, g_escapeChar,
+                    start_time, end_time);
+        }
+    } else {
+        if (offset) {
+            sprintf(sqlstr,
+                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
+                    dbName, g_escapeChar, tbName, g_escapeChar,
+                    start_time, end_time, limit, offset);
+        } else {
+            sprintf(sqlstr,
+                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " ;",
+                    dbName, g_escapeChar, tbName, g_escapeChar,
+                    start_time, end_time, limit);
+        }
+    }
+
     void *res = NULL;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -8411,10 +8436,29 @@ static int createMTableAvroHead(
     }
 
     if (3 == g_majorVersionOfClient) {
-        sprintf(command,
-                "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                dbName, g_escapeChar, stable, g_escapeChar,
-                limit, offset);
+        if (-1 == limit) {
+            if (offset) {
+                sprintf(command,
+                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s OFFSET %"PRId64"",
+                        dbName, g_escapeChar, stable, g_escapeChar, offset);
+            } else {
+                sprintf(command,
+                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
+                        dbName, g_escapeChar, stable, g_escapeChar);
+            }
+        } else {
+            if (offset) {
+                sprintf(command,
+                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                        dbName, g_escapeChar, stable, g_escapeChar,
+                        limit, offset);
+            } else {
+                sprintf(command,
+                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" ",
+                        dbName, g_escapeChar, stable, g_escapeChar,
+                        limit);
+            }
+        }
     } else {
         sprintf(command,
                 "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
@@ -9567,7 +9611,7 @@ static void dumpNormalTablesOfStbWS(
                         __func__, __LINE__, value0, type, len);
                 continue;
             }
-            memset(tbName, 0, WS_VALUE_BUF_LEN);
+            memset(tbName, 0, TSDB_TABLE_NAME_LEN);
             memcpy(tbName, value0, len);
             strncpy(((TableInfo *)(g_tablesList + count))->name,
                     tbName,
@@ -9738,10 +9782,31 @@ static void *dumpNormalTablesOfStb(void *arg) {
 
     char command[COMMAND_SIZE];
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                pThreadInfo->dbName,
-                g_escapeChar, pThreadInfo->stbName, g_escapeChar,
-                pThreadInfo->count, pThreadInfo->from);
+        if (-1 == pThreadInfo->count) {
+            if (pThreadInfo->from) {
+                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s OFFSET %"PRId64"",
+                        pThreadInfo->dbName,
+                        g_escapeChar, pThreadInfo->stbName, g_escapeChar,
+                        pThreadInfo->from);
+
+            } else {
+                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
+                        pThreadInfo->dbName,
+                        g_escapeChar, pThreadInfo->stbName, g_escapeChar);
+            }
+        } else {
+            if (pThreadInfo->from) {
+                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                        pThreadInfo->dbName,
+                        g_escapeChar, pThreadInfo->stbName, g_escapeChar,
+                        pThreadInfo->count, pThreadInfo->from);
+            } else {
+                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64"",
+                        pThreadInfo->dbName,
+                        g_escapeChar, pThreadInfo->stbName, g_escapeChar,
+                        pThreadInfo->count);
+            }
+        }
     } else {
         sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
                 pThreadInfo->dbName,
@@ -10545,7 +10610,7 @@ static bool fillDBInfoWithFieldsWS(
                     __func__, __LINE__, row, f);
             return false;
         } else {
-            memset(tmp, 0, 4096);
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
             memcpy(tmp, value, len);
             strncpy(g_dbInfos[index]->name,
                     tmp, len);
