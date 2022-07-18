@@ -1264,7 +1264,7 @@ static int getTableRecordInfoImplWS(
     if (3 == g_majorVersionOfClient) {
         if (tryStable) {
             sprintf(command,
-                    "SELECT STABLE_NAME FROM information_schema.user_tables "
+                    "SELECT STABLE_NAME FROM information_schema.user_stables "
                     "WHERE db_name='%s' AND stable_name='%s'",
                     dbName, table);
         } else {
@@ -1445,7 +1445,7 @@ static int getTableRecordInfoImplNative(
     if (3 == g_majorVersionOfClient) {
         if (tryStable) {
             sprintf(command,
-                    "SELECT STABLE_NAME FROM information_schema.user_tables "
+                    "SELECT STABLE_NAME FROM information_schema.user_stables "
                     "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
         } else {
             sprintf(command,
@@ -4616,9 +4616,9 @@ void freeBindArray(char *bindArray, int elements)
     }
 }
 
-static int dumpInAvroTbTagsImpl(
+static int64_t dumpInAvroTbTagsImpl(
         void *taos,
-        char *namespace,
+        const char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
         char *fileName,
@@ -5506,9 +5506,9 @@ static int dumpInAvroTbTagsImpl(
     return success;
 }
 
-static int dumpInAvroNtbImpl(
+static int64_t dumpInAvroNtbImpl(
         TAOS *taos,
-        char *namespace,
+        const char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
         RecordSchema *recordSchema)
@@ -5582,7 +5582,7 @@ static int dumpInAvroNtbImpl(
     return success;
 }
 
-static int dumpInAvroDataImpl(
+static int64_t dumpInAvroDataImpl(
         void *taos,
         char *namespace,
         avro_schema_t schema,
@@ -5769,6 +5769,8 @@ static int dumpInAvroDataImpl(
 
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
+            debugPrint("%s() LN%d, stmt: %p, will call ws_stmt_set_tbname(%s)\n",
+                    __func__, __LINE__, ws_stmt, escapedTbName);
             if (0 != (code = ws_stmt_set_tbname(ws_stmt, escapedTbName))) {
                 errorPrint("%s() LN%d, failed to execute ws_stmt_set_tbname(%s)."
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
@@ -5780,6 +5782,8 @@ static int dumpInAvroDataImpl(
                 }
                 continue;
             }
+            debugPrint("%s() LN%d, stmt: %p, ws_stmt_set_tbname(%s) done\n",
+                    __func__, __LINE__, ws_stmt, escapedTbName);
         } else {
 #endif
             if (0 != taos_stmt_set_tbname(stmt, escapedTbName)) {
@@ -5812,6 +5816,8 @@ static int dumpInAvroDataImpl(
 #endif
         }
 
+        debugPrint("%s() LN%d, count: %"PRId64"\n",
+                    __func__, __LINE__, count);
         printDotOrX(count, &printDot);
         count++;
 
@@ -6724,7 +6730,7 @@ static int64_t dumpInOneAvroFile(
     }
 #endif
 
-    int retExec = 0;
+    int64_t retExec = 0;
     switch (which) {
         case WHICH_AVRO_DATA:
             debugPrint("%s() LN%d will dump %s's data\n",
@@ -10314,6 +10320,9 @@ static int64_t dumpCreateSTableClauseOfDbWS(
                         buffer,
                         fp)) {
                 superTblCnt ++;
+            } else {
+                errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                        __func__, __LINE__, buffer);
             }
 
             if (g_args.avro) {
@@ -10385,6 +10394,9 @@ static int64_t dumpCreateSTableClauseOfDbNative(
                     stable,
                     fp)) {
             superTblCnt ++;
+        } else {
+            errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                    __func__, __LINE__, stable);
         }
 
         if (g_args.avro) {
@@ -11188,19 +11200,37 @@ static int dumpOut() {
                     superTblCnt++;
                     ret = dumpNtbOfStbByThreads(g_dbInfos[0],
                             g_args.arg_list[i]);
+                } else {
+                    errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                            __func__, __LINE__, tableRecordInfo.tableRecord.stable);
                 }
             } else if (tableRecordInfo.belongStb){
-                dumpStableClasuse(
+                ret = dumpStableClasuse(
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         fp);
+                if (ret >= 0) {
+                    superTblCnt++;
+                } else {
+                    errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                            __func__, __LINE__, tableRecordInfo.tableRecord.stable);
+                }
                 ret = dumpNormalTableBelongStb(
                         i,
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         g_args.arg_list[i]);
+                if (ret >= 0) {
+                    okPrint("%s() LN%d, dumpNormalTableBelongStb(%s) success\n",
+                            __func__, __LINE__,
+                            tableRecordInfo.tableRecord.stable);
+                } else {
+                    errorPrint("%s() LN%d, dumpNormalTableBelongStb(%s) failed\n",
+                            __func__, __LINE__,
+                            tableRecordInfo.tableRecord.stable);
+                }
             } else {
                 ret = dumpNormalTableWithoutStb(
                         i,
