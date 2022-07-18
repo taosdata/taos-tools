@@ -4036,33 +4036,17 @@ void *queryDbForDumpOutOffset(
     char sqlstr[COMMAND_SIZE] = {0};
 
     if (-1 == limit) {
-        if (offset) {
-            sprintf(sqlstr,
-                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC OFFSET %" PRId64 ";",
-                    dbName, g_escapeChar, tbName, g_escapeChar,
-                    start_time, end_time, offset);
-        } else {
-            sprintf(sqlstr,
-                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC ;",
-                    dbName, g_escapeChar, tbName, g_escapeChar,
-                    start_time, end_time);
-        }
+        sprintf(sqlstr,
+                "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC ;",
+                dbName, g_escapeChar, tbName, g_escapeChar,
+                start_time, end_time);
     } else {
-        if (offset) {
-            sprintf(sqlstr,
-                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
-                    dbName, g_escapeChar, tbName, g_escapeChar,
-                    start_time, end_time, limit, offset);
-        } else {
-            sprintf(sqlstr,
-                    "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-                    "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " ;",
-                    dbName, g_escapeChar, tbName, g_escapeChar,
-                    start_time, end_time, limit);
-        }
+        sprintf(sqlstr,
+                "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
+                dbName, g_escapeChar, tbName, g_escapeChar,
+                start_time, end_time, limit, offset);
     }
 
     void *res = NULL;
@@ -8437,27 +8421,14 @@ static int createMTableAvroHead(
 
     if (3 == g_majorVersionOfClient) {
         if (-1 == limit) {
-            if (offset) {
-                sprintf(command,
-                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s OFFSET %"PRId64"",
-                        dbName, g_escapeChar, stable, g_escapeChar, offset);
-            } else {
-                sprintf(command,
-                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
-                        dbName, g_escapeChar, stable, g_escapeChar);
-            }
+            sprintf(command,
+                    "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
+                    dbName, g_escapeChar, stable, g_escapeChar);
         } else {
-            if (offset) {
-                sprintf(command,
-                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                        dbName, g_escapeChar, stable, g_escapeChar,
-                        limit, offset);
-            } else {
-                sprintf(command,
-                        "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" ",
-                        dbName, g_escapeChar, stable, g_escapeChar,
-                        limit);
-            }
+            sprintf(command,
+                    "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                    dbName, g_escapeChar, stable, g_escapeChar,
+                    limit, offset);
         }
     } else {
         sprintf(command,
@@ -9783,29 +9754,14 @@ static void *dumpNormalTablesOfStb(void *arg) {
     char command[COMMAND_SIZE];
     if (3 == g_majorVersionOfClient) {
         if (-1 == pThreadInfo->count) {
-            if (pThreadInfo->from) {
-                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s OFFSET %"PRId64"",
-                        pThreadInfo->dbName,
-                        g_escapeChar, pThreadInfo->stbName, g_escapeChar,
-                        pThreadInfo->from);
-
-            } else {
-                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
-                        pThreadInfo->dbName,
-                        g_escapeChar, pThreadInfo->stbName, g_escapeChar);
-            }
+            sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
+                    pThreadInfo->dbName,
+                    g_escapeChar, pThreadInfo->stbName, g_escapeChar);
         } else {
-            if (pThreadInfo->from) {
-                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                        pThreadInfo->dbName,
-                        g_escapeChar, pThreadInfo->stbName, g_escapeChar,
-                        pThreadInfo->count, pThreadInfo->from);
-            } else {
-                sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64"",
-                        pThreadInfo->dbName,
-                        g_escapeChar, pThreadInfo->stbName, g_escapeChar,
-                        pThreadInfo->count);
-            }
+            sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                    pThreadInfo->dbName,
+                    g_escapeChar, pThreadInfo->stbName, g_escapeChar,
+                    pThreadInfo->count, pThreadInfo->from);
         }
     } else {
         sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
@@ -9928,6 +9884,11 @@ static int64_t dumpNtbOfDbByThreads(
 #ifdef WEBSOCKET
 static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 {
+    if (0 == dbInfo->ntables) {
+        errorPrint("%s() LN%d, database: %s has 0 tables\n",
+                __func__, __LINE__, dbInfo->name);
+        return 0;
+    }
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
     if (NULL == ws_taos) {
         errorPrint(
@@ -10063,6 +10024,11 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 
 static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
 {
+    if (0 == dbInfo->ntables) {
+        errorPrint("%s() LN%d, database: %s has 0 tables\n",
+                __func__, __LINE__, dbInfo->name);
+        return 0;
+    }
     TAOS *taos = taos_connect(g_args.host,
             g_args.user, g_args.password, dbInfo->name, g_args.port);
     if (NULL == taos) {
