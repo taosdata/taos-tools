@@ -10320,6 +10320,9 @@ static int64_t dumpCreateSTableClauseOfDbWS(
                         buffer,
                         fp)) {
                 superTblCnt ++;
+            } else {
+                errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                        __func__, __LINE__, buffer);
             }
 
             if (g_args.avro) {
@@ -10391,6 +10394,9 @@ static int64_t dumpCreateSTableClauseOfDbNative(
                     stable,
                     fp)) {
             superTblCnt ++;
+        } else {
+            errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                    __func__, __LINE__, stable);
         }
 
         if (g_args.avro) {
@@ -11194,19 +11200,37 @@ static int dumpOut() {
                     superTblCnt++;
                     ret = dumpNtbOfStbByThreads(g_dbInfos[0],
                             g_args.arg_list[i]);
+                } else {
+                    errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                            __func__, __LINE__, tableRecordInfo.tableRecord.stable);
                 }
             } else if (tableRecordInfo.belongStb){
-                dumpStableClasuse(
+                ret = dumpStableClasuse(
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         fp);
+                if (ret >= 0) {
+                    superTblCnt++;
+                } else {
+                    errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
+                            __func__, __LINE__, tableRecordInfo.tableRecord.stable);
+                }
                 ret = dumpNormalTableBelongStb(
                         i,
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         g_args.arg_list[i]);
+                if (ret >= 0) {
+                    okPrint("%s() LN%d, dumpNormalTableBelongStb(%s) success\n",
+                            __func__, __LINE__,
+                            tableRecordInfo.tableRecord.stable);
+                } else {
+                    errorPrint("%s() LN%d, dumpNormalTableBelongStb(%s) failed\n",
+                            __func__, __LINE__,
+                            tableRecordInfo.tableRecord.stable);
+                }
             } else {
                 ret = dumpNormalTableWithoutStb(
                         i,
