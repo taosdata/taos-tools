@@ -38,6 +38,14 @@ function kill_process() {
   fi
 }
 
+function uninstall_libtaosws() {
+    if [ ! -f ${install_main_dir}/bin/taos ]; then
+        [ -f /usr/lib/libtaosws.so ] && ${csudo}rm -f /usr/lib/libtaosws.so ||:
+        [ -f /usr/lib64/libtaosws.so ] && ${csudo}rm -f /usr/lib64/libtaosws.so ||:
+        [ -f ${install_main_dir}/driver/libtaosws.so ] && ${csudo}rm -f ${install_main_dir}/driver/libtaosws.so ||:
+    fi
+}
+
 function uninstall_bin() {
     # Remove links
     ${csudo}rm -f ${bin_link_dir}/${demoName}         || :
@@ -61,6 +69,7 @@ function uninstall_taostools() {
     kill_process ${dumpName}
 
     uninstall_bin
+    uninstall_libtaosws
 
     echo
     echo -e "\033[44;32;1m${taosName} tools is uninstalled successfully!${NC}"
