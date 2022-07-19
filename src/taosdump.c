@@ -5669,7 +5669,7 @@ static int64_t dumpInAvroDataImpl(
 #ifdef WEBSOCKET
     int code;
     if (g_args.cloud || g_args.restful) {
-        if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, 0))) {
+        if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, strlen(stmtBuffer)))) {
             errorPrint("%s() LN%d, failed to execute ws_stmt_prepare()."
                     " ws_taos: %p, code: 0x%08x, reason: %s\n",
                     __func__, __LINE__,
@@ -5751,7 +5751,7 @@ static int64_t dumpInAvroDataImpl(
         debugPrint("%s() LN%d table: %s parsed from file:%s\n",
                 __func__, __LINE__, tbName, fileName);
 
-        char *escapedTbName = calloc(1, strlen(tbName) + 3);
+        char *escapedTbName = calloc(1, TSDB_DB_NAME_LEN + TSDB_TABLE_NAME_LEN + 3);
         if (NULL == escapedTbName) {
             errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
             free(bindArray);
@@ -5770,14 +5770,14 @@ static int64_t dumpInAvroDataImpl(
             return -1;
         }
 
-        sprintf(escapedTbName, "%s%s%s",
-                g_escapeChar, tbName, g_escapeChar);
-
-        debugPrint("%s() LN%d escaped table: %s\n",
-                __func__, __LINE__, escapedTbName);
-
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
+            sprintf(escapedTbName, "%s.%s%s%s",
+                    namespace, g_escapeChar, tbName, g_escapeChar);
+
+            debugPrint("%s() LN%d escaped table: %s\n",
+                    __func__, __LINE__, escapedTbName);
+
             debugPrint("%s() LN%d, stmt: %p, will call ws_stmt_set_tbname(%s)\n",
                     __func__, __LINE__, ws_stmt, escapedTbName);
             if (0 != (code = ws_stmt_set_tbname(ws_stmt, escapedTbName))) {
@@ -5795,6 +5795,12 @@ static int64_t dumpInAvroDataImpl(
                     __func__, __LINE__, ws_stmt, escapedTbName);
         } else {
 #endif
+            sprintf(escapedTbName, "%s%s%s",
+                    g_escapeChar, tbName, g_escapeChar);
+
+            debugPrint("%s() LN%d escaped table: %s\n",
+                    __func__, __LINE__, escapedTbName);
+
             if (0 != taos_stmt_set_tbname(stmt, escapedTbName)) {
                 errorPrint("Failed to execute taos_stmt_set_tbname(%s)."
                         "reason: %s\n",
@@ -5845,6 +5851,7 @@ static int64_t dumpInAvroDataImpl(
                         + sizeof(FieldStruct)*(i+colAdj));
 
             bind->is_null = NULL;
+            bind->num = 1;
             if (0 == i) {
                 avro_value_get_by_name(&value,
                         field->name, &field_value, NULL);
