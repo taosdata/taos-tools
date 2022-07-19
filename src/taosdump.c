@@ -5669,7 +5669,7 @@ static int64_t dumpInAvroDataImpl(
 #ifdef WEBSOCKET
     int code;
     if (g_args.cloud || g_args.restful) {
-        if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, 0))) {
+        if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, strlen(stmtBuffer)))) {
             errorPrint("%s() LN%d, failed to execute ws_stmt_prepare()."
                     " ws_taos: %p, code: 0x%08x, reason: %s\n",
                     __func__, __LINE__,
@@ -5770,8 +5770,8 @@ static int64_t dumpInAvroDataImpl(
             return -1;
         }
 
-        sprintf(escapedTbName, "%s%s%s",
-                g_escapeChar, tbName, g_escapeChar);
+        sprintf(escapedTbName, "%s.%s%s%s",
+                namespace, g_escapeChar, tbName, g_escapeChar);
 
         debugPrint("%s() LN%d escaped table: %s\n",
                 __func__, __LINE__, escapedTbName);
@@ -5845,6 +5845,7 @@ static int64_t dumpInAvroDataImpl(
                         + sizeof(FieldStruct)*(i+colAdj));
 
             bind->is_null = NULL;
+            bind->num = 1;
             if (0 == i) {
                 avro_value_get_by_name(&value,
                         field->name, &field_value, NULL);
