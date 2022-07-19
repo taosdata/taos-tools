@@ -310,7 +310,7 @@ SBenchConn* init_bench_conn() {
 #endif
         conn->taos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
         if (conn->taos == NULL) {
-            errorPrint(stderr, "failde to connect native %s:%d, reason: %s\n", g_arguments->host, g_arguments->port, taos_errstr(NULL)); 
+            errorPrint(stderr, "failde to connect native %s:%d, reason: %s\n", g_arguments->host, g_arguments->port, taos_errstr(NULL));
             tmfree(conn);
             return NULL;
         }
@@ -534,10 +534,16 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         goto free_of_post;
     }
 
+    if (NULL != strstr(response_buf, resHttpOk) && iface == REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+
     if (NULL != strstr(response_buf, succMessage) && iface == REST_IFACE) {
         code = 0;
         goto free_of_post;
     }
+
 
     if (NULL != strstr(response_buf, influxHttpOk) &&
         protocol == TSDB_SML_LINE_PROTOCOL && iface == SML_REST_IFACE) {

@@ -201,6 +201,7 @@ void init_argument() {
     g_arguments->password = TSDB_DEFAULT_PASS;
     g_arguments->answer_yes = 0;
     g_arguments->debug_print = 0;
+    g_arguments->binwidth = DEFAULT_BINWIDTH;
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
@@ -330,7 +331,7 @@ static void *queryStableAggrFunc(void *sarg) {
             }
             strncat(condition, tempS, COND_BUF_LEN - 1);
 
-            sprintf(command, "SELECT %s FROM meters WHERE %s", aggreFunc[j],
+            sprintf(command, "SELECT %s FROM %s.meters WHERE %s", aggreFunc[j], database->dbName,
                     condition);
             if (fp) {
                 fprintf(fp, "%s\n", command);
@@ -401,14 +402,15 @@ static void *queryNtableAggrFunc(void *sarg) {
         for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
             if (stbInfo->escape_character) {
                 sprintf(command,
-                        "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
+                        "SELECT %s FROM %s.`%s%" PRId64 "` WHERE ts>= %" PRIu64,
                         aggreFunc[j],
+                        database->dbName,
                         stbInfo->childTblPrefix, i,
                         (uint64_t) DEFAULT_START_TIME);
             } else {
                 sprintf(
-                    command, "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
-                    aggreFunc[j], stbInfo->childTblPrefix, i,
+                    command, "SELECT %s FROM %s.%s%" PRId64 " WHERE ts>= %" PRIu64,
+                    aggreFunc[j], database->dbName, stbInfo->childTblPrefix, i,
                     (uint64_t)DEFAULT_START_TIME);
             }
 
@@ -461,5 +463,6 @@ void queryAggrFunc() {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
+    close_bench_conn(pThreadInfo->conn);
     free(pThreadInfo);
 }

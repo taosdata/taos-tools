@@ -83,6 +83,7 @@ static struct argp_option options[] = {
     {"performance", 'G', 0, 0, "Performance mode, optional."},
     {"prepared_rand", 'F', "NUMBER", 0,
      "Random data source size, default is 10000."},
+    {"connection_pool_size", 'H', "NUMBER", 0, "The connection pool size(deprecated)."},
 #ifdef WEBSOCKET
     {"cloud_dsn", 'W', "DSN", 0, "The dsn to connect TDengine cloud service."},
 #endif
@@ -154,6 +155,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                    arg);
         arguments->nthreads = DEFAULT_NTHREADS;
       }
+      break;
+    case 'H':
       break;
     case 'i':
         stbInfo->insert_interval = atoi(arg);

@@ -36,6 +36,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
         infoPrint(stdout, "stable %s does not exist, will create one\n",
                   stbInfo->stbName);
         taos_free_result(res);
+        close_bench_conn(conn);
         return -1;
     }
     infoPrint(stdout, "find stable<%s>, will get meta data from server\n",
@@ -713,8 +714,8 @@ static void *syncWriteInterlace(void *sarg) {
                             len += snprintf(
                                 pThreadInfo->buffer + len,
                                 pThreadInfo->max_sql_len - len,
-                                "%s.%s using `%s` tags (%s) values ",
-                                database->dbName, tableName, stbInfo->stbName,
+                                "%s.%s using %s.`%s` tags (%s) values ",
+                                database->dbName, tableName, database->dbName, stbInfo->stbName,
                                 stbInfo->tagDataBuf +
                                     stbInfo->lenOfTags * tableSeq);
                         } else {
@@ -728,9 +729,9 @@ static void *syncWriteInterlace(void *sarg) {
                             len += snprintf(
                                 pThreadInfo->buffer + len,
                                 pThreadInfo->max_sql_len - len,
-                                "%s.%s (%s) using `%s` tags (%s) values ",
+                                "%s.%s (%s) using %s.`%s` tags (%s) values ",
                                 database->dbName, tableName,
-                                stbInfo->partialColumnNameBuf, stbInfo->stbName,
+                                stbInfo->partialColumnNameBuf, database->dbName, stbInfo->stbName,
                                 stbInfo->tagDataBuf +
                                     stbInfo->lenOfTags * tableSeq);
                         } else {
@@ -765,6 +766,11 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
+                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                        errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
+                        g_fail = true;
+                        goto free_of_interlace;
+                    }
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt, tableName)) {
                         errorPrint(
                             stderr,
@@ -954,9 +960,9 @@ void *syncWriteProgressive(void *sarg) {
                         if (stbInfo->autoCreateTable) {
                             len =
                                 snprintf(pstr, MAX_SQL_LEN,
-                                         "%s %s.%s using %s tags (%s) values ",
+                                         "%s %s.%s using %s.%s tags (%s) values ",
                                          STR_INSERT_INTO, database->dbName,
-                                         tableName, stbInfo->stbName,
+                                         tableName, database->dbName, stbInfo->stbName,
                                          stbInfo->tagDataBuf +
                                              stbInfo->lenOfTags * tableSeq);
                         } else {
@@ -968,9 +974,9 @@ void *syncWriteProgressive(void *sarg) {
                         if (stbInfo->autoCreateTable) {
                             len = snprintf(
                                 pstr, MAX_SQL_LEN,
-                                "%s %s.%s (%s) using %s tags (%s) values ",
+                                "%s %s.%s (%s) using %s.%s tags (%s) values ",
                                 STR_INSERT_INTO, database->dbName, tableName,
-                                stbInfo->partialColumnNameBuf, stbInfo->stbName,
+                                stbInfo->partialColumnNameBuf, database->dbName, stbInfo->stbName,
                                 stbInfo->tagDataBuf +
                                     stbInfo->lenOfTags * tableSeq);
                         } else {
@@ -1020,6 +1026,11 @@ void *syncWriteProgressive(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
+                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                        errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
+                        g_fail = true;
+                        goto free_of_progressive;
+                    }
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                 tableName)) {
                         errorPrint(stderr,
@@ -1414,8 +1425,13 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 pThreadInfo->sockfd = sockfd;
             }
             case SML_IFACE: {
-                if (stbInfo->iface == SML_IFACE) {
-                    pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = init_bench_conn();
+                if (pThreadInfo->conn == NULL) {
+                    return -1;
+                }
+                if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                    errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
+                    return -1;
                 }
                 pThreadInfo->max_sql_len =
                     stbInfo->lenOfCols + stbInfo->lenOfTags;
