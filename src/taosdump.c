@@ -8792,11 +8792,6 @@ static int checkParam() {
         return -1;
     }
 
-    if ((!g_args.isDumpIn) && (g_args.data_batch_input)) {
-        warnPrint("%s", "Data batch option '-B' is not used for dump out\n");
-        prompt();
-    }
-
     g_fpOfResult = fopen(g_args.resultFile, "a");
     if (NULL == g_fpOfResult) {
         errorPrint("Failed to open %s for save res\n", g_args.resultFile);
