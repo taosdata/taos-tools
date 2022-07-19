@@ -305,12 +305,6 @@ typedef struct BArray {
     void*    pData;
 } BArray;
 
-typedef struct TAOS_POOL_S {
-    int    size;
-    int    current;
-    TAOS **taos_list;
-} TAOS_POOL;
-
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -486,7 +480,6 @@ typedef struct SArguments_S {
     char *             output_file;
     uint32_t           binwidth;
     uint32_t           intColumnCount;
-    uint32_t           connection_pool;
     uint32_t           nthreads;
     uint32_t           table_threads;
     uint64_t           prepared_rand;
@@ -495,7 +488,6 @@ typedef struct SArguments_S {
     bool               demo_mode;
     bool               aggr_func;
     struct sockaddr_in serv_addr;
-    TAOS_POOL *        pool;
     uint64_t           g_totalChildTables;
     uint64_t           g_actualChildTables;
     uint64_t           g_autoCreatedChildTables;
@@ -601,9 +593,6 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int     init_taos_list();
-TAOS *  select_one_from_pool(char *db_name);
-void    cleanup_taos_list();
 int64_t toolsGetTimestampMs();
 int64_t toolsGetTimestampUs();
 int64_t toolsGetTimestampNs();
@@ -623,7 +612,7 @@ void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
 int     queryDbExec(SBenchConn *conn, char *command);
 SBenchConn* init_bench_conn();
-void close_bench_conn(SBenchConn* conn);
+void    close_bench_conn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);

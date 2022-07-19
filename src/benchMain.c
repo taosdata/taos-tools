@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
         if (subscribeTestProcess(g_arguments)) exit(EXIT_FAILURE);
     }
     if (g_arguments->aggr_func) {
-        queryAggrFunc(g_arguments, g_arguments->pool);
+        queryAggrFunc();
     }
     postFreeResource();
     return 0;

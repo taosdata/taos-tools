@@ -559,7 +559,6 @@ OVER:
 }
 
 int queryTestProcess() {
-    if (init_taos_list()) return -1;
     encode_base_64();
     prompt(0);
     if (g_queryInfo.iface == REST_IFACE) {
@@ -573,11 +572,14 @@ int queryTestProcess() {
 
     if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
         (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-        TAOS *taos = select_one_from_pool(g_queryInfo.dbName);
+        SBenchConn* conn = init_bench_conn();
+        if (conn == NULL) {
+            return -1;
+        }
         char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
                  g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
-        TAOS_RES *res = taos_query(taos, cmd);
+        TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
             errorPrint(stderr,
@@ -607,13 +609,15 @@ int queryTestProcess() {
         g_queryInfo.superQueryInfo.childTblName =
                 benchCalloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *), false);
         if (getAllChildNameOfSuperTable(
-                taos, g_queryInfo.dbName,
+                conn->taos, g_queryInfo.dbName,
                 g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
             tmfree(g_queryInfo.superQueryInfo.childTblName);
+            close_bench_conn(conn);
             return -1;
         }
+        close_bench_conn(conn);
     }
 
     uint64_t startTs = toolsGetTimestampMs();

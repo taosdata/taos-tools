@@ -25,10 +25,10 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     char         command[SQL_BUFF_LEN] = "\0";
     TAOS_RES *   res;
     TAOS_ROW     row = NULL;
-    TAOS *       taos = select_one_from_pool(NULL);
+    SBenchConn* conn = init_bench_conn();
     snprintf(command, SQL_BUFF_LEN, "describe %s.`%s`", database->dbName,
              stbInfo->stbName);
-    res = taos_query(taos, command);
+    res = taos_query(conn->taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
         debugPrint(stdout, "failed to run command %s, reason: %s\n", command,
@@ -84,6 +84,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
         }
     }
     taos_free_result(res);
+    close_bench_conn(conn);
     return 0;
 }
 
@@ -148,6 +149,8 @@ skip:
             ? "CREATE TABLE IF NOT EXISTS %s.`%s` (ts TIMESTAMP%s) TAGS %s"
             : "CREATE TABLE IF NOT EXISTS %s.%s (ts TIMESTAMP%s) TAGS %s",
         database->dbName, stbInfo->stbName, cols, tags);
+    tmfree(cols);
+    tmfree(tags);
     if (stbInfo->comment != NULL) {
         length += snprintf(command + length, BUFFER_SIZE - length,
                            " COMMENT '%s'", stbInfo->comment);
@@ -184,8 +187,6 @@ skip:
     SBenchConn* conn = init_bench_conn();
     if (conn == NULL) {
         free(command);
-        free(cols);
-        free(tags);
         return -1;
     }
     if (0 != queryDbExec(conn, command)) {
@@ -193,14 +194,10 @@ skip:
                    stbInfo->stbName);
         close_bench_conn(conn);
         free(command);
-        free(cols);
-        free(tags);
         return -1;
     }
     close_bench_conn(conn);
     free(command);
-    free(cols);
-    free(tags);
     return 0;
 }
 
@@ -456,6 +453,9 @@ static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* st
         pThreadInfo->stbInfo = stbInfo;
         pThreadInfo->dbInfo = database;
         pThreadInfo->conn = init_bench_conn();
+        if (pThreadInfo->conn == NULL) {
+            return -1;
+        }
         pThreadInfo->start_table_from = tableFrom;
         pThreadInfo->ntables = i < b ? a + 1 : a;
         pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
@@ -580,8 +580,6 @@ void postFreeResource() {
     }
     benchArrayDestroy(g_arguments->databases);
     tools_cJSON_Delete(root);
-    cleanup_taos_list();
-    tmfree(g_arguments->pool);
 }
 
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
@@ -1219,8 +1217,8 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
 
     if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) &&
         stbInfo->childTblExists) {
-        TAOS *taos = select_one_from_pool(database->dbName);
-        if (taos == NULL) {
+        SBenchConn* conn = init_bench_conn();
+        if (conn == NULL) {
             return -1;
         }
         char cmd[SQL_BUFF_LEN] = "\0";
@@ -1238,7 +1236,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                      stbInfo->childTblOffset);
         }
         debugPrint(stdout, "cmd: %s\n", cmd);
-        TAOS_RES *res = taos_query(taos, cmd);
+        TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         int64_t   count = 0;
         if (code) {
@@ -1463,7 +1461,9 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             }
             case TAOSC_IFACE: {
                 pThreadInfo->conn = init_bench_conn();
-
+                if (pThreadInfo->conn == NULL) {
+                    return -1;
+                }
                 if (stbInfo->interlaceRows > 0) {
                     if (stbInfo->autoCreateTable) {
                         pThreadInfo->max_sql_len = g_arguments->reqPerReq * (stbInfo->lenOfCols + stbInfo->lenOfTags) + 1024;

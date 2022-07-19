@@ -714,16 +714,20 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         g_arguments->table_threads = (uint32_t)table_theads->valueint;
     }
 
-    tools_cJSON *threadspool = tools_cJSON_GetObjectItem(json, "connection_pool_size");
-    if (threadspool && threadspool->type == tools_cJSON_Number) {
-        g_arguments->connection_pool = (uint32_t)threadspool->valueint;
-    }
 #ifdef WEBSOCKET
     if (!g_arguments->websocket) {
 #endif
-        if (init_taos_list()) {
-            return -1;
+#ifdef LINUX
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint(stderr, "Invalid path %s\n", configDir);
+            exit(EXIT_FAILURE);
         }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
+#endif
 #ifdef WEBSOCKET
     }
 #endif
@@ -844,11 +848,6 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         }
     } else {
         g_queryInfo.reset_query_cache = false;
-    }
-
-    tools_cJSON *threadspool = tools_cJSON_GetObjectItem(json, "connection_pool_size");
-    if (tools_cJSON_IsNumber(threadspool)) {
-        g_arguments->connection_pool = (uint32_t)threadspool->valueint;
     }
 
     tools_cJSON *respBuffer = tools_cJSON_GetObjectItem(json, "response_buffer");

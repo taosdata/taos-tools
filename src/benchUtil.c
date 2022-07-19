@@ -308,8 +308,9 @@ SBenchConn* init_bench_conn() {
         }
     } else {
 #endif
-        conn->taos = select_one_from_pool(NULL);
+        conn->taos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
         if (conn->taos == NULL) {
+            errorPrint(stderr, "failde to connect native %s:%d, reason: %s\n", g_arguments->host, g_arguments->port, taos_errstr(NULL)); 
             tmfree(conn);
             return NULL;
         }
@@ -824,61 +825,6 @@ int taos_convert_string_to_datatype(char *type, int length) {
             exit(EXIT_FAILURE);
         }
     }
-}
-
-int init_taos_list() {
-#ifdef LINUX
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint(stderr, "Invalid path %s\n", configDir);
-            exit(EXIT_FAILURE);
-        }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
-#endif
-    int        size = g_arguments->connection_pool;
-    TAOS_POOL *pool = g_arguments->pool;
-    pool->taos_list = benchCalloc(size, sizeof(TAOS *), true);
-    pool->current = 0;
-    pool->size = size;
-    for (int i = 0; i < size; ++i) {
-        pool->taos_list[i] =
-            taos_connect(g_arguments->host, g_arguments->user,
-                         g_arguments->password, NULL, g_arguments->port);
-        if (pool->taos_list[i] == NULL) {
-            errorPrint(stderr, "Failed to connect to TDengine, reason:%s\n",
-                       taos_errstr(NULL));
-            return -1;
-        }
-    }
-    return 0;
-}
-
-TAOS *select_one_from_pool(char *db_name) {
-    TAOS_POOL *pool = g_arguments->pool;
-    TAOS *     taos = pool->taos_list[pool->current];
-    if (db_name != NULL) {
-        int code = taos_select_db(taos, db_name);
-        if (code) {
-            errorPrint(stderr, "failed to select %s, reason: %s\n", db_name,
-                       taos_errstr(NULL));
-            return NULL;
-        }
-    }
-    pool->current++;
-    if (pool->current >= pool->size) {
-        pool->current = 0;
-    }
-    return taos;
-}
-
-void cleanup_taos_list() {
-    for (int i = 0; i < g_arguments->pool->size; ++i) {
-        taos_close(g_arguments->pool->taos_list[i]);
-    }
-    tmfree(g_arguments->pool->taos_list);
 }
 
 int compare(const void *a, const void *b) {
