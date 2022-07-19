@@ -38,11 +38,11 @@ function kill_process() {
   fi
 }
 
-function uninstall_bin() {
-    if [ ! -f ${install_main_dir}/bin/taos ];
-        [ -f ${install_main_dir}/driver/libtaosws.so ] && rm -f ${install_main_dir}/driver/libtaosws.so ||:
-        [ -f /usr/lib/libtaosws.so ] && rm -f /usr/lib/libtaosws.so ||:
-        [ -f /usr/lib64/libtaosws.so ] && rm -f /usr/lib64/libtaosws.so ||:
+function uninstall_libtaosws() {
+    if [ ! -f ${install_main_dir}/bin/taos ]; then
+        [ -f /usr/lib/libtaosws.so ] && ${csudo}rm -f /usr/lib/libtaosws.so ||:
+        [ -f /usr/lib64/libtaosws.so ] && ${csudo}rm -f /usr/lib64/libtaosws.so ||:
+        [ -f ${install_main_dir}/driver/libtaosws.so ] && ${csudo}rm -f ${install_main_dir}/driver/libtaosws.so ||:
     fi
 }
 

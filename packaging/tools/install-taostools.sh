@@ -84,11 +84,11 @@ function install_main_path() {
 
 function install_libtaosws() {
     if [ -f ${script_dir}/driver/libtaosws.so ]; then
-        [ -d ${install_main_dir}/driver ] || mkdir ${install_main_dir}/driver ||:
+        [ -d ${install_main_dir}/driver ] || ${csudo}mkdir ${install_main_dir}/driver ||:
         [ -f ${install_main_dir}/driver/libtaosws.so ] || \
-            ${csudo}/usr/bin/install -c -m 755 ${script_dir}/driver/libtaosws.so ${install_main_dir}/driver/libtaosws.so && ln -sf ${install_main_dir}/driver/libtaosws.so /usr/lib/libtaosws.so
+            ${csudo}/usr/bin/install -c -m 755 ${script_dir}/driver/libtaosws.so ${install_main_dir}/driver/libtaosws.so && ${csudo}ln -sf ${install_main_dir}/driver/libtaosws.so /usr/lib/libtaosws.so
         if [ -d /usr/lib64 ]; then
-            ln -sf ${install_main_dir}/driver/libtaosws.so /usr/lib64/libtaosws.so
+            ${csudo}ln -sf ${install_main_dir}/driver/libtaosws.so /usr/lib64/libtaosws.so
         fi
     fi
 }
