@@ -1254,7 +1254,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             errorPrint(stderr, "failed to get child table name: %s. reason: %s",
                        cmd, taos_errstr(res));
             taos_free_result(res);
-
+            close_bench_conn(conn);
             return -1;
         }
         TAOS_ROW row = NULL;
@@ -1274,6 +1274,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
         }
         ntables = count;
         taos_free_result(res);
+        close_bench_conn(conn);
     }
     else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         if (stbInfo->escape_character) {
