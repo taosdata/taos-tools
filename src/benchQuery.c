@@ -24,6 +24,11 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
             return -1;
         }
     } else {
+        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+            errorPrint(stderr, "thread[%d]: failed to select database(%s)\n",
+                pThreadInfo->threadID, g_queryInfo.dbName);
+            return -1;
+        }
         TAOS_RES *res = taos_query(pThreadInfo->conn->taos, command);
         if (res == NULL || taos_errno(res) != 0) {
             errorPrint(stderr, "failed to execute sql:%s, reason:%s\n", command,
@@ -65,6 +70,11 @@ static void *mixedQuery(void *sarg) {
                     continue;
                 }
             } else {
+                if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+                    errorPrint(stderr, "thread[%d]: failed to select database(%s)\n",
+                            pThreadInfo->threadId, g_queryInfo.dbName);
+                    return NULL;
+                }
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos, sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
                     errorPrint(stderr, "thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",pThreadInfo->threadId, sql->command, taos_errno(res), taos_errstr(res));
@@ -294,14 +304,16 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
 
         for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
             pthread_join(pidsOfSub[i], NULL);
+            threadInfo *pThreadInfo = infosOfSub + i;
             if (iface == REST_IFACE) {
-                threadInfo *pThreadInfo = infosOfSub + i;
 #ifdef WINDOWS
                 closesocket(pThreadInfo->sockfd);
             WSACleanup();
 #else
                 close(pThreadInfo->sockfd);
 #endif
+            } else {
+                close_bench_conn(pThreadInfo->conn);
             }
             if (g_fail) {
                 goto OVER;
@@ -395,14 +407,16 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
             for (int j = 0; j < nConcurrent; j++) {
                 uint64_t seq = i * nConcurrent + j;
                 pthread_join(pids[seq], NULL);
+                threadInfo *pThreadInfo = infos + seq;
                 if (iface == REST_IFACE) {
-                    threadInfo *pThreadInfo = infos + j * nSqlCount + i;
 #ifdef WINDOWS
                     closesocket(pThreadInfo->sockfd);
                     WSACleanup();
 #else
                     close(pThreadInfo->sockfd);
 #endif
+                } else {
+                    close_bench_conn(pThreadInfo->conn);
                 }
                 if (g_fail) {
                     return -1;
@@ -530,6 +544,8 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 #else
             close(pThreadInfo->sockfd);
 #endif
+        } else {
+            close_bench_conn(pThreadInfo->conn);
         }
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);

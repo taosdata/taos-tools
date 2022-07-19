@@ -44,6 +44,10 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
                                uint64_t interval) {
     TAOS_SUB *tsub = NULL;
 
+    if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+        errorPrint(stderr, "failed to select database(%s)\n", g_queryInfo.dbName);
+        return NULL;
+    }
     if ((SPECIFIED_CLASS == class) &&
         (ASYNC_MODE == g_queryInfo.specifiedQueryInfo.asyncMode)) {
         tsub = taos_subscribe(
@@ -52,8 +56,7 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
             (int)g_queryInfo.specifiedQueryInfo.subscribeInterval);
     } else if ((STABLE_CLASS == class) &&
                (ASYNC_MODE == g_queryInfo.superQueryInfo.asyncMode)) {
-        tsub =
-            taos_subscribe(pThreadInfo->conn->taos, restart, topic, sql,
+        tsub = taos_subscribe(pThreadInfo->conn->taos, restart, topic, sql,
                            stable_sub_callback, (void *)pThreadInfo,
                            (int)g_queryInfo.superQueryInfo.subscribeInterval);
     } else {
@@ -357,11 +360,13 @@ int subscribeTestProcess() {
                  j++) {
                 uint64_t seq =
                     i * g_queryInfo.specifiedQueryInfo.concurrent + j;
+                threadInfo *pThreadInfo = infos + seq;
                 void *result;
                 pthread_join(pids[seq], &result);
                 if (*(int32_t *)result) {
                     g_fail = true;
                 }
+                close_bench_conn(pThreadInfo->conn);
                 tmfree(result);
             }
         }
@@ -415,11 +420,13 @@ int subscribeTestProcess() {
         for (int i = 0; i < g_queryInfo.superQueryInfo.sqlCount; i++) {
             for (int j = 0; j < threads; j++) {
                 uint64_t seq = (uint64_t)i * threads + j;
+                threadInfo *pThreadInfo = infosOfStable + seq;
                 void *   result;
                 pthread_join(pidsOfStable[seq], &result);
                 if (*(int32_t *)result) {
                     g_fail = true;
                 }
+                close_bench_conn(pThreadInfo->conn);
                 tmfree(result);
             }
         }
