@@ -83,8 +83,10 @@ static struct argp_option options[] = {
     {"performance", 'G', 0, 0, "Performance mode, optional."},
     {"prepared_rand", 'F', "NUMBER", 0,
      "Random data source size, default is 10000."},
-    {"connection_pool", 'H', "NUMBER", 0,
-     "size of the pre-connected client in connection pool, default is 8"},
+    {"connection_pool_size", 'H', "NUMBER", 0, "The connection pool size(deprecated)."},
+#ifdef WEBSOCKET
+    {"cloud_dsn", 'W', "DSN", 0, "The dsn to connect TDengine cloud service."},
+#endif
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -155,13 +157,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       }
       break;
     case 'H':
-      arguments->connection_pool = atoi(arg);
-      if (arguments->connection_pool <= 0) {
-        errorPrint(stderr,
-                   "Invalid -H: %s, will auto set to default(8)\n",
-                   arg);
-        arguments->connection_pool = DEFAULT_NTHREADS;
-      }
       break;
     case 'i':
         stbInfo->insert_interval = atoi(arg);
@@ -311,6 +306,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         database->dbCfg.replica = 1;
       }
       break;
+#ifdef WEBSOCKET
+    case 'W':
+      g_arguments->dsn = arg;
+      break;
+#endif
     case 'g':
       arguments->debug_print = true;
       break;

@@ -76,6 +76,11 @@
 #include "taos.h"
 #include "toolsdef.h"
 #include "taoserror.h"
+
+#ifdef WEBSOCKET
+#include "taosws.h"
+#endif
+
 #if defined(WIN32) || defined(WIN64)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -258,7 +263,7 @@ typedef enum enumQUERY_CLASS {
     STABLE_CLASS,
     CLASS_BUT
 } QUERY_CLASS;
- 
+
 enum _show_db_index {
     TSDB_SHOW_DB_NAME_INDEX,
     TSDB_SHOW_DB_CREATED_TIME_INDEX,
@@ -299,12 +304,6 @@ typedef struct BArray {
     uint32_t elemSize;
     void*    pData;
 } BArray;
-
-typedef struct TAOS_POOL_S {
-    int    size;
-    int    current;
-    TAOS **taos_list;
-} TAOS_POOL;
 
 typedef struct SField {
     uint8_t  type;
@@ -481,7 +480,6 @@ typedef struct SArguments_S {
     char *             output_file;
     uint32_t           binwidth;
     uint32_t           intColumnCount;
-    uint32_t           connection_pool;
     uint32_t           nthreads;
     uint32_t           table_threads;
     uint64_t           prepared_rand;
@@ -490,7 +488,6 @@ typedef struct SArguments_S {
     bool               demo_mode;
     bool               aggr_func;
     struct sockaddr_in serv_addr;
-    TAOS_POOL *        pool;
     uint64_t           g_totalChildTables;
     uint64_t           g_actualChildTables;
     uint64_t           g_autoCreatedChildTables;
@@ -503,11 +500,23 @@ typedef struct SArguments_S {
 #endif
     bool               terminate;
     bool               in_prompt;
+#ifdef WEBSOCKET
+    char*              dsn;
+    bool               websocket;
+#endif
 } SArguments;
 
+typedef struct SBenchConn{
+    TAOS* taos;
+    TAOS_STMT* stmt;
+#ifdef WEBSOCKET
+    WS_TAOS* taos_ws;
+    WS_STMT* stmt_ws;
+#endif
+} SBenchConn;
+
 typedef struct SThreadInfo_S {
-    TAOS *     taos;
-    TAOS_STMT *stmt;
+    SBenchConn* conn;
     uint64_t * bind_ts;
     uint64_t * bind_ts_array;
     char *     bindParams;
@@ -529,8 +538,8 @@ typedef struct SThreadInfo_S {
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    uint32_t   db_index;
-    uint32_t   stb_index;
+    SDataBase* dbInfo;
+    SSuperTable* stbInfo;
     char **    sml_tags;
     tools_cJSON *    json_array;
     tools_cJSON *    sml_json_tags;
@@ -549,7 +558,7 @@ typedef struct SQueryThreadInfo_S {
     int threadId;
     BArray*  query_delay_list;
     int   sockfd;
-    TAOS* taos;
+    SBenchConn* conn;
     int64_t total_delay;
 } queryThreadInfo;
 
@@ -584,9 +593,6 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int     init_taos_list();
-TAOS *  select_one_from_pool(char *db_name);
-void    cleanup_taos_list();
 int64_t toolsGetTimestampMs();
 int64_t toolsGetTimestampUs();
 int64_t toolsGetTimestampNs();
@@ -604,7 +610,9 @@ void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
-int     queryDbExec(TAOS *taos, char *command);
+int     queryDbExec(SBenchConn *conn, char *command);
+SBenchConn* init_bench_conn();
+void    close_bench_conn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);

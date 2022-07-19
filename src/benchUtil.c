@@ -195,7 +195,7 @@ void prompt(bool nonStopMode) {
                 "taosBenchmark will continuously insert data unless you press "
                 "Ctrl-C to end it.\n\n         press enter key to continue and "
                 "Ctrl-C to "
-                "stop\n\n"); 
+                "stop\n\n");
             (void)getchar();
         } else {
             printf(
@@ -295,18 +295,71 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command) {
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t   code = taos_errno(res);
-
-    if (code != 0) {
-        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
-                       taos_errstr(res));
-        taos_free_result(res);
-        return -1;
+SBenchConn* init_bench_conn() {
+    SBenchConn* conn = benchCalloc(1, sizeof(SBenchConn), true);
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        conn->taos_ws = ws_connect_with_dsn(g_arguments->dsn);
+        if (conn->taos_ws == NULL) {
+            errorPrint(stderr, "failed to connect %s, reason: %s\n",
+                    g_arguments->dsn, ws_errstr(NULL));
+            tmfree(conn);
+            return NULL;
+        }
+    } else {
+#endif
+        conn->taos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
+        if (conn->taos == NULL) {
+            errorPrint(stderr, "failde to connect native %s:%d, reason: %s\n", g_arguments->host, g_arguments->port, taos_errstr(NULL));
+            tmfree(conn);
+            return NULL;
+        }
+#ifdef WEBSOCKET
     }
+#endif
+    return conn;
+}
 
-    taos_free_result(res);
+void close_bench_conn(SBenchConn* conn) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        ws_close(conn->taos_ws);
+    } else {
+#endif
+        taos_close(conn->taos);
+#ifdef WEBSOCKET
+    }
+#endif
+    tmfree(conn);
+}
+
+int queryDbExec(SBenchConn *conn, char *command) {
+    int32_t code;
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        WS_RES* res = ws_query(conn->taos_ws, command);
+        code = ws_errno(res);
+        if (code != 0) {
+            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+                    ws_errstr(res));
+            ws_free_result(res);
+            return -1;
+        }
+        ws_free_result(res);
+    } else {
+#endif
+        TAOS_RES *res = taos_query(conn->taos, command);
+        code = taos_errno(res);
+        if (code != 0) {
+            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+                       taos_errstr(res));
+            taos_free_result(res);
+            return -1;
+        }
+        taos_free_result(res);
+#ifdef WEBSOCKET
+    }
+#endif
     return 0;
 }
 
@@ -481,11 +534,17 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         goto free_of_post;
     }
 
+    if (NULL != strstr(response_buf, resHttpOk) && iface == REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+
     if (NULL != strstr(response_buf, succMessage) && iface == REST_IFACE) {
         code = 0;
         goto free_of_post;
     }
-    
+
+
     if (NULL != strstr(response_buf, influxHttpOk) &&
         protocol == TSDB_SML_LINE_PROTOCOL && iface == SML_REST_IFACE) {
         code = 0;
@@ -497,7 +556,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         code = 0;
         goto free_of_post;
     }
-    
+
     if (g_arguments->test_mode == INSERT_TEST) {
         debugPrint(stdout, "Response: \n%s\n", response_buf);
         char* start = strstr(response_buf, "{");
@@ -772,61 +831,6 @@ int taos_convert_string_to_datatype(char *type, int length) {
             exit(EXIT_FAILURE);
         }
     }
-}
-
-int init_taos_list() {
-#ifdef LINUX
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint(stderr, "Invalid path %s\n", configDir);
-            exit(EXIT_FAILURE);
-        }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
-#endif
-    int        size = g_arguments->connection_pool;
-    TAOS_POOL *pool = g_arguments->pool;
-    pool->taos_list = benchCalloc(size, sizeof(TAOS *), true);
-    pool->current = 0;
-    pool->size = size;
-    for (int i = 0; i < size; ++i) {
-        pool->taos_list[i] =
-            taos_connect(g_arguments->host, g_arguments->user,
-                         g_arguments->password, NULL, g_arguments->port);
-        if (pool->taos_list[i] == NULL) {
-            errorPrint(stderr, "Failed to connect to TDengine, reason:%s\n",
-                       taos_errstr(NULL));
-            return -1;
-        }
-    }
-    return 0;
-}
-
-TAOS *select_one_from_pool(char *db_name) {
-    TAOS_POOL *pool = g_arguments->pool;
-    TAOS *     taos = pool->taos_list[pool->current];
-    if (db_name != NULL) {
-        int code = taos_select_db(taos, db_name);
-        if (code) {
-            errorPrint(stderr, "failed to select %s, reason: %s\n", db_name,
-                       taos_errstr(NULL));
-            return NULL;
-        }
-    }
-    pool->current++;
-    if (pool->current >= pool->size) {
-        pool->current = 0;
-    }
-    return taos;
-}
-
-void cleanup_taos_list() {
-    for (int i = 0; i < g_arguments->pool->size; ++i) {
-        taos_close(g_arguments->pool->taos_list[i]);
-    }
-    tmfree(g_arguments->pool->taos_list);
 }
 
 int compare(const void *a, const void *b) {

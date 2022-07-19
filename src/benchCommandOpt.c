@@ -192,7 +192,6 @@ void init_argument() {
     } else {
         g_arguments->taosc_version = 2;
     }
-    g_arguments->pool = benchCalloc(1, sizeof(TAOS_POOL), true);
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
     g_arguments->host = NULL;
@@ -202,12 +201,11 @@ void init_argument() {
     g_arguments->password = TSDB_DEFAULT_PASS;
     g_arguments->answer_yes = 0;
     g_arguments->debug_print = 0;
+    g_arguments->binwidth = DEFAULT_BINWIDTH;
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
     g_arguments->table_threads = DEFAULT_NTHREADS;
-    g_arguments->connection_pool = DEFAULT_NTHREADS;
-    g_arguments->binwidth = DEFAULT_BINWIDTH;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
     g_arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
@@ -224,7 +222,23 @@ void init_argument() {
 void modify_argument() {
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable *superTable = benchArrayGet(database->superTbls, 0);
-    if (init_taos_list()) exit(EXIT_FAILURE);
+#ifdef WEBSOCKET
+    if (!g_arguments->websocket) {
+#endif
+#ifdef LINUX
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint(stderr, "Invalid path %s\n", configDir);
+            exit(EXIT_FAILURE);
+        }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
+#endif
+#ifdef WEBSOCKET
+    }
+#endif
 
     if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
@@ -271,7 +285,7 @@ void modify_argument() {
 
 static void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->taos;
+    TAOS *      taos = pThreadInfo->conn->taos;
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryStableAggrFunc");
 #endif
@@ -317,7 +331,7 @@ static void *queryStableAggrFunc(void *sarg) {
             }
             strncat(condition, tempS, COND_BUF_LEN - 1);
 
-            sprintf(command, "SELECT %s FROM meters WHERE %s", aggreFunc[j],
+            sprintf(command, "SELECT %s FROM %s.meters WHERE %s", aggreFunc[j], database->dbName,
                     condition);
             if (fp) {
                 fprintf(fp, "%s\n", command);
@@ -355,7 +369,7 @@ static void *queryStableAggrFunc(void *sarg) {
 
 static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->taos;
+    TAOS *      taos = pThreadInfo->conn->taos;
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
 #endif
@@ -388,14 +402,15 @@ static void *queryNtableAggrFunc(void *sarg) {
         for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
             if (stbInfo->escape_character) {
                 sprintf(command,
-                        "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
+                        "SELECT %s FROM %s.`%s%" PRId64 "` WHERE ts>= %" PRIu64,
                         aggreFunc[j],
+                        database->dbName,
                         stbInfo->childTblPrefix, i,
                         (uint64_t) DEFAULT_START_TIME);
             } else {
                 sprintf(
-                    command, "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
-                    aggreFunc[j], stbInfo->childTblPrefix, i,
+                    command, "SELECT %s FROM %s.%s%" PRId64 " WHERE ts>= %" PRIu64,
+                    aggreFunc[j], database->dbName, stbInfo->childTblPrefix, i,
                     (uint64_t)DEFAULT_START_TIME);
             }
 
@@ -438,12 +453,16 @@ void queryAggrFunc() {
     threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), false);
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-    pThreadInfo->taos = select_one_from_pool(database->dbName);
+    pThreadInfo->conn = init_bench_conn();
+    if (pThreadInfo->conn == NULL) {
+        return;
+    }
     if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
+    close_bench_conn(pThreadInfo->conn);
     free(pThreadInfo);
 }
