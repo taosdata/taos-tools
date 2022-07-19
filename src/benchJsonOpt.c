@@ -673,6 +673,13 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (host && host->type == tools_cJSON_String && host->valuestring != NULL) {
         g_arguments->host = host->valuestring;
     }
+#ifdef WEBSOCKET
+    tools_cJSON *dsn = tools_cJSON_GetObjectItem(json, "dsn");
+    if (tools_cJSON_IsString(dsn)) {
+        g_arguments->dsn = dsn->valuestring;
+        g_arguments->websocket = true;
+    }
+#endif
 
     tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
     if (port && port->type == tools_cJSON_Number) {
@@ -711,8 +718,16 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (threadspool && threadspool->type == tools_cJSON_Number) {
         g_arguments->connection_pool = (uint32_t)threadspool->valueint;
     }
+#ifdef WEBSOCKET
+    if (!g_arguments->websocket) {
+#endif
+        if (init_taos_list()) {
+            return -1;
+        }
+#ifdef WEBSOCKET
+    }
+#endif
 
-    if (init_taos_list()) goto PARSE_OVER;
 
     tools_cJSON *numRecPerReq = tools_cJSON_GetObjectItem(json, "num_of_records_per_req");
     if (numRecPerReq && numRecPerReq->type == tools_cJSON_Number) {
@@ -883,7 +898,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         } else {
             g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         }
-        
+
         tools_cJSON *mixedQueryObj = tools_cJSON_GetObjectItem(specifiedQuery, "mixed_query");
         if (tools_cJSON_IsString(mixedQueryObj)) {
             if (0 == strcasecmp(mixedQueryObj->valuestring, "yes")) {
@@ -985,7 +1000,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                     sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size -1);
                     sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
-                    
+
                     tools_cJSON *sqlStr = tools_cJSON_GetObjectItem(sqlObj, "sql");
                     if (tools_cJSON_IsString(sqlStr)) {
                         sql->command = benchCalloc(1, strlen(sqlStr->valuestring) + 1, true);

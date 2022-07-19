@@ -76,6 +76,11 @@
 #include "taos.h"
 #include "toolsdef.h"
 #include "taoserror.h"
+
+#ifdef WEBSOCKET
+#include "taosws.h"
+#endif
+
 #if defined(WIN32) || defined(WIN64)
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
@@ -258,7 +263,7 @@ typedef enum enumQUERY_CLASS {
     STABLE_CLASS,
     CLASS_BUT
 } QUERY_CLASS;
- 
+
 enum _show_db_index {
     TSDB_SHOW_DB_NAME_INDEX,
     TSDB_SHOW_DB_CREATED_TIME_INDEX,
@@ -503,11 +508,23 @@ typedef struct SArguments_S {
 #endif
     bool               terminate;
     bool               in_prompt;
+#ifdef WEBSOCKET
+    char*              dsn;
+    bool               websocket;
+#endif
 } SArguments;
 
+typedef struct SBenchConn{
+    TAOS* taos;
+    TAOS_STMT* stmt;
+#ifdef WEBSOCKET
+    WS_TAOS* taos_ws;
+    WS_STMT* stmt_ws;
+#endif
+} SBenchConn;
+
 typedef struct SThreadInfo_S {
-    TAOS *     taos;
-    TAOS_STMT *stmt;
+    SBenchConn* conn;
     uint64_t * bind_ts;
     uint64_t * bind_ts_array;
     char *     bindParams;
@@ -529,8 +546,8 @@ typedef struct SThreadInfo_S {
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    uint32_t   db_index;
-    uint32_t   stb_index;
+    SDataBase* dbInfo;
+    SSuperTable* stbInfo;
     char **    sml_tags;
     tools_cJSON *    json_array;
     tools_cJSON *    sml_json_tags;
@@ -549,7 +566,7 @@ typedef struct SQueryThreadInfo_S {
     int threadId;
     BArray*  query_delay_list;
     int   sockfd;
-    TAOS* taos;
+    SBenchConn* conn;
     int64_t total_delay;
 } queryThreadInfo;
 
@@ -604,7 +621,9 @@ void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
-int     queryDbExec(TAOS *taos, char *command);
+int     queryDbExec(SBenchConn *conn, char *command);
+SBenchConn* init_bench_conn();
+void close_bench_conn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);

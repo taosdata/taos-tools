@@ -195,7 +195,7 @@ void prompt(bool nonStopMode) {
                 "taosBenchmark will continuously insert data unless you press "
                 "Ctrl-C to end it.\n\n         press enter key to continue and "
                 "Ctrl-C to "
-                "stop\n\n"); 
+                "stop\n\n");
             (void)getchar();
         } else {
             printf(
@@ -295,18 +295,70 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command) {
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t   code = taos_errno(res);
-
-    if (code != 0) {
-        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
-                       taos_errstr(res));
-        taos_free_result(res);
-        return -1;
+SBenchConn* init_bench_conn() {
+    SBenchConn* conn = benchCalloc(1, sizeof(SBenchConn), true);
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        conn->taos_ws = ws_connect_with_dsn(g_arguments->dsn);
+        if (conn->taos_ws == NULL) {
+            errorPrint(stderr, "failed to connect %s, reason: %s\n",
+                    g_arguments->dsn, ws_errstr(NULL));
+            tmfree(conn);
+            return NULL;
+        }
+    } else {
+#endif
+        conn->taos = select_one_from_pool(NULL);
+        if (conn->taos == NULL) {
+            tmfree(conn);
+            return NULL;
+        }
+#ifdef WEBSOCKET
     }
+#endif
+    return conn;
+}
 
-    taos_free_result(res);
+void close_bench_conn(SBenchConn* conn) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        ws_close(conn->taos_ws);
+    } else {
+#endif
+        taos_close(conn->taos);
+#ifdef WEBSOCKET
+    }
+#endif
+    tmfree(conn);
+}
+
+int queryDbExec(SBenchConn *conn, char *command) {
+    int32_t code;
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        WS_RES* res = ws_query(conn->taos_ws, command);
+        code = ws_errno(res);
+        if (code != 0) {
+            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+                    ws_errstr(res));
+            ws_free_result(res);
+            return -1;
+        }
+        ws_free_result(res);
+    } else {
+#endif
+        TAOS_RES *res = taos_query(conn->taos, command);
+        code = taos_errno(res);
+        if (code != 0) {
+            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+                       taos_errstr(res));
+            taos_free_result(res);
+            return -1;
+        }
+        taos_free_result(res);
+#ifdef WEBSOCKET
+    }
+#endif
     return 0;
 }
 
@@ -485,7 +537,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         code = 0;
         goto free_of_post;
     }
-    
+
     if (NULL != strstr(response_buf, influxHttpOk) &&
         protocol == TSDB_SML_LINE_PROTOCOL && iface == SML_REST_IFACE) {
         code = 0;
@@ -497,7 +549,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         code = 0;
         goto free_of_post;
     }
-    
+
     if (g_arguments->test_mode == INSERT_TEST) {
         debugPrint(stdout, "Response: \n%s\n", response_buf);
         char* start = strstr(response_buf, "{");

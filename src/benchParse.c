@@ -85,6 +85,9 @@ static struct argp_option options[] = {
      "Random data source size, default is 10000."},
     {"connection_pool", 'H', "NUMBER", 0,
      "size of the pre-connected client in connection pool, default is 8"},
+#ifdef WEBSOCKET
+    {"cloud_dsn", 'W', "DSN", 0, "The dsn to connect TDengine cloud service."},
+#endif
     {0}};
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -311,6 +314,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         database->dbCfg.replica = 1;
       }
       break;
+#ifdef WEBSOCKET
+    case 'W':
+      g_arguments->dsn = arg;
+#endif
     case 'g':
       arguments->debug_print = true;
       break;

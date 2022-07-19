@@ -224,7 +224,15 @@ void init_argument() {
 void modify_argument() {
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable *superTable = benchArrayGet(database->superTbls, 0);
-    if (init_taos_list()) exit(EXIT_FAILURE);
+#ifdef WEBSOCKET
+    if (!g_arguments->websocket) {
+#endif
+        if (init_taos_list()) {
+            exit(EXIT_FAILURE);
+        }
+#ifdef WEBSOCKET
+    }
+#endif
 
     if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
@@ -271,7 +279,7 @@ void modify_argument() {
 
 static void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->taos;
+    TAOS *      taos = pThreadInfo->conn->taos;
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryStableAggrFunc");
 #endif
@@ -355,7 +363,7 @@ static void *queryStableAggrFunc(void *sarg) {
 
 static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->taos;
+    TAOS *      taos = pThreadInfo->conn->taos;
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
 #endif
@@ -438,7 +446,7 @@ void queryAggrFunc() {
     threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), false);
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-    pThreadInfo->taos = select_one_from_pool(database->dbName);
+    pThreadInfo->conn = init_bench_conn();
     if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {
