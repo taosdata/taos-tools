@@ -4035,11 +4035,20 @@ void *queryDbForDumpOutOffset(
 {
     char sqlstr[COMMAND_SIZE] = {0};
 
-    sprintf(sqlstr,
-            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
-            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
-            dbName, g_escapeChar, tbName, g_escapeChar,
-            start_time, end_time, limit, offset);
+    if (-1 == limit) {
+        sprintf(sqlstr,
+                "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC ;",
+                dbName, g_escapeChar, tbName, g_escapeChar,
+                start_time, end_time);
+    } else {
+        sprintf(sqlstr,
+                "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " OFFSET %" PRId64 ";",
+                dbName, g_escapeChar, tbName, g_escapeChar,
+                start_time, end_time, limit, offset);
+    }
+
     void *res = NULL;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -8411,10 +8420,16 @@ static int createMTableAvroHead(
     }
 
     if (3 == g_majorVersionOfClient) {
-        sprintf(command,
-                "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                dbName, g_escapeChar, stable, g_escapeChar,
-                limit, offset);
+        if (-1 == limit) {
+            sprintf(command,
+                    "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
+                    dbName, g_escapeChar, stable, g_escapeChar);
+        } else {
+            sprintf(command,
+                    "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                    dbName, g_escapeChar, stable, g_escapeChar,
+                    limit, offset);
+        }
     } else {
         sprintf(command,
                 "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
@@ -8775,11 +8790,6 @@ static int checkParam() {
             && (0 == g_args.arg_list_len)) {
         errorPrint("%s", "Invalid option in dump out\n");
         return -1;
-    }
-
-    if ((!g_args.isDumpIn) && (g_args.data_batch_input)) {
-        warnPrint("%s", "Data batch option '-B' is not used for dump out\n");
-        prompt();
     }
 
     g_fpOfResult = fopen(g_args.resultFile, "a");
@@ -9567,7 +9577,7 @@ static void dumpNormalTablesOfStbWS(
                         __func__, __LINE__, value0, type, len);
                 continue;
             }
-            memset(tbName, 0, WS_VALUE_BUF_LEN);
+            memset(tbName, 0, TSDB_TABLE_NAME_LEN);
             memcpy(tbName, value0, len);
             strncpy(((TableInfo *)(g_tablesList + count))->name,
                     tbName,
@@ -9738,10 +9748,16 @@ static void *dumpNormalTablesOfStb(void *arg) {
 
     char command[COMMAND_SIZE];
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                pThreadInfo->dbName,
-                g_escapeChar, pThreadInfo->stbName, g_escapeChar,
-                pThreadInfo->count, pThreadInfo->from);
+        if (-1 == pThreadInfo->count) {
+            sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
+                    pThreadInfo->dbName,
+                    g_escapeChar, pThreadInfo->stbName, g_escapeChar);
+        } else {
+            sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
+                    pThreadInfo->dbName,
+                    g_escapeChar, pThreadInfo->stbName, g_escapeChar,
+                    pThreadInfo->count, pThreadInfo->from);
+        }
     } else {
         sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
                 pThreadInfo->dbName,
@@ -9863,6 +9879,11 @@ static int64_t dumpNtbOfDbByThreads(
 #ifdef WEBSOCKET
 static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 {
+    if (0 == dbInfo->ntables) {
+        errorPrint("%s() LN%d, database: %s has 0 tables\n",
+                __func__, __LINE__, dbInfo->name);
+        return 0;
+    }
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
     if (NULL == ws_taos) {
         errorPrint(
@@ -9998,6 +10019,11 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 
 static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
 {
+    if (0 == dbInfo->ntables) {
+        errorPrint("%s() LN%d, database: %s has 0 tables\n",
+                __func__, __LINE__, dbInfo->name);
+        return 0;
+    }
     TAOS *taos = taos_connect(g_args.host,
             g_args.user, g_args.password, dbInfo->name, g_args.port);
     if (NULL == taos) {
@@ -10545,7 +10571,7 @@ static bool fillDBInfoWithFieldsWS(
                     __func__, __LINE__, row, f);
             return false;
         } else {
-            memset(tmp, 0, 4096);
+            memset(tmp, 0, WS_VALUE_BUF_LEN);
             memcpy(tmp, value, len);
             strncpy(g_dbInfos[index]->name,
                     tmp, len);
@@ -10700,7 +10726,7 @@ static bool fillDBInfoWithFieldsWS(
 
 #endif // WEBSOCKET
 
-static bool fillDBInfoWithFields(const int index,
+static bool fillDBInfoWithFieldsNative(const int index,
         const TAOS_FIELD *fields, const TAOS_ROW row,
         const int *lengths, int fieldCount) {
     for (int f = 0; f < fieldCount; f++) {
@@ -10851,6 +10877,58 @@ static bool fillDBInfoWithFields(const int index,
 }
 
 #ifdef WEBSOCKET
+static int fillDbExtraInfoV3WS(
+        void *ws_taos,
+        const char *dbName,
+        const int dbIndex) {
+    int ret = 0;
+    char command[COMMAND_SIZE];
+    sprintf(command, "select count(table_name) from information_schema.user_tables where db_name='%s'", dbName);
+
+    WS_RES *ws_res = ws_query(ws_taos, command);
+    int32_t code = ws_errno(ws_res);
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                __func__, __LINE__, command, ws_errstr(ws_res));
+        ret = -1;
+    } else{
+        while (true) {
+            int rows = 0;
+            const void *data = NULL;
+            code = ws_fetch_block(ws_res, &data, &rows);
+
+            if (0 == rows) {
+                debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                        "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                        __func__, __LINE__,
+                        ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                break;
+            }
+
+            uint8_t type;
+            uint32_t len;
+            for (int row = 0; row < rows; row ++) {
+                const void *value0 = ws_get_value_in_block(ws_res, row,
+                        TSDB_SHOW_DB_NAME_INDEX,
+                        &type, &len);
+                if (NULL == value0) {
+                    errorPrint("row: %d, ws_get_value_in_block() error!\n",
+                            row);
+                    continue;
+                }
+
+                if (TSDB_DATA_TYPE_BIGINT == type) {
+                    g_dbInfos[dbIndex]->ntables = *(int64_t*) value0;
+                } else {
+                    errorPrint("%s() LN%d, type: %d, not converted\n",
+                            __func__, __LINE__, type);
+                }
+            }
+        }
+    }
+
+    return ret;
+}
 static int fillDbInfoWS(void *taos) {
     int ret = 0;
     int dbIndex = 0;
@@ -10956,6 +11034,11 @@ static int fillDbInfoWS(void *taos) {
                 }
             }
 
+            if (3 == g_majorVersionOfClient) {
+                fillDbExtraInfoV3WS(taos,
+                        g_dbInfos[dbIndex]->name, dbIndex);
+            }
+
             dbIndex ++;
 
             if (g_args.databases) {
@@ -10978,7 +11061,38 @@ static int fillDbInfoWS(void *taos) {
 }
 #endif // WEBSOCKET
 
-static int fillDbInfo(void *taos) {
+static int fillDbExtraInfoV3Native(
+        void *taos,
+        const char *dbName,
+        const int dbIndex) {
+    int ret = 0;
+    char command[COMMAND_SIZE];
+    sprintf(command, "select count(table_name) from information_schema.user_tables where db_name='%s'", dbName);
+
+    TAOS_RES *res = taos_query(taos, command);
+    int32_t code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
+                __func__, __LINE__, command, taos_errstr(res));
+        ret = -1;
+    } else {
+        TAOS_ROW row;
+        TAOS_FIELD *fields = taos_fetch_fields(res);
+
+        while ((row = taos_fetch_row(res)) != NULL) {
+            if (TSDB_DATA_TYPE_BIGINT == fields[0].type) {
+                g_dbInfos[dbIndex]->ntables = *(int64_t *)row[0];
+            } else {
+                errorPrint("%s() LN%d, type: %d, not converted\n",
+                        __func__, __LINE__, fields[0].type);
+            }
+        }
+    }
+
+    return ret;
+}
+
+static int fillDbInfoNative(void *taos) {
     int ret = 0;
     int dbIndex = 0;
 
@@ -11031,10 +11145,14 @@ static int fillDbInfo(void *taos) {
 
             okPrint("Database: %s exists\n", dbName);
 
-            if (false == fillDBInfoWithFields(dbIndex,
+            if (false == fillDBInfoWithFieldsNative(dbIndex,
                         fields, row, lengths, fieldCount)) {
                 ret = -1;
                 break;
+            }
+
+            if (3 == g_majorVersionOfClient) {
+                fillDbExtraInfoV3Native(taos, dbName, dbIndex);
             }
 
             dbIndex ++;
@@ -11132,7 +11250,7 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
-        dbCount = fillDbInfo(taos);
+        dbCount = fillDbInfoNative(taos);
 #ifdef WEBSOCKET
     }
 #endif
