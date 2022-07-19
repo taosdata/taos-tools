@@ -317,6 +317,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 #ifdef WEBSOCKET
     case 'W':
       g_arguments->dsn = arg;
+      break;
 #endif
     case 'g':
       arguments->debug_print = true;

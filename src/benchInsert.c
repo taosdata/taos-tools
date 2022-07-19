@@ -1536,10 +1536,12 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                     tools_cJSON_Delete(pThreadInfo->sml_json_tags);
                     tools_cJSON_Delete(pThreadInfo->json_array);
                 }
+                close_bench_conn(pThreadInfo->conn);
                 tmfree(pThreadInfo->lines);
                 break;
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
+                close_bench_conn(pThreadInfo->conn);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
@@ -1547,6 +1549,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 break;
             case TAOSC_IFACE:
                 tmfree(pThreadInfo->buffer);
+                close_bench_conn(pThreadInfo->conn);
                 break;
             default:
                 break;
