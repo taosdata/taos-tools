@@ -2182,8 +2182,8 @@ static int getTableDesColWS(
         if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
 
         char sqlstr[COMMAND_SIZE] = {0};
-        sprintf(sqlstr, "SELECT %s FROM %s.%s%s%s",
-                tableDes->cols[i].field,
+        sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s",
+                g_escapeChar, tableDes->cols[i].field, g_escapeChar,
                 dbName, g_escapeChar, table, g_escapeChar);
 
         debugPrint("%s() LN%d, sqlstr: %s\n", __func__, __LINE__, sqlstr);
@@ -2388,8 +2388,8 @@ static int getTableDesColNative(
         if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
 
         char sqlstr[COMMAND_SIZE] = {0};
-        sprintf(sqlstr, "SELECT %s FROM %s.%s%s%s",
-                tableDes->cols[i].field,
+        sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s",
+                g_escapeChar, tableDes->cols[i].field, g_escapeChar,
                 dbName, g_escapeChar, table, g_escapeChar);
 
         TAOS_RES *res = taos_query(taos, sqlstr);
