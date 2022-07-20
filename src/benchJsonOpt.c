@@ -398,7 +398,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
         superTable->escape_character = false;
         superTable->autoCreateTable = false;
-        superTable->no_check_for_affected_rows = false;
         superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
         superTable->childTblExists = false;
         superTable->random_data_source = true;
@@ -451,18 +450,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             !database->drop) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
-        }
-
-        tools_cJSON *affectRowObj = tools_cJSON_GetObjectItem(stbInfo, "no_check_for_affected_rows");
-        if (tools_cJSON_IsString(affectRowObj)) {
-            if (0 == strcasecmp(affectRowObj->valuestring, "yes")) {
-                superTable->no_check_for_affected_rows = true;
-            } else if (0 == strcasecmp(affectRowObj->valuestring, "no")) {
-                superTable->no_check_for_affected_rows = false;
-            } else {
-                errorPrint(stderr, "Invalid value for 'no_check_for_affected_rows': %s\n", affectRowObj->valuestring);
-                return -1;
-            }
         }
 
         tools_cJSON *count = tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
@@ -686,6 +673,13 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (host && host->type == tools_cJSON_String && host->valuestring != NULL) {
         g_arguments->host = host->valuestring;
     }
+#ifdef WEBSOCKET
+    tools_cJSON *dsn = tools_cJSON_GetObjectItem(json, "dsn");
+    if (tools_cJSON_IsString(dsn)) {
+        g_arguments->dsn = dsn->valuestring;
+        g_arguments->websocket = true;
+    }
+#endif
 
     tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
     if (port && port->type == tools_cJSON_Number) {
@@ -720,12 +714,24 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         g_arguments->table_threads = (uint32_t)table_theads->valueint;
     }
 
-    tools_cJSON *threadspool = tools_cJSON_GetObjectItem(json, "connection_pool_size");
-    if (threadspool && threadspool->type == tools_cJSON_Number) {
-        g_arguments->connection_pool = (uint32_t)threadspool->valueint;
+#ifdef WEBSOCKET
+    if (!g_arguments->websocket) {
+#endif
+#ifdef LINUX
+    if (strlen(configDir)) {
+        wordexp_t full_path;
+        if (wordexp(configDir, &full_path, 0) != 0) {
+            errorPrint(stderr, "Invalid path %s\n", configDir);
+            exit(EXIT_FAILURE);
+        }
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
     }
+#endif
+#ifdef WEBSOCKET
+    }
+#endif
 
-    if (init_taos_list()) goto PARSE_OVER;
 
     tools_cJSON *numRecPerReq = tools_cJSON_GetObjectItem(json, "num_of_records_per_req");
     if (numRecPerReq && numRecPerReq->type == tools_cJSON_Number) {
@@ -844,11 +850,6 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         g_queryInfo.reset_query_cache = false;
     }
 
-    tools_cJSON *threadspool = tools_cJSON_GetObjectItem(json, "connection_pool_size");
-    if (tools_cJSON_IsNumber(threadspool)) {
-        g_arguments->connection_pool = (uint32_t)threadspool->valueint;
-    }
-
     tools_cJSON *respBuffer = tools_cJSON_GetObjectItem(json, "response_buffer");
     if (tools_cJSON_IsNumber(respBuffer)) {
         g_queryInfo.response_buffer = respBuffer->valueint;
@@ -896,7 +897,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         } else {
             g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         }
-        
+
         tools_cJSON *mixedQueryObj = tools_cJSON_GetObjectItem(specifiedQuery, "mixed_query");
         if (tools_cJSON_IsString(mixedQueryObj)) {
             if (0 == strcasecmp(mixedQueryObj->valuestring, "yes")) {
@@ -998,7 +999,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                     sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size -1);
                     sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
-                    
+
                     tools_cJSON *sqlStr = tools_cJSON_GetObjectItem(sqlObj, "sql");
                     if (tools_cJSON_IsString(sqlStr)) {
                         sql->command = benchCalloc(1, strlen(sqlStr->valuestring) + 1, true);

@@ -31,6 +31,9 @@ void* benchCancelHandler(void* arg) {
         toolsMsleep(10);
     }
     infoPrint(stdout, "%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
+    if(g_arguments->in_prompt) {
+        exit(EXIT_SUCCESS);
+    }
     g_arguments->terminate = true;
     return NULL;
 }
@@ -48,6 +51,19 @@ int main(int argc, char* argv[]) {
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
 #endif
     commandLineParseArgument(argc, argv);
+#ifdef WEBSOCKET
+    if (g_arguments->dsn != NULL) {
+        g_arguments->websocket = true;
+    } else {
+        char * dsn = getenv("TDENGINE_CLOUD_DSN");
+        if (dsn != NULL) {
+            g_arguments->dsn = dsn;
+            g_arguments->websocket = true;
+        } else {
+            g_arguments->dsn = false;
+        }
+    }
+#endif
     if (g_arguments->metaFile) {
         g_arguments->g_totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
@@ -71,7 +87,7 @@ int main(int argc, char* argv[]) {
         if (subscribeTestProcess(g_arguments)) exit(EXIT_FAILURE);
     }
     if (g_arguments->aggr_func) {
-        queryAggrFunc(g_arguments, g_arguments->pool);
+        queryAggrFunc();
     }
     postFreeResource();
     return 0;

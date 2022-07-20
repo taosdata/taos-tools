@@ -710,9 +710,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     }
 }
 
-int prepare_sample_data(int db_index, int stb_index) {
-    SDataBase *  database = benchArrayGet(g_arguments->databases, db_index);
-    SSuperTable *stbInfo = benchArrayGet(database->superTbls, stb_index);
+int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
     stbInfo->lenOfCols = calcRowLen(stbInfo->cols, stbInfo->iface);
     stbInfo->lenOfTags = calcRowLen(stbInfo->tags, stbInfo->iface);
     if (stbInfo->partialColumnNum != 0 &&
@@ -779,7 +777,9 @@ int prepare_sample_data(int db_index, int stb_index) {
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
-        if (stbInfo->tcpTransfer && stbInfo->iface == SML_REST_IFACE) {
+    if (stbInfo->tcpTransfer
+            && stbInfo->iface == SML_REST_IFACE
+            && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
             if (convertHostToServAddr(g_arguments->host,
                                       g_arguments->telnet_tcp_port,
                                       &(g_arguments->serv_addr))) {
@@ -811,9 +811,8 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 }
 
 int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
-    TAOS_STMT *  stmt = pThreadInfo->stmt;
-    SDataBase *  database = benchArrayGet(g_arguments->databases, pThreadInfo->db_index);
-    SSuperTable *stbInfo = benchArrayGet(database->superTbls, pThreadInfo->stb_index);
+    TAOS_STMT *  stmt = pThreadInfo->conn->stmt;
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
     memset(pThreadInfo->bindParams, 0,
            (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));

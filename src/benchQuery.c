@@ -24,7 +24,12 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
             return -1;
         }
     } else {
-        TAOS_RES *res = taos_query(pThreadInfo->taos, command);
+        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+            errorPrint(stderr, "thread[%d]: failed to select database(%s)\n",
+                pThreadInfo->threadID, g_queryInfo.dbName);
+            return -1;
+        }
+        TAOS_RES *res = taos_query(pThreadInfo->conn->taos, command);
         if (res == NULL || taos_errno(res) != 0) {
             errorPrint(stderr, "failed to execute sql:%s, reason:%s\n", command,
                        taos_errstr(res));
@@ -55,7 +60,7 @@ static void *mixedQuery(void *sarg) {
                 return NULL;
             }
             if (g_queryInfo.reset_query_cache) {
-                queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE, false, false);
+                queryDbExec(pThreadInfo->conn, "reset query cache");
             }
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
@@ -65,9 +70,17 @@ static void *mixedQuery(void *sarg) {
                     continue;
                 }
             } else {
-                TAOS_RES *res = taos_query(pThreadInfo->taos, sql->command);
-                if (res == NULL) {
-                    errorPrint(stderr, "thread[%d]: failed to execute sql :%s, reason: %s\n",pThreadInfo->threadId, sql->command, taos_errstr(res));
+                if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+                    errorPrint(stderr, "thread[%d]: failed to select database(%s)\n",
+                            pThreadInfo->threadId, g_queryInfo.dbName);
+                    return NULL;
+                }
+                TAOS_RES *res = taos_query(pThreadInfo->conn->taos, sql->command);
+                if (res == NULL || taos_errno(res) != 0) {
+                    errorPrint(stderr, "thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",pThreadInfo->threadId, sql->command, taos_errno(res), taos_errstr(res));
+                    if(TSDB_CODE_RPC_NETWORK_UNAVAIL == taos_errno(res)) {
+                        return NULL;
+                    }
                     continue;
                 }
             }
@@ -116,7 +129,7 @@ static void *specifiedTableQuery(void *sarg) {
                                  (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            queryDbExec(pThreadInfo->taos, "reset query cache", NO_INSERT_TYPE, false, false);
+            queryDbExec(pThreadInfo->conn, "reset query cache");
         }
 
         st = toolsGetTimestampUs();
@@ -248,8 +261,6 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
         for (int i = 0; i < threads; i++) {
             threadInfo *pThreadInfo = infosOfSub + i;
             pThreadInfo->threadID = i;
-            pThreadInfo->db_index = 0;
-            pThreadInfo->stb_index = 0;
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
             pThreadInfo->end_table_to =
@@ -282,9 +293,8 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                 }
                 pThreadInfo->sockfd = sockfd;
             } else {
-                pThreadInfo->taos =
-                        select_one_from_pool(dbName);
-                if (pThreadInfo->taos == NULL) {
+                pThreadInfo->conn = init_bench_conn();
+                if (pThreadInfo->conn == NULL) {
                     goto OVER;
                 }
             }
@@ -294,14 +304,16 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
 
         for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
             pthread_join(pidsOfSub[i], NULL);
+            threadInfo *pThreadInfo = infosOfSub + i;
             if (iface == REST_IFACE) {
-                threadInfo *pThreadInfo = infosOfSub + i;
 #ifdef WINDOWS
                 closesocket(pThreadInfo->sockfd);
             WSACleanup();
 #else
                 close(pThreadInfo->sockfd);
 #endif
+            } else {
+                close_bench_conn(pThreadInfo->conn);
             }
             if (g_fail) {
                 goto OVER;
@@ -343,9 +355,6 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->db_index = 0;
-                pThreadInfo->stb_index = 0;
-
                 if (iface == REST_IFACE) {
 #ifdef WINDOWS
                     WSADATA wsaData;
@@ -386,9 +395,8 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     }
                     pThreadInfo->sockfd = sockfd;
                 } else {
-                    pThreadInfo->taos =
-                            select_one_from_pool(dbName);
-                    if (pThreadInfo->taos == NULL) {
+                    pThreadInfo->conn = init_bench_conn();
+                    if (pThreadInfo->conn == NULL) {
                         return -1;
                     }
                 }
@@ -399,14 +407,16 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
             for (int j = 0; j < nConcurrent; j++) {
                 uint64_t seq = i * nConcurrent + j;
                 pthread_join(pids[seq], NULL);
+                threadInfo *pThreadInfo = infos + seq;
                 if (iface == REST_IFACE) {
-                    threadInfo *pThreadInfo = infos + j * nSqlCount + i;
 #ifdef WINDOWS
                     closesocket(pThreadInfo->sockfd);
                     WSACleanup();
 #else
                     close(pThreadInfo->sockfd);
 #endif
+                } else {
+                    close_bench_conn(pThreadInfo->conn);
                 }
                 if (g_fail) {
                     return -1;
@@ -505,8 +515,8 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
             }
             pQueryThreadInfo->sockfd = sockfd;
         } else {
-            pQueryThreadInfo->taos = select_one_from_pool(dbName);
-            if (pQueryThreadInfo->taos == NULL) {
+            pQueryThreadInfo->conn = init_bench_conn();
+            if (pQueryThreadInfo->conn == NULL) {
                 goto OVER;
             }
         }
@@ -535,7 +545,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
             close(pThreadInfo->sockfd);
 #endif
         } else {
-            taos_close(pThreadInfo->taos);
+            close_bench_conn(pThreadInfo->conn);
         }
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
@@ -565,7 +575,6 @@ OVER:
 }
 
 int queryTestProcess() {
-    if (init_taos_list()) return -1;
     encode_base_64();
     prompt(0);
     if (g_queryInfo.iface == REST_IFACE) {
@@ -579,11 +588,14 @@ int queryTestProcess() {
 
     if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
         (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-        TAOS *taos = select_one_from_pool(g_queryInfo.dbName);
+        SBenchConn* conn = init_bench_conn();
+        if (conn == NULL) {
+            return -1;
+        }
         char  cmd[SQL_BUFF_LEN] = "\0";
         snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
                  g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
-        TAOS_RES *res = taos_query(taos, cmd);
+        TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
             errorPrint(stderr,
@@ -613,13 +625,15 @@ int queryTestProcess() {
         g_queryInfo.superQueryInfo.childTblName =
                 benchCalloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *), false);
         if (getAllChildNameOfSuperTable(
-                taos, g_queryInfo.dbName,
+                conn->taos, g_queryInfo.dbName,
                 g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
             tmfree(g_queryInfo.superQueryInfo.childTblName);
+            close_bench_conn(conn);
             return -1;
         }
+        close_bench_conn(conn);
     }
 
     uint64_t startTs = toolsGetTimestampMs();
