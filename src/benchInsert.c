@@ -266,6 +266,10 @@ int createDatabase(SDataBase* database) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " CACHELAST %d", database->dbCfg.cacheLast);
     }
+    if (database->dbCfg.cache_model != NULL) {
+        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                " CACHEMODEL %s", database->dbCfg.cache_model);
+    }
     if (database->dbCfg.fsync >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " FSYNC %d", database->dbCfg.fsync);

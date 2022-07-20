@@ -385,7 +385,7 @@ typedef struct SDbCfg_S {
     int     vgroups;
     int     single_stable;
     char *  retentions;
-
+    char*   cache_model;
 } SDbCfg;
 
 typedef struct SSTREAM_S {

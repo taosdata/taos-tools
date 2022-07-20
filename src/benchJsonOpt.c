@@ -286,10 +286,6 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     if (tools_cJSON_IsNumber(keep)) {
         database->dbCfg.keep = (int)keep->valueint;
     }
-    tools_cJSON *days = tools_cJSON_GetObjectItem(db, "days");
-    if (tools_cJSON_IsNumber(days)) {
-        database->dbCfg.days = (int)days->valueint;
-    }
 
     tools_cJSON *maxRows = tools_cJSON_GetObjectItem(db, "maxRows");
     if (tools_cJSON_IsNumber(maxRows)) {
@@ -307,10 +303,6 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     tools_cJSON *fsync = tools_cJSON_GetObjectItem(db, "fsync");
     if (tools_cJSON_IsNumber(fsync)) {
         database->dbCfg.fsync = (int)fsync->valueint;
-    }
-    tools_cJSON *cacheLast = tools_cJSON_GetObjectItem(db, "cachelast");
-    if (tools_cJSON_IsNumber(cacheLast)) {
-        database->dbCfg.cacheLast = (int)cacheLast->valueint;
     }
     tools_cJSON *replica = tools_cJSON_GetObjectItem(db, "replica");
     if (tools_cJSON_IsNumber(replica)) {
@@ -344,7 +336,19 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(quorum)) {
             database->dbCfg.quorum = (int)quorum->valueint;
         }
+        tools_cJSON *days = tools_cJSON_GetObjectItem(db, "days");
+        if (tools_cJSON_IsNumber(days)) {
+            database->dbCfg.days = (int)days->valueint;
+        }
+        tools_cJSON *cacheLast = tools_cJSON_GetObjectItem(db, "cachelast");
+        if (tools_cJSON_IsNumber(cacheLast)) {
+            database->dbCfg.cacheLast = (int)cacheLast->valueint;
+        }
     } else if (g_arguments->taosc_version == 3) {
+        tools_cJSON *cacheModel = tools_cJSON_GetObjectItem(db, "cachemodel");
+        if (tools_cJSON_IsString(cacheModel)) {
+            database->dbCfg.cache_model = cacheModel->valuestring;
+        }
         tools_cJSON *buffer = tools_cJSON_GetObjectItem(db, "buffer");
         if (tools_cJSON_IsNumber(buffer)) {
             database->dbCfg.buffer = (int)buffer->valueint;
