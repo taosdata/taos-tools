@@ -578,7 +578,7 @@ struct arguments g_args = {
         0,      // dumpDbCount
 #ifdef WEBSOCKET
     false,      // restful
-    NULL,       // dsn 
+    NULL,       // dsn
     false,      // cloud
     {0},        // cloudHost
     0,          // cloudPort
