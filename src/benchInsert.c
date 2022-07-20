@@ -426,6 +426,7 @@ create_table_end:
 }
 
 static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* stbInfo) {
+    int code = -1;
     int          threads = g_arguments->table_threads;
     int64_t      ntables = stbInfo->childTblCount;
     pthread_t *  pids = benchCalloc(1, threads * sizeof(pthread_t), false);
@@ -441,6 +442,10 @@ static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* st
         a = 1;
     }
 
+    if (ntables == 0) {
+        errorPrint(stderr, "failed to create child table, childTblCount: %"PRId64"\n", ntables);
+        goto over;
+    }
     int64_t b = ntables % threads;
 
     for (int64_t i = 0; i < threads; i++) {
@@ -455,7 +460,7 @@ static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* st
         pThreadInfo->dbInfo = database;
         pThreadInfo->conn = init_bench_conn();
         if (pThreadInfo->conn == NULL) {
-            return -1;
+            goto over;
         }
         pThreadInfo->start_table_from = tableFrom;
         pThreadInfo->ntables = i < b ? a + 1 : a;
@@ -475,12 +480,14 @@ static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* st
         close_bench_conn(pThreadInfo->conn);
     }
 
+    if (g_fail) {
+        goto over;
+    }
+    code = 0;
+over:
     free(pids);
     free(infos);
-    if (g_fail) {
-        return -1;
-    }
-    return 0;
+    return code;
 }
 
 static int createChildTables() {
@@ -514,8 +521,6 @@ static int createChildTables() {
 
             code = startMultiThreadCreateChildTable(database, stbInfo);
             if (code && !g_arguments->terminate) {
-                errorPrint(stderr, "%s",
-                           "startMultiThreadCreateChildTable() failed\n");
                 return code;
             }
         }
