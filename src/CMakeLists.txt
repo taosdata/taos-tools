@@ -112,14 +112,22 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
     IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        IF (${TDENGINE_3})
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        ELSE()
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        ENDIF()
         ADD_DEFINITIONS(-DLINUX)
         EXECUTE_PROCESS (
-            COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
-            OUTPUT_VARIABLE OS_ID
-            )
+                COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+                OUTPUT_VARIABLE OS_ID
+        )
     ELSE ()
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        IF (${TDENGINE_3})
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        ELSE()
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        ENDIF()
         INCLUDE_DIRECTORIES(/usr/local/include)
         ADD_DEFINITIONS(-DDARWIN)
         SET(OS_ID "Darwin")
@@ -133,6 +141,12 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()
+
+    IF(${TDENGINE_3})
+        SET(OS_LINK_FLAGS "os")
+    ELSE()
+        SET("")
+    ENDIF()
 
     IF (${COVER} MATCHES "true")
         MESSAGE("${Green} build with coverage ${ColourReset}")
@@ -163,8 +177,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
         IF (${OS_ID} MATCHES "alpine")
             MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
+            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp ${WEBSOCKET_LINK_FLAGS})
-            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
         ELSEIF(${OS_ID} MATCHES "Darwin")
             ADD_LIBRARY(argp STATIC IMPORTED)
             IF (CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
@@ -174,7 +188,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 SET_PROPERTY(TARGET argp PROPERTY IMPORTED_LOCATION "/usr/local/lib/libargp.a")
                 INCLUDE_DIRECTORIES(/usr/local/include/include/)
             ENDIF ()
-            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${WEBSOCKET_LINK_FLAGS})
+            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ElSE ()
             MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread ${WEBSOCKET_LINK_FLAGS})
@@ -204,7 +218,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 INCLUDE_DIRECTORIES(/usr/local/include/)
             ENDIF ()
 
-            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${WEBSOCKET_LINK_FLAGS})
+            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ELSE ()
             ADD_LIBRARY(avro STATIC IMPORTED)
             IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
@@ -214,9 +228,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ENDIF()
 
             EXECUTE_PROCESS (
-                COMMAND gcc -print-file-name=libstdc++.a
-                OUTPUT_VARIABLE LIBSTDCXX_PATH
-                )
+                    COMMAND gcc -print-file-name=libstdc++.a
+                    OUTPUT_VARIABLE LIBSTDCXX_PATH
+            )
 
             STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
             MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
@@ -228,8 +242,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ELSE()
                 TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread ${WEBSOCKET_LINK_FLAGS})
             ENDIF()
-
-            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
+            TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ENDIF ()
 
     ENDIF ()
@@ -247,6 +260,5 @@ ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()
 
-    TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson os ${WEBSOCKET_LINK_FLAGS})
+    TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
 ENDIF ()
-

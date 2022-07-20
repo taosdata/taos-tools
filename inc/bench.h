@@ -48,14 +48,11 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <netdb.h>
-
-#elif defined(WIN32) || defined(WIN64)
-
-#include "os.h"
-
 #endif
 
-
+#ifdef TDENGINE_3
+#include "os.h"
+#endif
 #include <regex.h>
 #include <stdio.h>
 #include <assert.h>
