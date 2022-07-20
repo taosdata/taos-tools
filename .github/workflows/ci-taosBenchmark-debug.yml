@@ -1,14 +1,12 @@
-name: CI (Debug)
+name: CI (taosBenchmark Debug)
 
 on:
-  paths:
-    - 'src/**'
-    - '!src/taosdump.c'
   push:
     branches: [ develop ]
   pull_request:
     branches: [ develop ]
-:
+    paths-ignore:
+      - 'src/taosdump**'
 
 env:
   TOOLS_BUILD_TYPE: Debug
@@ -75,24 +73,6 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-      - name: taosdump Func Test
-        run: |
-          cd TDengine/tests/pytest
-          python3 ./test.py -f tools/taosdumpTest.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-
-      - name: taosdump System Test
-        run: |
-          cd TDengine/tests/system-test
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
-          then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m system-test/$i success! \033[0m"|| echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
-          fi
-
       - name: taosBenchmark System Test
         run: |
           cd TDengine/tests/system-test
@@ -104,30 +84,12 @@ jobs:
             fi
           fi
 
-      - name: taosdump Old Test
-        run: |
-          cd TDengine/tests/system-test
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
-
       - name: taosBenchmark Old Test
         run: |
           cd TDengine/tests/pytest
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
           python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m TD-5213/insertSigcolumnsNum4096.py success! \033[0m"|| echo -e "\033[31m TD-5213/insertSigcolumnsNum4096.py failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
-
-      - name: taosdump Develop Test
-        run: |
-          cd TDengine/tests/develop-test
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-
-          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
-          then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
-          fi
 
       - name: taosBenchmark Develop Test
         run: |
@@ -145,10 +107,6 @@ jobs:
 
       - name: Check Test Result
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
-            cat ~/taosdump-failed.txt;
-            exit 1;
-          fi
           if [ -f ~/taosbenchmark-failed.txt ];then
             cat ~/taosbenchmark-failed.txt;
             exit 1;
