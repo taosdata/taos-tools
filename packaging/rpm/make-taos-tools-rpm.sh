@@ -28,7 +28,7 @@ echo "spec_file: ${spec_file}"
 
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 
 function cp_rpm_package() {
@@ -43,30 +43,33 @@ function cp_rpm_package() {
             cd ..
         fi
         if test -e ${dirlist}; then
-            cp ${cur_dir}/${dirlist} ${output_dir}/taos-tools-${taos_tools_ver}.rpm
+            cp ${cur_dir}/${dirlist} ${output_dir}/taosTools-${taos_tools_ver}.rpm
         fi
     done
 }
 
 if [ -d ${pkg_dir} ]; then
-  ${csudo} rm -rf ${pkg_dir}
+  ${csudo}rm -rf ${pkg_dir}
 fi
-${csudo} mkdir -p ${pkg_dir}
+${csudo}mkdir -p ${pkg_dir}
 cd ${pkg_dir}
 
-${csudo} mkdir -p BUILD BUILDROOT RPMS SOURCES SPECS SRPMS
+${csudo}mkdir -p BUILD BUILDROOT RPMS SOURCES SPECS SRPMS
 
-${csudo} rpmbuild --define="_version ${taos_tools_ver}" --define="_topdir ${pkg_dir}" --define="_compiledir ${compile_dir}" -bb ${spec_file}
+wget https://github.com/taosdata/grafanaplugin/releases/latest/download/TDinsight.sh -O ${compile_dir}/build/bin/TDinsight.sh && \
+    echo "TDinsight.sh downloaded!" || \
+    echo "failed to download TDinsight.sh"
+
+${csudo}rpmbuild --define="_version ${taos_tools_ver}" --define="_topdir ${pkg_dir}" --define="_compiledir ${compile_dir}" -bb ${spec_file}
 
 # copy rpm package to output_dir, and modify package name, then clean temp dir
-#${csudo} cp -rf RPMS/* ${output_dir}
+#${csudo}cp -rf RPMS/* ${output_dir}
 cp_rpm_package ${pkg_dir}/RPMS
 
-
-rpmname="taos-tools-"${taos_tools_ver}-${osType}-${cpuType}
+rpmname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
 
 if [ "$verType" == "beta" ]; then
-  rpmname="taos-tools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".rpm"
+  rpmname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".rpm"
 elif [ "$verType" == "stable" ]; then
   rpmname=${rpmname}".rpm"
 else
@@ -74,7 +77,7 @@ else
   exit 1
 fi
 
-mv ${output_dir}/taos-tools-${taos_tools_ver}.rpm ${output_dir}/${rpmname}
+mv ${output_dir}/taosTools-${taos_tools_ver}.rpm ${output_dir}/${rpmname}
 
 cd ..
-${csudo} rm -rf ${pkg_dir}
+${csudo}rm -rf ${pkg_dir}

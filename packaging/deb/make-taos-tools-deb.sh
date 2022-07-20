@@ -4,7 +4,11 @@
 set -e
 # set -x
 
-#curr_dir=$(pwd)
+dumpName="taosdump"
+benchmarkName="taosBenchmark"
+TDinsight="TDinsight.sh"
+
+deb_dir=$(pwd)
 top_dir=$1
 compile_dir=$2
 output_dir=$3
@@ -17,7 +21,7 @@ verType=$8
 script_dir="$(dirname $(readlink -f $0))"
 pkg_dir="${top_dir}/debworkroom"
 
-#echo "curr_dir: ${curr_dir}"
+echo "deb_dir: ${deb_dir}"
 #echo "top_dir: ${top_dir}"
 #echo "script_dir: ${script_dir}"
 echo "compile_dir: ${compile_dir}"
@@ -34,9 +38,16 @@ install_home_path="/usr/local/taos"
 mkdir -p ${pkg_dir}${install_home_path}
 mkdir -p ${pkg_dir}${install_home_path}/bin || :
 
-cp ${compile_dir}/build/bin/taosdump                     ${pkg_dir}${install_home_path}/bin
-cp ${compile_dir}/build/bin/taosBenchmark                ${pkg_dir}${install_home_path}/bin
-ln -sf ${pkg_dir}${install_home_path}/bin/taosBenchmark  ${pkg_dir}${install_home_path}/bin/taosdemo
+cp ${compile_dir}/build/bin/${dumpName}                     ${pkg_dir}${install_home_path}/bin
+#cp ${compile_dir}/build/bin/${benchmarkName}                ${pkg_dir}${install_home_path}/bin
+
+wget https://github.com/taosdata/grafanaplugin/releases/latest/download/TDinsight.sh -O ${compile_dir}/build/bin/${TDinsight} && \
+    echo "TDinsight.sh downloaded!" || \
+    echo "failed to download TDinsight.sh"
+
+[ -f ${compile_dir}/build/bin/${TDinsight} ] && \
+    chmod +x ${compile_dir}/build/bin/${TDinsight} && \
+    cp ${compile_dir}/build/bin/${TDinsight}                    ${pkg_dir}${install_home_path}/bin
 
 install_user_local_path="/usr/local"
 
@@ -50,13 +61,13 @@ if [ -f ${compile_dir}/build/lib/libavro.a ]; then
     cp ${compile_dir}/build/lib/libavro.a ${pkg_dir}${install_user_local_path}/lib/
 fi
 
-cp -r ${top_dir}/src/kit/taos-tools/packaging/deb/DEBIAN        ${pkg_dir}/
+cp -r ${deb_dir}/DEBIAN ${pkg_dir}/
 chmod 755 ${pkg_dir}/DEBIAN/*
 
-debname="taos-tools-"${taos_tools_ver}-${osType}-${cpuType}
+debname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
 
 if [ "$verType" == "beta" ]; then
-  debname="taos-tools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".deb"
+  debname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".deb"
 elif [ "$verType" == "stable" ]; then
   debname=${debname}".deb"
 else

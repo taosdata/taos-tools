@@ -1,0 +1,156 @@
+name: Codecov
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  TOOLS_BUILD_TYPE: Debug
+  PR_NUMBER: ${{ github.event.number }}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Run test for codecov report
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          path: 'taos-tools'
+          ref: 'develop'
+
+      - name: Step that prints name of pull request's base branch
+        run: |
+          echo "Pull request's base branch is: ${BASE_BRANCH}"
+          echo "Pull request's branch is: ${GITHUB_REF##*/}"
+          echo "Pull request's head ref is: ${GITHUB_HEAD_REF}"
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        if: github.event_name == 'pull_request'
+
+      - name: Checkout tdengine
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: 'develop'
+
+      - name: Change time zone
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          sudo date
+
+          #      - name: Checkout TDengine with same branch of taos-tools
+          #run: |
+          #cd TDengine
+          #git pull
+          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
+          #git submodule update --init --recursive
+          #if: github.event_name == 'pull_request'
+
+      - name: Install packages
+        run: sudo apt-get install lzma-dev libjansson-dev libsnappy-dev -y > /dev/null
+
+      - name: Checkout TDengine's taos-tools to PR number
+        if: github.event_name == 'pull_request'
+        run: |
+          cd TDengine/src/kit/taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
+      - name: Build & Install TDengine
+        run: |
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZER=true
+          make > /dev/null
+          sudo make install > /dev/null
+
+      - name: Test
+        run: |
+          cd TDengine/debug
+          ./build/bin/taosBenchmark --help
+          ./build/bin/taosdump --help
+          cd src/kit/taos-tools/
+          nohup sudo taosd &
+          sleep 10
+          ctest --verbose
+          cd ../../../../tests/pytest
+          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          python3 ./test.py -f tools/taosdumpTest.py
+          python3 ./test.py -f tools/taosdumpTest2.py
+          python3 ./test.py -f tools/taosdumpTest3.py
+          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+
+          python3 test.py -f tools/taosdemoTest.py
+          python3 test.py -f tools/taosdemoTestWithoutMetric.py
+          python3 test.py -f tools/taosdemoTestWithJson.py
+          python3 test.py -f tools/taosdemoTestLimitOffset.py
+          python3 test.py -f tools/taosdemoTestTblAlt.py
+          python3 test.py -f tools/taosdemoTestSampleData.py
+
+          python3 test.py -f tools/taosdemoTestQuery.py
+          python3 ./test.py -f tools/taosdemoTestdatatype.py
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoInsert.py
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanoQuery.py
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestSupportNanosubscribe.py
+          python3 test.py -f tools/taosdemoAllTest/NanoTestCase/taosdemoTestInsertTime_step.py
+
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJson.py
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestQueryWithJson.py
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertAllType.py
+          python3 test.py -f tools/taosdemoAllTest/TD-4985/query-limit-offset.py
+          python3 test.py -f tools/taosdemoAllTest/TD-5213/insert4096columns_not_use_taosdemo.py
+          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonStmt.py
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertWithJsonSml.py
+          python3 test.py -f tools/taosdemoAllTest/taosdemoTestInsertShell.py
+
+          cd ../develop-test
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+          cd ../system-test
+          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+
+          cd ../develop-test
+          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+          cd ../system-test
+          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          then
+            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m success! \033[0m"|| echo -e "\033[31m failed! \033[0m" ;done
+          fi
+
+      - name: Generate report
+        run: |
+          cd TDengine/debug
+          gcov -abcfu ../src/kit/taos-tools/src/taosdump.c -o src/kit/taos-tools/src/CMakeFiles/taosdump.dir/taosdump.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchMain.c -o src/kit/taos-tools/src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchCommandOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchData.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchData.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchInsert.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchInsert.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchJsonOpt.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchJsonOpt.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchOutput.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchOutput.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchQuery.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchQuery.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchSubscribe.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchSubscribe.c.gcno
+          gcov -abcfu ../src/kit/taos-tools/src/benchUtil.c -o src/kit/taos-tools/src/CMakeFiles/taosbench.dir/benchUtil.c.gcno
+
+      - name: Upload
+        uses: codecov/codecov-action@v2.1.0
+        with:
+         token: ${{ secrets.CODECOV_TOKEN }}
+         files: TDengine/debug/taosdump.c.gcov,TDengine/debug/benchMain.c.gcov,TDengine/debug/benchCommandOpt.c.gcov,TDengine/debug/benchData.c.gcov,TDengine/debug/benchInsert.c.gcov,TDengine/debug/benchJsonOpt.c.gcov,TDengine/debug/benchOutput.c.gcov,TDengine/debug/benchQuery.c.gcov,TDengine/debug/benchSubscribe.c.gcov,TDengine/debug/benchUtil.c.gcov

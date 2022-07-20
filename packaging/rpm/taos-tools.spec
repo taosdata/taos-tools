@@ -3,7 +3,7 @@
 %define cfg_install_dir  /etc/taos
 %define __strip /bin/true
 
-Name:		taos-tools
+Name:		taostools
 Version:	%{_version}
 Release:	3%{?dist}
 Summary:	from taosdata
@@ -18,7 +18,7 @@ BuildRoot:   %{_tmppath}/%{name}-%{version}-%{release}-root
 #Prefix: /usr/local/taos
 
 #BuildRequires:
-Requires: tdengine jansson snappy
+Requires: tdengine
 
 %description
 Big Data Platform Designed and Optimized for IoT
@@ -45,53 +45,57 @@ echo buildroot: %{buildroot}
 mkdir -p %{buildroot}%{homepath}/bin
 
 cp %{_compiledir}/build/bin/taosdump                %{buildroot}%{homepath}/bin
-cp %{_compiledir}/build/bin/taosBenchmark           %{buildroot}%{homepath}/bin
+#cp %{_compiledir}/build/bin/taosBenchmark           %{buildroot}%{homepath}/bin
+cp %{_compiledir}/build/bin/TDinsight.sh            %{buildroot}%{homepath}/bin
 
-if [ -f %{_compiledir}/build/lib/libavro.so.23.0.0 ]; then
-    mkdir -p %{buildroot}%{userlocalpath}/lib
-    cp %{_compiledir}/build/lib/libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib
-    ln -sf libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib/libavro.so.23
-    ln -sf libavro.so.23 %{buildroot}%{userlocalpath}/lib/libavro.so
-fi
+#if [ -f %{_compiledir}/build/lib/libavro.so.23.0.0 ]; then
+#    mkdir -p %{buildroot}%{userlocalpath}/lib
+#    cp %{_compiledir}/build/lib/libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib
+#    ln -sf libavro.so.23.0.0 %{buildroot}%{userlocalpath}/lib/libavro.so.23
+#    ln -sf libavro.so.23 %{buildroot}%{userlocalpath}/lib/libavro.so
+#fi
 
-if [ -f %{_compiledir}/build/lib/libavro.a ]; then
-    cp %{_compiledir}/build/lib/libavro.a %{buildroot}%{userlocalpath}/lib
-fi
+#if [ -f %{_compiledir}/build/lib/libavro.a ]; then
+#    cp %{_compiledir}/build/lib/libavro.a %{buildroot}%{userlocalpath}/lib
+#fi
 
 #Scripts executed before installation
 %pre
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 
 #Scripts executed after installation
 %post
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 
-${csudo} mkdir -p /usr/local/bin || :
-${csudo} ln -sf /usr/local/taos/bin/taosdump          /usr/local/bin/taosdump
-${csudo} ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosBenchmark
-${csudo} ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosdemo
+${csudo}mkdir -p /usr/local/bin || :
+${csudo}ln -sf /usr/local/taos/bin/taosdump          /usr/local/bin/taosdump
+
+if [[ -f /usr/local/taos/bin/taosBenchmark ]]; then
+    ${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosBenchmark
+    ${csudo}ln -sf /usr/local/taos/bin/taosBenchmark     /usr/local/bin/taosdemo
+fi
 
 if [[ -d /usr/local/lib64 ]]; then
-    ${csudo} ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23.0.0 || :
-    ${csudo} ln -sf /usr/local/lib64/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23 || :
-    ${csudo} ln -sf /usr/local/lib64/libavro.so.23 /usr/local/lib64/libavro.so || :
+    ${csudo}ln -sf /usr/local/lib/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23.0.0 || :
+    ${csudo}ln -sf /usr/local/lib64/libavro.so.23.0.0 /usr/local/lib64/libavro.so.23 || :
+    ${csudo}ln -sf /usr/local/lib64/libavro.so.23 /usr/local/lib64/libavro.so || :
 
     if [ -d /etc/ld.so.conf.d ]; then
-        ${csudo} echo "/usr/local/lib64" > /etc/ld.so.conf.d/libavro.conf
-        ${csudo} ldconfig
+        ${csudo}echo "/usr/local/lib64" > /etc/ld.so.conf.d/libavro.conf
+        ${csudo}ldconfig
     else
         echo "/etc/ld.so.conf.d not found!"
     fi
 else
     if [ -d /etc/ld.so.conf.d ]; then
-        ${csudo} echo "/usr/local/lib" > /etc/ld.so.conf.d/libavro.conf
-        ${csudo} ldconfig
+        ${csudo}echo "/usr/local/lib" > /etc/ld.so.conf.d/libavro.conf
+        ${csudo}ldconfig
     else
         echo "/etc/ld.so.conf.d not found!"
     fi
@@ -101,12 +105,12 @@ fi
 %preun
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
 # only remove package to call preun.sh, not but update(2)
-${csudo} rm -f /usr/local/bin/taosdump      || :
-${csudo} rm -f /usr/local/bin/taosBenchmark || :
-${csudo} rm -f /usr/local/bin/taosdemo      || :
+${csudo}rm -f /usr/local/bin/taosdump      || :
+#${csudo}rm -f /usr/local/bin/taosBenchmark || :
+#${csudo}rm -f /usr/local/bin/taosdemo      || :
 
 # Scripts executed after uninstall
 %postun
@@ -115,9 +119,9 @@ ${csudo} rm -f /usr/local/bin/taosdemo      || :
 %clean
 csudo=""
 if command -v sudo > /dev/null; then
-    csudo="sudo"
+    csudo="sudo "
 fi
-${csudo} rm -rf %{buildroot}
+${csudo}rm -rf %{buildroot}
 
 #Specify the files to be packaged
 %files

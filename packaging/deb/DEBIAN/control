@@ -1,9 +1,9 @@
-Package: taos-tools
+Package: taostools
 Version: 1.0.0
 Section: utils
 Priority: optional
 #Essential: no
-Depends: tdengine, libjansson4, libsnappy1v5
+Depends: tdengine
 #Suggests: no
 Architecture: amd64
 Installed-Size: 66666
