@@ -57,7 +57,36 @@ jobs:
           BASE_BRANCH: ${{ github.base_ref }}
         if: github.event_name == 'pull_request'
 
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v23.2
+
+      - name: List all changed files
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            echo "$file was changed"
+          done
+
+      - name: Get specific changed files
+        id: changed-files-specific
+        uses: tj-actions/changed-files@v23.2
+        with:
+          files: |
+            src/*
+            inc/*
+            .github/workflows/*
+
+      - name: Run step if any of the listed files above change
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          echo "One or more files listed above has changed."
+
       - name: Checkout tdengine
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -66,6 +95,7 @@ jobs:
           ref: 'develop'
 
       - name: Change time zone
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           echo "The uname output was ${{ steps.setup.outputs.uname }}"
           sudo timedatectl set-timezone Asia/Shanghai
@@ -81,7 +111,9 @@ jobs:
           #if: github.event_name == 'pull_request'
 
       - name: Checkout TDengine's taos-tools to PR number
-        if: github.event_name == 'pull_request'
+        if: |
+          github.event_name == 'pull_request' &&
+          steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           echo "The uname output was ${{ steps.setup.outputs.uname }}"
           cd TDengine/src/kit/taos-tools
@@ -90,6 +122,7 @@ jobs:
           git submodule update --init --recursive
 
       - name: Build tdengine
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: ${{ matrix.arch }}

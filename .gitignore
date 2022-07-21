@@ -1,3 +1,11 @@
+build/
+debug/
+release/
+target/
+*.swp
+*.swo
+*.bak
+
 # Prerequisites
 *.d
 

@@ -70,7 +70,7 @@ static void *mixedQuery(void *sarg) {
                     continue;
                 }
             } else {
-                if (g_queryInfo.dbName != NULL) { 
+                if (g_queryInfo.dbName != NULL) {
                     if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
                         errorPrint(stderr, "thread[%d]: failed to select database(%s)\n",
                                 pThreadInfo->threadId, g_queryInfo.dbName);

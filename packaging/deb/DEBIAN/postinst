@@ -33,4 +33,3 @@ ${csudo} ln -sf /usr/local/taos/bin/TDinsight.sh      /usr/bin/TDinsight.sh
 #        echo "/etc/ld.so.conf.d not found!"
 #    fi
 #fi
-
