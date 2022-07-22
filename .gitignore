@@ -9,6 +9,8 @@ target/
 tests/tmp
 dump_result.txt
 sim
+tests/taosdump/native/*.sql
+tests/taosdump/ws/*.sql
 
 # Prerequisites
 *.d
