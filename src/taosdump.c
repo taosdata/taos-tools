@@ -456,6 +456,7 @@ static struct argp_option options[] = {
 #ifdef WEBSOCKET
     {"restful",  'R', 0,  0,  "Use RESTful interface to connect TDengine", 11},
     {"cloud",  'C', "CLOUD_DSN",  0,  "specify a DSN to access TDengine cloud service", 11},
+    {"timeout", 't', "SECONDS", 0, "The timeout seconds for websocket to interact."},
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -514,6 +515,7 @@ typedef struct arguments {
 #ifdef WEBSOCKET
     bool     restful;
     char    *dsn;
+    int      ws_timeout;
     bool     cloud;
     char     cloudHost[255];
     int      cloudPort;
@@ -579,6 +581,7 @@ struct arguments g_args = {
 #ifdef WEBSOCKET
     false,      // restful
     NULL,       // dsn
+    10,         // ws_timeout
     false,      // cloud
     {0},        // cloudHost
     0,          // cloudPort
@@ -999,6 +1002,14 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 exit(EXIT_FAILURE);
             }
             break;
+
+        case 't':
+            if (arg) {
+                g_args.ws_timeout = atoi(arg);
+            } else {
+                fprintf(stderr, "Invalid -t option\n");
+            }
+            break;
 #endif // WEBSOCKET
 
         case OPT_ABORT:
@@ -1038,7 +1049,7 @@ static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
     WS_RES *ws_res = NULL;
     int32_t   code = 0;
 
-    ws_res = ws_query(ws_taos, command);
+    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     code = ws_errno(ws_res);
 
     if (code) {
@@ -1251,7 +1262,7 @@ static int getTableRecordInfoImplWS(
     char command[COMMAND_SIZE] = {0};
 
     sprintf(command, "USE %s", dbName);
-    ws_res = ws_query(ws_taos, command);
+    ws_res = ws_query_timeout(ws_taos, command,g_args.ws_timeout);
     code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
@@ -1281,7 +1292,7 @@ static int getTableRecordInfoImplWS(
         }
     }
 
-    ws_res = ws_query(ws_taos, command);
+    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     code = ws_errno(ws_res);
 
     if (code != 0) {
@@ -1713,7 +1724,7 @@ static int getDumpDbCount() {
             return 0;
         }
 
-        ws_res = ws_query(ws_taos, command);
+        ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
         code = ws_errno(ws_res);
         if (0 != code) {
             errorPrint("%s() LN%d, failed to run command <%s>, code: %d, reason: %s\n",
@@ -1850,7 +1861,7 @@ static int64_t getNtbCountOfStbWS(const char *command)
 
     int64_t count = 0;
 
-    WS_RES *ws_res = ws_query(ws_taos, command);
+    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>. code: %d, reason: %s\n",
@@ -2188,7 +2199,7 @@ static int getTableDesColWS(
 
         debugPrint("%s() LN%d, sqlstr: %s\n", __func__, __LINE__, sqlstr);
 
-        WS_RES *ws_res = ws_query(ws_taos, sqlstr);
+        WS_RES *ws_res = ws_query_timeout(ws_taos, sqlstr, g_args.ws_timeout);
         int32_t code = ws_errno(ws_res);
         if (code) {
             errorPrint("%s() LN%d, failed to run command <%s>, code: %d, reason: %s\n",
@@ -2270,7 +2281,7 @@ static int getTableDesWS(
     sprintf(sqlstr, "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
-    WS_RES *ws_res = ws_query(ws_taos, sqlstr);
+    WS_RES *ws_res = ws_query_timeout(ws_taos, sqlstr, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>, "
@@ -3863,7 +3874,7 @@ int64_t queryDbForDumpOutCountWS(
         const int precision)
 {
     int64_t count = -1;
-    WS_RES* ws_res = ws_query(ws_taos, sqlstr);
+    WS_RES* ws_res = ws_query_timeout(ws_taos, sqlstr, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%08x, reason: %s\n",
@@ -3995,7 +4006,7 @@ int64_t queryDbForDumpOutCount(
 TAOS_RES *queryDbForDumpOutOffsetWS(
         WS_TAOS *ws_taos,
         const char *sqlstr) {
-    WS_RES* ws_res = ws_query(ws_taos, sqlstr);
+    WS_RES* ws_res = ws_query_timeout(ws_taos, sqlstr, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command %s, ws_taos: %p, code: 0x%08x, reason: %s\n",
@@ -5477,7 +5488,7 @@ static int64_t dumpInAvroTbTagsImpl(
 
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            WS_RES *ws_res = ws_query(taos, sqlstr);
+            WS_RES *ws_res = ws_query_timeout(taos, sqlstr, g_args.ws_timeout);
             int32_t code = ws_errno(ws_res);
             if (code != 0) {
                 warnPrint("%s() LN%d ws_query() failed! reason: %s\n",
@@ -5548,7 +5559,7 @@ static int64_t dumpInAvroNtbImpl(
             }
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
-                WS_RES *ws_res = ws_query(taos, buf);
+                WS_RES *ws_res = ws_query_timeout(taos, buf, g_args.ws_timeout);
                 int code = ws_errno(ws_res);
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
@@ -7287,7 +7298,7 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
 
-    WS_RES* ws_res = ws_query(ws_taos, sqlstr);
+    WS_RES* ws_res = ws_query_timeout(ws_taos, sqlstr, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command %s, code: 0x%08x, reason: %s\n",
@@ -8236,7 +8247,7 @@ static int createMTableAvroHeadFillTBNameWS(
         char *tbNameArr,
         const char *stable) {
 
-    WS_RES *ws_res = ws_query(ws_taos, command);
+    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>. code: 0x%08x, reason: %s\n",
@@ -8934,7 +8945,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 
     int32_t code;
 
-    WS_RES *ws_res = ws_query(taos, sqlstr);
+    WS_RES *ws_res = ws_query_timeout(taos, sqlstr, g_args.ws_timeout);
 
     code = ws_errno(ws_res);
     if (0 != code) {
@@ -9545,7 +9556,8 @@ static void dumpNormalTablesOfStbWS(
         const char *command,
         FILE *fp,
         char *dumpFilename) {
-    WS_RES *ws_res = ws_query(pThreadInfo->taos, command);
+    WS_RES *ws_res = ws_query_timeout(pThreadInfo->taos, command,
+            g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>. "
@@ -9907,7 +9919,7 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
         sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
     } else {
         sprintf(command, "USE %s", dbInfo->name);
-        ws_res = ws_query(ws_taos, command);
+        ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
         code = ws_errno(ws_res);
         if (code) {
             errorPrint("invalid database %s, code: %d, reason: %s\n",
@@ -9921,7 +9933,7 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
         sprintf(command, "SHOW TABLES");
     }
 
-    ws_res = ws_query(ws_taos, command);
+    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     code = ws_errno(ws_res);
     if (code) {
         errorPrint("Failed to show %s\'s tables, code: %d, reason: %s!\n",
@@ -10303,7 +10315,7 @@ static int64_t dumpCreateSTableClauseOfDbWS(
 
     sprintf(command, "SHOW %s.STABLES", dbInfo->name);
 
-    WS_RES *ws_res = ws_query(ws_taos, command);
+    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (0 != code) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
@@ -10892,7 +10904,7 @@ static int fillDbExtraInfoV3WS(
     char command[COMMAND_SIZE];
     sprintf(command, "select count(table_name) from information_schema.user_tables where db_name='%s'", dbName);
 
-    WS_RES *ws_res = ws_query(ws_taos, command);
+    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
@@ -10943,7 +10955,7 @@ static int fillDbInfoWS(void *taos) {
     char command[COMMAND_SIZE];
     sprintf(command, "SHOW DATABASES");
 
-    WS_RES *ws_res = ws_query(taos, command);
+    WS_RES *ws_res = ws_query_timeout(taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
