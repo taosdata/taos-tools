@@ -2224,8 +2224,8 @@ static int getTableDesColWS(
             code = ws_fetch_block(ws_res, &data, &rows);
 
             if (code) {
-                errorPrint("%s() LN%d, ws_fetch_block() error, code: 0x%08x, reason: %s\n",
-                        __func__, __LINE__, code, ws_errstr(ws_res));
+                errorPrint("%s() LN%d, ws_fetch_block() error, code: 0x%08x, sqlstr: %s, reason: %s\n",
+                        __func__, __LINE__, code, sqlstr, ws_errstr(ws_res));
             }
             if (0 == rows) {
                 debugPrint("%s() LN%d, No more data from fetch to run command <%s>, "
@@ -2245,8 +2245,6 @@ static int getTableDesColWS(
                 if (NULL == value0) {
                     sprintf(tableDes->cols[i].note, "%s", "NUL");
                     sprintf(tableDes->cols[i].value, "%s", "NULL");
-                    ws_free_result(ws_res);
-                    ws_res = NULL;
                     continue;
                 }
 
