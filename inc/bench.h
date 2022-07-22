@@ -498,6 +498,7 @@ typedef struct SArguments_S {
     bool               terminate;
     bool               in_prompt;
 #ifdef WEBSOCKET
+	int32_t            timeout;
     char*              dsn;
     bool               websocket;
 #endif

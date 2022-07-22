@@ -215,6 +215,9 @@ void init_argument() {
     g_arguments->chinese = 0;
     g_arguments->aggr_func = 0;
     g_arguments->terminate = false;
+#ifdef WEBSOCKET
+	g_arguments->timeout = 10;
+#endif
     init_database();
     init_stable();
 }
