@@ -50,6 +50,8 @@ jobs:
         with:
           files: |
             src/*
+            tests/taosbenchmark/*
+            tests/taosdump/*
             inc/*
             .github/workflows/*
 

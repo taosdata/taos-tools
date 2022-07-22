@@ -5,6 +5,10 @@ target/
 *.swp
 *.swo
 *.bak
+*.pyc
+tests/tmp
+dump_result.txt
+sim
 
 # Prerequisites
 *.d
