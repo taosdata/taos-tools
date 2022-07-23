@@ -86,6 +86,7 @@ static struct argp_option options[] = {
     {"connection_pool_size", 'H', "NUMBER", 0, "The connection pool size(deprecated)."},
 #ifdef WEBSOCKET
     {"cloud_dsn", 'W', "DSN", 0, "The dsn to connect TDengine cloud service."},
+    {"timeout", 'D', "NUMBER", 0, "The timeout wait on websocket query in seconds, default is 10."},
 #endif
     {0}};
 
@@ -310,6 +311,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     case 'W':
       g_arguments->dsn = arg;
       break;
+	case 'D':
+	  g_arguments->timeout = atoi(arg);
+	  break;
 #endif
     case 'g':
       arguments->debug_print = true;
