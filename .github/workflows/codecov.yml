@@ -61,7 +61,7 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
-      - name: Install tdengine
+      - name: Build & Install TDengine
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
           cd TDengine
@@ -70,6 +70,10 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZER=true
           make > /dev/null
           sudo make install > /dev/null
+
+      - name: Test
+        run: |
+          cd TDengine/debug
           ./build/bin/taosBenchmark --help
           ./build/bin/taosdump --help
           cd src/kit/taos-tools/

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# This file is used to install TAOS time-series database on linux systems. The operating system 
+# This file is used to install TAOS time-series database on linux systems. The operating system
 # is required to use systemd to manage services at boot
 
 set -e

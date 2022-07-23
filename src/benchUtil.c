@@ -15,9 +15,22 @@
 
 #include "bench.h"
 
+inline void* benchCalloc(size_t nmemb, size_t size, bool record) {
+    void* ret = calloc(nmemb, size);
+    if (NULL == ret) {
+        errorPrint(stderr, "%s", "failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    if (record) {
+        g_memoryUsage += nmemb * size;
+    }
+    return ret;
+}
+
 inline void tmfclose(FILE *fp) {
     if (NULL != fp) {
         fclose(fp);
+        fp = NULL;
     }
 }
 
@@ -136,13 +149,12 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                        count);
             return -1;
         }
-        childTblNameOfSuperTbl[count] = calloc(1, TSDB_TABLE_NAME_LEN);
-        if (childTblNameOfSuperTbl[count] == NULL) {
-            errorPrint(stderr, "%s", "memory allocation failed\n");
-            exit(EXIT_FAILURE);
-        }
-        snprintf(childTblNameOfSuperTbl[count], TSDB_TABLE_NAME_LEN, "`%s`",
-                 (char *)row[0]);
+        int32_t * lengths = taos_fetch_lengths(res);
+        childTblNameOfSuperTbl[count] = benchCalloc(1, TSDB_TABLE_NAME_LEN + 3, true);
+        childTblNameOfSuperTbl[count][0] = '`';
+        strncpy(childTblNameOfSuperTbl[count] + 1, row[0], lengths[0]);
+        childTblNameOfSuperTbl[count][lengths[0] + 1] = '`';
+        childTblNameOfSuperTbl[count][lengths[0] + 2] = '\0';
         debugPrint(stdout, "childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
                    childTblNameOfSuperTbl[count]);
         count++;
@@ -176,6 +188,7 @@ int convertHostToServAddr(char *host, uint16_t port,
 
 void prompt(bool nonStopMode) {
     if (!g_arguments->answer_yes) {
+        g_arguments->in_prompt = true;
         if (nonStopMode) {
             printf(
                 "\n\n         Current is the Non-Stop insertion mode. "
@@ -190,28 +203,26 @@ void prompt(bool nonStopMode) {
                 "stop\n\n");
             (void)getchar();
         }
+        g_arguments->in_prompt = false;
     }
 }
 
-static void appendResultBufToFile(char *resultBuf, threadInfo *pThreadInfo) {
-    pThreadInfo->fp = fopen(pThreadInfo->filePath, "at");
-    if (pThreadInfo->fp == NULL) {
+static void appendResultBufToFile(char *resultBuf, char * filePath) {
+    FILE* fp = fopen(filePath, "at");
+    if (fp == NULL) {
         errorPrint(stderr,
                    "failed to open result file: %s, result will not save "
-                   "to file\n",
-                   pThreadInfo->filePath);
+                   "to file\n", filePath);
         return;
     }
-
-    fprintf(pThreadInfo->fp, "%s", resultBuf);
-    tmfclose(pThreadInfo->fp);
-    pThreadInfo->fp = NULL;
+    fprintf(fp, "%s", resultBuf);
+    tmfclose(fp);
 }
 
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    sprintf(subTblName, "%s.%s", g_arguments->db->dbName,
+    sprintf(subTblName, "%s.%s", g_queryInfo.dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
@@ -229,20 +240,20 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
 
 int64_t toolsGetTimestampMs() {
     struct timeval systemTime;
-    gettimeofday(&systemTime, NULL);
+    toolsGetTimeOfDay(&systemTime);
     return (int64_t)systemTime.tv_sec * 1000L +
            (int64_t)systemTime.tv_usec / 1000;
 }
 
 int64_t toolsGetTimestampUs() {
     struct timeval systemTime;
-    gettimeofday(&systemTime, NULL);
+    toolsGetTimeOfDay(&systemTime);
     return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
 }
 
 int64_t toolsGetTimestampNs() {
     struct timespec systemTime = {0};
-    clock_gettime(CLOCK_REALTIME, &systemTime);
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
     return (int64_t)systemTime.tv_sec * 1000000000L +
            (int64_t)systemTime.tv_nsec;
 }
@@ -257,7 +268,7 @@ int64_t toolsGetTimestamp(int32_t precision) {
     }
 }
 
-void taosMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
+void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;
@@ -284,26 +295,71 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-int queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet) {
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t   code = taos_errno(res);
+SBenchConn* init_bench_conn() {
+    SBenchConn* conn = benchCalloc(1, sizeof(SBenchConn), true);
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        conn->taos_ws = ws_connect_with_dsn(g_arguments->dsn);
+        if (conn->taos_ws == NULL) {
+            errorPrint(stderr, "failed to connect %s, reason: %s\n",
+                    g_arguments->dsn, ws_errstr(NULL));
+            tmfree(conn);
+            return NULL;
+        }
+    } else {
+#endif
+        conn->taos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
+        if (conn->taos == NULL) {
+            errorPrint(stderr, "failde to connect native %s:%d, reason: %s\n", g_arguments->host, g_arguments->port, taos_errstr(NULL));
+            tmfree(conn);
+            return NULL;
+        }
+#ifdef WEBSOCKET
+    }
+#endif
+    return conn;
+}
 
-    if (code != 0) {
-        if (!quiet) {
+void close_bench_conn(SBenchConn* conn) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        ws_close(conn->taos_ws);
+    } else {
+#endif
+        taos_close(conn->taos);
+#ifdef WEBSOCKET
+    }
+#endif
+    tmfree(conn);
+}
+
+int queryDbExec(SBenchConn *conn, char *command) {
+    int32_t code;
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        WS_RES* res = ws_query(conn->taos_ws, command);
+        code = ws_errno(res);
+        if (code != 0) {
+            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+                    ws_errstr(res));
+            ws_free_result(res);
+            return -1;
+        }
+        ws_free_result(res);
+    } else {
+#endif
+        TAOS_RES *res = taos_query(conn->taos, command);
+        code = taos_errno(res);
+        if (code != 0) {
             errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
                        taos_errstr(res));
+            taos_free_result(res);
+            return -1;
         }
         taos_free_result(res);
-        return -1;
+#ifdef WEBSOCKET
     }
-
-    if (INSERT_TYPE == type) {
-        int affectedRows = taos_affected_rows(res);
-        taos_free_result(res);
-        return affectedRows;
-    }
-
-    taos_free_result(res);
+#endif
     return 0;
 }
 
@@ -323,11 +379,7 @@ void encode_base_64() {
     size_t userpass_buf_len = strlen(userpass_buf);
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
-    g_arguments->base64_buf = calloc(1, INPUT_BUF_LEN);
-    if (g_arguments->base64_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    g_arguments->base64_buf = benchCalloc(1, INPUT_BUF_LEN, true);
 
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
@@ -348,60 +400,46 @@ void encode_base_64() {
         g_arguments->base64_buf[encoded_len - 1 - l] = '=';
 }
 
-int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
-    SDataBase *  database = &(g_arguments->db[pThreadInfo->db_index]);
-    SSuperTable *stbInfo = &(database->superTbls[pThreadInfo->stb_index]);
+int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath) {
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
     char url[1024];
-    if (stbInfo->iface == REST_IFACE) {
-        sprintf(url, "/rest/sql/%s", database->dbName);
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL) {
-        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", database->dbName,
-                database->dbCfg.precision == TSDB_TIME_PRECISION_MILLI
+    if (iface == REST_IFACE) {
+        sprintf(url, "/rest/sql/%s", dbName);
+    } else if (iface == SML_REST_IFACE &&
+               protocol == TSDB_SML_LINE_PROTOCOL) {
+        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", dbName,
+                precision == TSDB_TIME_PRECISION_MILLI
                     ? "ms"
-                    : database->dbCfg.precision == TSDB_TIME_PRECISION_NANO
+                    : precision == TSDB_TIME_PRECISION_NANO
                           ? "ns"
                           : "u");
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-        sprintf(url, "/opentsdb/v1/put/telnet/%s", database->dbName);
-    } else if (stbInfo->iface == SML_REST_IFACE &&
-               stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-        sprintf(url, "/opentsdb/v1/put/json/%s", database->dbName);
+    } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_TELNET_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/telnet/%s", dbName);
+    } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_JSON_PROTOCOL) {
+        sprintf(url, "/opentsdb/v1/put/json/%s", dbName);
     }
 
     int      bytes, sent, received, req_str_len, resp_len;
-    char *   request_buf;
-    char *   response_buf;
+    char *   request_buf = NULL;
+    char *   response_buf = NULL;
     uint16_t rest_port = g_arguments->port + TSDB_PORT_HTTP;
-
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
-    request_buf = calloc(1, req_buf_len);
-    if (request_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    request_buf = benchCalloc(1, req_buf_len, false);
     uint64_t response_length;
     if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
     } else {
         response_length = g_queryInfo.response_buffer;
     }
-    response_buf = calloc(1, response_length);
-    if (response_buf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    response_buf = benchCalloc(1, response_length, false);
 
     int r;
-    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-        stbInfo->tcpTransfer) {
+    if (protocol == TSDB_SML_TELNET_PROTOCOL && tcp) {
         r = snprintf(request_buf, req_buf_len, "%s", sqlstr);
     } else {
         r = snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
@@ -410,6 +448,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     }
     if (r >= req_buf_len) {
         free(request_buf);
+        free(response_buf);
         ERROR_EXIT("too long request");
     }
 
@@ -417,13 +456,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     debugPrint(stdout, "request buffer: %s\n", request_buf);
     sent = 0;
     do {
-#ifdef WINDOWS
-        bytes = send(pThreadInfo->sockfd, request_buf + sent,
+        bytes = send(sockfd, request_buf + sent,
                      req_str_len - sent, 0);
-#else
-        bytes =
-            write(pThreadInfo->sockfd, request_buf + sent, req_str_len - sent);
-#endif
         if (bytes < 0) {
             errorPrint(stderr, "%s", "writing no message to socket\n");
             goto free_of_post;
@@ -432,8 +466,7 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
         sent += bytes;
     } while (sent < req_str_len);
 
-    if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-        stbInfo->iface == SML_REST_IFACE && stbInfo->tcpTransfer) {
+    if (protocol == TSDB_SML_TELNET_PROTOCOL && iface == SML_REST_IFACE && tcp) {
         code = 0;
         goto free_of_post;
     }
@@ -446,17 +479,12 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
     char resHttp[] = "HTTP/1.1 ";
     char resHttpOk[] = "HTTP/1.1 200 OK";
     char influxHttpOk[] = "HTTP/1.1 204";
+    char opentsdbHttpOk[] = "HTTP/1.1 400";
     bool chunked = false;
 
     do {
-#ifdef WINDOWS
-        bytes = recv(pThreadInfo->sockfd, response_buf + received,
+        bytes = recv(sockfd, response_buf + received,
                      resp_len - received, 0);
-#else
-        bytes = read(pThreadInfo->sockfd, response_buf + received,
-                     resp_len - received);
-#endif
-
         debugPrint(stdout, "response_buffer: %s\n", response_buf);
         if (NULL != strstr(response_buf, resEncodingChunk)) {
             chunked = true;
@@ -485,7 +513,8 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
                 if (((NULL != strstr(response_buf, resEncodingChunk)) &&
                      (NULL != strstr(response_buf, resHttp))) ||
                     ((NULL != strstr(response_buf, resHttpOk)) ||
-                     (NULL != strstr(response_buf, influxHttpOk)))) {
+                     (NULL != strstr(response_buf, influxHttpOk)) ||
+                     (NULL != strstr(response_buf, opentsdbHttpOk)))) {
                     break;
                 }
             }
@@ -499,16 +528,70 @@ int postProceSql(char *sqlstr, threadInfo *pThreadInfo) {
 
     if (NULL == strstr(response_buf, resHttpOk) &&
         NULL == strstr(response_buf, influxHttpOk) &&
-        NULL == strstr(response_buf, succMessage)) {
+        NULL == strstr(response_buf, succMessage) &&
+        NULL == strstr(response_buf, opentsdbHttpOk)) {
         errorPrint(stderr, "Response:\n%s\n", response_buf);
         goto free_of_post;
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(response_buf, pThreadInfo);
+    if (NULL != strstr(response_buf, resHttpOk) && iface == REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+
+    if (NULL != strstr(response_buf, succMessage) && iface == REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+
+
+    if (NULL != strstr(response_buf, influxHttpOk) &&
+        protocol == TSDB_SML_LINE_PROTOCOL && iface == SML_REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+
+    if (NULL != strstr(response_buf, opentsdbHttpOk) &&
+            (protocol == TSDB_SML_TELNET_PROTOCOL || protocol == TSDB_SML_JSON_PROTOCOL) && iface == SML_REST_IFACE) {
+        code = 0;
+        goto free_of_post;
+    }
+
+    if (g_arguments->test_mode == INSERT_TEST) {
+        debugPrint(stdout, "Response: \n%s\n", response_buf);
+        char* start = strstr(response_buf, "{");
+        if (start == NULL) {
+            errorPrint(stderr, "Invalid response format: %s\n", response_buf);
+            goto free_of_post;
+        }
+        tools_cJSON* resObj = tools_cJSON_Parse(start);
+        if (resObj == NULL) {
+            errorPrint(stderr, "Cannot parse response into json: %s\n", start);
+        }
+        tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
+        if (!tools_cJSON_IsNumber(codeObj)) {
+            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", tools_cJSON_Print(resObj));
+            tools_cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        if (codeObj->valueint != 0 &&
+            (iface == SML_REST_IFACE && protocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
+            tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
+            if (!tools_cJSON_IsString(desc)) {
+                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
+                goto free_of_post;
+            }
+            errorPrint(stderr, "insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
+            tools_cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        tools_cJSON_Delete(resObj);
     }
     code = 0;
 free_of_post:
+    if (strlen(filePath) > 0) {
+        appendResultBufToFile(response_buf, filePath);
+    }
     tmfree(request_buf);
     tmfree(response_buf);
     return code;
@@ -520,12 +603,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     int         num_fields = taos_field_count(res);
     TAOS_FIELD *fields = taos_fetch_fields(res);
 
-    char *databuf = (char *)calloc(1, FETCH_BUFFER_SIZE);
-
-    if (databuf == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
+    char *databuf = (char *)benchCalloc(1, FETCH_BUFFER_SIZE, true);
 
     int64_t totalLen = 0;
 
@@ -533,7 +611,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     while ((row = taos_fetch_row(res))) {
         if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
             if (strlen(pThreadInfo->filePath) > 0) {
-                appendResultBufToFile(databuf, pThreadInfo);
+                appendResultBufToFile(databuf, pThreadInfo->filePath);
             }
             totalLen = 0;
             memset(databuf, 0, FETCH_BUFFER_SIZE);
@@ -548,7 +626,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     }
 
     if (strlen(pThreadInfo->filePath) > 0) {
-        appendResultBufToFile(databuf, pThreadInfo);
+        appendResultBufToFile(databuf, pThreadInfo->filePath);
     }
     free(databuf);
 }
@@ -589,6 +667,92 @@ char *taos_convert_datatype_to_string(int type) {
             break;
     }
     return "unknown type";
+}
+
+int taos_convert_type_to_length(uint8_t type) {
+    uint8_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TIMESTAMP:
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_BIGINT:
+            ret = sizeof(int64_t);
+            break;
+        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_UTINYINT:
+            ret = sizeof(int8_t);
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+            ret = sizeof(int16_t);
+            break;
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_UINT:
+            ret = sizeof(int32_t);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            ret = sizeof(float);
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            ret = sizeof(double);
+            break;
+        default:
+            break;
+    }
+    return ret;
+}
+
+int64_t taos_convert_datatype_to_default_min(uint8_t type) {
+    int64_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TINYINT:
+            ret = -127;
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+            ret = -32767;
+            break;
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_FLOAT:
+        case TSDB_DATA_TYPE_DOUBLE:
+            ret = -1 * (RAND_MAX >> 1);
+            break;
+        default:
+            break;
+    }
+    return ret;
+}
+
+int64_t taos_convert_datatype_to_default_max(uint8_t type) {
+    int64_t ret = 0;
+    switch (type) {
+        case TSDB_DATA_TYPE_TINYINT:
+            ret = 128;
+            break;
+        case TSDB_DATA_TYPE_UTINYINT:
+            ret = 254;
+            break;
+        case TSDB_DATA_TYPE_SMALLINT:
+            ret = 32767;
+            break;
+        case TSDB_DATA_TYPE_USMALLINT:
+            ret = 65534;
+            break;
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_DOUBLE:
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_FLOAT:
+            ret = RAND_MAX >> 1;
+            break;
+        case TSDB_DATA_TYPE_UINT:
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            ret = RAND_MAX;
+            break;
+        default:
+            break;
+    }
+    return ret;
 }
 
 int taos_convert_string_to_datatype(char *type, int length) {
@@ -669,80 +833,99 @@ int taos_convert_string_to_datatype(char *type, int length) {
     }
 }
 
-int init_taos_list() {
-#ifdef LINUX
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint(stderr, "Invalid path %s\n", configDir);
-            exit(EXIT_FAILURE);
+int compare(const void *a, const void *b) {
+    return *(int64_t *)a - *(int64_t *)b;
+}
+
+BArray* benchArrayInit(size_t size, size_t elemSize) {
+    assert(elemSize > 0);
+
+    if (size < BARRAY_MIN_SIZE) {
+        size = BARRAY_MIN_SIZE;
+    }
+
+    BArray* pArray = (BArray *)benchCalloc(1, sizeof(BArray), true);
+
+    pArray->size = 0;
+    pArray->pData = benchCalloc(size, elemSize, true);
+
+    pArray->capacity = size;
+    pArray->elemSize = elemSize;
+    return pArray;
+}
+
+static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
+    if (newCap > pArray->capacity) {
+        size_t tsize = (pArray->capacity << 1u);
+        while (newCap > tsize) {
+            tsize = (tsize << 1u);
         }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
-#endif
-    int        size = g_arguments->connection_pool;
-    TAOS_POOL *pool = g_arguments->pool;
-    pool->taos_list = calloc(size, sizeof(TAOS *));
-    if (pool->taos_list == NULL) {
-        errorPrint(stderr, "%s", "memory allocation failed\n");
-        exit(EXIT_FAILURE);
-    }
-    g_memoryUsage += size * sizeof(TAOS *);
-    pool->current = 0;
-    pool->size = size;
-    for (int i = 0; i < size; ++i) {
-        pool->taos_list[i] =
-            taos_connect(g_arguments->host, g_arguments->user,
-                         g_arguments->password, NULL, g_arguments->port);
-        if (pool->taos_list[i] == NULL) {
-            errorPrint(stderr, "Failed to connect to TDengine, reason:%s\n",
-                       taos_errstr(NULL));
+
+        pArray->pData = realloc(pArray->pData, tsize * pArray->elemSize);
+        if (pArray->pData == NULL) {
             return -1;
         }
+
+        pArray->capacity = tsize;
     }
     return 0;
 }
 
-TAOS *select_one_from_pool(char *db_name) {
-    TAOS_POOL *pool = g_arguments->pool;
-    TAOS *     taos = pool->taos_list[pool->current];
-    if (db_name != NULL) {
-        int code = taos_select_db(taos, db_name);
-        if (code) {
-            errorPrint(stderr, "failed to select %s, reason: %s\n", db_name,
-                       taos_errstr(NULL));
-            return NULL;
-        }
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles) {
+    if (pData == NULL) {
+        return NULL;
     }
-    pool->current++;
-    if (pool->current >= pool->size) {
-        pool->current = 0;
+
+    if (benchArrayEnsureCap(pArray, pArray->size + nEles) != 0) {
+        return NULL;
     }
-    return taos;
+
+    void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
+    memcpy(dst, pData, pArray->elemSize * nEles);
+    tmfree(pData);
+    pArray->size += nEles;
+    return dst;
 }
 
-void cleanup_taos_list() {
-    for (int i = 0; i < g_arguments->pool->size; ++i) {
-        taos_close(g_arguments->pool->taos_list[i]);
-    }
-    tmfree(g_arguments->pool->taos_list);
-}
-void delay_list_init(delayList *list) {
-    list->size = 0;
-    list->head = NULL;
-    list->tail = NULL;
+FORCE_INLINE void* benchArrayPush(BArray* pArray, void* pData) {
+    return benchArrayAddBatch(pArray, pData, 1);
 }
 
-void delay_list_destroy(delayList *list) {
-    while (list->size > 0) {
-        delayNode *current = list->head;
-        list->head = list->head->next;
-        tmfree(current);
-        list->size--;
+void* benchArrayDestroy(BArray* pArray) {
+    if (pArray) {
+        tmfree(pArray->pData);
+        tmfree(pArray);
     }
+    return NULL;
 }
 
-int compare(const void *a, const void *b) {
-    return *(uint64_t *)a - *(uint64_t *)b;
+void benchArrayClear(BArray* pArray) {
+    if (pArray == NULL) return;
+    pArray->size = 0;
 }
+
+void* benchArrayGet(const BArray* pArray, size_t index) {
+    if (index >= pArray->size) {
+        errorPrint(stderr, "index(%zu) greater than BArray size(%zu)\n", index, pArray->size);
+        exit(EXIT_FAILURE);
+    }
+    return BARRAY_GET_ELEM(pArray, index);
+}
+
+#ifdef LINUX
+int32_t bsem_wait(sem_t* sem) {
+    int ret = 0;
+    do {
+        ret = sem_wait(sem);
+    } while (ret != 0 && errno  == EINTR);
+    return ret;
+}
+
+void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
+    struct sigaction act;
+    memset(&act, 0, sizeof(act));
+    act.sa_flags = SA_SIGINFO | SA_RESTART;
+    act.sa_sigaction = (void (*)(int, siginfo_t *, void *)) sigfp;
+    sigaction(signum, &act, NULL);
+}
+#endif

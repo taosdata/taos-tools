@@ -82,6 +82,17 @@ function install_main_path() {
     [[ ! -d ${install_main_dir}/bin ]] && ${csudo}mkdir -p ${install_main_dir}/bin || :
 }
 
+function install_libtaosws() {
+    if [ -f ${script_dir}/driver/libtaosws.so ]; then
+        [ -d ${install_main_dir}/driver ] || ${csudo}mkdir ${install_main_dir}/driver ||:
+        [ -f ${install_main_dir}/driver/libtaosws.so ] || \
+            ${csudo}/usr/bin/install -c -m 755 ${script_dir}/driver/libtaosws.so ${install_main_dir}/driver/libtaosws.so && ${csudo}ln -sf ${install_main_dir}/driver/libtaosws.so /usr/lib/libtaosws.so
+        if [ -d /usr/lib64 ]; then
+            ${csudo}ln -sf ${install_main_dir}/driver/libtaosws.so /usr/lib64/libtaosws.so
+        fi
+    fi
+}
+
 function install_bin() {
     # Remove links
     ${csudo}rm -f ${bin_link_dir}/${demoName}         || :
@@ -140,6 +151,7 @@ function install_taostools() {
 
     # For installing new
     install_bin
+    install_libtaosws
 
     echo
     echo -e "\033[44;32;1m${taosName} tools is installed successfully!${NC}"

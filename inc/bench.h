@@ -18,6 +18,7 @@
 
 #define _GNU_SOURCE
 #define CURL_STATICLIB
+#define ALLOW_FORBID_FUNC
 
 #ifdef LINUX
 #include <argp.h>
@@ -38,27 +39,24 @@
 #include <unistd.h>
 #include <wordexp.h>
 #include <sys/ioctl.h>
+#include <signal.h>
 
 #elif DARWIN
-
 #include <argp.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <netdb.h>
-
-#elif defined(WIN32) || defined(WIN64)
-
-#include "os.h"
-
 #endif
 
-
+#ifdef TDENGINE_3
+#include "os.h"
+#endif
 #include <regex.h>
 #include <stdio.h>
 #include <assert.h>
-#include <cJSONDEMO.h>
+#include <toolscJson.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -74,6 +72,11 @@
 
 #include "taos.h"
 #include "toolsdef.h"
+#include "taoserror.h"
+
+#ifdef WEBSOCKET
+#include "taosws.h"
+#endif
 
 #if defined(WIN32) || defined(WIN64)
 #define strcasecmp _stricmp
@@ -139,7 +142,7 @@
 #define EXTRA_SQL_LEN     256
 #define SMALL_BUFF_LEN    8
 #define DATATYPE_BUFF_LEN (SMALL_BUFF_LEN * 3)
-
+#define SML_MAX_BATCH          65536 * 32
 #define DEFAULT_NTHREADS       8
 #define DEFAULT_CHILDTABLES    10000
 #define DEFAULT_PORT           6030
@@ -154,11 +157,17 @@
 #define DEFAULT_CREATE_BATCH   10
 #define DEFAULT_SUB_INTERVAL   10000
 #define DEFAULT_QUERY_INTERVAL 10000
-
+#define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
 #if _MSC_VER <= 1900
 #define __func__ __FUNCTION__
+#endif
+
+#if defined(__GNUC__)
+#define FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define FORCE_INLINE
 #endif
 
 #define debugPrint(fp, fmt, ...)                                             \
@@ -167,9 +176,9 @@
             struct tm      Tm, *ptm;                                         \
             struct timeval timeSecs;                                         \
             time_t         curTime;                                          \
-            gettimeofday(&timeSecs, NULL);                                   \
+            toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
-            ptm = localtime_r(&curTime, &Tm);                                \
+            ptm = toolsLocalTime(&curTime, &Tm);                                \
             fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
@@ -184,9 +193,9 @@
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
         time_t         curTime;                                          \
-        gettimeofday(&timeSecs, NULL);                                   \
+        toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
-        ptm = localtime_r(&curTime, &Tm);                                \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
         fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
@@ -199,9 +208,9 @@
             struct tm      Tm, *ptm;                                         \
             struct timeval timeSecs;                                         \
             time_t         curTime;                                          \
-            gettimeofday(&timeSecs, NULL);                                   \
+            toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
-            ptm = localtime_r(&curTime, &Tm);                                \
+            ptm = toolsLocalTime(&curTime, &Tm);                                \
             fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
@@ -214,9 +223,9 @@
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
         time_t         curTime;                                          \
-        gettimeofday(&timeSecs, NULL);                                   \
+        toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
-        ptm = localtime_r(&curTime, &Tm);                                \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
         fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
@@ -252,12 +261,6 @@ typedef enum enumQUERY_CLASS {
     CLASS_BUT
 } QUERY_CLASS;
 
-typedef enum enumQUERY_TYPE {
-    NO_INSERT_TYPE,
-    INSERT_TYPE,
-    QUERY_TYPE_BUT
-} QUERY_TYPE;
-
 enum _show_db_index {
     TSDB_SHOW_DB_NAME_INDEX,
     TSDB_SHOW_DB_CREATED_TIME_INDEX,
@@ -292,23 +295,25 @@ enum _describe_table_index {
     TSDB_MAX_DESCRIBE_METRIC
 };
 
-typedef struct TAOS_POOL_S {
-    int    size;
-    int    current;
-    TAOS **taos_list;
-} TAOS_POOL;
+typedef struct BArray {
+    size_t   size;
+    uint32_t capacity;
+    uint32_t elemSize;
+    void*    pData;
+} BArray;
 
-typedef struct COLUMN_S {
-    char     type;
+typedef struct SField {
+    uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
+    bool     none;
     bool     null;
     void *   data;
     int64_t  max;
     int64_t  min;
-    cJSON *  values;
+    tools_cJSON *  values;
     bool     sma;
-} Column;
+} Field;
 
 typedef struct SSuperTable_S {
     char *   stbName;
@@ -334,17 +339,13 @@ typedef struct SSuperTable_S {
     uint64_t insert_interval;
     uint64_t insertRows;
     uint64_t timestamp_step;
-    int      tsPrecision;
     int64_t  startTimestamp;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
-
-    uint32_t columnCount;
     uint32_t partialColumnNum;
     char *   partialColumnNameBuf;
-    Column * columns;
-    Column * tags;
-    uint32_t tagCount;
+    BArray * cols;
+    BArray * tags;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -387,16 +388,25 @@ typedef struct SDbCfg_S {
 
 } SDbCfg;
 
+typedef struct SSTREAM_S {
+    char stream_name[TSDB_TABLE_NAME_LEN];
+    char stream_stb[TSDB_TABLE_NAME_LEN];
+    char trigger_mode[BIGINT_BUFF_LEN];
+    char watermark[BIGINT_BUFF_LEN];
+    char source_sql[TSDB_MAX_SQL_LEN];
+    bool drop;
+} SSTREAM;
+
 typedef struct SDataBase_S {
     char *       dbName;
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
     SDbCfg       dbCfg;
-    uint64_t     superTblCount;
-    SSuperTable *superTbls;
+    BArray*      superTbls;
+    BArray*      streams;
 } SDataBase;
 
 typedef struct SSQL_S {
-    char command[BUFFER_SIZE + 1];
+    char *command;
     char result[MAX_FILE_NAME_LEN];
     int64_t* delay_list;
 } SSQL;
@@ -404,13 +414,12 @@ typedef struct SSQL_S {
 typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
     uint32_t  concurrent;
-    int       sqlCount;
     uint32_t  asyncMode;          // 0: sync, 1: async
     uint64_t  subscribeInterval;  // ms
     uint64_t  queryTimes;
     bool      subscribeRestart;
     int       subscribeKeepProgress;
-    SSQL      sql[MAX_QUERY_SQL_COUNT];
+    BArray*   sqls;
     int       resubAfterConsume[MAX_QUERY_SQL_COUNT];
     int       endAfterConsume[MAX_QUERY_SQL_COUNT];
     TAOS_SUB *tsub[MAX_QUERY_SQL_COUNT];
@@ -418,6 +427,7 @@ typedef struct SpecifiedQueryInfo_S {
     int       consumed[MAX_QUERY_SQL_COUNT];
     TAOS_RES *res[MAX_QUERY_SQL_COUNT];
     uint64_t  totalQueried;
+    bool      mixed_query;
 } SpecifiedQueryInfo;
 
 typedef struct SuperQueryInfo_S {
@@ -447,6 +457,8 @@ typedef struct SQueryMetaInfo_S {
     uint64_t           query_times;
     uint64_t           response_buffer;
     bool               reset_query_cache;
+    uint16_t           iface;
+    char*              dbName;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
@@ -465,7 +477,6 @@ typedef struct SArguments_S {
     char *             output_file;
     uint32_t           binwidth;
     uint32_t           intColumnCount;
-    uint32_t           connection_pool;
     uint32_t           nthreads;
     uint32_t           table_threads;
     uint64_t           prepared_rand;
@@ -473,32 +484,36 @@ typedef struct SArguments_S {
     uint64_t           insert_interval;
     bool               demo_mode;
     bool               aggr_func;
-    uint32_t           dbCount;
     struct sockaddr_in serv_addr;
-    TAOS_POOL *        pool;
     uint64_t           g_totalChildTables;
     uint64_t           g_actualChildTables;
     uint64_t           g_autoCreatedChildTables;
     uint64_t           g_existedChildTables;
     FILE *             fpOfInsertResult;
-    SDataBase *        db;
+    BArray *           databases;
     char *             base64_buf;
+#ifdef LINUX
+    sem_t              cancelSem;
+#endif
+    bool               terminate;
+    bool               in_prompt;
+#ifdef WEBSOCKET
+    char*              dsn;
+    bool               websocket;
+#endif
 } SArguments;
 
-typedef struct delayNode_S {
-    uint64_t            value;
-    struct delayNode_S *next;
-} delayNode;
-
-typedef struct delayList_S {
-    uint64_t   size;
-    delayNode *head;
-    delayNode *tail;
-} delayList;
+typedef struct SBenchConn{
+    TAOS* taos;
+    TAOS_STMT* stmt;
+#ifdef WEBSOCKET
+    WS_TAOS* taos_ws;
+    WS_STMT* stmt_ws;
+#endif
+} SBenchConn;
 
 typedef struct SThreadInfo_S {
-    TAOS *     taos;
-    TAOS_STMT *stmt;
+    SBenchConn* conn;
     uint64_t * bind_ts;
     uint64_t * bind_ts_array;
     char *     bindParams;
@@ -515,28 +530,36 @@ typedef struct SThreadInfo_S {
     uint64_t   samplePos;
     uint64_t   totalInsertRows;
     uint64_t   totalQueried;
-    uint64_t   totalAffectedRows;
-    uint64_t   cntDelay;
-    uint64_t   totalDelay;
-    uint64_t   maxDelay;
-    uint64_t   minDelay;
+    int64_t   totalDelay;
     uint64_t   querySeq;
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    uint32_t   db_index;
-    uint32_t   stb_index;
+    SDataBase* dbInfo;
+    SSuperTable* stbInfo;
     char **    sml_tags;
-    cJSON *    json_array;
-    cJSON *    sml_json_tags;
+    tools_cJSON *    json_array;
+    tools_cJSON *    sml_json_tags;
     uint64_t   start_time;
     uint64_t   max_sql_len;
     FILE *     fp;
     char       filePath[MAX_PATH_LEN];
-    delayList  delayList;
+    BArray*    delayList;
     uint64_t*  query_delay_list;
     double     avg_delay;
 } threadInfo;
+
+typedef struct SQueryThreadInfo_S {
+    int start_sql;
+    int end_sql;
+    int threadId;
+    BArray*  query_delay_list;
+    int   sockfd;
+    SBenchConn* conn;
+    int64_t total_delay;
+} queryThreadInfo;
+
+typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
 
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
@@ -545,7 +568,7 @@ extern SArguments *   g_arguments;
 extern SQueryMetaInfo g_queryInfo;
 extern bool           g_fail;
 extern char           configDir[];
-extern cJSON *        root;
+extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
@@ -554,28 +577,24 @@ extern uint64_t       g_memoryUsage;
         strncpy((dst), (src), (size)); \
         (dst)[(size)-1] = 0;           \
     } while (0)
+#define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
 void commandLineParseArgument(int argc, char *argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
-int count_datatype(char *dataType, uint32_t *number);
-int parse_tag_datatype(char *dataType, Column *tags);
-int parse_col_datatype(char *dataType, Column *columns);
+void parse_field_datatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int     init_taos_list();
-TAOS *  select_one_from_pool(char *db_name);
-void    cleanup_taos_list();
 int64_t toolsGetTimestampMs();
 int64_t toolsGetTimestampUs();
 int64_t toolsGetTimestampNs();
 int64_t toolsGetTimestamp(int32_t precision);
-void    taosMsleep(int32_t mseconds);
+void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
@@ -587,16 +606,30 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
-int     postProceSql(char *sqlstr, threadInfo *pThreadInfo);
-int     queryDbExec(TAOS *taos, char *command, QUERY_TYPE type, bool quiet);
+int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
+int     queryDbExec(SBenchConn *conn, char *command);
+SBenchConn* init_bench_conn();
+void    close_bench_conn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
 int     getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
                                     char ** childTblNameOfSuperTbl,
                                     int64_t childTblCountOfSuperTbl);
-void    delay_list_init(delayList *list);
-void    delay_list_destroy(delayList *list);
+void*   benchCalloc(size_t nmemb, size_t size, bool record);
+BArray* benchArrayInit(size_t size, size_t elemSize);
+void* benchArrayPush(BArray* pArray, void* pData);
+void* benchArrayDestroy(BArray* pArray);
+void benchArrayClear(BArray* pArray);
+void* benchArrayGet(const BArray* pArray, size_t index);
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
+#ifdef LINUX
+int32_t bsem_wait(sem_t* sem);
+void benchSetSignal(int32_t signum, FSignalHandler sigfp);
+#endif
+int taos_convert_type_to_length(uint8_t type);
+int64_t taos_convert_datatype_to_default_max(uint8_t type);
+int64_t taos_convert_datatype_to_default_min(uint8_t type);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

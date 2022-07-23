@@ -116,6 +116,8 @@ void printHelp() {
 }
 
 void commandLineParseArgument(int argc, char *argv[]) {
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-F") == 0) {
             if (i < argc - 1) {
@@ -146,18 +148,18 @@ void commandLineParseArgument(int argc, char *argv[]) {
             if (i < argc -1) {
                 char* mode = argv[++i];
                 if (0 == strcasecmp(mode, "taosc")) {
-                    g_arguments->db->superTbls->iface = TAOSC_IFACE;
+                    stbInfo->iface = TAOSC_IFACE;
                 } else if (0 == strcasecmp(mode, "stmt")) {
-                    g_arguments->db->superTbls->iface = STMT_IFACE;
+                    stbInfo->iface = STMT_IFACE;
                 } else if (0 == strcasecmp(mode, "rest")) {
-                    g_arguments->db->superTbls->iface = REST_IFACE;
+                    stbInfo->iface = REST_IFACE;
                 } else if (0 == strcasecmp(mode, "sml")) {
-                    g_arguments->db->superTbls->iface = SML_IFACE;
+                    stbInfo->iface = SML_IFACE;
                 } else {
                     errorPrint(stderr,
                                "Invalid -I: %s, will auto set to default (taosc)\n",
                                mode);
-                    g_arguments->db->superTbls->iface = TAOSC_IFACE;
+                    stbInfo->iface = TAOSC_IFACE;
                 }
             } else {
                 exit_required("-I");
@@ -200,19 +202,19 @@ void commandLineParseArgument(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "-i") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->insert_interval = atoi(argv[++i]);
+                stbInfo->insert_interval = atoi(argv[++i]);
             } else {
                 exit_required("-i");
             }
         } else if (strcmp(argv[i], "-S") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->timestamp_step = atol(argv[++i]);
+                stbInfo->timestamp_step = atol(argv[++i]);
             } else {
                 exit_required("-S");
             }
         } else if (strcmp(argv[i], "-B") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->interlaceRows = atoi(argv[++i]);
+                stbInfo->interlaceRows = atoi(argv[++i]);
             } else {
                 exit_required("-b");
             }
@@ -224,19 +226,19 @@ void commandLineParseArgument(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "-t") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->childTblCount = atoi(argv[++i]);
+                stbInfo->childTblCount = atoi(argv[++i]);
             } else {
                 exit_required("-t");
             }
         } else if (strcmp(argv[i], "-n") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->insertRows = atol(argv[++i]);
+                stbInfo->insertRows = atol(argv[++i]);
             } else {
                 exit_required("-n");
             }
         } else if (strcmp(argv[i], "-d") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->dbName = argv[++i];
+                database->dbName = argv[++i];
             } else {
                 exit_required("-d");
             }
@@ -250,40 +252,14 @@ void commandLineParseArgument(int argc, char *argv[]) {
         } else if (strcmp(argv[i] , "-A") == 0) {
             if (i < argc - 1) {
                 g_arguments->demo_mode = false;
-                char* tags = argv[++i];
-                count_datatype(tags, &(g_arguments->db->superTbls->tagCount));
-                tmfree(g_arguments->db->superTbls->tags);
-                g_arguments->db->superTbls->tags =
-                        calloc(g_arguments->db->superTbls->tagCount, sizeof(Column));
-                if (g_arguments->db->superTbls->tags == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                g_memoryUsage += g_arguments->db->superTbls->tagCount * sizeof(Column);
-                if (parse_tag_datatype(tags, g_arguments->db->superTbls->tags)) {
-                    tmfree(g_arguments->db->superTbls->tags);
-                    exit(EXIT_FAILURE);
-                }
+                parse_field_datatype(argv[++i], stbInfo->tags, true);
             } else {
                 exit_required("-A");
             }
         } else if (strcmp(argv[i], "-b") == 0) {
             if (i < argc - 1) {
                 g_arguments->demo_mode = false;
-                char* cols = argv[++i];
-                tmfree(g_arguments->db->superTbls->columns);
-                count_datatype(cols, &(g_arguments->db->superTbls->columnCount));
-                g_arguments->db->superTbls->columns =
-                        calloc(g_arguments->db->superTbls->columnCount, sizeof(Column));
-                if (g_arguments->db->superTbls->columns == NULL) {
-                    errorPrint(stderr, "%s", "memory allocation failed\n");
-                    exit(EXIT_FAILURE);
-                }
-                g_memoryUsage += g_arguments->db->superTbls->columnCount * sizeof(Column);
-                if (parse_col_datatype(cols, g_arguments->db->superTbls->columns)) {
-                    tmfree(g_arguments->db->superTbls->columns);
-                    exit(EXIT_FAILURE);
-                }
+                parse_field_datatype(argv[++i], stbInfo->cols, false);
             } else {
                 exit_required("-b");
             }
@@ -295,18 +271,18 @@ void commandLineParseArgument(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "-m") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->childTblPrefix = argv[++i];
+                stbInfo->childTblPrefix = argv[++i];
             } else {
                 exit_required("-m");
             }
         } else if (strcmp(argv[i], "-E") == 0) {
-            g_arguments->db->superTbls->escape_character = true;
+            stbInfo->escape_character = true;
         } else if (strcmp(argv[i], "-C") == 0) {
             g_arguments->chinese = true;
         } else if (strcmp(argv[i], "-N") == 0) {
             g_arguments->demo_mode = false;
-            g_arguments->db->superTbls->use_metric = false;
-            g_arguments->db->superTbls->tagCount = 0;
+            stbInfo->use_metric = false;
+            benchArrayClear(stbInfo->tags);
         } else if (strcmp(argv[i], "-M") == 0) {
             g_arguments->demo_mode = false;
         } else if (strcmp(argv[i], "-x") == 0) {
@@ -315,19 +291,19 @@ void commandLineParseArgument(int argc, char *argv[]) {
             g_arguments->answer_yes = true;
         } else if (strcmp(argv[i], "-R") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->disorderRange = atoi(argv[++i]);
+                stbInfo->disorderRange = atoi(argv[++i]);
             } else {
                 exit_required("-R");
             }
         } else if (strcmp(argv[i], "-O") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->superTbls->disorderRatio = atoi(argv[++i]);
+                stbInfo->disorderRatio = atoi(argv[++i]);
             } else {
                 exit_required("-O");
             }
         } else if (strcmp(argv[i], "-a") == 0) {
             if (i < argc - 1) {
-                g_arguments->db->dbCfg.replica = atoi(argv[++i]);
+                database->dbCfg.replica = atoi(argv[++i]);
             } else {
                 exit_required("-a");
             }
