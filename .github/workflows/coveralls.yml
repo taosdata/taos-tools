@@ -138,10 +138,20 @@ jobs:
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taodump --help"
           ./build/bin/taosdump --help > /dev/null
+          echo "TEST: taodump -p"
+          ./build/bin/taosdump -p > /dev/null &
+          sleep 1
+          pkill -9 taosdump
           echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
+          echo "TEST: taodump -c"
+          ./build/bin/taosdump -c > /dev/null
           echo "TEST: taodump --port 100000"
           ./build/bin/taosdump --port 100000 > /dev/null 2>&1 || :
+          echo "TEST: taodump --port NotANumber"
+          ./build/bin/taosdump --port NotANumber > /dev/null 2>&1 || :
+          echo "TEST: taodump -C"
+          ./build/bin/taosdump -C > /dev/null 2>&1 || :
           echo "TEST: taodump -D"
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
           echo "TEST: taodump --databases -h localhost -u root"
@@ -210,8 +220,8 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine/debug
-          echo "TEST: epoch time"
-          ./build/bin/taosdump -D test -S 1500000000000 -E 1500000000004 -gg > /dev/null
+          echo "TEST: epoch time and batch"
+          ./build/bin/taosdump -D test -S 1500000000000 -E 1500000000004 -B 10 -gg > /dev/null
           rm -f *.sql *.avro*
 
           echo "TEST: human time"

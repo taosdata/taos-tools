@@ -622,13 +622,6 @@ static uint64_t getUniqueIDFromEpoch()
     return id;
 }
 
-void prompt() {
-    if (!g_args.answer_yes) {
-        printf("         Press enter key to continue or Ctrl-C to stop\n\n");
-        (void)getchar();
-    }
-}
-
 int setConsoleEcho(bool on)
 {
 #define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
@@ -671,12 +664,6 @@ static void printVersion(FILE *file) {
 void errorWrongValue(char *program, char *wrong_arg, char *wrong_value)
 {
     fprintf(stderr, "%s %s: %s is an invalid value\n", program, wrong_arg, wrong_value);
-    fprintf(stderr, "Try `taosdump --help' or `taosdump --usage' for more information.\n");
-}
-
-static void errorUnrecognized(char *program, char *wrong_arg)
-{
-    fprintf(stderr, "%s: unrecognized options '%s'\n", program, wrong_arg);
     fprintf(stderr, "Try `taosdump --help' or `taosdump --usage' for more information.\n");
 }
 
@@ -1149,9 +1136,6 @@ static void parse_args(
                     exit(EXIT_FAILURE);
                 }
                 arguments->databasesSeq = argv[++i];
-            } else {
-                errorUnrecognized(argv[0], argv[i]);
-                exit(EXIT_FAILURE);
             }
             g_args.databases = true;
         } else if (0 == strncmp(argv[i], "--version", strlen("--version")) ||
