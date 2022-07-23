@@ -88,7 +88,7 @@ jobs:
 
       - name: Install packages
         if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov -y > /dev/null
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to develop latest
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -130,6 +130,13 @@ jobs:
           sudo make install > /dev/null
           pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
 
+      - name: exp Test
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          echo "TEST: taodump -p"
+          cd TDengine/src/kit/taos-tools/tests/taosdump
+          ./exp.sh
+
       - name: Basic Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
@@ -138,14 +145,10 @@ jobs:
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taodump --help"
           ./build/bin/taosdump --help > /dev/null
-          echo "TEST: taodump -p"
-          ./build/bin/taosdump -p > /dev/null &
-          sleep 1
-          pkill -9 taosdump
           echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
           echo "TEST: taodump -c"
-          ./build/bin/taosdump -c > /dev/null
+          ./build/bin/taosdump -c > /dev/null 2>&1 || :
           echo "TEST: taodump --port 100000"
           ./build/bin/taosdump --port 100000 > /dev/null 2>&1 || :
           echo "TEST: taodump --port NotANumber"
