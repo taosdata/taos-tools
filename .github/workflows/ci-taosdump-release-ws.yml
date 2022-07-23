@@ -1,4 +1,4 @@
-name: CI (taosBenchmark Debug)
+name: CI - WebSocket (Release)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ develop ]
 
 env:
-  TOOLS_BUILD_TYPE: Debug
+  TOOLS_BUILD_TYPE: Release
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
@@ -43,8 +43,8 @@ jobs:
         uses: tj-actions/changed-files@v23.2
         with:
           files: |
-            src/bench*
-            tests/taosbenchmark*
+            src/taosdump*
+            tests/taosdump/ws/*
             inc/*
             .github/workflows/*
 
@@ -60,7 +60,7 @@ jobs:
           submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: 'chore/sangshuduo/TD-15140-libtaos-ws-submodule'
 
       - name: Change time zone
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -72,18 +72,14 @@ jobs:
           #run: |
           #cd TDengine
           #git pull
-          #git branch -a | grep -w ${{ github.head_ref }} \
-          #  && git checkout ${{ github.head_ref }} \
-          #  && rm -rf tests \
-          #  && git submodule update --init --recursive --force \
-          #  || echo "${{ github.head_ref }} not found in TDengine"
-
+          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
+          #git submodule update --init --recursive
           #if: github.event_name == 'pull_request'
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
-          steps.changed-files-specific.outputs.any_changed == 'true' &&
-          github.event_name == 'pull_request'
+          github.event_name == 'pull_request' &&
+          steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
@@ -96,55 +92,35 @@ jobs:
         with:
           go-version: 1.14
 
+      - name: Set up Rust
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make -j8 && sudo make install
-
+          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true && make -j8 && sudo make install
           pip3 install taospy numpy fabric2 psutil pandas faker
+
+      - name: taosdump Develop Test
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine/src/kit/taos-tools/tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-      - name: taosBenchmark System Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          cd TDengine/tests/system-test
-          if [ -d 5-taos-tools/taosbenchmark ];
+          if find taosdump/ws -name "*.py"|grep -q .;
           then
-            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-            then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py" | grep -v taosdemoTestQueryWithJson`; do sleep 1 && python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m system-test/$i success! \033[0m"|| echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt; done
-            fi
-          fi
-
-      - name: taosBenchmark Old Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          cd TDengine/tests/pytest
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m TD-5213/insertSigcolumnsNum4096.py success! \033[0m"|| echo -e "\033[31m TD-5213/insertSigcolumnsNum4096.py failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
-
-      - name: taosBenchmark Develop Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          cd TDengine/tests/develop-test
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-
-          if [ -d 5-taos-tools/taosbenchmark ];
-          then
-            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-            then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt; done
-            fi
+            for i in `find taosdump/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosbenchmark-failed.txt ];then
-            cat ~/taosbenchmark-failed.txt;
+          if [ -f ~/taosdump-failed.txt ];then
+            cat ~/taosdump-failed.txt;
             exit 1;
           fi

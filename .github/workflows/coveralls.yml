@@ -50,6 +50,8 @@ jobs:
         with:
           files: |
             src/*
+            tests/taosbenchmark/*
+            tests/taosdump/*
             inc/*
             .github/workflows/*
 
@@ -86,7 +88,7 @@ jobs:
 
       - name: Install packages
         if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov -y > /dev/null
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to develop latest
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -111,15 +113,29 @@ jobs:
         with:
           go-version: 1.14
 
+      - name: Set up Rust
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true > /dev/null 2>&1
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug > /dev/null 2>&1
           make > /dev/null 2>&1
           sudo make install > /dev/null
+          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
+
+      - name: exp Test
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          echo "TEST: taodump -p"
+          cd TDengine/src/kit/taos-tools/tests/taosdump
+          ./exp.sh
 
       - name: Basic Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -131,8 +147,14 @@ jobs:
           ./build/bin/taosdump --help > /dev/null
           echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
+          echo "TEST: taodump -c"
+          ./build/bin/taosdump -c > /dev/null 2>&1 || :
           echo "TEST: taodump --port 100000"
           ./build/bin/taosdump --port 100000 > /dev/null 2>&1 || :
+          echo "TEST: taodump --port NotANumber"
+          ./build/bin/taosdump --port NotANumber > /dev/null 2>&1 || :
+          echo "TEST: taodump -C"
+          ./build/bin/taosdump -C > /dev/null 2>&1 || :
           echo "TEST: taodump -D"
           ./build/bin/taosdump -D > /dev/null 2>&1 || :
           echo "TEST: taodump --databases -h localhost -u root"
@@ -201,8 +223,8 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine/debug
-          echo "TEST: epoch time"
-          ./build/bin/taosdump -D test -S 1500000000000 -E 1500000000004 -gg > /dev/null
+          echo "TEST: epoch time and batch"
+          ./build/bin/taosdump -D test -S 1500000000000 -E 1500000000004 -B 10 -gg > /dev/null
           rm -f *.sql *.avro*
 
           echo "TEST: human time"
@@ -275,7 +297,6 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine/tests/pytest
-          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
@@ -287,14 +308,30 @@ jobs:
           python3 test.py -f query/nestedQuery/nestedQuery.py > /dev/null
           python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null
 
-      - name: Develop Test cases
+      - name: taosdump native Develop Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/tests/develop-test
+          cd TDengine/src/kit/taos-tools/tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+
           echo "TEST: develop test cases"
-          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+
+          if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+          fi
+
+      - name: taosdump WebSocket Develop Test
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine/src/kit/taos-tools/tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+
+          if find taosdump/ws -name "*.py"|grep -q .;
+          then
+            for i in `find taosdump/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: System Test cases
