@@ -49,7 +49,7 @@ IF(GIT_FOUND)
             OUTPUT_VARIABLE TAOSDUMP_STATUS
     )
     EXECUTE_PROCESS(
-            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/demo*.c
+            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/bench*.c
             RESULT_VARIABLE RESULT
             OUTPUT_VARIABLE taosbenchmark_STATUS
     )
