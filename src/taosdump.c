@@ -7801,6 +7801,7 @@ static int64_t dumpNormalTableWithoutStb(
 
         if(0 == strlen(ntbName)) {
             errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+            fclose(fp);
             return -1;
         }
         count = dumpNormalTable(
@@ -8453,19 +8454,24 @@ static int createMTableAvroHead(
     } else {
         preCount = limit;
     }
+
+    if (0 == preCount) {
+        printf("Zero normal table need be dumped\n");
+        tfree(jsonTagsSchema);
+        freeTbDes(tableDes);
+        return 0;
+    }
+
     printf("connection: %p is dumping out schema: %"PRId64" "
             "sub table(s) of %s from offset %"PRId64"\n",
             taos, preCount, stable, offset);
 
-    char *tbNameArr = NULL;
-    if (preCount > 0) {
-        tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
-        if (NULL == tbNameArr) {
-            errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
-            tfree(jsonTagsSchema);
-            freeTbDes(tableDes);
-            return -1;
-        }
+    char *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
+    if (NULL == tbNameArr) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        tfree(jsonTagsSchema);
+        freeTbDes(tableDes);
+        return -1;
     }
 
     if (3 == g_majorVersionOfClient) {
@@ -8595,6 +8601,9 @@ static int64_t dumpNormalTableBelongStb(
 
     if(0 == strlen(ntbName)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
+        if (NULL != fp) {
+            fclose(fp);
+        }
         return -1;
     }
     count = dumpNormalTable(
@@ -8662,6 +8671,9 @@ static void *dumpNtbOfDb(void *arg) {
             errorPrint("%s() LN%d, pass wrong tbname. from=%"PRId64", i=%"PRId64"\n",
                     __func__, __LINE__,
                     pThreadInfo->from, i);
+            if (NULL != fp) {
+                fclose(fp);
+            }
             return NULL;
         }
         if (g_args.avro) {
@@ -8715,7 +8727,7 @@ static void *dumpNtbOfDb(void *arg) {
         printf("[%d]:%d%%\n", pThreadInfo->threadIndex, 100);
     }
 
-    if (!g_args.avro) {
+    if (NULL != fp) {
         fclose(fp);
     }
 
@@ -9700,7 +9712,7 @@ static void dumpNormalTablesOfStbNative(
         char tbName[TSDB_TABLE_NAME_LEN] = {0};
         strncpy(tbName,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_NAME_INDEX]));
+                min(TSDB_TABLE_NAME_LEN-1, lengths[TSDB_SHOW_TABLES_NAME_INDEX]));
         i++;
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
