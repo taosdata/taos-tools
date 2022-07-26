@@ -227,6 +227,20 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
             ENDIF()
 
+            ADD_LIBRARY(jansson STATIC IMPORTED)
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/deps/deps/jansson/src/deps-jansson-build/lib64/libjansson.a")
+            ELSE()
+                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/deps/deps/jansson/src/deps-jansson-build/lib/libjansson.a")
+            ENDIF()
+
+            ADD_LIBRARY(snappy STATIC IMPORTED)
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/deps/deps/snappy/src/deps-snappy-build/libsnappy.a")
+            ELSE()
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/deps/deps/snappy/src/deps-snappy-build/libsnappy.a")
+            ENDIF()
+
             EXECUTE_PROCESS (
                     COMMAND gcc -print-file-name=libstdc++.a
                     OUTPUT_VARIABLE LIBSTDCXX_PATH
