@@ -65,7 +65,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#include <stdarg.h>
 
 // temporary flag for 3.0 development TODO need to remove in future
 #define ALLOW_FORBID_FUNC
@@ -315,6 +315,11 @@ typedef struct SField {
     bool     sma;
 } Field;
 
+typedef struct SNormatlTable_S {
+    char    name[TSDB_TABLE_NAME_LEN];
+    char*   sml_tag;
+} NormalTable;
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -346,6 +351,7 @@ typedef struct SSuperTable_S {
     char *   partialColumnNameBuf;
     BArray * cols;
     BArray * tags;
+    BArray * childTbls;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -536,7 +542,6 @@ typedef struct SThreadInfo_S {
     TAOS_SUB * tsub;
     char **    lines;
     int32_t    sockfd;
-    SDataBase* dbInfo;
     SSuperTable* stbInfo;
     char **    sml_tags;
     tools_cJSON *    json_array;
@@ -548,6 +553,9 @@ typedef struct SThreadInfo_S {
     BArray*    delayList;
     uint64_t*  query_delay_list;
     double     avg_delay;
+    int     precision;
+    int     sml_precision;
+    char*      dbName;
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -571,6 +579,7 @@ extern bool           g_fail;
 extern char           configDir[];
 extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
+static const size_t ds_header = 16;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 #define tstrncpy(dst, src, size)       \
@@ -579,6 +588,11 @@ extern uint64_t       g_memoryUsage;
         (dst)[(size)-1] = 0;           \
     } while (0)
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
+#define dslen(ds) ( ((uint64_t*)(ds))[-1] )
+#define dscap(ds) ( ((uint64_t*)(ds))[-2] )
+#define dsend(ds) ( ds[dslen(ds)] )
+#define dsendp(ds) ( ds + dslen(ds) )
+#define dslast(ds) ( ds[dslen(ds) - 1] )
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
 void commandLineParseArgument(int argc, char *argv[]);
@@ -631,11 +645,34 @@ void benchSetSignal(int32_t signum, FSignalHandler sigfp);
 int taos_convert_type_to_length(uint8_t type);
 int64_t taos_convert_datatype_to_default_max(uint8_t type);
 int64_t taos_convert_datatype_to_default_min(uint8_t type);
+char* ds_new(size_t capacity);
+void ds_append(char** dsp, const char* s);
+void ds_appends(char** dsp, int count, ...);
+void ds_free(char** sp);
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 /* demoQuery.c */
 int queryTestProcess();
 /* demoSubscribe.c */
 int subscribeTestProcess();
+// benchData.c
+int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio, int disorderRange);
+void rand_string(char *str, int size, bool chinese);
+void    generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
+                         int lenOfOneRow, BArray * fields, int64_t loop,
+                         bool tag);
+int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo);
+void* sync_write_taosc_interlace(void* args);
+void* sync_write_taosc_progressive(void* args);
+void* sync_write_sml_interlace(void* args);
+void* sync_write_sml_progressive(void* args);
+void* sync_write_stmt_interlace(void* args);
+void* sync_write_stmt_progressive(void* args);
+
+int prepare_stmt(threadInfo* pThreadInfo, char* dbName, SSuperTable* stbInfo);
+int prepare_taosc(threadInfo* pThreadInfo, char* dbName);
+int prepare_rest(threadInfo* pThreadInfo);
+int prepare_sml(threadInfo* pThreadInfo, char* dbName, SSuperTable* stbInfo);
 #endif

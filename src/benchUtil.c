@@ -929,3 +929,91 @@ void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
     sigaction(signum, &act, NULL);
 }
 #endif
+
+char* ds_new(size_t capacity) {
+    char* ds = malloc(ds_header + capacity + 1);
+    if (ds == NULL) {
+        errorPrint(stderr, "%s", "failed to allocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    ds += ds_header;
+    dslen(ds) = 0;
+    dscap(ds) = capacity;
+    ds[capacity] = '\0';
+
+    return ds;
+}
+
+static void ds_resize_imp(char** dsp, size_t capacity) {
+    char* ds = *dsp;
+    if (capacity < dslen(ds)) {
+        dslen(ds) = capacity;
+    }
+
+    ds = realloc(ds - ds_header, ds_header + capacity + 1);
+    if (ds == NULL) {
+        errorPrint(stderr, "%s", "failed to reallocate memory\n");
+        exit(EXIT_FAILURE);
+    }
+    ds += ds_header;
+
+    dscap(ds) = capacity;
+    ds[capacity] = '\0';
+    *dsp = ds;
+}
+
+static void ds_resize(char** dsp, size_t incsize) {
+    char *ds = *dsp;
+    int len = dslen(ds) + incsize;
+    if (dscap(ds) >= len) return;
+    size_t cap = dscap(ds);
+
+    while(cap < len) {
+        if (cap <= SQL_BUFF_LEN) {
+            if (cap == 0) {
+                cap = 2;
+            } else {
+                cap *= 2;
+            }
+        } else {
+            static size_t s_grow_size = 0;
+            s_grow_size = (s_grow_size + incsize) >> 1;
+            cap += (s_grow_size > SQL_BUFF_LEN) ? s_grow_size : SQL_BUFF_LEN;
+        }
+    }
+    cap += incsize;
+
+    ds_resize_imp(dsp, cap);
+}
+
+void ds_append(char** dsp, const char* s) {
+    int len = strlen(s);
+
+    ds_resize(dsp, len);
+    char* ds = *dsp;
+
+    memcpy(dsendp(ds), s, len + 1);
+    dslen(ds) += len;
+}
+
+void ds_appends(char** dsp, int count, ...) {
+    va_list valist;
+    va_start(valist, count);
+
+    for (int i = 0; i < count; i++) {
+        const char* s = va_arg(valist, char*);
+        ds_append(dsp, s);
+    }
+    va_end(valist);
+}
+
+void ds_free(char** sp) {
+    char*s  = *sp;
+    if (s == NULL) {
+        return;
+    }
+
+    s = s - ds_header;
+    tmfree(s);
+    *sp = NULL;
+}

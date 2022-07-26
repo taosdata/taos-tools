@@ -13,7 +13,6 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "benchData.h"
 #include "bench.h"
 
 const char charset[] =
@@ -68,7 +67,7 @@ static int usc2utf8(char *p, int unic) {
     return 0;
 }
 
-static void rand_string(char *str, int size, bool chinese) {
+void rand_string(char *str, int size, bool chinese) {
     if (chinese) {
         char *pstr = str;
         int   move = 0;
@@ -97,40 +96,6 @@ static void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
-    int   len = 0;
-    char *prepare = benchCalloc(1, BUFFER_SIZE, true);
-    if (stbInfo->autoCreateTable) {
-        len += sprintf(prepare + len,
-                       "INSERT INTO ? USING `%s` TAGS (%s) VALUES(?",
-                       stbInfo->stbName,
-                       stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq);
-    } else {
-        len += sprintf(prepare + len, "INSERT INTO ? VALUES(?");
-    }
-
-    for (int col = 0; col < stbInfo->cols->size; col++) {
-        len += sprintf(prepare + len, ",?");
-    }
-    sprintf(prepare + len, ")");
-    if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
-        infoPrint(stdout,
-                  "in stmt mode, batch size(%u) can not larger than prepared "
-                  "sample data size(%" PRId64
-                  "), restart with larger prepared_rand or batch size will be "
-                  "auto set to %" PRId64 "\n",
-                  g_arguments->reqPerReq, g_arguments->prepared_rand,
-                  g_arguments->prepared_rand);
-        g_arguments->reqPerReq = g_arguments->prepared_rand;
-    }
-    if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
-        errorPrint(stderr, "taos_stmt_prepare(%s) failed\n", prepare);
-        tmfree(prepare);
-        return -1;
-    }
-    tmfree(prepare);
-    return 0;
-}
 
 static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
                                        int64_t size) {
@@ -798,8 +763,7 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
     return 0;
 }
 
-int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
-                      int disorderRange) {
+int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio, int disorderRange) {
     int64_t randTail = timeStampStep * seq;
     if (disorderRatio > 0) {
         int rand_num = taosRandom() % 100;
@@ -808,207 +772,4 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
         }
     }
     return randTail;
-}
-
-int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
-    TAOS_STMT *  stmt = pThreadInfo->conn->stmt;
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
-    uint32_t     columnCount = stbInfo->cols->size;
-    memset(pThreadInfo->bindParams, 0,
-           (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
-    memset(pThreadInfo->is_null, 0, batch);
-
-    for (int c = 0; c < columnCount + 1; c++) {
-        TAOS_MULTI_BIND *param =
-            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
-                                sizeof(TAOS_MULTI_BIND) * c);
-
-        char data_type;
-
-        if (c == 0) {
-            data_type = TSDB_DATA_TYPE_TIMESTAMP;
-            param->buffer_length = sizeof(int64_t);
-            param->buffer = pThreadInfo->bind_ts_array;
-
-        } else {
-            Field * col = benchArrayGet(stbInfo->cols, c - 1);
-            data_type = col->type;
-            param->buffer = col->data;
-            param->buffer_length = col->length;
-            debugPrint(stdout, "col[%d]: type: %s, len: %d\n", c,
-                       taos_convert_datatype_to_string(data_type),
-                       col->length);
-        }
-        param->buffer_type = data_type;
-        param->length = benchCalloc(batch, sizeof(int32_t), true);
-
-        for (int b = 0; b < batch; b++) {
-            param->length[b] = (int32_t)param->buffer_length;
-        }
-        param->is_null = pThreadInfo->is_null;
-        param->num = batch;
-    }
-
-    for (uint32_t k = 0; k < batch; k++) {
-        /* columnCount + 1 (ts) */
-        if (stbInfo->disorderRatio) {
-            *(pThreadInfo->bind_ts_array + k) =
-                startTime + getTSRandTail(stbInfo->timestamp_step, k,
-                                          stbInfo->disorderRatio,
-                                          stbInfo->disorderRange);
-        } else {
-            *(pThreadInfo->bind_ts_array + k) =
-                startTime + stbInfo->timestamp_step * k;
-        }
-    }
-
-    if (taos_stmt_bind_param_batch(
-            stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
-        errorPrint(stderr, "taos_stmt_bind_param_batch() failed! reason: %s\n",
-                   taos_stmt_errstr(stmt));
-        return -1;
-    }
-
-    for (int c = 0; c < stbInfo->cols->size + 1; c++) {
-        TAOS_MULTI_BIND *param =
-            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
-                                sizeof(TAOS_MULTI_BIND) * c);
-        tmfree(param->length);
-    }
-
-    // if msg > 3MB, break
-    if (taos_stmt_add_batch(stmt)) {
-        errorPrint(stderr, "taos_stmt_add_batch() failed! reason: %s\n",
-                   taos_stmt_errstr(stmt));
-        return -1;
-    }
-    return batch;
-}
-
-void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
-                            uint64_t start_table_from, int tbSeq) {
-    tools_cJSON * tags = tools_cJSON_CreateObject();
-    char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
-    snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
-             stbInfo->childTblPrefix, tbSeq + start_table_from);
-    tools_cJSON_AddStringToObject(tags, "id", tbName);
-    char *tagName = benchCalloc(1, TSDB_MAX_TAGS, true);
-    for (int i = 0; i < stbInfo->tags->size; i++) {
-        Field * tag = benchArrayGet(stbInfo->tags, i);
-        tools_cJSON *tagObj = tools_cJSON_CreateObject();
-        snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
-        switch (tag->type) {
-            case TSDB_DATA_TYPE_BOOL: {
-                tools_cJSON_AddBoolToObject(tagObj, "value", (taosRandom() % 2) & 1);
-                tools_cJSON_AddStringToObject(tagObj, "type", "bool");
-                break;
-            }
-            case TSDB_DATA_TYPE_FLOAT: {
-                tools_cJSON_AddNumberToObject(
-                        tagObj, "value",
-                        (float)(tag->min +
-                            (taosRandom() % (tag->max - tag->min)) +
-                            taosRandom() % 1000 / 1000.0));
-                tools_cJSON_AddStringToObject(tagObj, "type", "float");
-                break;
-            }
-            case TSDB_DATA_TYPE_DOUBLE: {
-                tools_cJSON_AddNumberToObject(
-                        tagObj, "value",
-                        (double)(tag->min + (taosRandom() % (tag->max - tag->min)) +
-                             taosRandom() % 1000000 / 1000000.0));
-                tools_cJSON_AddStringToObject(tagObj, "type", "double");
-                break;
-            }
-
-            case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR: {
-                char *buf = (char *)benchCalloc(tag->length + 1, 1, false);
-                rand_string(buf, tag->length, g_arguments->chinese);
-                if (tag->type == TSDB_DATA_TYPE_BINARY) {
-                    tools_cJSON_AddStringToObject(tagObj, "value", buf);
-                    tools_cJSON_AddStringToObject(tagObj, "type", "binary");
-                } else {
-                    tools_cJSON_AddStringToObject(tagObj, "value", buf);
-                    tools_cJSON_AddStringToObject(tagObj, "type", "nchar");
-                }
-                tmfree(buf);
-                break;
-            }
-            default:
-                tools_cJSON_AddNumberToObject(
-                        tagObj, "value",
-                        tag->min + (taosRandom() % (tag->max - tag->min)));
-                tools_cJSON_AddStringToObject(tagObj, "type", taos_convert_datatype_to_string(tag->type));
-                break;
-        }
-        tools_cJSON_AddItemToObject(tags, tagName, tagObj);
-    }
-    tools_cJSON_AddItemToArray(tagsList, tags);
-    tmfree(tagName);
-    tmfree(tbName);
-}
-
-void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,
-                            uint32_t time_precision, int64_t timestamp) {
-    tools_cJSON * record = tools_cJSON_CreateObject();
-    tools_cJSON * ts = tools_cJSON_CreateObject();
-    tools_cJSON_AddNumberToObject(ts, "value", (double)timestamp);
-    if (time_precision == TSDB_SML_TIMESTAMP_MILLI_SECONDS) {
-        tools_cJSON_AddStringToObject(ts, "type", "ms");
-    } else if (time_precision == TSDB_SML_TIMESTAMP_MICRO_SECONDS) {
-        tools_cJSON_AddStringToObject(ts, "type", "us");
-    } else if (time_precision == TSDB_SML_TIMESTAMP_NANO_SECONDS) {
-        tools_cJSON_AddStringToObject(ts, "type", "ns");
-    }
-    tools_cJSON *value = tools_cJSON_CreateObject();
-    Field* col = benchArrayGet(stbInfo->cols, 0);
-    switch (col->type) {
-        case TSDB_DATA_TYPE_BOOL:
-            tools_cJSON_AddBoolToObject(value, "value", (taosRandom() % 2) & 1);
-            tools_cJSON_AddStringToObject(value, "type", "bool");
-            break;
-        case TSDB_DATA_TYPE_FLOAT:
-            tools_cJSON_AddNumberToObject(
-                value, "value",
-                (float)(col->min +
-                        (taosRandom() % (col->max - col->min)) +
-                        taosRandom() % 1000 / 1000.0));
-            tools_cJSON_AddStringToObject(value, "type", "float");
-            break;
-        case TSDB_DATA_TYPE_DOUBLE:
-            tools_cJSON_AddNumberToObject(
-                value, "value",
-                (double)(col->min +
-                         (taosRandom() % (col->max - col->min)) +
-                         taosRandom() % 1000000 / 1000000.0));
-            tools_cJSON_AddStringToObject(value, "type", "double");
-            break;
-        case TSDB_DATA_TYPE_BINARY:
-        case TSDB_DATA_TYPE_NCHAR: {
-            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
-            rand_string(buf, col->length, g_arguments->chinese);
-            if (col->type == TSDB_DATA_TYPE_BINARY) {
-                tools_cJSON_AddStringToObject(value, "value", buf);
-                tools_cJSON_AddStringToObject(value, "type", "binary");
-            } else {
-                tools_cJSON_AddStringToObject(value, "value", buf);
-                tools_cJSON_AddStringToObject(value, "type", "nchar");
-            }
-            tmfree(buf);
-            break;
-        }
-        default:
-            tools_cJSON_AddNumberToObject(
-                    value, "value",
-                    (double)col->min +
-                    (taosRandom() % (col->max - col->min)));
-            tools_cJSON_AddStringToObject(value, "type", taos_convert_datatype_to_string(col->type));
-            break;
-    }
-    tools_cJSON_AddItemToObject(record, "timestamp", ts);
-    tools_cJSON_AddItemToObject(record, "value", value);
-    tools_cJSON_AddItemToObject(record, "tags", tag);
-    tools_cJSON_AddStringToObject(record, "metric", stbInfo->stbName);
-    tools_cJSON_AddItemToArray(array, record);
 }
