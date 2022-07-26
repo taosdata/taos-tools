@@ -21,6 +21,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
     // columns
     tools_cJSON *columnsObj = tools_cJSON_GetObjectItem(superTblObj, "columns");
     if (!tools_cJSON_IsArray(columnsObj)) {
+        errorPrint(stderr, "%s", "Invalid columns format in json\n");
         goto PARSE_OVER;
     }
     benchArrayClear(stbInfo->cols);
@@ -606,8 +607,10 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->rollup = rollup->valuestring;
             }
         }
-        if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {
-            return -1;
+        if (!superTable->childTblExists) {
+            if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {
+                return -1;
+            }
         }
     }
     return 0;
