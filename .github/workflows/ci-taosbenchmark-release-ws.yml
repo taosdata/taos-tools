@@ -82,7 +82,6 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-          git submodule update --init --recursive
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'

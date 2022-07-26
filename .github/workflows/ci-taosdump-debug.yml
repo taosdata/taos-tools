@@ -87,7 +87,6 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-          git submodule update --init --recursive
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -102,17 +101,17 @@ jobs:
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make -j8 && sudo make install
 
           pip3 install taospy numpy fabric2 psutil pandas faker
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
 
       - name: taosdump Func Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/tests/pytest
-          python3 ./test.py -f tools/taosdumpTest.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          cd TDengine/tests/pytest || echo -e "failed to cd TDEngine/tests/pytest"
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          if find tools -name "taosdump*.py"|grep -q .;
+          then
+            for i in `find tools -name "taosdump*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m" || echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
+          fi
 
       - name: taosdump System Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -122,7 +121,7 @@ jobs:
           sudo pkill -9 taosd || :
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m system-test/$i success! \033[0m"|| echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m system-test/$i success! \033[0m" || echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
           fi
 
       - name: taosdump Old Test

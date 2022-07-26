@@ -40,7 +40,6 @@ jobs:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
           ref: develop
-          submodules: recursive
           path: 'taos-tools'
           # Set an output parameter `uname` for use in subsequent steps
           run: |
@@ -119,7 +118,6 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-          git submodule update --init --recursive
 
       - name: Build tdengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
