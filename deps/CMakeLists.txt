@@ -9,9 +9,9 @@ ExternalProject_Add(
     GIT_REPOSITORY https://github.com/akheron/jansson
     GIT_TAG         v2.14
     GIT_SHALLOW     true
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/deps/jansson
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
-    INSTALL_COMMAND ""
+    CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
     )
 
 ExternalProject_Add(
@@ -19,9 +19,9 @@ ExternalProject_Add(
     GIT_REPOSITORY https://github.com/google/snappy
     GIT_TAG         1.1.8
     GIT_SHALLOW     true
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/deps/snappy
+    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
-    INSTALL_COMMAND ""
+    CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/snappy
     )
 
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")

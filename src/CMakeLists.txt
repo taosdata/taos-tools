@@ -221,16 +221,34 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ELSE ()
             ADD_LIBRARY(avro STATIC IMPORTED)
-            FILE(GLOB_RECURSE AVRO_LIB_LOC "${CMAKE_BINARY_DIR}/build/libavro.a")
-            SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${AVRO_LIB_LOC}")
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" 
+                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
+            ELSE()
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
+            ENDIF()
 
             ADD_LIBRARY(jansson STATIC IMPORTED)
-            FILE(GLOB_RECURSE JANSSON_LIB_LOC "${CMAKE_BINARY_DIR}/libjansson.a")
-            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION "${JANSSON_LIB_LOC}")
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" 
+                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib64/libjansson.a")
+            ELSE()
+                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
+            ENDIF()
 
             ADD_LIBRARY(snappy STATIC IMPORTED)
-            FILE(GLOB_RECURSE SNAPPY_LIB_LOC "${CMAKE_BINARY_DIR}/libsnappy.a")
-            SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION "${SNAPPY_LIB_LOC}")
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" 
+                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
+            ELSE()
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
+            ENDIF()
 
             EXECUTE_PROCESS (
                     COMMAND gcc -print-file-name=libstdc++.a
