@@ -40,7 +40,6 @@ jobs:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
           ref: develop
-          submodules: recursive
           path: 'taos-tools'
           # Set an output parameter `uname` for use in subsequent steps
           run: |
@@ -114,12 +113,18 @@ jobs:
         if: |
           github.event_name == 'pull_request' &&
           steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          echo "The uname output was ${{ steps.setup.outputs.uname }}"
-          cd TDengine/src/kit/taos-tools
-          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
-          git checkout -qf FETCH_HEAD
-          git submodule update --init --recursive
+        uses: uraimo/run-on-arch-action@v2.1.1
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+          run: |
+            echo "The uname output was ${{ steps.setup.outputs.uname }}"
+            apt update -y > /dev/null 2>&1
+            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null 2>&1
+            git config --global --add safe.directory /home/runner/work/taos-tools/taos-tools/TDengine/src/kit/taos-tools
+            cd TDengine/src/kit/taos-tools
+            git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+            git checkout -qf FETCH_HEAD
 
       - name: Build tdengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -129,8 +134,8 @@ jobs:
           distro: ${{ matrix.distro }}
           run: |
             echo "The uname output was ${{ steps.setup.outputs.uname }}"
-            apt update -y
-            apt install cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+            apt update -y > /dev/null 2>&1
+            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null 2>&1
             cd TDengine
             mkdir debug
             cd debug
