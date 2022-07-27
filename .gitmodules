@@ -1,0 +1,9 @@
+[submodule "deps/avro"]
+	path = deps/avro
+	url = https://github.com/apache/avro
+[submodule "deps/jansson"]
+	path = deps/jansson
+	url = https://github.com/akheron/jansson
+[submodule "deps/snappy"]
+	path = deps/snappy
+	url = https://github.com/google/snappy
