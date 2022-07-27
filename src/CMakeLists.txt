@@ -133,6 +133,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET(OS_ID "Darwin")
     ENDIF ()
 
+    ADD_DEPENDENCIES(taosdump apache-avro)
     IF (${WEBSOCKET})
         INCLUDE_DIRECTORIES(/usr/local/include/)
         SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
