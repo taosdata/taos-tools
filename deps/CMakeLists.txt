@@ -17,7 +17,7 @@ ExternalProject_Add(
 ExternalProject_Add(
     deps-snappy
     GIT_REPOSITORY https://github.com/google/snappy
-    GIT_TAG         1.1.8
+    GIT_TAG         1.1.9
     GIT_SHALLOW     true
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
@@ -59,6 +59,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
     )
     ADD_SUBDIRECTORY(CUnit)
+    ADD_DEPENDENCIES(apache-avro deps-jansson)
+    ADD_DEPENDENCIES(apache-avro deps-snappy)
 ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 ENDIF()
 ADD_SUBDIRECTORY(toolscJson)

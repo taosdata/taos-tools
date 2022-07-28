@@ -122,6 +122,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
                 OUTPUT_VARIABLE OS_ID
         )
+        ADD_DEPENDENCIES(taosdump apache-avro)
     ELSE ()
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
