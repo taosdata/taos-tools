@@ -11,7 +11,7 @@ ExternalProject_Add(
     GIT_SHALLOW     true
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
-    CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
+    CONFIGURE_COMMAND cmake -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
     )
 
 ExternalProject_Add(
@@ -19,6 +19,7 @@ ExternalProject_Add(
     GIT_REPOSITORY https://github.com/google/snappy
     GIT_TAG         1.1.9
     GIT_SHALLOW     true
+    GIT_SUBMODULES  ""
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
     SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
     CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/snappy
