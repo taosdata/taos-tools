@@ -311,7 +311,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       sprintf(cfg->name, "replica");
       cfg->valuestring = NULL;
       cfg->valueint = replica;
-      SDataBase* database = benchArrayGet(g_arguments->databases, 0);
       benchArrayPush(database->cfgs, cfg);
       break;
     }
