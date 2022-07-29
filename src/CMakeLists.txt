@@ -140,13 +140,16 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     SET(OS_ID "")
 
     IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        ADD_DEFINITIONS(-DLINUX)
+
         EXECUTE_PROCESS (
                 COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
                 OUTPUT_VARIABLE OS_ID
         )
+        MESSAGE(STATUS "src cmake LN147, detected The current OS is " ${OS_ID} "")
 
         ADD_LIBRARY(jansson STATIC IMPORTED)
-        IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
+        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
                 OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
             SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
@@ -166,7 +169,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         ENDIF()
 
         ADD_LIBRARY(snappy STATIC IMPORTED)
-        IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
+        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
                 OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
             SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
@@ -185,14 +188,27 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ENDIF()
         ENDIF ()
 
-        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
+        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
+                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+            MESSAGE(STATUS "Temporary disable taosdump build on ${OS_ID}")
+        ELSE ()
+            IF (${CURRENT_CPUTYPE} MATCHES "x64")
+                ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
+                ADD_DEPENDENCIES(taosdump apache-avro)
+            ELSE()
+                MESSAGE(STATUS "Temporary disable taosdump build on ${CURRENT_CPUTYPE}")
+            ENDIF ()
+        ENDIF ()
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
         ELSE()
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
         ENDIF()
-        ADD_DEFINITIONS(-DLINUX)
-        ADD_DEPENDENCIES(taosdump apache-avro)
+        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
+                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+            #ADD_DEPENDENCIES(taosdump deps-jansson)
+            #ADD_DEPENDENCIES(taosdump deps-snappy)
+        ENDIF ()
     ELSE ()
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
@@ -208,7 +224,16 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         INCLUDE_DIRECTORIES(/usr/local/include/)
         SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
         ADD_DEPENDENCIES(taosBenchmark taosws-rs)
-        ADD_DEPENDENCIES(taosdump taosws-rs)
+        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
+                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+            MESSAGE(STATUS "Temporary disable taosdump build on ${OS_ID}")
+        ELSE ()
+            IF (${CURRENT_CPUTYPE} MATCHES "x64")
+                ADD_DEPENDENCIES(taosdump taosws-rs)
+            ELSE ()
+                MESSAGE(STATUS "Temporary disable taosdump build on ${CURRENT_CPUTYPE}")
+            ENDIF ()
+        ENDIF()
     ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()
@@ -290,8 +315,14 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ELSE ()
+            EXECUTE_PROCESS (
+                COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+                OUTPUT_VARIABLE OS_ID
+            )
+            MESSAGE(STATUS "src cmake LN303, detected The current OS is " ${OS_ID} "")
+
             ADD_LIBRARY(avro STATIC IMPORTED)
-            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
+            IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
                     OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
                 SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
                     "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
@@ -313,7 +344,16 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             IF (${OS_ID} MATCHES "alpine")
                 TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp ${WEBSOCKET_LINK_FLAGS})
             ELSE()
-                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread ${WEBSOCKET_LINK_FLAGS})
+                IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
+                        OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                    MESSAGE(STATUS "Temporary disable taosdump on ${OS_ID}")
+                ELSE()
+                    IF (${CURRENT_CPUTYPE} MATCHES "x64")
+                        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread ${WEBSOCKET_LINK_FLAGS})
+                    ELSE()
+                        MESSAGE(STATUS "Temporary disable taosdump build on ${CURRENT_CPUTYPE}")
+                    ENDIF ()
+                ENDIF()
             ENDIF()
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ENDIF ()

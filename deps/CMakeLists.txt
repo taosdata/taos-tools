@@ -27,7 +27,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
         OUTPUT_VARIABLE OS_ID
         )
-    IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
+    MESSAGE(STATUS "deps cmake LN30, detected The current OS is " ${OS_ID} "")
+    IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
             OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
         ExternalProject_Add(
             deps-jansson
