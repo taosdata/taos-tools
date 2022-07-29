@@ -259,8 +259,13 @@ int createDatabase(SDataBase* database) {
                             " COMP %d", database->dbCfg.comp);
     }
     if (database->dbCfg.walLevel >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal %d",
+        if (g_arguments->taosc_version == 3) {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal_level %d",
                             database->dbCfg.walLevel);
+        } else {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal %d",
+                            database->dbCfg.walLevel);
+        }
     }
     if (database->dbCfg.cacheLast >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
@@ -271,8 +276,13 @@ int createDatabase(SDataBase* database) {
                 " CACHEMODEL %s", database->dbCfg.cache_model);
     }
     if (database->dbCfg.fsync >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+        if (g_arguments->taosc_version == 3) {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " wal_fsync_period %d", database->dbCfg.fsync);
+        } else {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " FSYNC %d", database->dbCfg.fsync);
+        }
     }
     if (database->dbCfg.buffer >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
