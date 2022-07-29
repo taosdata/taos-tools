@@ -22,16 +22,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         ENDIF()
     ENDIF ()
 
-    #ExternalProject_Add(
-    #    deps-jansson
-    #    GIT_REPOSITORY https://github.com/akheron/jansson
-    #    GIT_TAG         v2.14
-    #    GIT_SHALLOW     true
-    #    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
-    #    SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
-    #    CONFIGURE_COMMAND cmake -DJANSSON_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
-    #    )
-
     SET(OS_ID "")
     EXECUTE_PROCESS (
         COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
@@ -39,6 +29,16 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         )
     IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
             OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+        ExternalProject_Add(
+            deps-jansson
+            GIT_REPOSITORY https://github.com/akheron/jansson
+            GIT_TAG         v2.14
+            GIT_SHALLOW     true
+            PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
+            SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
+            CONFIGURE_COMMAND cmake -DJANSSON_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
+            )
+
         ExternalProject_Add(
             deps-snappy
             GIT_REPOSITORY https://github.com/google/snappy

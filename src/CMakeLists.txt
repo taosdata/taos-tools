@@ -146,18 +146,24 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         )
 
         ADD_LIBRARY(jansson STATIC IMPORTED)
-        IF (${CURRENT_CPUTYPE} MATCHES "x64")
+        IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
+                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
             SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                "/usr/lib/x86_64-linux-gnu/libjansson.a")
-        ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
-            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                "/usr/lib/aarch64-linux-gnu/libjansson.a")
-        ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
-            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                "/usr/lib/arm-linux-gnueabihf/libjansson.a")
+                "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
         ELSE ()
-            MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
-        ENDIF ()
+            IF (${CURRENT_CPUTYPE} MATCHES "x64")
+                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+                    "/usr/lib/x86_64-linux-gnu/libjansson.a")
+            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
+                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+                    "/usr/lib/aarch64-linux-gnu/libjansson.a")
+            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
+                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+                    "/usr/lib/arm-linux-gnueabihf/libjansson.a")
+            ELSE ()
+                MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
+            ENDIF ()
+        ENDIF()
 
         ADD_LIBRARY(snappy STATIC IMPORTED)
         IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
