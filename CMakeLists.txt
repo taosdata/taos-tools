@@ -113,12 +113,6 @@ ENDIF ()
 ADD_SUBDIRECTORY(deps)
 ADD_SUBDIRECTORY(src)
 
-IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    ADD_DEPENDENCIES(taosdump apache-avro)
-ELSEIF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    #    ADD_DEPENDENCIES(taosdump avro)
-endif()
-
 ADD_DEPENDENCIES(taosBenchmark toolscJson)
 
 SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.sh")
