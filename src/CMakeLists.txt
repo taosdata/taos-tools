@@ -4,6 +4,35 @@ INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR}/build/include)
 INCLUDE_DIRECTORIES(../inc)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/toolscJson/inc)
 
+MESSAGE(STATUS "The current platform " ${CMAKE_SYSTEM_PROCESSOR} " is detected")
+
+IF (CMAKE_SYSTEM_PROCESSOR MATCHES "(amd64)|(AMD64)|(x86_64)")
+    MESSAGE(STATUS "The current platform is amd64")
+    MESSAGE(STATUS "Set CPUTYPE to x64")
+    SET(CURRENT_CPUTYPE "x64")
+    SET(CURRENT_PLATFORM_ARCH_STR "amd64")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)")
+    MESSAGE(STATUS "The current platform is x86")
+    MESSAGE(STATUS "Set CPUTYPE to x86")
+    SET(CURRENT_CPUTYPE "x32")
+    SET(CURRENT_PLATFORM_ARCH_STR "i386")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "armv7l")
+    MESSAGE(STATUS "Set CPUTYPE to aarch32")
+    SET(CURRENT_CPUTYPE "aarch32")
+    MESSAGE(STATUS "Set CPUTYPE to aarch32")
+    SET(CURRENT_PLATFORM_ARCH_STR "arm")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    SET(CURRENT_CPUTYPE "aarch64")
+    MESSAGE(STATUS "Set CPUTYPE to aarch64")
+    SET(CURRENT_PLATFORM_ARCH_STR "arm64")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "mips64")
+    SET(CURRENT_CPUTYPE "mips64")
+    MESSAGE(STATUS "Set CPUTYPE to mips64")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+    SET(CURRENT_CPUTYPE "apple_m1")
+    MESSAGE(STATUS "Set CPUTYPE to apple silicon m1")
+ENDIF ()
+
 FIND_PACKAGE(Git)
 IF(GIT_FOUND)
     EXECUTE_PROCESS(
@@ -111,6 +140,45 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     SET(OS_ID "")
 
     IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        EXECUTE_PROCESS (
+                COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+                OUTPUT_VARIABLE OS_ID
+        )
+
+        ADD_LIBRARY(jansson STATIC IMPORTED)
+        IF (${CURRENT_CPUTYPE} MATCHES "x64")
+            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+                "/usr/lib/x86_64-linux-gnu/libjansson.a")
+        ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
+            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+                "/usr/lib/aarch64-linux-gnu/libjansson.a")
+        ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
+            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+                "/usr/lib/arm-linux-gnueabihf/libjansson.a")
+        ELSE ()
+            MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
+        ENDIF ()
+
+        ADD_LIBRARY(snappy STATIC IMPORTED)
+        IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
+                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+            SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
+        ELSE()
+            IF (${CURRENT_CPUTYPE} MATCHES "x64")
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                    "/usr/lib/x86_64-linux-gnu/libsnappy.a")
+            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                    "/usr/lib/aarch64-linux-gnu/libsnappy.a")
+            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                    "/usr/lib/arm-linux-gnueabihf/libsnappy.a")
+            ELSE ()
+                MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
+            ENDIF()
+        ENDIF ()
+
         ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
@@ -118,10 +186,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
         ENDIF()
         ADD_DEFINITIONS(-DLINUX)
-        EXECUTE_PROCESS (
-                COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
-                OUTPUT_VARIABLE OS_ID
-        )
         ADD_DEPENDENCIES(taosdump apache-avro)
     ELSE ()
         IF (${TDENGINE_3})
@@ -156,7 +220,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     ENDIF ()
 
     IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
-
         IF (${TOOLS_SANITIZE} MATCHES "true")
             MESSAGE("${Yellow} Enable memory sanitize ${ColourReset}")
             IF (${OS_ID} MATCHES "Darwin")
@@ -222,27 +285,13 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ELSE ()
             ADD_LIBRARY(avro STATIC IMPORTED)
-            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" 
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin"
                     OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION 
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
                     "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
             ELSE()
-                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION 
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
                     "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
-            ENDIF()
-
-            ADD_LIBRARY(jansson STATIC IMPORTED)
-            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION 
-                    "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
-
-            ADD_LIBRARY(snappy STATIC IMPORTED)
-            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" 
-                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION 
-                    "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
-            ELSE()
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION 
-                    "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
             ENDIF()
 
             EXECUTE_PROCESS (
