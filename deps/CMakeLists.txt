@@ -28,40 +28,37 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         OUTPUT_VARIABLE OS_ID
         )
     MESSAGE(STATUS "deps cmake LN30, detected The current OS is " ${OS_ID} "")
-    IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-            OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-        ExternalProject_Add(
-            deps-jansson
-            GIT_REPOSITORY https://github.com/akheron/jansson
-            GIT_TAG         v2.14
-            GIT_SHALLOW     true
-            PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
-            SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
-            CONFIGURE_COMMAND cmake -DJANSSON_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
-            )
-
-        ExternalProject_Add(
-            deps-snappy
-            GIT_REPOSITORY https://github.com/google/snappy
-            GIT_TAG         1.1.9
-            GIT_SHALLOW     true
-            GIT_SUBMODULES  ""
-            PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
-            SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
-            CONFIGURE_COMMAND cmake -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/snappy
-            )
-    ENDIF()
+    ExternalProject_Add(
+		    deps-jansson
+		    GIT_REPOSITORY https://github.com/akheron/jansson
+		    GIT_TAG         v2.14
+		    GIT_SHALLOW     true
+		    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
+		    SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
+		    CONFIGURE_COMMAND cmake -DJANSSON_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
+		    )
 
     ExternalProject_Add(
-        apache-avro
-        GIT_REPOSITORY https://github.com/apache/avro
-        GIT_TAG         release-1.11.0
-        GIT_SHALLOW     true
-        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
-        SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
-        CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
-    )
-    ADD_SUBDIRECTORY(CUnit)
+		    deps-snappy
+		    GIT_REPOSITORY https://github.com/google/snappy
+		    GIT_TAG         1.1.9
+		    GIT_SHALLOW     true
+		    GIT_SUBMODULES  ""
+		    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
+		    SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
+		    CONFIGURE_COMMAND cmake -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/snappy
+		    )
+
+    ExternalProject_Add(
+		    apache-avro
+		    GIT_REPOSITORY https://github.com/apache/avro
+		    GIT_TAG         release-1.11.0
+		    GIT_SHALLOW     true
+		    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
+		    SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
+		    CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
+		    )
+ADD_SUBDIRECTORY(CUnit)
 ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 ENDIF()
 ADD_SUBDIRECTORY(toolscJson)
