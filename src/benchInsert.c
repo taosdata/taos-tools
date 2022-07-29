@@ -1120,7 +1120,6 @@ void *syncWriteProgressive(void *sarg) {
             if (!stbInfo->non_stop) {
                 i += generated;
             }
-            pThreadInfo->totalInsertRows += generated;
             // only measure insert
             startTs = toolsGetTimestampUs();
             if(execInsert(pThreadInfo, generated)) {
@@ -1128,6 +1127,7 @@ void *syncWriteProgressive(void *sarg) {
                 goto free_of_progressive;
             }
             endTs = toolsGetTimestampUs();
+            pThreadInfo->totalInsertRows += generated;
             switch (stbInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE:
@@ -1602,6 +1602,10 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                       (end - start)/1E6, totalInsertRows, threads,
                       database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
     }
+	if (!total_delay_list->size) {
+		benchArrayDestroy(total_delay_list);
+		return -1;
+	}
 
     infoPrint(stdout, "insert delay, "
                       "min: %.2fms, "

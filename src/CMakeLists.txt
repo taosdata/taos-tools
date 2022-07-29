@@ -49,7 +49,7 @@ IF(GIT_FOUND)
             OUTPUT_VARIABLE TAOSDUMP_STATUS
     )
     EXECUTE_PROCESS(
-            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/demo*.c
+            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/bench*.c
             RESULT_VARIABLE RESULT
             OUTPUT_VARIABLE taosbenchmark_STATUS
     )
@@ -122,6 +122,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
                 OUTPUT_VARIABLE OS_ID
         )
+        ADD_DEPENDENCIES(taosdump apache-avro)
     ELSE ()
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
@@ -221,10 +222,27 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ELSE ()
             ADD_LIBRARY(avro STATIC IMPORTED)
-            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" 
+                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
             ELSE()
-                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
+            ENDIF()
+
+            ADD_LIBRARY(jansson STATIC IMPORTED)
+            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
+
+            ADD_LIBRARY(snappy STATIC IMPORTED)
+            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" 
+                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
+            ELSE()
+                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION 
+                    "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
             ENDIF()
 
             EXECUTE_PROCESS (
@@ -255,7 +273,7 @@ ELSE ()
         INCLUDE_DIRECTORIES(/usr/local/include/)
         SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
         ADD_DEPENDENCIES(taosBenchmark taosws-rs)
-        ADD_DEPENDENCIES(taosdump taosws-rs)
+        #ADD_DEPENDENCIES(taosdump taosws-rs)
     ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()

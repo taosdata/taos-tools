@@ -1,3 +1,20 @@
+build/
+debug/
+release/
+target/
+*.swp
+*.swo
+*.bak
+*.pyc
+tests/tmp
+dump_result.txt
+sim
+tests/taosdump/native/*.sql
+tests/taosdump/ws/*.sql
+deps/avro
+deps/jansson
+deps/snappy
+
 # Prerequisites
 *.d
 
