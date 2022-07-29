@@ -297,16 +297,24 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         stbInfo->disorderRatio = 0;
       }
       break;
-    case 'a':
-      database->dbCfg.replica = atoi(arg);
-      if (database->dbCfg.replica <= 0) {
+    case 'a':{
+      int replica = atoi(arg);
+      if (replica <= 0) {
         errorPrint(
             stderr,
             "Invalid value for -a: %s, will auto set to default(1)\n",
             arg);
-        database->dbCfg.replica = 1;
+        replica = 1;
       }
+      SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
+      cfg->name = benchCalloc(1, 10, true);
+      sprintf(cfg->name, "replica");
+      cfg->valuestring = NULL;
+      cfg->valueint = replica;
+      SDataBase* database = benchArrayGet(g_arguments->databases, 0);
+      benchArrayPush(database->cfgs, cfg);
       break;
+    }
 #ifdef WEBSOCKET
     case 'W':
       g_arguments->dsn = arg;

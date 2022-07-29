@@ -162,28 +162,9 @@ static void init_database() {
     database->streams = benchArrayInit(1, sizeof(SSTREAM));
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
-    database->dbCfg.minRows = -1;
-    database->dbCfg.maxRows = -1;
-    database->dbCfg.comp = -1;
-    database->dbCfg.walLevel = -1;
-    database->dbCfg.cacheLast = -1;
-    database->dbCfg.fsync = -1;
-    database->dbCfg.replica = -1;
-    database->dbCfg.update = -1;
-    database->dbCfg.keep = -1;
-    database->dbCfg.days = -1;
-    database->dbCfg.cache = -1;
-    database->dbCfg.blocks = -1;
-    database->dbCfg.quorum = -1;
-    database->dbCfg.buffer = -1;
-    database->dbCfg.pages = -1;
-    database->dbCfg.page_size = -1;
-    database->dbCfg.retentions = NULL;
-    database->dbCfg.single_stable = -1;
-    database->dbCfg.vgroups = -1;
-    database->dbCfg.strict = -1;
-    database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
-    database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    database->precision = TSDB_TIME_PRECISION_MILLI;
+    database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
 }
 void init_argument() {
     g_arguments = benchCalloc(1, sizeof(SArguments), true);
