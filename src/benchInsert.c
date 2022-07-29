@@ -1252,15 +1252,15 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             return -1;
         }
         char cmd[SQL_BUFF_LEN] = "\0";
-        if (stbInfo->escape_character) {
+        if (g_arguments->taosc_version == 3) {
             snprintf(cmd, SQL_BUFF_LEN,
-                     "select tbname from %s.`%s` limit %" PRId64
+                     "select distinct(tbname) from %s.`%s` limit %" PRId64
                      " offset %" PRIu64 "",
                      database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                      stbInfo->childTblOffset);
         } else {
             snprintf(cmd, SQL_BUFF_LEN,
-                     "select tbname from %s.%s limit %" PRId64
+                     "select tbname from %s.`%s` limit %" PRId64
                      " offset %" PRIu64 "",
                      database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                      stbInfo->childTblOffset);
