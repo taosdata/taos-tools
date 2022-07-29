@@ -68,7 +68,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             tag->max = taos_convert_datatype_to_default_max(tag->type);
             tstrncpy(tag->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
+                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
         } else {
             Field * col = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(stbInfo->cols, col);
@@ -81,7 +81,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             col->max = taos_convert_datatype_to_default_max(col->type);
             tstrncpy(col->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
+                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
         }
     }
     taos_free_result(res);
