@@ -540,8 +540,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         ((uint64_t *)field->data)[k] = ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        (line_protocol == TSDB_SML_LINE_PROTOCOL ||
-                         (tag && line_protocol == TSDB_SML_TELNET_PROTOCOL))) {
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) { 
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
                                        field->name, ubigint);
                     } else if ((iface == SML_IFACE ||

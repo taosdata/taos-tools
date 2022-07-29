@@ -68,7 +68,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             tag->max = taos_convert_datatype_to_default_max(tag->type);
             tstrncpy(tag->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
+                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
         } else {
             Field * col = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(stbInfo->cols, col);
@@ -81,7 +81,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             col->max = taos_convert_datatype_to_default_max(col->type);
             tstrncpy(col->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
+                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
         }
     }
     taos_free_result(res);
@@ -259,16 +259,30 @@ int createDatabase(SDataBase* database) {
                             " COMP %d", database->dbCfg.comp);
     }
     if (database->dbCfg.walLevel >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal %d",
+        if (g_arguments->taosc_version == 3) {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal_level %d",
                             database->dbCfg.walLevel);
+        } else {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal %d",
+                            database->dbCfg.walLevel);
+        }
     }
     if (database->dbCfg.cacheLast >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " CACHELAST %d", database->dbCfg.cacheLast);
     }
-    if (database->dbCfg.fsync >= 0) {
+    if (database->dbCfg.cache_model != NULL) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                " CACHEMODEL %s", database->dbCfg.cache_model);
+    }
+    if (database->dbCfg.fsync >= 0) {
+        if (g_arguments->taosc_version == 3) {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+                            " wal_fsync_period %d", database->dbCfg.fsync);
+        } else {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                             " FSYNC %d", database->dbCfg.fsync);
+        }
     }
     if (database->dbCfg.buffer >= 0) {
         dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
@@ -1238,15 +1252,15 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             return -1;
         }
         char cmd[SQL_BUFF_LEN] = "\0";
-        if (stbInfo->escape_character) {
+        if (g_arguments->taosc_version == 3) {
             snprintf(cmd, SQL_BUFF_LEN,
-                     "select tbname from %s.`%s` limit %" PRId64
+                     "select distinct(tbname) from %s.`%s` limit %" PRId64
                      " offset %" PRIu64 "",
                      database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                      stbInfo->childTblOffset);
         } else {
             snprintf(cmd, SQL_BUFF_LEN,
-                     "select tbname from %s.%s limit %" PRId64
+                     "select tbname from %s.`%s` limit %" PRId64
                      " offset %" PRIu64 "",
                      database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                      stbInfo->childTblOffset);
