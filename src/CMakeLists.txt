@@ -149,24 +149,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         MESSAGE(STATUS "src cmake LN147, detected The current OS is " ${OS_ID} "")
 
         ADD_LIBRARY(jansson STATIC IMPORTED)
-        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
-        ELSE ()
-            IF (${CURRENT_CPUTYPE} MATCHES "x64")
-                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/x86_64-linux-gnu/libjansson.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
-                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/aarch64-linux-gnu/libjansson.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
-                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/arm-linux-gnueabihf/libjansson.a")
-            ELSE ()
-                MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
-            ENDIF ()
-        ENDIF()
+        SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+            "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
 
         ADD_LIBRARY(snappy STATIC IMPORTED)
         IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
@@ -174,41 +158,19 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
         ELSE()
-            IF (${CURRENT_CPUTYPE} MATCHES "x64")
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/x86_64-linux-gnu/libsnappy.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/aarch64-linux-gnu/libsnappy.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/arm-linux-gnueabihf/libsnappy.a")
-            ELSE ()
-                MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
-            ENDIF()
+            SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
         ENDIF ()
 
-        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-            MESSAGE(STATUS "Temporary disable taosdump build on ${OS_ID}")
-        ELSE ()
-            IF (${CURRENT_CPUTYPE} MATCHES "x64")
-                ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
-                ADD_DEPENDENCIES(taosdump apache-avro)
-            ELSE()
-                MESSAGE(STATUS "Temporary disable taosdump build on ${CURRENT_CPUTYPE}")
-            ENDIF ()
-        ENDIF ()
+        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
+        ADD_DEPENDENCIES(deps-snappy apache-avro)
+        ADD_DEPENDENCIES(taosdump deps-jansson)
+        ADD_DEPENDENCIES(taosdump deps-snappy)
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
         ELSE()
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
         ENDIF()
-        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-            #ADD_DEPENDENCIES(taosdump deps-jansson)
-            #ADD_DEPENDENCIES(taosdump deps-snappy)
-        ENDIF ()
     ELSE ()
         IF (${TDENGINE_3})
             ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
@@ -224,16 +186,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         INCLUDE_DIRECTORIES(/usr/local/include/)
         SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
         ADD_DEPENDENCIES(taosBenchmark taosws-rs)
-        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-            MESSAGE(STATUS "Temporary disable taosdump build on ${OS_ID}")
-        ELSE ()
-            IF (${CURRENT_CPUTYPE} MATCHES "x64")
-                ADD_DEPENDENCIES(taosdump taosws-rs)
-            ELSE ()
-                MESSAGE(STATUS "Temporary disable taosdump build on ${CURRENT_CPUTYPE}")
-            ENDIF ()
-        ENDIF()
+        ADD_DEPENDENCIES(taosdump taosws-rs)
     ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()
@@ -344,16 +297,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             IF (${OS_ID} MATCHES "alpine")
                 TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp ${WEBSOCKET_LINK_FLAGS})
             ELSE()
-                IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                        OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-                    MESSAGE(STATUS "Temporary disable taosdump on ${OS_ID}")
-                ELSE()
-                    IF (${CURRENT_CPUTYPE} MATCHES "x64")
-                        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread ${WEBSOCKET_LINK_FLAGS})
-                    ELSE()
-                        MESSAGE(STATUS "Temporary disable taosdump build on ${CURRENT_CPUTYPE}")
-                    ENDIF ()
-                ENDIF()
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread ${WEBSOCKET_LINK_FLAGS})
             ENDIF()
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ENDIF ()
