@@ -218,101 +218,16 @@ int createDatabase(SDataBase* database) {
     dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 
-    if (database->dbCfg.blocks >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " BLOCKS %d", database->dbCfg.blocks);
-    }
-    if (database->dbCfg.cache >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " CACHE %d", database->dbCfg.cache);
-    }
-    if (database->dbCfg.days >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " DAYS %d", database->dbCfg.days);
-    }
-    if (database->dbCfg.keep >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " KEEP %d", database->dbCfg.keep);
-    }
-    if (database->dbCfg.quorum > 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " QUORUM %d", database->dbCfg.quorum);
-    }
-    if (database->dbCfg.replica > 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " REPLICA %d", database->dbCfg.replica);
-    }
-    if (database->dbCfg.update >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " UPDATE %d", database->dbCfg.update);
-    }
-    if (database->dbCfg.minRows >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " MINROWS %d", database->dbCfg.minRows);
-    }
-    if (database->dbCfg.maxRows >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " MAXROWS %d", database->dbCfg.maxRows);
-    }
-    if (database->dbCfg.comp >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " COMP %d", database->dbCfg.comp);
-    }
-    if (database->dbCfg.walLevel >= 0) {
-        if (g_arguments->taosc_version == 3) {
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal_level %d",
-                            database->dbCfg.walLevel);
+    for (int i = 0; i < database->cfgs->size; i++) {
+        SDbCfg* cfg = benchArrayGet(database->cfgs, i);
+        if (cfg->valuestring) {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %s", cfg->name, cfg->valuestring);
         } else {
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal %d",
-                            database->dbCfg.walLevel);
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %d", cfg->name, cfg->valueint);
         }
     }
-    if (database->dbCfg.cacheLast >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " CACHELAST %d", database->dbCfg.cacheLast);
-    }
-    if (database->dbCfg.cache_model != NULL) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                " CACHEMODEL %s", database->dbCfg.cache_model);
-    }
-    if (database->dbCfg.fsync >= 0) {
-        if (g_arguments->taosc_version == 3) {
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " wal_fsync_period %d", database->dbCfg.fsync);
-        } else {
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " FSYNC %d", database->dbCfg.fsync);
-        }
-    }
-    if (database->dbCfg.buffer >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " BUFFER %d", database->dbCfg.buffer);
-    }
-    if (database->dbCfg.strict >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " STRICT %d", database->dbCfg.strict);
-    }
-    if (database->dbCfg.page_size >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " PAGESIZE %d", database->dbCfg.page_size);
-    }
-    if (database->dbCfg.pages >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " PAGES %d", database->dbCfg.pages);
-    }
-    if (database->dbCfg.vgroups >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " VGROUPS %d", database->dbCfg.vgroups);
-    }
-    if (database->dbCfg.single_stable >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " SINGLE_STABLE %d", database->dbCfg.single_stable);
-    }
-    if (database->dbCfg.retentions != NULL) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " RETENTIONS %s", database->dbCfg.retentions);
-    }
-    switch (database->dbCfg.precision) {
+
+    switch (database->precision) {
         case TSDB_TIME_PRECISION_MILLI:
             dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                                 " precision \'ms\';");
@@ -569,7 +484,8 @@ void postFreeResource() {
     tmfclose(g_arguments->fpOfInsertResult);
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        benchArrayDestroy(database[i].streams);
+        benchArrayDestroy(database->cfgs);
+        benchArrayDestroy(database->streams);
         for (uint64_t j = 0; j < database->superTbls->size; j++) {
             SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
             tmfree(stbInfo->colsOfCreateChildTable);
@@ -617,7 +533,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case REST_IFACE:
             code =  postProceSql(pThreadInfo->buffer,
                                   database->dbName,
-                                  database->dbCfg.precision,
+                                  database->precision,
                                   stbInfo->iface,
                                   stbInfo->lineProtocol,
                                   stbInfo->tcpTransfer,
@@ -644,7 +560,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
                 stbInfo->lineProtocol,
                 stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL
-                    ? database->dbCfg.sml_precision
+                    ? database->sml_precision
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
             if (code != TSDB_CODE_SUCCESS) {
@@ -659,7 +575,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
                 code = postProceSql(pThreadInfo->lines[0], database->dbName,
-                                      database->dbCfg.precision, stbInfo->iface,
+                                      database->precision, stbInfo->iface,
                                       stbInfo->lineProtocol, stbInfo->tcpTransfer,
                                       pThreadInfo->sockfd, pThreadInfo->filePath);
             } else {
@@ -678,7 +594,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                         break;
                     }
                 }
-                code = postProceSql(pThreadInfo->buffer, database->dbName, database->dbCfg.precision,
+                code = postProceSql(pThreadInfo->buffer, database->dbName, database->precision,
                                       stbInfo->iface, stbInfo->lineProtocol, stbInfo->tcpTransfer,
                                       pThreadInfo->sockfd, pThreadInfo->filePath);
             }
@@ -814,7 +730,7 @@ static void *syncWriteInterlace(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->dbCfg.sml_precision, timestamp);
+                                database->sml_precision, timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1080,7 +996,7 @@ void *syncWriteProgressive(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->dbCfg.sml_precision, timestamp);
+                                database->sml_precision, timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(

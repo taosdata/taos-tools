@@ -363,29 +363,9 @@ typedef struct SSuperTable_S {
 } SSuperTable;
 
 typedef struct SDbCfg_S {
-    int32_t minRows;  // 0 means default
-    int32_t maxRows;  // 0 means default
-    int     comp;
-    int     walLevel;
-    int     cacheLast;
-    int     fsync;
-    int     replica;
-    int     update;
-    int     buffer;
-    int     keep;
-    int     days;
-    int     cache;
-    int     blocks;
-    int     quorum;
-    int     strict;
-    int     precision;
-    int     sml_precision;
-    int     page_size;
-    int     pages;
-    int     vgroups;
-    int     single_stable;
-    char *  retentions;
-    char*   cache_model;
+    char*   name;
+    char*   valuestring;
+    int     valueint;   
 } SDbCfg;
 
 typedef struct SSTREAM_S {
@@ -400,7 +380,9 @@ typedef struct SSTREAM_S {
 typedef struct SDataBase_S {
     char *       dbName;
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
-    SDbCfg       dbCfg;
+    int          precision;
+    int          sml_precision;
+    BArray*      cfgs;
     BArray*      superTbls;
     BArray*      streams;
 } SDataBase;
