@@ -484,8 +484,8 @@ void postFreeResource() {
     tmfclose(g_arguments->fpOfInsertResult);
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        benchArrayDestroy(database[i].cfgs);
-        benchArrayDestroy(database[i].streams);
+        benchArrayDestroy(database->cfgs);
+        benchArrayDestroy(database->streams);
         for (uint64_t j = 0; j < database->superTbls->size; j++) {
             SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
             tmfree(stbInfo->colsOfCreateChildTable);
