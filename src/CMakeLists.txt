@@ -149,24 +149,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         MESSAGE(STATUS "src cmake LN147, detected The current OS is " ${OS_ID} "")
 
         ADD_LIBRARY(jansson STATIC IMPORTED)
-        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-            SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
-        ELSE ()
-            IF (${CURRENT_CPUTYPE} MATCHES "x64")
-                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/x86_64-linux-gnu/libjansson.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
-                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/aarch64-linux-gnu/libjansson.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
-                SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/arm-linux-gnueabihf/libjansson.a")
-            ELSE ()
-                MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
-            ENDIF ()
-        ENDIF()
+        SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+            "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
 
         ADD_LIBRARY(snappy STATIC IMPORTED)
         IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
@@ -174,18 +158,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
         ELSE()
-            IF (${CURRENT_CPUTYPE} MATCHES "x64")
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/x86_64-linux-gnu/libsnappy.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch64")
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/aarch64-linux-gnu/libsnappy.a")
-            ELSEIF (${CURRENT_CPUTYPE} MATCHES "aarch32")
-                SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
-                    "/usr/lib/arm-linux-gnueabihf/libsnappy.a")
-            ELSE ()
-                MESSAGE("Unsupported cputype: ${CURRETNT_CPUTYPE}")
-            ENDIF()
+            SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
         ENDIF ()
 
         ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
