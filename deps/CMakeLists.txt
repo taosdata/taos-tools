@@ -41,7 +41,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     ExternalProject_Add(
 		    deps-snappy
 		    GIT_REPOSITORY https://github.com/google/snappy
-		    GIT_TAG         1.1.9
+		    GIT_TAG         1.1.8
 		    GIT_SHALLOW     true
 		    GIT_SUBMODULES  ""
 		    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
