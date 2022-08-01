@@ -4000,11 +4000,14 @@ int64_t queryDbForDumpOutCount(
     int64_t count = -1;
     char sqlstr[COMMAND_SIZE] = {0};
 
+    int64_t startTime = getStartTime(precision);
+    int64_t endTime = getEndTime(precision);
+
     sprintf(sqlstr,
             "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
             "AND _c0 <= %" PRId64 "",
             dbName, g_escapeChar, tbName, g_escapeChar,
-            g_args.start_time, g_args.end_time);
+            startTime, endTime);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -4486,7 +4489,8 @@ static int64_t writeResultToAvroWS(
         }
 
         if (countInBatch != limit) {
-            errorPrint("actual dump out: %d, batch %" PRId64 "\n",
+            errorPrint("%s() LN%d, actual dump out: %d, batch %" PRId64 "\n",
+                    __func__, __LINE__,
                     countInBatch, limit);
         }
         ws_free_result(ws_res);
@@ -4622,7 +4626,8 @@ static int64_t writeResultToAvroNative(
         }
 
         if (countInBatch != limit) {
-            errorPrint("actual dump out: %d, batch %" PRId64 "\n",
+            errorPrint("%s() LN%d, actual dump out: %d, batch %" PRId64 "\n",
+                    __func__, __LINE__,
                     countInBatch, limit);
         }
         taos_free_result(res);
