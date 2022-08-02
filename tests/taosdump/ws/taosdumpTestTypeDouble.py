@@ -38,8 +38,12 @@ class TDTestCase:
 
         if ("community" in selfPath):
             projPath = selfPath[:selfPath.find("community")]
-        else:
+        elif ("src" in selfPath):
             projPath = selfPath[:selfPath.find("src")]
+        elif ("tools" in selfPath):
+            projPath = selfPath[:selfPath.find("tools")]
+        else:
+            tdLog.exit("path %s is not support" % selfPath)
 
         buildPath = ""
         for root, dirs, files in os.walk(projPath):
@@ -97,7 +101,16 @@ class TDTestCase:
         os.system("%staosdump -i %s -T 1" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
-        tdSql.checkRows(1)
+        dbresult = tdSql.queryResult
+
+        found = False
+        for i in range(len(dbresult)):
+            print("Found db: %s" % dbresult[i][0])
+            if (dbresult[i][0] == "db"):
+                found = True
+                break
+
+        assert found == True
 
         tdSql.execute("use db")
         tdSql.query("show stables")
