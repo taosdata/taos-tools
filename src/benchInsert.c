@@ -488,6 +488,7 @@ void postFreeResource() {
         benchArrayDestroy(database->streams);
         for (uint64_t j = 0; j < database->superTbls->size; j++) {
             SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+            benchArrayDestroy(stbInfo->tsmas);
             tmfree(stbInfo->colsOfCreateChildTable);
             tmfree(stbInfo->sampleDataBuf);
             tmfree(stbInfo->tagDataBuf);
@@ -1572,9 +1573,8 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
 
 static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
     int rows = 0;
-    SBenchConn* conn = init_bench_conn(); 
     char command[SQL_BUFF_LEN];
-    sprintf(command, "select count(*) from %s.%s\n", dbName, stbName);
+    sprintf(command, "select count(*) from %s.%s", dbName, stbName);
     TAOS_RES* res = taos_query(taos, command);
     int code = taos_errno(res);
     if (code != 0) {
@@ -1582,34 +1582,45 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
         taos_free_result(res);
         return -1;
     }
-    TAOS_ROW* rows = taos_fetch_row(res);
-
+    TAOS_ROW row = taos_fetch_row(res);
+    if (row == NULL) {
+        rows = 0;
+    } else {
+        rows = (int)*(int64_t*)row[0];
+    }
+    taos_free_result(res);
+    return rows;
 }
 
-static void create_tsma(TSMA* tsma, TAOS* taos, char* dbName, char* stbName) {
+static void create_tsma(TSMA* tsma, SBenchConn* conn, char* dbName, char* stbName) {
     char command[SQL_BUFF_LEN];
     int len = snprintf(command, SQL_BUFF_LEN, 
                        "create sma index %s on %s.%s function(%s) interval (%s) sliding (%s)",
                        tsma->name, dbName, stbName, tsma->func, tsma->interval, tsma->sliding);
     if (tsma->custom) {
-        snprintf(command + len, SQL_BUFF_LEN - len, "%s", tsma->custom);
+        snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
     }
-    queryDbExec()
+    int code = queryDbExec(conn, command);
+    if (code == 0) {
+        infoPrint(stdout, "successfully create tsma with command <%s>\n", command);
+    }
 }
 
 static void* create_tsmas(void* args) {
     tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
-    int rows = 0;
+    int inserted_rows = 0;
     SBenchConn* conn = init_bench_conn();
-    while(pThreadInfo->tsmas->size && row < 0) {
-        row = get_stb_inserted_rows(pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
-        for (int i = 0; i < pThreadInfo->tsmas; i++) {
+    while(pThreadInfo->tsmas->size && inserted_rows >= 0) {
+        inserted_rows = (int)get_stb_inserted_rows(pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
+        for (int i = 0; i < pThreadInfo->tsmas->size; i++) {
             TSMA* tsma = benchArrayGet(pThreadInfo->tsmas, i);
-            if (row >= tsma->start_when_inserted) {
-                create_tsma(tsma, conn->taos);
-                benchArrayRemoveBatch(pThreadInfo->tsmas, tsma, 1);
+            if (inserted_rows >= tsma->start_when_inserted) {
+                create_tsma(tsma, conn, pThreadInfo->dbName, pThreadInfo->stbName);
+                benchArrayRemoveBatch(pThreadInfo->tsmas, (const int32_t*)tsma, 1);
+                break;
             }
         }
+        toolsMsleep(10);
     }
     close_bench_conn(conn);
     return NULL;
@@ -1682,7 +1693,7 @@ int insertTestProcess() {
             for (int j = 0; j < database->superTbls->size; ++j) {
                 SSuperTable* stbInfo = benchArrayGet(database->superTbls, j);
                 if (stbInfo->tsmas->size > 0) {
-                    tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(STSmaThreadInfo_S), true);
+                    tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(tsmaThreadInfo), true);
                     pthread_t tsmas_pid = {0};
                     pThreadInfo->dbName = database->dbName;
                     pThreadInfo->stbName = stbInfo->stbName;

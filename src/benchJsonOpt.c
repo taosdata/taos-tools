@@ -299,16 +299,16 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
 }
 
 static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
-    tools_cJSON* tsmas_obj = tools_cJSON_GetObjectItem(stbInfo, "tsmas");
+    stbInfo->tsmas = benchArrayInit(1, sizeof(TSMA));
+    tools_cJSON* tsmas_obj = tools_cJSON_GetObjectItem(stb_obj, "tsmas");
     if (tsmas_obj == NULL) {
-        return 0
+        return 0;
     }
     if (!tools_cJSON_IsArray(tsmas_obj)) {
         errorPrint(stderr, "%s", "invalid tsmas format in json\n");
         return -1;
     }
-    stbInfo->tsmas = benchArrayInit(1, sizeof(TSMA));
-    for (int i = 0; i < tools_cJSON_GetArrayItem(tsmas_obj); ++i) {
+    for (int i = 0; i < tools_cJSON_GetArraySize(tsmas_obj); ++i) {
         tools_cJSON* tsma_obj = tools_cJSON_GetArrayItem(tsmas_obj, i);
         if (!tools_cJSON_IsObject(tsma_obj)) {
             errorPrint(stderr, "%s", "Invalid tsma format in json\n");
@@ -341,6 +341,7 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
             errorPrint(stderr, "%s", "Invalid tsma sliding format in json\n");
             return -1;
         }
+        tsma->sliding = tsma_sliding_obj->valuestring;
 
         tools_cJSON* tsma_custom_obj = tools_cJSON_GetObjectItem(tsma_obj, "custom");
         tsma->custom = tsma_custom_obj->valuestring;
