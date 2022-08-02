@@ -1702,6 +1702,9 @@ int insertTestProcess() {
             SDataBase* database = benchArrayGet(g_arguments->databases, i);
             for (int j = 0; j < database->superTbls->size; ++j) {
                 SSuperTable* stbInfo = benchArrayGet(database->superTbls, j);
+                if (stbInfo->tsmas == NULL) {
+                    continue;
+                }
                 if (stbInfo->tsmas->size > 0) {
                     tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(tsmaThreadInfo), true);
                     pthread_t tsmas_pid = {0};
