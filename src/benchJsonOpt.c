@@ -243,141 +243,58 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     }
     database = benchArrayGet(g_arguments->databases, index);
     database->drop = true;
-    database->dbCfg.minRows = -1;
-    database->dbCfg.maxRows = -1;
-    database->dbCfg.comp = -1;
-    database->dbCfg.walLevel = -1;
-    database->dbCfg.cacheLast = -1;
-    database->dbCfg.fsync = -1;
-    database->dbCfg.replica = -1;
-    database->dbCfg.update = -1;
-    database->dbCfg.keep = -1;
-    database->dbCfg.days = -1;
-    database->dbCfg.cache = -1;
-    database->dbCfg.blocks = -1;
-    database->dbCfg.quorum = -1;
-    database->dbCfg.strict = -1;
-    database->dbCfg.page_size = -1;
-    database->dbCfg.pages = -1;
-    database->dbCfg.vgroups = -1;
-    database->dbCfg.single_stable = -1;
-    database->dbCfg.buffer = -1;
-    database->dbCfg.retentions = NULL;
-    database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
-    database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    database->precision = TSDB_TIME_PRECISION_MILLI;
+    database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
     tools_cJSON *db = tools_cJSON_GetObjectItem(dbinfo, "dbinfo");
     if (!tools_cJSON_IsObject(db)) {
         errorPrint(stderr, "%s", "Invalid dbinfo format in json\n");
         return -1;
     }
-    tools_cJSON *dbName = tools_cJSON_GetObjectItem(db, "name");
-    if (tools_cJSON_IsString(dbName)) {
-        database->dbName = dbName->valuestring;
-    } else {
+
+    tools_cJSON* cfg_object = db->child;
+
+    while (cfg_object) {
+        if (0 == strcasecmp(cfg_object->string, "name")) {
+            if (tools_cJSON_IsString(cfg_object)) {
+                database->dbName = cfg_object->valuestring;
+            }
+        } else if (0 == strcasecmp(cfg_object->string, "drop")) {
+            if (tools_cJSON_IsString(cfg_object) && (0 == strcasecmp(cfg_object->valuestring, "no"))) {
+                database->drop = false;
+            }
+        } else if (0 == strcasecmp(cfg_object->string, "precision")) {
+            if (tools_cJSON_IsString(cfg_object)) {
+                if (0 == strcasecmp(cfg_object->valuestring, "us")) {
+                    database->precision = TSDB_TIME_PRECISION_MICRO;
+                    database->sml_precision = TSDB_SML_TIMESTAMP_MICRO_SECONDS;
+                } else if (0 == strcasecmp(cfg_object->valuestring, "ns")) {
+                    database->precision = TSDB_TIME_PRECISION_NANO;
+                    database->sml_precision = TSDB_SML_TIMESTAMP_NANO_SECONDS;
+                }
+            }
+        } else {
+            SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
+            cfg->name = cfg_object->string;
+            if (tools_cJSON_IsString(cfg_object)) {
+                cfg->valuestring = cfg_object->valuestring;
+            } else if (tools_cJSON_IsNumber(cfg_object)) {
+                cfg->valueint = (int)cfg_object->valueint;
+                cfg->valuestring = NULL;
+            } else {
+                errorPrint(stderr, "Invalid value format for %s\n", cfg->name);
+                return -1;
+            }
+            benchArrayPush(database->cfgs, cfg);
+        }
+        cfg_object = cfg_object->next;
+    }
+
+    if (database->dbName  == NULL) {
         errorPrint(stderr, "%s", "miss name in dbinfo\n");
         return -1;
     }
-    tools_cJSON *drop = tools_cJSON_GetObjectItem(db, "drop");
-    if (tools_cJSON_IsString(drop) && (0 == strcasecmp(drop->valuestring, "no"))) {
-        database->drop = false;
-    }
-    tools_cJSON *keep = tools_cJSON_GetObjectItem(db, "keep");
-    if (tools_cJSON_IsNumber(keep)) {
-        database->dbCfg.keep = (int)keep->valueint;
-    }
 
-    tools_cJSON *maxRows = tools_cJSON_GetObjectItem(db, "maxRows");
-    if (tools_cJSON_IsNumber(maxRows)) {
-        database->dbCfg.maxRows = (int)maxRows->valueint;
-    }
-
-    tools_cJSON *minRows = tools_cJSON_GetObjectItem(db, "minRows");
-    if (tools_cJSON_IsNumber(minRows)) {
-        database->dbCfg.minRows = (int)minRows->valueint;
-    }
-    tools_cJSON *walLevel = tools_cJSON_GetObjectItem(db, "walLevel");
-    if (tools_cJSON_IsNumber(walLevel)) {
-        database->dbCfg.walLevel = (int)walLevel->valueint;
-    }
-    tools_cJSON *fsync = tools_cJSON_GetObjectItem(db, "fsync");
-    if (tools_cJSON_IsNumber(fsync)) {
-        database->dbCfg.fsync = (int)fsync->valueint;
-    }
-    tools_cJSON *replica = tools_cJSON_GetObjectItem(db, "replica");
-    if (tools_cJSON_IsNumber(replica)) {
-        database->dbCfg.replica = (int)replica->valueint;
-    }
-    tools_cJSON *precision = tools_cJSON_GetObjectItem(db, "precision");
-    if (tools_cJSON_IsString(precision)) {
-        if (0 == strcasecmp(precision->valuestring, "us")) {
-            database->dbCfg.precision = TSDB_TIME_PRECISION_MICRO;
-            database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MICRO_SECONDS;
-        } else if (0 == strcasecmp(precision->valuestring, "ns")) {
-            database->dbCfg.precision = TSDB_TIME_PRECISION_NANO;
-            database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_NANO_SECONDS;
-        }
-    }
-
-    if (g_arguments->taosc_version == 2) {
-        tools_cJSON *update = tools_cJSON_GetObjectItem(db, "update");
-        if (tools_cJSON_IsNumber(update)) {
-            database->dbCfg.update = (int)update->valueint;
-        }
-        tools_cJSON *cache = tools_cJSON_GetObjectItem(db, "cache");
-        if (tools_cJSON_IsNumber(cache)) {
-            database->dbCfg.cache = (int)cache->valueint;
-        }
-        tools_cJSON *blocks = tools_cJSON_GetObjectItem(db, "blocks");
-        if (tools_cJSON_IsNumber(blocks)) {
-            database->dbCfg.blocks = (int)blocks->valueint;
-        }
-        tools_cJSON *quorum = tools_cJSON_GetObjectItem(db, "quorum");
-        if (tools_cJSON_IsNumber(quorum)) {
-            database->dbCfg.quorum = (int)quorum->valueint;
-        }
-        tools_cJSON *days = tools_cJSON_GetObjectItem(db, "days");
-        if (tools_cJSON_IsNumber(days)) {
-            database->dbCfg.days = (int)days->valueint;
-        }
-        tools_cJSON *cacheLast = tools_cJSON_GetObjectItem(db, "cachelast");
-        if (tools_cJSON_IsNumber(cacheLast)) {
-            database->dbCfg.cacheLast = (int)cacheLast->valueint;
-        }
-    } else if (g_arguments->taosc_version == 3) {
-        tools_cJSON *cacheModel = tools_cJSON_GetObjectItem(db, "cachemodel");
-        if (tools_cJSON_IsString(cacheModel)) {
-            database->dbCfg.cache_model = cacheModel->valuestring;
-        }
-        tools_cJSON *buffer = tools_cJSON_GetObjectItem(db, "buffer");
-        if (tools_cJSON_IsNumber(buffer)) {
-            database->dbCfg.buffer = (int)buffer->valueint;
-        }
-        tools_cJSON *strict = tools_cJSON_GetObjectItem(db, "strict");
-        if (tools_cJSON_IsNumber(strict)) {
-            database->dbCfg.strict = (int)strict->valueint;
-        }
-        tools_cJSON *page_size = tools_cJSON_GetObjectItem(db, "page_size");
-        if (tools_cJSON_IsNumber(page_size)) {
-            database->dbCfg.page_size = (int)page_size->valueint;
-        }
-        tools_cJSON *pages = tools_cJSON_GetObjectItem(db, "pages");
-        if (tools_cJSON_IsNumber(pages)) {
-            database->dbCfg.pages = (int)pages->valueint;
-        }
-        tools_cJSON *vgroups = tools_cJSON_GetObjectItem(db, "vgroups");
-        if (tools_cJSON_IsNumber(vgroups)) {
-            database->dbCfg.vgroups = (int)vgroups->valueint;
-        }
-        tools_cJSON *single_stable = tools_cJSON_GetObjectItem(db, "single_stable");
-        if (tools_cJSON_IsNumber(single_stable)) {
-            database->dbCfg.single_stable = (int)single_stable->valueint;
-        }
-        tools_cJSON *retentions = tools_cJSON_GetObjectItem(db, "retentions");
-        if (tools_cJSON_IsString(retentions)) {
-            database->dbCfg.retentions = retentions->valuestring;
-        }
-    }
     return 0;
 }
 
@@ -524,12 +441,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsString(ts)) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =
-                    toolsGetTimestamp(database->dbCfg.precision);
+                    toolsGetTimestamp(database->precision);
             } else {
                 if (toolsParseTime(ts->valuestring,
                                    &(superTable->startTimestamp),
                                    (int32_t)strlen(ts->valuestring),
-                                   database->dbCfg.precision, 0)) {
+                                   database->precision, 0)) {
                     errorPrint(stderr, "failed to parse time %s\n",
                                ts->valuestring);
                     return -1;
@@ -537,7 +454,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             }
         } else {
             superTable->startTimestamp =
-                toolsGetTimestamp(database->dbCfg.precision);
+                toolsGetTimestamp(database->precision);
         }
         tools_cJSON *timestampStep = tools_cJSON_GetObjectItem(stbInfo, "timestamp_step");
         if (tools_cJSON_IsNumber(timestampStep)) {
