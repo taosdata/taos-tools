@@ -1,0 +1,137 @@
+name: CI - WebSocket (taosdump Release for 3.0)
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  TOOLS_BUILD_TYPE: Release
+  PR_NUMBER: ${{ github.event.number }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Step that prints name of pull request's base branch
+        run: |
+          echo "Pull request's base branch is: ${BASE_BRANCH}"
+          echo "Pull request's branch is: ${GITHUB_REF##*/}"
+          echo "Pull request's head ref is: ${GITHUB_HEAD_REF}"
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        if: github.event_name == 'pull_request'
+
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v23.2
+
+      - name: List all changed files
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            echo "$file was changed"
+          done
+
+      - name: Get specific changed files
+        id: changed-files-specific
+        uses: tj-actions/changed-files@v23.2
+        with:
+          files: |
+            src/CMakeLists.txt
+            src/taosdump*
+            tests/taosdump/ws/*
+            inc/*
+            deps/CMakeLists.txt
+            .github/workflows/*
+
+      - name: Run step if any of the listed files above change
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          echo "One or more files listed above has changed."
+
+      - name: Checkout tdengine
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions/checkout@v2
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: '3.0'
+
+      - name: Change time zone
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          sudo timedatectl set-timezone Asia/Shanghai
+          sudo date
+
+          #- name: Checkout TDengine with same branch of taos-tools
+          #run: |
+          #cd TDengine
+          #git pull
+          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
+          #git submodule update --init --recursive
+          #if: github.event_name == 'pull_request'
+
+      - name: cmake first TDengine
+        if: |
+          steps.changed-files-specific.outputs.any_changed == 'true' &&
+          github.event_name == 'pull_request'
+        run: |
+          sudo apt update -y > /dev/null
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          cd TDengine
+          mkdir tmp
+          cd tmp
+          cmake .. -DBUILD_TOOLS=true
+
+      - name: Checkout TDengine's taos-tools to PR number
+        if: |
+          github.event_name == 'pull_request' &&
+          steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine/tools/taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
+      - name: Set up Go
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - name: Set up Rust
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build & Install TDengine
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install
+          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
+
+      - name: taosdump Develop Test
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine/tools/taos-tools/tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+
+          if find taosdump/ws -name "*.py"|grep -q .;
+          then
+            for i in `find taosdump/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+          fi
+
+      - name: Check Test Result
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          if [ -f ~/taosdump-failed.txt ];then
+            cat ~/taosdump-failed.txt;
+            exit 1;
+          fi
