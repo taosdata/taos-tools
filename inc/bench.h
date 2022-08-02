@@ -315,6 +315,15 @@ typedef struct SField {
     bool     sma;
 } Field;
 
+typedef struct STSMA {
+    char* name;
+    char* func;
+    char* interval;
+    char* sliding;
+    int   start_when_inserted;
+    char* custom;
+} TSMA;
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -346,6 +355,7 @@ typedef struct SSuperTable_S {
     char *   partialColumnNameBuf;
     BArray * cols;
     BArray * tags;
+    BArray * tsmas;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -542,6 +552,12 @@ typedef struct SQueryThreadInfo_S {
     int64_t total_delay;
 } queryThreadInfo;
 
+typedef struct STSmaThreadInfo_S {
+    char* dbName;
+    char* stbName;
+    BArray* tsmas;
+} tsmaThreadInfo;
+
 typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
 
 /* ************ Global variables ************  */
@@ -606,6 +622,7 @@ void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
+void benchArrayRemoveBatch(BArray* pArray, const int32_t* pData, int32_t numOfElems);
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, FSignalHandler sigfp);

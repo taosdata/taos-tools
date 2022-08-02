@@ -1570,6 +1570,51 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
     return 0;
 }
 
+static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
+    int rows = 0;
+    SBenchConn* conn = init_bench_conn(); 
+    char command[SQL_BUFF_LEN];
+    sprintf(command, "select count(*) from %s.%s\n", dbName, stbName);
+    TAOS_RES* res = taos_query(taos, command);
+    int code = taos_errno(res);
+    if (code != 0) {
+        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+    TAOS_ROW* rows = taos_fetch_row(res);
+
+}
+
+static void create_tsma(TSMA* tsma, TAOS* taos, char* dbName, char* stbName) {
+    char command[SQL_BUFF_LEN];
+    int len = snprintf(command, SQL_BUFF_LEN, 
+                       "create sma index %s on %s.%s function(%s) interval (%s) sliding (%s)",
+                       tsma->name, dbName, stbName, tsma->func, tsma->interval, tsma->sliding);
+    if (tsma->custom) {
+        snprintf(command + len, SQL_BUFF_LEN - len, "%s", tsma->custom);
+    }
+    queryDbExec()
+}
+
+static void* create_tsmas(void* args) {
+    tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
+    int rows = 0;
+    SBenchConn* conn = init_bench_conn();
+    while(pThreadInfo->tsmas->size && row < 0) {
+        row = get_stb_inserted_rows(pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
+        for (int i = 0; i < pThreadInfo->tsmas; i++) {
+            TSMA* tsma = benchArrayGet(pThreadInfo->tsmas, i);
+            if (row >= tsma->start_when_inserted) {
+                create_tsma(tsma, conn->taos);
+                benchArrayRemoveBatch(pThreadInfo->tsmas, tsma, 1);
+            }
+        }
+    }
+    close_bench_conn(conn);
+    return NULL;
+}
+
 static int createStream(SSTREAM* stream, char* dbName) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
@@ -1627,6 +1672,23 @@ int insertTestProcess() {
             }
             if (0 != prepare_sample_data(database, stbInfo)) {
                 return -1;
+            }
+        }
+    }
+    
+    if (g_arguments->taosc_version == 3) {
+        for (int i = 0; i < g_arguments->databases->size; i++) {
+            SDataBase* database = benchArrayGet(g_arguments->databases, i);
+            for (int j = 0; j < database->superTbls->size; ++j) {
+                SSuperTable* stbInfo = benchArrayGet(database->superTbls, j);
+                if (stbInfo->tsmas->size > 0) {
+                    tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(STSmaThreadInfo_S), true);
+                    pthread_t tsmas_pid = {0};
+                    pThreadInfo->dbName = database->dbName;
+                    pThreadInfo->stbName = stbInfo->stbName;
+                    pThreadInfo->tsmas = stbInfo->tsmas;
+                    pthread_create(&tsmas_pid, NULL, create_tsmas, pThreadInfo);
+                }
             }
         }
     }
