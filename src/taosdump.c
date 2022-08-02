@@ -3043,6 +3043,11 @@ static void dumpCreateDbClause(
             sprintf(blocks, "BLOCKS %d", dbInfo->blocks);
         }
 
+        char fsync[32] = {0};
+        if (0 != dbInfo->fsync) {
+            sprintf(fsync, "FSYNC %d", dbInfo->fsync);
+        }
+
         char cachelast[32] = {0};
         if (0 != dbInfo->cachelast) {
             sprintf(cachelast, "CACHELAST %d", dbInfo->cachelast);
@@ -3061,7 +3066,7 @@ static void dumpCreateDbClause(
 
         pstr += sprintf(pstr,
                 "REPLICA %d %s %s %s KEEP %s %s %s MINROWS %d "
-                "MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s",
+                "MAXROWS %d %s %s COMP %d PRECISION '%s' %s %s",
                 dbInfo->replica,
                 (g_majorVersionOfClient < 3)?"":strict,
                 (g_majorVersionOfClient < 3)?quorum:"",
@@ -3070,7 +3075,7 @@ static void dumpCreateDbClause(
                 (g_majorVersionOfClient < 3)?cache:"",
                 (g_majorVersionOfClient < 3)?blocks:"",
                 dbInfo->minrows, dbInfo->maxrows,
-                dbInfo->fsync,
+                (g_majorVersionOfClient < 3)?fsync:"",
                 (g_majorVersionOfClient < 3)?cachelast:"",
                 dbInfo->comp,
                 dbInfo->precision,
