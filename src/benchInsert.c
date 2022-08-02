@@ -1609,6 +1609,9 @@ static void* create_tsmas(void* args) {
     tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
     int inserted_rows = 0;
     SBenchConn* conn = init_bench_conn();
+    if (conn == NULL) {
+        return NULL;
+    }
     int finished = 0;
     if (taos_select_db(conn->taos, pThreadInfo->dbName)) {
         errorPrint(stderr, "failed to use database (%s)\n", pThreadInfo->dbName);
