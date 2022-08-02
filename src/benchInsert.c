@@ -488,7 +488,6 @@ void postFreeResource() {
         benchArrayDestroy(database->streams);
         for (uint64_t j = 0; j < database->superTbls->size; j++) {
             SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-            benchArrayDestroy(stbInfo->tsmas);
             tmfree(stbInfo->colsOfCreateChildTable);
             tmfree(stbInfo->sampleDataBuf);
             tmfree(stbInfo->tagDataBuf);
@@ -1592,11 +1591,11 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
     return rows;
 }
 
-static void create_tsma(TSMA* tsma, SBenchConn* conn, char* dbName, char* stbName) {
+static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     char command[SQL_BUFF_LEN];
     int len = snprintf(command, SQL_BUFF_LEN, 
-                       "create sma index %s on %s.%s function(%s) interval (%s) sliding (%s)",
-                       tsma->name, dbName, stbName, tsma->func, tsma->interval, tsma->sliding);
+                       "create sma index %s on %s function(%s) interval (%s) sliding (%s)",
+                       tsma->name, stbName, tsma->func, tsma->interval, tsma->sliding);
     if (tsma->custom) {
         snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
     }
@@ -1610,18 +1609,26 @@ static void* create_tsmas(void* args) {
     tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
     int inserted_rows = 0;
     SBenchConn* conn = init_bench_conn();
-    while(pThreadInfo->tsmas->size && inserted_rows >= 0) {
+    int finished = 0;
+    if (taos_select_db(conn->taos, pThreadInfo->dbName)) {
+        errorPrint(stderr, "failed to use database (%s)\n", pThreadInfo->dbName);
+        close_bench_conn(conn);
+        return NULL;
+    }
+    while(finished < pThreadInfo->tsmas->size && inserted_rows >= 0) {
         inserted_rows = (int)get_stb_inserted_rows(pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
         for (int i = 0; i < pThreadInfo->tsmas->size; i++) {
             TSMA* tsma = benchArrayGet(pThreadInfo->tsmas, i);
-            if (inserted_rows >= tsma->start_when_inserted) {
-                create_tsma(tsma, conn, pThreadInfo->dbName, pThreadInfo->stbName);
-                benchArrayRemoveBatch(pThreadInfo->tsmas, (const int32_t*)tsma, 1);
+            if (!tsma->done &&  inserted_rows >= tsma->start_when_inserted) {
+                create_tsma(tsma, conn, pThreadInfo->stbName);
+                tsma->done = true;
+                finished++;
                 break;
             }
         }
         toolsMsleep(10);
     }
+    benchArrayDestroy(pThreadInfo->tsmas);
     close_bench_conn(conn);
     return NULL;
 }

@@ -322,6 +322,7 @@ typedef struct STSMA {
     char* sliding;
     int   start_when_inserted;
     char* custom;
+    bool  done;
 } TSMA;
 
 typedef struct SSuperTable_S {
@@ -622,7 +623,6 @@ void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
-void benchArrayRemoveBatch(BArray* pArray, const int32_t* pData, int32_t numOfElems);
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, FSignalHandler sigfp);
