@@ -315,6 +315,16 @@ typedef struct SField {
     bool     sma;
 } Field;
 
+typedef struct STSMA {
+    char* name;
+    char* func;
+    char* interval;
+    char* sliding;
+    int   start_when_inserted;
+    char* custom;
+    bool  done;
+} TSMA;
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -346,6 +356,7 @@ typedef struct SSuperTable_S {
     char *   partialColumnNameBuf;
     BArray * cols;
     BArray * tags;
+    BArray * tsmas;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -541,6 +552,12 @@ typedef struct SQueryThreadInfo_S {
     SBenchConn* conn;
     int64_t total_delay;
 } queryThreadInfo;
+
+typedef struct STSmaThreadInfo_S {
+    char* dbName;
+    char* stbName;
+    BArray* tsmas;
+} tsmaThreadInfo;
 
 typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
 

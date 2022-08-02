@@ -298,6 +298,67 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     return 0;
 }
 
+static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
+    stbInfo->tsmas = benchArrayInit(1, sizeof(TSMA));
+    tools_cJSON* tsmas_obj = tools_cJSON_GetObjectItem(stb_obj, "tsmas");
+    if (tsmas_obj == NULL) {
+        return 0;
+    }
+    if (!tools_cJSON_IsArray(tsmas_obj)) {
+        errorPrint(stderr, "%s", "invalid tsmas format in json\n");
+        return -1;
+    }
+    for (int i = 0; i < tools_cJSON_GetArraySize(tsmas_obj); ++i) {
+        tools_cJSON* tsma_obj = tools_cJSON_GetArrayItem(tsmas_obj, i);
+        if (!tools_cJSON_IsObject(tsma_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma format in json\n");
+            return -1;
+        }
+        TSMA* tsma = benchCalloc(1, sizeof(TSMA), true);
+        tools_cJSON* tsma_name_obj = tools_cJSON_GetObjectItem(tsma_obj, "name");
+        if(!tools_cJSON_IsString(tsma_name_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma name format in json\n");
+            return -1;
+        }
+        tsma->name = tsma_name_obj->valuestring;
+
+        tools_cJSON* tsma_func_obj = tools_cJSON_GetObjectItem(tsma_obj, "function");
+        if (!tools_cJSON_IsString(tsma_func_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma function format in json\n");
+            return -1;
+        }
+        tsma->func = tsma_func_obj->valuestring;
+
+        tools_cJSON* tsma_interval_obj = tools_cJSON_GetObjectItem(tsma_obj, "interval");
+        if(!tools_cJSON_IsString(tsma_interval_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma interval format in json\n");
+            return -1;
+        }
+        tsma->interval = tsma_interval_obj->valuestring;
+
+        tools_cJSON* tsma_sliding_obj = tools_cJSON_GetObjectItem(tsma_obj, "sliding");
+        if (!tools_cJSON_IsString(tsma_sliding_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma sliding format in json\n");
+            return -1;
+        }
+        tsma->sliding = tsma_sliding_obj->valuestring;
+
+        tools_cJSON* tsma_custom_obj = tools_cJSON_GetObjectItem(tsma_obj, "custom");
+        tsma->custom = tsma_custom_obj->valuestring;
+
+        tools_cJSON* tsma_start_obj = tools_cJSON_GetObjectItem(tsma_obj, "start_when_inserted");
+        if (!tools_cJSON_IsNumber(tsma_start_obj)) {
+            tsma->start_when_inserted = 0;
+        } else {
+            tsma->start_when_inserted = (int)tsma_start_obj->valueint;
+        }
+        
+        benchArrayPush(stbInfo->tsmas, tsma);
+    }
+
+    return 0;
+}
+
 static int getStableInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database = benchArrayGet(g_arguments->databases, index);
     tools_cJSON *    dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
@@ -525,6 +586,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON *rollup = tools_cJSON_GetObjectItem(stbInfo, "rollup");
             if (tools_cJSON_IsString(rollup)) {
                 superTable->rollup = rollup->valuestring;
+            }
+            if (get_tsma_info(stbInfo, superTable)) {
+                return -1;
             }
         }
         if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {
