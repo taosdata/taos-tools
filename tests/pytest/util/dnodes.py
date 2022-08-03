@@ -263,6 +263,10 @@ class TDDnode:
 
         if ("community" in selfPath):
             projPath = selfPath[:selfPath.find("community")]
+        elif ("src" in selfPath):
+            projPath = selfPath[:selfPath.find("src")]
+        elif ("/tools/" in selfPath):
+            projPath = selfPath[:selfPath.find("/tools/")]
         else:
             projPath = selfPath[:selfPath.find("src")]
 

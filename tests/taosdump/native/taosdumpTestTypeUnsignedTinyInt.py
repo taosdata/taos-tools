@@ -37,8 +37,12 @@ class TDTestCase:
 
         if ("community" in selfPath):
             projPath = selfPath[:selfPath.find("community")]
-        else:
+        elif ("src" in selfPath):
             projPath = selfPath[:selfPath.find("src")]
+        elif ("/tools/" in selfPath):
+            projPath = selfPath[:selfPath.find("/tools/")]
+        else:
+            tdLog.exit("path: %s is not supported" % selfPath)
 
         buildPath = ""
         for root, dirs, files in os.walk(projPath):
@@ -53,7 +57,7 @@ class TDTestCase:
         tdSql.prepare()
 
         tdSql.execute("drop database if exists db")
-        tdSql.execute("create database db  days 11 keep 3649 blocks 8 ")
+        tdSql.execute("create database db  keep 3649 ")
 
         tdSql.execute("use db")
         tdSql.execute(
