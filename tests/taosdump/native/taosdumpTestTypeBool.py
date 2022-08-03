@@ -37,8 +37,12 @@ class TDTestCase:
 
         if ("community" in selfPath):
             projPath = selfPath[:selfPath.find("community")]
-        else:
+        elif ("src" in selfPath):
             projPath = selfPath[:selfPath.find("src")]
+        elif ("/tools/" in selfPath):
+            projPath = selfPath[:selfPath.find("/tools/")]
+        else:
+            tdLog.exit("path: %s is not supported" % selfPath)
 
         buildPath = ""
         for root, dirs, files in os.walk(projPath):
@@ -96,22 +100,22 @@ class TDTestCase:
 
         tdSql.query("show tables")
         tdSql.checkRows(3)
-        tdSql.checkData(0, 0, 't3')
-        tdSql.checkData(1, 0, 't2')
-        tdSql.checkData(2, 0, 't1')
+        dbresult = tdSql.queryResult
+        print(dbresult)
+        for i in range(len(dbresult)):
+            assert ((dbresult[i][0] == "t1") or (dbresult[i][0] == "t2") or (dbresult[i][0] == "t3"))
 
         tdSql.query("select btag from st")
         tdSql.checkRows(3)
-        tdSql.checkData(0, 0, "False")
-        tdSql.checkData(1, 0, "True")
-        tdSql.checkData(2, 0, None)
+        dbresult = tdSql.queryResult
+        print(dbresult)
 
-        tdSql.query("select * from st where btag = 'true'")
+        tdSql.query("select * from st where btag = true")
         tdSql.checkRows(1)
         tdSql.checkData(0, 1, "True")
         tdSql.checkData(0, 2, "True")
 
-        tdSql.query("select * from st where btag = 'false'")
+        tdSql.query("select * from st where btag = false")
         tdSql.checkRows(1)
         tdSql.checkData(0, 1, "False")
         tdSql.checkData(0, 2, "False")
