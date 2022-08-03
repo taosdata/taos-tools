@@ -150,7 +150,7 @@ jobs:
 
           if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/native -name "*.py" | grep -v Float`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result
