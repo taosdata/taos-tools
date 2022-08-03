@@ -2108,15 +2108,13 @@ static int processFieldsValue(
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
             {
-                int nlen = strlen((char *)value);
-
                 if (g_args.avro) {
-                    if (nlen < (COL_VALUEBUF_LEN - 1)) {
+                    if (len < (COL_VALUEBUF_LEN - 1)) {
                         strncpy(tableDes->cols[index].value,
                                 (char *)value,
-                                nlen);
+                                len);
                     } else {
-                        tableDes->cols[index].var_value = calloc(1, nlen + 1);
+                        tableDes->cols[index].var_value = calloc(1, len + 1);
 
                         if (NULL == tableDes->cols[index].var_value) {
                             errorPrint("%s() LN%d, memory allocation failed!\n",
@@ -2125,10 +2123,10 @@ static int processFieldsValue(
                         }
                         strncpy(
                                 (char *)(tableDes->cols[index].var_value),
-                                (char *)value, nlen);
+                                (char *)value, len);
                     }
                 } else {
-                    if (nlen < (COL_VALUEBUF_LEN-2)) {
+                    if (len < (COL_VALUEBUF_LEN-2)) {
                         char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
                         convertNCharToReadable(
                                 (char *)value,
@@ -2139,7 +2137,7 @@ static int processFieldsValue(
                             free(tableDes->cols[index].var_value);
                             tableDes->cols[index].var_value = NULL;
                         }
-                        tableDes->cols[index].var_value = calloc(1, nlen * 5);
+                        tableDes->cols[index].var_value = calloc(1, len * 5);
 
                         if (NULL == tableDes->cols[index].var_value) {
                             errorPrint("%s() LN%d, memory allocation failed!\n",
@@ -2149,7 +2147,7 @@ static int processFieldsValue(
                         convertStringToReadable(
                                 (char *)value,
                                 len,
-                                (char *)(tableDes->cols[index].var_value), nlen);
+                                (char *)(tableDes->cols[index].var_value), len);
                     }
                 }
             }
