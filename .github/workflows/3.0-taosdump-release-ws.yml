@@ -85,9 +85,10 @@ jobs:
           sudo apt update -y > /dev/null
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
           cd TDengine
-          mkdir tmp
-          cd tmp
-          cmake .. -DBUILD_TOOLS=true
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null 
+          make -j8 > /dev/null
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
@@ -113,7 +114,8 @@ jobs:
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install
+          cd TDengine && cd debug
+          make -j8 > /dev/null && sudo make install
           pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
 
       - name: taosdump Develop Test
@@ -125,7 +127,7 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|BigInt"`; do python3 ./test.py -f $i && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|BigInt"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result
