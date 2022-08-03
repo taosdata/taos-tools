@@ -261,24 +261,28 @@ class TDDnode:
     def getPath(self, tool="taosd"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
+        print("CBD: selfPath: %s" % selfPath)
         if ("community" in selfPath):
             projPath = selfPath[:selfPath.find("community")]
         elif ("src" in selfPath):
             projPath = selfPath[:selfPath.find("src")]
-        elif ("tools" in selfPath):
-            projPath = selfPath[:selfPath.find("tools")]
+        elif ("/tools/" in selfPath):
+            projPath = selfPath[:selfPath.find("/tools/")]
         else:
             tdLog.exit("path %s is not support" % selfPath)
 
+        print("CBD: projPath: %s" % projPath)
         paths = []
         for root, dirs, files in os.walk(projPath):
             if ((tool) in files):
                 rootRealPath = os.path.dirname(os.path.realpath(root))
+                print("CBD: rootRealPath: %s" % rootRealPath)
                 if ("packaging" not in rootRealPath):
                     paths.append(os.path.join(root, tool))
                     break
         if (len(paths) == 0):
                 return ""
+        print("CBD: paths[0]: %s" % paths[0])
         return paths[0]
 
     def start(self):
