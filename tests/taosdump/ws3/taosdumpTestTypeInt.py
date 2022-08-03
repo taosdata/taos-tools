@@ -135,6 +135,8 @@ class TDTestCase:
         tdSql.checkData(0, 2, -2147483647)
 
         tdSql.query("select * from st where ntag is null")
+        dbresult = tdSql.queryResult
+        print(dbresult)
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 0)
         tdSql.checkData(0, 1, None)

@@ -157,6 +157,9 @@ class TDTestCase:
             tdLog.exit("data is different")
 
         tdSql.query("select * from st where dbtag is null")
+        dbresult = tdSql.queryResult
+        print(dbresult)
+
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 0)
         tdSql.checkData(0, 1, None)

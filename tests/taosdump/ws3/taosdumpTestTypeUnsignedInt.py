@@ -127,6 +127,9 @@ class TDTestCase:
         tdSql.checkData(0, 2, 4294967294)
 
         tdSql.query("select * from st where untag is null")
+        dbresult = tdSql.queryResult
+        print(dbresult)
+
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 0)
         tdSql.checkData(0, 1, None)
