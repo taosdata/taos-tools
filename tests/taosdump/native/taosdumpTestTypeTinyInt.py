@@ -42,7 +42,7 @@ class TDTestCase:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            tdLog.exit("path %s is not support" % selfPath)
+            tdLog.exit("path: %s is not supported" % selfPath)
 
         for root, dirs, files in os.walk(projPath):
             if ("taosdump" in files):

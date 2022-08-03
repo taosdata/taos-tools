@@ -145,6 +145,7 @@ jobs:
             make > /dev/null
 
       - name: Buld TDengine and run taosdump Old Test cases
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: aarch64
@@ -172,6 +173,7 @@ jobs:
             python3 ./test.py -f tools/taosdumpTest.py && echo -e "\033[32m pytest/tools/taosdumpTest.py success! \033[0m" || echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
       - name: Check Test Result
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: aarch64
