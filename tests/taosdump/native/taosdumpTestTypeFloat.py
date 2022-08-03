@@ -40,8 +40,8 @@ class TDTestCase:
             projPath = selfPath[:selfPath.find("community")]
         elif ("src" in selfPath):
             projPath = selfPath[:selfPath.find("src")]
-        elif ("tools" in selfPath):
-            projPath = selfPath[:selfPath.find("tools")]
+        elif ("/tools/" in selfPath):
+            projPath = selfPath[:selfPath.find("/tools/")]
         else:
             tdLog.exit("path %s is not support" % selfPath)
 

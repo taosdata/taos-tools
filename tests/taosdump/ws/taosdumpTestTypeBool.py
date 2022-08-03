@@ -39,8 +39,8 @@ class TDTestCase:
             projPath = selfPath[:selfPath.find("community")]
         elif ("src" in selfPath):
             projPath = selfPath[:selfPath.find("src")]
-        elif ("tools" in selfPath):
-            projPath = selfPath[:selfPath.find("tools")]
+        elif ("/tools/" in selfPath):
+            projPath = selfPath[:selfPath.find("/tools/")]
         else:
             tdLog.exit("path %s is not support" % selfPath)
 
@@ -57,7 +57,7 @@ class TDTestCase:
         tdSql.prepare()
 
         tdSql.execute("drop database if exists db")
-        tdSql.execute("create database db  days 11 keep 3649 blocks 8 ")
+        tdSql.execute("create database db  keep 3649 ")
 
         tdSql.execute("use db")
         tdSql.execute(
@@ -109,22 +109,22 @@ class TDTestCase:
 
         tdSql.query("show tables")
         tdSql.checkRows(3)
-        tdSql.checkData(0, 0, 't3')
-        tdSql.checkData(1, 0, 't2')
-        tdSql.checkData(2, 0, 't1')
+        dbresult = tdSql.queryResult
+        print(dbresult)
+        for i in range(len(dbresult)):
+            assert ((dbresult[i][0] == "t1") or (dbresult[i][0] == "t2") or (dbresult[i][0] == "t3"))
 
         tdSql.query("select btag from st")
         tdSql.checkRows(3)
-        tdSql.checkData(0, 0, "False")
-        tdSql.checkData(1, 0, "True")
-        tdSql.checkData(2, 0, None)
+        dbresult = tdSql.queryResult
+        print(dbresult)
 
-        tdSql.query("select * from st where btag = 'true'")
+        tdSql.query("select * from st where btag = true")
         tdSql.checkRows(1)
         tdSql.checkData(0, 1, "True")
         tdSql.checkData(0, 2, "True")
 
-        tdSql.query("select * from st where btag = 'false'")
+        tdSql.query("select * from st where btag = false")
         tdSql.checkRows(1)
         tdSql.checkData(0, 1, "False")
         tdSql.checkData(0, 2, "False")
