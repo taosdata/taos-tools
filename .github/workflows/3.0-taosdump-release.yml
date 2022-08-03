@@ -119,7 +119,7 @@ jobs:
 
           if find tools -name "taosdump*.py"|grep -q .;
           then
-            for i in `find tools -name "taosdump*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m" || echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
+            for i in `find tools -name "taosdump*.py"`; do python3 ./test.py -f $i && echo -e "\033[32m $i success! \033[0m" || echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
           fi
 
       - name: taosdump System Test
@@ -130,7 +130,7 @@ jobs:
           sudo pkill -9 taosd || :
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m system-test/$i success! \033[0m"|| echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
+            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i && echo -e "\033[32m system-test/$i success! \033[0m"|| echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
           fi
 
       - name: taosdump Old Test
