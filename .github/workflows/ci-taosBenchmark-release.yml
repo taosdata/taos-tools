@@ -96,7 +96,7 @@ jobs:
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && sudo make install
-          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null 2>&1
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
 
       - name: taosBenchmark System Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'

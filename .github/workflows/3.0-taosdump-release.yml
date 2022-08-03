@@ -108,7 +108,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false > /dev/null && make -j8 > /dev/null && sudo make install
-          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
 
       - name: taosdump Func Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -139,7 +139,7 @@ jobs:
           cd TDengine/tests/system-test
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
-          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
+            #          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
       - name: taosdump Develop Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -150,7 +150,7 @@ jobs:
 
           if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result
