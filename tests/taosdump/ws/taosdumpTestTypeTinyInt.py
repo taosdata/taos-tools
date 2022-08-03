@@ -56,7 +56,7 @@ class TDTestCase:
         tdSql.prepare()
 
         tdSql.execute("drop database if exists db")
-        tdSql.execute("create database db  days 11 keep 3649 blocks 8 ")
+        tdSql.execute("create database db  keep 3649 ")
 
         tdSql.execute("use db")
         tdSql.execute(
