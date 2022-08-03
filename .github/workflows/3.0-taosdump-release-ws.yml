@@ -45,7 +45,7 @@ jobs:
           files: |
             src/CMakeLists.txt
             src/taosdump*
-            tests/taosdump/ws/*
+            tests/taosdump/ws3/*
             inc/*
             deps/CMakeLists.txt
             .github/workflows/*taosdump*
@@ -123,9 +123,9 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          if find taosdump/ws -name "*.py"|grep -q .;
+          if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws -name "*.py"|grep -v Float`; do python3 ./test.py -f $i && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|TypeBigInt"`; do python3 ./test.py -f $i && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result
