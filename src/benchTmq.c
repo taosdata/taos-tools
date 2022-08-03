@@ -22,7 +22,11 @@ typedef struct {
 } tmqThreadInfo;
 
 static int create_topic(BArray* sqls) {
-    TAOS* taos = select_one_from_pool(g_queryInfo.dbName);
+    SBenchConn* conn = init_bench_conn();
+    if (conn == NULL) {
+        return -1;
+    }
+    TAOS* taos = conn->taos;
     TAOS_RES * res;
     for (int i = 0; i < sqls->size; ++i) {
         SSQL * sql = benchArrayGet(sqls, i);
@@ -32,10 +36,12 @@ static int create_topic(BArray* sqls) {
         res = taos_query(taos, buffer);
         if (taos_errno(res) != 0) {
             errorPrint(stderr, "failed to create topic_%d, reason: %s\n", i, taos_errstr(res));
+            close_bench_conn(conn);
             return -1;
         }
         infoPrint(stdout, "successfully create topic_%d\n", i);
     }
+    close_bench_conn(conn);
     return 0;
 }
 
@@ -53,17 +59,17 @@ static tmq_list_t * build_topic_list(int size) {
 static void* tmqConsume(void* arg) {
     tmqThreadInfo *pThreadInfo = (tmqThreadInfo*)arg;
     bool first_time = true;
-    int64_t st = taosGetTimestampUs();
-    int64_t et = taosGetTimestampUs();
+    int64_t st = toolsGetTimestampUs();
+    int64_t et = toolsGetTimestampUs();
     while(!g_arguments->terminate) {
         debugPrint(stdout, "%s", "tmq_consumer_poll()");
         TAOS_RES * tmqMessage = tmq_consumer_poll(pThreadInfo->tmq, g_queryInfo.specifiedQueryInfo.queryInterval);
         if (tmqMessage != NULL) {
             if (first_time) {
-                st = taosGetTimestampUs();
+                st = toolsGetTimestampUs();
                 first_time = false;
             } else {
-                et = taosGetTimestampUs();
+                et = toolsGetTimestampUs();
             }
             int numOfRows;
             void * data;
@@ -84,9 +90,6 @@ static void* tmqConsume(void* arg) {
 }
 
 int subscribeTestProcess() {
-    if (init_taos_list()) {
-        return -1;
-    }
     if (g_queryInfo.specifiedQueryInfo.sqls->size > 0) {
         if (create_topic(g_queryInfo.specifiedQueryInfo.sqls)) {
             return -1;
