@@ -243,137 +243,119 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     }
     database = benchArrayGet(g_arguments->databases, index);
     database->drop = true;
-    database->dbCfg.minRows = -1;
-    database->dbCfg.maxRows = -1;
-    database->dbCfg.comp = -1;
-    database->dbCfg.walLevel = -1;
-    database->dbCfg.cacheLast = -1;
-    database->dbCfg.fsync = -1;
-    database->dbCfg.replica = -1;
-    database->dbCfg.update = -1;
-    database->dbCfg.keep = -1;
-    database->dbCfg.days = -1;
-    database->dbCfg.cache = -1;
-    database->dbCfg.blocks = -1;
-    database->dbCfg.quorum = -1;
-    database->dbCfg.strict = -1;
-    database->dbCfg.page_size = -1;
-    database->dbCfg.pages = -1;
-    database->dbCfg.vgroups = -1;
-    database->dbCfg.single_stable = -1;
-    database->dbCfg.buffer = -1;
-    database->dbCfg.retentions = NULL;
-    database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
-    database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    database->precision = TSDB_TIME_PRECISION_MILLI;
+    database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
     tools_cJSON *db = tools_cJSON_GetObjectItem(dbinfo, "dbinfo");
     if (!tools_cJSON_IsObject(db)) {
         errorPrint(stderr, "%s", "Invalid dbinfo format in json\n");
         return -1;
     }
-    tools_cJSON *dbName = tools_cJSON_GetObjectItem(db, "name");
-    if (tools_cJSON_IsString(dbName)) {
-        database->dbName = dbName->valuestring;
-    } else {
+
+    tools_cJSON* cfg_object = db->child;
+
+    while (cfg_object) {
+        if (0 == strcasecmp(cfg_object->string, "name")) {
+            if (tools_cJSON_IsString(cfg_object)) {
+                database->dbName = cfg_object->valuestring;
+            }
+        } else if (0 == strcasecmp(cfg_object->string, "drop")) {
+            if (tools_cJSON_IsString(cfg_object) && (0 == strcasecmp(cfg_object->valuestring, "no"))) {
+                database->drop = false;
+            }
+        } else if (0 == strcasecmp(cfg_object->string, "precision")) {
+            if (tools_cJSON_IsString(cfg_object)) {
+                if (0 == strcasecmp(cfg_object->valuestring, "us")) {
+                    database->precision = TSDB_TIME_PRECISION_MICRO;
+                    database->sml_precision = TSDB_SML_TIMESTAMP_MICRO_SECONDS;
+                } else if (0 == strcasecmp(cfg_object->valuestring, "ns")) {
+                    database->precision = TSDB_TIME_PRECISION_NANO;
+                    database->sml_precision = TSDB_SML_TIMESTAMP_NANO_SECONDS;
+                }
+            }
+        } else {
+            SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
+            cfg->name = cfg_object->string;
+            if (tools_cJSON_IsString(cfg_object)) {
+                cfg->valuestring = cfg_object->valuestring;
+            } else if (tools_cJSON_IsNumber(cfg_object)) {
+                cfg->valueint = (int)cfg_object->valueint;
+                cfg->valuestring = NULL;
+            } else {
+                errorPrint(stderr, "Invalid value format for %s\n", cfg->name);
+                return -1;
+            }
+            benchArrayPush(database->cfgs, cfg);
+        }
+        cfg_object = cfg_object->next;
+    }
+
+    if (database->dbName  == NULL) {
         errorPrint(stderr, "%s", "miss name in dbinfo\n");
         return -1;
     }
-    tools_cJSON *drop = tools_cJSON_GetObjectItem(db, "drop");
-    if (tools_cJSON_IsString(drop) && (0 == strcasecmp(drop->valuestring, "no"))) {
-        database->drop = false;
+
+    return 0;
+}
+
+static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
+    stbInfo->tsmas = benchArrayInit(1, sizeof(TSMA));
+    tools_cJSON* tsmas_obj = tools_cJSON_GetObjectItem(stb_obj, "tsmas");
+    if (tsmas_obj == NULL) {
+        return 0;
     }
-    tools_cJSON *keep = tools_cJSON_GetObjectItem(db, "keep");
-    if (tools_cJSON_IsNumber(keep)) {
-        database->dbCfg.keep = (int)keep->valueint;
+    if (!tools_cJSON_IsArray(tsmas_obj)) {
+        errorPrint(stderr, "%s", "invalid tsmas format in json\n");
+        return -1;
     }
-    tools_cJSON *days = tools_cJSON_GetObjectItem(db, "days");
-    if (tools_cJSON_IsNumber(days)) {
-        database->dbCfg.days = (int)days->valueint;
+    for (int i = 0; i < tools_cJSON_GetArraySize(tsmas_obj); ++i) {
+        tools_cJSON* tsma_obj = tools_cJSON_GetArrayItem(tsmas_obj, i);
+        if (!tools_cJSON_IsObject(tsma_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma format in json\n");
+            return -1;
+        }
+        TSMA* tsma = benchCalloc(1, sizeof(TSMA), true);
+        tools_cJSON* tsma_name_obj = tools_cJSON_GetObjectItem(tsma_obj, "name");
+        if(!tools_cJSON_IsString(tsma_name_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma name format in json\n");
+            return -1;
+        }
+        tsma->name = tsma_name_obj->valuestring;
+
+        tools_cJSON* tsma_func_obj = tools_cJSON_GetObjectItem(tsma_obj, "function");
+        if (!tools_cJSON_IsString(tsma_func_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma function format in json\n");
+            return -1;
+        }
+        tsma->func = tsma_func_obj->valuestring;
+
+        tools_cJSON* tsma_interval_obj = tools_cJSON_GetObjectItem(tsma_obj, "interval");
+        if(!tools_cJSON_IsString(tsma_interval_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma interval format in json\n");
+            return -1;
+        }
+        tsma->interval = tsma_interval_obj->valuestring;
+
+        tools_cJSON* tsma_sliding_obj = tools_cJSON_GetObjectItem(tsma_obj, "sliding");
+        if (!tools_cJSON_IsString(tsma_sliding_obj)) {
+            errorPrint(stderr, "%s", "Invalid tsma sliding format in json\n");
+            return -1;
+        }
+        tsma->sliding = tsma_sliding_obj->valuestring;
+
+        tools_cJSON* tsma_custom_obj = tools_cJSON_GetObjectItem(tsma_obj, "custom");
+        tsma->custom = tsma_custom_obj->valuestring;
+
+        tools_cJSON* tsma_start_obj = tools_cJSON_GetObjectItem(tsma_obj, "start_when_inserted");
+        if (!tools_cJSON_IsNumber(tsma_start_obj)) {
+            tsma->start_when_inserted = 0;
+        } else {
+            tsma->start_when_inserted = (int)tsma_start_obj->valueint;
+        }
+        
+        benchArrayPush(stbInfo->tsmas, tsma);
     }
 
-    tools_cJSON *maxRows = tools_cJSON_GetObjectItem(db, "maxRows");
-    if (tools_cJSON_IsNumber(maxRows)) {
-        database->dbCfg.maxRows = (int)maxRows->valueint;
-    }
-
-    tools_cJSON *minRows = tools_cJSON_GetObjectItem(db, "minRows");
-    if (tools_cJSON_IsNumber(minRows)) {
-        database->dbCfg.minRows = (int)minRows->valueint;
-    }
-    tools_cJSON *walLevel = tools_cJSON_GetObjectItem(db, "walLevel");
-    if (tools_cJSON_IsNumber(walLevel)) {
-        database->dbCfg.walLevel = (int)walLevel->valueint;
-    }
-    tools_cJSON *fsync = tools_cJSON_GetObjectItem(db, "fsync");
-    if (tools_cJSON_IsNumber(fsync)) {
-        database->dbCfg.fsync = (int)fsync->valueint;
-    }
-    tools_cJSON *cacheLast = tools_cJSON_GetObjectItem(db, "cachelast");
-    if (tools_cJSON_IsNumber(cacheLast)) {
-        database->dbCfg.cacheLast = (int)cacheLast->valueint;
-    }
-    tools_cJSON *replica = tools_cJSON_GetObjectItem(db, "replica");
-    if (tools_cJSON_IsNumber(replica)) {
-        database->dbCfg.replica = (int)replica->valueint;
-    }
-    tools_cJSON *precision = tools_cJSON_GetObjectItem(db, "precision");
-    if (tools_cJSON_IsString(precision)) {
-        if (0 == strcasecmp(precision->valuestring, "us")) {
-            database->dbCfg.precision = TSDB_TIME_PRECISION_MICRO;
-            database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MICRO_SECONDS;
-        } else if (0 == strcasecmp(precision->valuestring, "ns")) {
-            database->dbCfg.precision = TSDB_TIME_PRECISION_NANO;
-            database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_NANO_SECONDS;
-        }
-    }
-
-    if (g_arguments->taosc_version == 2) {
-        tools_cJSON *update = tools_cJSON_GetObjectItem(db, "update");
-        if (tools_cJSON_IsNumber(update)) {
-            database->dbCfg.update = (int)update->valueint;
-        }
-        tools_cJSON *cache = tools_cJSON_GetObjectItem(db, "cache");
-        if (tools_cJSON_IsNumber(cache)) {
-            database->dbCfg.cache = (int)cache->valueint;
-        }
-        tools_cJSON *blocks = tools_cJSON_GetObjectItem(db, "blocks");
-        if (tools_cJSON_IsNumber(blocks)) {
-            database->dbCfg.blocks = (int)blocks->valueint;
-        }
-        tools_cJSON *quorum = tools_cJSON_GetObjectItem(db, "quorum");
-        if (tools_cJSON_IsNumber(quorum)) {
-            database->dbCfg.quorum = (int)quorum->valueint;
-        }
-    } else if (g_arguments->taosc_version == 3) {
-        tools_cJSON *buffer = tools_cJSON_GetObjectItem(db, "buffer");
-        if (tools_cJSON_IsNumber(buffer)) {
-            database->dbCfg.buffer = (int)buffer->valueint;
-        }
-        tools_cJSON *strict = tools_cJSON_GetObjectItem(db, "strict");
-        if (tools_cJSON_IsNumber(strict)) {
-            database->dbCfg.strict = (int)strict->valueint;
-        }
-        tools_cJSON *page_size = tools_cJSON_GetObjectItem(db, "page_size");
-        if (tools_cJSON_IsNumber(page_size)) {
-            database->dbCfg.page_size = (int)page_size->valueint;
-        }
-        tools_cJSON *pages = tools_cJSON_GetObjectItem(db, "pages");
-        if (tools_cJSON_IsNumber(pages)) {
-            database->dbCfg.pages = (int)pages->valueint;
-        }
-        tools_cJSON *vgroups = tools_cJSON_GetObjectItem(db, "vgroups");
-        if (tools_cJSON_IsNumber(vgroups)) {
-            database->dbCfg.vgroups = (int)vgroups->valueint;
-        }
-        tools_cJSON *single_stable = tools_cJSON_GetObjectItem(db, "single_stable");
-        if (tools_cJSON_IsNumber(single_stable)) {
-            database->dbCfg.single_stable = (int)single_stable->valueint;
-        }
-        tools_cJSON *retentions = tools_cJSON_GetObjectItem(db, "retentions");
-        if (tools_cJSON_IsString(retentions)) {
-            database->dbCfg.retentions = retentions->valuestring;
-        }
-    }
     return 0;
 }
 
@@ -520,12 +502,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsString(ts)) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =
-                    toolsGetTimestamp(database->dbCfg.precision);
+                    toolsGetTimestamp(database->precision);
             } else {
                 if (toolsParseTime(ts->valuestring,
                                    &(superTable->startTimestamp),
                                    (int32_t)strlen(ts->valuestring),
-                                   database->dbCfg.precision, 0)) {
+                                   database->precision, 0)) {
                     errorPrint(stderr, "failed to parse time %s\n",
                                ts->valuestring);
                     return -1;
@@ -533,7 +515,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             }
         } else {
             superTable->startTimestamp =
-                toolsGetTimestamp(database->dbCfg.precision);
+                toolsGetTimestamp(database->precision);
         }
         tools_cJSON *timestampStep = tools_cJSON_GetObjectItem(stbInfo, "timestamp_step");
         if (tools_cJSON_IsNumber(timestampStep)) {
@@ -604,6 +586,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON *rollup = tools_cJSON_GetObjectItem(stbInfo, "rollup");
             if (tools_cJSON_IsString(rollup)) {
                 superTable->rollup = rollup->valuestring;
+            }
+            if (get_tsma_info(stbInfo, superTable)) {
+                return -1;
             }
         }
         if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {

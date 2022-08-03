@@ -43,9 +43,11 @@ jobs:
         uses: tj-actions/changed-files@v23.2
         with:
           files: |
+            src/CMakeLists.txt
             src/taosdump*
             tests/taosdump/native/*
             inc/*
+            deps/CMakeLists.txt
             .github/workflows/*
 
       - name: Run step if any of the listed files above change
@@ -84,7 +86,6 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-          git submodule update --init --recursive
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -97,7 +98,7 @@ jobs:
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && sudo make install
-          pip3 install taospy numpy fabric2 psutil pandas faker
+          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null 2>&1
 
       - name: taosdump Func Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -106,10 +107,10 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          python3 ./test.py -f tools/taosdumpTest.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          if find tools -name "taosdump*.py"|grep -q .;
+          then
+            for i in `find tools -name "taosdump*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m" || echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt; done
+          fi
 
       - name: taosdump System Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'

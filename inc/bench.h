@@ -315,6 +315,16 @@ typedef struct SField {
     bool     sma;
 } Field;
 
+typedef struct STSMA {
+    char* name;
+    char* func;
+    char* interval;
+    char* sliding;
+    int   start_when_inserted;
+    char* custom;
+    bool  done;
+} TSMA;
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -346,6 +356,7 @@ typedef struct SSuperTable_S {
     char *   partialColumnNameBuf;
     BArray * cols;
     BArray * tags;
+    BArray * tsmas;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -363,29 +374,9 @@ typedef struct SSuperTable_S {
 } SSuperTable;
 
 typedef struct SDbCfg_S {
-    int32_t minRows;  // 0 means default
-    int32_t maxRows;  // 0 means default
-    int     comp;
-    int     walLevel;
-    int     cacheLast;
-    int     fsync;
-    int     replica;
-    int     update;
-    int     buffer;
-    int     keep;
-    int     days;
-    int     cache;
-    int     blocks;
-    int     quorum;
-    int     strict;
-    int     precision;
-    int     sml_precision;
-    int     page_size;
-    int     pages;
-    int     vgroups;
-    int     single_stable;
-    char *  retentions;
-
+    char*   name;
+    char*   valuestring;
+    int     valueint;   
 } SDbCfg;
 
 typedef struct SSTREAM_S {
@@ -400,7 +391,9 @@ typedef struct SSTREAM_S {
 typedef struct SDataBase_S {
     char *       dbName;
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
-    SDbCfg       dbCfg;
+    int          precision;
+    int          sml_precision;
+    BArray*      cfgs;
     BArray*      superTbls;
     BArray*      streams;
 } SDataBase;
@@ -559,6 +552,12 @@ typedef struct SQueryThreadInfo_S {
     SBenchConn* conn;
     int64_t total_delay;
 } queryThreadInfo;
+
+typedef struct STSmaThreadInfo_S {
+    char* dbName;
+    char* stbName;
+    BArray* tsmas;
+} tsmaThreadInfo;
 
 typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
 

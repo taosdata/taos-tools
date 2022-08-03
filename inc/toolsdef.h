@@ -65,7 +65,13 @@
 #define TSDB_MIN_COLUMNS          2       //PRIMARY COLUMN(timestamp) + other columns
 
 #define TSDB_TABLE_NAME_LEN       193     // it is a null-terminated string
+
+#ifdef TDENGINE_3
+#define TSDB_DB_NAME_LEN          65
+#else
 #define TSDB_DB_NAME_LEN          33
+#endif
+
 #define TSDB_COL_NAME_LEN         65
 #define TSDB_MAX_ALLOWED_SQL_LEN  (1*1024*1024u)          // sql length should be less than 1mb
 

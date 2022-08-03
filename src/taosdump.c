@@ -2108,15 +2108,13 @@ static int processFieldsValue(
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
             {
-                int nlen = strlen((char *)value);
-
                 if (g_args.avro) {
-                    if (nlen < (COL_VALUEBUF_LEN - 1)) {
+                    if (len < (COL_VALUEBUF_LEN - 1)) {
                         strncpy(tableDes->cols[index].value,
                                 (char *)value,
-                                nlen);
+                                len);
                     } else {
-                        tableDes->cols[index].var_value = calloc(1, nlen + 1);
+                        tableDes->cols[index].var_value = calloc(1, len + 1);
 
                         if (NULL == tableDes->cols[index].var_value) {
                             errorPrint("%s() LN%d, memory allocation failed!\n",
@@ -2125,10 +2123,10 @@ static int processFieldsValue(
                         }
                         strncpy(
                                 (char *)(tableDes->cols[index].var_value),
-                                (char *)value, nlen);
+                                (char *)value, len);
                     }
                 } else {
-                    if (nlen < (COL_VALUEBUF_LEN-2)) {
+                    if (len < (COL_VALUEBUF_LEN-2)) {
                         char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
                         convertNCharToReadable(
                                 (char *)value,
@@ -2139,7 +2137,7 @@ static int processFieldsValue(
                             free(tableDes->cols[index].var_value);
                             tableDes->cols[index].var_value = NULL;
                         }
-                        tableDes->cols[index].var_value = calloc(1, nlen * 5);
+                        tableDes->cols[index].var_value = calloc(1, len * 5);
 
                         if (NULL == tableDes->cols[index].var_value) {
                             errorPrint("%s() LN%d, memory allocation failed!\n",
@@ -2149,7 +2147,7 @@ static int processFieldsValue(
                         convertStringToReadable(
                                 (char *)value,
                                 len,
-                                (char *)(tableDes->cols[index].var_value), nlen);
+                                (char *)(tableDes->cols[index].var_value), len);
                     }
                 }
             }
@@ -4000,11 +3998,14 @@ int64_t queryDbForDumpOutCount(
     int64_t count = -1;
     char sqlstr[COMMAND_SIZE] = {0};
 
+    int64_t startTime = getStartTime(precision);
+    int64_t endTime = getEndTime(precision);
+
     sprintf(sqlstr,
             "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
             "AND _c0 <= %" PRId64 "",
             dbName, g_escapeChar, tbName, g_escapeChar,
-            g_args.start_time, g_args.end_time);
+            startTime, endTime);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -4486,7 +4487,8 @@ static int64_t writeResultToAvroWS(
         }
 
         if (countInBatch != limit) {
-            errorPrint("actual dump out: %d, batch %" PRId64 "\n",
+            errorPrint("%s() LN%d, actual dump out: %d, batch %" PRId64 "\n",
+                    __func__, __LINE__,
                     countInBatch, limit);
         }
         ws_free_result(ws_res);
@@ -4622,7 +4624,8 @@ static int64_t writeResultToAvroNative(
         }
 
         if (countInBatch != limit) {
-            errorPrint("actual dump out: %d, batch %" PRId64 "\n",
+            errorPrint("%s() LN%d, actual dump out: %d, batch %" PRId64 "\n",
+                    __func__, __LINE__,
                     countInBatch, limit);
         }
         taos_free_result(res);

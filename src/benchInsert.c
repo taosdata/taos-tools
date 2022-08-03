@@ -68,7 +68,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             tag->max = taos_convert_datatype_to_default_max(tag->type);
             tstrncpy(tag->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
+                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
         } else {
             Field * col = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(stbInfo->cols, col);
@@ -81,7 +81,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             col->max = taos_convert_datatype_to_default_max(col->type);
             tstrncpy(col->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     strlen((char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX]) + 1);
+                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
         }
     }
     taos_free_result(res);
@@ -218,87 +218,16 @@ int createDatabase(SDataBase* database) {
     dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 
-    if (database->dbCfg.blocks >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " BLOCKS %d", database->dbCfg.blocks);
+    for (int i = 0; i < database->cfgs->size; i++) {
+        SDbCfg* cfg = benchArrayGet(database->cfgs, i);
+        if (cfg->valuestring) {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %s", cfg->name, cfg->valuestring);
+        } else {
+            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %d", cfg->name, cfg->valueint);
+        }
     }
-    if (database->dbCfg.cache >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " CACHE %d", database->dbCfg.cache);
-    }
-    if (database->dbCfg.days >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " DAYS %d", database->dbCfg.days);
-    }
-    if (database->dbCfg.keep >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " KEEP %d", database->dbCfg.keep);
-    }
-    if (database->dbCfg.quorum > 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " QUORUM %d", database->dbCfg.quorum);
-    }
-    if (database->dbCfg.replica > 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " REPLICA %d", database->dbCfg.replica);
-    }
-    if (database->dbCfg.update >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " UPDATE %d", database->dbCfg.update);
-    }
-    if (database->dbCfg.minRows >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " MINROWS %d", database->dbCfg.minRows);
-    }
-    if (database->dbCfg.maxRows >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " MAXROWS %d", database->dbCfg.maxRows);
-    }
-    if (database->dbCfg.comp >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " COMP %d", database->dbCfg.comp);
-    }
-    if (database->dbCfg.walLevel >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " wal %d",
-                            database->dbCfg.walLevel);
-    }
-    if (database->dbCfg.cacheLast >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " CACHELAST %d", database->dbCfg.cacheLast);
-    }
-    if (database->dbCfg.fsync >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " FSYNC %d", database->dbCfg.fsync);
-    }
-    if (database->dbCfg.buffer >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " BUFFER %d", database->dbCfg.buffer);
-    }
-    if (database->dbCfg.strict >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " STRICT %d", database->dbCfg.strict);
-    }
-    if (database->dbCfg.page_size >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " PAGESIZE %d", database->dbCfg.page_size);
-    }
-    if (database->dbCfg.pages >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " PAGES %d", database->dbCfg.pages);
-    }
-    if (database->dbCfg.vgroups >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " VGROUPS %d", database->dbCfg.vgroups);
-    }
-    if (database->dbCfg.single_stable >= 0) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " SINGLE_STABLE %d", database->dbCfg.single_stable);
-    }
-    if (database->dbCfg.retentions != NULL) {
-        dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
-                            " RETENTIONS %s", database->dbCfg.retentions);
-    }
-    switch (database->dbCfg.precision) {
+
+    switch (database->precision) {
         case TSDB_TIME_PRECISION_MILLI:
             dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                                 " precision \'ms\';");
@@ -555,7 +484,8 @@ void postFreeResource() {
     tmfclose(g_arguments->fpOfInsertResult);
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        benchArrayDestroy(database[i].streams);
+        benchArrayDestroy(database->cfgs);
+        benchArrayDestroy(database->streams);
         for (uint64_t j = 0; j < database->superTbls->size; j++) {
             SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
             tmfree(stbInfo->colsOfCreateChildTable);
@@ -603,7 +533,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case REST_IFACE:
             code =  postProceSql(pThreadInfo->buffer,
                                   database->dbName,
-                                  database->dbCfg.precision,
+                                  database->precision,
                                   stbInfo->iface,
                                   stbInfo->lineProtocol,
                                   stbInfo->tcpTransfer,
@@ -630,7 +560,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
                 stbInfo->lineProtocol,
                 stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL
-                    ? database->dbCfg.sml_precision
+                    ? database->sml_precision
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
             if (code != TSDB_CODE_SUCCESS) {
@@ -645,7 +575,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
                 code = postProceSql(pThreadInfo->lines[0], database->dbName,
-                                      database->dbCfg.precision, stbInfo->iface,
+                                      database->precision, stbInfo->iface,
                                       stbInfo->lineProtocol, stbInfo->tcpTransfer,
                                       pThreadInfo->sockfd, pThreadInfo->filePath);
             } else {
@@ -664,7 +594,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                         break;
                     }
                 }
-                code = postProceSql(pThreadInfo->buffer, database->dbName, database->dbCfg.precision,
+                code = postProceSql(pThreadInfo->buffer, database->dbName, database->precision,
                                       stbInfo->iface, stbInfo->lineProtocol, stbInfo->tcpTransfer,
                                       pThreadInfo->sockfd, pThreadInfo->filePath);
             }
@@ -800,7 +730,7 @@ static void *syncWriteInterlace(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->dbCfg.sml_precision, timestamp);
+                                database->sml_precision, timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1066,7 +996,7 @@ void *syncWriteProgressive(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->dbCfg.sml_precision, timestamp);
+                                database->sml_precision, timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1238,15 +1168,15 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             return -1;
         }
         char cmd[SQL_BUFF_LEN] = "\0";
-        if (stbInfo->escape_character) {
+        if (g_arguments->taosc_version == 3) {
             snprintf(cmd, SQL_BUFF_LEN,
-                     "select tbname from %s.`%s` limit %" PRId64
+                     "select distinct(tbname) from %s.`%s` limit %" PRId64
                      " offset %" PRIu64 "",
                      database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                      stbInfo->childTblOffset);
         } else {
             snprintf(cmd, SQL_BUFF_LEN,
-                     "select tbname from %s.%s limit %" PRId64
+                     "select tbname from %s.`%s` limit %" PRId64
                      " offset %" PRIu64 "",
                      database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                      stbInfo->childTblOffset);
@@ -1640,6 +1570,72 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
     return 0;
 }
 
+static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
+    int rows = 0;
+    char command[SQL_BUFF_LEN];
+    sprintf(command, "select count(*) from %s.%s", dbName, stbName);
+    TAOS_RES* res = taos_query(taos, command);
+    int code = taos_errno(res);
+    if (code != 0) {
+        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+    TAOS_ROW row = taos_fetch_row(res);
+    if (row == NULL) {
+        rows = 0;
+    } else {
+        rows = (int)*(int64_t*)row[0];
+    }
+    taos_free_result(res);
+    return rows;
+}
+
+static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
+    char command[SQL_BUFF_LEN];
+    int len = snprintf(command, SQL_BUFF_LEN, 
+                       "create sma index %s on %s function(%s) interval (%s) sliding (%s)",
+                       tsma->name, stbName, tsma->func, tsma->interval, tsma->sliding);
+    if (tsma->custom) {
+        snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
+    }
+    int code = queryDbExec(conn, command);
+    if (code == 0) {
+        infoPrint(stdout, "successfully create tsma with command <%s>\n", command);
+    }
+}
+
+static void* create_tsmas(void* args) {
+    tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
+    int inserted_rows = 0;
+    SBenchConn* conn = init_bench_conn();
+    if (conn == NULL) {
+        return NULL;
+    }
+    int finished = 0;
+    if (taos_select_db(conn->taos, pThreadInfo->dbName)) {
+        errorPrint(stderr, "failed to use database (%s)\n", pThreadInfo->dbName);
+        close_bench_conn(conn);
+        return NULL;
+    }
+    while(finished < pThreadInfo->tsmas->size && inserted_rows >= 0) {
+        inserted_rows = (int)get_stb_inserted_rows(pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
+        for (int i = 0; i < pThreadInfo->tsmas->size; i++) {
+            TSMA* tsma = benchArrayGet(pThreadInfo->tsmas, i);
+            if (!tsma->done &&  inserted_rows >= tsma->start_when_inserted) {
+                create_tsma(tsma, conn, pThreadInfo->stbName);
+                tsma->done = true;
+                finished++;
+                break;
+            }
+        }
+        toolsMsleep(10);
+    }
+    benchArrayDestroy(pThreadInfo->tsmas);
+    close_bench_conn(conn);
+    return NULL;
+}
+
 static int createStream(SSTREAM* stream, char* dbName) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
@@ -1697,6 +1693,26 @@ int insertTestProcess() {
             }
             if (0 != prepare_sample_data(database, stbInfo)) {
                 return -1;
+            }
+        }
+    }
+    
+    if (g_arguments->taosc_version == 3) {
+        for (int i = 0; i < g_arguments->databases->size; i++) {
+            SDataBase* database = benchArrayGet(g_arguments->databases, i);
+            for (int j = 0; j < database->superTbls->size; ++j) {
+                SSuperTable* stbInfo = benchArrayGet(database->superTbls, j);
+                if (stbInfo->tsmas == NULL) {
+                    continue;
+                }
+                if (stbInfo->tsmas->size > 0) {
+                    tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(tsmaThreadInfo), true);
+                    pthread_t tsmas_pid = {0};
+                    pThreadInfo->dbName = database->dbName;
+                    pThreadInfo->stbName = stbInfo->stbName;
+                    pThreadInfo->tsmas = stbInfo->tsmas;
+                    pthread_create(&tsmas_pid, NULL, create_tsmas, pThreadInfo);
+                }
             }
         }
     }
