@@ -1,4 +1,4 @@
-name: CI - WebSocket (taosdump Release for 3.0)
+name: Linux (taosdump ws for 3.0)
 
 on:
   push:
@@ -115,6 +115,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine && cd debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null 
           make -j8 > /dev/null && sudo make install
           pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
 
@@ -127,7 +128,7 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|BigInt"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|BigInt"`; do python3 ./test.py -f $i && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result

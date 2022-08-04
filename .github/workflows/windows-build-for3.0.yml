@@ -1,4 +1,4 @@
-name: Windows (Build for 2.x)
+name: Windows (Build for 3.0)
 
 on:
   push:
@@ -12,7 +12,7 @@ env:
 
 jobs:
   build:
-    name: build-2.x-on-windows
+    name: build-3.0-on-windows
     runs-on: windows-latest
 
     steps:
@@ -47,7 +47,7 @@ jobs:
             src/*
             inc/*
             deps/CMakeLists.txt
-            .github/workflows/windows.yml
+            .github/workflows/windows-build-for3.0.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -58,31 +58,37 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/checkout@v2
         with:
-          submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: 'fix/sangshuduo/TD-18128-taosdemo-windows-for3.0'
+
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: cmake first TDengine
+        if: |
+          steps.changed-files-specific.outputs.any_changed == 'true' &&
+          github.event_name == 'pull_request'
+        run: |
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
           github.event_name == 'pull_request' &&
           steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/src/kit/taos-tools
+          cd TDengine/tools/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-
-      - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.14
 
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
+          cd TDengine
+          cd debug
+          cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
 
           #      - name: Func Test
           #        run: |
