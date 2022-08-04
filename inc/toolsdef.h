@@ -119,7 +119,7 @@
 
 int64_t strnatoi(char *num, int32_t len);
 char *  strnchr(char *haystack, char needle, int32_t len, bool skipquote);
-int64_t user_mktime64(const unsigned int year0, const unsigned int mon0,
+int64_t tools_user_mktime64(const unsigned int year0, const unsigned int mon0,
 		const unsigned int day, const unsigned int hour,
 		const unsigned int min, const unsigned int sec, int64_t time_zone);
 int32_t parseTimezone(char* str, int64_t* tzOffset);
