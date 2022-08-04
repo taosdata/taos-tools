@@ -559,7 +559,7 @@ typedef struct STSmaThreadInfo_S {
     BArray* tsmas;
 } tsmaThreadInfo;
 
-typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
+typedef void (*ToolsSignalHandler)(int signum, void *sigInfo, void *context);
 
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
@@ -625,7 +625,7 @@ void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
-void benchSetSignal(int32_t signum, FSignalHandler sigfp);
+void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp);
 #endif
 int taos_convert_type_to_length(uint8_t type);
 int64_t taos_convert_datatype_to_default_max(uint8_t type);

@@ -30,7 +30,7 @@ void printUsage() {
                     "            [--replia=NUMBER] [--tag-type=TAG_TYPE] [--data-type=COL_TYPE]\n"
                     "            [--interlace-rows=NUMBER] [--config-dir=CONFIG_DIR] [--chinese]\n"
                     "            [--database=DATABASE] [--escape-character] [--prepared_rand=NUMBER]\n"
-                    "            [--debug] [--performance] [--host=HOST] [--connection_pool=NUMBER]\n"
+                    "            [--debug] [--performance] [--host=HOST] \n"
                     "            [--insert-interval=NUMBER] [--interface=IFACE] [--columns=NUMBER]\n"
                     "            [--table-prefix=TABLE_PREFIX] [--random] [--records=NUMBER]\n"
                     "            [--normal-table] [--output=FILE] [--disorder=NUMBER]\n"
@@ -67,8 +67,6 @@ void printHelp() {
       "  -G, --performance          Performance mode, optional.\n"
       "  -h, --host=HOST            TDengine server FQDN to connect, default is\n"
       "                             localhost.\n"
-      "  -H, --connection_pool=NUMBER   size of the pre-connected client in connection\n"
-      "                             pool, default is 8\n"
       "  -i, --insert-interval=NUMBER   Insert interval for interlace mode in\n"
       "                             milliseconds, default is 0.\n"
       "  -I, --interface=IFACE      insert mode, default is taosc, options:\n"
@@ -194,12 +192,6 @@ void commandLineParseArgument(int argc, char *argv[]) {
             } else {
                 exit_required("-T");
             }
-        } else if (strcmp(argv[i], "-H") == 0) {
-            if (i < argc - 1) {
-                g_arguments->connection_pool = atoi(argv[++i]);
-            } else {
-                exit_required("-H");
-            }
         } else if (strcmp(argv[i], "-i") == 0) {
             if (i < argc - 1) {
                 stbInfo->insert_interval = atoi(argv[++i]);
@@ -303,7 +295,7 @@ void commandLineParseArgument(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "-a") == 0) {
             if (i < argc - 1) {
-                database->dbCfg.replica = atoi(argv[++i]);
+                errorPrint(stderr, "TODO: %s\n", __LINE__);
             } else {
                 exit_required("-a");
             }
