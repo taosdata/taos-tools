@@ -42,7 +42,7 @@ class TDTestCase:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            tdLog.exit("path: %s is not supported" % selfPath)
+            tdLog.exit("path %s is not support" % selfPath)
 
         buildPath = ""
         for root, dirs, files in os.walk(projPath):
@@ -92,7 +92,7 @@ class TDTestCase:
 #        sys.exit(1)
         tdSql.execute("drop database db")
 
-        os.system("%staosdump -i %s -T 1 -g" % (binPath, self.tmpdir))
+        os.system("%staosdump -R -i %s -T 1 -g" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult

@@ -268,7 +268,7 @@ class TDDnode:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            projPath = selfPath[:selfPath.find("src")]
+            tdLog.exit("path %s is not support" % selfPath)
 
         paths = []
         for root, dirs, files in os.walk(projPath):

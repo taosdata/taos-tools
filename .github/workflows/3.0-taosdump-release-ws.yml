@@ -1,4 +1,4 @@
-name: CI - WebSocket (Release)
+name: CI - WebSocket (taosdump Release for 3.0)
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
           files: |
             src/CMakeLists.txt
             src/taosdump*
-            tests/taosdump/ws/*
+            tests/taosdump/ws3/*
             inc/*
             deps/CMakeLists.txt
             .github/workflows/*taosdump*
@@ -59,10 +59,9 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/checkout@v2
         with:
-          submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: '3.0'
 
       - name: Change time zone
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -78,12 +77,25 @@ jobs:
           #git submodule update --init --recursive
           #if: github.event_name == 'pull_request'
 
+      - name: cmake first TDengine
+        if: |
+          steps.changed-files-specific.outputs.any_changed == 'true' &&
+          github.event_name == 'pull_request'
+        run: |
+          sudo apt update -y > /dev/null
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          cd TDengine
+          mkdir debug
+          cd debug
+          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null 
+          make -j8 > /dev/null
+
       - name: Checkout TDengine's taos-tools to PR number
         if: |
           github.event_name == 'pull_request' &&
           steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/src/kit/taos-tools
+          cd TDengine/tools/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
@@ -102,20 +114,20 @@ jobs:
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true && make -j8 && sudo make install
-          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          cd TDengine && cd debug
+          make -j8 > /dev/null && sudo make install
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
 
       - name: taosdump Develop Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/src/kit/taos-tools/tests
+          cd TDengine/tools/taos-tools/tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          if find taosdump/ws -name "*.py"|grep -q .;
+          if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|BigInt"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result

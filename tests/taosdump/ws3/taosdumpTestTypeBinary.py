@@ -23,7 +23,7 @@ import subprocess
 class TDTestCase:
     def caseDescription(self):
         '''
-        case1<sdsang>: [TD-12655] taosdump supports unsigned big int
+        case1<sdsang>: [TD-12526] taosdump supports binary
         '''
         return
 
@@ -42,7 +42,7 @@ class TDTestCase:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            tdLog.exit("path: %s is not supported" % selfPath)
+            tdLog.exit("path %s is not support" % selfPath)
 
         buildPath = ""
         for root, dirs, files in os.walk(projPath):
@@ -61,15 +61,12 @@ class TDTestCase:
 
         tdSql.execute("use db")
         tdSql.execute(
-            "create table st(ts timestamp, c1 BIGINT UNSIGNED) tags(ubntag BIGINT UNSIGNED)")
-        tdSql.execute("create table t1 using st tags(0)")
-        tdSql.execute("insert into t1 values(1640000000000, 0)")
-        tdSql.execute("create table t2 using st tags(18446744073709551614)")
-        tdSql.execute("insert into t2 values(1640000000000, 18446744073709551614)")
-        tdSql.execute("create table t3 using st tags(NULL)")
-        tdSql.execute("insert into t3 values(1640000000000, NULL)")
-
-#        sys.exit(1)
+            "create table st(ts timestamp, c1 BINARY(5), c2 BINARY(5)) tags(btag BINARY(5))")
+        tdSql.execute("create table t1 using st tags('test')")
+        tdSql.execute("insert into t1 values(1640000000000, '01234', '56789')")
+        tdSql.execute("insert into t1 values(1640000000001, 'abcd', 'efgh')")
+        tdSql.execute("create table t2 using st tags(NULL)")
+        tdSql.execute("insert into t2 values(1640000000000, NULL, NULL)")
 
         buildPath = self.getBuildPath()
         if (buildPath == ""):
@@ -85,14 +82,12 @@ class TDTestCase:
             os.system("rm -rf %s" % self.tmpdir)
             os.makedirs(self.tmpdir)
 
-        os.system(
-            "%staosdump -R --databases db -o %s -T 1 -g" %
-            (binPath, self.tmpdir))
+        os.system("%staosdump -R --databases db -o %s" % (binPath, self.tmpdir))
 
 #        sys.exit(1)
         tdSql.execute("drop database db")
 
-        os.system("%staosdump -i %s -T 1 -g" % (binPath, self.tmpdir))
+        os.system("%staosdump -R -i %s" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult
@@ -112,23 +107,29 @@ class TDTestCase:
         tdSql.checkData(0, 0, 'st')
 
         tdSql.query("show tables")
-        tdSql.checkRows(3)
+        tdSql.checkRows(2)
+        dbresult = tdSql.queryResult
+        print(dbresult)
+        for i in range(len(dbresult)):
+            assert ((dbresult[i][0] == "t1") or (dbresult[i][0] == "t2"))
 
-        tdSql.query("select * from st where ubntag = 0")
+        tdSql.query("select distinct(btag) from st where tbname = 't1'")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 1640000000000)
-        tdSql.checkData(0, 1, 0)
-        tdSql.checkData(0, 2, 0)
+        tdSql.checkData(0, 0, "test")
 
-        tdSql.query("select * from st where ubntag = 18446744073709551614")
+        tdSql.query("select distinct(btag) from st where tbname = 't2'")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 1640000000000)
-        tdSql.checkData(0, 1, 18446744073709551614)
-        tdSql.checkData(0, 2, 18446744073709551614)
+        tdSql.checkData(0, 0, None)
 
-        tdSql.query("select * from st where ubntag is null")
+        tdSql.query("select * from st where btag = 'test'")
+        tdSql.checkRows(2)
+        tdSql.checkData(0, 1, "01234")
+        tdSql.checkData(0, 2, "56789")
+        tdSql.checkData(1, 1, "abcd")
+        tdSql.checkData(1, 2, "efgh")
+
+        tdSql.query("select * from st where btag is null")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 0)
         tdSql.checkData(0, 1, None)
         tdSql.checkData(0, 2, None)
 

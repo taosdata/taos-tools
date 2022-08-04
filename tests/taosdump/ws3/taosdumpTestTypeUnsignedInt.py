@@ -23,7 +23,7 @@ import subprocess
 class TDTestCase:
     def caseDescription(self):
         '''
-        case1<sdsang>: [TD-12655] taosdump supports unsigned big int
+        case1<sdsang>: [TD-12526] taosdump supports unsigned int
         '''
         return
 
@@ -42,7 +42,7 @@ class TDTestCase:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            tdLog.exit("path: %s is not supported" % selfPath)
+            tdLog.exit("path %s is not support" % selfPath)
 
         buildPath = ""
         for root, dirs, files in os.walk(projPath):
@@ -61,11 +61,11 @@ class TDTestCase:
 
         tdSql.execute("use db")
         tdSql.execute(
-            "create table st(ts timestamp, c1 BIGINT UNSIGNED) tags(ubntag BIGINT UNSIGNED)")
+            "create table st(ts timestamp, c1 INT UNSIGNED) tags(untag INT UNSIGNED)")
         tdSql.execute("create table t1 using st tags(0)")
         tdSql.execute("insert into t1 values(1640000000000, 0)")
-        tdSql.execute("create table t2 using st tags(18446744073709551614)")
-        tdSql.execute("insert into t2 values(1640000000000, 18446744073709551614)")
+        tdSql.execute("create table t2 using st tags(4294967294)")
+        tdSql.execute("insert into t2 values(1640000000000, 4294967294)")
         tdSql.execute("create table t3 using st tags(NULL)")
         tdSql.execute("insert into t3 values(1640000000000, NULL)")
 
@@ -92,7 +92,7 @@ class TDTestCase:
 #        sys.exit(1)
         tdSql.execute("drop database db")
 
-        os.system("%staosdump -i %s -T 1 -g" % (binPath, self.tmpdir))
+        os.system("%staosdump -R -i %s -T 1 -g" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult
@@ -114,19 +114,22 @@ class TDTestCase:
         tdSql.query("show tables")
         tdSql.checkRows(3)
 
-        tdSql.query("select * from st where ubntag = 0")
+        tdSql.query("select * from st where untag = 0")
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 1640000000000)
         tdSql.checkData(0, 1, 0)
         tdSql.checkData(0, 2, 0)
 
-        tdSql.query("select * from st where ubntag = 18446744073709551614")
+        tdSql.query("select * from st where untag = 4294967294")
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 1640000000000)
-        tdSql.checkData(0, 1, 18446744073709551614)
-        tdSql.checkData(0, 2, 18446744073709551614)
+        tdSql.checkData(0, 1, 4294967294)
+        tdSql.checkData(0, 2, 4294967294)
 
-        tdSql.query("select * from st where ubntag is null")
+        tdSql.query("select * from st where untag is null")
+        dbresult = tdSql.queryResult
+        print(dbresult)
+
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 0)
         tdSql.checkData(0, 1, None)

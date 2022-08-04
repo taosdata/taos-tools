@@ -1264,7 +1264,7 @@ static int getTableRecordInfoImplWS(
                     dbName, table);
         } else {
             sprintf(command,
-                    "SELECT TABLE_NAME FROM information_schema.user_tables "
+                    "SELECT TABLE_NAME FROM information_schema.ins_tables "
                     "WHERE db_name='%s' AND table_name='%s'",
                     dbName, table);
         }
@@ -1446,7 +1446,7 @@ static int getTableRecordInfoImplNative(
                     "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
         } else {
             sprintf(command,
-                    "SELECT TABLE_NAME FROM information_schema.user_tables "
+                    "SELECT TABLE_NAME FROM information_schema.ins_tables "
                     "WHERE db_name='%s' AND table_name='%s'", dbName, table);
         }
     } else {
@@ -3041,6 +3041,11 @@ static void dumpCreateDbClause(
             sprintf(blocks, "BLOCKS %d", dbInfo->blocks);
         }
 
+        char fsync[32] = {0};
+        if (0 != dbInfo->fsync) {
+            sprintf(fsync, "FSYNC %d", dbInfo->fsync);
+        }
+
         char cachelast[32] = {0};
         if (0 != dbInfo->cachelast) {
             sprintf(cachelast, "CACHELAST %d", dbInfo->cachelast);
@@ -3059,7 +3064,7 @@ static void dumpCreateDbClause(
 
         pstr += sprintf(pstr,
                 "REPLICA %d %s %s %s KEEP %s %s %s MINROWS %d "
-                "MAXROWS %d FSYNC %d %s COMP %d PRECISION '%s' %s %s",
+                "MAXROWS %d %s %s COMP %d PRECISION '%s' %s %s",
                 dbInfo->replica,
                 (g_majorVersionOfClient < 3)?"":strict,
                 (g_majorVersionOfClient < 3)?quorum:"",
@@ -3068,7 +3073,7 @@ static void dumpCreateDbClause(
                 (g_majorVersionOfClient < 3)?cache:"",
                 (g_majorVersionOfClient < 3)?blocks:"",
                 dbInfo->minrows, dbInfo->maxrows,
-                dbInfo->fsync,
+                (g_majorVersionOfClient < 3)?fsync:"",
                 (g_majorVersionOfClient < 3)?cachelast:"",
                 dbInfo->comp,
                 dbInfo->precision,
@@ -9962,7 +9967,7 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
     int32_t code;
 
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.ins_tables WHERE db_name='%s'", dbInfo->name);
     } else {
         sprintf(command, "USE %s", dbInfo->name);
         ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
@@ -10104,7 +10109,7 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
 
 
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.user_tables WHERE db_name='%s'", dbInfo->name);
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.ins_tables WHERE db_name='%s'", dbInfo->name);
     } else {
         sprintf(command, "USE %s", dbInfo->name);
         res = taos_query(taos, command);
@@ -10948,7 +10953,7 @@ static int fillDbExtraInfoV3WS(
         const int dbIndex) {
     int ret = 0;
     char command[COMMAND_SIZE];
-    sprintf(command, "select count(table_name) from information_schema.user_tables where db_name='%s'", dbName);
+    sprintf(command, "select count(table_name) from information_schema.ins_tables where db_name='%s'", dbName);
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
@@ -11132,7 +11137,7 @@ static int fillDbExtraInfoV3Native(
         const int dbIndex) {
     int ret = 0;
     char command[COMMAND_SIZE];
-    sprintf(command, "select count(table_name) from information_schema.user_tables where db_name='%s'", dbName);
+    sprintf(command, "select count(table_name) from information_schema.ins_tables where db_name='%s'", dbName);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
