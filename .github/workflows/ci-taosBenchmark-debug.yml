@@ -44,8 +44,9 @@ jobs:
         with:
           files: |
             src/bench*
+            tests/taosbenchmark*
             inc/*
-            .github/workflows/*
+            .github/workflows/*taosBenchmark*
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -87,7 +88,6 @@ jobs:
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-          git submodule update --init --recursive
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -101,7 +101,7 @@ jobs:
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make -j8 && sudo make install
 
-          pip3 install taospy numpy fabric2 psutil pandas faker
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 

@@ -337,7 +337,7 @@ int queryDbExec(SBenchConn *conn, char *command) {
     int32_t code;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        WS_RES* res = ws_query(conn->taos_ws, command);
+        WS_RES* res = ws_query_timeout(conn->taos_ws, command, g_arguments->timeout);
         code = ws_errno(res);
         if (code != 0) {
             errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
@@ -921,7 +921,7 @@ int32_t bsem_wait(sem_t* sem) {
     return ret;
 }
 
-void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
+void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
     struct sigaction act;
     memset(&act, 0, sizeof(act));
     act.sa_flags = SA_SIGINFO | SA_RESTART;

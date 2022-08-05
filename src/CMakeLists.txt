@@ -4,6 +4,35 @@ INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR}/build/include)
 INCLUDE_DIRECTORIES(../inc)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/toolscJson/inc)
 
+MESSAGE(STATUS "The current platform " ${CMAKE_SYSTEM_PROCESSOR} " is detected")
+
+IF (CMAKE_SYSTEM_PROCESSOR MATCHES "(amd64)|(AMD64)|(x86_64)")
+    MESSAGE(STATUS "The current platform is amd64")
+    MESSAGE(STATUS "Set CPUTYPE to x64")
+    SET(CURRENT_CPUTYPE "x64")
+    SET(CURRENT_PLATFORM_ARCH_STR "amd64")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)")
+    MESSAGE(STATUS "The current platform is x86")
+    MESSAGE(STATUS "Set CPUTYPE to x86")
+    SET(CURRENT_CPUTYPE "x32")
+    SET(CURRENT_PLATFORM_ARCH_STR "i386")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "armv7l")
+    MESSAGE(STATUS "Set CPUTYPE to aarch32")
+    SET(CURRENT_CPUTYPE "aarch32")
+    MESSAGE(STATUS "Set CPUTYPE to aarch32")
+    SET(CURRENT_PLATFORM_ARCH_STR "arm")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+    SET(CURRENT_CPUTYPE "aarch64")
+    MESSAGE(STATUS "Set CPUTYPE to aarch64")
+    SET(CURRENT_PLATFORM_ARCH_STR "arm64")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "mips64")
+    SET(CURRENT_CPUTYPE "mips64")
+    MESSAGE(STATUS "Set CPUTYPE to mips64")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
+    SET(CURRENT_CPUTYPE "apple_m1")
+    MESSAGE(STATUS "Set CPUTYPE to apple silicon m1")
+ENDIF ()
+
 FIND_PACKAGE(Git)
 IF(GIT_FOUND)
     EXECUTE_PROCESS(
@@ -49,7 +78,7 @@ IF(GIT_FOUND)
             OUTPUT_VARIABLE TAOSDUMP_STATUS
     )
     EXECUTE_PROCESS(
-            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/demo*.c
+            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/bench*.c
             RESULT_VARIABLE RESULT
             OUTPUT_VARIABLE taosbenchmark_STATUS
     )
@@ -107,26 +136,53 @@ INCLUDE_DIRECTORIES(/usr/local/taos/include)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/avro/lang/c/src)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_LIST_DIR}/../deps/toolscJson/src)
 
+IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
+    INCLUDE_DIRECTORIES(${TD_SOURCE_DIR}/contrib/pthread)
+    INCLUDE_DIRECTORIES(${TD_SOURCE_DIR}/contrib/msvcregex)
+
+    ADD_DEFINITIONS(-DTDENGINE_3)
+ENDIF ()
+
 IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     SET(OS_ID "")
 
     IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
-        IF (${TDENGINE_3})
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
-        ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
-        ENDIF()
         ADD_DEFINITIONS(-DLINUX)
+
         EXECUTE_PROCESS (
                 COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
                 OUTPUT_VARIABLE OS_ID
         )
-    ELSE ()
-        IF (${TDENGINE_3})
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+        MESSAGE(STATUS "src cmake LN147, detected The current OS is " ${OS_ID} "")
+
+        ADD_LIBRARY(jansson STATIC IMPORTED)
+        SET_PROPERTY(TARGET jansson PROPERTY IMPORTED_LOCATION
+            "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
+
+        ADD_LIBRARY(snappy STATIC IMPORTED)
+        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
+                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+            SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
         ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchParse.c)
+            SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
+                "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
+        ENDIF ()
+
+        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
+        ADD_DEPENDENCIES(deps-snappy apache-avro)
+        ADD_DEPENDENCIES(taosdump deps-jansson)
+        ADD_DEPENDENCIES(taosdump deps-snappy)
+        IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
+        ELSE()
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
+        ENDIF()
+    ELSE ()
+        IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
+        ELSE()
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
         ENDIF()
         INCLUDE_DIRECTORIES(/usr/local/include)
         ADD_DEFINITIONS(-DDARWIN)
@@ -142,7 +198,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()
 
-    IF(${TDENGINE_3})
+    IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
         SET(OS_LINK_FLAGS "os")
     ELSE()
         SET("")
@@ -155,7 +211,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     ENDIF ()
 
     IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
-
         IF (${TOOLS_SANITIZE} MATCHES "true")
             MESSAGE("${Yellow} Enable memory sanitize ${ColourReset}")
             IF (${OS_ID} MATCHES "Darwin")
@@ -220,11 +275,20 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${OS_LINK_FLAGS} ${WEBSOCKET_LINK_FLAGS})
         ELSE ()
+            EXECUTE_PROCESS (
+                COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
+                OUTPUT_VARIABLE OS_ID
+            )
+            MESSAGE(STATUS "src cmake LN303, detected The current OS is " ${OS_ID} "")
+
             ADD_LIBRARY(avro STATIC IMPORTED)
-            IF(${OS_ID} MATCHES "centos" OR ${OS_ID} MATCHES "kylin" OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
-                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
+            IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
+                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
+                    "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
             ELSE()
-                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
+                SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
+                    "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
             ENDIF()
 
             EXECUTE_PROCESS (
@@ -249,13 +313,13 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 ELSE ()
     set (CMAKE_C_STANDARD 11)
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
-    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c benchWindows.c)
+    ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c toolstime.c)
 
     IF (${WEBSOCKET})
         INCLUDE_DIRECTORIES(/usr/local/include/)
         SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
         ADD_DEPENDENCIES(taosBenchmark taosws-rs)
-        ADD_DEPENDENCIES(taosdump taosws-rs)
+        #ADD_DEPENDENCIES(taosdump taosws-rs)
     ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()

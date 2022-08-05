@@ -21,7 +21,6 @@
 #define ALLOW_FORBID_FUNC
 
 #ifdef LINUX
-#include <argp.h>
 #include <inttypes.h>
 #ifndef _ALPINE
 #include <error.h>
@@ -315,6 +314,16 @@ typedef struct SField {
     bool     sma;
 } Field;
 
+typedef struct STSMA {
+    char* name;
+    char* func;
+    char* interval;
+    char* sliding;
+    int   start_when_inserted;
+    char* custom;
+    bool  done;
+} TSMA;
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -346,6 +355,7 @@ typedef struct SSuperTable_S {
     char *   partialColumnNameBuf;
     BArray * cols;
     BArray * tags;
+    BArray * tsmas;
     char **  childTblName;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
@@ -363,29 +373,9 @@ typedef struct SSuperTable_S {
 } SSuperTable;
 
 typedef struct SDbCfg_S {
-    int32_t minRows;  // 0 means default
-    int32_t maxRows;  // 0 means default
-    int     comp;
-    int     walLevel;
-    int     cacheLast;
-    int     fsync;
-    int     replica;
-    int     update;
-    int     buffer;
-    int     keep;
-    int     days;
-    int     cache;
-    int     blocks;
-    int     quorum;
-    int     strict;
-    int     precision;
-    int     sml_precision;
-    int     page_size;
-    int     pages;
-    int     vgroups;
-    int     single_stable;
-    char *  retentions;
-
+    char*   name;
+    char*   valuestring;
+    int     valueint;   
 } SDbCfg;
 
 typedef struct SSTREAM_S {
@@ -400,7 +390,9 @@ typedef struct SSTREAM_S {
 typedef struct SDataBase_S {
     char *       dbName;
     bool         drop;  // 0: use exists, 1: if exists, drop then new create
-    SDbCfg       dbCfg;
+    int          precision;
+    int          sml_precision;
+    BArray*      cfgs;
     BArray*      superTbls;
     BArray*      streams;
 } SDataBase;
@@ -498,6 +490,7 @@ typedef struct SArguments_S {
     bool               terminate;
     bool               in_prompt;
 #ifdef WEBSOCKET
+	int32_t            timeout;
     char*              dsn;
     bool               websocket;
 #endif
@@ -559,7 +552,13 @@ typedef struct SQueryThreadInfo_S {
     int64_t total_delay;
 } queryThreadInfo;
 
-typedef void (*FSignalHandler)(int signum, void *sigInfo, void *context);
+typedef struct STSmaThreadInfo_S {
+    char* dbName;
+    char* stbName;
+    BArray* tsmas;
+} tsmaThreadInfo;
+
+typedef void (*ToolsSignalHandler)(int signum, void *sigInfo, void *context);
 
 /* ************ Global variables ************  */
 extern char *         g_aggreFuncDemo[];
@@ -580,7 +579,7 @@ extern uint64_t       g_memoryUsage;
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
-void commandLineParseArgument(int argc, char *argv[]);
+int32_t bench_parse_args(int32_t argc, char* argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
@@ -625,7 +624,7 @@ void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
-void benchSetSignal(int32_t signum, FSignalHandler sigfp);
+void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp);
 #endif
 int taos_convert_type_to_length(uint8_t type);
 int64_t taos_convert_datatype_to_default_max(uint8_t type);

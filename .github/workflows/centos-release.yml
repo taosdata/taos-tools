@@ -1,0 +1,93 @@
+name: CI (CentOS 7 build)
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  TOOLS_BUILD_TYPE: Release
+  PR_NUMBER: ${{ github.event.number }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: docker.io/centos:7
+
+    steps:
+      - name: Step that prints name of pull request's base branch
+        run: |
+          echo "Pull request's base branch is: ${BASE_BRANCH}"
+          echo "Pull request's branch is: ${GITHUB_REF##*/}"
+          echo "Pull request's head ref is: ${GITHUB_HEAD_REF}"
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        if: github.event_name == 'pull_request'
+
+      - name: intall deps
+        run: |
+          echo "yum update"
+          yum update -y > /dev/null
+          echo "yum install endpoint repo"
+          yum -y install https://packages.endpointdev.com/rhel/7/os/x86_64/endpoint-repo.x86_64.rpm
+          echo "yum install epel"
+          yum install epel-release -y > /dev/null
+          echo "yum install packages"
+          yum install -y gcc gcc-c++ make cmake3 git openssl-devel wget > /dev/null
+          ln -sf /usr/bin/cmake3 /usr/bin/cmake
+
+      - name: Checkout tdengine
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: 'develop'
+
+      - name: Change time zone
+        run: |
+          echo "disable timezone changing"
+          #timedatectl set-timezone Asia/Shanghai
+          #date
+
+      - name: Checkout TDengine's taos-tools to PR number
+        if: |
+          github.event_name == 'pull_request'
+        run: |
+          cd TDengine/src/kit/taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Build & Install TDengine
+        run: |
+          yum install -y python3 python3-pip zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel > /dev/null
+          python3 -m pip install --upgrade pip > /dev/null 2>&1
+          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true && make -j8 && make install
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+
+      - name: taosdump Old Test cases
+        run: |
+          cd TDengine/tests/pytest
+          pkill -9 taosadapter || :
+          pkill -9 taosd || :
+
+          echo "TEST: old cases"
+          python3 ./test.py -f tools/taosdumpTest.py && echo -e "\033[32m pytest/tools/taosdumpTest.py success! \033[0m" || echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt
+
+      - name: Check Test Result
+        run: |
+          if [ -f ~/taosdump-failed.txt ];then
+            cat ~/taosdump-failed.txt;
+            exit 1;
+          fi
