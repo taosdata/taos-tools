@@ -416,3 +416,12 @@ int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePr
     }
   }
 }
+
+struct tm* toolsLocalTime(const time_t *timep, struct tm *result) {
+#ifdef LINUX
+    localtime_r(timep, result);
+#else
+    localtime_s(result, timep);
+#endif
+    return result;
+}

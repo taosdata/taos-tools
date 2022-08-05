@@ -21,7 +21,6 @@
 #define ALLOW_FORBID_FUNC
 
 #ifdef LINUX
-#include <argp.h>
 #include <inttypes.h>
 #ifndef _ALPINE
 #include <error.h>
@@ -580,7 +579,7 @@ extern uint64_t       g_memoryUsage;
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
-void commandLineParseArgument(int argc, char *argv[]);
+int32_t bench_parse_args(int32_t argc, char* argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
