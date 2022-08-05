@@ -50,7 +50,9 @@ int main(int argc, char* argv[]) {
     pthread_create(&spid, NULL, benchCancelHandler, NULL);
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
 #endif
-    commandLineParseArgument(argc, argv);
+    if (bench_parse_args(argc, argv)) {
+        return -1;
+    }
 #ifdef WEBSOCKET
     if (g_arguments->dsn != NULL) {
         g_arguments->websocket = true;
