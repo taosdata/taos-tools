@@ -83,12 +83,12 @@ class TDTestCase:
             os.system("rm -rf %s" % self.tmpdir)
             os.makedirs(self.tmpdir)
 
-        os.system("RUST_LOG=debug %s -R --databases db -o %s" % (binPath, self.tmpdir))
+        os.system("%s -R -gg --databases db -o %s" % (binPath, self.tmpdir))
 
 #        sys.exit(1)
         tdSql.execute("drop database db")
 
-        os.system("RUST_LOG=debug %s -R -i %s" % (binPath, self.tmpdir))
+        os.system("%s -R -gg -i %s" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult
