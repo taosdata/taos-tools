@@ -28,9 +28,13 @@ const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
                            "Sunnyvale", "Santa\\ Clara", "Cupertino"};
 
 #ifdef WINDOWS
-#include "benchLocationsWin.h"
+    #if _MSC_VER >= 1910
+        #include "benchLocations.h"
+    #else
+        #include "benchLocationsWin.h"
+    #endif
 #else
-#include "benchLocations.h"
+    #include "benchLocations.h"
 #endif
 
 static int usc2utf8(char *p, int unic) {
