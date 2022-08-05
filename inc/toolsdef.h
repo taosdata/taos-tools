@@ -119,15 +119,15 @@
 
 int64_t strnatoi(char *num, int32_t len);
 char *  strnchr(char *haystack, char needle, int32_t len, bool skipquote);
-int64_t user_mktime64(const unsigned int year0, const unsigned int mon0,
+int64_t tools_user_mktime64(const unsigned int year0, const unsigned int mon0,
 		const unsigned int day, const unsigned int hour,
 		const unsigned int min, const unsigned int sec, int64_t time_zone);
 int32_t parseTimezone(char* str, int64_t* tzOffset);
 int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePrec, int8_t day_light);
+struct tm* toolsLocalTime(const time_t *timep, struct tm *result);
 
 #ifdef TDENGINE_3
 #define toolsGetTimeOfDay taosGetTimeOfDay
-#define toolsLocalTime taosLocalTime
 #define toolsStrpTime taosStrpTime
 #define toolsClockGetTime taosClockGetTime
 #define toolsGetLineFile(__pLine,__pN, __pFp)                      \
@@ -139,7 +139,6 @@ do {                                                               \
 } while(0)
 #else
 #define toolsGetTimeOfDay(__tv) gettimeofday(__tv, NULL)
-#define toolsLocalTime localtime_r
 #define toolsStrpTime strptime
 #define toolsClockGetTime clock_gettime
 #define toolsGetLineFile tgetline
