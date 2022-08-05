@@ -27,8 +27,11 @@ const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
                            "San\\ Jose", "Palo\\ Alto", "Campbell", "Mountain\\ View",
                            "Sunnyvale", "Santa\\ Clara", "Cupertino"};
 
-const char* locations_chinese[] = {"旧金山","洛杉矶","圣地亚哥","圣何塞","帕洛阿尔托","坎贝尔",
-                                   "山景城","森尼韦尔","圣克拉拉","库比蒂诺"};
+#ifdef WINDOWS
+#include "benchLocationsWin.h"
+#else
+#include "benchLocations.h"
+#endif
 
 static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
