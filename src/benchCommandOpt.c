@@ -471,9 +471,14 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
 
 int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
+        if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
+            infoPrint(stdout, "taos client version: %s\n", taos_get_client_info());
+            exit(EXIT_SUCCESS);
+        }
+
         if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0 || strcmp(argv[i], "-?") == 0) {
             bench_print_help();
-            return 0;
+            exit(EXIT_SUCCESS);
         }
 
         char* key = argv[i];
