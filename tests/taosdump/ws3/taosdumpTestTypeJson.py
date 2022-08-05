@@ -91,11 +91,11 @@ class TDTestCase:
             os.system("rm -rf %s" % self.tmpdir)
             os.makedirs(self.tmpdir)
 
-        os.system("%s -R -D db -o %s" % (binPath, self.tmpdir))
+        os.system("%s -R -gg -D db -o %s" % (binPath, self.tmpdir))
 
         tdSql.execute("drop database db")
 
-        os.system("%s -R -i %s" % (binPath, self.tmpdir))
+        os.system("%s -R -gg -i %s" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult
