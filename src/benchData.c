@@ -27,8 +27,8 @@ const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
                            "San\\ Jose", "Palo\\ Alto", "Campbell", "Mountain\\ View",
                            "Sunnyvale", "Santa\\ Clara", "Cupertino"};
 
-const char* locations_chinese[] = {"æ—§é‡‘å±±","æ´›æ‰çŸ¶","åœ£åœ°äºšå“¥","åœ£ä½•å¡","å¸•æ´›é˜¿å°”æ‰˜","åè´å°”",
-                                   "å±±æ™¯åŸ","æ£®å°¼éŸ¦å°”","åœ£å…‹æ‹‰æ‹‰","åº“æ¯”è’‚è¯º"};
+const char* locations_chinese[] = {"¾É½ğÉ½","ÂåÉ¼í¶","Ê¥µØÑÇ¸ç","Ê¥ºÎÈû","ÅÁÂå°¢¶ûÍĞ","¿²±´¶û",
+                                   "É½¾°³Ç","É­ÄáÎ¤¶û","Ê¥¿ËÀ­À­","¿â±ÈµÙÅµ"};
 
 static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
@@ -540,7 +540,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         ((uint64_t *)field->data)[k] = ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) { 
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
                                        field->name, ubigint);
                     } else if ((iface == SML_IFACE ||
