@@ -701,11 +701,6 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                        errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
-                        g_fail = true;
-                        goto free_of_interlace;
-                    }
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt, tableName)) {
                         errorPrint(
                             stderr,
