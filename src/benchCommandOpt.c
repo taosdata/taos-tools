@@ -36,7 +36,7 @@
 #define BENCH_COLS  "Data type of tables' cols, default is FLOAT,INT,FLOAT."
 #define BENCH_WIDTH "The default length of nchar and binary if not specified, default is 64."
 #define BENCH_PREFIX  "Prefix of child table name, default is d."
-#define BENCH_ESCAPTE "Use escape character in stable and child table name, optional."
+#define BENCH_ESCAPE "Use escape character in stable and child table name, optional."
 #define BENCH_CHINESE "Nchar and binary are basic unicode chinese characters, optional."
 #define BENCH_NORMAL  "Only create normal table without super table, optional."
 #define BENCH_RANDOM  "Data source is randomly generated, optional."
@@ -67,6 +67,8 @@ char *g_aggreFuncDemo[] = {"*",
 char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
                        "max(C0)", "min(C0)",  "first(C0)", "last(C0)"};
 
+static int32_t bench_parse_single_opt(int32_t key, char* arg);
+
 void bench_print_help() {
     char indent[] = "  ";
     printf("Usage: taosBenchmark [OPTION ...] \r\n\r\n");
@@ -91,7 +93,7 @@ void bench_print_help() {
     printf("%s%s%s%s\r\n", indent, "-b,", indent, BENCH_COLS);
     printf("%s%s%s%s\r\n", indent, "-w,", indent, BENCH_WIDTH);
     printf("%s%s%s%s\r\n", indent, "-m,", indent, BENCH_PREFIX);
-    printf("%s%s%s%s\r\n", indent, "-E,", indent, BENCH_ESCAPTE);
+    printf("%s%s%s%s\r\n", indent, "-E,", indent, BENCH_ESCAPE);
     printf("%s%s%s%s\r\n", indent, "-C,", indent, BENCH_CHINESE);
     printf("%s%s%s%s\r\n", indent, "-N,", indent, BENCH_NORMAL);
     printf("%s%s%s%s\r\n", indent, "-M,", indent, BENCH_RANDOM);
@@ -150,7 +152,7 @@ static struct argp_option bench_options[] = {
     {"disorder", 'O', "NUMBER", 0, BENCH_DISORDER},
     {"replia", 'a', "NUMBER", 0, BENCH_REPLICA},
     {"debug", 'g', 0, 0, BENCH_DEBUG},
-    {"performance", 'G', 0, 0, BENCH_PERFORMACE},
+    {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
     {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},
     {"connection_pool_size", 'H', "NUMBER", 0, BENCH_POOL},
 #ifdef WEBSOCKET
@@ -457,10 +459,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 #ifdef WEBSOCKET
         case 'W':
-          g_g_arguments->dsn = arg;
+          g_arguments->dsn = arg;
           break;
         case 'D':
-          g_g_arguments->timeout = atoi(arg);
+          g_arguments->timeout = atoi(arg);
           break;
 #endif
         default:
@@ -527,7 +529,8 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
 
 int32_t bench_parse_args(int32_t argc, char* argv[]) {
 #ifdef LINUX
-    return bench_parse_args_in_argp(argc, argv);
+    bench_parse_args_in_argp(argc, argv);
+    return 0;
 #else
     return bench_parse_args_no_argp(argc, argv);
 #endif
