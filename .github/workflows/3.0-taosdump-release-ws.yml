@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'fix/sangshuduo/TD-18128-taosdemo-windows-for3.0'
 
       - name: Change time zone
         if: steps.changed-files-specific.outputs.any_changed == 'true'

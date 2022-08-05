@@ -82,7 +82,6 @@ class TDTestCase:
         else:
             tdLog.info("taosdump found: %s" % binPath)
 
-
         if not os.path.exists(self.tmpdir):
             os.makedirs(self.tmpdir)
         else:
@@ -91,13 +90,13 @@ class TDTestCase:
             os.makedirs(self.tmpdir)
 
         os.system(
-            "%s -R --databases db -o %s -T 1" %
+            "RUST_LOG=debug %s -R --databases db -o %s -T 1" %
             (binPath, self.tmpdir))
 
 #        sys.exit(1)
         tdSql.execute("drop database db")
 
-        os.system("%s -R -i %s -T 1" % (binPath, self.tmpdir))
+        os.system("RUST_LOG=debug %s -R -i %s -T 1" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult

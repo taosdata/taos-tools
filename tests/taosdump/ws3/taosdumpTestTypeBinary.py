@@ -32,7 +32,7 @@ class TDTestCase:
         tdSql.init(conn.cursor(), logSql)
         self.tmpdir = "tmp"
 
-    def getBuildPath(self):
+    def getPath(self, tool="taosdump"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
         if ("community" in selfPath):
@@ -42,16 +42,18 @@ class TDTestCase:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            tdLog.exit("path %s is not support" % selfPath)
+            tdLog.exit("path: %s is not supported" % selfPath)
 
-        buildPath = ""
+        paths = []
         for root, dirs, files in os.walk(projPath):
-            if ("taosdump" in files):
+            if ((tool) in files):
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if ("packaging" not in rootRealPath):
-                    buildPath = root[:len(root) - len("/build/bin")]
+                    paths.append(os.path.join(root, tool))
                     break
-        return buildPath
+        if (len(paths) == 0):
+            return ""
+        return paths[0]
 
     def run(self):
         tdSql.prepare()
@@ -68,12 +70,11 @@ class TDTestCase:
         tdSql.execute("create table t2 using st tags(NULL)")
         tdSql.execute("insert into t2 values(1640000000000, NULL, NULL)")
 
-        buildPath = self.getBuildPath()
-        if (buildPath == ""):
+        binPath = self.getPath("taosdump")
+        if (binPath == ""):
             tdLog.exit("taosdump not found!")
         else:
-            tdLog.info("taosdump found in %s" % buildPath)
-        binPath = buildPath + "/build/bin/"
+            tdLog.info("taosdump found in %s" % binPath)
 
         if not os.path.exists(self.tmpdir):
             os.makedirs(self.tmpdir)
@@ -82,12 +83,12 @@ class TDTestCase:
             os.system("rm -rf %s" % self.tmpdir)
             os.makedirs(self.tmpdir)
 
-        os.system("%staosdump -R --databases db -o %s" % (binPath, self.tmpdir))
+        os.system("RUST_LOG=debug %s -R --databases db -o %s" % (binPath, self.tmpdir))
 
 #        sys.exit(1)
         tdSql.execute("drop database db")
 
-        os.system("%staosdump -R -i %s" % (binPath, self.tmpdir))
+        os.system("RUST_LOG=debug %s -R -i %s" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult
