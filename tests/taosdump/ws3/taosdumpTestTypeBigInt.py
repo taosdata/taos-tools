@@ -32,6 +32,29 @@ class TDTestCase:
         tdSql.init(conn.cursor(), logSql)
         self.tmpdir = "tmp"
 
+    def getPath(self, tool="taosdump"):
+        selfPath = os.path.dirname(os.path.realpath(__file__))
+
+        if ("community" in selfPath):
+            projPath = selfPath[:selfPath.find("community")]
+        elif ("src" in selfPath):
+            projPath = selfPath[:selfPath.find("src")]
+        elif ("/tools/" in selfPath):
+            projPath = selfPath[:selfPath.find("/tools/")]
+        else:
+            tdLog.exit("path: %s is not supported" % selfPath)
+
+        paths = []
+        for root, dirs, files in os.walk(projPath):
+            if ((tool) in files):
+                rootRealPath = os.path.dirname(os.path.realpath(root))
+                if ("packaging" not in rootRealPath):
+                    paths.append(os.path.join(root, tool))
+                    break
+        if (len(paths) == 0):
+            return ""
+        return paths[0]
+
     def getBuildPath(self):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
@@ -78,12 +101,11 @@ class TDTestCase:
 
 #        sys.exit(1)
 
-        buildPath = self.getBuildPath()
-        if (buildPath == ""):
+        binPath = self.getPath("taosdump")
+        if (binPath == ""):
             tdLog.exit("taosdump not found!")
         else:
-            tdLog.info("taosdump found in %s" % buildPath)
-        binPath = buildPath + "/build/bin/"
+            tdLog.info("taosdump found in %s" % binPath)
 
         if not os.path.exists(self.tmpdir):
             os.makedirs(self.tmpdir)
@@ -93,13 +115,13 @@ class TDTestCase:
             os.makedirs(self.tmpdir)
 
         os.system(
-            "%staosdump -R --databases db -o %s -T 1" %
+            "%s -R -D db -o %s -T 1" %
             (binPath, self.tmpdir))
 
 #        sys.exit(1)
         tdSql.execute("drop database db")
 
-        os.system("%staosdump -R -i %s -T 1" % (binPath, self.tmpdir))
+        os.system("%s -R -i %s -T 1" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult

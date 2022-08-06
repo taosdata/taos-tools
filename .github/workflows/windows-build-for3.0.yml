@@ -1,4 +1,4 @@
-name: Windows (Build for 3.0)
+name: Windows (3.0 build)
 
 on:
   push:

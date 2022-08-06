@@ -1,4 +1,4 @@
-name: Codecov
+name: Codecov (2.x)
 on:
   push:
     branches: [ develop ]

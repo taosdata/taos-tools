@@ -82,7 +82,6 @@ class TDTestCase:
         else:
             tdLog.info("taosdump found: %s" % binPath)
 
-
         if not os.path.exists(self.tmpdir):
             os.makedirs(self.tmpdir)
         else:
@@ -91,7 +90,7 @@ class TDTestCase:
             os.makedirs(self.tmpdir)
 
         os.system(
-            "%s -R --databases db -o %s -T 1" %
+            "%s -R -D db -o %s -T 1" %
             (binPath, self.tmpdir))
 
 #        sys.exit(1)
