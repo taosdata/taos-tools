@@ -1,4 +1,4 @@
-name: Windows (Build for 3.0)
+name: Windows (3.0 build)
 
 on:
   push:
@@ -58,7 +58,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-18128-taosdemo-windows-for3.0'
+          ref: '3.0'
 
       - uses: ilammy/msvc-dev-cmd@v1
       - name: cmake first TDengine

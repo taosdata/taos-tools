@@ -1,4 +1,4 @@
-name: CI (taosdump Debug)
+name: Ubuntu (2.x taosdump native Debug)
 
 on:
   push:

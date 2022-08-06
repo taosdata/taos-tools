@@ -1,4 +1,4 @@
-name: CI (taosBenchmark Release)
+name: Ubuntu (2.x taosBenchmark native)
 
 on:
   push:
