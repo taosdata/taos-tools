@@ -85,6 +85,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine
+          mkdir debug ||:
           cd debug
           cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
 
