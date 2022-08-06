@@ -1,4 +1,4 @@
-name: Linux (taosdump ws for 3.0)
+name: Ubuntu (3.0 taosdump WebSocket)
 
 on:
   push:

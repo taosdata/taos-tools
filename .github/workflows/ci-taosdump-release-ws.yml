@@ -1,4 +1,4 @@
-name: CI - WebSocket (Release)
+name: Ubuntu (2.x taosdump WebSocket)
 
 on:
   push:

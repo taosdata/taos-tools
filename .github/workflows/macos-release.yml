@@ -1,4 +1,4 @@
-name: macOS (Release)
+name: macOS (2.x Release)
 
 on:
   push:

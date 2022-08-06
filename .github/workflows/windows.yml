@@ -1,4 +1,4 @@
-name: Windows (Build for 2.x)
+name: Windows (2.x build)
 
 on:
   push:

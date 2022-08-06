@@ -1,4 +1,4 @@
-name: CI (CentOS 7 build)
+name: CentOS7 (2.x build)
 
 on:
   push:

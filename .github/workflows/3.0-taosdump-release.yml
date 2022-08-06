@@ -1,4 +1,4 @@
-name: CI (taosdump Release for 3.0)
+name: Ubuntu (3.0 taosdump native)
 
 on:
   push:

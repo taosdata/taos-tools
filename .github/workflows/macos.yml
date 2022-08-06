@@ -1,4 +1,4 @@
-name: macOS (Debug)
+name: macOS (2.x Debug)
 
 on:
   push:
