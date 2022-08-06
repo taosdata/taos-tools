@@ -134,7 +134,13 @@ jobs:
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
+          if [ -f ~/taosa.log ]; then
+            cat ~/taosa.log
+          else
+            echo "taosa.log not found"
+          fi
+
           if [ -f ~/taosdump-failed.txt ];then
-            cat ~/taosdump-failed.txt;
-            exit 1;
+            cat ~/taosdump-failed.txt
+            exit 1
           fi
