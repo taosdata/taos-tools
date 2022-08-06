@@ -108,6 +108,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine
+          mkdir debug ||:
           cd debug
           make -j8 > /dev/null && sudo make install > /dev/null
           pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null

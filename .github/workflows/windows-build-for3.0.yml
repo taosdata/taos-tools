@@ -60,15 +60,18 @@ jobs:
           path: 'TDengine'
           ref: '3.0'
 
+      - name: create debug directory
+        run: |
+          cd TDengine
+          mkdir debug
+
       - uses: ilammy/msvc-dev-cmd@v1
       - name: cmake first TDengine
         if: |
           steps.changed-files-specific.outputs.any_changed == 'true' &&
           github.event_name == 'pull_request'
         run: |
-          cd TDengine
-          mkdir debug
-          cd debug
+          cd TDengine/debug
           cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
 
       - name: Checkout TDengine's taos-tools to PR number
@@ -84,8 +87,7 @@ jobs:
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine
-          cd debug
+          cd TDengine/debug
           cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
 
           #      - name: Func Test
