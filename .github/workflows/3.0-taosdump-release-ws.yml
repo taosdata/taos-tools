@@ -55,13 +55,13 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout tdengine
+      - name: Checkout TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-18128-taosdemo-windows-for3.0'
+          ref: '3.0'
 
       - name: Change time zone
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -102,7 +102,7 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null 
           make -j8 > /dev/null
 
-      - name: Checkout TDengine's taosws commit
+      - name: show TDengine's taosws commit
         if: |
           steps.changed-files-specific.outputs.any_changed == 'true' &&
           github.event_name == 'pull_request'
@@ -135,20 +135,20 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            export RUST_LOG=debug
-            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|BigInt"`; do python3 ./test.py -f $i && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|BigInt"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosa.log ]; then
-            cat ~/taosa.log
-          else
-            echo "taosa.log not found"
-          fi
-
           if [ -f ~/taosdump-failed.txt ];then
+            if [ -f ~/taosa.log ]; then
+              cat ~/taosa.log
+            else
+              echo "taosa.log not found"
+            fi
+
             cat ~/taosdump-failed.txt
+
             exit 1
           fi
