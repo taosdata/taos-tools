@@ -53,7 +53,9 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout tdengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          steps.changed-files-specific.outputs.any_changed == 'true' ||
+          github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
