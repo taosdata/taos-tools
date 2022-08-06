@@ -102,6 +102,14 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null 
           make -j8 > /dev/null
 
+      - name: Checkout TDengine's taosws commit
+        if: |
+          steps.changed-files-specific.outputs.any_changed == 'true' &&
+          github.event_name == 'pull_request'
+        run: |
+          cd TDengine/tools/taosws-rs
+          git log --oneline | head -1
+
       - name: Checkout TDengine's taos-tools to PR number
         if: |
           github.event_name == 'pull_request' &&
