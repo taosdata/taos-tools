@@ -1,4 +1,4 @@
-name: CI (CentOS 7 build)
+name: CentOS7 (2.x build)
 
 on:
   push:
@@ -24,10 +24,6 @@ jobs:
         env:
           BASE_BRANCH: ${{ github.base_ref }}
         if: github.event_name == 'pull_request'
-
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
 
       - name: intall deps
         run: |
@@ -78,7 +74,12 @@ jobs:
           yum install -y python3 python3-pip zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel > /dev/null
           python3 -m pip install --upgrade pip > /dev/null 2>&1
           cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true && make -j8 && make install
-          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null 2>&1
+          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          then
+            echo "taos-tools build failure"
+            exit 1
+          fi
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
 
       - name: taosdump Old Test cases
         run: |

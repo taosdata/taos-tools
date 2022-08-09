@@ -921,7 +921,7 @@ int32_t bsem_wait(sem_t* sem) {
     return ret;
 }
 
-void benchSetSignal(int32_t signum, FSignalHandler sigfp) {
+void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
     struct sigaction act;
     memset(&act, 0, sizeof(act));
     act.sa_flags = SA_SIGINFO | SA_RESTART;

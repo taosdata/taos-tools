@@ -701,11 +701,6 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                        errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
-                        g_fail = true;
-                        goto free_of_interlace;
-                    }
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt, tableName)) {
                         errorPrint(
                             stderr,
@@ -961,11 +956,6 @@ void *syncWriteProgressive(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
-                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                        errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
-                        g_fail = true;
-                        goto free_of_progressive;
-                    }
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                 tableName)) {
                         errorPrint(stderr,
@@ -1309,6 +1299,12 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                                taos_errstr(NULL));
                     return -1;
                 }
+                if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                    tmfree(pids);
+                    tmfree(infos);
+                    errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
+                    return -1;
+                }
                 if (!stbInfo->autoCreateTable) {
                     if (stmt_prepare(stbInfo, pThreadInfo->conn->stmt, 0)) {
                         return -1;
@@ -1366,6 +1362,8 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                     return -1;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                    tmfree(pids);
+                    tmfree(infos);
                     errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
                     return -1;
                 }
@@ -1414,6 +1412,12 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             case TAOSC_IFACE: {
                 pThreadInfo->conn = init_bench_conn();
                 if (pThreadInfo->conn == NULL) {
+                    return -1;
+                }
+                if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                    tmfree(pids);
+                    tmfree(infos);
+                    errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
                     return -1;
                 }
                 if (stbInfo->interlaceRows > 0) {

@@ -1,0 +1,137 @@
+name: Windows (2.x build)
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  TOOLS_BUILD_TYPE: Debug
+  PR_NUMBER: ${{ github.event.number }}
+
+jobs:
+  build:
+    name: build-2.x-on-windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Step that prints name of pull request's base branch
+        run: |
+          echo "Pull request's base branch is: ${BASE_BRANCH}"
+          echo "Pull request's branch is: ${GITHUB_REF##*/}"
+          echo "Pull request's head ref is: ${GITHUB_HEAD_REF}"
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        if: github.event_name == 'pull_request'
+
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v24.1
+
+      - name: List all changed files
+        run: |
+          echo '${{ toJSON(steps.changed-files.outputs) }}'
+
+      - name: Get specific changed files
+        id: changed-files-specific
+        uses: tj-actions/changed-files@v24.1
+        with:
+          files: |
+            src/*
+            inc/*
+            deps/CMakeLists.txt
+            .github/workflows/windows.yml
+
+      - name: Run step if any of the listed files above change
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          echo "One or more files listed above has changed."
+
+      - name: Checkout tdengine
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          repository: 'taosdata/TDengine'
+          path: 'TDengine'
+          ref: 'develop'
+
+      - name: Checkout TDengine's taos-tools to PR number
+        if: |
+          github.event_name == 'pull_request' &&
+          steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine/src/kit/taos-tools
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
+      - name: Set up Go
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.14
+
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build & Install TDengine
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
+
+          #      - name: Func Test
+          #        run: |
+          #          cd TDengine/tests/pytest
+          #          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          #          sudo pkill -9 taosadapter || :
+          #          sudo pkill -9 taosd || :
+          #
+          #          python3 ./test.py -f tools/taosdumpTest.py
+          #          python3 ./test.py -f tools/taosdumpTest2.py
+          #          python3 ./test.py -f tools/taosdumpTest3.py
+          #          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
+          #
+          #      - name: System Test
+          #        run: |
+          #          cd TDengine/tests/system-test
+          #          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          #          then
+          #            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
+          #          fi
+          #
+          #          #          if [ -d 5-taos-tools/taosbenchmark ];
+          #          #then
+          #          #  if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          #          #  then
+          #          #    for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
+          #          #  fi
+          #          #fi
+          #
+          #      - name: Develop Test
+          #        run: |
+          #          cd TDengine/tests/develop-test
+          #
+          #          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          #          then
+          #            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
+          #          fi
+          #
+          #          if [ -d 5-taos-tools/taosbenchmark ];
+          #          then
+          #            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          #            then
+          #              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
+          #            fi
+          #          fi
+          #
+          #          if [ -f taosdump-failed.txt ];then
+          #            cat taosdump-failed.txt;
+          #            exit 1;
+          #          fi
+          #          if [ -f taosbenchmark-failed.txt ];then
+          #            cat taosbenchmark-failed.txt;
+          #            exit 1;
+          #          fi

@@ -1,4 +1,4 @@
-name: macOS (Release)
+name: macOS (2.x Release)
 
 on:
   push:
@@ -46,7 +46,7 @@ jobs:
             src/*
             inc/*
             deps/CMakeLists.txt
-            .github/workflows/*
+            .github/workflows/macos-release.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -99,7 +99,7 @@ jobs:
           #      - name: Func Test
           #        run: |
           #          cd TDengine/tests/pytest
-          #          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null 2>&1
+          #          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           #          sudo pkill -9 taosadapter || :
           #          sudo pkill -9 taosd || :
           #

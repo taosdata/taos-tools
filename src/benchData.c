@@ -27,8 +27,15 @@ const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
                            "San\\ Jose", "Palo\\ Alto", "Campbell", "Mountain\\ View",
                            "Sunnyvale", "Santa\\ Clara", "Cupertino"};
 
-const char* locations_chinese[] = {"旧金山","洛杉矶","圣地亚哥","圣何塞","帕洛阿尔托","坎贝尔",
-                                   "山景城","森尼韦尔","圣克拉拉","库比蒂诺"};
+#ifdef WINDOWS
+    #if _MSC_VER >= 1910
+        #include "benchLocations.h"
+    #else
+        #include "benchLocationsWin.h"
+    #endif
+#else
+    #include "benchLocations.h"
+#endif
 
 static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
@@ -147,12 +154,8 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
     }
     while (1) {
 #if defined(WIN32) || defined(WIN64)
-    #ifdef TDENGINE_3
         toolsGetLineFile(&line, &n, fp);
         readLen = n;
-    #else
-        readLen = toolsGetLineFile(&line, &n, fp);
-    #endif
 #else
         readLen = getline(&line, &n, fp);
 #endif
@@ -540,7 +543,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         ((uint64_t *)field->data)[k] = ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) { 
+                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
                                        field->name, ubigint);
                     } else if ((iface == SML_IFACE ||

@@ -1,4 +1,4 @@
-name: Codecov
+name: Codecov (2.x)
 on:
   push:
     branches: [ develop ]
@@ -70,6 +70,11 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZER=true
           make > /dev/null
           sudo make install > /dev/null
+          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          then
+            echo "taos-tools build failure"
+            exit 1
+          fi
 
       - name: Test
         run: |
@@ -81,7 +86,7 @@ jobs:
           sleep 10
           ctest --verbose
           cd ../../../../tests/pytest
-          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
           python3 ./test.py -f tools/taosdumpTest.py

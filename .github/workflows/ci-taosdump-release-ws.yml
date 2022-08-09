@@ -1,4 +1,4 @@
-name: CI - WebSocket (Release)
+name: Ubuntu (2.x taosdump WebSocket)
 
 on:
   push:
@@ -48,7 +48,7 @@ jobs:
             tests/taosdump/ws/*
             inc/*
             deps/CMakeLists.txt
-            .github/workflows/*
+            .github/workflows/*taosdump*
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -104,7 +104,12 @@ jobs:
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
           cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true && make -j8 && sudo make install
-          pip3 install taospy numpy fabric2 psutil pandas faker > /dev/null 2>&1
+          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          then
+            echo "taos-tools build failure"
+            exit 1
+          fi
+          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
 
       - name: taosdump Develop Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
