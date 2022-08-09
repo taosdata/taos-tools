@@ -66,11 +66,7 @@
 
 #define TSDB_TABLE_NAME_LEN       193     // it is a null-terminated string
 
-#ifdef TDENGINE_3
 #define TSDB_DB_NAME_LEN          65
-#else
-#define TSDB_DB_NAME_LEN          33
-#endif
 
 #define TSDB_COL_NAME_LEN         65
 #define TSDB_MAX_ALLOWED_SQL_LEN  (1*1024*1024u)          // sql length should be less than 1mb
@@ -125,23 +121,15 @@ int64_t tools_user_mktime64(const unsigned int year0, const unsigned int mon0,
 int32_t parseTimezone(char* str, int64_t* tzOffset);
 int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePrec, int8_t day_light);
 struct tm* toolsLocalTime(const time_t *timep, struct tm *result);
+int32_t toolsGetTimeOfDay(struct timeval *tv);
+int32_t toolsClockGetTime(int clock_id, struct timespec *pTS);
 
-#ifdef TDENGINE_3
-#define toolsGetTimeOfDay taosGetTimeOfDay
-#define toolsStrpTime taosStrpTime
-#define toolsClockGetTime taosClockGetTime
 #define toolsGetLineFile(__pLine,__pN, __pFp)                      \
 do {                                                               \
-  *(__pLine) = taosMemoryMalloc(1024);                             \
+  *(__pLine) = malloc(1024);                                       \
   fgets(*(__pLine), 1023, (__pFp));                                \
   (*(__pLine))[1023] = 0;                                          \
   *(__pN)=strlen(*(__pLine));                                      \
 } while(0)
-#else
-#define toolsGetTimeOfDay(__tv) gettimeofday(__tv, NULL)
-#define toolsStrpTime strptime
-#define toolsClockGetTime clock_gettime
-#define toolsGetLineFile tgetline
-#endif
 
 #endif // __TOOLSTYPES_H_

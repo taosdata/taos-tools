@@ -70,6 +70,11 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZER=true
           make > /dev/null
           sudo make install > /dev/null
+          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          then
+            echo "taos-tools build failure"
+            exit 1
+          fi
 
       - name: Test
         run: |

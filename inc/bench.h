@@ -49,9 +49,6 @@
 #include <netdb.h>
 #endif
 
-#ifdef TDENGINE_3
-#include "os.h"
-#endif
 #include <regex.h>
 #include <stdio.h>
 #include <assert.h>

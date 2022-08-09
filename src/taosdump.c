@@ -463,7 +463,7 @@ static struct argp_option options[] = {
 };
 
 #define HUMAN_TIME_LEN      28
-#define MAX_DIR_LEN         MAX_PATH_LEN-MAX_FILE_NAME_LEN
+#define MAX_DIR_LEN         MAX_PATH_LEN - MAX_FILE_NAME_LEN - 32
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {

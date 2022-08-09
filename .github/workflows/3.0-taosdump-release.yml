@@ -112,6 +112,11 @@ jobs:
           mkdir debug ||:
           cd debug
           make -j8 > /dev/null && sudo make install > /dev/null
+          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          then
+            echo "taos-tools build failure"
+            exit 1
+          fi
           pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
 
       - name: taosdump Func Test
