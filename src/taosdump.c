@@ -419,7 +419,7 @@ static struct argp_option options[] = {
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,
         "Dump listed databases. Use comma to separate databases names.", 2},
-    {"allow-sys",   'a', 0, 0,  "Allow to dump system database", 2},
+    {"allow-sys",   'a', 0, 0,  "Allow to dump system database (2.0 only)", 2},
     // dump format options
     {"schemaonly", 's', 0, 0,  "Only dump table schemas.", 2},
     {"without-property", 'N', 0, 0,
@@ -12185,6 +12185,14 @@ int main(int argc, char *argv[])
     debugPrint("Client info: %s, major version: %d\n",
             g_client_info,
             g_majorVersionOfClient);
+
+    if (g_majorVersionOfClient > 2) {
+        if (g_args.allow_sys) {
+            warnPrint("The system database should not be backuped with TDengine version: %d\n",
+                    g_majorVersionOfClient);
+            g_args.allow_sys = false;
+        }
+    }
 
     if (g_args.inspect) {
         ret = inspectAvroFiles(argc, argv);
