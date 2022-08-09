@@ -10159,15 +10159,19 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
                 ((TableInfo *)(g_tablesList + count))->name,
                 lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
         if (3 == g_majorVersionOfClient) {
-            if (strlen((char *)row[1])) {
-                tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
-                        (char *)row[1],
-                        min(TSDB_TABLE_NAME_LEN, lengths[1] +1));
-                debugPrint("%s() LN%d stbName: %s, length: %d\n",
-                        __func__, __LINE__,
-                        (char *)row[1],
-                        lengths[1]);
-                ((TableInfo *)(g_tablesList + count))->belongStb = true;
+            if (NULL != row[1]) {
+                if (strlen((char *)row[1])) {
+                    tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
+                            (char *)row[1],
+                            min(TSDB_TABLE_NAME_LEN, lengths[1] +1));
+                    debugPrint("%s() LN%d stbName: %s, length: %d\n",
+                            __func__, __LINE__,
+                            (char *)row[1],
+                            lengths[1]);
+                    ((TableInfo *)(g_tablesList + count))->belongStb = true;
+                } else {
+                    ((TableInfo *)(g_tablesList + count))->belongStb = false;
+                }
             } else {
                 ((TableInfo *)(g_tablesList + count))->belongStb = false;
             }

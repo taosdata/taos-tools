@@ -70,8 +70,9 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - name: cmake first TDengine
         if: |
-          steps.changed-files-specific.outputs.any_changed == 'true' &&
-          github.event_name == 'pull_request'
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
           cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
