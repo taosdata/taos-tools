@@ -26,7 +26,6 @@
 #ifdef LINUX
 #include <unistd.h>
 #include <strings.h>
-#include <sys/time.h>
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +38,55 @@
 
 #include "bench.h"
 #include "toolsdef.h"
+
+#if defined(WIN32) || defined(WIN64)
+
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+//#define TM_YEAR_BASE 1970 //origin
+#define TM_YEAR_BASE 1900  // slguan
+/*
+ * We do not implement alternate representations. However, we always
+ * check whether a given modifier is allowed for a certain conversion.
+ */
+#define ALT_E 0x01
+#define ALT_O 0x02
+#define LEGAL_ALT(x)                   \
+  {                                    \
+    if (alt_format & ~(x)) return (0); \
+  }
+
+static int conv_num(const char **buf, int *dest, int llim, int ulim) {
+  int result = 0;
+
+  /* The limit also determines the number of valid digits. */
+  int rulim = ulim;
+
+  if (**buf < '0' || **buf > '9') return (0);
+
+  do {
+    result *= 10;
+    result += *(*buf)++ - '0';
+    rulim /= 10;
+  } while ((result * 10 <= ulim) && rulim && **buf >= '0' && **buf <= '9');
+
+  if (result < llim || result > ulim) return (0);
+
+  *dest = result;
+  return (1);
+}
+
+static const char *day[7] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+static const char *abday[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+static const char *mon[12] = {"January", "February", "March",     "April",   "May",      "June",
+                              "July",    "August",   "September", "October", "November", "December"};
+static const char *abmon[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+static const char *am_pm[2] = {"AM", "PM"};
+
+#else
+#include <sys/time.h>
+#endif
 
 static int32_t parseLocaltime(char* timestr, int64_t* time, int32_t timePrec, char delim);
 static int32_t parseLocaltimeWithDst(char* timestr, int64_t* time, int32_t timePrec, char delim);
@@ -320,37 +368,37 @@ char *toolsStrpTime(const char *buf, const char *fmt, struct tm *tm) {
          */
       case 'c': /* Date and time, using the locale's format. */
         LEGAL_ALT(ALT_E);
-        if (!(bp = taosStrpTime(bp, "%x %X", tm))) return (0);
+        if (!(bp = toolsStrpTime(bp, "%x %X", tm))) return (0);
         break;
 
       case 'D': /* The date as "%m/%d/%y". */
         LEGAL_ALT(0);
-        if (!(bp = taosStrpTime(bp, "%m/%d/%y", tm))) return (0);
+        if (!(bp = toolsStrpTime(bp, "%m/%d/%y", tm))) return (0);
         break;
 
       case 'R': /* The time as "%H:%M". */
         LEGAL_ALT(0);
-        if (!(bp = taosStrpTime(bp, "%H:%M", tm))) return (0);
+        if (!(bp = toolsStrpTime(bp, "%H:%M", tm))) return (0);
         break;
 
       case 'r': /* The time in 12-hour clock representation. */
         LEGAL_ALT(0);
-        if (!(bp = taosStrpTime(bp, "%I:%M:%S %p", tm))) return (0);
+        if (!(bp = toolsStrpTime(bp, "%I:%M:%S %p", tm))) return (0);
         break;
 
       case 'T': /* The time as "%H:%M:%S". */
         LEGAL_ALT(0);
-        if (!(bp = taosStrpTime(bp, "%H:%M:%S", tm))) return (0);
+        if (!(bp = toolsStrpTime(bp, "%H:%M:%S", tm))) return (0);
         break;
 
       case 'X': /* The time, using the locale's format. */
         LEGAL_ALT(ALT_E);
-        if (!(bp = taosStrpTime(bp, "%H:%M:%S", tm))) return (0);
+        if (!(bp = toolsStrpTime(bp, "%H:%M:%S", tm))) return (0);
         break;
 
       case 'x': /* The date, using the locale's format. */
         LEGAL_ALT(ALT_E);
-        if (!(bp = taosStrpTime(bp, "%m/%d/%y", tm))) return (0);
+        if (!(bp = toolsStrpTime(bp, "%m/%d/%y", tm))) return (0);
         break;
 
         /*

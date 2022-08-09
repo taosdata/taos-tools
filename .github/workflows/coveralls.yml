@@ -127,6 +127,11 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_TOOLS=true -DCOVER=true -DTOOLS_BUILD_TYPE=Debug > /dev/null 2>&1
           make > /dev/null 2>&1
           sudo make install > /dev/null
+          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          then
+            echo "taos-tools build failure"
+            exit 1
+          fi
           pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
 
       - name: exp Test
