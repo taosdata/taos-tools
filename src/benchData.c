@@ -28,6 +28,7 @@ const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
                            "Sunnyvale", "Santa\\ Clara", "Cupertino"};
 
 #ifdef WINDOWS
+    #define ssize_t int
     #if _MSC_VER >= 1910
         #include "benchLocations.h"
     #else
