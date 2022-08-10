@@ -61,7 +61,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
+#include <stdarg.h>
 
 // temporary flag for 3.0 development TODO need to remove in future
 #define ALLOW_FORBID_FUNC
@@ -298,6 +298,22 @@ typedef struct BArray {
     void*    pData;
 } BArray;
 
+typedef struct {
+	uint64_t magic;
+	uint64_t custom;
+	uint64_t len;
+	uint64_t cap;
+	char data[];
+} dstr;
+
+static const int DS_HEADER_SIZE = sizeof(uint64_t) * 4;
+static const uint64_t MAGIC_NUMBER = 0xDCDC52545344DADA;
+
+static const int OFF_MAGIC	 = -4;
+static const int OFF_CUSTOM	 = -3;
+static const int OFF_LEN     = -2;
+static const int OFF_CAP     = -1;
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -341,7 +357,7 @@ typedef struct SSuperTable_S {
     uint32_t interlaceRows;  //
     int      disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
-
+    int64_t  max_sql_len;
     uint64_t insert_interval;
     uint64_t insertRows;
     uint64_t timestamp_step;
@@ -626,6 +642,25 @@ void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp);
 int taos_convert_type_to_length(uint8_t type);
 int64_t taos_convert_datatype_to_default_max(uint8_t type);
 int64_t taos_convert_datatype_to_default_min(uint8_t type);
+
+// dynamic string
+char* new_ds(size_t size);
+void free_ds(char** ps);
+int is_ds(const char* s);
+uint64_t ds_custom(const char* s);
+void ds_set_custom(char* s, uint64_t custom);
+uint64_t ds_len(const char* s);
+uint64_t ds_cap(const char* s);
+int ds_last(char* s);
+char* ds_end(char* s);
+char* ds_grow(char**ps, size_t needsize);
+char* ds_resize(char** ps, size_t cap);
+char * ds_pack(char **ps);
+char * ds_add_char(char **ps, char c);
+char * ds_add_str(char **ps, const char* sub);
+char * ds_add_strs(char **ps, int count, ...);
+char * ds_ins_str(char **ps, size_t pos, const char *sub, size_t len);
+
 /* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();

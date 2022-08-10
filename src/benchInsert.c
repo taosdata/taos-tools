@@ -616,15 +616,14 @@ static void *syncWriteInterlace(void *sarg) {
 
     int64_t insertRows = stbInfo->insertRows;
     int32_t interlaceRows = stbInfo->interlaceRows;
+    int64_t tmp_total_insert_rows = 0;
     int64_t pos = 0;
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     int64_t   startTs = toolsGetTimestampMs();
     int64_t   endTs = toolsGetTimestampMs();
     int32_t    generated = 0;
-    int        len = 0;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
-
     while (insertRows > 0) {
         generated = 0;
         if (insertRows <= interlaceRows) {
@@ -640,50 +639,54 @@ static void *syncWriteInterlace(void *sarg) {
                 case REST_IFACE:
                 case TAOSC_IFACE: {
                     if (i == 0) {
-                        len = snprintf(pThreadInfo->buffer,
-                                       strlen(STR_INSERT_INTO) + 1, "%s",
-                                       STR_INSERT_INTO);
+                        ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
                     if (stbInfo->partialColumnNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
-                            len += snprintf(
-                                pThreadInfo->buffer + len,
-                                pThreadInfo->max_sql_len - len,
-                                "%s.%s using %s.`%s` tags (%s) values ",
-                                database->dbName, tableName, database->dbName, stbInfo->stbName,
-                                stbInfo->tagDataBuf +
-                                    stbInfo->lenOfTags * tableSeq);
+                            ds_add_strs(&pThreadInfo->buffer, 6, 
+                                        tableName, 
+                                        " using `", 
+                                        stbInfo->stbName, 
+                                        "` tags (", 
+                                        stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
+                                        ") values ");
                         } else {
-                            len += snprintf(pThreadInfo->buffer + len,
-                                            pThreadInfo->max_sql_len - len,
-                                            "%s.%s values", database->dbName,
-                                            tableName);
+                            ds_add_strs(&pThreadInfo->buffer, 2, tableName, " values ");
                         }
                     } else {
                         if (stbInfo->autoCreateTable) {
-                            len += snprintf(
-                                pThreadInfo->buffer + len,
-                                pThreadInfo->max_sql_len - len,
-                                "%s.%s (%s) using %s.`%s` tags (%s) values ",
-                                database->dbName, tableName,
-                                stbInfo->partialColumnNameBuf, database->dbName, stbInfo->stbName,
-                                stbInfo->tagDataBuf +
-                                    stbInfo->lenOfTags * tableSeq);
+                            ds_add_strs(&pThreadInfo->buffer, 8,
+                                        tableName,
+                                        " (",
+                                        stbInfo->partialColumnNameBuf,
+                                        ") using `",
+                                        stbInfo->stbName,
+                                        "` tags (",
+                                        stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
+                                        ") values ");
                         } else {
-                            len += snprintf(pThreadInfo->buffer + len,
-                                            pThreadInfo->max_sql_len - len,
-                                            "%s.%s (%s) values",
-                                            database->dbName, tableName,
-                                            stbInfo->partialColumnNameBuf);
+                            ds_add_strs(&pThreadInfo->buffer, 4,
+                                        tableName,
+                                        "(",
+                                        stbInfo->partialColumnNameBuf,
+                                        ") values ");
                         }
                     }
 
                     for (int64_t j = 0; j < interlaceRows; ++j) {
-                        len += snprintf(
-                            pThreadInfo->buffer + len,
-                            pThreadInfo->max_sql_len - len, "(%" PRId64 ",%s)",
-                            timestamp,
-                            stbInfo->sampleDataBuf + pos * stbInfo->lenOfCols);
+                        char time_string[BIGINT_BUFF_LEN];
+                        sprintf(time_string, "%"PRId64"", timestamp);
+                        ds_add_strs(&pThreadInfo->buffer, 5,
+                                    "(",
+                                    time_string,
+                                    ",",
+                                    stbInfo->sampleDataBuf + pos * stbInfo->lenOfCols,
+                                    ") ");
+                        if (ds_len(pThreadInfo->buffer) > stbInfo->max_sql_len) {
+                            errorPrint(stderr, "sql buffer length (%"PRIu64") is larger than max sql length (%"PRId64")\n", 
+                                       ds_len(pThreadInfo->buffer), stbInfo->max_sql_len);
+                            goto free_of_interlace; 
+                        }
                         generated++;
                         pos++;
                         if (pos >= g_arguments->prepared_rand) {
@@ -764,7 +767,7 @@ static void *syncWriteInterlace(void *sarg) {
                 }
             }
             tableSeq++;
-            pThreadInfo->totalInsertRows += interlaceRows;
+            tmp_total_insert_rows += interlaceRows;
             if (tableSeq > pThreadInfo->end_table_to) {
                 tableSeq = pThreadInfo->start_table_from;
                 pThreadInfo->start_time +=
@@ -789,12 +792,14 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         endTs = toolsGetTimestampUs();
+        pThreadInfo->totalInsertRows += tmp_total_insert_rows;
         switch (stbInfo->iface) {
             case TAOSC_IFACE:
             case REST_IFACE:
                 debugPrint(stdout, "pThreadInfo->buffer: %s\n",
                            pThreadInfo->buffer);
-                memset(pThreadInfo->buffer, 0, pThreadInfo->max_sql_len);
+                free_ds(&pThreadInfo->buffer);
+                pThreadInfo->buffer = new_ds(0);
                 break;
             case SML_REST_IFACE:
                 memset(pThreadInfo->buffer, 0,
@@ -1421,12 +1426,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                     return -1;
                 }
                 if (stbInfo->interlaceRows > 0) {
-                    if (stbInfo->autoCreateTable) {
-                        pThreadInfo->max_sql_len = g_arguments->reqPerReq * (stbInfo->lenOfCols + stbInfo->lenOfTags) + 1024;
-                    } else {
-                        pThreadInfo->max_sql_len = g_arguments->reqPerReq * stbInfo->lenOfCols + 1024;
-                    }
-                    pThreadInfo->buffer = benchCalloc(1, pThreadInfo->max_sql_len, true);
+                    pThreadInfo->buffer = new_ds(0);
                 } else {
                     pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, true);
                 }
@@ -1474,7 +1474,11 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
 #else
                 close(pThreadInfo->sockfd);
 #endif
-                tmfree(pThreadInfo->buffer);
+                if (is_ds(pThreadInfo->buffer)) {
+                    free_ds(&pThreadInfo->buffer);
+                } else {
+                    tmfree(pThreadInfo->buffer);
+                }
                 break;
             case SML_REST_IFACE:
                 tmfree(pThreadInfo->buffer);
@@ -1504,7 +1508,11 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 tmfree(pThreadInfo->is_null);
                 break;
             case TAOSC_IFACE:
-                tmfree(pThreadInfo->buffer);
+                if (is_ds(pThreadInfo->buffer)) {
+                    free_ds(&pThreadInfo->buffer);
+                } else {
+                    tmfree(pThreadInfo->buffer);
+                }
                 close_bench_conn(pThreadInfo->conn);
                 break;
             default:

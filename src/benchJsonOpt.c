@@ -395,6 +395,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->disorderRatio = 0;
         superTable->disorderRange = DEFAULT_DISORDER_RANGE;
         superTable->insert_interval = g_arguments->insert_interval;
+        superTable->max_sql_len = BUFFER_SIZE;
         superTable->partialColumnNum = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
@@ -539,6 +540,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             (0 == strcasecmp(nonStop->valuestring, "yes"))) {
             superTable->non_stop = true;
         }
+
+        tools_cJSON* max_sql_len_obj = tools_cJSON_GetObjectItem(stbInfo, "max_sql_len");
+        if (tools_cJSON_IsNumber(max_sql_len_obj)) {
+            superTable->max_sql_len = max_sql_len_obj->valueint;
+        }
+
         tools_cJSON *tagsFile = tools_cJSON_GetObjectItem(stbInfo, "tags_file");
         if (tools_cJSON_IsString(tagsFile)) {
             tstrncpy(superTable->tagsFile, tagsFile->valuestring,
