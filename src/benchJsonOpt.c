@@ -352,7 +352,7 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         } else {
             tsma->start_when_inserted = (int)tsma_start_obj->valueint;
         }
-        
+
         benchArrayPush(stbInfo->tsmas, tsma);
     }
 

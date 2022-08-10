@@ -643,11 +643,11 @@ static void *syncWriteInterlace(void *sarg) {
                     }
                     if (stbInfo->partialColumnNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
-                            ds_add_strs(&pThreadInfo->buffer, 6, 
-                                        tableName, 
-                                        " using `", 
-                                        stbInfo->stbName, 
-                                        "` tags (", 
+                            ds_add_strs(&pThreadInfo->buffer, 6,
+                                        tableName,
+                                        " using `",
+                                        stbInfo->stbName,
+                                        "` tags (",
                                         stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
                                         ") values ");
                         } else {
@@ -683,9 +683,9 @@ static void *syncWriteInterlace(void *sarg) {
                                     stbInfo->sampleDataBuf + pos * stbInfo->lenOfCols,
                                     ") ");
                         if (ds_len(pThreadInfo->buffer) > stbInfo->max_sql_len) {
-                            errorPrint(stderr, "sql buffer length (%"PRIu64") is larger than max sql length (%"PRId64")\n", 
+                            errorPrint(stderr, "sql buffer length (%"PRIu64") is larger than max sql length (%"PRId64")\n",
                                        ds_len(pThreadInfo->buffer), stbInfo->max_sql_len);
-                            goto free_of_interlace; 
+                            goto free_of_interlace;
                         }
                         generated++;
                         pos++;
@@ -1609,7 +1609,7 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
 
 static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     char command[SQL_BUFF_LEN];
-    int len = snprintf(command, SQL_BUFF_LEN, 
+    int len = snprintf(command, SQL_BUFF_LEN,
                        "create sma index %s on %s function(%s) interval (%s) sliding (%s)",
                        tsma->name, stbName, tsma->func, tsma->interval, tsma->sliding);
     if (tsma->custom) {
@@ -1712,7 +1712,7 @@ int insertTestProcess() {
             }
         }
     }
-    
+
     if (g_arguments->taosc_version == 3) {
         for (int i = 0; i < g_arguments->databases->size; i++) {
             SDataBase* database = benchArrayGet(g_arguments->databases, i);
