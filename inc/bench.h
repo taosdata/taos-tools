@@ -75,6 +75,8 @@
 #endif
 
 #if defined(WIN32) || defined(WIN64)
+#include <winsock2.h>
+#define CLOCK_REALTIME 0
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #endif
