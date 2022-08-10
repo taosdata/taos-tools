@@ -74,7 +74,9 @@
 #include "taosws.h"
 #endif
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(WINDOWS)
+#include <winsock2.h>
+#define CLOCK_REALTIME 0
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
 #endif
@@ -388,7 +390,7 @@ typedef struct SSuperTable_S {
 typedef struct SDbCfg_S {
     char*   name;
     char*   valuestring;
-    int     valueint;   
+    int     valueint;
 } SDbCfg;
 
 typedef struct SSTREAM_S {
