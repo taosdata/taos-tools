@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'test/sangshuduo/TD-17080-taosdump-functest'
 
       - name: create debug directory
         if: |
