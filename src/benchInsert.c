@@ -1258,7 +1258,11 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
         pThreadInfo->delayList = benchArrayInit(1, sizeof(int64_t));
         switch (stbInfo->iface) {
             case REST_IFACE: {
-                pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, false);
+                if (stbInfo->interlaceRows > 0) {
+                    pThreadInfo->buffer = new_ds(0);
+                } else {
+                    pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, true);
+                }
 #ifdef WINDOWS
                 WSADATA wsaData;
                 WSAStartup(MAKEWORD(2, 2), &wsaData);
