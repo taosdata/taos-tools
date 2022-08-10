@@ -91,7 +91,7 @@ jobs:
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.14
 
@@ -99,14 +99,15 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make -j8 && sudo make install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DBUILD_HTTP=false && make -j8 && sudo make install
 
           if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
             exit 1
           fi
-          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 

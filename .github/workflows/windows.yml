@@ -70,12 +70,6 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
-      - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.14
-
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -85,7 +79,8 @@ jobs:
           #      - name: Func Test
           #        run: |
           #          cd TDengine/tests/pytest
-          #          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          #          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          #  pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
           #          sudo pkill -9 taosadapter || :
           #          sudo pkill -9 taosd || :
           #

@@ -154,8 +154,9 @@ jobs:
             apt update -y > /dev/null
             apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
             apt install python3 python3-pip -y > /dev/null
-            pip3 install --upgrade pip > /dev/null 
-            pip3 install taospy numpy psutil pandas faker toml > /dev/null
+            pip3 install --upgrade pip > /dev/null
+            pip3 install numpy psutil pandas faker toml > /dev/null
+            pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
             pip3 install fabric2 > /dev/null
 
             cd TDengine
