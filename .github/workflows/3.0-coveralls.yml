@@ -61,7 +61,10 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -69,7 +72,10 @@ jobs:
           ref: '3.0'
 
       - name: Change time zone
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
@@ -137,7 +143,10 @@ jobs:
           git log --oneline | head -1
 
       - name: Install packages
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to PR number
@@ -150,7 +159,10 @@ jobs:
           git checkout -qf FETCH_HEAD
 
       - name: Build & Install TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine
           mkdir debug ||:
@@ -166,14 +178,20 @@ jobs:
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: exp Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           echo "TEST: taodump -p"
           cd TDengine/tools/taos-tools/tests/taosdump
           ./exp.sh
 
       - name: Basic Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
           echo "TEST: taosBenchmark --help"
@@ -200,7 +218,10 @@ jobs:
 
           # test codec
       - name: taosdump codec Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
           echo "TEST: simple and log database"
@@ -255,7 +276,10 @@ jobs:
           rm -f *.sql *.avro*
 
       - name: taosdump time Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
           echo "TEST: epoch time and batch"
@@ -267,7 +291,10 @@ jobs:
           rm -f *.sql *.avro*
 
       - name: taosdump normal table Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
           echo "TEST: normal table"
@@ -286,7 +313,10 @@ jobs:
           rm -f *.sql *.avro*
 
       - name: taosdump escape char Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
           echo "TEST: -n escape_char"
@@ -319,7 +349,10 @@ jobs:
           rm -f *.sql *.avro*
 
       - name: taosdump old format data Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
           echo "TEST: dump old format data in"
@@ -329,7 +362,10 @@ jobs:
           rm -f *.sql *.avro*
 
       - name: Old Test cases
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tests/pytest
           sudo pkill -9 taosadapter || :
@@ -343,7 +379,10 @@ jobs:
           #python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null
 
       - name: taosdump native Develop Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tools/taos-tools/tests
           sudo pkill -9 taosadapter || :
@@ -357,7 +396,10 @@ jobs:
           fi
 
       - name: taosdump WebSocket Develop Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tools/taos-tools/tests
           sudo pkill -9 taosadapter || :
@@ -369,7 +411,10 @@ jobs:
           fi
 
       - name: System Test cases
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tests/system-test
           echo "TEST: system test cases"
@@ -395,7 +440,10 @@ jobs:
           fi
 
       - name: Generate report
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           topdir=`pwd`
           cd TDengine/debug/tools/taos-tools
@@ -414,7 +462,10 @@ jobs:
           lcov -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info
 
       - name: Publish to coveralls.io
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
