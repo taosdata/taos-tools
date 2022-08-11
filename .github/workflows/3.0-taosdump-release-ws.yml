@@ -56,7 +56,10 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -64,7 +67,10 @@ jobs:
           ref: '3.0'
 
       - name: Change time zone
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
@@ -78,13 +84,19 @@ jobs:
           #if: github.event_name == 'pull_request'
 
       - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
           go-version: 1.14
 
       - name: Set up Rust
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -153,7 +165,10 @@ jobs:
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: taosdump Develop Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tools/taos-tools/tests
           sudo pkill -9 taosadapter || :
@@ -165,7 +180,10 @@ jobs:
           fi
 
       - name: Check Test Result
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           if [ -f ~/taosdump-failed.txt ];then
             if [ -f ~/taosa.log ]; then
