@@ -625,6 +625,7 @@ static void *syncWriteInterlace(void *sarg) {
     int32_t    generated = 0;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
     while (insertRows > 0) {
+        tmp_total_insert_rows = 0;
         generated = 0;
         if (insertRows <= interlaceRows) {
             interlaceRows = insertRows;
