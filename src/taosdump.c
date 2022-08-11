@@ -1259,7 +1259,7 @@ static int getTableRecordInfoImplWS(
     if (3 == g_majorVersionOfClient) {
         if (tryStable) {
             sprintf(command,
-                    "SELECT STABLE_NAME FROM information_schema.user_stables "
+                    "SELECT STABLE_NAME FROM information_schema.ins_stables "
                     "WHERE db_name='%s' AND stable_name='%s'",
                     dbName, table);
         } else {
@@ -1442,11 +1442,11 @@ static int getTableRecordInfoImplNative(
     if (3 == g_majorVersionOfClient) {
         if (tryStable) {
             sprintf(command,
-                    "SELECT STABLE_NAME FROM information_schema.user_stables "
+                    "SELECT STABLE_NAME FROM information_schema.ins_stables "
                     "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
         } else {
             sprintf(command,
-                    "SELECT TABLE_NAME FROM information_schema.ins_tables "
+                    "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.ins_tables "
                     "WHERE db_name='%s' AND table_name='%s'", dbName, table);
         }
     } else {
@@ -1482,12 +1482,16 @@ static int getTableRecordInfoImplNative(
                     min(TSDB_TABLE_NAME_LEN,
                         lengths[TSDB_SHOW_TABLES_NAME_INDEX] + 1));
             if (3 == g_majorVersionOfClient) {
-                if (strlen((char *)row[1]) > 0) {
-                    pTableRecordInfo->belongStb = true;
-                    tstrncpy(pTableRecordInfo->tableRecord.stable,
-                            (char *)row[1],
-                            min(TSDB_TABLE_NAME_LEN,
-                                lengths[1] + 1));
+                if (row[1]) {
+                    if (strlen((char *)row[1]) > 0) {
+                        pTableRecordInfo->belongStb = true;
+                        tstrncpy(pTableRecordInfo->tableRecord.stable,
+                                (char *)row[1],
+                                min(TSDB_TABLE_NAME_LEN,
+                                    lengths[1] + 1));
+                    } else {
+                        pTableRecordInfo->belongStb = false;
+                    }
                 } else {
                     pTableRecordInfo->belongStb = false;
                 }
