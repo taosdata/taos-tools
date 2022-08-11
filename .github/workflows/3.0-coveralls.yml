@@ -60,7 +60,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout tdengine
+      - name: Checkout TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/checkout@v2
         with:
@@ -135,6 +135,10 @@ jobs:
         run: |
           cd TDengine/tools/taosws-rs
           git log --oneline | head -1
+
+      - name: Install packages
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
