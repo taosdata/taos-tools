@@ -66,7 +66,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'feature/3.0_wxy'
 
       - name: Change time zone
         if: steps.changed-files-specific.outputs.any_changed == 'true'
