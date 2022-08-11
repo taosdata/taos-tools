@@ -53,7 +53,7 @@ jobs:
             tests/taosbenchmark/*
             tests/taosdump/*
             inc/*
-            .github/workflows/*
+            .github/workflows/coveralls.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
