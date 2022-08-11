@@ -338,7 +338,6 @@ jobs:
           echo "TEST: old cases"
           python3 ./test.py -f tools/taosdumpTest.py > /dev/null
           python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
-          python3 ./test.py -f tools/taosdumpTest3.py > /dev/null
           python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null
           python3 test.py -f query/nestedQuery/nestedQuery.py > /dev/null
           python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null
