@@ -56,7 +56,10 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout tdengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -64,7 +67,10 @@ jobs:
           ref: '3.0'
 
       - name: Change time zone
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
@@ -100,13 +106,19 @@ jobs:
           git checkout -qf FETCH_HEAD
 
       - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
           go-version: 1.14
 
       - name: Build & Install TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine
           mkdir debug ||:
@@ -121,7 +133,10 @@ jobs:
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: taosdump Func Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tests/pytest
           sudo pkill -9 taosadapter || :
@@ -133,7 +148,10 @@ jobs:
           fi
 
       - name: taosdump System Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tests/system-test
           sudo pkill -9 taosadapter || :
@@ -144,7 +162,10 @@ jobs:
           #fi
 
       - name: taosdump Old Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tests/system-test
           sudo pkill -9 taosadapter || :
@@ -152,7 +173,10 @@ jobs:
           #          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
       - name: taosdump Develop Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/tools/taos-tools/tests
           sudo pkill -9 taosadapter || :
@@ -164,7 +188,10 @@ jobs:
           fi
 
       - name: Check Test Result
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           if [ -f ~/taosdump-failed.txt ];then
             cat ~/taosdump-failed.txt;
