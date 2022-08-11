@@ -101,7 +101,7 @@ jobs:
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.14
 
@@ -117,7 +117,8 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
+          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null
+          pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: taosdump Func Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'

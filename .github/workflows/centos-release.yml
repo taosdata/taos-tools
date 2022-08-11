@@ -60,7 +60,7 @@ jobs:
           git checkout -qf FETCH_HEAD
 
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.14
 
@@ -68,6 +68,16 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
+      - uses: actions/cache@v3
+        id: cache-rust
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ steps.setup-rust.outputs.rustc_hash }}
 
       - name: Build & Install TDengine
         run: |
@@ -79,7 +89,8 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: taosdump Old Test cases
         run: |

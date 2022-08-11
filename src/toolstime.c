@@ -774,7 +774,7 @@ struct tm* toolsLocalTime(const time_t *timep, struct tm *result) {
 }
 int32_t toolsGetTimestampSec() { return (int32_t)time(NULL); }
 
-FORCE_INLINE int32_t toolsGetTimeOfDay(struct timeval *tv) {         
+FORCE_INLINE int32_t toolsGetTimeOfDay(struct timeval *tv) {
 #if defined(WIN32) || defined(WIN64)
     time_t t;
     t = toolsGetTimestampSec();

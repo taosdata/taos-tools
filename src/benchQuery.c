@@ -79,12 +79,12 @@ static void *mixedQuery(void *sarg) {
                 }
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos, sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
-                    errorPrint(stderr, 
+                    errorPrint(stderr,
 							"thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",
 							pThreadInfo->threadId,
-							sql->command, 
+							sql->command,
 							taos_errno(res), taos_errstr(res));
-                    if (TSDB_CODE_RPC_NETWORK_UNAVAIL == 
+                    if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
 							taos_errno(res)) {
                         return NULL;
                     }

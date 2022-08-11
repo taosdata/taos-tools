@@ -547,6 +547,7 @@ static void init_stable() {
     stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
     stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
+    stbInfo->max_sql_len = MAX_SQL_LEN;
     stbInfo->cols = benchArrayInit(3, sizeof(Field));
     for (int i = 0; i < 3; ++i) {
         Field *col = benchCalloc(1, sizeof(Field), true);

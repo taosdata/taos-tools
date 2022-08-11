@@ -79,7 +79,7 @@ jobs:
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
           go-version: 1.14
 
@@ -88,6 +88,23 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
+      - uses: actions/cache@v3
+        id: cache-rust
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-${{ steps.setup-rust.outputs.rustc_hash }}
+
+      - uses: actions/cache@v3
+        id: cache-rust-target
+        with:
+          path: |
+            TDengine/tools/taosws-rs/target/
+          key: ${{ runner.os }}-cargo-target-${{ steps.setup-rust.outputs.rustc_hash }}
 
       - name: cmake first TDengine
         if: |
@@ -100,7 +117,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null 
+          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
           make -j8 > /dev/null
 
       - name: show TDengine's taosws commit
@@ -132,7 +149,8 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null
+          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null
+          pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: taosdump Develop Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
