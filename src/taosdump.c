@@ -1446,7 +1446,7 @@ static int getTableRecordInfoImplNative(
                     "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
         } else {
             sprintf(command,
-                    "SELECT TABLE_NAME FROM information_schema.ins_tables "
+                    "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.ins_tables "
                     "WHERE db_name='%s' AND table_name='%s'", dbName, table);
         }
     } else {
