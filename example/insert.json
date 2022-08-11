@@ -76,7 +76,9 @@
 							"name": "location",
 							"type": "BINARY",
 							"len": 16,
-							"values": ["beijing", "shanghai"]
+							"values": ["San Francisco", "Los Angles", "San Diego",
+								"San Jose", "Palo Alto", "Campbell", "Mountain View",
+								"Sunnyvale", "Santa Clara", "Cupertino"]
 						}
 					]
 				}
