@@ -1259,7 +1259,7 @@ static int getTableRecordInfoImplWS(
     if (3 == g_majorVersionOfClient) {
         if (tryStable) {
             sprintf(command,
-                    "SELECT STABLE_NAME FROM information_schema.user_stables "
+                    "SELECT STABLE_NAME FROM information_schema.ins_stables "
                     "WHERE db_name='%s' AND stable_name='%s'",
                     dbName, table);
         } else {
@@ -1442,7 +1442,7 @@ static int getTableRecordInfoImplNative(
     if (3 == g_majorVersionOfClient) {
         if (tryStable) {
             sprintf(command,
-                    "SELECT STABLE_NAME FROM information_schema.user_stables "
+                    "SELECT STABLE_NAME FROM information_schema.ins_stables "
                     "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
         } else {
             sprintf(command,
