@@ -648,17 +648,33 @@ int setConsoleEcho(bool on)
 }
 
 static void printVersion(FILE *file) {
-    char taostools_ver[] = TAOSTOOLS_TAG;
-    char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
+    char taostools_longver[] = TAOSTOOLS_TAG;
     char taosdump_status[] = TAOSDUMP_STATUS;
 
-    if (strlen(taosdump_status) == 0) {
-        fprintf(file, "taosdump version %s_%s\n",
-                taostools_ver, taosdump_commit);
+    char *dupSeq = strdup(taostools_longver);
+    char *running = dupSeq;
+    char *taostools_ver = strsep(&running, "-");
+
+    if (stdout == file) {
+        if (strlen(taosdump_status) == 0) {
+            fprintf(file, "taosdump version %s\n",
+                    taostools_ver);
+        } else {
+            fprintf(file, "taosdump version %s, status:%s\n",
+                    taostools_ver, taosdump_status);
+        }
     } else {
-        fprintf(file, "taosdump version %s_%s, status:%s\n",
-                taostools_ver, taosdump_commit, taosdump_status);
+        char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
+        if (strlen(taosdump_status) == 0) {
+            fprintf(file, "taosdump version %s, commit: %s\n",
+                    taostools_ver, taosdump_commit);
+        } else {
+            fprintf(file, "taosdump version %s, commit: %s, status:%s\n",
+                    taostools_ver, taosdump_commit, taosdump_status);
+        }
     }
+
+    free(dupSeq);
 }
 
 void errorWrongValue(char *program, char *wrong_arg, char *wrong_value)
