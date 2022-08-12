@@ -1698,7 +1698,14 @@ static int getDumpDbCount() {
 
     TAOS     *taos = NULL;
     TAOS_RES *res     = NULL;
-    char     *command    = "SHOW DATABASES";
+
+    char command[COMMAND_SIZE];
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT * FROM information_schema.ins_databases");
+    } else {
+        sprintf(command, "SHOW DATABASES");
+    }
+
 
     int32_t   code;
 
@@ -9211,6 +9218,8 @@ bool convertDbClauseForV3(char **cmd)
             sub_str = strsep(&running, " ");
         } else if (0 == strcmp(sub_str, "BLOCKS")) {
             sub_str = strsep(&running, " ");
+        } else if (0 == strcmp(sub_str, "FSYNC")) {
+            sub_str = strsep(&running, " ");
         } else {
             pos += sprintf(*cmd + pos, "%s ", sub_str);
         }
@@ -11012,7 +11021,11 @@ static int fillDbInfoWS(void *taos) {
     int dbIndex = 0;
 
     char command[COMMAND_SIZE];
-    sprintf(command, "SHOW DATABASES");
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT * FROM information_schema.ins_databases");
+    } else {
+        sprintf(command, "SHOW DATABASES");
+    }
 
     WS_RES *ws_res = ws_query_timeout(taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
@@ -11175,7 +11188,11 @@ static int fillDbInfoNative(void *taos) {
     int dbIndex = 0;
 
     char command[COMMAND_SIZE];
-    sprintf(command, "SHOW DATABASES");
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command, "SELECT * FROM information_schema.ins_databases");
+    } else {
+        sprintf(command, "SHOW DATABASES");
+    }
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
