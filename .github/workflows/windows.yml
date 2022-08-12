@@ -74,7 +74,8 @@ jobs:
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles" -DBUILD_TOOLS=true && nmake
+          choco install jom
+          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom -j 8
 
           #      - name: Func Test
           #        run: |
