@@ -9218,6 +9218,8 @@ bool convertDbClauseForV3(char **cmd)
             sub_str = strsep(&running, " ");
         } else if (0 == strcmp(sub_str, "BLOCKS")) {
             sub_str = strsep(&running, " ");
+        } else if (0 == strcmp(sub_str, "FSYNC")) {
+            sub_str = strsep(&running, " ");
         } else {
             pos += sprintf(*cmd + pos, "%s ", sub_str);
         }
