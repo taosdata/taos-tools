@@ -169,6 +169,15 @@ skip:
         length += snprintf(command + length, BUFFER_SIZE - length,
                            " ROLLUP(%s)", stbInfo->rollup);
     }
+
+    if (stbInfo->max_delay != NULL) {
+        length += snprintf(command + length, BUFFER_SIZE - length, " max_delay %s", stbInfo->max_delay);
+    }
+
+    if (stbInfo->watermark != NULL) {
+        length += snprintf(command + length, BUFFER_SIZE - length, " watermark %s", stbInfo->watermark);
+    }
+
     bool first_sma = true;
     for (int i = 0; i < stbInfo->cols->size; ++i) {
         Field * col = benchArrayGet(stbInfo->cols, i);

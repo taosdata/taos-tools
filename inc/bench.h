@@ -390,6 +390,8 @@ typedef struct SSuperTable_S {
     int   delay;
     int   file_factor;
     char *rollup;
+    char* max_delay;
+    char* watermark;
 } SSuperTable;
 
 typedef struct SDbCfg_S {

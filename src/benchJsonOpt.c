@@ -594,6 +594,17 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (tools_cJSON_IsString(rollup)) {
                 superTable->rollup = rollup->valuestring;
             }
+
+            tools_cJSON *max_delay_obj = tools_cJSON_GetObjectItem(stbInfo, "max_delay");
+            if (tools_cJSON_IsString(max_delay_obj)) {
+                superTable->max_delay = max_delay_obj->valuestring;
+            }
+
+            tools_cJSON *watermark_obj = tools_cJSON_GetObjectItem(stbInfo, "watermark");
+            if (tools_cJSON_IsString(watermark_obj)) {
+                superTable->watermark = watermark_obj->valuestring;
+            }
+
             if (get_tsma_info(stbInfo, superTable)) {
                 return -1;
             }
