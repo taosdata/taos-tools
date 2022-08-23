@@ -2905,7 +2905,7 @@ static int dumpCreateTableClauseAvro(
             "{\"name\":\"sql\",\"type\":[\"null\",\"string\"]}]}",
             dbName, "_ntb");
 
-    char *sqlstr = calloc(1, COMMAND_SIZE);
+    char *sqlstr = calloc(1, TSDB_MAX_SQL_LEN*2);
     if (NULL == sqlstr) {
         errorPrint("%s() LN%d, memory allocation failed!\n",
                 __func__, __LINE__);
@@ -2970,7 +2970,7 @@ static int dumpCreateTableClause(
         int numOfCols,
         FILE *fp,
         const char* dbName) {
-    char *sqlstr = calloc(1, COMMAND_SIZE);
+    char *sqlstr = calloc(1, TSDB_MAX_SQL_LEN*2);
     if (NULL == sqlstr) {
         errorPrint("%s() LN%d, memory allocation failed!\n",
                 __func__, __LINE__);
@@ -10119,7 +10119,7 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
 {
     if (0 == dbInfo->ntables) {
-        errorPrint("%s() LN%d, database: %s has 0 tables\n",
+        warnPrint("%s() LN%d, database: %s has 0 tables\n",
                 __func__, __LINE__, dbInfo->name);
         return 0;
     }
