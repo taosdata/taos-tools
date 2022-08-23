@@ -57,6 +57,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             GIT_SHALLOW     true
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
+            PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
             CONFIGURE_COMMAND cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
             )
     ELSE ()
@@ -67,6 +68,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             GIT_SHALLOW     true
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
+            PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
             CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
             )
     ENDIF ()
