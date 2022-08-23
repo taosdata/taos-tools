@@ -11873,7 +11873,7 @@ int inspectAvroFile(char *filename) {
         return -1;
     }
 
-    int buf_len = 65536;
+    int buf_len = 256*1024;
     char *jsonbuf = calloc(1, buf_len);
     if (NULL == jsonbuf) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
