@@ -217,6 +217,20 @@ int createDatabase(SDataBase* database) {
     if (conn == NULL) {
         return -1;
     }
+    if (g_arguments->taosc_version == 3) {
+        for (int i = 0; i < database->streams->size; i++) {
+            SSTREAM* stream = benchArrayGet(database->streams, i);
+            if (stream->drop) {
+                sprintf(command, "drop stream if exists %s", stream->stream_name);
+                infoPrint(stdout, "%s\n", command);
+            }
+            if (queryDbExec(conn, command)) {
+                close_bench_conn(conn);
+                return -1;
+            }
+            memset(command, 0, SQL_BUFF_LEN);
+        } 
+    }
     sprintf(command, "drop database if exists %s;", database->dbName);
     if (0 != queryDbExec(conn, command)) {
         close_bench_conn(conn);
@@ -1669,17 +1683,10 @@ static void* create_tsmas(void* args) {
 static int createStream(SSTREAM* stream, char* dbName) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
-    snprintf(command, BUFFER_SIZE, "drop stream if exists %s", stream->stream_name);
-    infoPrint(stderr, "%s\n", command);
     SBenchConn* conn = init_bench_conn();
     if (conn == NULL) {
         goto END;
     }
-    if (queryDbExec(conn, command)){
-        close_bench_conn(conn);
-        goto END;
-    }
-    memset(command, 0, BUFFER_SIZE);
     int pos = snprintf(command, BUFFER_SIZE, "create stream if not exists %s ", stream->stream_name);
     if (stream->trigger_mode[0] != '\0') {
         pos += snprintf(command + pos, BUFFER_SIZE - pos, "trigger %s ", stream->trigger_mode);
