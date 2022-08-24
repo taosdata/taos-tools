@@ -654,6 +654,7 @@ static int getStreamInfo(tools_cJSON* dbinfos, int index) {
                     tools_cJSON* target_db_obj = tools_cJSON_GetArrayItem(target_dbs_obj, j);
                     SDataBase* target_db = benchCalloc(1, sizeof(SDataBase), true);
                     target_db->cfgs = benchArrayInit(1, sizeof(SDbCfg));
+                    target_db->streams = benchArrayInit(1, sizeof(SSTREAM));
                     if (getDatabaseInfo(target_db_obj, target_db)) {
                         return -1;
                     }
