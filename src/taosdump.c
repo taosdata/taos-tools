@@ -9308,12 +9308,14 @@ static int64_t dumpInOneDebugFile(
         }
 
         int ret;
+
+        debugPrint("%s() LN%d, cmd: %s\n", __func__, __LINE__, cmd);
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            ret = queryDbImplWS(taos,cmd);
+            ret = queryDbImplWS(taos, cmd);
         } else {
 #endif
-            ret = queryDbImplNative(taos,cmd);
+            ret = queryDbImplNative(taos, cmd);
 #ifdef WEBSOCKET
         }
 #endif
