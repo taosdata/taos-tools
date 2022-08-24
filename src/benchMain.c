@@ -27,7 +27,7 @@ int             g_majorVersionOfClient = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
-    infoPrint("%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
+    infoPrint("%s", "Receive SIGINT or other signal, quit benchmark\n");
     sem_post(&g_arguments->cancelSem);
 }
 
