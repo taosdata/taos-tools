@@ -494,6 +494,10 @@ void postFreeResource() {
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         benchArrayDestroy(database->cfgs);
+        for (int j = 0; j < database->streams->size; j++) {
+            SSTREAM* stream = benchArrayGet(database->streams, j);
+            tmfree(stream->target_dbs);
+        }
         benchArrayDestroy(database->streams);
         for (uint64_t j = 0; j < database->superTbls->size; j++) {
             SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
@@ -1750,6 +1754,12 @@ int insertTestProcess() {
             SDataBase * database = benchArrayGet(g_arguments->databases, i);
             for (int j = 0; j < database->streams->size; ++j) {
                 SSTREAM * stream = benchArrayGet(database->streams, j);
+                for (int k = 0; k < stream->target_dbs->size; k++) {
+                    SDataBase* target_db = benchArrayGet(stream->target_dbs, k);
+                    if (createDatabase(target_db)) {
+                        return -1;
+                    }
+                }
                 if (stream->drop) {
                     if (createStream(stream, database->dbName)) {
                         return -1;

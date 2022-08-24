@@ -234,19 +234,7 @@ PARSE_OVER:
     return code;
 }
 
-static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
-    SDataBase *database;
-    if (index > 0) {
-        database = benchCalloc(1, sizeof(SDataBase), true);
-        benchArrayPush(g_arguments->databases, database);
-
-    }
-    database = benchArrayGet(g_arguments->databases, index);
-    database->drop = true;
-    database->precision = TSDB_TIME_PRECISION_MILLI;
-    database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-    tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
-    tools_cJSON *db = tools_cJSON_GetObjectItem(dbinfo, "dbinfo");
+static int getDatabaseInfo(tools_cJSON *db, SDataBase* database) {
     if (!tools_cJSON_IsObject(db)) {
         errorPrint(stderr, "%s", "Invalid dbinfo format in json\n");
         return -1;
@@ -658,6 +646,20 @@ static int getStreamInfo(tools_cJSON* dbinfos, int index) {
                     return -1;
                 }
             }
+            stream->target_dbs = benchArrayInit(1, sizeof(SDataBase));
+            tools_cJSON* target_dbs_obj = tools_cJSON_GetObjectItem(streamObj, "target_dbs");
+            if (tools_cJSON_IsArray(target_dbs_obj)) {
+                int target_db_count = tools_cJSON_GetArraySize(target_dbs_obj);
+                for (int j = 0; j < target_db_count; j++) {
+                    tools_cJSON* target_db_obj = tools_cJSON_GetArrayItem(target_dbs_obj, j);
+                    SDataBase* target_db = benchCalloc(1, sizeof(SDataBase), true);
+                    target_db->cfgs = benchArrayInit(1, sizeof(SDbCfg));
+                    if (getDatabaseInfo(target_db_obj, target_db)) {
+                        return -1;
+                    }
+                    benchArrayPush(stream->target_dbs, target_db);
+                }
+            }
             benchArrayPush(database->streams, stream);
         }
     }
@@ -777,7 +779,19 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     int dbSize = tools_cJSON_GetArraySize(dbinfos);
 
     for (int i = 0; i < dbSize; ++i) {
-        if (getDatabaseInfo(dbinfos, i)) {
+        SDataBase* database;
+        if (i > 0) {
+            database = benchCalloc(1, sizeof(SDataBase), true);
+            benchArrayPush(g_arguments->databases, database);
+            database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
+        }
+        database = benchArrayGet(g_arguments->databases, i);
+        database->drop = true;
+        database->precision = TSDB_TIME_PRECISION_MILLI;
+        database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+        tools_cJSON* dbInfo = tools_cJSON_GetArrayItem(dbinfos, i);
+        tools_cJSON *db = tools_cJSON_GetObjectItem(dbInfo, "dbinfo");
+        if (getDatabaseInfo(db, database)) {
             goto PARSE_OVER;
         }
         if (g_arguments->taosc_version == 3) {

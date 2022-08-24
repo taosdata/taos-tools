@@ -407,6 +407,7 @@ typedef struct SSTREAM_S {
     char watermark[BIGINT_BUFF_LEN];
     char source_sql[TSDB_MAX_SQL_LEN];
     bool drop;
+    BArray* target_dbs;
 } SSTREAM;
 
 typedef struct SDataBase_S {
