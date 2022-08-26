@@ -112,6 +112,12 @@ ${csudo}rm -f /usr/local/bin/taosdump      || :
 #${csudo}rm -f /usr/local/bin/taosBenchmark || :
 #${csudo}rm -f /usr/local/bin/taosdemo      || :
 
+RED='\033[0;31m'
+GREEN='\033[1;32m'
+NC='\033[0m'
+
+echo -e "${GREEN}taosTools is removed successfully!${NC}"
+
 # Scripts executed after uninstall
 %postun
 
