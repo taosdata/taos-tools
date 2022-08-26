@@ -217,6 +217,21 @@ int createDatabase(SDataBase* database) {
     if (conn == NULL) {
         return -1;
     }
+    if (g_arguments->taosc_version == 3) {
+        for (int i = 0; i < g_arguments->streams->size; i++) {
+            SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
+            if (stream->drop) {
+                sprintf(command, "drop stream if exists %s;", stream->stream_name);
+                if (queryDbExec(conn, command)) {
+                    close_bench_conn(conn);
+                    return -1;
+                }
+                infoPrint(stdout, "%s\n",command);
+                memset(command, 0, SQL_BUFF_LEN);
+            }
+        }
+    }
+    
     sprintf(command, "drop database if exists %s;", database->dbName);
     if (0 != queryDbExec(conn, command)) {
         close_bench_conn(conn);
@@ -226,13 +241,15 @@ int createDatabase(SDataBase* database) {
     int dataLen = 0;
     dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
-
-    for (int i = 0; i < database->cfgs->size; i++) {
-        SDbCfg* cfg = benchArrayGet(database->cfgs, i);
-        if (cfg->valuestring) {
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %s", cfg->name, cfg->valuestring);
-        } else {
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %d", cfg->name, cfg->valueint);
+    
+    if (database->cfgs) {
+        for (int i = 0; i < database->cfgs->size; i++) {
+                SDbCfg* cfg = benchArrayGet(database->cfgs, i);
+                if (cfg->valuestring) {
+                    dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %s", cfg->name, cfg->valuestring);
+                } else {
+                    dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen, " %s %d", cfg->name, cfg->valueint);
+                }
         }
     }
 
@@ -441,25 +458,27 @@ static int createChildTables() {
 
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        for (int j = 0; j < database->superTbls->size; j++) {
-            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-            if (stbInfo->autoCreateTable || stbInfo->iface == SML_IFACE ||
-                    stbInfo->iface == SML_REST_IFACE) {
-                g_arguments->g_autoCreatedChildTables +=
-                        stbInfo->childTblCount;
-                continue;
-            }
-            if (stbInfo->childTblExists) {
-                g_arguments->g_existedChildTables +=
-                        stbInfo->childTblCount;
-                continue;
-            }
-            debugPrint(stdout, "colsOfCreateChildTable: %s\n",
-                       stbInfo->colsOfCreateChildTable);
+        if (database->superTbls) {
+            for (int j = 0; j < database->superTbls->size; j++) {
+                SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+                if (stbInfo->autoCreateTable || stbInfo->iface == SML_IFACE ||
+                        stbInfo->iface == SML_REST_IFACE) {
+                    g_arguments->g_autoCreatedChildTables +=
+                            stbInfo->childTblCount;
+                    continue;
+                }
+                if (stbInfo->childTblExists) {
+                    g_arguments->g_existedChildTables +=
+                            stbInfo->childTblCount;
+                    continue;
+                }
+                debugPrint(stdout, "colsOfCreateChildTable: %s\n",
+                        stbInfo->colsOfCreateChildTable);
 
-            code = startMultiThreadCreateChildTable(database, stbInfo);
-            if (code && !g_arguments->terminate) {
-                return code;
+                code = startMultiThreadCreateChildTable(database, stbInfo);
+                if (code && !g_arguments->terminate) {
+                    return code;
+                }
             }
         }
     }
@@ -493,37 +512,41 @@ void postFreeResource() {
     tmfclose(g_arguments->fpOfInsertResult);
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        benchArrayDestroy(database->cfgs);
-        benchArrayDestroy(database->streams);
-        for (uint64_t j = 0; j < database->superTbls->size; j++) {
-            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-            tmfree(stbInfo->colsOfCreateChildTable);
-            tmfree(stbInfo->sampleDataBuf);
-            tmfree(stbInfo->tagDataBuf);
-            tmfree(stbInfo->partialColumnNameBuf);
-            for (int k = 0; k < stbInfo->tags->size; ++k) {
-                Field * tag = benchArrayGet(stbInfo->tags, k);
-                tmfree(tag->data);
-            }
-            benchArrayDestroy(stbInfo->tags);
-
-            for (int k = 0; k < stbInfo->cols->size; ++k) {
-                Field * col = benchArrayGet(stbInfo->cols, k);
-                tmfree(col->data);
-            }
-            benchArrayDestroy(stbInfo->cols);
-            if (g_arguments->test_mode == INSERT_TEST &&
-                    stbInfo->insertRows != 0) {
-                for (int64_t k = 0; k < stbInfo->childTblCount;
-                     ++k) {
-                    tmfree(stbInfo->childTblName[k]);
-                }
-            }
-            tmfree(stbInfo->childTblName);
+        if (database->cfgs) {
+            benchArrayDestroy(database->cfgs);
         }
-        benchArrayDestroy(database->superTbls);
+        if (database->superTbls) {
+            for (uint64_t j = 0; j < database->superTbls->size; j++) {
+                SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+                tmfree(stbInfo->colsOfCreateChildTable);
+                tmfree(stbInfo->sampleDataBuf);
+                tmfree(stbInfo->tagDataBuf);
+                tmfree(stbInfo->partialColumnNameBuf);
+                for (int k = 0; k < stbInfo->tags->size; ++k) {
+                    Field * tag = benchArrayGet(stbInfo->tags, k);
+                    tmfree(tag->data);
+                }
+                benchArrayDestroy(stbInfo->tags);
+
+                for (int k = 0; k < stbInfo->cols->size; ++k) {
+                    Field * col = benchArrayGet(stbInfo->cols, k);
+                    tmfree(col->data);
+                }
+                benchArrayDestroy(stbInfo->cols);
+                if (g_arguments->test_mode == INSERT_TEST &&
+                        stbInfo->insertRows != 0) {
+                    for (int64_t k = 0; k < stbInfo->childTblCount;
+                        ++k) {
+                        tmfree(stbInfo->childTblName[k]);
+                    }
+                }
+                tmfree(stbInfo->childTblName);
+            }
+            benchArrayDestroy(database->superTbls);
+        }
     }
     benchArrayDestroy(g_arguments->databases);
+    benchArrayDestroy(g_arguments->streams);
     tools_cJSON_Delete(root);
 }
 
@@ -1662,7 +1685,7 @@ static void* create_tsmas(void* args) {
     return NULL;
 }
 
-static int createStream(SSTREAM* stream, char* dbName) {
+static int createStream(SSTREAM* stream) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
     snprintf(command, BUFFER_SIZE, "drop stream if exists %s", stream->stream_name);
@@ -1710,34 +1733,39 @@ int insertTestProcess() {
     }
     for (int i = 0; i < g_arguments->databases->size; ++i) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        for (int j = 0; j < database->superTbls->size; ++j) {
-            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-            if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
-                if (getSuperTableFromServer(database, stbInfo)) {
-                    if (createSuperTable(database, stbInfo)) return -1;
+        if (database->superTbls) {
+            for (int j = 0; j < database->superTbls->size; ++j) {
+                SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+                if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
+                    if (getSuperTableFromServer(database, stbInfo)) {
+                        if (createSuperTable(database, stbInfo)) return -1;
+                    }
+                }
+                if (0 != prepare_sample_data(database, stbInfo)) {
+                    return -1;
                 }
             }
-            if (0 != prepare_sample_data(database, stbInfo)) {
-                return -1;
-            }
         }
+
     }
 
     if (g_arguments->taosc_version == 3) {
         for (int i = 0; i < g_arguments->databases->size; i++) {
             SDataBase* database = benchArrayGet(g_arguments->databases, i);
-            for (int j = 0; j < database->superTbls->size; ++j) {
-                SSuperTable* stbInfo = benchArrayGet(database->superTbls, j);
-                if (stbInfo->tsmas == NULL) {
-                    continue;
-                }
-                if (stbInfo->tsmas->size > 0) {
-                    tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(tsmaThreadInfo), true);
-                    pthread_t tsmas_pid = {0};
-                    pThreadInfo->dbName = database->dbName;
-                    pThreadInfo->stbName = stbInfo->stbName;
-                    pThreadInfo->tsmas = stbInfo->tsmas;
-                    pthread_create(&tsmas_pid, NULL, create_tsmas, pThreadInfo);
+            if (database->superTbls) {
+                for (int j = 0; j < database->superTbls->size; ++j) {
+                    SSuperTable* stbInfo = benchArrayGet(database->superTbls, j);
+                    if (stbInfo->tsmas == NULL) {
+                        continue;
+                    }
+                    if (stbInfo->tsmas->size > 0) {
+                        tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(tsmaThreadInfo), true);
+                        pthread_t tsmas_pid = {0};
+                        pThreadInfo->dbName = database->dbName;
+                        pThreadInfo->stbName = stbInfo->stbName;
+                        pThreadInfo->tsmas = stbInfo->tsmas;
+                        pthread_create(&tsmas_pid, NULL, create_tsmas, pThreadInfo);
+                    }
                 }
             }
         }
@@ -1746,14 +1774,11 @@ int insertTestProcess() {
     if (createChildTables()) return -1;
 
     if (g_arguments->taosc_version == 3) {
-        for (int i = 0; i < g_arguments->databases->size; ++i) {
-            SDataBase * database = benchArrayGet(g_arguments->databases, i);
-            for (int j = 0; j < database->streams->size; ++j) {
-                SSTREAM * stream = benchArrayGet(database->streams, j);
-                if (stream->drop) {
-                    if (createStream(stream, database->dbName)) {
-                        return -1;
-                    }
+        for (int j = 0; j < g_arguments->streams->size; ++j) {
+            SSTREAM * stream = benchArrayGet(g_arguments->streams, j);
+            if (stream->drop) {
+                if (createStream(stream)) {
+                    return -1;
                 }
             }
         }
@@ -1762,14 +1787,16 @@ int insertTestProcess() {
     // create sub threads for inserting data
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        for (uint64_t j = 0; j < database->superTbls->size; j++) {
-            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-            if (stbInfo->insertRows == 0) {
-                continue;
-            }
-            prompt(stbInfo->non_stop);
-            if (startMultiThreadInsertData(database, stbInfo)) {
-                return -1;
+        if (database->superTbls) {
+            for (uint64_t j = 0; j < database->superTbls->size; j++) {
+                SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+                if (stbInfo->insertRows == 0) {
+                    continue;
+                }
+                prompt(stbInfo->non_stop);
+                if (startMultiThreadInsertData(database, stbInfo)) {
+                    return -1;
+                }
             }
         }
     }

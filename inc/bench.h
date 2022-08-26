@@ -416,7 +416,6 @@ typedef struct SDataBase_S {
     int          sml_precision;
     BArray*      cfgs;
     BArray*      superTbls;
-    BArray*      streams;
 } SDataBase;
 
 typedef struct SSQL_S {
@@ -505,6 +504,7 @@ typedef struct SArguments_S {
     uint64_t           g_existedChildTables;
     FILE *             fpOfInsertResult;
     BArray *           databases;
+    BArray*            streams;
     char *             base64_buf;
 #ifdef LINUX
     sem_t              cancelSem;
