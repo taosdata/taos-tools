@@ -131,6 +131,7 @@ jobs:
           cd debug
           cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
           make -j8 > /dev/null
+          sudo make install > /dev/null
 
       - name: show TDengine's taosws commit
         if: |
@@ -155,7 +156,7 @@ jobs:
           cd TDengine
           mkdir debug ||:
           cd debug
-          make -j8 > /dev/null && sudo make install
+          make -j8 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
