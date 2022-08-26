@@ -239,9 +239,11 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     if (index > 0) {
         database = benchCalloc(1, sizeof(SDataBase), true);
         benchArrayPush(g_arguments->databases, database);
-
     }
     database = benchArrayGet(g_arguments->databases, index);
+    if (database->cfgs == NULL) {
+        database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
+    }
     database->drop = true;
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
