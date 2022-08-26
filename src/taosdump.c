@@ -1501,10 +1501,10 @@ static int getTableRecordInfoImplNative(
                 if (row[1]) {
                     if (strlen((char *)row[1]) > 0) {
                         pTableRecordInfo->belongStb = true;
-                        tstrncpy(pTableRecordInfo->tableRecord.stable,
+                        strncpy(pTableRecordInfo->tableRecord.stable,
                                 (char *)row[1],
-                                min(TSDB_TABLE_NAME_LEN,
-                                    lengths[1] + 1));
+                                min(TSDB_TABLE_NAME_LEN-1,
+                                    lengths[1]));
                     } else {
                         pTableRecordInfo->belongStb = false;
                     }
@@ -1514,10 +1514,10 @@ static int getTableRecordInfoImplNative(
             } else {
                 if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX]) > 0) {
                     pTableRecordInfo->belongStb = true;
-                    tstrncpy(pTableRecordInfo->tableRecord.stable,
+                    strncpy(pTableRecordInfo->tableRecord.stable,
                             (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                            min(TSDB_TABLE_NAME_LEN,
-                                lengths[TSDB_SHOW_TABLES_METRIC_INDEX] + 1));
+                            min(TSDB_TABLE_NAME_LEN-1,
+                                lengths[TSDB_SHOW_TABLES_METRIC_INDEX]));
                 } else {
                     pTableRecordInfo->belongStb = false;
                 }
@@ -2513,8 +2513,13 @@ static int getTableDesNative(
             *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
 
         if (lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX] > 0) {
+            char note[COL_NOTE_LEN] = {0};
+            strncpy(note, (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
+                    min(
+                        lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
+                        COL_NOTE_LEN-1));
             tstrncpy(tableDes->cols[colCount].note,
-                    (char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
+                    note,
                     lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX]+1);
         }
 
@@ -8400,10 +8405,10 @@ static int createMTableAvroHeadFillTBNameNative(
             continue;
         }
 
-        tstrncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+        strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
                 (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN,
-                    lengths[TSDB_SHOW_TABLES_NAME_INDEX]+1));
+                min(TSDB_TABLE_NAME_LEN-1,
+                    lengths[TSDB_SHOW_TABLES_NAME_INDEX]));
 
         debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
                 tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
@@ -9104,10 +9109,15 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
 
     TAOS_ROW row;
     while ((row = taos_fetch_row(res)) != NULL) {
+        int32_t *lengths = taos_fetch_lengths(res);
+        char tempRow0[BUFFER_LEN - 13] = {0};
+        char tempRow1[BUFFER_LEN - 13] = {0};
+        strncpy(tempRow0, row[0], min(lengths[0], BUFFER_LEN-1));
+        strncpy(tempRow1, row[1], min(lengths[1], BUFFER_LEN-1));
         debugPrint("row[0]=%s, row[1]=%s\n",
-                (char *)row[0], (char *)row[1]);
-        if (0 == strcmp((char *)row[0], "charset")) {
-            snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", (char *)row[1]);
+                tempRow0, tempRow1);
+        if (0 == strcmp(tempRow0, "charset")) {
+            snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tempRow1);
             fwrite(buffer, strlen(buffer), 1, fp);
         }
     }
@@ -10192,12 +10202,12 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
         if (3 == g_majorVersionOfClient) {
             if (NULL != row[1]) {
                 if (strlen((char *)row[1])) {
-                    tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
+                    strncpy(((TableInfo *)(g_tablesList + count))->stable,
                             (char *)row[1],
-                            min(TSDB_TABLE_NAME_LEN, lengths[1] +1));
+                            min(TSDB_TABLE_NAME_LEN-1, lengths[1]));
                     debugPrint("%s() LN%d stbName: %s, length: %d\n",
                             __func__, __LINE__,
-                            (char *)row[1],
+                            ((TableInfo *)(g_tablesList + count))->stable,
                             lengths[1]);
                     ((TableInfo *)(g_tablesList + count))->belongStb = true;
                 } else {
