@@ -1511,7 +1511,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
 #else
                 close(pThreadInfo->sockfd);
 #endif
-                if (is_ds(pThreadInfo->buffer)) {
+                if (stbInfo->interlaceRows > 0) {
                     free_ds(&pThreadInfo->buffer);
                 } else {
                     tmfree(pThreadInfo->buffer);
@@ -1545,7 +1545,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 tmfree(pThreadInfo->is_null);
                 break;
             case TAOSC_IFACE:
-                if (is_ds(pThreadInfo->buffer)) {
+                if (stbInfo->interlaceRows > 0) {
                     free_ds(&pThreadInfo->buffer);
                 } else {
                     tmfree(pThreadInfo->buffer);
