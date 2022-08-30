@@ -254,6 +254,8 @@ typedef struct {
 #define STRICT_LEN      16
 #define DURATION_LEN    16
 #define KEEPLIST_LEN    48
+#define MAX_DIR_LEN     (MAX_PATH_LEN - MAX_FILE_NAME_LEN - 32)
+
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
     char     create_time[32];
@@ -283,7 +285,8 @@ typedef struct {
     int8_t   update;
     char     status[DB_STATUS_LEN];
     int64_t  dumpTbCount;
-    TableRecordInfo **dumpTbInfos;
+    uint64_t uniqueID;
+    char     dirForDbDump[MAX_DIR_LEN];
 } SDbInfo;
 
 enum enWHICH {
@@ -463,7 +466,6 @@ static struct argp_option options[] = {
 };
 
 #define HUMAN_TIME_LEN      28
-#define MAX_DIR_LEN         MAX_PATH_LEN - MAX_FILE_NAME_LEN - 32
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {
@@ -9851,7 +9853,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
     char dumpFilename[MAX_PATH_LEN] = {0};
 
     if (g_args.avro) {
-        generateFilename(WHICH_AVRO_TBTAGS, dumpFilename, 
+        generateFilename(WHICH_AVRO_TBTAGS, dumpFilename,
                 pThreadInfo->dbName, pThreadInfo->stbName,
                 pThreadInfo->threadIndex);
         debugPrint("%s() LN%d dumpFilename: %s\n",
@@ -10007,7 +10009,7 @@ static int64_t dumpNtbOfDbByThreads(
         taos_close(pThreadInfo->taos);
     }
 
-    g_resultStatistics.totalChildTblsOfDumpOut += ntbCount;
+    atomic_add_fetch_64(&g_resultStatistics.totalChildTblsOfDumpOut, ntbCount);
 
     free(pids);
     free(infos);
@@ -10504,7 +10506,8 @@ static int64_t dumpCreateSTableClauseOfDbWS(
     fprintf(g_fpOfResult,
             "# super table counter:               %"PRId64"\n",
             superTblCnt);
-    g_resultStatistics.totalSuperTblsOfDumpOut += superTblCnt;
+    atomic_add_fetch_64(
+            &g_resultStatistics.totalSuperTblsOfDumpOut, superTblCnt);
 
     ws_close(ws_taos);
 
@@ -10576,11 +10579,30 @@ static int64_t dumpCreateSTableClauseOfDbNative(
     fprintf(g_fpOfResult,
             "# super table counter:               %"PRId64"\n",
             superTblCnt);
-    g_resultStatistics.totalSuperTblsOfDumpOut += superTblCnt;
+    atomic_add_fetch_64(
+            &g_resultStatistics.totalSuperTblsOfDumpOut, superTblCnt);
 
     taos_close(taos);
 
     return superTblCnt;
+}
+
+static int createDirForDbDump(SDbInfo *dbInfo) {
+    if (g_args.loose_mode) {
+        sprintf(dbInfo->dirForDbDump, "%staosdump.%s",
+                g_args.outpath, dbInfo->name);
+    } else {
+        dbInfo->uniqueID = getUniqueIDFromEpoch();
+        sprintf(dbInfo->dirForDbDump, "%staosdump.%"PRId64"",
+                g_args.outpath, dbInfo->uniqueID);
+    }
+
+    int ret = mkdir(dbInfo->dirForDbDump, 0775);
+    if (ret) {
+        errorPrint("%s() LN%d, mkdir(%s) failed\n",
+                __func__, __LINE__, dbInfo->dirForDbDump);
+    }
+    return ret;
 }
 
 static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
@@ -10588,11 +10610,18 @@ static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
     int64_t ret;
     printf("Start to dump out database: %s\n", dbInfo->name);
 
+    if (0 != (ret = createDirForDbDump(dbInfo))) {
+        return ret;
+    }
+
+    fprintf(fp, "#!dumpdb: %s: %s\n\n", dbInfo->name, dbInfo->dirForDbDump);
+
     dumpCreateDbClause(dbInfo, g_args.with_property, fp);
 
     fprintf(g_fpOfResult, "\n#### database:                       %s\n",
             dbInfo->name);
-    g_resultStatistics.totalDatabasesOfDumpOut++;
+    atomic_add_fetch_64(
+            &g_resultStatistics.totalDatabasesOfDumpOut, 1);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -10624,6 +10653,33 @@ static bool checkFileExists(char *path, char *filename)
     return false;
 }
 
+static bool checkFileExistsDir(char *path, char *dirname)
+{
+    bool bRet = false;
+
+    int namelen, dirlen;
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    dirlen = strlen(dirname);
+    pDir = opendir(path);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            namelen = strlen (pDirent->d_name);
+            if (namelen > dirlen) {
+                if (strncmp (dirname, pDirent->d_name, dirlen) == 0) {
+                    bRet = true;
+                    break;
+                }
+            }
+        }
+        closedir (pDir);
+    }
+
+    return bRet;
+}
+
 static bool checkFileExistsExt(char *path, char *ext)
 {
     bool bRet = false;
@@ -10641,6 +10697,7 @@ static bool checkFileExistsExt(char *path, char *ext)
             if (namelen > extlen) {
                 if (strcmp (ext, &(pDirent->d_name[namelen - extlen])) == 0) {
                     bRet = true;
+                    break;
                 }
             }
         }
@@ -10664,10 +10721,11 @@ static bool checkOutDir(char *outpath)
         outpath = ".";
     }
 
-    if ((true == checkFileExists(outpath, "dbs.sql"))
-                || (0 != checkFileExistsExt(outpath, "avro-tbstb"))
-                || (0 != checkFileExistsExt(outpath, "avro-ntb"))
-                || (0 != checkFileExistsExt(outpath, "avro"))) {
+    if ((checkFileExists(outpath, "dbs.sql"))
+            || (checkFileExistsDir(outpath, "taosdump."))
+            || (checkFileExistsExt(outpath, "avro-tbstb"))
+            || (checkFileExistsExt(outpath, "avro-ntb"))
+            || (checkFileExistsExt(outpath, "avro"))) {
         if (strlen(outpath)) {
             errorPrint("Found data file(s) exists in %s!"
                     " Please use other place to dump out!\n",
@@ -11525,8 +11583,9 @@ _exit_failure:
     if (0 == ret) {
         okPrint("%" PRId64 " row(s) dumped out!\n",
                 g_totalDumpOutRows);
-        g_resultStatistics.totalRowsOfDumpOut +=
-            g_totalDumpOutRows;
+        atomic_add_fetch_64(
+                &g_resultStatistics.totalRowsOfDumpOut,
+                g_totalDumpOutRows);
     } else {
         errorPrint("%" PRId64 " row(s) dumped out!\n",
                 g_totalDumpOutRows);
