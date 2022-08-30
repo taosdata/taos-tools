@@ -239,9 +239,11 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     if (index > 0) {
         database = benchCalloc(1, sizeof(SDataBase), true);
         benchArrayPush(g_arguments->databases, database);
-
     }
     database = benchArrayGet(g_arguments->databases, index);
+    if (database->cfgs == NULL) {
+        database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
+    }
     database->drop = true;
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
@@ -364,8 +366,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
     tools_cJSON *    dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
     tools_cJSON *    stables = tools_cJSON_GetObjectItem(dbinfo, "super_tables");
     if (!tools_cJSON_IsArray(stables)) {
-        errorPrint(stderr, "%s", "invalid super_tables format in json\n");
-        return -1;
+        infoPrint(stdout, "create database %s without stables\n", database->dbName);
+        return 0;
     }
     for (int i = 0; i < tools_cJSON_GetArraySize(stables); ++i) {
         SSuperTable *superTable;
@@ -616,10 +618,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
     return 0;
 }
 
-static int getStreamInfo(tools_cJSON* dbinfos, int index) {
-    SDataBase *database = benchArrayGet(g_arguments->databases, index);
-    tools_cJSON* dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
-    tools_cJSON* streamsObj = tools_cJSON_GetObjectItem(dbinfo, "stream");
+static int getStreamInfo(tools_cJSON* json) {
+    tools_cJSON* streamsObj = tools_cJSON_GetObjectItem(json, "streams");
     if (tools_cJSON_IsArray(streamsObj)) {
         int streamCnt = tools_cJSON_GetArraySize(streamsObj);
         for (int i = 0; i < streamCnt; ++i) {
@@ -658,7 +658,7 @@ static int getStreamInfo(tools_cJSON* dbinfos, int index) {
                     return -1;
                 }
             }
-            benchArrayPush(database->streams, stream);
+            benchArrayPush(g_arguments->streams, stream);
         }
     }
     return 0;
@@ -780,12 +780,13 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         if (getDatabaseInfo(dbinfos, i)) {
             goto PARSE_OVER;
         }
-        if (g_arguments->taosc_version == 3) {
-            if (getStreamInfo(dbinfos, i)) {
-                goto PARSE_OVER;
-            }
-        }
         if (getStableInfo(dbinfos, i)) {
+            goto PARSE_OVER;
+        }
+    }
+
+    if (g_arguments->taosc_version == 3) {
+        if (getStreamInfo(json)) {
             goto PARSE_OVER;
         }
     }
