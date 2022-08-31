@@ -81,7 +81,7 @@ static char      g_escapeChar[2] = "`";
 static char      g_client_info[32] = {0};
 static int       g_majorVersionOfClient = 0;
 
-static int      g_maxFilesPerDir = 2;
+static int      g_maxFilesPerDir = 100000;
 static uint64_t g_countOfDataFile = 0;
 
 static void print_json_aux(json_t *element, int indent);
@@ -318,6 +318,7 @@ typedef struct {
     int64_t   recSuccess;
     int64_t   recFailed;
     AVROTYPE  avroType;
+    char      dbPath[MAX_DIR_LEN];
 } threadInfo;
 
 typedef struct {
@@ -3160,7 +3161,7 @@ static FILE* openDumpInFile(char *fptr) {
     return f;
 }
 
-static uint64_t getFilesNum(char *ext)
+static uint64_t getFilesNum(const char *dbPath, const char *ext)
 {
     uint64_t count = 0;
 
@@ -3172,7 +3173,7 @@ static uint64_t getFilesNum(char *ext)
 
     bool isSql = (0 == strcmp(ext, "sql"));
 
-    pDir = opendir(g_args.inpath);
+    pDir = opendir(dbPath);
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
             namelen = strlen (pDirent->d_name);
@@ -3229,7 +3230,7 @@ static void freeFileList(AVROTYPE avroType, int64_t count)
     tfree(fileList);
 }
 
-static AVROTYPE createDumpinList(char *ext, int64_t count)
+static AVROTYPE createDumpinList(const char *dbPath, const char *ext, int64_t count)
 {
     AVROTYPE avroType = AVRO_INVALID;
     if (0 == strcmp(ext, "sql")) {
@@ -3298,7 +3299,7 @@ static AVROTYPE createDumpinList(char *ext, int64_t count)
     extlen = strlen(ext);
 
     int64_t nCount = 0;
-    pDir = opendir(g_args.inpath);
+    pDir = opendir(dbPath);
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
             namelen = strlen (pDirent->d_name);
@@ -6795,12 +6796,13 @@ static RecordSchema *getSchemaAndReaderFromFile(
 }
 
 static int64_t dumpInOneAvroFile(
-        AVROTYPE avroType,
+        const char *dbPath,
+        const AVROTYPE avroType,
         char* fcharset,
         char *fileName)
 {
     char avroFile[MAX_PATH_LEN];
-    sprintf(avroFile, "%s/%s", g_args.inpath, fileName);
+    sprintf(avroFile, "%s/%s", dbPath, fileName);
 
     debugPrint("avroFile: %s\n", avroFile);
 
@@ -6939,6 +6941,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         }
 
         int64_t rows = dumpInOneAvroFile(
+                pThreadInfo->dbPath,
                 pThreadInfo->avroType,
                 g_dumpInCharset,
                 fileList[pThreadInfo->from + i]);
@@ -7010,12 +7013,12 @@ static void* dumpInAvroWorkThreadFp(void *arg)
     return NULL;
 }
 
-static int dumpInAvroWorkThreads(char *typeExt)
+static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt)
 {
-    int64_t fileCount = getFilesNum(typeExt);
+    int64_t fileCount = getFilesNum(dbPath, typeExt);
 
     if (0 == fileCount) {
-        debugPrint("No .%s file found in %s\n", typeExt, g_args.inpath);
+        debugPrint("No .%s file found in %s\n", typeExt, dbPath);
         return 0;
     }
 
@@ -7032,9 +7035,9 @@ static int dumpInAvroWorkThreads(char *typeExt)
         b = fileCount % threads;
     }
 
-    AVROTYPE avroType = createDumpinList(typeExt, fileCount);
+    AVROTYPE avroType = createDumpinList(dbPath, typeExt, fileCount);
 
-    threadInfo *pThread;
+    threadInfo *pThreadInfo;
 
     pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
     threadInfo *infos = (threadInfo *)calloc(
@@ -7045,21 +7048,23 @@ static int dumpInAvroWorkThreads(char *typeExt)
     int64_t from = 0;
 
     for (int32_t t = 0; t < threads; ++t) {
-        pThread = infos + t;
-        pThread->threadIndex = t;
-        pThread->avroType = avroType;
+        pThreadInfo = infos + t;
+        pThreadInfo->threadIndex = t;
+        pThreadInfo->avroType = avroType;
 
-        pThread->from = from;
-        pThread->count = t<b?a+1:a;
-        from += pThread->count;
+        pThreadInfo->from = from;
+        pThreadInfo->count = t<b?a+1:a;
+        from += pThreadInfo->count;
         verbosePrint(
-                "Thread[%d] takes care avro files total %"PRId64" files from %"PRId64"\n",
-                t, pThread->count, pThread->from);
+                "Thread[%d] takes care avro files total %"PRId64" files "
+                "from %"PRId64"\n",
+                t, pThreadInfo->count, pThreadInfo->from);
+        strcpy(pThreadInfo->dbPath, dbPath);
 
         if (pthread_create(pids + t, NULL,
-                    dumpInAvroWorkThreadFp, (void*)pThread) != 0) {
+                    dumpInAvroWorkThreadFp, (void*)pThreadInfo) != 0) {
             errorPrint("%s() LN%d, thread[%d] failed to start\n",
-                    __func__, __LINE__, pThread->threadIndex);
+                    __func__, __LINE__, pThreadInfo->threadIndex);
             exit(EXIT_FAILURE);
         }
     }
@@ -7074,6 +7079,35 @@ static int dumpInAvroWorkThreads(char *typeExt)
     freeFileList(avroType, fileCount);
 
     return 0;
+}
+
+static int dumpInAvroWorkThreadsSub(const char *dbPath, const char *typeExt)
+{
+    int ret = 0;
+
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    pDir = opendir(dbPath);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            if (strncmp ("data", pDirent->d_name, strlen("data"))
+                    == 0) {
+                char dataPath[MAX_PATH_LEN] = {0};
+                sprintf(dataPath, "%s/%s", dbPath, pDirent->d_name);
+                debugPrint("%s() LN%d, will dump from %s\n",
+                        __func__, __LINE__, dataPath);
+                ret = dumpInAvroWorkThreads(dataPath, typeExt);
+            }
+        }
+        closedir (pDir);
+    } else {
+        errorPrint("opendir(%s)\n", g_args.inpath);
+        ret = -1;
+    }
+
+    return ret;
 }
 
 static int processResultValue(
@@ -9503,38 +9537,40 @@ static int64_t dumpInOneDebugFile(
 
 static void* dumpInDebugWorkThreadFp(void *arg)
 {
-    threadInfo *pThread = (threadInfo*)arg;
+    threadInfo *pThreadInfo = (threadInfo*)arg;
     SET_THREAD_NAME("dumpInDebugWorkThrd");
     debugPrint2("[%d] Start to process %"PRId64" files from %"PRId64"\n",
-                    pThread->threadIndex, pThread->count, pThread->from);
+                    pThreadInfo->threadIndex,
+                    pThreadInfo->count,
+                    pThreadInfo->from);
 
-    for (int64_t i = 0; i < pThread->count; i++) {
+    for (int64_t i = 0; i < pThreadInfo->count; i++) {
         char sqlFile[MAX_PATH_LEN];
-        sprintf(sqlFile, "%s/%s", g_args.inpath,
-                g_tsDumpInDebugFiles[pThread->from + i]);
+        sprintf(sqlFile, "%s/%s", pThreadInfo->dbPath,
+                g_tsDumpInDebugFiles[pThreadInfo->from + i]);
 
         FILE* fp = openDumpInFile(sqlFile);
         if (NULL == fp) {
             errorPrint("[%d] Failed to open input file: %s\n",
-                    pThread->threadIndex, sqlFile);
+                    pThreadInfo->threadIndex, sqlFile);
             continue;
         }
 
         int64_t rows;
         rows = dumpInOneDebugFile(
-                pThread->taos, fp, g_dumpInCharset,
+                pThreadInfo->taos, fp, g_dumpInCharset,
                 sqlFile);
 
         if (rows > 0) {
-            atomic_add_fetch_64(&pThread->recSuccess, rows);
+            atomic_add_fetch_64(&pThreadInfo->recSuccess, rows);
             okPrint("[%d] Total %"PRId64" line(s) "
                     "command be successfully dumped in file: %s\n",
-                    pThread->threadIndex, rows, sqlFile);
+                    pThreadInfo->threadIndex, rows, sqlFile);
         } else if (rows < 0) {
-            atomic_add_fetch_64(&pThread->recFailed, rows);
+            atomic_add_fetch_64(&pThreadInfo->recFailed, rows);
             errorPrint("[%d] Total %"PRId64" line(s) "
                     "command failed to dump in file: %s\n",
-                    pThread->threadIndex, rows, sqlFile);
+                    pThreadInfo->threadIndex, rows, sqlFile);
         }
         fclose(fp);
     }
@@ -9542,18 +9578,18 @@ static void* dumpInDebugWorkThreadFp(void *arg)
     return NULL;
 }
 
-static int dumpInDebugWorkThreads()
+static int dumpInDebugWorkThreads(const char *dbPath)
 {
     int ret = 0;
     int32_t threads = g_args.thread_num;
 
-    uint64_t sqlFileCount = getFilesNum("sql");
+    uint64_t sqlFileCount = getFilesNum(dbPath, "sql");
     if (0 == sqlFileCount) {
-        debugPrint("No .sql file found in %s\n", g_args.inpath);
+        debugPrint("No .sql file found in %s\n", dbPath);
         return 0;
     }
 
-    AVROTYPE avroType = createDumpinList("sql", sqlFileCount);
+    AVROTYPE avroType = createDumpinList(dbPath, "sql", sqlFileCount);
 
     threadInfo *pThread;
 
@@ -9592,7 +9628,8 @@ static int dumpInDebugWorkThreads()
         pThread->count = t<b?a+1:a;
         from += pThread->count;
         verbosePrint(
-                "Thread[%d] takes care sql files total %"PRId64" files from %"PRId64"\n",
+                "Thread[%d] takes care sql files total %"PRId64" files"
+                " from %"PRId64"\n",
                 t, pThread->count, pThread->from);
 
 #ifdef WEBSOCKET
@@ -9609,10 +9646,12 @@ static int dumpInDebugWorkThreads()
             }
         } else {
 #endif // WEBSOCKET
-            pThread->taos = taos_connect(g_args.host, g_args.user, g_args.password,
+            pThread->taos = taos_connect(
+                    g_args.host, g_args.user, g_args.password,
                     NULL, g_args.port);
             if (pThread->taos == NULL) {
-                errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+                errorPrint("Failed to connect to TDengine server %s\n",
+                        g_args.host);
                 free(infos);
                 free(pids);
                 return -1;
@@ -9650,7 +9689,7 @@ static int dumpInDebugWorkThreads()
     return ret;
 }
 
-static int dumpInDbs()
+static int dumpInDbs(const char *dbPath)
 {
     TAOS *taos = NULL;
 #ifdef WEBSOCKET
@@ -9682,7 +9721,7 @@ static int dumpInDbs()
     }
 #endif
     char dbsSql[MAX_PATH_LEN];
-    sprintf(dbsSql, "%s/%s", g_args.inpath, "dbs.sql");
+    sprintf(dbsSql, "%s/%s", dbPath, "dbs.sql");
 
     FILE *fp = openDumpInFile(dbsSql);
     if (NULL == fp) {
@@ -9758,27 +9797,56 @@ static int dumpInDbs()
     return (rows < 0)?rows:0;
 }
 
-static int dumpIn() {
-    ASSERT(g_args.isDumpIn);
-
+static int dumpInWithDbPath(const char *dbPath) {
     int ret = 0;
-    if (dumpInDbs()) {
+    if (dumpInDbs(dbPath)) {
         errorPrint("%s", "Failed to dump database(s) in!\n");
         exit(EXIT_FAILURE);
     }
 
     if (g_args.avro) {
-        ret = dumpInAvroWorkThreads("avro-tbtags");
+        ret = dumpInAvroWorkThreads(dbPath, "avro-tbtags");
 
         if (0 == ret) {
-            ret = dumpInAvroWorkThreads("avro-ntb");
+            ret = dumpInAvroWorkThreads(dbPath, "avro-ntb");
 
             if (0 == ret) {
-                ret = dumpInAvroWorkThreads("avro");
+                ret = dumpInAvroWorkThreads(dbPath, "avro");
+                ret = dumpInAvroWorkThreadsSub(dbPath, "avro");
             }
         }
     } else {
-        ret = dumpInDebugWorkThreads();
+        ret = dumpInDebugWorkThreads(dbPath);
+    }
+
+    return ret;
+}
+
+static int dumpIn() {
+    ASSERT(g_args.isDumpIn);
+
+    int ret = 0;
+    ret = dumpInWithDbPath(g_args.inpath);
+
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    pDir = opendir(g_args.inpath);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            if (strncmp ("taosdump.", pDirent->d_name, strlen("taosdump."))
+                    == 0) {
+                char dbPath[MAX_PATH_LEN] = {0};
+                sprintf(dbPath, "%s/%s", g_args.inpath, pDirent->d_name);
+                debugPrint("%s() LN%d, will dump from %s\n",
+                        __func__, __LINE__, dbPath);
+                ret = dumpInWithDbPath(dbPath);
+            }
+        }
+        closedir (pDir);
+    } else {
+        errorPrint("opendir(%s)\n", g_args.inpath);
     }
 
     return ret;
