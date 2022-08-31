@@ -257,7 +257,7 @@ typedef struct {
 #define STRICT_LEN      16
 #define DURATION_LEN    16
 #define KEEPLIST_LEN    48
-#define MAX_DIR_LEN     (MAX_PATH_LEN - MAX_FILE_NAME_LEN - 32)
+#define MAX_DIR_LEN     3808
 
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
@@ -480,9 +480,9 @@ typedef struct arguments {
     char    *user;
     char     password[SHELL_MAX_PASSWORD_LEN];
     uint16_t port;
-    // output file
-    char     outpath[MAX_DIR_LEN];
-    char     inpath[MAX_DIR_LEN];
+    // strlen(taosdump.) +1 is 10
+    char     outpath[MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10)];
+    char     inpath[MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10)];
     // result file
     char    *resultFile;
     // dump unit option
@@ -7713,7 +7713,7 @@ static int64_t dumpTableDataAvro(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         rows = dumpTableDataAvroWS(dataFilename, index, tbName,
-                belongStb, dbName, precision, colCount, tableDes,
+                belongStb, dbInfo->name, precision, colCount, tableDes,
                 start_time, end_time);
     } else {
 #endif
