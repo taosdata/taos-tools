@@ -472,6 +472,7 @@ static struct argp_option options[] = {
 };
 
 #define HUMAN_TIME_LEN      28
+#define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {
@@ -481,8 +482,8 @@ typedef struct arguments {
     char     password[SHELL_MAX_PASSWORD_LEN];
     uint16_t port;
     // strlen(taosdump.) +1 is 10
-    char     outpath[MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10)];
-    char     inpath[MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10)];
+    char     outpath[DUMP_DIR_LEN];
+    char     inpath[DUMP_DIR_LEN];
     // result file
     char    *resultFile;
     // dump unit option
@@ -885,7 +886,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             if (full_path.we_wordv[0]) {
-                snprintf(g_args.outpath, MAX_DIR_LEN, "%s/",
+                snprintf(g_args.outpath, DUMP_DIR_LEN, "%s/",
                         full_path.we_wordv[0]);
                 wordfree(&full_path);
             } else {
@@ -907,7 +908,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
             if (full_path.we_wordv[0]) {
                 tstrncpy(g_args.inpath, full_path.we_wordv[0],
-                        MAX_DIR_LEN);
+                        DUMP_DIR_LEN);
                 wordfree(&full_path);
             } else {
                 errorPrintReqArg3("taosdump", "-i or --inpath");
