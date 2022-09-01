@@ -976,7 +976,7 @@ void free_ds(char **ps)
 
 int is_ds(const char *s)
 {
-	return ((uint64_t *)s)[OFF_MAGIC] == MAGIC_NUMBER;
+	return (((uint64_t *)s)[OFF_MAGIC] == MAGIC_NUMBER);
 }
 
 uint64_t ds_custom(const char *s)
