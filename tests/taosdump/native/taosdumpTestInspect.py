@@ -94,52 +94,28 @@ class TDTestCase:
 
 #        sys.exit(1)
 
-        taosdumpInspectCmd = "%s -I %s/taosdump.*/*.avro* -s | grep 'Schema:'|wc -l" % (
+        taosdumpInspectCmd = "%s -I %s/*.avro* -s | grep 'Schema:'|wc -l" % (
             binPath, self.tmpdir)
         schemaTimes = subprocess.check_output(
             taosdumpInspectCmd, shell=True).decode("utf-8")
         print("schema found times: %d" % int(schemaTimes))
 
-        if (int(schemaTimes) != 1):
+        if (int(schemaTimes) != 3):
             caller = inspect.getframeinfo(inspect.stack()[0][0])
             tdLog.exit(
-                "%s(%d) failed: expected schema found times 1, actual %d" %
+                "%s(%d) failed: expected schema found times 3, actual %d" %
                 (caller.filename, caller.lineno, int(schemaTimes)))
 
-        taosdumpInspectCmd = "%s -I %s/taosdump*/data*/*.avro* -s | grep 'Schema:'|wc -l" % (
-            binPath, self.tmpdir)
-        schemaTimes = subprocess.check_output(
-            taosdumpInspectCmd, shell=True).decode("utf-8")
-        print("schema found times: %d" % int(schemaTimes))
-
-        if (int(schemaTimes) != 2):
-            caller = inspect.getframeinfo(inspect.stack()[0][0])
-            tdLog.exit(
-                "%s(%d) failed: expected schema found times 2, actual %d" %
-                (caller.filename, caller.lineno, int(schemaTimes)))
-
-        taosdumpInspectCmd = "%s -I %s/taosdump*/*.avro* | grep '=== Records:'|wc -l" % (
+        taosdumpInspectCmd = "%s -I %s/*.avro* | grep '=== Records:'|wc -l" % (
             binPath, self.tmpdir)
         recordsTimes = subprocess.check_output(
             taosdumpInspectCmd, shell=True).decode("utf-8")
         print("records found times: %d" % int(recordsTimes))
 
-        if (int(recordsTimes) != 1):
+        if (int(recordsTimes) != 3):
             caller = inspect.getframeinfo(inspect.stack()[0][0])
             tdLog.exit(
-                "%s(%d) failed: expected records found times 1, actual %d" %
-                (caller.filename, caller.lineno, int(recordsTimes)))
-
-        taosdumpInspectCmd = "%s -I %s/taosdump*/data*/*.avro* | grep '=== Records:'|wc -l" % (
-            binPath, self.tmpdir)
-        recordsTimes = subprocess.check_output(
-            taosdumpInspectCmd, shell=True).decode("utf-8")
-        print("records found times: %d" % int(recordsTimes))
-
-        if (int(recordsTimes) != 2):
-            caller = inspect.getframeinfo(inspect.stack()[0][0])
-            tdLog.exit(
-                "%s(%d) failed: expected records found times 2, actual %d" %
+                "%s(%d) failed: expected records found times 3, actual %d" %
                 (caller.filename, caller.lineno, int(recordsTimes)))
 
     def stop(self):
