@@ -227,7 +227,7 @@ jobs:
           echo "TEST: simple and log database"
           ./build/bin/taosBenchmark -t 1 -n 1 -y
           ./build/bin/taosdump -D test -a
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: complex columns"
           ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
@@ -236,44 +236,44 @@ jobs:
           ./build/bin/taosdump -D test -d null -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d null -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: whole db with snappy codec"
           ./build/bin/taosdump -D test -d snappy -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d snappy -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: whole db with deflate codec"
           ./build/bin/taosdump -D test -d deflate -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d deflate -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: whole db with lzma codec"
           ./build/bin/taosdump -D test -d lzma -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d lzma -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: whole db with unknown codec"
           ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: singal normal table with unknown codec"
           ./build/bin/taosdump test d0 -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: unknown codec"
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
       - name: taosdump time Test
         if:
@@ -284,11 +284,11 @@ jobs:
           cd TDengine/debug
           echo "TEST: epoch time and batch"
           ./build/bin/taosdump -D test -S 1500000000000 -E 1500000000004 -B 10 -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: human time"
           ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004' -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
       - name: taosdump normal table Test
         if:
@@ -302,7 +302,7 @@ jobs:
           ./build/bin/taosdump -D test -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: singla normal table"
           ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
@@ -310,7 +310,7 @@ jobs:
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
           taos -s "select count(tbname) from test.meters" | grep "1 row" || exit 1
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
       - name: taosdump escape char Test
         if:
@@ -323,7 +323,7 @@ jobs:
           ./build/bin/taosdump -n -D test > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -n -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: escaped tag"
           ./build/bin/taos -s "drop database test"
@@ -333,20 +333,20 @@ jobs:
           ./build/bin/taosdump -D test > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -n -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: -L loose_mode"
           ./build/bin/taosdump -L -D test > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -L -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
           echo "TEST: complex with larger binary"
           ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
       - name: taosdump old format data Test
         if:
@@ -359,7 +359,7 @@ jobs:
           ./build/bin/taos -s "drop database test"
           tar xvJf ../tools/taos-tools/example-data/example-data.tar.xz -C .
           ./build/bin/taosdump -i dump -gg
-          rm -rf *.sql *.avro* taosdump.*
+          rm -f *.sql *.avro*
 
       - name: Old Test cases
         if:
