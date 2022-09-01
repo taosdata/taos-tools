@@ -1550,7 +1550,6 @@ static int getTableRecordInfoImplNative(
         return 0;
     }
 
-    errorPrint("invalid table/stable %s\n", table);
     return -1;
 }
 
@@ -10774,24 +10773,33 @@ static int createDirForDbDump(SDbInfo *dbInfo) {
     return ret;
 }
 
-static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
-{
-    int64_t ret;
-    printf("Start to dump out database: %s\n", dbInfo->name);
-
-    if (0 != (ret = createDirForDbDump(dbInfo))) {
-        return ret;
+static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
+    if (0 != createDirForDbDump(dbInfo)) {
+        return NULL;
     }
-
-    fprintf(fp, "#!dumpdb: %s: %s\n\n", dbInfo->name, dbInfo->dirForDbDump);
 
     char dumpDbsSql[MAX_PATH_LEN] = {0};
     sprintf(dumpDbsSql, "%s/dbs.sql", dbInfo->dirForDbDump);
 
     FILE *fpDbs = fopen(dumpDbsSql, "w");
+
     if (NULL == fpDbs) {
         errorPrint("%s() LN%d, failed to open file %s\n",
                 __func__, __LINE__, dumpDbsSql);
+    }
+    return fpDbs;
+}
+
+static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
+{
+    int64_t ret;
+    printf("Start to dump out database: %s\n", dbInfo->name);
+
+    fprintf(fp, "#!dumpdb: %s: %s\n\n", dbInfo->name, dbInfo->dirForDbDump);
+
+    FILE *fpDbs = createDbsSqlPerDb(dbInfo);
+
+    if (NULL == fpDbs) {
         return -1;
     }
 
@@ -11562,6 +11570,7 @@ static int dumpOut() {
     TAOS     *taos       = NULL;
 
     FILE *fp = NULL;
+    FILE *fpDbs = NULL;
     int32_t dbCount = 0;
 
     if (false == checkOutDir(g_args.outpath)) {
@@ -11661,7 +11670,13 @@ static int dumpOut() {
                 g_totalDumpOutRows += records;
             }
         } else {
-            dumpCreateDbClause(g_dbInfos[0], g_args.with_property, fp);
+            fpDbs = createDbsSqlPerDb(g_dbInfos[0]);
+            if (fpDbs) {
+                dumpCreateDbClause(g_dbInfos[0], g_args.with_property, fpDbs);
+            } else {
+                fclose(fp);
+                return -1;
+            }
         }
 
         int superTblCnt = 0 ;
@@ -11695,7 +11710,7 @@ static int dumpOut() {
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
-                        fp);
+                        fpDbs);
                 if (ret >= 0) {
                     superTblCnt++;
                     ret = dumpNtbOfStbByThreads(g_dbInfos[0],
@@ -11710,7 +11725,7 @@ static int dumpOut() {
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
-                        fp);
+                        fpDbs);
                 if (ret >= 0) {
                     superTblCnt++;
                 } else {
@@ -11760,6 +11775,9 @@ _exit_failure:
     }
 #endif
     freeDbInfos();
+    if (fpDbs) {
+        fclose(fpDbs);
+    }
     fclose(fp);
     if (0 == ret) {
         okPrint("%" PRId64 " row(s) dumped out!\n",
