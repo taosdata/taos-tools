@@ -1456,7 +1456,9 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 if (pThreadInfo->conn == NULL) {
                     return -1;
                 }
-                if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                char command[SQL_BUFF_LEN];
+                sprintf(command, "use %s", database->dbName);
+                if (queryDbExec(pThreadInfo->conn, command)) {
                     tmfree(pids);
                     tmfree(infos);
                     errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
