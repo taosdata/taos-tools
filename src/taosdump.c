@@ -78,8 +78,11 @@ static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
 
 static char      g_escapeChar[2] = "`";
-char             g_client_info[32] = {0};
-int              g_majorVersionOfClient = 0;
+static char      g_client_info[32] = {0};
+static int       g_majorVersionOfClient = 0;
+
+static int      g_maxFilesPerDir = 100000;
+static uint64_t g_countOfDataFile = 0;
 
 static void print_json_aux(json_t *element, int indent);
 
@@ -254,6 +257,8 @@ typedef struct {
 #define STRICT_LEN      16
 #define DURATION_LEN    16
 #define KEEPLIST_LEN    48
+#define MAX_DIR_LEN     3808
+
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
     char     create_time[32];
@@ -283,21 +288,24 @@ typedef struct {
     int8_t   update;
     char     status[DB_STATUS_LEN];
     int64_t  dumpTbCount;
-    TableRecordInfo **dumpTbInfos;
+    uint64_t uniqueID;
+    char     dirForDbDump[MAX_DIR_LEN];
 } SDbInfo;
 
-enum enWHICH {
-    WHICH_AVRO_TBTAGS = 0,
-    WHICH_AVRO_NTB,
-    WHICH_AVRO_DATA,
-    WHICH_UNKNOWN,
-    WHICH_INVALID
+enum enAVROTYPE {
+    AVRO_TBTAGS = 0,
+    AVRO_NTB,
+    AVRO_DATA,
+    AVRO_UNKNOWN,
+    AVRO_INVALID
 };
+
+typedef enum enAVROTYPE AVROTYPE;
 
 typedef struct {
     pthread_t threadID;
     int32_t   threadIndex;
-    char      dbName[TSDB_DB_NAME_LEN];
+    SDbInfo   *dbInfo;
     char      stbName[TSDB_TABLE_NAME_LEN];
     int       precision;
     void      *taos;
@@ -309,7 +317,8 @@ typedef struct {
     int64_t   ntbFailed;
     int64_t   recSuccess;
     int64_t   recFailed;
-    enum enWHICH    which;
+    AVROTYPE  avroType;
+    char      dbPath[MAX_DIR_LEN];
 } threadInfo;
 
 typedef struct {
@@ -320,7 +329,7 @@ typedef struct {
 } resultStatistics;
 
 
-enum enAvro_Codec {
+enum AVRO_CODEC {
     AVRO_CODEC_START = 0,
     AVRO_CODEC_NULL = AVRO_CODEC_START,
     AVRO_CODEC_DEFLATE,
@@ -463,7 +472,7 @@ static struct argp_option options[] = {
 };
 
 #define HUMAN_TIME_LEN      28
-#define MAX_DIR_LEN         MAX_PATH_LEN - MAX_FILE_NAME_LEN - 32
+#define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {
@@ -472,9 +481,9 @@ typedef struct arguments {
     char    *user;
     char     password[SHELL_MAX_PASSWORD_LEN];
     uint16_t port;
-    // output file
-    char     outpath[MAX_DIR_LEN];
-    char     inpath[MAX_DIR_LEN];
+    // strlen(taosdump.) +1 is 10
+    char     outpath[DUMP_DIR_LEN];
+    char     inpath[DUMP_DIR_LEN];
     // result file
     char    *resultFile;
     // dump unit option
@@ -877,7 +886,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             if (full_path.we_wordv[0]) {
-                snprintf(g_args.outpath, MAX_DIR_LEN, "%s/",
+                snprintf(g_args.outpath, DUMP_DIR_LEN, "%s/",
                         full_path.we_wordv[0]);
                 wordfree(&full_path);
             } else {
@@ -899,7 +908,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
             if (full_path.we_wordv[0]) {
                 tstrncpy(g_args.inpath, full_path.we_wordv[0],
-                        MAX_DIR_LEN);
+                        DUMP_DIR_LEN);
                 wordfree(&full_path);
             } else {
                 errorPrintReqArg3("taosdump", "-i or --inpath");
@@ -1541,7 +1550,6 @@ static int getTableRecordInfoImplNative(
         return 0;
     }
 
-    errorPrint("invalid table/stable %s\n", table);
     return -1;
 }
 
@@ -3153,7 +3161,7 @@ static FILE* openDumpInFile(char *fptr) {
     return f;
 }
 
-static uint64_t getFilesNum(char *ext)
+static uint64_t getFilesNum(const char *dbPath, const char *ext)
 {
     uint64_t count = 0;
 
@@ -3165,7 +3173,7 @@ static uint64_t getFilesNum(char *ext)
 
     bool isSql = (0 == strcmp(ext, "sql"));
 
-    pDir = opendir(g_args.inpath);
+    pDir = opendir(dbPath);
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
             namelen = strlen (pDirent->d_name);
@@ -3189,30 +3197,30 @@ static uint64_t getFilesNum(char *ext)
     return count;
 }
 
-static void freeFileList(enum enWHICH which, int64_t count)
+static void freeFileList(AVROTYPE avroType, int64_t count)
 {
     char **fileList = NULL;
 
-    switch(which) {
-        case WHICH_AVRO_DATA:
+    switch(avroType) {
+        case AVRO_DATA:
             fileList = g_tsDumpInAvroFiles;
             break;
 
-        case WHICH_AVRO_TBTAGS:
+        case AVRO_TBTAGS:
             fileList = g_tsDumpInAvroTagsTbs;
             break;
 
-        case WHICH_AVRO_NTB:
+        case AVRO_NTB:
             fileList = g_tsDumpInAvroNtbs;
             break;
 
-        case WHICH_UNKNOWN:
+        case AVRO_UNKNOWN:
             fileList = g_tsDumpInDebugFiles;
             break;
 
         default:
             errorPrint("%s() LN%d input mistake list: %d\n",
-                    __func__, __LINE__, which);
+                    __func__, __LINE__, avroType);
             return;
     }
 
@@ -3222,23 +3230,23 @@ static void freeFileList(enum enWHICH which, int64_t count)
     tfree(fileList);
 }
 
-static enum enWHICH createDumpinList(char *ext, int64_t count)
+static AVROTYPE createDumpinList(const char *dbPath, const char *ext, int64_t count)
 {
-    enum enWHICH which = WHICH_INVALID;
+    AVROTYPE avroType = AVRO_INVALID;
     if (0 == strcmp(ext, "sql")) {
-        which = WHICH_UNKNOWN;
+        avroType = AVRO_UNKNOWN;
     } else if (0 == strncmp(ext, "avro-ntb",
                 strlen("avro-ntb"))) {
-        which = WHICH_AVRO_NTB;
+        avroType = AVRO_NTB;
     } else if (0 == strncmp(ext, "avro-tbtags",
                 strlen("avro-tbtags"))) {
-        which = WHICH_AVRO_TBTAGS;
+        avroType = AVRO_TBTAGS;
     } else if (0 == strncmp(ext, "avro", strlen("avro"))) {
-        which = WHICH_AVRO_DATA;
+        avroType = AVRO_DATA;
     }
 
-    switch (which) {
-        case WHICH_UNKNOWN:
+    switch (avroType) {
+        case AVRO_UNKNOWN:
             g_tsDumpInDebugFiles = (char **)calloc(count, sizeof(char *));
             ASSERT(g_tsDumpInDebugFiles);
 
@@ -3248,7 +3256,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
             }
             break;
 
-        case WHICH_AVRO_NTB:
+        case AVRO_NTB:
             g_tsDumpInAvroNtbs = (char **)calloc(count, sizeof(char *));
             ASSERT(g_tsDumpInAvroNtbs);
 
@@ -3258,7 +3266,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
             }
             break;
 
-        case WHICH_AVRO_TBTAGS:
+        case AVRO_TBTAGS:
             g_tsDumpInAvroTagsTbs = (char **)calloc(count, sizeof(char *));
             ASSERT(g_tsDumpInAvroTagsTbs);
 
@@ -3268,7 +3276,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
             }
             break;
 
-        case WHICH_AVRO_DATA:
+        case AVRO_DATA:
             g_tsDumpInAvroFiles = (char **)calloc(count, sizeof(char *));
             ASSERT(g_tsDumpInAvroFiles);
 
@@ -3280,8 +3288,8 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
 
         default:
             errorPrint("%s() LN%d input mistake list: %d\n",
-                    __func__, __LINE__, which);
-            return which;
+                    __func__, __LINE__, avroType);
+            return avroType;
     }
 
     int namelen, extlen;
@@ -3291,7 +3299,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
     extlen = strlen(ext);
 
     int64_t nCount = 0;
-    pDir = opendir(g_args.inpath);
+    pDir = opendir(dbPath);
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
             namelen = strlen (pDirent->d_name);
@@ -3299,8 +3307,8 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
             if (namelen > extlen) {
                 if (strcmp (ext, &(pDirent->d_name[namelen - extlen])) == 0) {
                     verbosePrint("%s found\n", pDirent->d_name);
-                    switch (which) {
-                        case WHICH_UNKNOWN:
+                    switch (avroType) {
+                        case AVRO_UNKNOWN:
                             if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
                                 continue;
                             }
@@ -3309,19 +3317,19 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
-                        case WHICH_AVRO_NTB:
+                        case AVRO_NTB:
                             tstrncpy(g_tsDumpInAvroNtbs[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
-                        case WHICH_AVRO_TBTAGS:
+                        case AVRO_TBTAGS:
                             tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
-                        case WHICH_AVRO_DATA:
+                        case AVRO_DATA:
                             tstrncpy(g_tsDumpInAvroFiles[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
@@ -3329,7 +3337,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
 
                         default:
                             errorPrint("%s() LN%d input mistake list: %d\n",
-                                    __func__, __LINE__, which);
+                                    __func__, __LINE__, avroType);
                             break;
 
                     }
@@ -3341,7 +3349,7 @@ static enum enWHICH createDumpinList(char *ext, int64_t count)
     }
 
     debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
-    return which;
+    return avroType;
 }
 
 static int convertTbDesToJsonImplMore(
@@ -6703,7 +6711,7 @@ static int64_t dumpInAvroDataImpl(
 }
 
 static RecordSchema *getSchemaAndReaderFromFile(
-        enum enWHICH which, char *avroFile,
+        AVROTYPE avroType, char *avroFile,
         avro_schema_t *schema,
         avro_file_reader_t *reader)
 {
@@ -6715,8 +6723,8 @@ static RecordSchema *getSchemaAndReaderFromFile(
     }
 
     int buf_len = 0;
-    switch (which) {
-        case WHICH_AVRO_TBTAGS:
+    switch (avroType) {
+        case AVRO_TBTAGS:
             buf_len = 17 + TSDB_DB_NAME_LEN               /* dbname section */
                     + 17                                /* type: record */
                     + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
@@ -6725,11 +6733,11 @@ static RecordSchema *getSchemaAndReaderFromFile(
                     + (TSDB_COL_NAME_LEN + 40) * TSDB_MAX_TAGS + 4;    /* fields section */
             break;
 
-        case WHICH_AVRO_DATA:
+        case AVRO_DATA:
             buf_len = TSDB_MAX_COLUMNS * (TSDB_COL_NAME_LEN + 11 + 16) + 4;
             break;
 
-        case WHICH_AVRO_NTB:
+        case AVRO_NTB:
             buf_len = 17 + TSDB_DB_NAME_LEN               /* dbname section */
                 + 17                                /* type: record */
                 + 11 + TSDB_TABLE_NAME_LEN          /* stbname section */
@@ -6738,7 +6746,7 @@ static RecordSchema *getSchemaAndReaderFromFile(
 
         default:
             errorPrint("%s() LN%d input mistake list: %d\n",
-                    __func__, __LINE__, which);
+                    __func__, __LINE__, avroType);
             return NULL;
     }
 
@@ -6788,12 +6796,13 @@ static RecordSchema *getSchemaAndReaderFromFile(
 }
 
 static int64_t dumpInOneAvroFile(
-        enum enWHICH which,
+        const char *dbPath,
+        const AVROTYPE avroType,
         char* fcharset,
         char *fileName)
 {
     char avroFile[MAX_PATH_LEN];
-    sprintf(avroFile, "%s/%s", g_args.inpath, fileName);
+    sprintf(avroFile, "%s/%s", dbPath, fileName);
 
     debugPrint("avroFile: %s\n", avroFile);
 
@@ -6801,7 +6810,7 @@ static int64_t dumpInOneAvroFile(
     avro_schema_t schema;
 
     RecordSchema *recordSchema = getSchemaAndReaderFromFile(
-            which, avroFile, &schema, &reader);
+            avroType, avroFile, &schema, &reader);
     if (NULL == recordSchema) {
         if (schema)
             avro_schema_decref(schema);
@@ -6841,8 +6850,8 @@ static int64_t dumpInOneAvroFile(
 #endif
 
     int64_t retExec = 0;
-    switch (which) {
-        case WHICH_AVRO_DATA:
+    switch (avroType) {
+        case AVRO_DATA:
             debugPrint("%s() LN%d will dump %s's data\n",
                     __func__, __LINE__, namespace);
             retExec = dumpInAvroDataImpl(taos_v,
@@ -6851,7 +6860,7 @@ static int64_t dumpInOneAvroFile(
                     fileName);
             break;
 
-        case WHICH_AVRO_TBTAGS:
+        case AVRO_TBTAGS:
             debugPrint("%s() LN%d will dump %s's normal table with tags\n",
                     __func__, __LINE__, namespace);
             retExec = dumpInAvroTbTagsImpl(
@@ -6862,7 +6871,7 @@ static int64_t dumpInOneAvroFile(
                     recordSchema);
             break;
 
-        case WHICH_AVRO_NTB:
+        case AVRO_NTB:
             debugPrint("%s() LN%d will dump %s's normal tables\n",
                     __func__, __LINE__, namespace);
             retExec = dumpInAvroNtbImpl(taos_v,
@@ -6872,7 +6881,7 @@ static int64_t dumpInOneAvroFile(
 
         default:
             errorPrint("%s() LN%d input mistake list: %d\n",
-                    __func__, __LINE__, which);
+                    __func__, __LINE__, avroType);
             retExec = -1;
     }
 
@@ -6903,22 +6912,22 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                     pThreadInfo->from);
 
     char **fileList = NULL;
-    switch(pThreadInfo->which) {
-        case WHICH_AVRO_DATA:
+    switch(pThreadInfo->avroType) {
+        case AVRO_DATA:
             fileList = g_tsDumpInAvroFiles;
             break;
 
-        case WHICH_AVRO_TBTAGS:
+        case AVRO_TBTAGS:
             fileList = g_tsDumpInAvroTagsTbs;
             break;
 
-        case WHICH_AVRO_NTB:
+        case AVRO_NTB:
             fileList = g_tsDumpInAvroNtbs;
             break;
 
         default:
             errorPrint("%s() LN%d input mistake list: %d\n",
-                    __func__, __LINE__, pThreadInfo->which);
+                    __func__, __LINE__, pThreadInfo->avroType);
             return NULL;
     }
 
@@ -6932,11 +6941,12 @@ static void* dumpInAvroWorkThreadFp(void *arg)
         }
 
         int64_t rows = dumpInOneAvroFile(
-                pThreadInfo->which,
+                pThreadInfo->dbPath,
+                pThreadInfo->avroType,
                 g_dumpInCharset,
                 fileList[pThreadInfo->from + i]);
-        switch (pThreadInfo->which) {
-            case WHICH_AVRO_DATA:
+        switch (pThreadInfo->avroType) {
+            case AVRO_DATA:
                 if (rows >= 0) {
                     atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
                     okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
@@ -6950,7 +6960,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                 }
                 break;
 
-            case WHICH_AVRO_TBTAGS:
+            case AVRO_TBTAGS:
                 if (rows >= 0) {
                     atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
                     okPrint("[%d] %"PRId64""
@@ -6966,7 +6976,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                 }
                 break;
 
-            case WHICH_AVRO_NTB:
+            case AVRO_NTB:
                 if (rows >= 0) {
                     atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
                     okPrint("[%d] %"PRId64""
@@ -6984,7 +6994,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
             default:
                 errorPrint("%s() LN%d input mistake list: %d\n",
-                        __func__, __LINE__, pThreadInfo->which);
+                        __func__, __LINE__, pThreadInfo->avroType);
                 return NULL;
         }
 
@@ -7003,12 +7013,12 @@ static void* dumpInAvroWorkThreadFp(void *arg)
     return NULL;
 }
 
-static int dumpInAvroWorkThreads(char *whichExt)
+static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt)
 {
-    int64_t fileCount = getFilesNum(whichExt);
+    int64_t fileCount = getFilesNum(dbPath, typeExt);
 
     if (0 == fileCount) {
-        debugPrint("No .%s file found in %s\n", whichExt, g_args.inpath);
+        debugPrint("No .%s file found in %s\n", typeExt, dbPath);
         return 0;
     }
 
@@ -7025,9 +7035,9 @@ static int dumpInAvroWorkThreads(char *whichExt)
         b = fileCount % threads;
     }
 
-    enum enWHICH which = createDumpinList(whichExt, fileCount);
+    AVROTYPE avroType = createDumpinList(dbPath, typeExt, fileCount);
 
-    threadInfo *pThread;
+    threadInfo *pThreadInfo;
 
     pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
     threadInfo *infos = (threadInfo *)calloc(
@@ -7038,21 +7048,23 @@ static int dumpInAvroWorkThreads(char *whichExt)
     int64_t from = 0;
 
     for (int32_t t = 0; t < threads; ++t) {
-        pThread = infos + t;
-        pThread->threadIndex = t;
-        pThread->which = which;
+        pThreadInfo = infos + t;
+        pThreadInfo->threadIndex = t;
+        pThreadInfo->avroType = avroType;
 
-        pThread->from = from;
-        pThread->count = t<b?a+1:a;
-        from += pThread->count;
+        pThreadInfo->from = from;
+        pThreadInfo->count = t<b?a+1:a;
+        from += pThreadInfo->count;
         verbosePrint(
-                "Thread[%d] takes care avro files total %"PRId64" files from %"PRId64"\n",
-                t, pThread->count, pThread->from);
+                "Thread[%d] takes care avro files total %"PRId64" files "
+                "from %"PRId64"\n",
+                t, pThreadInfo->count, pThreadInfo->from);
+        strcpy(pThreadInfo->dbPath, dbPath);
 
         if (pthread_create(pids + t, NULL,
-                    dumpInAvroWorkThreadFp, (void*)pThread) != 0) {
+                    dumpInAvroWorkThreadFp, (void*)pThreadInfo) != 0) {
             errorPrint("%s() LN%d, thread[%d] failed to start\n",
-                    __func__, __LINE__, pThread->threadIndex);
+                    __func__, __LINE__, pThreadInfo->threadIndex);
             exit(EXIT_FAILURE);
         }
     }
@@ -7064,9 +7076,38 @@ static int dumpInAvroWorkThreads(char *whichExt)
     free(infos);
     free(pids);
 
-    freeFileList(which, fileCount);
+    freeFileList(avroType, fileCount);
 
     return 0;
+}
+
+static int dumpInAvroWorkThreadsSub(const char *dbPath, const char *typeExt)
+{
+    int ret = 0;
+
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    pDir = opendir(dbPath);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            if (strncmp ("data", pDirent->d_name, strlen("data"))
+                    == 0) {
+                char dataPath[MAX_PATH_LEN] = {0};
+                sprintf(dataPath, "%s/%s", dbPath, pDirent->d_name);
+                debugPrint("%s() LN%d, will dump from %s\n",
+                        __func__, __LINE__, dataPath);
+                ret = dumpInAvroWorkThreads(dataPath, typeExt);
+            }
+        }
+        closedir (pDir);
+    } else {
+        errorPrint("opendir(%s)\n", g_args.inpath);
+        ret = -1;
+    }
+
+    return ret;
 }
 
 static int processResultValue(
@@ -7511,60 +7552,135 @@ static int64_t dumpTableDataAvroNative(
     return totalRows;
 }
 
-void generateFilename(enum enWHICH which, char *fileName,
-        const char *dbName, const char *tbName, const int64_t index) {
+static int generateSubDirName(
+        const AVROTYPE avroType,
+        const SDbInfo *dbInfo, char *subDirName) {
+
+    switch(avroType) {
+        case AVRO_DATA:
+        case AVRO_UNKNOWN:
+            sprintf(subDirName, "data%"PRIu64"",
+                    (g_countOfDataFile / g_maxFilesPerDir));
+            atomic_add_fetch_64(&g_countOfDataFile, 1);
+            break;
+
+        default:
+            break;
+    }
+
+    char dirToCreate[MAX_PATH_LEN] = {0};
+    if (g_args.loose_mode) {
+        sprintf(dirToCreate, "%staosdump.%s/%s",
+                g_args.outpath, dbInfo->name, subDirName);
+    } else {
+        sprintf(dirToCreate, "%staosdump.%"PRIu64"/%s",
+                g_args.outpath, dbInfo->uniqueID, subDirName);
+    }
+
+    int ret = 0;
+
+    DIR* dir = opendir(dirToCreate);
+    if (dir) {
+        /* Directory exists. */
+        closedir(dir);
+    } else if (ENOENT == errno) {
+        /* Directory does not exist. */
+        ret = mkdir(dirToCreate, 0755);
+    } else {
+        /* opendir() failed for some other reason. */
+        ret = errno;
+        errorPrint("%s() LN%d, opendir(%s) no: %d, reason: %s\n",
+                __func__, __LINE__, dirToCreate, ret, strerror(ret));
+    }
+
+    return ret;
+}
+
+void generateFilename(AVROTYPE avroType, char *fileName,
+        const SDbInfo *dbInfo, const char *tbName, const int64_t index) {
 
     if (g_args.loose_mode) {
-        switch(which) {
-            case WHICH_AVRO_TBTAGS:
-                sprintf(fileName, "%s%s.%s.%"PRId64".avro-tbtags",
-                        g_args.outpath, dbName, tbName, index);
+        switch(avroType) {
+            case AVRO_TBTAGS:
+                sprintf(fileName, "%staosdump.%s/%s.%s.%"PRId64".avro-tbtags",
+                        g_args.outpath, dbInfo->name, dbInfo->name, tbName, index);
                 break;
 
-            case WHICH_AVRO_NTB:
-                sprintf(fileName, "%s%s.%s.avro-ntb",
-                        g_args.outpath, dbName, tbName);
+            case AVRO_NTB:
+                sprintf(fileName, "%staosdump.%s/%s.%s.avro-ntb",
+                        g_args.outpath, dbInfo->name, dbInfo->name, tbName);
                 break;
 
-            case WHICH_AVRO_DATA:
-                sprintf(fileName, "%s%s.%s.%"PRId64".avro",
-                        g_args.outpath, dbName,
-                        tbName,
-                        index);
+            case AVRO_DATA:
+                {
+                    char subDirName[MAX_DIR_LEN] = {0};
+                    generateSubDirName(avroType, dbInfo, subDirName);
+
+                    sprintf(fileName, "%staosdump.%s/%s/%s.%s.%"PRId64".avro",
+                            g_args.outpath, dbInfo->name,
+                            subDirName,
+                            dbInfo->name,
+                            tbName,
+                            index);
+                }
                 break;
 
-            case WHICH_UNKNOWN:
-                sprintf(fileName, "%s%s.%s.%"PRId64".sql",
-                        g_args.outpath, dbName, tbName, index);
+            case AVRO_UNKNOWN:
+                {
+                    char subDirName[MAX_DIR_LEN] = {0};
+                    generateSubDirName(avroType, dbInfo, subDirName);
+
+                    sprintf(fileName, "%staosdump.%s/%s/%s.%s.%"PRId64".sql",
+                            g_args.outpath, dbInfo->name,
+                            subDirName,
+                            dbInfo->name, tbName, index);
+                }
                 break;
 
             default:
                 break;
         }
     } else {
-        switch(which) {
-            case WHICH_AVRO_TBTAGS:
-                sprintf(fileName, "%s%s.%"PRIu64".avro-tbtags",
-                        g_args.outpath, dbName,
+        switch(avroType) {
+            case AVRO_TBTAGS:
+                sprintf(fileName, "%staosdump.%"PRIu64"/%s.%"PRIu64".avro-tbtags",
+                        g_args.outpath, dbInfo->uniqueID, dbInfo->name,
                         getUniqueIDFromEpoch());
                 break;
 
-            case WHICH_AVRO_NTB:
-                sprintf(fileName, "%s%s.%"PRIu64".avro-ntb",
-                        g_args.outpath, dbName,
+            case AVRO_NTB:
+                sprintf(fileName, "%staosdump.%"PRIu64"/%s.%"PRIu64".avro-ntb",
+                        g_args.outpath, dbInfo->uniqueID, dbInfo->name,
                         getUniqueIDFromEpoch());
                 break;
 
-            case WHICH_AVRO_DATA:
-                sprintf(fileName, "%s%s.%"PRIu64".%"PRId64".avro",
-                        g_args.outpath, dbName,
-                        getUniqueIDFromEpoch(),
-                        index);
+            case AVRO_DATA:
+                {
+                    char subDirName[MAX_DIR_LEN] = {0};
+                    generateSubDirName(avroType, dbInfo, subDirName);
+
+                    sprintf(fileName,
+                            "%staosdump.%"PRIu64"/%s/%s.%"PRIu64".%"PRId64".avro",
+                            g_args.outpath, dbInfo->uniqueID,
+                            subDirName,
+                            dbInfo->name,
+                            getUniqueIDFromEpoch(),
+                            index);
+                }
                 break;
 
-            case WHICH_UNKNOWN:
-                sprintf(fileName, "%s%s.%s.%"PRId64".sql",
-                        g_args.outpath, dbName, tbName, index);
+            case AVRO_UNKNOWN:
+                {
+                    char subDirName[30] = {0};
+                    generateSubDirName(avroType, dbInfo, subDirName);
+
+                    sprintf(fileName,
+                            "%staosdump.%"PRIu64"/%s/%s.%s.%"PRId64".sql",
+                            g_args.outpath, dbInfo->uniqueID,
+                            subDirName,
+                            dbInfo->name,
+                            tbName, index);
+                }
                 break;
 
             default:
@@ -7577,14 +7693,14 @@ static int64_t dumpTableDataAvro(
         const int64_t index,
         const char *tbName,
         const bool belongStb,
-        const char* dbName,
+        const SDbInfo *dbInfo,
         const int precision,
         const int colCount,
         TableDef *tableDes
         ) {
 
     char dataFilename[MAX_PATH_LEN] = {0};
-    generateFilename(WHICH_AVRO_DATA, dataFilename, dbName, tbName, index);
+    generateFilename(AVRO_DATA, dataFilename, dbInfo, tbName, index);
 
     int64_t rows;
 
@@ -7597,12 +7713,12 @@ static int64_t dumpTableDataAvro(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         rows = dumpTableDataAvroWS(dataFilename, index, tbName,
-                belongStb, dbName, precision, colCount, tableDes,
+                belongStb, dbInfo->name, precision, colCount, tableDes,
                 start_time, end_time);
     } else {
 #endif
         rows = dumpTableDataAvroNative(dataFilename, index, tbName,
-                belongStb, dbName, precision, colCount, tableDes,
+                belongStb, dbInfo->name, precision, colCount, tableDes,
                 start_time, end_time);
 #ifdef WEBSOCKET
     }
@@ -7683,7 +7799,7 @@ static int64_t dumpTableData(
         const int64_t index,
         FILE *fp,
         const char *tbName,
-        const char* dbName,
+        const SDbInfo* dbInfo,
         const int precision,
         TableDef *tableDes
         ) {
@@ -7698,11 +7814,11 @@ static int64_t dumpTableData(
     int64_t rows;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        rows = dumpTableDataWS(index, fp, tbName, dbName,
+        rows = dumpTableDataWS(index, fp, tbName, dbInfo->name,
                 precision, tableDes, start_time, end_time);
     } else {
 #endif
-        rows = dumpTableDataNative(index, fp, tbName, dbName,
+        rows = dumpTableDataNative(index, fp, tbName, dbInfo->name,
                 precision, tableDes, start_time, end_time);
 #ifdef WEBSOCKET
     }
@@ -7713,7 +7829,7 @@ static int64_t dumpTableData(
 static int64_t dumpNormalTable(
         const int64_t index,
         void *taos,
-        const char *dbName,
+        const SDbInfo *dbInfo,
         const bool belongStb,
         const char *stable,
         const char *tbName,
@@ -7735,15 +7851,18 @@ static int64_t dumpNormalTable(
             tableDes = (TableDef *)calloc(1, sizeof(TableDef)
                     + sizeof(ColDes) * TSDB_MAX_COLUMNS);
             if (NULL == tableDes) {
-                errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+                errorPrint("%s() LN%d, memory allocation failed!\n",
+                        __func__, __LINE__);
                 return -1;
             }
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
-                numColsAndTags = getTableDesWS(taos, dbName, tbName, tableDes, false);
+                numColsAndTags = getTableDesWS(taos,
+                        dbInfo->name, tbName, tableDes, false);
             } else {
 #endif
-                numColsAndTags = getTableDesNative(taos, dbName, tbName, tableDes, false);
+                numColsAndTags = getTableDesNative(taos,
+                        dbInfo->name, tbName, tableDes, false);
 #ifdef WEBSOCKET
             }
 #endif
@@ -7757,7 +7876,8 @@ static int64_t dumpNormalTable(
                 return -1;
             }
 
-            dumpCreateMTableClause(dbName, stable, tableDes, numColsAndTags, fp);
+            dumpCreateMTableClause(dbInfo->name,
+                    stable, tableDes, numColsAndTags, fp);
         }
     } else {  // dump table definition
         tableDes = (TableDef *)calloc(1, sizeof(TableDef)
@@ -7768,10 +7888,12 @@ static int64_t dumpNormalTable(
         }
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            numColsAndTags = getTableDesWS(taos, dbName, tbName, tableDes, false);
+            numColsAndTags = getTableDesWS(taos,
+                    dbInfo->name, tbName, tableDes, false);
         } else {
 #endif
-            numColsAndTags = getTableDesNative(taos, dbName, tbName, tableDes, false);
+            numColsAndTags = getTableDesNative(taos,
+                    dbInfo->name, tbName, tableDes, false);
 #ifdef WEBSOCKET
         }
 #endif
@@ -7788,19 +7910,19 @@ static int64_t dumpNormalTable(
         // create normal-table
         if (g_args.avro) {
             if (belongStb) {
-                generateFilename(WHICH_AVRO_TBTAGS,
+                generateFilename(AVRO_TBTAGS,
                         dumpFilename,
-                        dbName, tbName, 0);
+                        dbInfo, tbName, 0);
                 debugPrint("%s() LN%d dumpFilename: %s\n",
                         __func__, __LINE__, dumpFilename);
             } else {
-                generateFilename(WHICH_AVRO_NTB,
-                        dumpFilename, dbName, tbName, 0);
+                generateFilename(AVRO_NTB,
+                        dumpFilename, dbInfo, tbName, 0);
             }
             dumpCreateTableClauseAvro(
-                    dumpFilename, tableDes, numColsAndTags, dbName);
+                    dumpFilename, tableDes, numColsAndTags, dbInfo->name);
         } else {
-            dumpCreateTableClause(tableDes, numColsAndTags, fp, dbName);
+            dumpCreateTableClause(tableDes, numColsAndTags, fp, dbInfo->name);
         }
     }
 
@@ -7811,18 +7933,19 @@ static int64_t dumpNormalTable(
                 tableDes = (TableDef *)calloc(1, sizeof(TableDef)
                         + sizeof(ColDes) * TSDB_MAX_COLUMNS);
                 if (NULL == tableDes) {
-                    errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+                    errorPrint("%s() LN%d, memory allocation failed!\n",
+                            __func__, __LINE__);
                     return 0;
                 }
 #ifdef WEBSOCKET
                 if (g_args.cloud || g_args.restful) {
                     numColsAndTags = getTableDesWS(
-                            taos, dbName, tbName, tableDes, false);
+                            taos, dbInfo->name, tbName, tableDes, false);
 
                 } else {
 #endif
                     numColsAndTags = getTableDesNative(
-                            taos, dbName, tbName, tableDes, false);
+                            taos, dbInfo->name, tbName, tableDes, false);
 #ifdef WEBSOCKET
                 }
 #endif
@@ -7832,13 +7955,13 @@ static int64_t dumpNormalTable(
                     index,
                     tbName,
                     belongStb,
-                    dbName, precision,
+                    dbInfo, precision,
                     numColsAndTags, tableDes);
         } else {
             totalRows = dumpTableData(
                     index,
                     fp, tbName,
-                    dbName, precision,
+                    dbInfo, precision,
                     tableDes);
         }
     }
@@ -7862,12 +7985,12 @@ static int64_t dumpNormalTableWithoutStb(
                     __func__, __LINE__);
             return -1;
         }
-        generateFilename(WHICH_AVRO_NTB,
-                dumpFilename, dbInfo->name, ntbName, index);
+        generateFilename(AVRO_NTB,
+                dumpFilename, dbInfo, ntbName, index);
         count = dumpNormalTable(
                 index,
                 taos,
-                dbInfo->name,
+                dbInfo,
                 false,
                 NULL,
                 ntbName,
@@ -7875,8 +7998,8 @@ static int64_t dumpNormalTableWithoutStb(
                 dumpFilename,
                 NULL);
     } else {
-        generateFilename(WHICH_UNKNOWN,
-                dumpFilename, dbInfo->name, ntbName, 0);
+        generateFilename(AVRO_UNKNOWN,
+                dumpFilename, dbInfo, ntbName, 0);
 
         fp = fopen(dumpFilename, "w");
         if (fp == NULL) {
@@ -7893,7 +8016,7 @@ static int64_t dumpNormalTableWithoutStb(
         count = dumpNormalTable(
                 index,
                 taos,
-                dbInfo->name,
+                dbInfo,
                 false,
                 NULL,
                 ntbName,
@@ -8516,7 +8639,7 @@ static int createMTableAvroHead(
             dumpFilename,
             jsonTagsSchema, &schema, &recordSchema, &db);
 
-    char command[COMMAND_SIZE];
+    char command[COMMAND_SIZE] = {0};
 
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) FROM %s.%s%s%s)",
@@ -8543,6 +8666,11 @@ static int createMTableAvroHead(
 
     if (0 == preCount) {
         printf("Zero normal table need be dumped\n");
+
+        avro_value_iface_decref(wface);
+        freeRecordSchema(recordSchema);
+        avro_file_writer_close(db);
+        avro_schema_decref(schema);
         tfree(jsonTagsSchema);
         freeTbDes(tableDes);
         return 0;
@@ -8555,6 +8683,10 @@ static int createMTableAvroHead(
     char *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
     if (NULL == tbNameArr) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        avro_value_iface_decref(wface);
+        freeRecordSchema(recordSchema);
+        avro_file_writer_close(db);
+        avro_schema_decref(schema);
         tfree(jsonTagsSchema);
         freeTbDes(tableDes);
         return -1;
@@ -8596,6 +8728,10 @@ static int createMTableAvroHead(
 
     if (ntbCount < 0) {
         free(tbNameArr);
+        avro_value_iface_decref(wface);
+        freeRecordSchema(recordSchema);
+        avro_file_writer_close(db);
+        avro_schema_decref(schema);
         tfree(jsonTagsSchema);
         freeTbDes(tableDes);
         return -1;
@@ -8652,8 +8788,8 @@ static int64_t dumpNormalTableBelongStb(
     FILE *fp = NULL;
 
     if (g_args.avro) {
-        generateFilename(WHICH_AVRO_TBTAGS,
-                dumpFilename, dbInfo->name, stbName, 0);
+        generateFilename(AVRO_TBTAGS,
+                dumpFilename, dbInfo, stbName, 0);
         debugPrint("%s() LN%d dumpFilename: %s\n",
                 __func__, __LINE__, dumpFilename);
 
@@ -8669,7 +8805,7 @@ static int64_t dumpNormalTableBelongStb(
             return -1;
         }
     } else {
-        generateFilename(WHICH_UNKNOWN, dumpFilename, dbInfo->name, ntbName, 0);
+        generateFilename(AVRO_UNKNOWN, dumpFilename, dbInfo, ntbName, 0);
         fp = fopen(dumpFilename, "w");
 
         if (fp == NULL) {
@@ -8689,7 +8825,7 @@ static int64_t dumpNormalTableBelongStb(
     count = dumpNormalTable(
             index,
             taos,
-            dbInfo->name,
+            dbInfo,
             true,
             stbName,
             ntbName,
@@ -8723,8 +8859,8 @@ static void *dumpNtbOfDb(void *arg) {
     char dumpFilename[MAX_PATH_LEN] = {0};
 
     if (!g_args.avro) {
-        generateFilename(WHICH_UNKNOWN, dumpFilename,
-                pThreadInfo->dbName,
+        generateFilename(AVRO_UNKNOWN, dumpFilename,
+                pThreadInfo->dbInfo,
                 "ntb", pThreadInfo->threadIndex);
 
         fp = fopen(dumpFilename, "w");
@@ -8765,7 +8901,7 @@ static void *dumpNtbOfDb(void *arg) {
             count = dumpNormalTable(
                     pThreadInfo->from+i,
                     pThreadInfo->taos,
-                    pThreadInfo->dbName,
+                    pThreadInfo->dbInfo,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->belongStb,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->stable,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
@@ -8781,7 +8917,7 @@ static void *dumpNtbOfDb(void *arg) {
             count = dumpNormalTable(
                     pThreadInfo->from+i,
                     pThreadInfo->taos,
-                    pThreadInfo->dbName,
+                    pThreadInfo->dbInfo,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->belongStb,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->stable,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
@@ -9401,38 +9537,40 @@ static int64_t dumpInOneDebugFile(
 
 static void* dumpInDebugWorkThreadFp(void *arg)
 {
-    threadInfo *pThread = (threadInfo*)arg;
+    threadInfo *pThreadInfo = (threadInfo*)arg;
     SET_THREAD_NAME("dumpInDebugWorkThrd");
     debugPrint2("[%d] Start to process %"PRId64" files from %"PRId64"\n",
-                    pThread->threadIndex, pThread->count, pThread->from);
+                    pThreadInfo->threadIndex,
+                    pThreadInfo->count,
+                    pThreadInfo->from);
 
-    for (int64_t i = 0; i < pThread->count; i++) {
+    for (int64_t i = 0; i < pThreadInfo->count; i++) {
         char sqlFile[MAX_PATH_LEN];
-        sprintf(sqlFile, "%s/%s", g_args.inpath,
-                g_tsDumpInDebugFiles[pThread->from + i]);
+        sprintf(sqlFile, "%s/%s", pThreadInfo->dbPath,
+                g_tsDumpInDebugFiles[pThreadInfo->from + i]);
 
         FILE* fp = openDumpInFile(sqlFile);
         if (NULL == fp) {
             errorPrint("[%d] Failed to open input file: %s\n",
-                    pThread->threadIndex, sqlFile);
+                    pThreadInfo->threadIndex, sqlFile);
             continue;
         }
 
         int64_t rows;
         rows = dumpInOneDebugFile(
-                pThread->taos, fp, g_dumpInCharset,
+                pThreadInfo->taos, fp, g_dumpInCharset,
                 sqlFile);
 
         if (rows > 0) {
-            atomic_add_fetch_64(&pThread->recSuccess, rows);
+            atomic_add_fetch_64(&pThreadInfo->recSuccess, rows);
             okPrint("[%d] Total %"PRId64" line(s) "
                     "command be successfully dumped in file: %s\n",
-                    pThread->threadIndex, rows, sqlFile);
+                    pThreadInfo->threadIndex, rows, sqlFile);
         } else if (rows < 0) {
-            atomic_add_fetch_64(&pThread->recFailed, rows);
+            atomic_add_fetch_64(&pThreadInfo->recFailed, rows);
             errorPrint("[%d] Total %"PRId64" line(s) "
                     "command failed to dump in file: %s\n",
-                    pThread->threadIndex, rows, sqlFile);
+                    pThreadInfo->threadIndex, rows, sqlFile);
         }
         fclose(fp);
     }
@@ -9440,18 +9578,18 @@ static void* dumpInDebugWorkThreadFp(void *arg)
     return NULL;
 }
 
-static int dumpInDebugWorkThreads()
+static int dumpInDebugWorkThreads(const char *dbPath)
 {
     int ret = 0;
     int32_t threads = g_args.thread_num;
 
-    uint64_t sqlFileCount = getFilesNum("sql");
+    uint64_t sqlFileCount = getFilesNum(dbPath, "sql");
     if (0 == sqlFileCount) {
-        debugPrint("No .sql file found in %s\n", g_args.inpath);
+        debugPrint("No .sql file found in %s\n", dbPath);
         return 0;
     }
 
-    enum enWHICH which = createDumpinList("sql", sqlFileCount);
+    AVROTYPE avroType = createDumpinList(dbPath, "sql", sqlFileCount);
 
     threadInfo *pThread;
 
@@ -9477,7 +9615,7 @@ static int dumpInDebugWorkThreads()
     for (int32_t t = 0; t < threads; ++t) {
         pThread = infos + t;
         pThread->threadIndex = t;
-        pThread->which = which;
+        pThread->avroType = avroType;
 
         pThread->stbSuccess = 0;
         pThread->stbFailed = 0;
@@ -9490,7 +9628,8 @@ static int dumpInDebugWorkThreads()
         pThread->count = t<b?a+1:a;
         from += pThread->count;
         verbosePrint(
-                "Thread[%d] takes care sql files total %"PRId64" files from %"PRId64"\n",
+                "Thread[%d] takes care sql files total %"PRId64" files"
+                " from %"PRId64"\n",
                 t, pThread->count, pThread->from);
 
 #ifdef WEBSOCKET
@@ -9507,10 +9646,12 @@ static int dumpInDebugWorkThreads()
             }
         } else {
 #endif // WEBSOCKET
-            pThread->taos = taos_connect(g_args.host, g_args.user, g_args.password,
+            pThread->taos = taos_connect(
+                    g_args.host, g_args.user, g_args.password,
                     NULL, g_args.port);
             if (pThread->taos == NULL) {
-                errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+                errorPrint("Failed to connect to TDengine server %s\n",
+                        g_args.host);
                 free(infos);
                 free(pids);
                 return -1;
@@ -9543,12 +9684,12 @@ static int dumpInDebugWorkThreads()
     free(infos);
     free(pids);
 
-    freeFileList(which, sqlFileCount);
+    freeFileList(avroType, sqlFileCount);
 
     return ret;
 }
 
-static int dumpInDbs()
+static int dumpInDbs(const char *dbPath)
 {
     TAOS *taos = NULL;
 #ifdef WEBSOCKET
@@ -9580,7 +9721,7 @@ static int dumpInDbs()
     }
 #endif
     char dbsSql[MAX_PATH_LEN];
-    sprintf(dbsSql, "%s/%s", g_args.inpath, "dbs.sql");
+    sprintf(dbsSql, "%s/%s", dbPath, "dbs.sql");
 
     FILE *fp = openDumpInFile(dbsSql);
     if (NULL == fp) {
@@ -9656,27 +9797,56 @@ static int dumpInDbs()
     return (rows < 0)?rows:0;
 }
 
-static int dumpIn() {
-    ASSERT(g_args.isDumpIn);
-
+static int dumpInWithDbPath(const char *dbPath) {
     int ret = 0;
-    if (dumpInDbs()) {
+    if (dumpInDbs(dbPath)) {
         errorPrint("%s", "Failed to dump database(s) in!\n");
         exit(EXIT_FAILURE);
     }
 
     if (g_args.avro) {
-        ret = dumpInAvroWorkThreads("avro-tbtags");
+        ret = dumpInAvroWorkThreads(dbPath, "avro-tbtags");
 
         if (0 == ret) {
-            ret = dumpInAvroWorkThreads("avro-ntb");
+            ret = dumpInAvroWorkThreads(dbPath, "avro-ntb");
 
             if (0 == ret) {
-                ret = dumpInAvroWorkThreads("avro");
+                ret = dumpInAvroWorkThreads(dbPath, "avro");
+                ret = dumpInAvroWorkThreadsSub(dbPath, "avro");
             }
         }
     } else {
-        ret = dumpInDebugWorkThreads();
+        ret = dumpInDebugWorkThreads(dbPath);
+    }
+
+    return ret;
+}
+
+static int dumpIn() {
+    ASSERT(g_args.isDumpIn);
+
+    int ret = 0;
+    ret = dumpInWithDbPath(g_args.inpath);
+
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    pDir = opendir(g_args.inpath);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            if (strncmp ("taosdump.", pDirent->d_name, strlen("taosdump."))
+                    == 0) {
+                char dbPath[MAX_PATH_LEN] = {0};
+                sprintf(dbPath, "%s/%s", g_args.inpath, pDirent->d_name);
+                debugPrint("%s() LN%d, will dump from %s\n",
+                        __func__, __LINE__, dbPath);
+                ret = dumpInWithDbPath(dbPath);
+            }
+        }
+        closedir (pDir);
+    } else {
+        errorPrint("opendir(%s)\n", g_args.inpath);
     }
 
     return ret;
@@ -9742,7 +9912,7 @@ static void dumpNormalTablesOfStbWS(
                 count = dumpNormalTable(
                         i,
                         pThreadInfo->taos,
-                        pThreadInfo->dbName,
+                        pThreadInfo->dbInfo,
                         true,
                         pThreadInfo->stbName,
                         tbName,
@@ -9753,7 +9923,7 @@ static void dumpNormalTablesOfStbWS(
                 count = dumpNormalTable(
                         i,
                         pThreadInfo->taos,
-                        pThreadInfo->dbName,
+                        pThreadInfo->dbInfo,
                         true,
                         pThreadInfo->stbName,
                         tbName,
@@ -9811,7 +9981,7 @@ static void dumpNormalTablesOfStbNative(
             count = dumpNormalTable(
                     i,
                     pThreadInfo->taos,
-                    pThreadInfo->dbName,
+                    pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
                     tbName,
@@ -9822,7 +9992,7 @@ static void dumpNormalTablesOfStbNative(
             count = dumpNormalTable(
                     i,
                     pThreadInfo->taos,
-                    pThreadInfo->dbName,
+                    pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
                     tbName,
@@ -9851,14 +10021,14 @@ static void *dumpNormalTablesOfStb(void *arg) {
     char dumpFilename[MAX_PATH_LEN] = {0};
 
     if (g_args.avro) {
-        generateFilename(WHICH_AVRO_TBTAGS, dumpFilename, 
-                pThreadInfo->dbName, pThreadInfo->stbName,
+        generateFilename(AVRO_TBTAGS, dumpFilename,
+                pThreadInfo->dbInfo, pThreadInfo->stbName,
                 pThreadInfo->threadIndex);
         debugPrint("%s() LN%d dumpFilename: %s\n",
                 __func__, __LINE__, dumpFilename);
     } else {
-        generateFilename(WHICH_UNKNOWN, dumpFilename,
-                pThreadInfo->dbName, pThreadInfo->stbName,
+        generateFilename(AVRO_UNKNOWN, dumpFilename,
+                pThreadInfo->dbInfo, pThreadInfo->stbName,
                 pThreadInfo->threadIndex);
     }
 
@@ -9866,7 +10036,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
         int ret = createMTableAvroHead(
                 pThreadInfo->taos,
                 dumpFilename,
-                pThreadInfo->dbName,
+                pThreadInfo->dbInfo->name,
                 pThreadInfo->stbName,
                 pThreadInfo->count,
                 pThreadInfo->from);
@@ -9889,17 +10059,17 @@ static void *dumpNormalTablesOfStb(void *arg) {
     if (3 == g_majorVersionOfClient) {
         if (-1 == pThreadInfo->count) {
             sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
-                    pThreadInfo->dbName,
+                    pThreadInfo->dbInfo->name,
                     g_escapeChar, pThreadInfo->stbName, g_escapeChar);
         } else {
             sprintf(command, "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                    pThreadInfo->dbName,
+                    pThreadInfo->dbInfo->name,
                     g_escapeChar, pThreadInfo->stbName, g_escapeChar,
                     pThreadInfo->count, pThreadInfo->from);
         }
     } else {
         sprintf(command, "SELECT TBNAME FROM %s.%s%s%s LIMIT %"PRId64" OFFSET %"PRId64"",
-                pThreadInfo->dbName,
+                pThreadInfo->dbInfo->name,
                 g_escapeChar, pThreadInfo->stbName, g_escapeChar,
                 pThreadInfo->count, pThreadInfo->from);
     }
@@ -9992,7 +10162,7 @@ static int64_t dumpNtbOfDbByThreads(
         pThreadInfo->from = (i==0)?0:
             ((threadInfo *)(infos + i - 1))->from +
             ((threadInfo *)(infos + i - 1))->count;
-        strcpy(pThreadInfo->dbName, dbInfo->name);
+        pThreadInfo->dbInfo = dbInfo;
         pThreadInfo->precision = getPrecisionByString(dbInfo->precision);
 
         pthread_create(pids + i, NULL, dumpNtbOfDb, pThreadInfo);
@@ -10007,7 +10177,7 @@ static int64_t dumpNtbOfDbByThreads(
         taos_close(pThreadInfo->taos);
     }
 
-    g_resultStatistics.totalChildTblsOfDumpOut += ntbCount;
+    atomic_add_fetch_64(&g_resultStatistics.totalChildTblsOfDumpOut, ntbCount);
 
     free(pids);
     free(infos);
@@ -10363,7 +10533,7 @@ static int64_t dumpNtbOfStbByThreads(
         pThreadInfo->from = (i==0)?0:
             ((threadInfo *)(infos + i - 1))->from +
             ((threadInfo *)(infos + i - 1))->count;
-        strcpy(pThreadInfo->dbName, dbInfo->name);
+        pThreadInfo->dbInfo = dbInfo;
         pThreadInfo->precision = getPrecisionByString(dbInfo->precision);
 
         strcpy(pThreadInfo->stbName, stbName);
@@ -10387,7 +10557,7 @@ static int64_t dumpNtbOfStbByThreads(
 
 static int dumpTbTagsToAvro(
         int64_t index,
-        void *taos, SDbInfo *dbInfo,
+        void *taos, const SDbInfo *dbInfo,
         const char *stable)
 {
     debugPrint("%s() LN%d dbName: %s, stable: %s\n",
@@ -10397,8 +10567,8 @@ static int dumpTbTagsToAvro(
 
     char dumpFilename[MAX_PATH_LEN] = {0};
 
-    generateFilename(WHICH_AVRO_TBTAGS, dumpFilename,
-            dbInfo->name, stable, index);
+    generateFilename(AVRO_TBTAGS, dumpFilename,
+            dbInfo, stable, index);
     debugPrint("%s() LN%d dumpFilename: %s\n",
             __func__, __LINE__, dumpFilename);
 
@@ -10504,7 +10674,8 @@ static int64_t dumpCreateSTableClauseOfDbWS(
     fprintf(g_fpOfResult,
             "# super table counter:               %"PRId64"\n",
             superTblCnt);
-    g_resultStatistics.totalSuperTblsOfDumpOut += superTblCnt;
+    atomic_add_fetch_64(
+            &g_resultStatistics.totalSuperTblsOfDumpOut, superTblCnt);
 
     ws_close(ws_taos);
 
@@ -10576,11 +10747,47 @@ static int64_t dumpCreateSTableClauseOfDbNative(
     fprintf(g_fpOfResult,
             "# super table counter:               %"PRId64"\n",
             superTblCnt);
-    g_resultStatistics.totalSuperTblsOfDumpOut += superTblCnt;
+    atomic_add_fetch_64(
+            &g_resultStatistics.totalSuperTblsOfDumpOut, superTblCnt);
 
     taos_close(taos);
 
     return superTblCnt;
+}
+
+static int createDirForDbDump(SDbInfo *dbInfo) {
+    if (g_args.loose_mode) {
+        sprintf(dbInfo->dirForDbDump, "%staosdump.%s",
+                g_args.outpath, dbInfo->name);
+    } else {
+        dbInfo->uniqueID = getUniqueIDFromEpoch();
+        sprintf(dbInfo->dirForDbDump, "%staosdump.%"PRId64"",
+                g_args.outpath, dbInfo->uniqueID);
+    }
+
+    int ret = mkdir(dbInfo->dirForDbDump, 0775);
+    if (ret) {
+        errorPrint("%s() LN%d, mkdir(%s) failed\n",
+                __func__, __LINE__, dbInfo->dirForDbDump);
+    }
+    return ret;
+}
+
+static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
+    if (0 != createDirForDbDump(dbInfo)) {
+        return NULL;
+    }
+
+    char dumpDbsSql[MAX_PATH_LEN] = {0};
+    sprintf(dumpDbsSql, "%s/dbs.sql", dbInfo->dirForDbDump);
+
+    FILE *fpDbs = fopen(dumpDbsSql, "w");
+
+    if (NULL == fpDbs) {
+        errorPrint("%s() LN%d, failed to open file %s\n",
+                __func__, __LINE__, dumpDbsSql);
+    }
+    return fpDbs;
 }
 
 static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
@@ -10588,23 +10795,34 @@ static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
     int64_t ret;
     printf("Start to dump out database: %s\n", dbInfo->name);
 
-    dumpCreateDbClause(dbInfo, g_args.with_property, fp);
+    fprintf(fp, "#!dumpdb: %s: %s\n\n", dbInfo->name, dbInfo->dirForDbDump);
+
+    FILE *fpDbs = createDbsSqlPerDb(dbInfo);
+
+    if (NULL == fpDbs) {
+        return -1;
+    }
+
+    dumpCreateDbClause(dbInfo, g_args.with_property, fpDbs);
 
     fprintf(g_fpOfResult, "\n#### database:                       %s\n",
             dbInfo->name);
-    g_resultStatistics.totalDatabasesOfDumpOut++;
+    atomic_add_fetch_64(
+            &g_resultStatistics.totalDatabasesOfDumpOut, 1);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        dumpCreateSTableClauseOfDbWS(dbInfo, fp);
+        dumpCreateSTableClauseOfDbWS(dbInfo, fpDbs);
         ret = dumpNTablesOfDbWS(dbInfo);
     } else {
 #endif
-        dumpCreateSTableClauseOfDbNative(dbInfo, fp);
+        dumpCreateSTableClauseOfDbNative(dbInfo, fpDbs);
         ret = dumpNTablesOfDbNative(dbInfo);
 #ifdef WEBSOCKET
     }
 #endif
+    fclose(fpDbs);
+
     return ret;
 }
 
@@ -10624,6 +10842,33 @@ static bool checkFileExists(char *path, char *filename)
     return false;
 }
 
+static bool checkFileExistsDir(char *path, char *dirname)
+{
+    bool bRet = false;
+
+    int namelen, dirlen;
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    dirlen = strlen(dirname);
+    pDir = opendir(path);
+
+    if (pDir != NULL) {
+        while ((pDirent = readdir(pDir)) != NULL) {
+            namelen = strlen (pDirent->d_name);
+            if (namelen > dirlen) {
+                if (strncmp (dirname, pDirent->d_name, dirlen) == 0) {
+                    bRet = true;
+                    break;
+                }
+            }
+        }
+        closedir (pDir);
+    }
+
+    return bRet;
+}
+
 static bool checkFileExistsExt(char *path, char *ext)
 {
     bool bRet = false;
@@ -10641,6 +10886,7 @@ static bool checkFileExistsExt(char *path, char *ext)
             if (namelen > extlen) {
                 if (strcmp (ext, &(pDirent->d_name[namelen - extlen])) == 0) {
                     bRet = true;
+                    break;
                 }
             }
         }
@@ -10664,10 +10910,11 @@ static bool checkOutDir(char *outpath)
         outpath = ".";
     }
 
-    if ((true == checkFileExists(outpath, "dbs.sql"))
-                || (0 != checkFileExistsExt(outpath, "avro-tbstb"))
-                || (0 != checkFileExistsExt(outpath, "avro-ntb"))
-                || (0 != checkFileExistsExt(outpath, "avro"))) {
+    if ((checkFileExists(outpath, "dbs.sql"))
+            || (checkFileExistsDir(outpath, "taosdump."))
+            || (checkFileExistsExt(outpath, "avro-tbstb"))
+            || (checkFileExistsExt(outpath, "avro-ntb"))
+            || (checkFileExistsExt(outpath, "avro"))) {
         if (strlen(outpath)) {
             errorPrint("Found data file(s) exists in %s!"
                     " Please use other place to dump out!\n",
@@ -11323,6 +11570,7 @@ static int dumpOut() {
     TAOS     *taos       = NULL;
 
     FILE *fp = NULL;
+    FILE *fpDbs = NULL;
     int32_t dbCount = 0;
 
     if (false == checkOutDir(g_args.outpath)) {
@@ -11422,7 +11670,13 @@ static int dumpOut() {
                 g_totalDumpOutRows += records;
             }
         } else {
-            dumpCreateDbClause(g_dbInfos[0], g_args.with_property, fp);
+            fpDbs = createDbsSqlPerDb(g_dbInfos[0]);
+            if (fpDbs) {
+                dumpCreateDbClause(g_dbInfos[0], g_args.with_property, fpDbs);
+            } else {
+                fclose(fp);
+                return -1;
+            }
         }
 
         int superTblCnt = 0 ;
@@ -11456,7 +11710,7 @@ static int dumpOut() {
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
-                        fp);
+                        fpDbs);
                 if (ret >= 0) {
                     superTblCnt++;
                     ret = dumpNtbOfStbByThreads(g_dbInfos[0],
@@ -11471,7 +11725,7 @@ static int dumpOut() {
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
-                        fp);
+                        fpDbs);
                 if (ret >= 0) {
                     superTblCnt++;
                 } else {
@@ -11521,12 +11775,16 @@ _exit_failure:
     }
 #endif
     freeDbInfos();
+    if (fpDbs) {
+        fclose(fpDbs);
+    }
     fclose(fp);
     if (0 == ret) {
         okPrint("%" PRId64 " row(s) dumped out!\n",
                 g_totalDumpOutRows);
-        g_resultStatistics.totalRowsOfDumpOut +=
-            g_totalDumpOutRows;
+        atomic_add_fetch_64(
+                &g_resultStatistics.totalRowsOfDumpOut,
+                g_totalDumpOutRows);
     } else {
         errorPrint("%" PRId64 " row(s) dumped out!\n",
                 g_totalDumpOutRows);
