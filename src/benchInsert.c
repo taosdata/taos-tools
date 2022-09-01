@@ -541,6 +541,7 @@ void postFreeResource() {
                     }
                 }
                 tmfree(stbInfo->childTblName);
+                benchArrayDestroy(stbInfo->tsmas);
             }
             benchArrayDestroy(database->superTbls);
         }
@@ -1223,14 +1224,10 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
         TAOS_ROW row = NULL;
         while ((row = taos_fetch_row(res)) != NULL) {
             int *lengths = taos_fetch_lengths(res);
-            if (stbInfo->escape_character) {
-                stbInfo->childTblName[count][0] = '`';
-                strncpy(stbInfo->childTblName[count] + 1, row[0], lengths[0]);
-                stbInfo->childTblName[count][lengths[0] + 1] = '`';
-                stbInfo->childTblName[count][lengths[0] + 2] = '\0';
-            } else {
-                tstrncpy(stbInfo->childTblName[count], row[0], lengths[0] + 1);
-            }
+            stbInfo->childTblName[count][0] = '`';
+            strncpy(stbInfo->childTblName[count] + 1, row[0], lengths[0]);
+            stbInfo->childTblName[count][lengths[0] + 1] = '`';
+            stbInfo->childTblName[count][lengths[0] + 2] = '\0';
             debugPrint(stdout, "stbInfo->childTblName[%" PRId64 "]: %s\n",
                        count, stbInfo->childTblName[count]);
             count++;
