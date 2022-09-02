@@ -81,7 +81,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom -j 8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom -j 8
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
