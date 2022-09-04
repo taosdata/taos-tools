@@ -107,7 +107,7 @@ jobs:
       - name: taosBenchmark Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/tools/taos-tools/tests
+          cd TDengine/src/kit/taos-tools/tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
