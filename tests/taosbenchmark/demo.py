@@ -11,8 +11,6 @@
 
 # -*- coding: utf-8 -*-
 import os
-import subprocess
-import time
 
 from util.log import *
 from util.cases import *

@@ -10,9 +10,6 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
-from ast import BinOp
-import os
-import subprocess
 import time
 
 from util.log import *

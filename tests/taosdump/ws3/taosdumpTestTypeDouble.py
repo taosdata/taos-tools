@@ -11,14 +11,12 @@
 
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 import math
 from util.log import *
 from util.cases import *
 from util.sql import *
 from util.dnodes import *
-import subprocess
 
 
 class TDTestCase:
