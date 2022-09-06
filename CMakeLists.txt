@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 
-PROJECT(taos-tool
+PROJECT(taos-tools
         LANGUAGES C
         VERSION 0.1.0
         )
@@ -111,5 +111,10 @@ ADD_SUBDIRECTORY(src)
 
 ADD_DEPENDENCIES(taosBenchmark toolscJson)
 
-SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.sh")
-INSTALL(CODE "execute_process(COMMAND bash ${MAKE_INSTALL_SH} ${CMAKE_BINARY_DIR})")
+IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.sh")
+    INSTALL(CODE "execute_process(COMMAND bash ${MAKE_INSTALL_SH} ${CMAKE_BINARY_DIR})")
+ELSEIF (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    SET(MAKE_INSTALL_SH "${PROJECT_SOURCE_DIR}/packaging/tools/make_install.bat")
+    INSTALL(CODE "execute_process(COMMAND ${MAKE_INSTALL_SH} :needAdmin ${PROJECT_SOURCE_DIR} ${PROJECT_BINARY_DIR} Windows)")
+ENDIF ()

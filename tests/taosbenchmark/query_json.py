@@ -13,7 +13,6 @@
 import ast
 import os
 import re
-import subprocess
 
 from util.log import *
 from util.cases import *
