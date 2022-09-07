@@ -620,7 +620,6 @@ static void init_database() {
     SDataBase *database = benchCalloc(1, sizeof(SDataBase), true);
     benchArrayPush(g_arguments->databases, database);
     database = benchArrayGet(g_arguments->databases, 0);
-    database->streams = benchArrayInit(1, sizeof(SSTREAM));
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
     database->precision = TSDB_TIME_PRECISION_MILLI;
@@ -662,6 +661,7 @@ void init_argument() {
 #endif
     init_database();
     init_stable();
+    g_arguments->streams = benchArrayInit(1, sizeof(SSTREAM));
 }
 
 void modify_argument() {

@@ -310,7 +310,7 @@ class TDDnode:
             print(cmd)
 
         if (taosadapterBinPath != ""):
-            taosadapterCmd = "nohup %s --opentsdb_telnet.enable=true --monitor.writeToTD=false | tee -a ~/taosa.log & " % (
+            taosadapterCmd = "nohup %s --logLevel=error --opentsdb_telnet.enable=true --monitor.writeToTD=false | tee -a ~/taosa.log & " % (
                 taosadapterBinPath)
             tdLog.info(taosadapterCmd)
             if os.system(taosadapterCmd) != 0:
