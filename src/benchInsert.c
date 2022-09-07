@@ -151,8 +151,8 @@ skip:
     int length = snprintf(
         command, BUFFER_SIZE,
         stbInfo->escape_character
-            ? "CREATE TABLE IF NOT EXISTS %s.`%s` (ts TIMESTAMP%s) TAGS %s"
-            : "CREATE TABLE IF NOT EXISTS %s.%s (ts TIMESTAMP%s) TAGS %s",
+            ? "CREATE TABLE %s.`%s` (ts TIMESTAMP%s) TAGS %s"
+            : "CREATE TABLE %s.%s (ts TIMESTAMP%s) TAGS %s",
         database->dbName, stbInfo->stbName, cols, tags);
     tmfree(cols);
     tmfree(tags);
@@ -316,15 +316,15 @@ static void *createTable(void *sarg) {
             if (stbInfo->childTblCount == 1) {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
                          stbInfo->escape_character
-                         ? "CREATE TABLE IF NOT EXISTS %s.`%s` %s;"
-                         : "CREATE TABLE IF NOT EXISTS %s.%s %s;",
+                         ? "CREATE TABLE %s.`%s` %s;"
+                         : "CREATE TABLE %s.%s %s;",
                          database->dbName, stbInfo->stbName,
                          stbInfo->colsOfCreateChildTable);
             } else {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
                          stbInfo->escape_character
-                         ? "CREATE TABLE IF NOT EXISTS %s.`%s%" PRIu64 "` %s;"
-                         : "CREATE TABLE IF NOT EXISTS %s.%s%" PRIu64 " %s;",
+                         ? "CREATE TABLE %s.`%s%" PRIu64 "` %s;"
+                         : "CREATE TABLE %s.%s%" PRIu64 " %s;",
                          database->dbName, stbInfo->childTblPrefix, i,
                          stbInfo->colsOfCreateChildTable);
             }
@@ -339,9 +339,9 @@ static void *createTable(void *sarg) {
 
             len += snprintf(
                 pThreadInfo->buffer + len, TSDB_MAX_SQL_LEN - len,
-                stbInfo->escape_character ? "if not exists %s.`%s%" PRIu64
+                stbInfo->escape_character ? "%s.`%s%" PRIu64
                                             "` using %s.`%s` tags (%s) "
-                                          : "if not exists %s.%s%" PRIu64
+                                          : "%s.%s%" PRIu64
                                             " using %s.%s tags (%s) ",
                 database->dbName, stbInfo->childTblPrefix, i, database->dbName,
                 stbInfo->stbName, stbInfo->tagDataBuf + i * stbInfo->lenOfTags);
