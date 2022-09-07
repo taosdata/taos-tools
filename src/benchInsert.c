@@ -26,6 +26,10 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     TAOS_RES *   res;
     TAOS_ROW     row = NULL;
     SBenchConn* conn = init_bench_conn();
+    if (NULL == conn) {
+        return -1;
+    }
+
     snprintf(command, SQL_BUFF_LEN, "describe %s.`%s`", database->dbName,
              stbInfo->stbName);
     res = taos_query(conn->taos, command);
@@ -195,7 +199,7 @@ skip:
     }
     infoPrint(stdout, "create stable: <%s>\n", command);
     SBenchConn* conn = init_bench_conn();
-    if (conn == NULL) {
+    if (NULL == conn) {
         free(command);
         return -1;
     }
@@ -214,7 +218,7 @@ skip:
 int createDatabase(SDataBase* database) {
     char       command[SQL_BUFF_LEN] = "\0";
     SBenchConn* conn = init_bench_conn();
-    if (conn == NULL) {
+    if (NULL == conn) {
         return -1;
     }
     if (g_arguments->taosc_version == 3) {
@@ -414,7 +418,7 @@ static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* st
         pThreadInfo->stbInfo = stbInfo;
         pThreadInfo->dbInfo = database;
         pThreadInfo->conn = init_bench_conn();
-        if (pThreadInfo->conn == NULL) {
+        if (NULL == pThreadInfo->conn) {
             goto over;
         }
         pThreadInfo->start_table_from = tableFrom;
@@ -1193,7 +1197,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
     if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) &&
         stbInfo->childTblExists) {
         SBenchConn* conn = init_bench_conn();
-        if (conn == NULL) {
+        if (NULL == conn) {
             return -1;
         }
         char cmd[SQL_BUFF_LEN] = "\0";
@@ -1330,6 +1334,11 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             }
             case STMT_IFACE: {
                 pThreadInfo->conn = init_bench_conn();
+                if (NULL == pThreadInfo->conn) {
+                    tmfree(pids);
+                    tmfree(infos);
+                    return -1;
+                }
                 pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
                 if (NULL == pThreadInfo->conn->stmt) {
                     tmfree(pids);
@@ -1657,7 +1666,7 @@ static void* create_tsmas(void* args) {
     tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
     int inserted_rows = 0;
     SBenchConn* conn = init_bench_conn();
-    if (conn == NULL) {
+    if (NULL == conn) {
         return NULL;
     }
     int finished = 0;
@@ -1690,7 +1699,7 @@ static int createStream(SSTREAM* stream) {
     snprintf(command, BUFFER_SIZE, "drop stream if exists %s", stream->stream_name);
     infoPrint(stderr, "%s\n", command);
     SBenchConn* conn = init_bench_conn();
-    if (conn == NULL) {
+    if (NULL == conn) {
         goto END;
     }
     if (queryDbExec(conn, command)){
