@@ -17,7 +17,6 @@ import sys
 import getopt
 import subprocess
 import time
-from distutils.log import warn as printf
 from fabric2 import Connection
 sys.path.append("./pytest")
 from util.log import *
@@ -39,7 +38,8 @@ if __name__ == "__main__":
     restart = False
     windows = 0
     opts, args = getopt.gnu_getopt(sys.argv[1:], 'f:p:m:l:scghrw', [
-        'file=', 'path=', 'master', 'logSql', 'stop', 'cluster', 'valgrind', 'help', 'windows'])
+        'file=', 'path=', 'master', 'logSql', 'stop', 'cluster', 'valgrind',
+        'help', 'windows'])
     for key, value in opts:
         if key in ['-h', '--help']:
             tdLog.printNoPrefix(
@@ -94,7 +94,8 @@ if __name__ == "__main__":
         else:
             toBeKilled = "valgrind.bin"
 
-        killCmd = "ps -ef|grep -w %s| grep -v grep | awk '{print $2}' | xargs kill -TERM > /dev/null 2>&1" % toBeKilled
+        killCmd = "ps -ef|grep -w %s| grep -v grep | awk '{print $2}' | \
+                xargs kill -TERM > /dev/null 2>&1" % toBeKilled
 
         psCmd = "ps -ef|grep -w %s| grep -v grep | awk '{print $2}'" % toBeKilled
         processID = subprocess.check_output(psCmd, shell=True)
@@ -130,7 +131,8 @@ if __name__ == "__main__":
         td_clinet = TDSimClient("C:\\TDengine")
         td_clinet.deploy()
         remote_conn = Connection("root@%s" % host)
-        with remote_conn.cd('/var/lib/jenkins/workspace/TDinternal/community/tests/pytest'):
+        with remote_conn.cd(
+                '/var/lib/jenkins/workspace/TDinternal/community/tests/pytest'):
             remote_conn.run("python3 ./test.py")
         conn = taos.connect(
             host="%s" % (host),

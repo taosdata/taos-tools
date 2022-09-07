@@ -104,48 +104,19 @@ jobs:
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
-      - name: taosBenchmark System Test
+      - name: taosBenchmark Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/tests/system-test
+          cd TDengine/src/kit/taos-tools/tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          if [ -d 5-taos-tools/taosbenchmark ];
-          then
-            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-            then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py" | grep -v taosdemoTestQueryWithJson`; do sleep 1 && python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m system-test/$i success! \033[0m"|| echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt; done
-            fi
-          fi
-
-      - name: taosBenchmark Old Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          cd TDengine/tests/pytest
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-          python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null 2>&1 && echo -e "\033[32m TD-5213/insertSigcolumnsNum4096.py success! \033[0m"|| echo -e "\033[31m TD-5213/insertSigcolumnsNum4096.py failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt
-
-      - name: taosBenchmark Develop Test
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          cd TDengine/tests/develop-test
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-
-          if [ -d 5-taos-tools/taosbenchmark ];
-          then
-            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-            then
-              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-failed.txt; done
-            fi
-          fi
+          for i in `find taosbenchmark -name "*.py"|grep -v websocket`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosbenchmark-failed.txt ];then
-            cat ~/taosbenchmark-failed.txt;
+          if [ -f ~/taosbenchmark-release-failed.txt ];then
+            cat ~/taosbenchmark-release-failed.txt;
             exit 1;
           fi

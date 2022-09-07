@@ -1,6 +1,6 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.0)
 
-PROJECT(taos-tool
+PROJECT(taos-tools
         LANGUAGES C
         VERSION 0.1.0
         )

@@ -27,6 +27,13 @@ static int create_topic(BArray* sqls) {
         return -1;
     }
     TAOS* taos = conn->taos;
+    char command[SQL_BUFF_LEN];
+    memset(command, 0, SQL_BUFF_LEN);
+    sprintf(command, "use %s", g_queryInfo.dbName);
+    if (queryDbExec(conn, command)) {
+        close_bench_conn(conn);
+        return -1;
+    }
     TAOS_RES * res;
     for (int i = 0; i < sqls->size; ++i) {
         SSQL * sql = benchArrayGet(sqls, i);
