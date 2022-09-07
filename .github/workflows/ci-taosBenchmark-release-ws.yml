@@ -117,3 +117,15 @@ jobs:
           fi
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
+
+      - name: Test
+        run: |
+          cd TDengine/tools/taos-tools/tests
+          for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
+      
+      - name: Check Test Result
+        run: |
+          if [ -f ~/benchmark-ws-failed.txt ];then
+            cat ~/benchmark-ws-failed.txt
+            exit 1
+          fi

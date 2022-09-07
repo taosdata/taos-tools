@@ -9288,8 +9288,8 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
         int32_t *lengths = taos_fetch_lengths(res);
         char tempRow0[BUFFER_LEN - 13] = {0};
         char tempRow1[BUFFER_LEN - 13] = {0};
-        strncpy(tempRow0, row[0], min(lengths[0], BUFFER_LEN-1));
-        strncpy(tempRow1, row[1], min(lengths[1], BUFFER_LEN-1));
+        strncpy(tempRow0, row[0], min(lengths[0], BUFFER_LEN-13));
+        strncpy(tempRow1, row[1], min(lengths[1], BUFFER_LEN-13));
         debugPrint("row[0]=%s, row[1]=%s\n",
                 tempRow0, tempRow1);
         if (0 == strcmp(tempRow0, "charset")) {
