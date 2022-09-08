@@ -8483,11 +8483,12 @@ static int createMTableAvroHeadSpecified(
 }
 
 #ifdef WEBSOCKET
-static int createMTableAvroHeadFillTBNameWS(
+static int64_t createMTableAvroHeadFillTBNameWS(
         WS_TAOS *ws_taos,
         const char *command,
         char *tbNameArr,
-        const char *stable) {
+        const char *stable,
+        const int64_t preCount) {
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
@@ -8498,6 +8499,9 @@ static int createMTableAvroHeadFillTBNameWS(
         ws_res = NULL;
         return -1;
     }
+
+    int currentPercent = 0;
+    int percentComplete = 0;
 
     int64_t ntbCount = 0;
     while(true) {
@@ -8542,18 +8546,35 @@ static int createMTableAvroHeadFillTBNameWS(
                     tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
                     ntbCount, stable);
             ++ntbCount;
+
+            currentPercent = ((ntbCount+1) * 100 / preCount);
+
+            if (currentPercent > percentComplete) {
+                printf("connection %p fetched %d%% of %s' tbname\n",
+                        taos, currentPercent, stable);
+                percentComplete = currentPercent;
+            }
         }
+    }
+
+    if ((preCount > 0) && (percentComplete < 100)) {
+        errorPrint("%d%% - total %"PRId64" sub-table's names of stable: %s fetched\n",
+            percentComplete, ntbCount, stable);
+    } else {
+        okPrint("total %"PRId64" sub-table's name of stable: %s fetched\n",
+            ntbCount, stable);
     }
 
     return ntbCount;
 }
 #endif // WEBSOCKET
 
-static int createMTableAvroHeadFillTBNameNative(
+static int64_t createMTableAvroHeadFillTBNameNative(
         TAOS *taos,
         const char *command,
         char *tbNameArr,
-        const char *stable) {
+        const char *stable,
+        const int64_t preCount) {
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
@@ -8566,6 +8587,9 @@ static int createMTableAvroHeadFillTBNameNative(
 
     TAOS_ROW row = NULL;
     int64_t ntbCount = 0;
+
+    int currentPercent = 0;
+    int percentComplete = 0;
 
     while((row = taos_fetch_row(res)) != NULL) {
         int32_t *lengths = taos_fetch_lengths(res);
@@ -8584,6 +8608,22 @@ static int createMTableAvroHeadFillTBNameNative(
                 tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
                 ntbCount, stable);
         ++ntbCount;
+
+        currentPercent = ((ntbCount+1) * 100 / preCount);
+
+        if (currentPercent > percentComplete) {
+            printf("connection %p fetched %d%% of %s' tbname\n",
+                    taos, currentPercent, stable);
+            percentComplete = currentPercent;
+        }
+    }
+
+    if ((preCount > 0) && (percentComplete < 100)) {
+        errorPrint("%d%% - total %"PRId64" sub-table's names of stable: %s fetched\n",
+            percentComplete, ntbCount, stable);
+    } else {
+        okPrint("total %"PRId64" sub-table's name of stable: %s fetched\n",
+            ntbCount, stable);
     }
 
     taos_free_result(res);
@@ -8656,7 +8696,7 @@ static int createMTableAvroHead(
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     }
 
-    uint64_t preCount = 0;
+    int64_t preCount = 0;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         preCount = getNtbCountOfStbWS(command);
@@ -8683,8 +8723,8 @@ static int createMTableAvroHead(
         return 0;
     }
 
-    printf("connection: %p is dumping out schema of sub-table(s) of %s \n",
-            taos, stable);
+    printf("connection: %p is dumping out schema of %"PRId64" sub-table(s) of %s \n",
+            taos, preCount, stable);
 
     *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
     if (NULL == *tbNameArr) {
@@ -8715,11 +8755,11 @@ static int createMTableAvroHead(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         ntbCount = createMTableAvroHeadFillTBNameWS(
-                taos, command, *tbNameArr, stable);
+                taos, command, *tbNameArr, stable, preCount);
     } else {
 #endif
         ntbCount = createMTableAvroHeadFillTBNameNative(
-                taos, command, *tbNameArr, stable);
+                taos, command, *tbNameArr, stable, preCount);
 #ifdef WEBSOCKET
     }
 #endif
