@@ -8541,7 +8541,7 @@ static int createMTableAvroHead(
         preCount = limit;
     }
 
-    if (0 == preCount) {
+    if (0 >= preCount) {
         printf("Zero normal table need be dumped\n");
         tfree(jsonTagsSchema);
         freeTbDes(tableDes);
