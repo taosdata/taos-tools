@@ -2235,8 +2235,7 @@ static int getTableTagValueWS(
         WS_TAOS *ws_taos,
         const char *dbName,
         const char *table,
-        TableDes *tableDes,
-        ) {
+        TableDes *tableDes) {
     for (int i = tableDes->columns;
             i < (tableDes->columns + tableDes->tags); i++) {
 
@@ -2322,13 +2321,14 @@ static int getTableTagValueWS(
 }
 
 static int inline getTableDesFromStbWS(
-        TAOS *taos,
+        WS_TAOS *taos,
         const char* dbName,
         const TableDes *stbTableDes,
         const char *table,
-        TableDes **tableDes) {
+        TableDes **ppTableDes) {
 
-    constructTableDesFromStb(stbTableDes, table, tableDes);
+    TableDes *tableDes = *ppTableDes;
+    constructTableDesFromStb(stbTableDes, table, ppTableDes);
     return getTableTagValueWS(taos, dbName, table, tableDes);
 }
 
@@ -3068,12 +3068,13 @@ static int dumpStableClasuse(
     TableDes *tableDes = *pStbTableDes;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        colCount = getTableDesWS(taos, dbInfo->name,
-            stbName, tableDes, true);
+        colCount = getTableDesWS(
+                taos, dbInfo->name,
+                stbName, tableDes, true);
     } else {
 #endif
         colCount = getTableDesNative(taos, dbInfo->name,
-            stbName, tableDes, true);
+                stbName, tableDes, true);
 #ifdef WEBSOCKET
     }
 #endif
@@ -7924,7 +7925,8 @@ static int64_t dumpNormalTable(
         }
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            numColsAndTags = getTableDesWS(taos,
+            numColsAndTags = getTableDesWS(
+                    taos,
                     dbInfo->name, tbName, tableDes, false);
         } else {
 #endif
@@ -7975,13 +7977,17 @@ static int64_t dumpNormalTable(
                 }
 #ifdef WEBSOCKET
                 if (g_args.cloud || g_args.restful) {
-                    numColsAndTags = getTableDesWS(
-                            taos, dbInfo->name, stbTableDes, tbName, &tableDes);
+                    numColsAndTags = getTableDesFromStbWS(
+                            (WS_TAOS*)taos,
+                            dbInfo->name,
+                            stbTableDes,
+                            tbName, &tableDes);
 
                 } else {
 #endif
                     numColsAndTags = getTableDesFromStbNative(
-                            taos, dbInfo->name, stbTableDes, tbName, &tableDes);
+                            taos, dbInfo->name,
+                            stbTableDes, tbName, &tableDes);
 #ifdef WEBSOCKET
                 }
 #endif
@@ -8006,7 +8012,7 @@ static int64_t dumpNormalTable(
     return totalRows;
 }
 
-static int64_t dumpNormalTableWithoutStb(
+static int64_t dumpANormalTableNotBelong(
         int64_t index,
         TAOS *taos, SDbInfo *dbInfo, char *ntbName)
 {
@@ -8072,7 +8078,7 @@ static int64_t dumpNormalTableWithoutStb(
 }
 
 static int createMTableAvroHeadImp(
-        TAOS *taos,
+        void *taos,
         const char *dbName,
         const char *stable,
         const TableDes *stbTableDes,
@@ -8121,10 +8127,12 @@ static int createMTableAvroHeadImp(
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        getTableDesFromStbWS(taos, dbName,
+        getTableDesFromStbWS(
+                (WS_TAOS*)taos,
+                dbName,
                 stbTableDes,
                 tbName,
-                subTableDes);
+                &subTableDes);
     } else {
 #endif // WEBSOCKET
         getTableDesFromStbNative(taos, dbName,
@@ -8525,6 +8533,7 @@ static int createMTableAvroHeadSpecified(
 }
 
 #ifdef WEBSOCKET
+#if 0
 static int64_t createMTableAvroHeadFillTBNameWS(
         WS_TAOS *ws_taos,
         const char *command,
@@ -8609,8 +8618,10 @@ static int64_t createMTableAvroHeadFillTBNameWS(
 
     return ntbCount;
 }
+#endif
 #endif // WEBSOCKET
 
+#if 0
 static int64_t createMTableAvroHeadFillTBNameNative(
         TAOS *taos,
         const char *command,
@@ -8854,8 +8865,9 @@ static int createMTableAvroHead(
 
     return 0;
 }
+#endif
 
-static int64_t dumpNormalTableBelongStb(
+static int64_t dumpANormalTableBelongStb(
         int64_t index,
         TAOS *taos,
         SDbInfo *dbInfo, char *stbName,
@@ -10177,7 +10189,8 @@ static int64_t dumpNtbOfDbByThreads(
 }
 
 #ifdef WEBSOCKET
-static int64_t dumpNtbOfStbOfDbWS(SDbInfo *dbInfo) {
+static int64_t dumpStbAndChildTbOfDbWS(
+        void *taos_v, SDbInfo *dbInfo, FILE *fpDbs) {
     errorPrint("%s() TODO", __func__);
     return -1;
 }
@@ -10322,34 +10335,24 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 }
 #endif // WEBSOCKET
 
-static int64_t dumpNtbOfStbOfDbNative(SDbInfo *dbInfo) {
-    errorPrint("%s() TODO", __func__);
-    return -1;
-}
-
-static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
+static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo)
 {
     if (0 == dbInfo->ntables) {
         warnPrint("%s() LN%d, database: %s has 0 tables\n",
                 __func__, __LINE__, dbInfo->name);
         return 0;
     }
-    TAOS *taos = taos_connect(g_args.host,
-            g_args.user, g_args.password, dbInfo->name, g_args.port);
-    if (NULL == taos) {
-        errorPrint(
-                "Failed to connect to TDengine server %s by specified database %s\n",
-                g_args.host, dbInfo->name);
-        return 0;
-    }
 
-    char command[COMMAND_SIZE];
+    char command[COMMAND_SIZE] = {0};
+
     TAOS_RES *res;
     int32_t code;
 
 
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.ins_tables WHERE db_name='%s'", dbInfo->name);
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME "
+                " FROM information_schema.ins_tables WHERE db_name='%s'",
+                dbInfo->name);
     } else {
         sprintf(command, "USE %s", dbInfo->name);
         res = taos_query(taos, command);
@@ -10358,7 +10361,6 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
             errorPrint("invalid database %s, reason: %s\n",
                     dbInfo->name, taos_errstr(res));
             taos_free_result(res);
-            taos_close(taos);
             return 0;
         }
 
@@ -10371,76 +10373,42 @@ static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
         errorPrint("Failed to show %s\'s tables, reason: %s\n",
                 dbInfo->name, taos_errstr(res));
         taos_free_result(res);
-        taos_close(taos);
-        return 0;
-    }
-
-    g_tablesList = calloc(1, dbInfo->ntables * sizeof(TableInfo));
-    if (NULL == g_tablesList) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return 0;
     }
 
     TAOS_ROW row;
     int64_t count = 0;
-    while(NULL != (row = taos_fetch_row(res))) {
+    while((row = taos_fetch_row(res))) {
         int32_t *lengths = taos_fetch_lengths(res);
         if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
             errorPrint("%s() LN%d, fetch_row() get %d length!\n",
                     __func__, __LINE__, lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
             continue;
         }
-        tstrncpy(((TableInfo *)(g_tablesList + count))->name,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_NAME_INDEX] +1));
-        debugPrint("%s() LN%d, No.\t%"PRId64" table name: %s, lenth: %d\n",
-                __func__, __LINE__,
-                count,
-                ((TableInfo *)(g_tablesList + count))->name,
-                lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+
         if (3 == g_majorVersionOfClient) {
-            if (NULL != row[1]) {
-                if (strlen((char *)row[1])) {
-                    strncpy(((TableInfo *)(g_tablesList + count))->stable,
-                            (char *)row[1],
-                            min(TSDB_TABLE_NAME_LEN-1, lengths[1]));
-                    debugPrint("%s() LN%d stbName: %s, length: %d\n",
-                            __func__, __LINE__,
-                            ((TableInfo *)(g_tablesList + count))->stable,
-                            lengths[1]);
-                    ((TableInfo *)(g_tablesList + count))->belongStb = true;
-                } else {
-                    ((TableInfo *)(g_tablesList + count))->belongStb = false;
-                }
-            } else {
-                ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            if (0 != lengths[1]) {
+                continue;
             }
         } else {
-            if (strlen((char *)row[TSDB_SHOW_TABLES_METRIC_INDEX])) {
-                tstrncpy(((TableInfo *)(g_tablesList + count))->stable,
-                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                        min(TSDB_TABLE_NAME_LEN, lengths[TSDB_SHOW_TABLES_METRIC_INDEX] +1));
-                debugPrint("%s() LN%d stbName: %s, length: %d\n",
-                        __func__, __LINE__,
-                        (char *)row[TSDB_SHOW_TABLES_METRIC_INDEX],
-                        lengths[TSDB_SHOW_TABLES_METRIC_INDEX]);
-                ((TableInfo *)(g_tablesList + count))->belongStb = true;
-            } else {
-                ((TableInfo *)(g_tablesList + count))->belongStb = false;
+            if (0 != lengths[3]) {
+                continue;
             }
         }
+
+        char ntable[TSDB_TABLE_NAME_LEN] = {0};
+        strncpy(ntable,
+                (char *)row[0],
+                lengths[0]);
+        okPrint("%s() LN%d, dump normal table: %s\n",
+                __func__, __LINE__, ntable);
+
         count ++;
     }
 
     taos_free_result(res);
-    taos_close(taos);
 
-    int64_t records = dumpNtbOfDbByThreads(dbInfo, count);
-
-    free(g_tablesList);
-    g_tablesList = NULL;
-
-    return records;
+    return count;
 }
 
 static int64_t dumpNtbOfStbByThreads(
@@ -10487,6 +10455,19 @@ static int64_t dumpNtbOfStbByThreads(
         return -1;
     }
 
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        getTableDesWS(taos_v, dbInfo->name,
+            stbName, stbTableDes, true);
+    } else {
+#endif
+        getTableDesNative(taos_v, dbInfo->name,
+            stbName, stbTableDes, true);
+#ifdef WEBSOCKET
+    }
+#endif
+
+#if 0
     if (g_args.avro) {
         int ret = createMTableAvroHead(
                 taos_v,
@@ -10504,6 +10485,7 @@ static int64_t dumpNtbOfStbByThreads(
             return -1;
         }
     }
+#endif
 
     int threads = g_args.thread_num;
 
@@ -10601,6 +10583,107 @@ static int64_t dumpNtbOfStbByThreads(
     return 0;
 }
 
+static int64_t dumpStbAndChildTb(
+        void *taos_v, SDbInfo *dbInfo, const char *stable, FILE *fpDbs) {
+
+    int64_t ret = 0;
+
+    uint64_t sizeOfTableDes =
+        (uint64_t)(sizeof(TableDes) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+
+    TableDes *stbTableDes = (TableDes *)calloc(1, sizeOfTableDes);
+
+    if (NULL == stbTableDes) {
+        errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                __func__, __LINE__, sizeOfTableDes);
+        exit(-1);
+    }
+
+    ret = dumpStableClasuse(
+            taos_v,
+            dbInfo,
+            stable,
+            &stbTableDes,
+            fpDbs);
+
+    if (ret >= 0) {
+        ret = dumpNtbOfStbByThreads(
+                taos_v,
+                dbInfo,
+                stable);
+    } else {
+        errorPrint("%s() LN%d, dumpNtbOfStb(%s) ByThread failed\n",
+                __func__, __LINE__,
+                stable);
+    }
+
+    freeTbDes(stbTableDes);
+
+    return ret;
+}
+
+static int64_t dumpStbAndChildTbOfDbNative(
+        TAOS *taos, SDbInfo *dbInfo, FILE *fpDbs) {
+    int64_t ret = 0;
+
+    char command[COMMAND_SIZE] = {0};
+
+    sprintf(command, "USE %s", dbInfo->name);
+    TAOS *res;
+    int32_t code;
+
+    res = taos_query(taos, command);
+    code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("Invalid database %s, reason: %s\n",
+                dbInfo->name, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+
+    if (3 == g_majorVersionOfClient) {
+        sprintf(command,
+                "SELECT STABLE_NAME FROM information_schema.ins_stables "
+                "WHERE db_name='%s'",
+                dbInfo->name);
+    } else {
+        sprintf(command, "SHOW STABLES");
+    }
+
+    res = taos_query(taos, command);
+    code = taos_errno(res);
+
+    if (code != 0) {
+        errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
+                __func__, __LINE__, command, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    TAOS_ROW row = NULL;
+
+    while((row = taos_fetch_row(res))) {
+        int *lengths = taos_fetch_lengths(res);
+        char stable[TSDB_TABLE_NAME_LEN] = {0};
+        strncpy(stable, row[0], lengths[0]);
+        debugPrint("%s() LN%d, dump stable name: %s\n",
+                __func__, __LINE__, stable);
+
+        ret = dumpStbAndChildTb(
+                taos,
+                dbInfo,
+                stable,
+                fpDbs);
+        if (ret < 0) {
+            break;
+        }
+    }
+
+    return ret;
+}
+
+#if 0
 static int dumpTbTagsToAvro(
         int64_t index,
         void *taos, const SDbInfo *dbInfo,
@@ -10630,8 +10713,10 @@ static int dumpTbTagsToAvro(
 
     return ret;
 }
+#endif
 
 #ifdef WEBSOCKET
+#if 0
 static int64_t dumpCreateSTableClauseOfDbWS(
         SDbInfo *dbInfo, FILE *fp)
 {
@@ -10729,19 +10814,12 @@ static int64_t dumpCreateSTableClauseOfDbWS(
     return superTblCnt;
 }
 #endif
+#endif
 
+#if 0
 static int64_t dumpCreateSTableClauseOfDbNative(
-        SDbInfo *dbInfo, FILE *fp)
+        TAOS *taos, SDbInfo *dbInfo, FILE *fp)
 {
-    TAOS *taos = taos_connect(g_args.host,
-            g_args.user, g_args.password, dbInfo->name, g_args.port);
-    if (NULL == taos) {
-        errorPrint(
-                "Failed to connect to TDengine server %s by specified database %s\n",
-                g_args.host, dbInfo->name);
-        return 0;
-    }
-
     TAOS_ROW row;
     char command[COMMAND_SIZE] = {0};
 
@@ -10753,7 +10831,6 @@ static int64_t dumpCreateSTableClauseOfDbNative(
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
-        taos_close(taos);
         exit(-1);
     }
 
@@ -10811,10 +10888,9 @@ static int64_t dumpCreateSTableClauseOfDbNative(
     atomic_add_fetch_64(
             &g_resultStatistics.totalSuperTblsOfDumpOut, superTblCnt);
 
-    taos_close(taos);
-
     return superTblCnt;
 }
+#endif
 
 static int createDirForDbDump(SDbInfo *dbInfo) {
     if (g_args.loose_mode) {
@@ -10851,7 +10927,7 @@ static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
     return fpDbs;
 }
 
-static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
+static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp)
 {
     int64_t ret;
     fprintf(stderr, "Start to dump out database: %s\n", dbInfo->name);
@@ -10873,17 +10949,15 @@ static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        dumpCreateSTableClauseOfDbWS(dbInfo, fpDbs);
-        ret = dumpNtbOfStbOfDbWS(dbInfo);
+        ret = dumpStbAndChildTbOfDbWS((WS_TAOS *)taos_v, dbInfo, fpDbs);
         if (ret >= 0) {
             ret = dumpNTablesOfDbWS(dbInfo);
         }
     } else {
 #endif
-        dumpCreateSTableClauseOfDbNative(dbInfo, fpDbs);
-        ret = dumpNtbOfStbOfDbNative(dbInfo);
+        ret = dumpStbAndChildTbOfDbNative((TAOS *)taos_v, dbInfo, fpDbs);
         if (ret >= 0) {
-            ret = dumpNTablesOfDbNative(dbInfo);
+            ret = dumpNTablesOfDbNative((TAOS *)taos_v, dbInfo);
         }
 #ifdef WEBSOCKET
     }
@@ -11681,6 +11755,7 @@ static int dumpOut() {
     }
 
     /* Connect to server and dump extra info*/
+    void *taos_v;
 #ifdef WEBSOCKET
     WS_TAOS  *ws_taos    = NULL;
 
@@ -11693,6 +11768,7 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
+        taos_v = ws_taos;
         ret = dumpExtraInfo(ws_taos, fp);
 
         if (ret < 0) {
@@ -11710,6 +11786,7 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
+        taos_v = taos;
         ret = dumpExtraInfo(taos, fp);
 
         if (ret < 0) {
@@ -11731,7 +11808,7 @@ static int dumpOut() {
     if (g_args.databases || g_args.all_databases) {
         for (int i = 0; i < dbCount; i++) {
             int64_t records = 0;
-            records = dumpWholeDatabase(g_dbInfos[i], fp);
+            records = dumpWholeDatabase(taos_v, g_dbInfos[i], fp);
             if (records >= 0) {
                 okPrint("Database %s dumped\n", g_dbInfos[i]->name);
                 g_totalDumpOutRows += records;
@@ -11739,7 +11816,7 @@ static int dumpOut() {
         }
     } else {
         if (1 == g_args.arg_list_len) {
-            int64_t records = dumpWholeDatabase(g_dbInfos[0], fp);
+            int64_t records = dumpWholeDatabase(taos_v, g_dbInfos[0], fp);
             if (records >= 0) {
                 okPrint("Database %s dumped\n", g_dbInfos[0]->name);
                 g_totalDumpOutRows += records;
@@ -11755,7 +11832,6 @@ static int dumpOut() {
         }
 
         int superTblCnt = 0 ;
-        void *taos_v = NULL;
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             taos_v = ws_taos;
@@ -11780,36 +11856,17 @@ static int dumpOut() {
                 continue;
             }
 
-            uint64_t sizeOfTableDes =
-                (uint64_t)(sizeof(TableDes) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-
             if (tableRecordInfo.isStb) {  // dump all table of this stable
-                TableDes *stbTableDes = (TableDes *)calloc(1, sizeOfTableDes);
-                if (NULL == stbTableDes) {
-                    errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
-                            __func__, __LINE__, sizeOfTableDes);
-                    exit(-1);
+                ret = dumpStbAndChildTb(taos_v, g_dbInfos[0],
+                        tableRecordInfo.tableRecord.stable, fpDbs);
+                if (ret < 0) {
+                    errorPrint("%s() LN%d, dump %s and its child table\n",
+                            __func__, __LINE__, g_args.arg_list[i]);
                 }
-
-                ret = dumpStableClasuse(
-                        taos_v,
-                        g_dbInfos[0],
-                        tableRecordInfo.tableRecord.stable,
-                        &stbTableDes,
-                        fpDbs);
-                if (ret >= 0) {
-                    superTblCnt++;
-                    ret = dumpNtbOfStbByThreads(
-                            taos_v,
-                            g_dbInfos[0],
-                            g_args.arg_list[i]);
-                } else {
-                    errorPrint("%s() LN%d, dumpStableClasuse(%s) failed\n",
-                            __func__, __LINE__,
-                            tableRecordInfo.tableRecord.stable);
-                }
-                freeTbDes(stbTableDes);
             } else if (tableRecordInfo.belongStb){
+                uint64_t sizeOfTableDes =
+                    (uint64_t)(sizeof(TableDes) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+
                 TableDes *stbTableDes = (TableDes *)calloc(1, sizeOfTableDes);
                 if (NULL == stbTableDes) {
                     errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
@@ -11830,7 +11887,7 @@ static int dumpOut() {
                             __func__, __LINE__,
                             tableRecordInfo.tableRecord.stable);
                 }
-                ret = dumpNormalTableBelongStb(
+                ret = dumpANormalTableBelongStb(
                         i,
                         taos_v,
                         g_dbInfos[0],
@@ -11838,17 +11895,17 @@ static int dumpOut() {
                         stbTableDes,
                         g_args.arg_list[i]);
                 if (ret >= 0) {
-                    okPrint("%s() LN%d, dumpNormalTableBelongStb(%s) success\n",
+                    okPrint("%s() LN%d, dumpANormalTableBelongStb(%s) success\n",
                             __func__, __LINE__,
                             tableRecordInfo.tableRecord.stable);
                 } else {
-                    errorPrint("%s() LN%d, dumpNormalTableBelongStb(%s) failed\n",
+                    errorPrint("%s() LN%d, dumpANormalTableBelongStb(%s) failed\n",
                             __func__, __LINE__,
                             tableRecordInfo.tableRecord.stable);
                 }
                 freeTbDes(stbTableDes);
             } else {
-                ret = dumpNormalTableWithoutStb(
+                ret = dumpANormalTableNotBelong(
                         i,
                         taos_v, g_dbInfos[0], g_args.arg_list[i]);
             }
