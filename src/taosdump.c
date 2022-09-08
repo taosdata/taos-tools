@@ -2212,16 +2212,31 @@ static int processFieldsValue(
     return 0;
 }
 
+void constructTableDesFromStb(const TableDef *stbTableDes,
+        const char *table,
+        TableDef **ppTableDes) {
+
+    TableDef *tableDes = *ppTableDes;
+
+    strcpy(tableDes->name, table);
+    tableDes->columns = stbTableDes->columns;
+    tableDes->tags = stbTableDes->tags;
+    memcpy(tableDes->cols, stbTableDes->cols,
+            (stbTableDes->columns + stbTableDes->tags) * sizeof(ColDes));
+    for (int col = 0; col < (tableDes->columns + tableDes->tags); col ++) {
+        tableDes->cols[col].var_value = NULL;
+    }
+}
+
 #ifdef WEBSOCKET
-static int getTableDesColWS(
+static int getTableTagValueWS(
         WS_TAOS *ws_taos,
         const char *dbName,
         const char *table,
         TableDef *tableDes,
-        int colCount
         ) {
-    for (int i = 0 ; i < colCount; i++) {
-        if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
+    for (int i = tableDes->columns;
+            i < (tableDes->columns + tableDes->tags); i++) {
 
         char sqlstr[COMMAND_SIZE] = {0};
         sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s",
@@ -2301,7 +2316,18 @@ static int getTableDesColWS(
         ws_res = NULL;
     }
 
-    return colCount;
+    return (tableDes->columns + tableDes->tags);
+}
+
+static int inline getTableDesFromStbWS(
+        TAOS *taos,
+        const char* dbName,
+        const TableDef *stbTableDes,
+        const char *table,
+        TableDef **tableDes) {
+
+    constructTableDesFromStb(stbTableDes, table, tableDes);
+    return getTableTagValueWS(taos, dbName, table, tableDes);
 }
 
 static int getTableDesWS(
@@ -2424,20 +2450,20 @@ static int getTableDesWS(
     }
 
     // if child-table have tag, using  select tagName from table to get tagValue
-    return getTableDesColWS(ws_taos, dbName, table, tableDes, colCount);
+    return getTableTagValueWS(ws_taos, dbName, table, tableDes);
 }
 #endif // WEBSOCKET
 
 
-static int getTableDesColNative(
+static int getTableTagValueNative(
         TAOS *taos,
         const char *dbName,
         const char *table,
-        TableDef *tableDes,
-        const int colCount
+        TableDef **pTableDes
         ) {
-    for (int i = 0 ; i < colCount; i++) {
-        if (strcmp(tableDes->cols[i].note, "TAG") != 0) continue;
+    TableDef *tableDes = *pTableDes;
+    for (int i = tableDes->columns;
+            i < (tableDes->columns + tableDes->tags); i++) {
 
         char sqlstr[COMMAND_SIZE] = {0};
         sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s",
@@ -2490,7 +2516,18 @@ static int getTableDesColNative(
         taos_free_result(res);
     }
 
-    return colCount;
+    return (tableDes->columns + tableDes->tags);
+}
+
+static inline int getTableDesFromStbNative(
+        TAOS *taos,
+        const char* dbName,
+        const TableDef *stbTableDes,
+        const char *table,
+        TableDef **tableDes) {
+
+    constructTableDesFromStb(stbTableDes, table, tableDes);
+    return getTableTagValueNative(taos, dbName, table, tableDes);
 }
 
 static int getTableDesNative(
@@ -2560,7 +2597,7 @@ static int getTableDesNative(
     }
 
     // if child-table have tag, using  select tagName from table to get tagValue
-    return getTableDesColNative(taos, dbName, table, tableDes, colCount);
+    return getTableTagValueNative(taos, dbName, table, &tableDes);
 }
 
 static int convertTableDesToSql(
@@ -8039,6 +8076,7 @@ static int createMTableAvroHeadImp(
         TAOS *taos,
         const char *dbName,
         const char *stable,
+        const TableDef *stbTableDes,
         const char *tbName,
         const int colCount,
         avro_file_writer_t db,
@@ -8084,14 +8122,16 @@ static int createMTableAvroHeadImp(
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        getTableDesWS(taos, dbName,
+        getTableDesFromStbWS(taos, dbName,
+                stbTableDes,
                 tbName,
-                subTableDes, false);
+                subTableDes);
     } else {
 #endif // WEBSOCKET
-        getTableDesNative(taos, dbName,
+        getTableDesFromStbNative(taos, dbName,
+                stbTableDes,
                 tbName,
-                subTableDes, false);
+                &subTableDes);
 #ifdef WEBSOCKET
     }
 #endif
@@ -8469,7 +8509,9 @@ static int createMTableAvroHeadSpecified(
 
     if (specifiedTb) {
         createMTableAvroHeadImp(
-                taos, dbName, stable, specifiedTb, colCount, db, wface);
+                taos, dbName, stable,
+                tableDes,
+                specifiedTb, colCount, db, wface);
     }
 
     avro_value_iface_decref(wface);
@@ -8548,7 +8590,7 @@ static int64_t createMTableAvroHeadFillTBNameWS(
                     ntbCount, stable);
             ++ntbCount;
 
-            currentPercent = ((ntbCount+1) * 100 / preCount);
+            currentPercent = (ntbCount * 100 / preCount);
 
             if (currentPercent > percentComplete) {
                 fprintf(stderr, "connection %p fetched %d%% of %s' tbname\n",
@@ -8610,7 +8652,7 @@ static int64_t createMTableAvroHeadFillTBNameNative(
                 ntbCount, stable);
         ++ntbCount;
 
-        currentPercent = ((ntbCount+1) * 100 / preCount);
+        currentPercent = (ntbCount * 100 / preCount);
 
         if (currentPercent > percentComplete) {
             fprintf(stderr, "connection %p fetched %d%% of %s' tbname\n",
@@ -8787,7 +8829,10 @@ static int createMTableAvroHead(
     for (;tb < preCount; tb ++ ) {
 
         createMTableAvroHeadImp(
-                taos, dbInfo->name, stable, *tbNameArr + tb*TSDB_TABLE_NAME_LEN,
+                taos, dbInfo->name,
+                stable,
+                tableDes,
+                *tbNameArr + tb*TSDB_TABLE_NAME_LEN,
                 colCount, db, wface);
 
         currentPercent = ((tb+1) * 100 / preCount);
