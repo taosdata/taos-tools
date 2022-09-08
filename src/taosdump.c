@@ -228,7 +228,7 @@ typedef struct {
     int columns;
     int tags;
     ColDes cols[];
-} TableDef;
+} TableDes;
 
 extern char version[];
 
@@ -239,6 +239,7 @@ typedef struct {
     char name[TSDB_TABLE_NAME_LEN];
     bool belongStb;
     char stable[TSDB_TABLE_NAME_LEN];
+    TableDes *stbTableDes;
 } TableInfo;
 
 typedef struct {
@@ -307,6 +308,7 @@ typedef struct {
     int32_t   threadIndex;
     SDbInfo   *dbInfo;
     char      stbName[TSDB_TABLE_NAME_LEN];
+    TableDes  *stbTableDes;
     char      *tbNameArr;
     int       precision;
     void      *taos;
@@ -1044,7 +1046,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     return 0;
 }
 
-static void freeTbDes(TableDef *tableDes)
+static void freeTbDes(TableDes *tableDes)
 {
     if (NULL == tableDes) return;
 
@@ -1804,7 +1806,7 @@ static int getDumpDbCount() {
 static int dumpCreateMTableClause(
         const char* dbName,
         const char *stable,
-        TableDef *tableDes,
+        TableDes *tableDes,
         int numColsAndTags,
         FILE *fp
         ) {
@@ -1982,7 +1984,7 @@ static int64_t getNtbCountOfStbNative(
 static int processFieldsValue(
         const void *pFields,
         int index,
-        TableDef *tableDes,
+        TableDes *tableDes,
         const void *value,
         int32_t len) {
     uint8_t type;
@@ -2212,11 +2214,11 @@ static int processFieldsValue(
     return 0;
 }
 
-void constructTableDesFromStb(const TableDef *stbTableDes,
+void constructTableDesFromStb(const TableDes *stbTableDes,
         const char *table,
-        TableDef **ppTableDes) {
+        TableDes **ppTableDes) {
 
-    TableDef *tableDes = *ppTableDes;
+    TableDes *tableDes = *ppTableDes;
 
     strcpy(tableDes->name, table);
     tableDes->columns = stbTableDes->columns;
@@ -2233,7 +2235,7 @@ static int getTableTagValueWS(
         WS_TAOS *ws_taos,
         const char *dbName,
         const char *table,
-        TableDef *tableDes,
+        TableDes *tableDes,
         ) {
     for (int i = tableDes->columns;
             i < (tableDes->columns + tableDes->tags); i++) {
@@ -2322,9 +2324,9 @@ static int getTableTagValueWS(
 static int inline getTableDesFromStbWS(
         TAOS *taos,
         const char* dbName,
-        const TableDef *stbTableDes,
+        const TableDes *stbTableDes,
         const char *table,
-        TableDef **tableDes) {
+        TableDes **tableDes) {
 
     constructTableDesFromStb(stbTableDes, table, tableDes);
     return getTableTagValueWS(taos, dbName, table, tableDes);
@@ -2334,7 +2336,7 @@ static int getTableDesWS(
         WS_TAOS *ws_taos,
         const char* dbName,
         const char *table,
-        TableDef *tableDes,
+        TableDes *tableDes,
         const bool colOnly) {
     int colCount = 0;
     char sqlstr[COMMAND_SIZE];
@@ -2459,9 +2461,9 @@ static int getTableTagValueNative(
         TAOS *taos,
         const char *dbName,
         const char *table,
-        TableDef **pTableDes
+        TableDes **pTableDes
         ) {
-    TableDef *tableDes = *pTableDes;
+    TableDes *tableDes = *pTableDes;
     for (int i = tableDes->columns;
             i < (tableDes->columns + tableDes->tags); i++) {
 
@@ -2522,9 +2524,9 @@ static int getTableTagValueNative(
 static inline int getTableDesFromStbNative(
         TAOS *taos,
         const char* dbName,
-        const TableDef *stbTableDes,
+        const TableDes *stbTableDes,
         const char *table,
-        TableDef **tableDes) {
+        TableDes **tableDes) {
 
     constructTableDesFromStb(stbTableDes, table, tableDes);
     return getTableTagValueNative(taos, dbName, table, tableDes);
@@ -2534,7 +2536,7 @@ static int getTableDesNative(
         TAOS *taos,
         const char* dbName,
         const char *table,
-        TableDef *tableDes,
+        TableDes *tableDes,
         const bool colOnly) {
     TAOS_ROW row = NULL;
     TAOS_RES* res = NULL;
@@ -2559,6 +2561,7 @@ static int getTableDesNative(
     }
 
     tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
+    uint32_t columns = 0, tags = 0;
     while ((row = taos_fetch_row(res)) != NULL) {
         int32_t* lengths = taos_fetch_lengths(res);
         char type[20] = {0};
@@ -2583,12 +2586,15 @@ static int getTableDesNative(
         }
 
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
-            tableDes->columns ++;
+            columns ++;
         } else {
-            tableDes->tags ++;
+            tags ++;
         }
         colCount++;
     }
+
+    tableDes->columns = columns;
+    tableDes->tags = tags;
 
     taos_free_result(res);
 
@@ -2602,7 +2608,7 @@ static int getTableDesNative(
 
 static int convertTableDesToSql(
         const char *dbName,
-        TableDef *tableDes, char **buffer)
+        TableDes *tableDes, char **buffer)
 {
     int counter = 0;
     int count_temp = 0;
@@ -2933,7 +2939,7 @@ static avro_value_iface_t* prepareAvroWface(
 
 static int dumpCreateTableClauseAvro(
         const char *dumpFilename,
-        TableDef *tableDes,
+        TableDes *tableDes,
         int numOfCols,
         const char* dbName) {
     ASSERT(dumpFilename);
@@ -3030,7 +3036,7 @@ static int dumpCreateTableClauseAvro(
 }
 
 static int dumpCreateTableClause(
-        TableDef *tableDes,
+        TableDes *tableDes,
         int numOfCols,
         FILE *fp,
         const char* dbName) {
@@ -3054,19 +3060,12 @@ static int dumpCreateTableClause(
 static int dumpStableClasuse(
         void *taos,
         SDbInfo *dbInfo,
-        const char *stbName, FILE *fp)
+        const char *stbName,
+        TableDes **pStbTableDes,
+        FILE *fp)
 {
-    uint64_t sizeOfTableDes =
-        (uint64_t)(sizeof(TableDef) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-
-    TableDef *tableDes = (TableDef *)calloc(1, sizeOfTableDes);
-    if (NULL == tableDes) {
-        errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
-                __func__, __LINE__, sizeOfTableDes);
-        exit(-1);
-    }
-
     int colCount = -1;
+    TableDes *tableDes = *pStbTableDes;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         colCount = getTableDesWS(taos, dbInfo->name,
@@ -3080,15 +3079,12 @@ static int dumpStableClasuse(
 #endif
 
     if (colCount < 0) {
-        free(tableDes);
         errorPrint("%s() LN%d, failed to get stable[%s] schema\n",
                __func__, __LINE__, stbName);
         exit(-1);
     }
 
     dumpCreateTableClause(tableDes, colCount, fp, dbInfo->name);
-
-    free(tableDes);
 
     return 0;
 }
@@ -3391,7 +3387,7 @@ static AVROTYPE createDumpinList(const char *dbPath, const char *ext, int64_t co
 }
 
 static int convertTbDesToJsonImplMore(
-        TableDef *tableDes, int pos, char **ppstr, char *colOrTag, int i)
+        TableDes *tableDes, int pos, char **ppstr, char *colOrTag, int i)
 {
     int ret = 0;
     char *pstr = *ppstr;
@@ -3502,7 +3498,7 @@ static int convertTbDesToJsonImplMore(
 static int convertTbDesToJsonImpl(
         const char *namespace,
         const char *tbName,
-        TableDef *tableDes,
+        TableDes *tableDes,
         char **jsonSchema, bool isColumn)
 {
     char *pstr = *jsonSchema;
@@ -3572,7 +3568,7 @@ static int convertTbDesToJsonImpl(
 
 
 static int convertTbTagsDesToJsonLoose(
-        const char *dbName, const char *stbName, TableDef *tableDes,
+        const char *dbName, const char *stbName, TableDes *tableDes,
         char **jsonSchema)
 {
     // {
@@ -3633,7 +3629,7 @@ static int convertTbTagsDesToJsonLoose(
 }
 
 static int convertTbTagsDesToJson(
-        const char *dbName, const char *stbName, TableDef *tableDes,
+        const char *dbName, const char *stbName, TableDes *tableDes,
         char **jsonSchema)
 {
     // {
@@ -3699,7 +3695,7 @@ static int convertTbTagsDesToJson(
 static int convertTbTagsDesToJsonWrap(
         const char *dbName,
         const char *stbName,
-        TableDef *tableDes,
+        TableDes *tableDes,
         char **jsonSchema)
 {
     int ret = -1;
@@ -3719,7 +3715,7 @@ static int convertTbTagsDesToJsonWrap(
 static int convertTbDesToJsonLoose(
         const char *dbName,
         const char *tbName,
-        TableDef *tableDes, int colCount,
+        TableDes *tableDes, int colCount,
         char **jsonSchema)
 {
     // {
@@ -3775,7 +3771,7 @@ static int convertTbDesToJsonLoose(
 
 static int convertTbDesToJson(
         const char *dbName,
-        const char *tbName, TableDef *tableDes, int colCount,
+        const char *tbName, TableDes *tableDes, int colCount,
         char **jsonSchema)
 {
     // {
@@ -3831,7 +3827,7 @@ static int convertTbDesToJson(
 
 static int convertTbDesToJsonWrap(
         const char *dbName, const char *tbName,
-        TableDef *tableDes, int colCount,
+        TableDes *tableDes, int colCount,
         char **jsonSchema)
 {
     int ret = -1;
@@ -4774,7 +4770,7 @@ static int64_t dumpInAvroTbTagsImpl(
 
     char sqlstr[COMMAND_SIZE] = {0};
 
-    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+    TableDes *tableDes = (TableDes *)calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
     if (NULL == tableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
@@ -5761,7 +5757,7 @@ static int64_t dumpInAvroDataImpl(
 #ifdef WEBSOCKET
     }
 #endif
-    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+    TableDes *tableDes = (TableDes *)calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
     if (NULL == tableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
@@ -7513,7 +7509,7 @@ static int64_t dumpTableDataAvroWS(
         const char* dbName,
         const int precision,
         int colCount,
-        TableDef *tableDes,
+        TableDes *tableDes,
         int64_t start_time,
         int64_t end_time
         ) {
@@ -7557,7 +7553,7 @@ static int64_t dumpTableDataAvroNative(
         const char* dbName,
         const int precision,
         int colCount,
-        TableDef *tableDes,
+        TableDes *tableDes,
         int64_t start_time,
         int64_t end_time
         ) {
@@ -7735,7 +7731,7 @@ static int64_t dumpTableDataAvro(
         const SDbInfo *dbInfo,
         const int precision,
         const int colCount,
-        TableDef *tableDes
+        TableDes *tableDes
         ) {
 
     char dataFilename[MAX_PATH_LEN] = {0};
@@ -7772,7 +7768,7 @@ static int64_t dumpTableDataWS(
         const char *tbName,
         const char* dbName,
         const int precision,
-        TableDef *tableDes,
+        TableDes *tableDes,
         const int64_t start_time,
         const int64_t end_time
         ) {
@@ -7809,7 +7805,7 @@ static int64_t dumpTableDataNative(
         const char *tbName,
         const char* dbName,
         const int precision,
-        TableDef *tableDes,
+        TableDes *tableDes,
         const int64_t start_time,
         const int64_t end_time
         ) {
@@ -7840,7 +7836,7 @@ static int64_t dumpTableData(
         const char *tbName,
         const SDbInfo* dbInfo,
         const int precision,
-        TableDef *tableDes
+        TableDes *tableDes
         ) {
 
     int64_t start_time = getStartTime(precision);
@@ -7871,6 +7867,7 @@ static int64_t dumpNormalTable(
         const SDbInfo *dbInfo,
         const bool belongStb,
         const char *stable,
+        const TableDes *stbTableDes,
         const char *tbName,
         const int precision,
         char *dumpFilename,
@@ -7881,13 +7878,13 @@ static int64_t dumpNormalTable(
         return -1;
     }
     int numColsAndTags = 0;
-    TableDef *tableDes = NULL;
+    TableDes *tableDes = NULL;
 
     if (stable != NULL && stable[0] != '\0') {  // dump table schema which is created by using super table
 
         // create child-table using super-table
         if (!g_args.avro) {
-            tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+            tableDes = (TableDes *)calloc(1, sizeof(TableDes)
                     + sizeof(ColDes) * TSDB_MAX_COLUMNS);
             if (NULL == tableDes) {
                 errorPrint("%s() LN%d, memory allocation failed!\n",
@@ -7919,7 +7916,7 @@ static int64_t dumpNormalTable(
                     stable, tableDes, numColsAndTags, fp);
         }
     } else {  // dump table definition
-        tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+        tableDes = (TableDes *)calloc(1, sizeof(TableDes)
                 + sizeof(ColDes) * TSDB_MAX_COLUMNS);
         if (NULL == tableDes) {
             errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
@@ -7969,7 +7966,7 @@ static int64_t dumpNormalTable(
     if (!g_args.schemaonly) {
         if (g_args.avro) {
             if (NULL == tableDes) {
-                tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+                tableDes = (TableDes *)calloc(1, sizeof(TableDes)
                         + sizeof(ColDes) * TSDB_MAX_COLUMNS);
                 if (NULL == tableDes) {
                     errorPrint("%s() LN%d, memory allocation failed!\n",
@@ -7979,12 +7976,12 @@ static int64_t dumpNormalTable(
 #ifdef WEBSOCKET
                 if (g_args.cloud || g_args.restful) {
                     numColsAndTags = getTableDesWS(
-                            taos, dbInfo->name, tbName, tableDes, false);
+                            taos, dbInfo->name, stbTableDes, tbName, &tableDes);
 
                 } else {
 #endif
-                    numColsAndTags = getTableDesNative(
-                            taos, dbInfo->name, tbName, tableDes, false);
+                    numColsAndTags = getTableDesFromStbNative(
+                            taos, dbInfo->name, stbTableDes, tbName, &tableDes);
 #ifdef WEBSOCKET
                 }
 #endif
@@ -8032,6 +8029,7 @@ static int64_t dumpNormalTableWithoutStb(
                 dbInfo,
                 false,
                 NULL,
+                NULL,
                 ntbName,
                 getPrecisionByString(dbInfo->precision),
                 dumpFilename,
@@ -8058,6 +8056,7 @@ static int64_t dumpNormalTableWithoutStb(
                 dbInfo,
                 false,
                 NULL,
+                NULL,
                 ntbName,
                 getPrecisionByString(dbInfo->precision),
                 NULL,
@@ -8076,7 +8075,7 @@ static int createMTableAvroHeadImp(
         TAOS *taos,
         const char *dbName,
         const char *stable,
-        const TableDef *stbTableDes,
+        const TableDes *stbTableDes,
         const char *tbName,
         const int colCount,
         avro_file_writer_t db,
@@ -8113,7 +8112,7 @@ static int createMTableAvroHeadImp(
     avro_value_set_branch(&value, 1, &branch);
     avro_value_set_string(&branch, tbName);
 
-    TableDef *subTableDes = (TableDef *) calloc(1, sizeof(TableDef)
+    TableDes *subTableDes = (TableDes *) calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * colCount);
     if (NULL == subTableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
@@ -8468,9 +8467,9 @@ static int createMTableAvroHeadSpecified(
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
     }
-    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
+    TableDes *stbTableDes = (TableDes *)calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    if (NULL == tableDes) {
+    if (NULL == stbTableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
     }
@@ -8478,22 +8477,22 @@ static int createMTableAvroHeadSpecified(
     int colCount;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        colCount = getTableDesWS(taos, dbName, stable, tableDes, false);
+        colCount = getTableDesWS(taos, dbName, stable, stbTableDes, false);
     } else {
 #endif
-        colCount = getTableDesNative(taos, dbName, stable, tableDes, false);
+        colCount = getTableDesNative(taos, dbName, stable, stbTableDes, false);
 #ifdef WEBSOCKET
     }
 #endif
 
     char *jsonTagsSchema = NULL;
     if (0 != convertTbTagsDesToJsonWrap(
-                dbName, stable, tableDes, &jsonTagsSchema)) {
+                dbName, stable, stbTableDes, &jsonTagsSchema)) {
         errorPrint("%s() LN%d, convertTbTagsDesToJsonWrap failed\n",
                 __func__,
                 __LINE__);
         tfree(jsonTagsSchema);
-        freeTbDes(tableDes);
+        freeTbDes(stbTableDes);
         return -1;
     }
 
@@ -8510,7 +8509,7 @@ static int createMTableAvroHeadSpecified(
     if (specifiedTb) {
         createMTableAvroHeadImp(
                 taos, dbName, stable,
-                tableDes,
+                stbTableDes,
                 specifiedTb, colCount, db, wface);
     }
 
@@ -8520,7 +8519,7 @@ static int createMTableAvroHeadSpecified(
     avro_schema_decref(schema);
 
     tfree(jsonTagsSchema);
-    freeTbDes(tableDes);
+    freeTbDes(stbTableDes);
 
     return 0;
 }
@@ -8677,18 +8676,15 @@ static int createMTableAvroHead(
         void *taos,
         const SDbInfo *dbInfo,
         const char *stable,
+        TableDes **pTableDes,
         char **tbNameArr)
 {
     if(0 == strlen(stable)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
     }
-    TableDef *tableDes = (TableDef *)calloc(1, sizeof(TableDef)
-            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
-    if (NULL == tableDes) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
-        return -1;
-    }
+
+    TableDes *tableDes = *pTableDes;
 
     char dumpFilename[MAX_PATH_LEN] = {0};
 
@@ -8697,7 +8693,7 @@ static int createMTableAvroHead(
     debugPrint("%s() LN%d dumpFilename: %s\n",
             __func__, __LINE__, dumpFilename);
 
-    int colCount;
+    int colCount = -1;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         colCount = getTableDesWS(taos, dbInfo->name, stable, tableDes, false);
@@ -8715,7 +8711,6 @@ static int createMTableAvroHead(
                 __func__,
                 __LINE__);
         tfree(jsonTagsSchema);
-        freeTbDes(tableDes);
         return -1;
     }
 
@@ -8764,7 +8759,6 @@ static int createMTableAvroHead(
         avro_file_writer_close(db);
         avro_schema_decref(schema);
         tfree(jsonTagsSchema);
-        freeTbDes(tableDes);
         return 0;
     }
 
@@ -8781,7 +8775,6 @@ static int createMTableAvroHead(
         avro_file_writer_close(db);
         avro_schema_decref(schema);
         tfree(jsonTagsSchema);
-        freeTbDes(tableDes);
         return -1;
     }
 
@@ -8818,7 +8811,6 @@ static int createMTableAvroHead(
         avro_file_writer_close(db);
         avro_schema_decref(schema);
         tfree(jsonTagsSchema);
-        freeTbDes(tableDes);
         return -1;
     }
 
@@ -8829,7 +8821,8 @@ static int createMTableAvroHead(
     for (;tb < preCount; tb ++ ) {
 
         createMTableAvroHeadImp(
-                taos, dbInfo->name,
+                taos,
+                dbInfo->name,
                 stable,
                 tableDes,
                 *tbNameArr + tb*TSDB_TABLE_NAME_LEN,
@@ -8858,7 +8851,6 @@ static int createMTableAvroHead(
     avro_schema_decref(schema);
 
     tfree(jsonTagsSchema);
-    freeTbDes(tableDes);
 
     return 0;
 }
@@ -8866,7 +8858,9 @@ static int createMTableAvroHead(
 static int64_t dumpNormalTableBelongStb(
         int64_t index,
         TAOS *taos,
-        SDbInfo *dbInfo, char *stbName, char *ntbName)
+        SDbInfo *dbInfo, char *stbName,
+        const TableDes *stbTableDes,
+        char *ntbName)
 {
     int64_t count = 0;
 
@@ -8914,6 +8908,7 @@ static int64_t dumpNormalTableBelongStb(
             dbInfo,
             true,
             stbName,
+            stbTableDes,
             ntbName,
             getPrecisionByString(dbInfo->precision),
             dumpFilename,
@@ -8991,6 +8986,7 @@ static void *dumpNtbOfDb(void *arg) {
                     pThreadInfo->dbInfo,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->belongStb,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->stable,
+                    pThreadInfo->stbTableDes,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
                     pThreadInfo->precision,
                     dumpFilename,
@@ -9007,6 +9003,7 @@ static void *dumpNtbOfDb(void *arg) {
                     pThreadInfo->dbInfo,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->belongStb,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->stable,
+                    pThreadInfo->stbTableDes,
                     ((TableInfo *)(g_tablesList + pThreadInfo->from+i))->name,
                     pThreadInfo->precision,
                     NULL,
@@ -9965,6 +9962,7 @@ static void dumpNormalTablesOfStbWS(
                     pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
+                    pThreadInfo->stbTableDes,
                     pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
                     pThreadInfo->precision,
                     dumpFilename,
@@ -9976,6 +9974,7 @@ static void dumpNormalTablesOfStbWS(
                     pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
+                    pThreadInfo->stbTableDes,
                     pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
                     pThreadInfo->precision,
                     NULL,
@@ -10016,6 +10015,7 @@ static void dumpNormalTablesOfStbNative(
                     pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
+                    pThreadInfo->stbTableDes,
                     tbName,
                     pThreadInfo->precision,
                     dumpFilename,
@@ -10027,6 +10027,7 @@ static void dumpNormalTablesOfStbNative(
                     pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
+                    pThreadInfo->stbTableDes,
                     tbName,
                     pThreadInfo->precision,
                     NULL,
@@ -10176,6 +10177,11 @@ static int64_t dumpNtbOfDbByThreads(
 }
 
 #ifdef WEBSOCKET
+static int64_t dumpNtbOfStbOfDbWS(SDbInfo *dbInfo) {
+    errorPrint("%s() TODO", __func__);
+    return -1;
+}
+
 static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 {
     if (0 == dbInfo->ntables) {
@@ -10315,6 +10321,11 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
     return records;
 }
 #endif // WEBSOCKET
+
+static int64_t dumpNtbOfStbOfDbNative(SDbInfo *dbInfo) {
+    errorPrint("%s() TODO", __func__);
+    return -1;
+}
 
 static int64_t dumpNTablesOfDbNative(SDbInfo *dbInfo)
 {
@@ -10469,11 +10480,19 @@ static int64_t dumpNtbOfStbByThreads(
 
     char *tbNameArr = NULL;
 
+    TableDes *stbTableDes = (TableDes *)calloc(1, sizeof(TableDes)
+            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+    if (NULL == stbTableDes) {
+        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        return -1;
+    }
+
     if (g_args.avro) {
         int ret = createMTableAvroHead(
                 taos_v,
                 dbInfo,
                 stbName,
+                &stbTableDes,
                 &tbNameArr);
         if (-1 == ret) {
             errorPrint("%s() LN%d, failed to dump table\n",
@@ -10481,6 +10500,7 @@ static int64_t dumpNtbOfStbByThreads(
             if (tbNameArr) {
                 free(tbNameArr);
             }
+            freeTbDes(stbTableDes);
             return -1;
         }
     }
@@ -10555,6 +10575,7 @@ static int64_t dumpNtbOfStbByThreads(
         pThreadInfo->precision = getPrecisionByString(dbInfo->precision);
 
         strcpy(pThreadInfo->stbName, stbName);
+        pThreadInfo->stbTableDes = stbTableDes;
         pThreadInfo->tbNameArr = tbNameArr;
         pthread_create(pids + i, NULL, dumpNormalTablesOfStb, pThreadInfo);
     }
@@ -10572,6 +10593,8 @@ static int64_t dumpNtbOfStbByThreads(
         free(tbNameArr);
     }
 
+    freeTbDes(stbTableDes);
+
     free(pids);
     free(infos);
 
@@ -10581,7 +10604,8 @@ static int64_t dumpNtbOfStbByThreads(
 static int dumpTbTagsToAvro(
         int64_t index,
         void *taos, const SDbInfo *dbInfo,
-        const char *stable)
+        const char *stable,
+        TableDes **pStbTableDes)
 {
     debugPrint("%s() LN%d dbName: %s, stable: %s\n",
             __func__, __LINE__,
@@ -10593,6 +10617,7 @@ static int dumpTbTagsToAvro(
             taos,
             dbInfo,
             stable,
+            pStbTableDes,
             &tbNameArr);
     if (-1 == ret) {
         errorPrint("%s() LN%d, failed to dump table des\n",
@@ -10669,6 +10694,7 @@ static int64_t dumpCreateSTableClauseOfDbWS(
             if (0 == dumpStableClasuse(
                         ws_taos, dbInfo,
                         buffer,
+                        &stbTableDes,
                         fp)) {
                 superTblCnt ++;
             } else {
@@ -10683,7 +10709,8 @@ static int64_t dumpCreateSTableClauseOfDbWS(
                         superTblCnt,
                         ws_taos,
                         dbInfo,
-                        buffer);
+                        buffer,
+                        &stbTableDes);
             }
         }
     }
@@ -10730,6 +10757,9 @@ static int64_t dumpCreateSTableClauseOfDbNative(
         exit(-1);
     }
 
+    uint64_t sizeOfTableDes =
+        (uint64_t)(sizeof(TableDes) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+
     int64_t superTblCnt = 0;
     while ((row = taos_fetch_row(res)) != NULL) {
         char stable[TSDB_TABLE_NAME_LEN] = {0};
@@ -10740,10 +10770,18 @@ static int64_t dumpCreateSTableClauseOfDbNative(
             continue;
         }
 
+        TableDes *stbTableDes = (TableDes *)calloc(1, sizeOfTableDes);
+        if (NULL == stbTableDes) {
+            errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                    __func__, __LINE__, sizeOfTableDes);
+            exit(-1);
+        }
+
         strncpy(stable,row[TSDB_SHOW_TABLES_NAME_INDEX],
                 lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
         if (0 == dumpStableClasuse(taos, dbInfo,
                     stable,
+                    &stbTableDes,
                     fp)) {
             superTblCnt ++;
         } else {
@@ -10758,8 +10796,11 @@ static int64_t dumpCreateSTableClauseOfDbNative(
                     superTblCnt,
                     taos,
                     dbInfo,
-                    stable);
+                    stable,
+                    &stbTableDes);
         }
+
+        freeTbDes(stbTableDes);
     }
 
     taos_free_result(res);
@@ -10833,11 +10874,17 @@ static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         dumpCreateSTableClauseOfDbWS(dbInfo, fpDbs);
-        ret = dumpNTablesOfDbWS(dbInfo);
+        ret = dumpNtbOfStbOfDbWS(dbInfo);
+        if (ret >= 0) {
+            ret = dumpNTablesOfDbWS(dbInfo);
+        }
     } else {
 #endif
         dumpCreateSTableClauseOfDbNative(dbInfo, fpDbs);
-        ret = dumpNTablesOfDbNative(dbInfo);
+        ret = dumpNtbOfStbOfDbNative(dbInfo);
+        if (ret >= 0) {
+            ret = dumpNTablesOfDbNative(dbInfo);
+        }
 #ifdef WEBSOCKET
     }
 #endif
@@ -11733,11 +11780,22 @@ static int dumpOut() {
                 continue;
             }
 
+            uint64_t sizeOfTableDes =
+                (uint64_t)(sizeof(TableDes) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+
             if (tableRecordInfo.isStb) {  // dump all table of this stable
+                TableDes *stbTableDes = (TableDes *)calloc(1, sizeOfTableDes);
+                if (NULL == stbTableDes) {
+                    errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                            __func__, __LINE__, sizeOfTableDes);
+                    exit(-1);
+                }
+
                 ret = dumpStableClasuse(
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
+                        &stbTableDes,
                         fpDbs);
                 if (ret >= 0) {
                     superTblCnt++;
@@ -11750,11 +11808,20 @@ static int dumpOut() {
                             __func__, __LINE__,
                             tableRecordInfo.tableRecord.stable);
                 }
+                freeTbDes(stbTableDes);
             } else if (tableRecordInfo.belongStb){
+                TableDes *stbTableDes = (TableDes *)calloc(1, sizeOfTableDes);
+                if (NULL == stbTableDes) {
+                    errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                            __func__, __LINE__, sizeOfTableDes);
+                    exit(-1);
+                }
+
                 ret = dumpStableClasuse(
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
+                        &stbTableDes,
                         fpDbs);
                 if (ret >= 0) {
                     superTblCnt++;
@@ -11768,6 +11835,7 @@ static int dumpOut() {
                         taos_v,
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
+                        stbTableDes,
                         g_args.arg_list[i]);
                 if (ret >= 0) {
                     okPrint("%s() LN%d, dumpNormalTableBelongStb(%s) success\n",
@@ -11778,6 +11846,7 @@ static int dumpOut() {
                             __func__, __LINE__,
                             tableRecordInfo.tableRecord.stable);
                 }
+                freeTbDes(stbTableDes);
             } else {
                 ret = dumpNormalTableWithoutStb(
                         i,
