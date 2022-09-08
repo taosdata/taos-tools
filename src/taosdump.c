@@ -1730,7 +1730,7 @@ static int getDumpDbCount() {
 
     char command[COMMAND_SIZE];
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT * FROM information_schema.ins_databases");
+        sprintf(command, "SELECT name FROM information_schema.ins_databases");
     } else {
         sprintf(command, "SHOW DATABASES");
     }
@@ -4557,7 +4557,7 @@ static int64_t writeResultToAvroWS(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            printf("%d%% of %s\n", currentPercent, tbName);
+            fprintf(stderr, "%d%% of %s\n", currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
@@ -4693,7 +4693,7 @@ static int64_t writeResultToAvroNative(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            printf("%d%% of %s\n", currentPercent, tbName);
+            fprintf(stderr, "%d%% of %s\n", currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
@@ -6936,7 +6936,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
     int percentComplete = 0;
     for (int64_t i = 0; i < pThreadInfo->count; i++) {
         if (0 == currentPercent) {
-            printf("[%d]: Restoring from %s ...\n",
+            fprintf(stderr, "[%d]: Restoring from %s ...\n",
                     pThreadInfo->threadIndex,
                     fileList[pThreadInfo->from + i]);
         }
@@ -7001,14 +7001,15 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
         currentPercent = ((i+1) * 100 / pThreadInfo->count);
         if (currentPercent > percentComplete) {
-            printf("[%d]:%d%%\n", pThreadInfo->threadIndex, currentPercent);
+            fprintf(stderr, "[%d]:%d%%\n",
+                    pThreadInfo->threadIndex, currentPercent);
             percentComplete = currentPercent;
         }
 
     }
 
     if (percentComplete < 100) {
-        printf("[%d]:%d%%\n", pThreadInfo->threadIndex, 100);
+        fprintf(stderr, "[%d]:%d%%\n", pThreadInfo->threadIndex, 100);
     }
 
     return NULL;
@@ -7301,7 +7302,7 @@ static int64_t writeResultDebugWS(
             fprintf(fp, "%s", tmpBuffer);
 
             if (totalRows >= lastRowsPrint) {
-                printf(" %"PRId64 " rows already be dump-out from %s.%s\n",
+                fprintf(stderr, " %"PRId64 " rows already be dump-out from %s.%s\n",
                         totalRows, dbName, tbName);
                 lastRowsPrint += 5000000;
             }
@@ -7385,7 +7386,7 @@ static int64_t writeResultDebugNative(
         fprintf(fp, "%s", tmpBuffer);
 
         if (totalRows >= lastRowsPrint) {
-            printf(" %"PRId64 " rows already be dump-out from %s.%s\n",
+            fprintf(stderr, " %"PRId64 " rows already be dump-out from %s.%s\n",
                     totalRows, dbName, tbName);
             lastRowsPrint += 5000000;
         }
@@ -8550,7 +8551,7 @@ static int64_t createMTableAvroHeadFillTBNameWS(
             currentPercent = ((ntbCount+1) * 100 / preCount);
 
             if (currentPercent > percentComplete) {
-                printf("connection %p fetched %d%% of %s' tbname\n",
+                fprintf(stderr, "connection %p fetched %d%% of %s' tbname\n",
                         taos, currentPercent, stable);
                 percentComplete = currentPercent;
             }
@@ -8612,7 +8613,7 @@ static int64_t createMTableAvroHeadFillTBNameNative(
         currentPercent = ((ntbCount+1) * 100 / preCount);
 
         if (currentPercent > percentComplete) {
-            printf("connection %p fetched %d%% of %s' tbname\n",
+            fprintf(stderr, "connection %p fetched %d%% of %s' tbname\n",
                     taos, currentPercent, stable);
             percentComplete = currentPercent;
         }
@@ -8696,6 +8697,8 @@ static int createMTableAvroHead(
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     }
 
+    fprintf(stderr, "Getting tables' number of %s...\n", stable);
+
     int64_t preCount = 0;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -8708,9 +8711,9 @@ static int createMTableAvroHead(
 #endif
 
     if (0 == preCount) {
-        printf("Zero normal table need be dumped!\n");
+        fprintf(stderr, "Tables number is ZERO!\n");
     } else if (0 > preCount) {
-        printf("Failed to get normal table count!\n");
+        errorPrint("Failed to get count of normal table of %s!\n", stable);
     }
 
     if (0 >= preCount) {
@@ -8723,12 +8726,14 @@ static int createMTableAvroHead(
         return 0;
     }
 
-    printf("connection: %p is dumping out schema of %"PRId64" sub-table(s) of %s \n",
+    fprintf(stderr, "connection: %p is dumping out schema of "
+            "%"PRId64" sub-table(s) of %s \n",
             taos, preCount, stable);
 
     *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
     if (NULL == *tbNameArr) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        errorPrint("%s() LN%d, memory allocation failed!\n",
+                __func__, __LINE__);
         avro_value_iface_decref(wface);
         freeRecordSchema(recordSchema);
         avro_file_writer_close(db);
@@ -8788,7 +8793,7 @@ static int createMTableAvroHead(
         currentPercent = ((tb+1) * 100 / preCount);
 
         if (currentPercent > percentComplete) {
-            printf("connection %p is dumping out schema:%d%% of %s\n",
+            fprintf(stderr, "connection %p is dumping out schema:%d%% of %s\n",
                     taos, currentPercent, stable);
             percentComplete = currentPercent;
         }
@@ -8931,7 +8936,8 @@ static void *dumpNtbOfDb(void *arg) {
         if (g_args.avro) {
 
             if (0 == currentPercent) {
-                printf("[%d]: Dumping 1%%\n", pThreadInfo->threadIndex);
+                fprintf(stderr, "[%d]: Dumping 1%%\n",
+                        pThreadInfo->threadIndex);
             }
 
             count = dumpNormalTable(
@@ -8946,7 +8952,7 @@ static void *dumpNtbOfDb(void *arg) {
                     NULL);
         } else {
             if (0 == currentPercent) {
-                printf("[%d]: Dumping to %s \n",
+                fprintf(stderr, "[%d]: Dumping to %s \n",
                         pThreadInfo->threadIndex, dumpFilename);
             }
 
@@ -8970,13 +8976,14 @@ static void *dumpNtbOfDb(void *arg) {
 
         currentPercent = (int)((i+1) * 100 / pThreadInfo->count);
         if (currentPercent > percentComplete) {
-            printf("[%d]:%d%%\n", pThreadInfo->threadIndex, currentPercent);
+            fprintf(stderr, "[%d]:%d%%\n",
+                    pThreadInfo->threadIndex, currentPercent);
             percentComplete = currentPercent;
         }
     }
 
     if (percentComplete < 100) {
-        printf("[%d]:%d%%\n", pThreadInfo->threadIndex, 100);
+        fprintf(stderr, "[%d]:%d%%\n", pThreadInfo->threadIndex, 100);
     }
 
     if (NULL != fp) {
@@ -9557,7 +9564,7 @@ static int64_t dumpInOneDebugFile(
         cmd_len = 0;
 
         if (lineNo >= lastRowsPrint) {
-            printf(" %"PRId64" lines already be executed from file %s\n",
+            fprintf(stderr, " %"PRId64" lines already be executed from file %s\n",
                     lineNo, fileName);
             lastRowsPrint += 5000000;
         }
@@ -10397,6 +10404,8 @@ static int64_t dumpNtbOfStbByThreads(
                 dbInfo->name, g_escapeChar, stbName, g_escapeChar);
     }
 
+    fprintf(stderr, "Getting tables' number of %s...\n", stbName);
+
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
        ntbCount  = getNtbCountOfStbWS(command);
@@ -10623,7 +10632,7 @@ static int64_t dumpCreateSTableClauseOfDbWS(
             }
 
             if (g_args.avro) {
-                printf("Start to dump out super table: %s of %s\n",
+                fprintf(stderr, "Start to dump out super table: %s of %s\n",
                         buffer,dbInfo->name);
                 dumpTbTagsToAvro(
                         superTblCnt,
@@ -10698,7 +10707,7 @@ static int64_t dumpCreateSTableClauseOfDbNative(
         }
 
         if (g_args.avro) {
-            printf("Start to dump out super table: %s of %s\n",
+            fprintf(stderr, "Start to dump out super table: %s of %s\n",
                     stable, dbInfo->name);
             dumpTbTagsToAvro(
                     superTblCnt,
@@ -10759,7 +10768,7 @@ static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
 static int64_t dumpWholeDatabase(SDbInfo *dbInfo, FILE *fp)
 {
     int64_t ret;
-    printf("Start to dump out database: %s\n", dbInfo->name);
+    fprintf(stderr, "Start to dump out database: %s\n", dbInfo->name);
 
     fprintf(fp, "#!dumpdb: %s: %s\n\n", dbInfo->name, dbInfo->dirForDbDump);
 
@@ -11235,6 +11244,8 @@ static int fillDbExtraInfoV3WS(
     char command[COMMAND_SIZE];
     sprintf(command, "SELECT COUNT(table_name) FROM information_schema.ins_tables WHERE db_name='%s'", dbName);
 
+    fprintf(stderr, "Getting table(s) count of %s ...\n", dbName);
+
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
@@ -11285,7 +11296,7 @@ static int fillDbInfoWS(void *taos) {
 
     char command[COMMAND_SIZE];
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT * FROM information_schema.ins_databases");
+        sprintf(command, "SELECT name FROM information_schema.ins_databases");
     } else {
         sprintf(command, "SHOW DATABASES");
     }
@@ -11420,8 +11431,12 @@ static int fillDbExtraInfoV3Native(
         const char *dbName,
         const int dbIndex) {
     int ret = 0;
-    char command[COMMAND_SIZE];
-    sprintf(command, "SELECT COUNT(table_name) FROM information_schema.ins_tables WHERE db_name='%s'", dbName);
+    char command[COMMAND_SIZE] = {0};
+    sprintf(command, "SELECT COUNT(table_name) FROM "
+            "information_schema.ins_tables WHERE db_name='%s'",
+            dbName);
+
+    fprintf(stderr, "Getting table(s) count of %s ...\n", dbName);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
