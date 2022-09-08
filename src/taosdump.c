@@ -11115,12 +11115,13 @@ static bool fillDBInfoWithFieldsNative(const int index,
                 return false;
             }
         } else if (0 == strcmp(fields[f].name, "strict")) {
-            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    (char*)row[f], lengths[f]);
             tstrncpy(g_dbInfos[index]->strict,
                     (char *)row[f],
                     min(STRICT_LEN, lengths[f] + 1));
+            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    g_dbInfos[index]->strict,
+                    lengths[f]);
         } else if (0 == strcmp(fields[f].name, "quorum")) {
             g_dbInfos[index]->quorum =
                 *((int16_t *)row[f]);
@@ -11128,12 +11129,13 @@ static bool fillDBInfoWithFieldsNative(const int index,
             g_dbInfos[index]->days = *((int16_t *)row[f]);
         } else if ((0 == strcmp(fields[f].name, "keep"))
                 || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
-            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                    __func__, __LINE__, f,
-                    (char*)row[f], lengths[f]);
             tstrncpy(g_dbInfos[index]->keeplist,
                     (char *)row[f],
                     min(KEEPLIST_LEN, lengths[f] + 1));
+            debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
+                    __func__, __LINE__, f,
+                    g_dbInfos[index]->keeplist,
+                    lengths[f]);
         } else if (0 == strcmp(fields[f].name, "duration")) {
             tstrncpy(g_dbInfos[index]->duration,
                     (char *)row[f],
@@ -11231,7 +11233,7 @@ static int fillDbExtraInfoV3WS(
         const int dbIndex) {
     int ret = 0;
     char command[COMMAND_SIZE];
-    sprintf(command, "select count(table_name) from information_schema.ins_tables where db_name='%s'", dbName);
+    sprintf(command, "SELECT COUNT(table_name) FROM information_schema.ins_tables WHERE db_name='%s'", dbName);
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
@@ -11419,7 +11421,7 @@ static int fillDbExtraInfoV3Native(
         const int dbIndex) {
     int ret = 0;
     char command[COMMAND_SIZE];
-    sprintf(command, "select count(table_name) from information_schema.ins_tables where db_name='%s'", dbName);
+    sprintf(command, "SELECT COUNT(table_name) FROM information_schema.ins_tables WHERE db_name='%s'", dbName);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
