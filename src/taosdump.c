@@ -49,7 +49,9 @@
 #include <jansson.h>
 
 #ifdef RELEASE
-#define ASSERT(x)   do { if (!(x)) errorPrint("%s() LN%d, %s\n", __func__, __LINE__, "assertion");} while(0)
+#define ASSERT(x)   do { \
+    if (!(x)) errorPrint("%s() LN%d, %s\n", \
+            __func__, __LINE__, "assertion");} while(0)
 #else
 #include <assert.h>
 #define ASSERT(x)   do { assert(x); } while(0)
@@ -103,7 +105,8 @@ static void print_json_aux(json_t *element, int indent);
     }                    \
   } while (0)
 
-#define atomic_add_fetch_64(ptr, val) __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST)
+#define atomic_add_fetch_64(ptr, val) \
+    __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST)
 
 #ifdef DARWIN
 #define SET_THREAD_NAME(name)
@@ -1839,7 +1842,6 @@ static int dumpCreateMTableClause(
         if (counter != count_temp) {
             if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                     || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
-                //pstr += sprintf(pstr, ", \'%s\'", tableDes->cols[counter].note);
                 if (tableDes->cols[counter].var_value) {
                     pstr += sprintf(pstr, ",\'%s\'",
                             tableDes->cols[counter].var_value);
@@ -1852,7 +1854,6 @@ static int dumpCreateMTableClause(
         } else {
             if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                     || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
-                //pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].note);
                 if (tableDes->cols[counter].var_value) {
                     pstr += sprintf(pstr,"\'%s\'", tableDes->cols[counter].var_value);
                 } else {
@@ -2485,8 +2486,6 @@ static int getTableTagValueNative(
         taos_free_result(res);
         return -1;
     }
-
-//    TAOS_FIELD *fields = taos_fetch_fields(res);
 
     TAOS_ROW row = taos_fetch_row(res);
 
@@ -8956,17 +8955,11 @@ static void printArgs(FILE *file)
     } else if (DEFAULT_END_TIME != g_args.end_time) {
         fprintf(file, "end_time: %" PRId64 "\n", g_args.end_time);
     }
-    // use database's precision, should not print default precision
-    // fprintf(file, "precision: %s\n", g_args.precision);
     fprintf(file, "data_batch: %d\n", g_args.data_batch);
-    // use max_sql_len, should not print max_sql_len
-    // fprintf(file, "max_sql_len: %d\n", g_args.max_sql_len);
     fprintf(file, "thread_num: %d\n", g_args.thread_num);
     fprintf(file, "allow_sys: %s\n", g_args.allow_sys?"true":"false");
     fprintf(file, "escape_char: %s\n", g_args.escape_char?"true":"false");
     fprintf(file, "loose_mode: %s\n", g_args.loose_mode?"true":"false");
-    // should not print abort
-    // fprintf(file, "abort: %d\n", g_args.abort);
     fprintf(file, "isDumpIn: %s\n", g_args.isDumpIn?"true":"false");
     fprintf(file, "arg_list_len: %d\n", g_args.arg_list_len);
 #ifdef WEBSOCKET
@@ -9183,10 +9176,12 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 
     ws_code = ws_errno(ws_res);
     if (0 != ws_code) {
-        warnPrint("%s() LN%d, failed to run command %s, code: 0x%08x, reason: %s. Will use default settings\n",
+        warnPrint("%s() LN%d, failed to run command %s, "
+                "code: 0x%08x, reason: %s. Will use default settings\n",
                 __func__, __LINE__,
                 sqlstr, ws_errno(ws_res), ws_errstr(ws_res));
-        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, code: 0x%08x, reason:%s\n",
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, "
+                "code: 0x%08x, reason:%s\n",
                 ws_errno(ws_res), ws_errstr(ws_res));
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
         fwrite(buffer, strlen(buffer), 1, fp);
@@ -9224,7 +9219,8 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                 memset(tmp, 0, BUFFER_LEN-12);
                 memcpy(tmp, value1, min(BUFFER_LEN-13, len));
                 snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tmp);
-                debugPrint("%s() LN%d buffer: %s\n", __func__, __LINE__, buffer);
+                debugPrint("%s() LN%d buffer: %s\n",
+                        __func__, __LINE__, buffer);
                 fwrite(buffer, strlen(buffer), 1, fp);
             }
         }
@@ -9249,7 +9245,8 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
         warnPrint("failed to run command %s, "
                 "code: 0x%08x, reason: %s. Will use default settings\n",
                 sqlstr, taos_errno(res), taos_errstr(res));
-        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, code: 0x%08x, reason:%s\n",
+        fprintf(g_fpOfResult, "# SHOW VARIABLES failed, "
+                "code: 0x%08x, reason:%s\n",
                 taos_errno(res), taos_errstr(res));
         fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
@@ -9435,7 +9432,8 @@ static int64_t dumpInOneDebugFile(
         ++lineNo;
 
         if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN){
-            errorPrint("the No.%"PRId64" line is exceed max allowed SQL length!\n", lineNo);
+            errorPrint("the No.%"PRId64" line is exceed "
+                    "max allowed SQL length!\n", lineNo);
             debugPrint("%s() LN%d, line: %s", __func__, __LINE__, line);
             continue;
         }
@@ -9612,8 +9610,8 @@ static int dumpInDebugWorkThreads(const char *dbPath)
         if (g_args.cloud || g_args.restful) {
             pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
             if (pThreadInfo->taos == NULL) {
-                errorPrint("%s() LN%d, failed to connect to TDengine server %s, "
-                        "code: 0x%08x, reason: %s!\n",
+                errorPrint("%s() LN%d, failed to connect to TDengine server %s,"
+                        " code: 0x%08x, reason: %s!\n",
                         __func__, __LINE__,
                         g_args.dsn, ws_errno(NULL), ws_errstr(NULL));
                 free(infos);
@@ -9722,7 +9720,8 @@ static int dumpInDbs(const char *dbPath)
     if ((g_dumpInDataMajorVer > 1) && (1 == taosToolsMajorVer)) {
         errorPrint("\tThe data file was generated by version %d\n"
                    "\tCannot be restored by current version: %d\n\n"
-                   "\tPlease use a correct version taosdump to restore them.\n\n",
+                   "\tPlease use a correct version taosdump "
+                   "to restore them.\n\n",
                 g_dumpInDataMajorVer, taosToolsMajorVer);
         return -1;
     }
@@ -9744,10 +9743,12 @@ static int dumpInDbs(const char *dbPath)
             taos_v, fp, g_dumpInCharset, dbsSql);
 
     if(rows > 0) {
-        okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
+        okPrint("Total %"PRId64" line(s) SQL be successfully "
+                "dumped in file: %s!\n",
                 rows, dbsSql);
     } else if (rows < 0) {
-        errorPrint("Total %"PRId64" line(s) SQL failed to dump in file: %s!\n",
+        errorPrint("Total %"PRId64" line(s) SQL failed to dump "
+                "in file: %s!\n",
                 rows, dbsSql);
     }
 
@@ -10013,7 +10014,8 @@ static int64_t dumpNtbOfStbByThreads(
     TableDes *stbTableDes = (TableDes *)calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
     if (NULL == stbTableDes) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        errorPrint("%s() LN%d, memory allocation failed!\n",
+                __func__, __LINE__);
         return -1;
     }
 
@@ -10073,7 +10075,8 @@ static int64_t dumpNtbOfStbByThreads(
         if (g_args.cloud || g_args.restful) {
             pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
             if (NULL == pThreadInfo->taos) {
-                errorPrint("%s() LN%d, Failed to connect to TDengine, reason: %s\n",
+                errorPrint("%s() LN%d, Failed to connect to TDengine, "
+                        "reason: %s\n",
                         __func__,
                         __LINE__,
                         ws_errstr(NULL));
@@ -10095,7 +10098,8 @@ static int64_t dumpNtbOfStbByThreads(
                     g_args.port
                     );
             if (NULL == pThreadInfo->taos) {
-                errorPrint("%s() LN%d, Failed to connect to TDengine, reason: %s\n",
+                errorPrint("%s() LN%d, Failed to connect to TDengine, "
+                        "reason: %s\n",
                         __func__,
                         __LINE__,
                         taos_errstr(NULL));
@@ -10285,7 +10289,9 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
     int32_t ws_code;
 
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM information_schema.ins_tables WHERE db_name='%s'", dbInfo->name);
+        sprintf(command, "SELECT TABLE_NAME,STABLE_NAME FROM "
+                "information_schema.ins_tables WHERE db_name='%s'",
+                dbInfo->name);
     } else {
         sprintf(command, "USE %s", dbInfo->name);
         ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
@@ -10367,7 +10373,8 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
 
                 memset(buffer, 0, WS_VALUE_BUF_LEN);
                 memcpy(buffer, value0, len0);
-                debugPrint("%s() LN%d count: %"PRId64", table name: %s, length: %d\n",
+                debugPrint("%s() LN%d count: %"PRId64", table name: %s, "
+                        "length: %d\n",
                         __func__, __LINE__,
                         count, buffer, len0);
                 ret = dumpANormalTableNotBelong(
@@ -10745,7 +10752,8 @@ static bool fillDBInfoWithFieldsWS(
             res, row, f, &type, &len);
     if (0 == strcmp(name, "name")) {
         if (NULL == value) {
-            errorPrint("%s() LN%d, row: %d, field: %d, ws_get_value_in_block error!\n",
+            errorPrint("%s() LN%d, row: %d, field: %d, "
+                    "ws_get_value_in_block() error!\n",
                     __func__, __LINE__, row, f);
             return false;
         } else {
@@ -11063,7 +11071,8 @@ static int fillDbExtraInfoV3WS(
         const int dbIndex) {
     int ret = 0;
     char command[COMMAND_SIZE];
-    sprintf(command, "SELECT COUNT(table_name) FROM information_schema.ins_tables WHERE db_name='%s'", dbName);
+    sprintf(command, "SELECT COUNT(table_name) FROM "
+            "information_schema.ins_tables WHERE db_name='%s'", dbName);
 
     fprintf(stderr, "Getting table(s) count of %s ...\n", dbName);
 
@@ -11437,7 +11446,8 @@ static int dumpOut() {
         taos = taos_connect(g_args.host, g_args.user, g_args.password,
                 NULL, g_args.port);
         if (NULL == taos) {
-            errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+            errorPrint("Failed to connect to TDengine server %s\n",
+                    g_args.host);
             ret = -1;
             goto _exit_failure;
         }
@@ -11528,11 +11538,13 @@ static int dumpOut() {
                 }
             } else if (tableRecordInfo.belongStb){
                 uint64_t sizeOfTableDes =
-                    (uint64_t)(sizeof(TableDes) + sizeof(ColDes) * TSDB_MAX_COLUMNS);
+                    (uint64_t)(sizeof(TableDes)
+                            + sizeof(ColDes) * TSDB_MAX_COLUMNS);
 
                 TableDes *stbTableDes = (TableDes *)calloc(1, sizeOfTableDes);
                 if (NULL == stbTableDes) {
-                    errorPrint("%s() LN%d, failed to allocate %"PRIu64" memory\n",
+                    errorPrint("%s() LN%d, failed to allocate "
+                            "%"PRIu64" memory\n",
                             __func__, __LINE__, sizeOfTableDes);
                     exit(-1);
                 }
@@ -11726,7 +11738,8 @@ static int dumpEntry() {
 
     if (g_args.isDumpIn) {
         fprintf(g_fpOfResult, "========== DUMP IN ========== \n");
-        fprintf(g_fpOfResult, "# DumpIn start time:                   %d-%02d-%02d %02d:%02d:%02d\n",
+        fprintf(g_fpOfResult, "# DumpIn start time: "
+                "%d-%02d-%02d %02d:%02d:%02d\n",
                 tm.tm_year + 1900, tm.tm_mon + 1,
                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
         int dumpInRet = dumpIn();
@@ -11753,7 +11766,8 @@ static int dumpEntry() {
         }
     } else {
         fprintf(g_fpOfResult, "========== DUMP OUT ========== \n");
-        fprintf(g_fpOfResult, "# DumpOut start time:                   %d-%02d-%02d %02d:%02d:%02d\n",
+        fprintf(g_fpOfResult, "# DumpOut start time: "
+                "%d-%02d-%02d %02d:%02d:%02d\n",
                 tm.tm_year + 1900, tm.tm_mon + 1,
                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
@@ -11761,7 +11775,8 @@ static int dumpEntry() {
             ret = -1;
         }
 
-        fprintf(g_fpOfResult, "\n============================== TOTAL STATISTICS ============================== \n");
+        fprintf(g_fpOfResult, "\n============================== "
+                "TOTAL STATISTICS ============================== \n");
         fprintf(g_fpOfResult, "# total database count:     %d\n",
                 g_resultStatistics.totalDatabasesOfDumpOut);
         fprintf(g_fpOfResult, "# total super table count:  %d\n",
@@ -11802,7 +11817,8 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
 
     json_object_foreach(element, key, value) {
         if (0 == strcmp(key, "name")) {
-            tstrncpy(recordSchema->name, json_string_value(value), RECORD_NAME_LEN-1);
+            tstrncpy(recordSchema->name, json_string_value(value),
+                    RECORD_NAME_LEN-1);
         } else if (0 == strcmp(key, "fields")) {
             if (JSON_ARRAY == json_typeof(value)) {
 
@@ -11816,7 +11832,8 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
                 recordSchema->num_fields = size;
                 recordSchema->fields = calloc(1, sizeof(InspectStruct) * size);
                 if (NULL== recordSchema->fields) {
-                    errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+                    errorPrint("%s() LN%d, memory allocation failed!\n",
+                            __func__, __LINE__);
                     return NULL;
                 }
 
@@ -12340,7 +12357,8 @@ int main(int argc, char *argv[])
 
     if (g_majorVersionOfClient > 2) {
         if (g_args.allow_sys) {
-            warnPrint("The system database should not be backuped with TDengine version: %d\n",
+            warnPrint("The system database should not be backuped "
+                    "with TDengine version: %d\n",
                     g_majorVersionOfClient);
             g_args.allow_sys = false;
         }
