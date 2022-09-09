@@ -8807,6 +8807,8 @@ static int createMTableAvroHead(
     int percentComplete = 0;
 
     int64_t tb = 0;
+    fprintf(stderr, "connection %p is dumping out schema:%d%% of %s\n",
+            taos, currentPercent, stable);
     for (;tb < ntbCount; tb ++ ) {
 
         createMTableAvroHeadImp(
