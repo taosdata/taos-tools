@@ -7598,7 +7598,6 @@ static int generateSubDirName(
 
     switch(avroType) {
         case AVRO_DATA:
-        case AVRO_UNKNOWN:
             sprintf(subDirName, "data%"PRIu64"",
                     (g_countOfDataFile / g_maxFilesPerDir));
             atomic_add_fetch_64(&g_countOfDataFile, 1);
@@ -7666,15 +7665,9 @@ void generateFilename(AVROTYPE avroType, char *fileName,
                 break;
 
             case AVRO_UNKNOWN:
-                {
-                    char subDirName[MAX_DIR_LEN] = {0};
-                    generateSubDirName(avroType, dbInfo, subDirName);
-
-                    sprintf(fileName, "%staosdump.%s/%s/%s.%s.%"PRId64".sql",
-                            g_args.outpath, dbInfo->name,
-                            subDirName,
-                            dbInfo->name, tbName, index);
-                }
+                sprintf(fileName, "%s%s.%s.%"PRId64".sql",
+                        g_args.outpath,
+                        dbInfo->name, tbName, index);
                 break;
 
             default:
@@ -7710,17 +7703,11 @@ void generateFilename(AVROTYPE avroType, char *fileName,
                 break;
 
             case AVRO_UNKNOWN:
-                {
-                    char subDirName[30] = {0};
-                    generateSubDirName(avroType, dbInfo, subDirName);
-
                     sprintf(fileName,
-                            "%staosdump.%"PRIu64"/%s/%s.%s.%"PRId64".sql",
-                            g_args.outpath, dbInfo->uniqueID,
-                            subDirName,
+                            "%s%s.%s.%"PRId64".sql",
+                            g_args.outpath,
                             dbInfo->name,
                             tbName, index);
-                }
                 break;
 
             default:
@@ -9464,7 +9451,8 @@ static int64_t dumpInOneDebugFile(
         memcpy(cmd + cmd_len, line, read_len);
         cmd[read_len + cmd_len]= '\0';
         bool isInsert = (0 == strncmp(cmd, "INSERT ", strlen("INSERT ")));
-        bool isCreateDb = (0 == strncmp(cmd, "CREATE DATABASE ", strlen("CREATE DATABASE ")));
+        bool isCreateDb = (0 == strncmp(cmd,
+                    "CREATE DATABASE ", strlen("CREATE DATABASE ")));
         if (isCreateDb && (0 == strncmp(g_dumpInServerVer, "2.", 2))) {
             if (3 == g_majorVersionOfClient) {
                 convertDbClauseForV3(&cmd);
@@ -9534,8 +9522,7 @@ static void* dumpInDebugWorkThreadFp(void *arg)
             continue;
         }
 
-        int64_t rows;
-        rows = dumpInOneDebugFile(
+        int64_t rows = dumpInOneDebugFile(
                 pThreadInfo->taos, fp, g_dumpInCharset,
                 sqlFile);
 
@@ -9569,7 +9556,7 @@ static int dumpInDebugWorkThreads(const char *dbPath)
 
     AVROTYPE avroType = createDumpinList(dbPath, "sql", sqlFileCount);
 
-    threadInfo *pThread;
+    threadInfo *pThreadInfo;
 
     pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
     threadInfo *infos = (threadInfo *)calloc(
@@ -9591,29 +9578,30 @@ static int dumpInDebugWorkThreads(const char *dbPath)
     int64_t from = 0;
 
     for (int32_t t = 0; t < threads; ++t) {
-        pThread = infos + t;
-        pThread->threadIndex = t;
-        pThread->avroType = avroType;
+        pThreadInfo = infos + t;
+        pThreadInfo->threadIndex = t;
+        pThreadInfo->avroType = avroType;
 
-        pThread->stbSuccess = 0;
-        pThread->stbFailed = 0;
-        pThread->ntbSuccess = 0;
-        pThread->ntbFailed = 0;
-        pThread->recSuccess = 0;
-        pThread->recFailed = 0;
+        pThreadInfo->stbSuccess = 0;
+        pThreadInfo->stbFailed = 0;
+        pThreadInfo->ntbSuccess = 0;
+        pThreadInfo->ntbFailed = 0;
+        pThreadInfo->recSuccess = 0;
+        pThreadInfo->recFailed = 0;
 
-        pThread->from = from;
-        pThread->count = t<b?a+1:a;
-        from += pThread->count;
+        strcpy(pThreadInfo->dbPath, dbPath);
+        pThreadInfo->from = from;
+        pThreadInfo->count = t<b?a+1:a;
+        from += pThreadInfo->count;
         verbosePrint(
                 "Thread[%d] takes care sql files total %"PRId64" files"
                 " from %"PRId64"\n",
-                t, pThread->count, pThread->from);
+                t, pThreadInfo->count, pThreadInfo->from);
 
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            pThread->taos = ws_connect_with_dsn(g_args.dsn);
-            if (pThread->taos == NULL) {
+            pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
+            if (pThreadInfo->taos == NULL) {
                 errorPrint("%s() LN%d, failed to connect to TDengine server %s, "
                         "code: 0x%08x, reason: %s!\n",
                         __func__, __LINE__,
@@ -9624,10 +9612,10 @@ static int dumpInDebugWorkThreads(const char *dbPath)
             }
         } else {
 #endif // WEBSOCKET
-            pThread->taos = taos_connect(
+            pThreadInfo->taos = taos_connect(
                     g_args.host, g_args.user, g_args.password,
                     NULL, g_args.port);
-            if (pThread->taos == NULL) {
+            if (pThreadInfo->taos == NULL) {
                 errorPrint("Failed to connect to TDengine server %s\n",
                         g_args.host);
                 free(infos);
@@ -9639,9 +9627,9 @@ static int dumpInDebugWorkThreads(const char *dbPath)
 #endif // WEBSOCKET
 
         if (pthread_create(pids + t, NULL,
-                    dumpInDebugWorkThreadFp, (void*)pThread) != 0) {
+                    dumpInDebugWorkThreadFp, (void*)pThreadInfo) != 0) {
             errorPrint("%s() LN%d, thread[%d] failed to start\n",
-                    __func__, __LINE__, pThread->threadIndex);
+                    __func__, __LINE__, pThreadInfo->threadIndex);
             exit(EXIT_FAILURE);
         }
     }
@@ -9669,7 +9657,7 @@ static int dumpInDebugWorkThreads(const char *dbPath)
 
 static int dumpInDbs(const char *dbPath)
 {
-    TAOS *taos = NULL;
+    void *taos_v;
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
@@ -9682,9 +9670,10 @@ static int dumpInDbs(const char *dbPath)
                     ws_errno(ws_taos), ws_errstr(ws_taos));
             return -1;
         }
+        taos_v = ws_taos;
     } else {
 #endif
-        taos = taos_connect(
+        TAOS *taos = taos_connect(
                 g_args.host, g_args.user, g_args.password,
                 NULL, g_args.port);
 
@@ -9695,6 +9684,7 @@ static int dumpInDbs(const char *dbPath)
                     taos_errno(NULL), taos_errstr(NULL));
             return -1;
         }
+        taos_v = taos;
 #ifdef WEBSOCKET
     }
 #endif
@@ -9740,18 +9730,9 @@ static int dumpInDbs(const char *dbPath)
     charSetMark = "#!charset: ";
     loadFileMark(fp, charSetMark, g_dumpInCharset);
 
-    int64_t rows;
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        rows = dumpInOneDebugFile(
-                ws_taos, fp, g_dumpInCharset, dbsSql);
-    } else {
-#endif
-        rows = dumpInOneDebugFile(
-                taos, fp, g_dumpInCharset, dbsSql);
-#ifdef WEBSOCKET
-    }
-#endif
+    int64_t rows = dumpInOneDebugFile(
+            taos_v, fp, g_dumpInCharset, dbsSql);
+
     if(rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully dumped in file: %s!\n",
                 rows, dbsSql);
@@ -9763,11 +9744,11 @@ static int dumpInDbs(const char *dbPath)
     fclose(fp);
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        ws_close(ws_taos);
+        ws_close(taos_v);
         ws_taos = NULL;
     } else {
 #endif
-        taos_close(taos);
+        taos_close(taos_v);
 #ifdef WEBSOCKET
     }
 #endif
@@ -10566,12 +10547,16 @@ static int createDirForDbDump(SDbInfo *dbInfo) {
 }
 
 static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
-    if (0 != createDirForDbDump(dbInfo)) {
-        return NULL;
-    }
 
     char dumpDbsSql[MAX_PATH_LEN] = {0};
-    sprintf(dumpDbsSql, "%s/dbs.sql", dbInfo->dirForDbDump);
+    if (AVRO_CODEC_UNKNOWN != g_args.avro_codec) {
+        if (0 != createDirForDbDump(dbInfo)) {
+            return NULL;
+        }
+        sprintf(dumpDbsSql, "%s/dbs.sql", dbInfo->dirForDbDump);
+    } else {
+        sprintf(dumpDbsSql, "%s/dbs.sql", g_args.outpath);
+    }
 
     FILE *fpDbs = fopen(dumpDbsSql, "w");
 
@@ -10589,10 +10574,14 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp)
 
     fprintf(fp, "#!dumpdb: %s: %s\n\n", dbInfo->name, dbInfo->dirForDbDump);
 
-    FILE *fpDbs = createDbsSqlPerDb(dbInfo);
-
-    if (NULL == fpDbs) {
-        return -1;
+    FILE *fpDbs;
+    if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
+        fpDbs = fp;
+    } else {
+        fpDbs = createDbsSqlPerDb(dbInfo);
+        if (NULL == fpDbs) {
+            return -1;
+        }
     }
 
     dumpCreateDbClause(dbInfo, g_args.with_property, fpDbs);
@@ -10617,7 +10606,9 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp)
 #ifdef WEBSOCKET
     }
 #endif
-    fclose(fpDbs);
+    if (AVRO_CODEC_UNKNOWN != g_args.avro_codec) {
+        fclose(fpDbs);
+    }
 
     return ret;
 }
