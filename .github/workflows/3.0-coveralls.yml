@@ -261,6 +261,7 @@ jobs:
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
+          ./build/bin/taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit 1
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: singal normal table with unknown codec"
