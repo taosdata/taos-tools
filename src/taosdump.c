@@ -8083,7 +8083,6 @@ static int createMTableAvroHeadImp(
         const char *stable,
         const TableDes *stbTableDes,
         const char *tbName,
-        const int colCount,
         avro_file_writer_t db,
         avro_value_iface_t *wface)
 {
@@ -8091,6 +8090,7 @@ static int createMTableAvroHeadImp(
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
     }
+
     avro_value_t record;
     avro_generic_value_new(wface, &record);
 
@@ -8119,7 +8119,7 @@ static int createMTableAvroHeadImp(
     avro_value_set_string(&branch, tbName);
 
     TableDes *subTableDes = (TableDes *) calloc(1, sizeof(TableDes)
-            + sizeof(ColDes) * colCount);
+            + sizeof(ColDes) * (stbTableDes->columns + stbTableDes->tags));
     if (NULL == subTableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
         return -1;
@@ -8482,13 +8482,12 @@ static int createMTableAvroHeadSpecified(
         return -1;
     }
 
-    int colCount;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        colCount = getTableDesWS(taos, dbName, stable, stbTableDes, false);
+        getTableDesWS(taos, dbName, stable, stbTableDes, false);
     } else {
 #endif
-        colCount = getTableDesNative(taos, dbName, stable, stbTableDes, false);
+        getTableDesNative(taos, dbName, stable, stbTableDes, false);
 #ifdef WEBSOCKET
     }
 #endif
@@ -8518,7 +8517,7 @@ static int createMTableAvroHeadSpecified(
         createMTableAvroHeadImp(
                 taos, dbName, stable,
                 stbTableDes,
-                specifiedTb, colCount, db, wface);
+                specifiedTb, db, wface);
     }
 
     avro_value_iface_decref(wface);
@@ -8621,7 +8620,6 @@ static int64_t createMTableAvroHeadFillTBNameWS(
 #endif
 #endif // WEBSOCKET
 
-#if 0
 static int64_t createMTableAvroHeadFillTBNameNative(
         TAOS *taos,
         const char *command,
@@ -8703,17 +8701,6 @@ static int createMTableAvroHead(
             dbInfo, stable, 0);
     debugPrint("%s() LN%d dumpFilename: %s\n",
             __func__, __LINE__, dumpFilename);
-
-    int colCount = -1;
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        colCount = getTableDesWS(taos, dbInfo->name, stable, tableDes, false);
-    } else {
-#endif // WEBSOCKET
-        colCount = getTableDesNative(taos, dbInfo->name, stable, tableDes, false);
-#ifdef WEBSOCKET
-    }
-#endif
 
     char *jsonTagsSchema = NULL;
     if (0 != convertTbTagsDesToJsonWrap(
@@ -8837,7 +8824,7 @@ static int createMTableAvroHead(
                 stable,
                 tableDes,
                 *tbNameArr + tb*TSDB_TABLE_NAME_LEN,
-                colCount, db, wface);
+                db, wface);
 
         currentPercent = ((tb+1) * 100 / preCount);
 
@@ -8865,7 +8852,6 @@ static int createMTableAvroHead(
 
     return 0;
 }
-#endif
 
 static int64_t dumpANormalTableBelongStb(
         int64_t index,
@@ -10337,6 +10323,8 @@ static int64_t dumpNTablesOfDbWS(SDbInfo *dbInfo)
 
 static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo)
 {
+    int64_t ret = 0;
+
     if (0 == dbInfo->ntables) {
         warnPrint("%s() LN%d, database: %s has 0 tables\n",
                 __func__, __LINE__, dbInfo->name);
@@ -10347,7 +10335,6 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo)
 
     TAOS_RES *res;
     int32_t code;
-
 
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT TABLE_NAME,STABLE_NAME "
@@ -10400,15 +10387,23 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo)
         strncpy(ntable,
                 (char *)row[0],
                 lengths[0]);
-        okPrint("%s() LN%d, dump normal table: %s\n",
-                __func__, __LINE__, ntable);
+        ret = dumpANormalTableNotBelong(
+                count,
+                taos, dbInfo, ntable);
+        if (0 == ret) {
+            okPrint("%s() LN%d, dump normal table: %s\n",
+                    __func__, __LINE__, ntable);
+        } else {
+            errorPrint("%s() LN%d, dump normal table: %s\n",
+                    __func__, __LINE__, ntable);
+        }
 
         count ++;
     }
 
     taos_free_result(res);
 
-    return count;
+    return ret;
 }
 
 static int64_t dumpNtbOfStbByThreads(
@@ -10467,7 +10462,6 @@ static int64_t dumpNtbOfStbByThreads(
     }
 #endif
 
-#if 0
     if (g_args.avro) {
         int ret = createMTableAvroHead(
                 taos_v,
@@ -10485,7 +10479,6 @@ static int64_t dumpNtbOfStbByThreads(
             return -1;
         }
     }
-#endif
 
     int threads = g_args.thread_num;
 
