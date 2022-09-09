@@ -1982,22 +1982,11 @@ static int64_t getNtbCountOfStbNative(
 }
 
 static int processFieldsValue(
-        const void *pFields,
         int index,
         TableDes *tableDes,
         const void *value,
         int32_t len) {
-    uint8_t type;
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        type = ((WS_FIELD_V2 *)pFields)[0].type;
-    } else {
-#endif
-        type = ((TAOS_FIELD *)pFields)[0].type;
-#ifdef WEBSOCKET
-    }
-#endif
-    switch (type) {
+    switch (tableDes->cols[index].type) {
         case TSDB_DATA_TYPE_BOOL:
             sprintf(tableDes->cols[index].value, "%d",
                     ((((int32_t)(*((char *)value)))==1)?1:0));
@@ -2207,7 +2196,7 @@ static int processFieldsValue(
 
         default:
             errorPrint("%s() LN%d, unknown type: %d\n",
-                    __func__, __LINE__, type);
+                    __func__, __LINE__, tableDes->cols[index].type);
             break;
     }
 
@@ -2238,87 +2227,92 @@ static int getTableTagValueWS(
         TableDes **ppTableDes) {
 
     TableDes *tableDes = *ppTableDes;
-    for (int i = tableDes->columns;
+    char command[COMMAND_SIZE] = {0};
+    char *sqlstr = command;
+
+    sqlstr += sprintf(sqlstr, "SELECT %s%s%s",
+                g_escapeChar,
+                tableDes->cols[tableDes->columns].field,
+                g_escapeChar);
+    for (int i = tableDes->columns+1;
             i < (tableDes->columns + tableDes->tags); i++) {
 
-        char sqlstr[COMMAND_SIZE] = {0};
-        sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s LIMIT 1",
-                g_escapeChar, tableDes->cols[i].field, g_escapeChar,
-                dbName, g_escapeChar, table, g_escapeChar);
+        sqlstr += sprintf(sqlstr, ",%s%s%s ",
+                g_escapeChar, tableDes->cols[i].field, g_escapeChar);
+    }
+    sqlstr += sprintf(sqlstr, "FROM %s.%s%s%s LIMIT 1",
+            dbName, g_escapeChar, table, g_escapeChar);
 
-        debugPrint("%s() LN%d, sqlstr: %s\n", __func__, __LINE__, sqlstr);
+    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
+    int32_t ws_code = ws_errno(ws_res);
+    if (ws_code) {
+        errorPrint("%s() LN%d, failed to run command <%s>,"
+                " code: %d, reason: %s\n",
+                __func__, __LINE__, sqlstr, ws_code, ws_errstr(ws_res));
+        ws_free_result(ws_res);
+        ws_res = NULL;
+        return -1;
+    }
 
-        WS_RES *ws_res = ws_query_timeout(ws_taos, sqlstr, g_args.ws_timeout);
-        int32_t ws_code = ws_errno(ws_res);
+    /*
+    void *ws_fields = NULL;
+    if (3 == g_majorVersionOfClient) {
+        const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
+        ws_fields = (void *)ws_fields_v3;
+    } else {
+        const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
+        ws_fields = (void *)ws_fields_v2;
+    }
+    */
+
+    while(true) {
+        int rows = 0;
+        const void *data = NULL;
+        ws_code = ws_fetch_block(ws_res, &data, &rows);
+
         if (ws_code) {
-            errorPrint("%s() LN%d, failed to run command <%s>,"
-                    " code: %d, reason: %s\n",
-                    __func__, __LINE__, sqlstr, ws_code, ws_errstr(ws_res));
-            ws_free_result(ws_res);
-            ws_res = NULL;
-            return -1;
+            errorPrint("%s() LN%d, ws_fetch_block() error, "
+                    "code: 0x%08x, sqlstr: %s, reason: %s\n",
+                    __func__, __LINE__, ws_code, sqlstr, ws_errstr(ws_res));
+        }
+        if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from fetch to run "
+                    "command <%s>, "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+            break;
         }
 
-        void *ws_fields = NULL;
-        if (3 == g_majorVersionOfClient) {
-            const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
-            ws_fields = (void *)ws_fields_v3;
-        } else {
-            const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
-            ws_fields = (void *)ws_fields_v2;
-        }
-
-        while(true) {
-            int rows = 0;
-            const void *data = NULL;
-            ws_code = ws_fetch_block(ws_res, &data, &rows);
-
-            if (ws_code) {
-                errorPrint("%s() LN%d, ws_fetch_block() error, "
-                        "code: 0x%08x, sqlstr: %s, reason: %s\n",
-                        __func__, __LINE__, ws_code, sqlstr, ws_errstr(ws_res));
-            }
-            if (0 == rows) {
-                debugPrint("%s() LN%d, No more data from fetch to run "
-                        "command <%s>, "
-                        "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                        __func__, __LINE__,
-                        sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
-                break;
-            }
-
-            uint8_t type;
-            uint32_t len;
-            for (int row = 0; row < rows; row ++) {
-                const void *value0 = ws_get_value_in_block(
-                        ws_res, row,
-                    TSDB_SHOW_TABLES_NAME_INDEX, &type, &len);
-
-                if (NULL == value0) {
-                    debugPrint("%s() LN%d, value0 is NULL\n", __func__, __LINE__);
-                    sprintf(tableDes->cols[i].note, "%s", "NUL");
-                    sprintf(tableDes->cols[i].value, "%s", "NULL");
-                    continue;
-                }
+        uint8_t type;
+        uint32_t len;
+        for (int row = 0; row < rows; row ++) {
+            for (int j = tableDes->columns;
+                    j < (tableDes->columns + tableDes->tags); j++) {
+                const void *value = ws_get_value_in_block(
+                    ws_res, row,
+                    j-tableDes->columns, &type, &len);
 
                 debugPrint("%s() LN%d, len=%d\n", __func__, __LINE__, len);
-                if (0 != processFieldsValue(
-                            (const void *)ws_fields,
-                            i, tableDes,
-                            value0,
+
+                if (NULL == value) {
+                    strcpy(tableDes->cols[j].value, "NULL");
+                    strcpy(tableDes->cols[j].note , "NULL");
+                } else if (0 != processFieldsValue(
+                            j,
+                            tableDes,
+                            value,
                             len)) {
                     errorPrint("%s() LN%d, processFieldsValue value0: %p\n",
-                            __func__, __LINE__, value0);
+                            __func__, __LINE__, value);
                     ws_free_result(ws_res);
-                    ws_res = NULL;
                     return -1;
                 }
             }
         }
-
-        ws_free_result(ws_res);
-        ws_res = NULL;
     }
+
+    ws_free_result(ws_res);
 
     return (tableDes->columns + tableDes->tags);
 }
@@ -2487,12 +2481,12 @@ static int getTableTagValueNative(
     if (code) {
         errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, "
                 "code: 0x%08x, reason: %s\n",
-                __func__, __LINE__, sqlstr, taos, code, taos_errstr(res));
+                __func__, __LINE__, command, taos, code, taos_errstr(res));
         taos_free_result(res);
         return -1;
     }
 
-    TAOS_FIELD *fields = taos_fetch_fields(res);
+//    TAOS_FIELD *fields = taos_fetch_fields(res);
 
     TAOS_ROW row = taos_fetch_row(res);
 
@@ -2520,9 +2514,13 @@ static int getTableTagValueNative(
     for (int j = tableDes->columns;
             j < (tableDes->columns + tableDes->tags); j++) {
         debugPrint("%s() LN%d, \n", __func__, __LINE__);
-        if (0 != processFieldsValue(fields, j, tableDes,
-                row[j- tableDes->columns],
-                length[j- tableDes->columns])) {
+        if (NULL == row[j - tableDes->columns]) {
+            strcpy(tableDes->cols[j].value, "NULL");
+            strcpy(tableDes->cols[j].note , "NULL");
+        } else if (0 != processFieldsValue(
+                    j, tableDes,
+                    row[j- tableDes->columns],
+                    length[j- tableDes->columns])) {
             taos_free_result(res);
             return -1;
         }
@@ -10376,8 +10374,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
                         count,
                         ws_taos, dbInfo, buffer);
                 if (0 == ret) {
-                    okPrint("%s() LN%d, dump normal table: %s\n",
-                            __func__, __LINE__, buffer);
+                    fprintf(stderr, "Dumping normal table: %s\n", buffer);
                 } else {
                     errorPrint("%s() LN%d, dump normal table: %s\n",
                             __func__, __LINE__, buffer);
