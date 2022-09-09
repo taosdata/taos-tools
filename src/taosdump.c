@@ -10555,7 +10555,7 @@ static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
         }
         sprintf(dumpDbsSql, "%s/dbs.sql", dbInfo->dirForDbDump);
     } else {
-        sprintf(dumpDbsSql, "%s/dbs.sql", g_args.outpath);
+        sprintf(dumpDbsSql, "%sdbs.sql", g_args.outpath);
     }
 
     FILE *fpDbs = fopen(dumpDbsSql, "w");
