@@ -499,7 +499,6 @@ typedef struct arguments {
     bool     answer_yes;
     bool     avro;
     int      avro_codec;
-    bool     codec_specified;
     int64_t  start_time;
     char     humanStartTime[HUMAN_TIME_LEN];
     int64_t  end_time;
@@ -569,7 +568,6 @@ struct arguments g_args = {
     false,      // answer_yes
     true,       // avro
     AVRO_CODEC_SNAPPY,  // avro_codec
-    false,      //
     DEFAULT_START_TIME, // start_time
     {0},        // humanStartTime
     DEFAULT_END_TIME,   // end_time
@@ -938,7 +936,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                         "Invalid AVRO codec inputed. Exit program!\n");
                 exit(1);
             }
-            g_args.codec_specified = true;
             break;
 
         case 'r':
@@ -1041,9 +1038,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.arg_list_len = state->argc - state->next + 1;
             }
             state->next             = state->argc;
-            if (g_args.codec_specified) {
-                g_args.arg_list_len -= 1;
-            }
             break;
 
         default:
