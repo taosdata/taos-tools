@@ -7896,11 +7896,11 @@ static int64_t dumpNormalTable(
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
                 numColsAndTags = getTableDesWS(taos,
-                        dbInfo->name, tbName, tableDes, false);
+                        dbInfo->name, tbName, tableDes, !belongStb);
             } else {
 #endif
                 numColsAndTags = getTableDesNative(taos,
-                        dbInfo->name, tbName, tableDes, false);
+                        dbInfo->name, tbName, tableDes, !belongStb);
 #ifdef WEBSOCKET
             }
 #endif
@@ -7928,11 +7928,11 @@ static int64_t dumpNormalTable(
         if (g_args.cloud || g_args.restful) {
             numColsAndTags = getTableDesWS(
                     taos,
-                    dbInfo->name, tbName, tableDes, false);
+                    dbInfo->name, tbName, tableDes, !belongStb);
         } else {
 #endif
             numColsAndTags = getTableDesNative(taos,
-                    dbInfo->name, tbName, tableDes, false);
+                    dbInfo->name, tbName, tableDes, !belongStb);
 #ifdef WEBSOCKET
         }
 #endif
