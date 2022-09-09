@@ -1,5 +1,6 @@
 # taosTools
 
+[![Ubuntu (3.0 taosdump native)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml)
 [![Windows (3.0 build)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml)
 [![taosBenchmark](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosBenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosBenchmark-release.yml)
 [![taosdump Release](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosdump-release.yml)
