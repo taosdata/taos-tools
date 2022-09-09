@@ -2242,7 +2242,7 @@ static int getTableTagValueWS(
             i < (tableDes->columns + tableDes->tags); i++) {
 
         char sqlstr[COMMAND_SIZE] = {0};
-        sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s",
+        sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s LIMIT 1",
                 g_escapeChar, tableDes->cols[i].field, g_escapeChar,
                 dbName, g_escapeChar, table, g_escapeChar);
 
@@ -2465,59 +2465,69 @@ static int getTableTagValueNative(
         const char *table,
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
-    for (int i = tableDes->columns;
+
+    char command[COMMAND_SIZE] = {0};
+    char *sqlstr = command;
+
+    sqlstr += sprintf(sqlstr, "SELECT %s%s%s",
+                g_escapeChar,
+                tableDes->cols[tableDes->columns].field,
+                g_escapeChar);
+    for (int i = tableDes->columns+1;
             i < (tableDes->columns + tableDes->tags); i++) {
 
-        char sqlstr[COMMAND_SIZE] = {0};
-        sprintf(sqlstr, "SELECT %s%s%s FROM %s.%s%s%s",
-                g_escapeChar, tableDes->cols[i].field, g_escapeChar,
-                dbName, g_escapeChar, table, g_escapeChar);
-
-        TAOS_RES *res = taos_query(taos, sqlstr);
-        int32_t code = taos_errno(res);
-        if (code) {
-            errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, "
-                    "code: 0x%08x, reason: %s\n",
-                    __func__, __LINE__, sqlstr, taos, code, taos_errstr(res));
-            taos_free_result(res);
-            return -1;
-        }
-
-        TAOS_FIELD *fields = taos_fetch_fields(res);
-
-        TAOS_ROW row = taos_fetch_row(res);
-
-        if (NULL == row) {
-            debugPrint("%s() LN%d, No more data from fetch to run command"
-                    " <%s>, taos: %p, code: 0x%08x, reason:%s\n",
-                    __func__, __LINE__,
-                    sqlstr, taos, taos_errno(res), taos_errstr(res));
-            taos_free_result(res);
-            return -1;
-        }
-
-        int32_t* length = taos_fetch_lengths(res);
-
-        debugPrint("%s() LN%d, row: %p\n", __func__, __LINE__,
-                row[TSDB_SHOW_TABLES_NAME_INDEX]);
-        if (row[TSDB_SHOW_TABLES_NAME_INDEX] == NULL) {
-            sprintf(tableDes->cols[i].note, "%s", "NUL");
-            sprintf(tableDes->cols[i].value, "%s", "NULL");
-            taos_free_result(res);
-            res = NULL;
-            continue;
-        }
-
-        debugPrint("%s() LN%d, \n", __func__, __LINE__);
-        if (0 != processFieldsValue(fields, i, tableDes,
-                row[TSDB_SHOW_TABLES_NAME_INDEX],
-                length[TSDB_SHOW_TABLES_NAME_INDEX])) {
-            taos_free_result(res);
-            return -1;
-        }
-
-        taos_free_result(res);
+        sqlstr += sprintf(sqlstr, ",%s%s%s ",
+                g_escapeChar, tableDes->cols[i].field, g_escapeChar);
     }
+    sqlstr += sprintf(sqlstr, "FROM %s.%s%s%s LIMIT 1",
+            dbName, g_escapeChar, table, g_escapeChar);
+
+    TAOS_RES *res = taos_query(taos, command);
+    int32_t code = taos_errno(res);
+    if (code) {
+        errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, "
+                "code: 0x%08x, reason: %s\n",
+                __func__, __LINE__, sqlstr, taos, code, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    TAOS_FIELD *fields = taos_fetch_fields(res);
+
+    TAOS_ROW row = taos_fetch_row(res);
+
+    if (NULL == row) {
+        debugPrint("%s() LN%d, No more data from fetch to run command"
+                " <%s>, taos: %p, code: 0x%08x, reason:%s\n",
+                __func__, __LINE__,
+                sqlstr, taos, taos_errno(res), taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    int32_t* length = taos_fetch_lengths(res);
+
+    debugPrint("%s() LN%d, row: %p\n", __func__, __LINE__,
+            row[TSDB_SHOW_TABLES_NAME_INDEX]);
+/*  if (row[TSDB_SHOW_TABLES_NAME_INDEX] == NULL) {
+        sprintf(tableDes->cols[i].note, "%s", "NUL");
+        sprintf(tableDes->cols[i].value, "%s", "NULL");
+        taos_free_result(res);
+        return -1;
+    }
+    */
+
+    for (int j = tableDes->columns;
+            j < (tableDes->columns + tableDes->tags); j++) {
+        debugPrint("%s() LN%d, \n", __func__, __LINE__);
+        if (0 != processFieldsValue(fields, j, tableDes,
+                row[j- tableDes->columns],
+                length[j- tableDes->columns])) {
+            taos_free_result(res);
+            return -1;
+        }
+    }
+    taos_free_result(res);
 
     return (tableDes->columns + tableDes->tags);
 }
