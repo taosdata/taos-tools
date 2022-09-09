@@ -10556,22 +10556,22 @@ static int createDirForDbDump(SDbInfo *dbInfo) {
 }
 
 static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
-
+    FILE *fpDbs = NULL;
     char dumpDbsSql[MAX_PATH_LEN] = {0};
     if (AVRO_CODEC_UNKNOWN != g_args.avro_codec) {
         if (0 != createDirForDbDump(dbInfo)) {
             return NULL;
         }
         sprintf(dumpDbsSql, "%s/dbs.sql", dbInfo->dirForDbDump);
+
+        fpDbs = fopen(dumpDbsSql, "w");
+
+        if (NULL == fpDbs) {
+            errorPrint("%s() LN%d, failed to open file %s\n",
+                    __func__, __LINE__, dumpDbsSql);
+        }
     } else {
         sprintf(dumpDbsSql, "%sdbs.sql", g_args.outpath);
-    }
-
-    FILE *fpDbs = fopen(dumpDbsSql, "w");
-
-    if (NULL == fpDbs) {
-        errorPrint("%s() LN%d, failed to open file %s\n",
-                __func__, __LINE__, dumpDbsSql);
     }
     return fpDbs;
 }
@@ -11478,12 +11478,18 @@ static int dumpOut() {
                 g_totalDumpOutRows += records;
             }
         } else {
-            fpDbs = createDbsSqlPerDb(g_dbInfos[0]);
-            if (fpDbs) {
-                dumpCreateDbClause(g_dbInfos[0], g_args.with_property, fpDbs);
+            if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
+                dumpCreateDbClause(g_dbInfos[0],
+                        g_args.with_property, fp);
             } else {
-                fclose(fp);
-                return -1;
+                fpDbs = createDbsSqlPerDb(g_dbInfos[0]);
+                if (fpDbs) {
+                    dumpCreateDbClause(g_dbInfos[0],
+                            g_args.with_property, fpDbs);
+                } else {
+                    fclose(fp);
+                    return -1;
+                }
             }
         }
 
@@ -11514,7 +11520,8 @@ static int dumpOut() {
 
             if (tableRecordInfo.isStb) {  // dump all table of this stable
                 ret = dumpStbAndChildTb(taos_v, g_dbInfos[0],
-                        tableRecordInfo.tableRecord.stable, fpDbs);
+                        tableRecordInfo.tableRecord.stable,
+                        (AVRO_CODEC_UNKNOWN)?fp:fpDbs);
                 if (ret < 0) {
                     errorPrint("%s() LN%d, dump %s and its child table\n",
                             __func__, __LINE__, g_args.arg_list[i]);
@@ -11535,7 +11542,7 @@ static int dumpOut() {
                         g_dbInfos[0],
                         tableRecordInfo.tableRecord.stable,
                         &stbTableDes,
-                        fpDbs);
+                        (AVRO_CODEC_UNKNOWN)?fp:fpDbs);
                 if (ret >= 0) {
                     superTblCnt++;
                 } else {
