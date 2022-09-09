@@ -8532,7 +8532,6 @@ static int createMTableAvroHeadSpecified(
 }
 
 #ifdef WEBSOCKET
-#if 0
 static int64_t createMTableAvroHeadFillTBNameWS(
         WS_TAOS *ws_taos,
         const char *command,
@@ -8601,7 +8600,7 @@ static int64_t createMTableAvroHeadFillTBNameWS(
 
             if (currentPercent > percentComplete) {
                 fprintf(stderr, "connection %p fetched %d%% of %s' tbname\n",
-                        taos, currentPercent, stable);
+                        ws_taos, currentPercent, stable);
                 percentComplete = currentPercent;
             }
         }
@@ -8617,7 +8616,6 @@ static int64_t createMTableAvroHeadFillTBNameWS(
 
     return ntbCount;
 }
-#endif
 #endif // WEBSOCKET
 
 static int64_t createMTableAvroHeadFillTBNameNative(
@@ -9945,13 +9943,14 @@ static void dumpNormalTablesOfStbWS(
     for (int64_t i = pThreadInfo->from;
             i < (pThreadInfo->from + pThreadInfo->count); i ++ ) {
 
-        strncpy(((TableInfo *)(g_tablesList + count))->name,
+        char tbName[TSDB_TABLE_NAME_LEN] = {0};
+        strncpy(tbName,
                 pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
                 strlen(pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN));
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
                 pThreadInfo->threadIndex, i,
-                pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN);
+                tbName);
 
         if (g_args.avro) {
             count = dumpNormalTable(
@@ -9961,7 +9960,7 @@ static void dumpNormalTablesOfStbWS(
                     true,
                     pThreadInfo->stbName,
                     pThreadInfo->stbTableDes,
-                    pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
+                    tbName,
                     pThreadInfo->precision,
                     dumpFilename,
                     NULL);
@@ -9973,7 +9972,7 @@ static void dumpNormalTablesOfStbWS(
                     true,
                     pThreadInfo->stbName,
                     pThreadInfo->stbTableDes,
-                    pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
+                    tbName,
                     pThreadInfo->precision,
                     NULL,
                     fp);
@@ -11455,7 +11454,7 @@ static int fillDbInfoWS(void *taos) {
 
     char command[COMMAND_SIZE];
     if (3 == g_majorVersionOfClient) {
-        sprintf(command, "SELECT name FROM information_schema.ins_databases");
+        sprintf(command, "SELECT * FROM information_schema.ins_databases");
     } else {
         sprintf(command, "SHOW DATABASES");
     }
