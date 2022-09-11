@@ -268,7 +268,8 @@ class TDDnode:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            tdLog.exit("path %s is not support" % selfPath)
+            tdLog.info("Cannot found in path %s, try system location" % selfPath)
+            return ("/usr/bin/%s" % tool)
 
         paths = []
         for root, dirs, files in os.walk(projPath):

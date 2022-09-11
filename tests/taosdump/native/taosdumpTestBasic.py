@@ -40,7 +40,8 @@ class TDTestCase:
         elif ("/tools/" in selfPath):
             projPath = selfPath[:selfPath.find("/tools/")]
         else:
-            tdLog.exit("path: %s is not supported" % selfPath)
+            tdLog.info("Cannot find in path: %s" % selfPath)
+            return ("/usr/local/bin/%s" % tool)
 
         paths = []
         for root, dirs, files in os.walk(projPath):
