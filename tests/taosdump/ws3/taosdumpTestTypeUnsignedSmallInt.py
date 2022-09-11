@@ -11,13 +11,11 @@
 
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 from util.log import *
 from util.cases import *
 from util.sql import *
 from util.dnodes import *
-import subprocess
 
 
 class TDTestCase:
@@ -63,7 +61,8 @@ class TDTestCase:
 
         tdSql.execute("use db")
         tdSql.execute(
-            "create table st(ts timestamp, c1 SMALLINT UNSIGNED) tags(usntag SMALLINT UNSIGNED)")
+            "create table st(ts timestamp, c1 SMALLINT UNSIGNED) \
+                    tags(usntag SMALLINT UNSIGNED)")
         tdSql.execute("create table t1 using st tags(0)")
         tdSql.execute("insert into t1 values(1640000000000, 0)")
         tdSql.execute("create table t2 using st tags(65534)")

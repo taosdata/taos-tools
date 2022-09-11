@@ -11,6 +11,7 @@ dump_result.txt
 sim
 tests/taosdump/native/*.sql
 tests/taosdump/ws/*.sql
+tests/taosbenchmark/*.sql
 deps/avro
 deps/jansson
 deps/snappy
