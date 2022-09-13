@@ -83,7 +83,7 @@ static char      g_escapeChar[2] = "`";
 static char      g_client_info[32] = {0};
 static int       g_majorVersionOfClient = 0;
 
-static int      g_maxFilesPerDir = 100000;
+static int      g_maxFilesPerDir = 2;
 static uint64_t g_countOfDataFile = 0;
 
 static void print_json_aux(json_t *element, int indent);
@@ -152,6 +152,11 @@ typedef struct {
     do { fprintf(stderr, "\033[32m"); \
         fprintf(stderr, "OK: "fmt, __VA_ARGS__); \
         fprintf(stderr, "\033[0m"); } while(0)
+
+#define infoPrint(fmt, ...) \
+    do { \
+        fprintf(stderr, "INFO: "fmt, __VA_ARGS__); \
+    } while(0)
 
 static bool isStringNumber(char *input)
 {
@@ -4599,7 +4604,7 @@ static int64_t writeResultToAvroWS(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            fprintf(stderr, "%d%% of %s\n", currentPercent, tbName);
+            infoPrint("%d%% of %s\n", currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
@@ -4735,7 +4740,7 @@ static int64_t writeResultToAvroNative(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            fprintf(stderr, "%d%% of %s\n", currentPercent, tbName);
+            infoPrint("%d%% of %s\n", currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
@@ -6980,7 +6985,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
     int percentComplete = 0;
     for (int64_t i = 0; i < pThreadInfo->count; i++) {
         if (0 == currentPercent) {
-            fprintf(stderr, "[%d]: Restoring from %s ...\n",
+            infoPrint("[%d]: Restoring from %s ...\n",
                     pThreadInfo->threadIndex,
                     fileList[pThreadInfo->from + i]);
         }
@@ -7045,7 +7050,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
         currentPercent = ((i+1) * 100 / pThreadInfo->count);
         if (currentPercent > percentComplete) {
-            fprintf(stderr, "[%d]:%d%%\n",
+            infoPrint("[%d]:%d%%\n",
                     pThreadInfo->threadIndex, currentPercent);
             percentComplete = currentPercent;
         }
@@ -7053,7 +7058,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
     }
 
     if (percentComplete < 100) {
-        fprintf(stderr, "[%d]:%d%%\n", pThreadInfo->threadIndex, 100);
+        infoPrint("[%d]:%d%%\n", pThreadInfo->threadIndex, 100);
     }
 
     return NULL;
@@ -7061,6 +7066,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
 
 static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt)
 {
+    infoPrint("%s() dump in %s files ...\n", __func__, typeExt);
     int64_t fileCount = getFilesNum(dbPath, typeExt);
 
     if (0 == fileCount) {
@@ -7347,7 +7353,7 @@ static int64_t writeResultDebugWS(
             fprintf(fp, "%s", tmpBuffer);
 
             if (totalRows >= lastRowsPrint) {
-                fprintf(stderr, " %"PRId64 " rows already be dump-out from %s.%s\n",
+                infoPrint(" %"PRId64 " rows already be dump-out from %s.%s\n",
                         totalRows, dbName, tbName);
                 lastRowsPrint += 5000000;
             }
@@ -7431,7 +7437,7 @@ static int64_t writeResultDebugNative(
         fprintf(fp, "%s", tmpBuffer);
 
         if (totalRows >= lastRowsPrint) {
-            fprintf(stderr, " %"PRId64 " rows already be dump-out from %s.%s\n",
+            infoPrint(" %"PRId64 " rows already be dump-out from %s.%s\n",
                     totalRows, dbName, tbName);
             lastRowsPrint += 5000000;
         }
@@ -8600,7 +8606,7 @@ static int64_t fillTbNameArrWS(
             currentPercent = (ntbCount * 100 / preCount);
 
             if (currentPercent > percentComplete) {
-                fprintf(stderr, "connection %p fetched %d%% of %s' tbname\n",
+                infoPrint("connection %p fetched %d%% of %s' tbname\n",
                         ws_taos, currentPercent, stable);
                 percentComplete = currentPercent;
             }
@@ -8662,7 +8668,7 @@ static int64_t fillTbNameArrNative(
         currentPercent = (ntbCount * 100 / preCount);
 
         if (currentPercent > percentComplete) {
-            fprintf(stderr, "connection %p fetched %d%% of %s' tbname\n",
+            infoPrint("connection %p fetched %d%% of %s' tbname\n",
                     taos, currentPercent, stable);
             percentComplete = currentPercent;
         }
@@ -8695,7 +8701,7 @@ static int64_t fillTbNameArr(
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     }
 
-    fprintf(stderr, "Getting tables' number of %s...\n", stable);
+    infoPrint("Getting tables' number of %s...\n", stable);
 
     int64_t preCount = 0;
 #ifdef WEBSOCKET
@@ -8709,7 +8715,7 @@ static int64_t fillTbNameArr(
 #endif
 
     if (0 == preCount) {
-        fprintf(stderr, "Tables number is ZERO!\n");
+        infoPrint("%s() Tables number is ZERO!\n", __func__);
     } else if (0 > preCount) {
         errorPrint("Failed to get count of normal table of %s!\n", stable);
     }
@@ -8791,7 +8797,7 @@ static int createMTableAvroHead(
             dumpFilename,
             jsonTagsSchema, &schema, &recordSchema, &db);
 
-    fprintf(stderr, "connection: %p is dumping out schema of "
+    infoPrint("connection: %p is dumping out schema of "
             "sub-table(s) of %s \n",
             taos, stable);
 
@@ -8814,7 +8820,7 @@ static int createMTableAvroHead(
     int percentComplete = 0;
 
     int64_t tb = 0;
-    fprintf(stderr, "connection %p is dumping out schema:%d%% of %s\n",
+    infoPrint("connection %p is dumping out schema:%d%% of %s\n",
             taos, currentPercent, stable);
     for (;tb < ntbCount; tb ++ ) {
 
@@ -8829,7 +8835,7 @@ static int createMTableAvroHead(
         currentPercent = ((tb+1) * 100 / ntbCount);
 
         if (currentPercent > percentComplete) {
-            fprintf(stderr, "connection %p is dumping out schema:%d%% of %s\n",
+            infoPrint("connection %p is dumping out schema:%d%% of %s\n",
                     taos, currentPercent, stable);
             percentComplete = currentPercent;
         }
@@ -9495,7 +9501,7 @@ static int64_t dumpInOneDebugFile(
         cmd_len = 0;
 
         if (lineNo >= lastRowsPrint) {
-            fprintf(stderr, " %"PRId64" lines already be executed from file %s\n",
+            infoPrint(" %"PRId64" lines already be executed from file %s\n",
                     lineNo, fileName);
             lastRowsPrint += 5000000;
         }
@@ -9769,6 +9775,9 @@ static int dumpInDbs(const char *dbPath)
 
 static int dumpInWithDbPath(const char *dbPath) {
     int ret = 0;
+
+    infoPrint("%s(), dump in from %s ...\n", __func__, dbPath);
+
     if (dumpInDbs(dbPath)) {
         errorPrint("%s", "Failed to dump database(s) in!\n");
         exit(EXIT_FAILURE);
@@ -9991,7 +10000,7 @@ static int64_t dumpNtbOfStbByThreads(
                 dbInfo->name, g_escapeChar, stbName, g_escapeChar);
     }
 
-    fprintf(stderr, "Getting tables' number of %s...\n", stbName);
+    infoPrint("Getting tables' number of %s...\n", stbName);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -10381,7 +10390,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
                         count,
                         ws_taos, dbInfo, buffer);
                 if (0 == ret) {
-                    fprintf(stderr, "Dumping normal table: %s\n", buffer);
+                    infoPrint("Dumping normal table: %s\n", buffer);
                 } else {
                     errorPrint("%s() LN%d, dump normal table: %s\n",
                             __func__, __LINE__, buffer);
@@ -10586,7 +10595,7 @@ static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
 static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp)
 {
     int64_t ret;
-    fprintf(stderr, "Start to dump out database: %s\n", dbInfo->name);
+    infoPrint("Start to dump out database: %s\n", dbInfo->name);
 
     fprintf(fp, "#!dumpdb: %s: %s\n\n", dbInfo->name, dbInfo->dirForDbDump);
 
@@ -11074,7 +11083,7 @@ static int fillDbExtraInfoV3WS(
     sprintf(command, "SELECT COUNT(table_name) FROM "
             "information_schema.ins_tables WHERE db_name='%s'", dbName);
 
-    fprintf(stderr, "Getting table(s) count of %s ...\n", dbName);
+    infoPrint("Getting table(s) count of %s ...\n", dbName);
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t ws_code = ws_errno(ws_res);
@@ -11267,7 +11276,7 @@ static int fillDbExtraInfoV3Native(
             "information_schema.ins_tables WHERE db_name='%s'",
             dbName);
 
-    fprintf(stderr, "Getting table(s) count of %s ...\n", dbName);
+    infoPrint("Getting table(s) count of %s ...\n", dbName);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
