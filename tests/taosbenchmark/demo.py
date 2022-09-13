@@ -20,9 +20,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         [TD-13823] taosBenchmark test cases
-        '''
+        """
         return
 
     def init(self, conn, logSql):
@@ -32,23 +32,23 @@ class TDTestCase:
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
-        elif ("src" in selfPath):
-            projPath = selfPath[:selfPath.find("src")]
-        elif ("/tools/" in selfPath):
-            projPath = selfPath[:selfPath.find("/tools/")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             tdLog.exit("taosBenchmark not found!")
             return
         else:
@@ -57,7 +57,7 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -n 100 -t 100 -y" %binPath
+        cmd = "%s -n 100 -t 100 -y" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
@@ -80,14 +80,16 @@ class TDTestCase:
         tdSql.checkData(5, 0, "location")
         # binary for 2.x and varchar for 3.x
         # tdSql.checkData(5, 1, "BINARY")
-        tdSql.checkData(5, 2, 16)
+        tdSql.checkData(5, 2, 24)
         tdSql.checkData(5, 3, "TAG")
 
         tdSql.query("select count(*) from test.meters where groupid >= 0")
         tdSql.checkData(0, 0, 10000)
 
-        tdSql.query("select count(*) from test.meters where location = 'San Francisco' or location = 'Los Angles' or location = 'San Diego' or location = 'San Jose' or \
-            location = 'Palo Alto' or location = 'Campbell' or location = 'Mountain View' or location = 'Sunnyvale' or location = 'Santa Clara' or location = 'Cupertino' ")
+        tdSql.query(
+            "select count(*) from test.meters where location = 'California.SanFrancisco' or location = 'California.LosAngles' or location = 'California.SanDiego' or location = 'California.SanJose' or \
+            location = 'California.PaloAlto' or location = 'California.Campbell' or location = 'California.MountainView' or location = 'California.Sunnyvale' or location = 'California.SantaClara' or location = 'California.Cupertino' "
+        )
         tdSql.checkData(0, 0, 10000)
 
     def stop(self):

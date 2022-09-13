@@ -19,13 +19,13 @@
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
-const char* locations[] = {"San Francisco", "Los Angles", "San Diego",
-                           "San Jose", "Palo Alto", "Campbell", "Mountain View",
-                           "Sunnyvale", "Santa Clara", "Cupertino"};
+const char* locations[] = {"California.SanFrancisco", "California.LosAngles", "California.SanDiego",
+                           "California.SanJose", "California.PaloAlto", "California.Campbell", "California.MountainView",
+                           "California.Sunnyvale", "California.SantaClara", "California.Cupertino"};
 
-const char* locations_sml[] = {"San\\ Francisco", "Los\\ Angles", "San\\ Diego",
-                           "San\\ Jose", "Palo\\ Alto", "Campbell", "Mountain\\ View",
-                           "Sunnyvale", "Santa\\ Clara", "Cupertino"};
+const char* locations_sml[] = {"California.SanFrancisco", "California.LosAngles", "California.SanDiego",
+                           "California.SanJose", "California.PaloAlto", "California.Campbell", "California.MountainView",
+                           "California.Sunnyvale", "California.SantaClara", "California.Cupertino"};
 
 #ifdef WINDOWS
     #define ssize_t int
