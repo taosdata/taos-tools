@@ -7115,14 +7115,22 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt)
 
         if (pthread_create(pids + t, NULL,
                     dumpInAvroWorkThreadFp, (void*)pThreadInfo) != 0) {
-            errorPrint("%s() LN%d, thread[%d] failed to start\n",
-                    __func__, __LINE__, pThreadInfo->threadIndex);
+            errorPrint("%s() LN%d, thread[%d] failed to start. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    pThreadInfo->threadIndex, errno, strerror(errno));
             exit(EXIT_FAILURE);
         }
     }
 
-    for (int t = 0; t < threads; ++t) {
-        pthread_join(pids[t], NULL);
+    for (int32_t i = 0; i < threads; i++) {
+        if (pthread_join(pids[i], NULL) !=0 ) {
+            errorPrint("%s() LN%d, thread[%d] failed to join. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    i, errno, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
     }
 
     free(infos);
@@ -9642,21 +9650,29 @@ static int dumpInDebugWorkThreads(const char *dbPath)
 
         if (pthread_create(pids + t, NULL,
                     dumpInDebugWorkThreadFp, (void*)pThreadInfo) != 0) {
-            errorPrint("%s() LN%d, thread[%d] failed to start\n",
-                    __func__, __LINE__, pThreadInfo->threadIndex);
+            errorPrint("%s() LN%d, thread[%d] failed to start. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    pThreadInfo->threadIndex, errno, strerror(errno));
             exit(EXIT_FAILURE);
         }
     }
 
-    for (int t = 0; t < threads; ++t) {
-        pthread_join(pids[t], NULL);
+    for (int32_t i = 0; i < threads; i++) {
+        if (pthread_join(pids[i], NULL) != 0) {
+            errorPrint("%s() LN%d, thread[%d] failed to join. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    i, errno, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
     }
 
-    for (int t = 0; t < threads; ++t) {
+    for (int32_t t = 0; t < threads; ++t) {
         taos_close(infos[t].taos);
     }
 
-    for (int t = 0; t < threads; ++t) {
+    for (int32_t t = 0; t < threads; ++t) {
         atomic_add_fetch_64(&g_totalDumpInRecSuccess, infos[t].recSuccess);
         atomic_add_fetch_64(&g_totalDumpInRecFailed, infos[t].recFailed);
     }
@@ -10078,7 +10094,7 @@ static int64_t dumpNtbOfStbByThreads(
     ASSERT(infos);
 
     threadInfo *pThreadInfo;
-    for (int64_t i = 0; i < threads; i++) {
+    for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
@@ -10135,14 +10151,27 @@ static int64_t dumpNtbOfStbByThreads(
         strcpy(pThreadInfo->stbName, stbName);
         pThreadInfo->stbTableDes = stbTableDes;
         pThreadInfo->tbNameArr = tbNameArr;
-        pthread_create(pids + i, NULL, dumpNormalTablesOfStb, pThreadInfo);
+        if (pthread_create(pids + i, NULL,
+                    dumpNormalTablesOfStb, pThreadInfo) != 0) {
+            errorPrint("%s() LN%d, thread[%d] failed to start. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    pThreadInfo->threadIndex, errno, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
     }
 
-    for (int64_t i = 0; i < threads; i++) {
-        pthread_join(pids[i], NULL);
+    for (int32_t i = 0; i < threads; i++) {
+        if (pthread_join(pids[i], NULL) != 0) {
+            errorPrint("%s() LN%d, thread[%d] failed to join. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    i, errno, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
     }
 
-    for (int64_t i = 0; i < threads; i++) {
+    for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
         taos_close(pThreadInfo->taos);
     }
