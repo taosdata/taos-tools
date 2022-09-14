@@ -61,7 +61,7 @@
 #define MAX_FILE_NAME_LEN       256             // max file name length on Linux is 255
 #define MAX_PATH_LEN            4096            // max path length on Linux is 4095
 #define WS_VALUE_BUF_LEN        4096
-#define COMMAND_SIZE            65536
+#define COMMAND_SIZE            (1024*1024)
 #define MAX_RECORDS_PER_REQ     32766
 
 #define NEED_CALC_COUNT         UINT64_MAX
@@ -2458,8 +2458,56 @@ static int getTableDesWS(
 }
 #endif // WEBSOCKET
 
+static int getTableTagValueNativeV3(
+        TAOS *taos,
+        const char *dbName,
+        const char *table,
+        TableDes **ppTableDes) {
+    TableDes *tableDes = *ppTableDes;
 
-static int getTableTagValueNative(
+    char command[COMMAND_SIZE] = {0};
+    char *sqlstr = command;
+
+    sqlstr += sprintf(sqlstr,
+            "SELECT tag_name,tag_value FROM information_schema.ins_tags "
+            "WHERE db_name = '%s' AND table_name = '%s'",
+            dbName, table);
+
+    TAOS_RES *res = taos_query(taos, command);
+    int32_t code = taos_errno(res);
+    if (code) {
+        errorPrint("%s() LN%d, failed to run command <%s>, taos: %p, "
+                "code: 0x%08x, reason: %s\n",
+                __func__, __LINE__, command, taos, code, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    TAOS_ROW row;
+    int index = tableDes->columns;
+    while ((row = taos_fetch_row(res))) {
+        int32_t* length = taos_fetch_lengths(res);
+
+        if (NULL == row[1]) {
+            strcpy(tableDes->cols[index].value, "NULL");
+            strcpy(tableDes->cols[index].note , "NULL");
+        } else if (0 != processFieldsValue(
+                    index, tableDes,
+                    row[1],
+                    length[1])) {
+            taos_free_result(res);
+            return -1;
+        }
+
+        index ++;
+    };
+
+    taos_free_result(res);
+
+    return (tableDes->columns + tableDes->tags);
+}
+
+static int getTableTagValueNativeV2(
         TAOS *taos,
         const char *dbName,
         const char *table,
@@ -2498,7 +2546,7 @@ static int getTableTagValueNative(
         debugPrint("%s() LN%d, No more data from fetch to run command"
                 " <%s>, taos: %p, code: 0x%08x, reason:%s\n",
                 __func__, __LINE__,
-                sqlstr, taos, taos_errno(res), taos_errstr(res));
+                command, taos, taos_errno(res), taos_errstr(res));
         taos_free_result(res);
         return -1;
     }
@@ -2532,6 +2580,24 @@ static int getTableTagValueNative(
     taos_free_result(res);
 
     return (tableDes->columns + tableDes->tags);
+}
+
+static int getTableTagValueNative(
+        TAOS *taos,
+        const char *dbName,
+        const char *table,
+        TableDes **ppTableDes) {
+    int ret = -1;
+    if (3 == g_majorVersionOfClient) {
+        ret = getTableTagValueNativeV3(taos, dbName, table, ppTableDes);
+    } else if (2 == g_majorVersionOfClient) {
+        ret = getTableTagValueNativeV2(taos, dbName, table, ppTableDes);
+    } else {
+        errorPrint("%s() LN%d, major version %d is not suppported\n",
+                __func__, __LINE__, g_majorVersionOfClient);
+    }
+
+    return ret;
 }
 
 static inline int getTableDesFromStbNative(
@@ -2615,7 +2681,8 @@ static int getTableDesNative(
         return colCount;
     }
 
-    // if child-table have tag, using  select tagName from table to get tagValue
+    // if child-table have tag, V2 using select tagName from table to get tagValue
+    // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
     return getTableTagValueNative(taos, dbName, table, &tableDes);
 }
 
@@ -7985,7 +8052,7 @@ static int64_t dumpNormalTable(
                 if (NULL == tableDes) {
                     errorPrint("%s() LN%d, memory allocation failed!\n",
                             __func__, __LINE__);
-                    return 0;
+                    return -1;
                 }
 #ifdef WEBSOCKET
                 if (g_args.cloud || g_args.restful) {
@@ -8003,6 +8070,14 @@ static int64_t dumpNormalTable(
 #ifdef WEBSOCKET
                 }
 #endif
+                if (numColsAndTags < 0) {
+                    errorPrint("%s() LN%d columns/tags count is %d\n",
+                            __func__, __LINE__, numColsAndTags);
+                    if (tableDes) {
+                        freeTbDes(tableDes);
+                        return -1;
+                    }
+                }
             }
 
             totalRows = dumpTableDataAvro(
@@ -8020,7 +8095,9 @@ static int64_t dumpNormalTable(
         }
     }
 
-    freeTbDes(tableDes);
+    if (tableDes) {
+        freeTbDes(tableDes);
+    }
     return totalRows;
 }
 
@@ -8137,9 +8214,11 @@ static int createMTableAvroHeadImp(
         return -1;
     }
 
+    int colCount = 0;
+    colCount = colCount; // reduce compile warning
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        getTableDesFromStbWS(
+        colCount = getTableDesFromStbWS(
                 (WS_TAOS*)taos,
                 dbName,
                 stbTableDes,
@@ -8147,11 +8226,20 @@ static int createMTableAvroHeadImp(
                 &subTableDes);
     } else {
 #endif // WEBSOCKET
-        getTableDesFromStbNative(taos, dbName,
+        colCount = getTableDesFromStbNative(taos, dbName,
                 stbTableDes,
                 tbName,
                 &subTableDes);
 #ifdef WEBSOCKET
+    }
+
+    if (colCount < 0) {
+        errorPrint("%s() LN%d, columns count is %d\n",
+                __func__, __LINE__, colCount);
+        if (subTableDes) {
+            freeTbDes(subTableDes);
+        }
+        return -1;
     }
 #endif
 
@@ -10044,17 +10132,28 @@ static int64_t dumpNtbOfStbByThreads(
         return -1;
     }
 
+    int colCount = 0;
+    colCount = colCount;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        getTableDesWS(taos_v, dbInfo->name,
+        colCount = getTableDesWS(taos_v, dbInfo->name,
             stbName, stbTableDes, true);
     } else {
 #endif
-        getTableDesNative(taos_v, dbInfo->name,
+        colCount = getTableDesNative(taos_v, dbInfo->name,
             stbName, stbTableDes, true);
 #ifdef WEBSOCKET
     }
 #endif
+    if (colCount < 0) {
+        errorPrint("%s() LN%d, failed to get stable[%s] schema\n",
+               __func__, __LINE__, stbName);
+        if (stbTableDes) {
+            freeTbDes(stbTableDes);
+        }
+        exit(-1);
+    }
+
 
     if (g_args.avro) {
         int ret = createMTableAvroHead(
