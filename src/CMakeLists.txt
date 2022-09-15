@@ -193,6 +193,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     ENDIF ()
 
     IF (${WEBSOCKET})
+        ADD_DEFINITIONS(-DWEBSOCKET)
         INCLUDE_DIRECTORIES(/usr/local/include/)
         SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
 
