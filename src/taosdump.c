@@ -2491,12 +2491,8 @@ static int getTableTagValueNativeV3(
         if (NULL == row[1]) {
             strcpy(tableDes->cols[index].value, "NULL");
             strcpy(tableDes->cols[index].note , "NULL");
-        } else if (0 != processFieldsValue(
-                    index, tableDes,
-                    row[1],
-                    length[1])) {
-            taos_free_result(res);
-            return -1;
+        } else {
+            strncpy(tableDes->cols[index].value, row[1], length[1]);
         }
 
         index ++;
