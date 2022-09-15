@@ -2226,7 +2226,77 @@ void constructTableDesFromStb(const TableDes *stbTableDes,
 }
 
 #ifdef WEBSOCKET
-static int getTableTagValueWS(
+static int getTableTagValueWSV3(
+        WS_TAOS *ws_taos,
+        const char *dbName,
+        const char *table,
+        TableDes **ppTableDes) {
+
+    TableDes *tableDes = *ppTableDes;
+    char command[COMMAND_SIZE] = {0};
+
+    sprintf(command,
+            "SELECT tag_name,tag_value FROM information_schema.ins_tags "
+            "WHERE db_name = '%s' AND table_name = '%s'",
+            dbName, table);
+
+    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
+    int32_t ws_code = ws_errno(ws_res);
+    if (ws_code) {
+        errorPrint("%s() LN%d, failed to run command <%s>,"
+                " code: %d, reason: %s\n",
+                __func__, __LINE__, command, ws_code, ws_errstr(ws_res));
+        ws_free_result(ws_res);
+        ws_res = NULL;
+        return -1;
+    }
+
+    while(true) {
+        int rows = 0;
+        const void *data = NULL;
+        ws_code = ws_fetch_block(ws_res, &data, &rows);
+
+        if (ws_code) {
+            errorPrint("%s() LN%d, ws_fetch_block() error, "
+                    "code: 0x%08x, command: %s, reason: %s\n",
+                    __func__, __LINE__, ws_code, command, ws_errstr(ws_res));
+        }
+        if (0 == rows) {
+            debugPrint("%s() LN%d, No more data from fetch to run "
+                    "command <%s>, "
+                    "ws_taos: %p, code: 0x%08x, reason:%s\n",
+                    __func__, __LINE__,
+                    command, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+            break;
+        }
+
+        uint8_t type;
+        uint32_t len;
+        int index = tableDes->columns;
+
+        for (int row = 0; row < rows; row ++) {
+            const void *value1 = ws_get_value_in_block(
+                    ws_res, row,
+                    1, &type, &len);
+
+            debugPrint("%s() LN%d, len=%d\n", __func__, __LINE__, len);
+
+            if (NULL == value1) {
+                strcpy(tableDes->cols[index].value, "NULL");
+                strcpy(tableDes->cols[index].note , "NULL");
+            } else {
+                strncpy(tableDes->cols[index].value, value1, len);
+            }
+            index ++;
+        }
+    }
+
+    ws_free_result(ws_res);
+
+    return (tableDes->columns + tableDes->tags);
+}
+
+static int getTableTagValueWSV2(
         WS_TAOS *ws_taos,
         const char *dbName,
         const char *table,
@@ -2259,17 +2329,6 @@ static int getTableTagValueWS(
         ws_res = NULL;
         return -1;
     }
-
-    /*
-    void *ws_fields = NULL;
-    if (3 == g_majorVersionOfClient) {
-        const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
-        ws_fields = (void *)ws_fields_v3;
-    } else {
-        const struct WS_FIELD_V2 *ws_fields_v2 = ws_fetch_fields_v2(ws_res);
-        ws_fields = (void *)ws_fields_v2;
-    }
-    */
 
     while(true) {
         int rows = 0;
@@ -2321,6 +2380,26 @@ static int getTableTagValueWS(
     ws_free_result(ws_res);
 
     return (tableDes->columns + tableDes->tags);
+}
+
+static int getTableTagValueWS(
+        WS_TAOS *ws_taos,
+        const char *dbName,
+        const char *table,
+        TableDes **ppTableDes) {
+    int ret = -1;
+    if (3 == g_majorVersionOfClient) {
+        // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
+        ret = getTableTagValueWSV3(ws_taos, dbName, table, ppTableDes);
+    } else if (2 == g_majorVersionOfClient) {
+        // if child-table have tag, using  select tagName from table to get tagValue
+        ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
+    } else {
+        errorPrint("%s() LN%d, major version %d is not suppported\n",
+                __func__, __LINE__, g_majorVersionOfClient);
+    }
+
+    return ret;
 }
 
 static int inline getTableDesFromStbWS(
@@ -2453,7 +2532,6 @@ static int getTableDesWS(
         return colCount;
     }
 
-    // if child-table have tag, using  select tagName from table to get tagValue
     return getTableTagValueWS(ws_taos, dbName, table, &tableDes);
 }
 #endif // WEBSOCKET
@@ -2466,9 +2544,8 @@ static int getTableTagValueNativeV3(
     TableDes *tableDes = *ppTableDes;
 
     char command[COMMAND_SIZE] = {0};
-    char *sqlstr = command;
 
-    sqlstr += sprintf(sqlstr,
+    sprintf(command,
             "SELECT tag_name,tag_value FROM information_schema.ins_tags "
             "WHERE db_name = '%s' AND table_name = '%s'",
             dbName, table);
@@ -2585,8 +2662,10 @@ static int getTableTagValueNative(
         TableDes **ppTableDes) {
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
+        // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
         ret = getTableTagValueNativeV3(taos, dbName, table, ppTableDes);
     } else if (2 == g_majorVersionOfClient) {
+        // if child-table have tag, using  select tagName from table to get tagValue
         ret = getTableTagValueNativeV2(taos, dbName, table, ppTableDes);
     } else {
         errorPrint("%s() LN%d, major version %d is not suppported\n",
@@ -2677,8 +2756,6 @@ static int getTableDesNative(
         return colCount;
     }
 
-    // if child-table have tag, V2 using select tagName from table to get tagValue
-    // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
     return getTableTagValueNative(taos, dbName, table, &tableDes);
 }
 
@@ -7538,20 +7615,20 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
         const int64_t start_time,
         const int64_t end_time)
 {
-    char sqlstr[COMMAND_SIZE] = {0};
+    char command[COMMAND_SIZE] = {0};
 
-    sprintf(sqlstr,
+    sprintf(command,
             "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
             "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
 
-    WS_RES* ws_res = ws_query_timeout(ws_taos, sqlstr, g_args.ws_timeout);
+    WS_RES* ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t ws_code = ws_errno(ws_res);
     if (ws_code != 0) {
         errorPrint("%s() LN%d, failed to run command %s, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
-                sqlstr, ws_errno(ws_res), ws_errstr(ws_res));
+                command, ws_errno(ws_res), ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
         return NULL;
@@ -7568,20 +7645,20 @@ TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
         const int64_t start_time,
         const int64_t end_time)
 {
-    char sqlstr[COMMAND_SIZE] = {0};
+    char command[COMMAND_SIZE] = {0};
 
-    sprintf(sqlstr,
+    sprintf(command,
             "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
             "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
 
-    TAOS_RES* res = taos_query(taos, sqlstr);
+    TAOS_RES* res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command %s, code: 0x%08x, reason: %s\n",
                 __func__, __LINE__,
-                sqlstr, code, taos_errstr(res));
+                command, code, taos_errstr(res));
         taos_free_result(res);
         return NULL;
     }
@@ -9265,19 +9342,19 @@ static int convertNCharToReadable(char *str, int size, char *buf, int bufsize) {
 #ifdef WEBSOCKET
 static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
     char buffer[BUFFER_LEN];
-    char sqlstr[COMMAND_SIZE];
-    strcpy(sqlstr, "SHOW VARIABLES");
+    char command[COMMAND_SIZE];
+    strcpy(command, "SHOW VARIABLES");
 
     int32_t ws_code;
 
-    WS_RES *ws_res = ws_query_timeout(taos, sqlstr, g_args.ws_timeout);
+    WS_RES *ws_res = ws_query_timeout(taos, command, g_args.ws_timeout);
 
     ws_code = ws_errno(ws_res);
     if (0 != ws_code) {
         warnPrint("%s() LN%d, failed to run command %s, "
                 "code: 0x%08x, reason: %s. Will use default settings\n",
                 __func__, __LINE__,
-                sqlstr, ws_errno(ws_res), ws_errstr(ws_res));
+                command, ws_errno(ws_res), ws_errstr(ws_res));
         fprintf(g_fpOfResult, "# SHOW VARIABLES failed, "
                 "code: 0x%08x, reason:%s\n",
                 ws_errno(ws_res), ws_errstr(ws_res));
@@ -9332,17 +9409,17 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 static void dumpExtraInfoVar(void *taos, FILE *fp) {
 
     char buffer[BUFFER_LEN];
-    char sqlstr[COMMAND_SIZE];
-    strcpy(sqlstr, "SHOW VARIABLES");
+    char command[COMMAND_SIZE];
+    strcpy(command, "SHOW VARIABLES");
 
     int32_t code;
-    TAOS_RES* res = taos_query(taos, sqlstr);
+    TAOS_RES* res = taos_query(taos, command);
 
     code = taos_errno(res);
     if (code != 0) {
         warnPrint("failed to run command %s, "
                 "code: 0x%08x, reason: %s. Will use default settings\n",
-                sqlstr, taos_errno(res), taos_errstr(res));
+                command, taos_errno(res), taos_errstr(res));
         fprintf(g_fpOfResult, "# SHOW VARIABLES failed, "
                 "code: 0x%08x, reason:%s\n",
                 taos_errno(res), taos_errstr(res));
