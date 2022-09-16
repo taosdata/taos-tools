@@ -11364,7 +11364,8 @@ static bool fillDBInfoWithFieldsNative(const int index,
                     min(DURATION_LEN, lengths[f] + 1));
             debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
                     __func__, __LINE__, f,
-                    (char*)row[f], lengths[f]);
+                    g_dbInfos[index]->duration,
+                    lengths[f]);
         } else if ((0 == strcmp(fields[f].name, "cache"))
                 || (0 == strcmp(fields[f].name, "cache(MB)"))) {
             g_dbInfos[index]->cache = *((int32_t *)row[f]);
