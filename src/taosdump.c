@@ -4168,7 +4168,7 @@ int64_t queryDbForDumpOutCountWS(
             if (NULL == value0) {
                 if (0 == ws_errno(ws_res)) {
                     count = 0;
-                    warnPrint("%s fetch row, count: %" PRId64 "\n",
+                    debugPrint("%s fetch row, count: %" PRId64 "\n",
                             sqlstr, count);
                 } else {
                     count = -1;
@@ -4216,7 +4216,7 @@ int64_t queryDbForDumpOutCountNative(
     if (NULL == row) {
         if (0 == taos_errno(res)) {
             count = 0;
-            warnPrint("%s fetch row, count: %" PRId64 "\n",
+            debugPrint("%s fetch row, count: %" PRId64 "\n",
                     sqlstr, count);
         } else {
             count = -1;
