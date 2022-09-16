@@ -69,7 +69,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'feat/sangshuduo/TD-14141-update-taostools-for3.0'
 
       - name: Change time zone
         if:
@@ -230,7 +230,7 @@ jobs:
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex columns"
-          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
 
           echo "TEST: whole db with null codec"
           ./build/bin/taosdump -D test -d null -gg > /dev/null
@@ -343,7 +343,7 @@ jobs:
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex with larger binary"
-          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
@@ -408,7 +408,7 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: System Test cases

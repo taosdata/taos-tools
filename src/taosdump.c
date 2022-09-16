@@ -1987,7 +1987,163 @@ static int64_t getNtbCountOfStbNative(
     return count;
 }
 
-static int processFieldsValue(
+static int processFieldsValueV3(
+        int index,
+        TableDes *tableDes,
+        const void *value,
+        int32_t len) {
+    switch (tableDes->cols[index].type) {
+        case TSDB_DATA_TYPE_BOOL:
+            if (0 == strncmp(value, "true", len)) {
+                strcpy(tableDes->cols[index].value, "1");
+            } else {
+                strcpy(tableDes->cols[index].value, "0");
+            }
+            break;
+
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_UTINYINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+        case TSDB_DATA_TYPE_UINT:
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            strncpy(tableDes->cols[index].value, (char*)value, len);
+            break;
+
+        case TSDB_DATA_TYPE_FLOAT:
+        case TSDB_DATA_TYPE_DOUBLE:
+            memset(tableDes->cols[index].value, 0,
+                    sizeof(tableDes->cols[index].value));
+
+            if (len < (COL_VALUEBUF_LEN -1)) {
+                strncpy(tableDes->cols[index].value, (char*)value, len);
+            } else {
+                if (tableDes->cols[index].var_value) {
+                    free(tableDes->cols[index].var_value);
+                    tableDes->cols[index].var_value = NULL;
+                }
+                tableDes->cols[index].var_value =
+                    calloc(1, len + 1);
+
+                if (NULL == tableDes->cols[index].var_value) {
+                    errorPrint("%s() LN%d, memory allocation failed!\n",
+                            __func__, __LINE__);
+                    return -1;
+                }
+                strncpy(tableDes->cols[index].var_value, (char*)value, len);
+            }
+            break;
+
+        case TSDB_DATA_TYPE_BINARY:
+            memset(tableDes->cols[index].value, 0,
+                    sizeof(tableDes->cols[index].value));
+
+            if (g_args.avro) {
+                if (len < (COL_VALUEBUF_LEN - 1)) {
+                    strncpy(tableDes->cols[index].value, (char *)value, len);
+                } else {
+                    if (tableDes->cols[index].var_value) {
+                        free(tableDes->cols[index].var_value);
+                        tableDes->cols[index].var_value = NULL;
+                    }
+                    tableDes->cols[index].var_value = calloc(1,
+                            1 + len);
+
+                    if (NULL == tableDes->cols[index].var_value) {
+                        errorPrint("%s() LN%d, memory allocation failed!\n",
+                                __func__, __LINE__);
+                        return -1;
+                    }
+                    strncpy(tableDes->cols[index].var_value, (char *)value, len);
+                }
+            } else {
+                if (len < (COL_VALUEBUF_LEN - 2)) {
+                    convertStringToReadable(
+                            (char *)value,
+                            len,
+                            tableDes->cols[index].value,
+                            len);
+                } else {
+                    if (tableDes->cols[index].var_value) {
+                        free(tableDes->cols[index].var_value);
+                        tableDes->cols[index].var_value = NULL;
+                    }
+                    tableDes->cols[index].var_value = calloc(1,
+                            len * 2);
+
+                    if (NULL == tableDes->cols[index].var_value) {
+                        errorPrint("%s() LN%d, memory allocation failed!\n",
+                                __func__, __LINE__);
+                        return -1;
+                    }
+                    convertStringToReadable((char *)value,
+                            len,
+                            (char *)(tableDes->cols[index].var_value),
+                            len);
+                }
+            }
+            break;
+
+        case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_JSON:
+            {
+                if (g_args.avro) {
+                    if (len < (COL_VALUEBUF_LEN - 1)) {
+                        strncpy(tableDes->cols[index].value,
+                                (char *)value,
+                                len);
+                    } else {
+                        tableDes->cols[index].var_value = calloc(1, len + 1);
+
+                        if (NULL == tableDes->cols[index].var_value) {
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
+                                    __func__, __LINE__);
+                            return -1;
+                        }
+                        strncpy(tableDes->cols[index].var_value,
+                                (char *)value, len);
+                    }
+                } else {
+                    if (len < (COL_VALUEBUF_LEN-2)) {
+                        char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
+                        convertNCharToReadable(
+                                (char *)value,
+                                len, tbuf, COL_VALUEBUF_LEN-2);
+                        sprintf(tableDes->cols[index].value, "%s", tbuf);
+                    } else {
+                        if (tableDes->cols[index].var_value) {
+                            free(tableDes->cols[index].var_value);
+                            tableDes->cols[index].var_value = NULL;
+                        }
+                        tableDes->cols[index].var_value = calloc(1, len * 5);
+
+                        if (NULL == tableDes->cols[index].var_value) {
+                            errorPrint("%s() LN%d, memory allocation failed!\n",
+                                    __func__, __LINE__);
+                            return -1;
+                        }
+                        convertStringToReadable(
+                                (char *)value,
+                                len,
+                                (char *)(tableDes->cols[index].var_value), len);
+                    }
+                }
+            }
+            break;
+
+        default:
+            errorPrint("%s() LN%d, unknown type: %d\n",
+                    __func__, __LINE__, tableDes->cols[index].type);
+            break;
+    }
+
+    return 0;
+}
+
+static int processFieldsValueV2(
         int index,
         TableDes *tableDes,
         const void *value,
@@ -2113,11 +2269,8 @@ static int processFieldsValue(
                                 __func__, __LINE__);
                         return -1;
                     }
-                    strncpy(
-                            (char *)(tableDes->cols[index].var_value),
-                            (char *)value,
-                            min(TSDB_TABLE_NAME_LEN,
-                                len));
+                    strncpy(tableDes->cols[index].var_value,
+                            (char *)value, len);
                 }
             } else {
                 if (len < (COL_VALUEBUF_LEN - 2)) {
@@ -2284,8 +2437,15 @@ static int getTableTagValueWSV3(
             if (NULL == value1) {
                 strcpy(tableDes->cols[index].value, "NULL");
                 strcpy(tableDes->cols[index].note , "NULL");
-            } else {
-                strncpy(tableDes->cols[index].value, value1, len);
+            } else if (0 != processFieldsValueV3(
+                        index,
+                        tableDes,
+                        value1,
+                        len)) {
+                errorPrint("%s() LN%d, processFieldsValueV3 tag_value: %p\n",
+                        __func__, __LINE__, value1);
+                ws_free_result(ws_res);
+                return -1;
             }
             index ++;
         }
@@ -2363,12 +2523,12 @@ static int getTableTagValueWSV2(
                 if (NULL == value) {
                     strcpy(tableDes->cols[j].value, "NULL");
                     strcpy(tableDes->cols[j].note , "NULL");
-                } else if (0 != processFieldsValue(
+                } else if (0 != processFieldsValueV2(
                             j,
                             tableDes,
                             value,
                             len)) {
-                    errorPrint("%s() LN%d, processFieldsValue value0: %p\n",
+                    errorPrint("%s() LN%d, processFieldsValueV2 value0: %p\n",
                             __func__, __LINE__, value);
                     ws_free_result(ws_res);
                     return -1;
@@ -2390,7 +2550,10 @@ static int getTableTagValueWS(
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
         // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
-        ret = getTableTagValueWSV3(ws_taos, dbName, table, ppTableDes);
+        ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
+        if (ret < 0) {
+            ret = getTableTagValueWSV3(ws_taos, dbName, table, ppTableDes);
+        }
     } else if (2 == g_majorVersionOfClient) {
         // if child-table have tag, using  select tagName from table to get tagValue
         ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
@@ -2568,8 +2731,15 @@ static int getTableTagValueNativeV3(
         if (NULL == row[1]) {
             strcpy(tableDes->cols[index].value, "NULL");
             strcpy(tableDes->cols[index].note , "NULL");
-        } else {
-            strncpy(tableDes->cols[index].value, row[1], length[1]);
+        } else if (0 != processFieldsValueV3(
+                    index,
+                    tableDes,
+                    row[1],
+                    length[1])) {
+            errorPrint("%s() LN%d, processFieldsValueV3 tag_value: %p\n",
+                    __func__, __LINE__, row[1]);
+            taos_free_result(res);
+            return -1;
         }
 
         index ++;
@@ -2642,7 +2812,7 @@ static int getTableTagValueNativeV2(
         if (NULL == row[j - tableDes->columns]) {
             strcpy(tableDes->cols[j].value, "NULL");
             strcpy(tableDes->cols[j].note , "NULL");
-        } else if (0 != processFieldsValue(
+        } else if (0 != processFieldsValueV2(
                     j, tableDes,
                     row[j- tableDes->columns],
                     length[j- tableDes->columns])) {
@@ -2663,7 +2833,10 @@ static int getTableTagValueNative(
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
         // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
-        ret = getTableTagValueNativeV3(taos, dbName, table, ppTableDes);
+        ret = getTableTagValueNativeV2(taos, dbName, table, ppTableDes);
+        if (ret < 0) {
+            ret = getTableTagValueNativeV3(taos, dbName, table, ppTableDes);
+        }
     } else if (2 == g_majorVersionOfClient) {
         // if child-table have tag, using  select tagName from table to get tagValue
         ret = getTableTagValueNativeV2(taos, dbName, table, ppTableDes);
@@ -4168,7 +4341,7 @@ int64_t queryDbForDumpOutCountWS(
             if (NULL == value0) {
                 if (0 == ws_errno(ws_res)) {
                     count = 0;
-                    warnPrint("%s fetch row, count: %" PRId64 "\n",
+                    debugPrint("%s fetch row, count: %" PRId64 "\n",
                             sqlstr, count);
                 } else {
                     count = -1;
@@ -4216,7 +4389,7 @@ int64_t queryDbForDumpOutCountNative(
     if (NULL == row) {
         if (0 == taos_errno(res)) {
             count = 0;
-            warnPrint("%s fetch row, count: %" PRId64 "\n",
+            debugPrint("%s fetch row, count: %" PRId64 "\n",
                     sqlstr, count);
         } else {
             count = -1;
@@ -8355,7 +8528,7 @@ static int createMTableAvroHeadImp(
                 } else {
                     avro_value_set_branch(&value, 1, &branch);
                     int tmp = atoi((const char *)
-                            subTableDes->cols[subTableDes->columns+tag].value);
+                                subTableDes->cols[subTableDes->columns+tag].value);
                     verbosePrint("%s() LN%d, before set_bool() tmp=%d\n",
                             __func__, __LINE__, (int)tmp);
                     avro_value_set_boolean(&branch, (tmp)?1:0);
@@ -11190,7 +11363,8 @@ static bool fillDBInfoWithFieldsNative(const int index,
                     min(DURATION_LEN, lengths[f] + 1));
             debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
                     __func__, __LINE__, f,
-                    (char*)row[f], lengths[f]);
+                    g_dbInfos[index]->duration,
+                    lengths[f]);
         } else if ((0 == strcmp(fields[f].name, "cache"))
                 || (0 == strcmp(fields[f].name, "cache(MB)"))) {
             g_dbInfos[index]->cache = *((int32_t *)row[f]);
