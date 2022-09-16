@@ -1994,101 +1994,39 @@ static int processFieldsValueV3(
         int32_t len) {
     switch (tableDes->cols[index].type) {
         case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_UTINYINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+        case TSDB_DATA_TYPE_UINT:
+        case TSDB_DATA_TYPE_UBIGINT:
+        case TSDB_DATA_TYPE_TIMESTAMP:
             strncpy(tableDes->cols[index].value, (char*)value, len);
             break;
 
-        case TSDB_DATA_TYPE_TINYINT:
-            sprintf(tableDes->cols[index].value, "%d", *((int8_t *)value));
-            break;
-
-        case TSDB_DATA_TYPE_INT:
-            sprintf(tableDes->cols[index].value, "%d", *((int32_t *)value));
-            break;
-
-        case TSDB_DATA_TYPE_BIGINT:
-            sprintf(tableDes->cols[index].value, "%" PRId64 "",
-                    *((int64_t *)value));
-            break;
-
-        case TSDB_DATA_TYPE_UTINYINT:
-            sprintf(tableDes->cols[index].value, "%u", *((uint8_t *)value));
-            break;
-
-        case TSDB_DATA_TYPE_SMALLINT:
-            sprintf(tableDes->cols[index].value, "%d", *((int16_t *)value));
-            break;
-
-        case TSDB_DATA_TYPE_USMALLINT:
-            sprintf(tableDes->cols[index].value, "%u", *((uint16_t *)value));
-            break;
-
-        case TSDB_DATA_TYPE_UINT:
-            sprintf(tableDes->cols[index].value, "%u", *((uint32_t *)value));
-            break;
-
-        case TSDB_DATA_TYPE_UBIGINT:
-            sprintf(tableDes->cols[index].value, "%" PRIu64 "",
-                    *((uint64_t *)value));
-            break;
-
         case TSDB_DATA_TYPE_FLOAT:
-            {
-                char tmpFloat[512] = {0};
-                sprintf(tmpFloat, "%f", GET_FLOAT_VAL(value));
-                verbosePrint("%s() LN%d, float value: %s\n",
-                        __func__, __LINE__, tmpFloat);
-                int bufLenOfFloat = strlen(tmpFloat);
-
-                if (bufLenOfFloat < (COL_VALUEBUF_LEN -1)) {
-                    sprintf(tableDes->cols[index].value, "%f",
-                            GET_FLOAT_VAL(value));
-                } else {
-                    if (tableDes->cols[index].var_value) {
-                        free(tableDes->cols[index].var_value);
-                        tableDes->cols[index].var_value = NULL;
-                    }
-                    tableDes->cols[index].var_value =
-                        calloc(1, bufLenOfFloat + 1);
-
-                    if (NULL == tableDes->cols[index].var_value) {
-                        errorPrint("%s() LN%d, memory allocation failed!\n",
-                                __func__, __LINE__);
-                        return -1;
-                    }
-                    sprintf(tableDes->cols[index].var_value, "%f",
-                            GET_FLOAT_VAL(value));
-                }
-            }
-            break;
-
         case TSDB_DATA_TYPE_DOUBLE:
-            {
-                char tmpDouble[512] = {0};
-                sprintf(tmpDouble, "%f",
-                        GET_DOUBLE_VAL(value));
-                verbosePrint("%s() LN%d, double value: %s\n",
-                        __func__, __LINE__, tmpDouble);
-                int bufLenOfDouble = strlen(tmpDouble);
+            memset(tableDes->cols[index].value, 0,
+                    sizeof(tableDes->cols[index].value));
 
-                if (bufLenOfDouble < (COL_VALUEBUF_LEN -1)) {
-                    sprintf(tableDes->cols[index].value, "%f",
-                            GET_DOUBLE_VAL(value));
-                } else {
-                    if (tableDes->cols[index].var_value) {
-                        free(tableDes->cols[index].var_value);
-                        tableDes->cols[index].var_value = NULL;
-                    }
-                    tableDes->cols[index].var_value =
-                        calloc(1, bufLenOfDouble + 1);
-
-                    if (NULL == tableDes->cols[index].var_value) {
-                        errorPrint("%s() LN%d, memory allocation failed!\n",
-                                __func__, __LINE__);
-                        return -1;
-                    }
-                    sprintf(tableDes->cols[index].var_value, "%f",
-                            GET_DOUBLE_VAL(value));
+            if (len < (COL_VALUEBUF_LEN -1)) {
+                strncpy(tableDes->cols[index].value, (char*)value, len);
+            } else {
+                if (tableDes->cols[index].var_value) {
+                    free(tableDes->cols[index].var_value);
+                    tableDes->cols[index].var_value = NULL;
                 }
+                tableDes->cols[index].var_value =
+                    calloc(1, len + 1);
+
+                if (NULL == tableDes->cols[index].var_value) {
+                    errorPrint("%s() LN%d, memory allocation failed!\n",
+                            __func__, __LINE__);
+                    return -1;
+                }
+                strncpy(tableDes->cols[index].var_value, (char*)value, len);
             }
             break;
 
@@ -2112,11 +2050,7 @@ static int processFieldsValueV3(
                                 __func__, __LINE__);
                         return -1;
                     }
-                    strncpy(
-                            (char *)(tableDes->cols[index].var_value),
-                            (char *)value,
-                            min(TSDB_TABLE_NAME_LEN,
-                                len));
+                    strncpy(tableDes->cols[index].var_value, (char *)value, len);
                 }
             } else {
                 if (len < (COL_VALUEBUF_LEN - 2)) {
@@ -2162,8 +2096,7 @@ static int processFieldsValueV3(
                                     __func__, __LINE__);
                             return -1;
                         }
-                        strncpy(
-                                (char *)(tableDes->cols[index].var_value),
+                        strncpy(tableDes->cols[index].var_value,
                                 (char *)value, len);
                     }
                 } else {
@@ -2192,11 +2125,6 @@ static int processFieldsValueV3(
                     }
                 }
             }
-            break;
-
-        case TSDB_DATA_TYPE_TIMESTAMP:
-            sprintf(tableDes->cols[index].value, "%" PRId64 "",
-                    *(int64_t *)value);
             break;
 
         default:
@@ -2334,11 +2262,8 @@ static int processFieldsValueV2(
                                 __func__, __LINE__);
                         return -1;
                     }
-                    strncpy(
-                            (char *)(tableDes->cols[index].var_value),
-                            (char *)value,
-                            min(TSDB_TABLE_NAME_LEN,
-                                len));
+                    strncpy(tableDes->cols[index].var_value,
+                            (char *)value, len);
                 }
             } else {
                 if (len < (COL_VALUEBUF_LEN - 2)) {
