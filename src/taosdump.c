@@ -1994,6 +1994,13 @@ static int processFieldsValueV3(
         int32_t len) {
     switch (tableDes->cols[index].type) {
         case TSDB_DATA_TYPE_BOOL:
+            if (0 == strncmp(value, "true", len)) {
+                strcpy(tableDes->cols[index].value, "1");
+            } else {
+                strcpy(tableDes->cols[index].value, "0");
+            }
+            break;
+
         case TSDB_DATA_TYPE_TINYINT:
         case TSDB_DATA_TYPE_SMALLINT:
         case TSDB_DATA_TYPE_INT:
@@ -2543,7 +2550,10 @@ static int getTableTagValueWS(
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
         // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
-        ret = getTableTagValueWSV3(ws_taos, dbName, table, ppTableDes);
+        ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
+        if (ret < 0) {
+            ret = getTableTagValueWSV3(ws_taos, dbName, table, ppTableDes);
+        }
     } else if (2 == g_majorVersionOfClient) {
         // if child-table have tag, using  select tagName from table to get tagValue
         ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
@@ -2823,7 +2833,10 @@ static int getTableTagValueNative(
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
         // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
-        ret = getTableTagValueNativeV3(taos, dbName, table, ppTableDes);
+        ret = getTableTagValueNativeV2(taos, dbName, table, ppTableDes);
+        if (ret < 0) {
+            ret = getTableTagValueNativeV3(taos, dbName, table, ppTableDes);
+        }
     } else if (2 == g_majorVersionOfClient) {
         // if child-table have tag, using  select tagName from table to get tagValue
         ret = getTableTagValueNativeV2(taos, dbName, table, ppTableDes);
@@ -8514,22 +8527,8 @@ static int createMTableAvroHeadImp(
                     avro_value_set_null(&branch);
                 } else {
                     avro_value_set_branch(&value, 1, &branch);
-                    int tmp;
-                    if (3 == g_majorVersionOfClient) {
-                        tmp = (0 == strcmp("true", (const char *)
-                                    subTableDes->cols[subTableDes->columns+tag].value));
-
-                    } else if (2 == g_majorVersionOfClient) {
-                        tmp = atoi((const char *)
+                    int tmp = atoi((const char *)
                                 subTableDes->cols[subTableDes->columns+tag].value);
-                    } else {
-                        errorPrint("%s() LN%d, unsupported client version: %d\n",
-                                __func__, __LINE__, g_majorVersionOfClient);
-                        if (subTableDes) {
-                            freeTbDes(subTableDes);
-                        }
-                        return -1;
-                    }
                     verbosePrint("%s() LN%d, before set_bool() tmp=%d\n",
                             __func__, __LINE__, (int)tmp);
                     avro_value_set_boolean(&branch, (tmp)?1:0);
