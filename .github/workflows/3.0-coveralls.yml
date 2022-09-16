@@ -230,7 +230,7 @@ jobs:
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex columns"
-          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
 
           echo "TEST: whole db with null codec"
           ./build/bin/taosdump -D test -d null -gg > /dev/null
@@ -343,7 +343,7 @@ jobs:
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex with larger binary"
-          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
