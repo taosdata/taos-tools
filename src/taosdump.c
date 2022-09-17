@@ -218,7 +218,7 @@ enum _describe_table_index {
     TSDB_MAX_DESCRIBE_METRIC
 };
 
-#define COL_NOTE_LEN        5
+#define COL_NOTE_LEN        4
 #define COL_TYPEBUF_LEN     16
 #define COL_VALUEBUF_LEN    32
 
@@ -226,9 +226,9 @@ typedef struct {
     char field[TSDB_COL_NAME_LEN];
     int type;
     int length;
+    char note[COL_NOTE_LEN];
     char value[COL_VALUEBUF_LEN];
     char *var_value;
-    char note[COL_NOTE_LEN];
 } ColDes;
 
 typedef struct {
@@ -2730,7 +2730,7 @@ static int getTableTagValueNativeV3(
 
         if (NULL == row[1]) {
             strcpy(tableDes->cols[index].value, "NULL");
-            strcpy(tableDes->cols[index].note , "NULL");
+            strcpy(tableDes->cols[index].note , "NUL");
         } else if (0 != processFieldsValueV3(
                     index,
                     tableDes,
@@ -2811,7 +2811,7 @@ static int getTableTagValueNativeV2(
         debugPrint("%s() LN%d, \n", __func__, __LINE__);
         if (NULL == row[j - tableDes->columns]) {
             strcpy(tableDes->cols[j].value, "NULL");
-            strcpy(tableDes->cols[j].note , "NULL");
+            strcpy(tableDes->cols[j].note , "NUL");
         } else if (0 != processFieldsValueV2(
                     j, tableDes,
                     row[j- tableDes->columns],
@@ -7959,6 +7959,14 @@ static int generateSubDirName(
     } else if (ENOENT == errno) {
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
+        if (ret) {
+            if (EEXIST == errno) {
+                ret = 0;
+            } else {
+                errorPrint("%s() LN%d, mkdir(%s) failed. Errno: %d\n",
+                        __func__, __LINE__, dirToCreate, errno);
+            }
+        }
     } else {
         /* opendir() failed for some other reason. */
         ret = errno;
@@ -10971,9 +10979,14 @@ static int createDirForDbDump(SDbInfo *dbInfo) {
 
     int ret = mkdir(dbInfo->dirForDbDump, 0775);
     if (ret) {
-        errorPrint("%s() LN%d, mkdir(%s) failed\n",
-                __func__, __LINE__, dbInfo->dirForDbDump);
+        if (EEXIST == errno) {
+            ret = 0;
+        } else {
+            errorPrint("%s() LN%d, mkdir(%s) failed. Errno: %d\n",
+                    __func__, __LINE__, dbInfo->dirForDbDump, errno);
+        }
     }
+
     return ret;
 }
 
