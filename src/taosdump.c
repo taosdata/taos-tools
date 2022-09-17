@@ -218,7 +218,7 @@ enum _describe_table_index {
     TSDB_MAX_DESCRIBE_METRIC
 };
 
-#define COL_NOTE_LEN        4
+#define COL_NOTE_LEN        5
 #define COL_TYPEBUF_LEN     16
 #define COL_VALUEBUF_LEN    32
 
@@ -226,9 +226,9 @@ typedef struct {
     char field[TSDB_COL_NAME_LEN];
     int type;
     int length;
-    char note[COL_NOTE_LEN];
     char value[COL_VALUEBUF_LEN];
     char *var_value;
+    char note[COL_NOTE_LEN];
 } ColDes;
 
 typedef struct {
@@ -2368,7 +2368,7 @@ void constructTableDesFromStb(const TableDes *stbTableDes,
 
     TableDes *tableDes = *ppTableDes;
 
-    strcpy(tableDes->name, table);
+    strncpy(tableDes->name, table, min(TSDB_TABLE_NAME_LEN-1, strlen(table)));
     tableDes->columns = stbTableDes->columns;
     tableDes->tags = stbTableDes->tags;
     memcpy(tableDes->cols, stbTableDes->cols,
@@ -7969,9 +7969,10 @@ static int generateSubDirName(
     return ret;
 }
 
-void generateFilename(AVROTYPE avroType, char *fileName,
+static int generateFilename(AVROTYPE avroType, char *fileName,
         const SDbInfo *dbInfo, const char *tbName, const int64_t index) {
 
+    int ret = 0;
     if (g_args.loose_mode) {
         switch(avroType) {
             case AVRO_TBTAGS:
@@ -7987,7 +7988,9 @@ void generateFilename(AVROTYPE avroType, char *fileName,
             case AVRO_DATA:
                 {
                     char subDirName[MAX_DIR_LEN] = {0};
-                    generateSubDirName(avroType, dbInfo, subDirName);
+                    if (0 != generateSubDirName(avroType, dbInfo, subDirName)) {
+                        return -1;
+                    }
 
                     sprintf(fileName, "%staosdump.%s/%s/%s.%s.%"PRId64".avro",
                             g_args.outpath, dbInfo->name,
@@ -8024,7 +8027,9 @@ void generateFilename(AVROTYPE avroType, char *fileName,
             case AVRO_DATA:
                 {
                     char subDirName[MAX_DIR_LEN] = {0};
-                    generateSubDirName(avroType, dbInfo, subDirName);
+                    if (0 != generateSubDirName(avroType, dbInfo, subDirName)) {
+                        return -1;
+                    }
 
                     sprintf(fileName,
                             "%staosdump.%"PRIu64"/%s/%s.%"PRIu64".%"PRId64".avro",
@@ -8048,6 +8053,8 @@ void generateFilename(AVROTYPE avroType, char *fileName,
                 break;
         }
     }
+
+    return ret;
 }
 
 static int64_t dumpTableDataAvro(
@@ -8061,7 +8068,9 @@ static int64_t dumpTableDataAvro(
         ) {
 
     char dataFilename[MAX_PATH_LEN] = {0};
-    generateFilename(AVRO_DATA, dataFilename, dbInfo, tbName, index);
+    if (0 != generateFilename(AVRO_DATA, dataFilename, dbInfo, tbName, index)) {
+        return -1;
+    }
 
     int64_t rows;
 
@@ -8273,14 +8282,18 @@ static int64_t dumpNormalTable(
         // create normal-table
         if (g_args.avro) {
             if (belongStb) {
-                generateFilename(AVRO_TBTAGS,
+                if (0 != generateFilename(AVRO_TBTAGS,
                         dumpFilename,
-                        dbInfo, tbName, 0);
+                        dbInfo, tbName, 0)) {
+                    return -1;
+                }
                 debugPrint("%s() LN%d dumpFilename: %s\n",
                         __func__, __LINE__, dumpFilename);
             } else {
-                generateFilename(AVRO_NTB,
-                        dumpFilename, dbInfo, tbName, 0);
+                if (0 != generateFilename(AVRO_NTB,
+                        dumpFilename, dbInfo, tbName, 0)) {
+                    return -1;
+                }
             }
             dumpCreateTableClauseAvro(
                     dumpFilename, tableDes, numColsAndTags, dbInfo->name);
@@ -8362,8 +8375,10 @@ static int64_t dumpANormalTableNotBelong(
                     __func__, __LINE__);
             return -1;
         }
-        generateFilename(AVRO_NTB,
-                dumpFilename, dbInfo, ntbName, index);
+        if (0 != generateFilename(AVRO_NTB,
+                dumpFilename, dbInfo, ntbName, index)) {
+            return -1;
+        }
         count = dumpNormalTable(
                 index,
                 taos,
@@ -8376,8 +8391,10 @@ static int64_t dumpANormalTableNotBelong(
                 dumpFilename,
                 NULL);
     } else {
-        generateFilename(AVRO_UNKNOWN,
-                dumpFilename, dbInfo, ntbName, 0);
+        if (0 != generateFilename(AVRO_UNKNOWN,
+                dumpFilename, dbInfo, ntbName, 0)) {
+            return -1;
+        }
 
         fp = fopen(dumpFilename, "w");
         if (fp == NULL) {
@@ -9114,8 +9131,10 @@ static int createMTableAvroHead(
 
     char dumpFilename[MAX_PATH_LEN] = {0};
 
-    generateFilename(AVRO_TBTAGS, dumpFilename,
-            dbInfo, stable, 0);
+    if (0 != generateFilename(AVRO_TBTAGS, dumpFilename,
+            dbInfo, stable, 0)) {
+        return -1;
+    }
     debugPrint("%s() LN%d dumpFilename: %s\n",
             __func__, __LINE__, dumpFilename);
 
@@ -9214,8 +9233,10 @@ static int64_t dumpANormalTableBelongStb(
     FILE *fp = NULL;
 
     if (g_args.avro) {
-        generateFilename(AVRO_TBTAGS,
-                dumpFilename, dbInfo, stbName, 0);
+        if (0 != generateFilename(AVRO_TBTAGS,
+                dumpFilename, dbInfo, stbName, 0)) {
+            return -1;
+        }
         debugPrint("%s() LN%d dumpFilename: %s\n",
                 __func__, __LINE__, dumpFilename);
 
@@ -9231,7 +9252,10 @@ static int64_t dumpANormalTableBelongStb(
             return -1;
         }
     } else {
-        generateFilename(AVRO_UNKNOWN, dumpFilename, dbInfo, ntbName, 0);
+        if (0 != generateFilename(AVRO_UNKNOWN,
+                    dumpFilename, dbInfo, ntbName, 0)) {
+            return -1;
+        }
         fp = fopen(dumpFilename, "w");
 
         if (fp == NULL) {
@@ -9945,7 +9969,8 @@ static int dumpInDebugWorkThreads(const char *dbPath)
         pThreadInfo->recSuccess = 0;
         pThreadInfo->recFailed = 0;
 
-        strcpy(pThreadInfo->dbPath, dbPath);
+        strncpy(pThreadInfo->dbPath, dbPath,
+                min(MAX_DIR_LEN-1, strlen(dbPath)));
         pThreadInfo->from = from;
         pThreadInfo->count = t<b?a+1:a;
         from += pThreadInfo->count;
@@ -10247,7 +10272,8 @@ static void dumpNormalTablesOfStbNative(
         char tbName[TSDB_TABLE_NAME_LEN] = {0};
         strncpy(tbName,
                 pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
-                strlen(pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN));
+                min(TSDB_TABLE_NAME_LEN-1,
+                    strlen(pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN)));
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
                 pThreadInfo->threadIndex, i, tbName);
@@ -10299,15 +10325,19 @@ static void *dumpNormalTablesOfStb(void *arg) {
     char dumpFilename[MAX_PATH_LEN] = {0};
 
     if (g_args.avro) {
-        generateFilename(AVRO_TBTAGS, dumpFilename,
+        if (0 != generateFilename(AVRO_TBTAGS, dumpFilename,
                 pThreadInfo->dbInfo, pThreadInfo->stbName,
-                pThreadInfo->threadIndex);
+                pThreadInfo->threadIndex)) {
+            return NULL;
+        }
         debugPrint("%s() LN%d dumpFilename: %s\n",
                 __func__, __LINE__, dumpFilename);
     } else {
-        generateFilename(AVRO_UNKNOWN, dumpFilename,
+        if (0 != generateFilename(AVRO_UNKNOWN, dumpFilename,
                 pThreadInfo->dbInfo, pThreadInfo->stbName,
-                pThreadInfo->threadIndex);
+                pThreadInfo->threadIndex)) {
+            return NULL;
+        }
         fp = fopen(dumpFilename, "w");
 
         if (fp == NULL) {
@@ -10453,6 +10483,7 @@ static int64_t dumpNtbOfStbByThreads(
                 if (tbNameArr) {
                     free(tbNameArr);
                 }
+                freeTbDes(stbTableDes);
                 free(pids);
                 free(infos);
 
@@ -10476,6 +10507,7 @@ static int64_t dumpNtbOfStbByThreads(
                 if (tbNameArr) {
                     free(tbNameArr);
                 }
+                freeTbDes(stbTableDes);
                 free(pids);
                 free(infos);
 
