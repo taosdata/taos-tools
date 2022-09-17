@@ -974,21 +974,6 @@ void free_ds(char **ps)
 	*ps = NULL;
 }
 
-int is_ds(const char *s)
-{
-	return (((uint64_t *)s)[OFF_MAGIC] == MAGIC_NUMBER);
-}
-
-uint64_t ds_custom(const char *s)
-{
-	return ((uint64_t *)s)[OFF_CUSTOM];
-}
-
-void ds_set_custom(char *s, uint64_t custom)
-{
-	((uint64_t *)s)[OFF_CUSTOM] = custom;
-}
-
 uint64_t ds_len(const char *s)
 {
 	return ((uint64_t *)s)[OFF_LEN];

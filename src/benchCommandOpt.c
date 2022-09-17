@@ -588,7 +588,7 @@ static void init_stable() {
     t2->type = TSDB_DATA_TYPE_BINARY;
 
     t1->length = sizeof(int32_t);
-    t2->length = 16;
+    t2->length = 24;
 
     tstrncpy(t1->name, "groupid", TSDB_COL_NAME_LEN + 1);
     tstrncpy(t2->name, "location", TSDB_COL_NAME_LEN + 1);
