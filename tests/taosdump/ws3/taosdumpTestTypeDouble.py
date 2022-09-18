@@ -21,9 +21,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         case1<sdsang>: [TD-12526] taosdump supports double
-        '''
+        """
         return
 
     def init(self, conn, logSql):
@@ -34,23 +34,26 @@ class TDTestCase:
     def getPath(self, tool="taosdump"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
-        elif ("src" in selfPath):
-            projPath = selfPath[:selfPath.find("src")]
-        elif ("/tools/" in selfPath):
-            projPath = selfPath[:selfPath.find("/tools/")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/debug/" in selfPath:
+            projPath = selfPath[: selfPath.find("/debug/")]
         else:
-            tdLog.exit("path: %s is not supported" % selfPath)
+            tdLog.info("Cannot find %s in path: %s" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             return ""
         return paths[0]
 
@@ -61,8 +64,7 @@ class TDTestCase:
         tdSql.execute("create database db  keep 3649 ")
 
         tdSql.execute("use db")
-        tdSql.execute(
-            "create table st(ts timestamp, c1 DOUBLE) tags(dbtag DOUBLE)")
+        tdSql.execute("create table st(ts timestamp, c1 DOUBLE) tags(dbtag DOUBLE)")
         tdSql.execute("create table t1 using st tags(1.0)")
         tdSql.execute("insert into t1 values(1640000000000, 1.0)")
 
@@ -75,10 +77,10 @@ class TDTestCase:
         tdSql.execute("create table t4 using st tags(NULL)")
         tdSql.execute("insert into t4 values(1640000000000, NULL)")
 
-#        sys.exit(1)
+        #        sys.exit(1)
 
         binPath = self.getPath("taosdump")
-        if (binPath == ""):
+        if binPath == "":
             tdLog.exit("taosdump not found!")
         else:
             tdLog.info("taosdump found in %s" % binPath)
@@ -90,11 +92,9 @@ class TDTestCase:
             os.system("rm -rf %s" % self.tmpdir)
             os.makedirs(self.tmpdir)
 
-        os.system(
-            "%s -R -D db -o %s -T 1" %
-            (binPath, self.tmpdir))
+        os.system("%s -R -D db -o %s -T 1" % (binPath, self.tmpdir))
 
-#        sys.exit(1)
+        #        sys.exit(1)
         tdSql.execute("drop database db")
 
         os.system("%s -R -i %s -T 1" % (binPath, self.tmpdir))
@@ -105,7 +105,7 @@ class TDTestCase:
         found = False
         for i in range(len(dbresult)):
             print("Found db: %s" % dbresult[i][0])
-            if (dbresult[i][0] == "db"):
+            if dbresult[i][0] == "db":
                 found = True
                 break
 
@@ -114,7 +114,7 @@ class TDTestCase:
         tdSql.execute("use db")
         tdSql.query("show stables")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 'st')
+        tdSql.checkData(0, 0, "st")
 
         tdSql.query("show tables")
         tdSql.checkRows(4)
@@ -123,36 +123,38 @@ class TDTestCase:
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 1640000000000)
         if not math.isclose(tdSql.getData(0, 1), 1.0):
-            tdLog.debug("getData(0, 1): %f, to compare %f" %
-                        (tdSql.getData(0, 1), 1.0))
+            tdLog.debug("getData(0, 1): %f, to compare %f" % (tdSql.getData(0, 1), 1.0))
             tdLog.exit("data is different")
         if not math.isclose(tdSql.getData(0, 2), 1.0):
-            tdLog.debug("getData(0, 1): %f, to compare %f" %
-                        (tdSql.getData(0, 2), 1.0))
+            tdLog.debug("getData(0, 1): %f, to compare %f" % (tdSql.getData(0, 2), 1.0))
             tdLog.exit("data is different")
 
         tdSql.query("select * from st where dbtag = 1.7E308")
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 1640000000000)
-        if not math.isclose(tdSql.getData(0, 1), 1.7E308):
-            tdLog.debug("getData(0, 1): %f, to compare %f" %
-                        (tdSql.getData(0, 1), 1.7E308))
+        if not math.isclose(tdSql.getData(0, 1), 1.7e308):
+            tdLog.debug(
+                "getData(0, 1): %f, to compare %f" % (tdSql.getData(0, 1), 1.7e308)
+            )
             tdLog.exit("data is different")
-        if not math.isclose(tdSql.getData(0, 2), 1.7E308):
-            tdLog.debug("getData(0, 1): %f, to compare %f" %
-                        (tdSql.getData(0, 2), 1.7E308))
+        if not math.isclose(tdSql.getData(0, 2), 1.7e308):
+            tdLog.debug(
+                "getData(0, 1): %f, to compare %f" % (tdSql.getData(0, 2), 1.7e308)
+            )
             tdLog.exit("data is different")
 
         tdSql.query("select * from st where dbtag = -1.7E308")
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, 1640000000000)
-        if not math.isclose(tdSql.getData(0, 1), -1.7E308):
-            tdLog.debug("getData(0, 1): %f, to compare %f" %
-                        (tdSql.getData(0, 1), -1.7E308))
+        if not math.isclose(tdSql.getData(0, 1), -1.7e308):
+            tdLog.debug(
+                "getData(0, 1): %f, to compare %f" % (tdSql.getData(0, 1), -1.7e308)
+            )
             tdLog.exit("data is different")
-        if not math.isclose(tdSql.getData(0, 2), -1.7E308):
-            tdLog.debug("getData(0, 1): %f, to compare %f" %
-                        (tdSql.getData(0, 2), -1.7E308))
+        if not math.isclose(tdSql.getData(0, 2), -1.7e308):
+            tdLog.debug(
+                "getData(0, 1): %f, to compare %f" % (tdSql.getData(0, 2), -1.7e308)
+            )
             tdLog.exit("data is different")
 
         tdSql.query("select * from st where dbtag is null")

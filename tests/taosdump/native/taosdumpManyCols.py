@@ -20,9 +20,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         case1<sdsang>: [TS-1762] taosdump with many columns
-        '''
+        """
         return
 
     def init(self, conn, logSql):
@@ -33,23 +33,26 @@ class TDTestCase:
     def getPath(self, tool="taosdump"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
-        elif ("src" in selfPath):
-            projPath = selfPath[:selfPath.find("src")]
-        elif ("/tools/" in selfPath):
-            projPath = selfPath[:selfPath.find("/tools/")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/debug/" in selfPath:
+            projPath = selfPath[: selfPath.find("/debug/")]
         else:
-            tdLog.exit("path: %s is not supported" % selfPath)
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             return ""
         return paths[0]
 
@@ -62,34 +65,34 @@ class TDTestCase:
         tdSql.execute("use db")
         stb_sql = "create stable stb(ts timestamp"
 
-        for index in range(4095-128):
-            stb_sql += (", col%d INT" % (index+1))
+        for index in range(4095 - 128):
+            stb_sql += ", col%d INT" % (index + 1)
         stb_sql += ") tags(tag0 INT"
         for index in range(127):
-            stb_sql += (", tag%d INT" % (index+1))
+            stb_sql += ", tag%d INT" % (index + 1)
         stb_sql += ")"
 
-        tdSql.execute(stb_sql);
-#        sys.exit(1)
+        tdSql.execute(stb_sql)
+        #        sys.exit(1)
 
         tb_sql = "create table tb using stb tags(0"
         for index in range(127):
-            tb_sql += (",%d" % (index+1))
+            tb_sql += ",%d" % (index + 1)
         tb_sql += ")"
 
-        tdSql.execute(tb_sql);
+        tdSql.execute(tb_sql)
 
-#        sys.exit(1)
+        #        sys.exit(1)
 
         for record in range(100):
-            ins_sql = ("insert into tb values(%d" % (1640000000000+record))
-            for index in range(4095-128):
-                ins_sql += (",%d" % index)
+            ins_sql = "insert into tb values(%d" % (1640000000000 + record)
+            for index in range(4095 - 128):
+                ins_sql += ",%d" % index
             ins_sql += ")"
-            tdSql.execute(ins_sql);
+            tdSql.execute(ins_sql)
 
         binPath = self.getPath("taosdump")
-        if (binPath == ""):
+        if binPath == "":
             tdLog.exit("taosdump not found!")
         else:
             tdLog.info("taosdump found in %s" % binPath)
@@ -101,12 +104,10 @@ class TDTestCase:
             os.system("rm -rf %s" % self.tmpdir)
             os.makedirs(self.tmpdir)
 
-        os.system(
-            "%s db -o %s -T 1" %
-            (binPath, self.tmpdir))
+        os.system("%s db -o %s -T 1" % (binPath, self.tmpdir))
 
         tdSql.execute("drop database db")
-#        sys.exit(1)
+        #        sys.exit(1)
 
         os.system("%s -i %s -T 1" % (binPath, self.tmpdir))
 
@@ -116,7 +117,7 @@ class TDTestCase:
         found = False
         for i in range(len(dbresult)):
             print("Found db: %s" % dbresult[i][0])
-            if (dbresult[i][0] == "db"):
+            if dbresult[i][0] == "db":
                 found = True
                 break
 
@@ -125,11 +126,11 @@ class TDTestCase:
         tdSql.execute("use db")
         tdSql.query("show stables")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 'stb')
+        tdSql.checkData(0, 0, "stb")
 
         tdSql.query("show tables")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 'tb')
+        tdSql.checkData(0, 0, "tb")
 
         tdSql.query("select count(*) from db.stb")
         tdSql.checkRows(1)

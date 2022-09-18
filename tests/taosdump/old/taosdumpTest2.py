@@ -23,7 +23,6 @@ import random
 
 
 class TDTestCase:
-
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
         tdSql.init(conn.cursor(), logSql)
@@ -35,19 +34,26 @@ class TDTestCase:
     def getPath(self, tool="taosdump"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/debug/" in selfPath:
+            projPath = selfPath[: selfPath.find("/debug/")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             return ""
         return paths[0]
 
@@ -67,21 +73,26 @@ class TDTestCase:
 
         tdSql.prepare()
 
-        tdSql.execute("create table st(ts timestamp, c1 timestamp, c2 int, c3 bigint, c4 float, c5 double, c6 binary(8), c7 smallint, c8 tinyint, c9 bool, c10 nchar(8)) tags(t1 int)")
+        tdSql.execute(
+            "create table st(ts timestamp, c1 timestamp, c2 int, c3 bigint, c4 float, c5 double, c6 binary(8), c7 smallint, c8 tinyint, c9 bool, c10 nchar(8)) tags(t1 int)"
+        )
         tdSql.execute("create table t1 using st tags(0)")
         currts = self.ts
         finish = 0
-        while(finish < self.numberOfRecords):
+        while finish < self.numberOfRecords:
             sql = "insert into t1 values"
             for i in range(finish, self.numberOfRecords):
-                sql += "(%d, 1019774612, 29931, 1442173978, 165092.468750, 1128.643179, 'MOCq1pTu', 18405, 82, 0, 'g0A6S0Fu')" % (currts + i)
+                sql += (
+                    "(%d, 1019774612, 29931, 1442173978, 165092.468750, 1128.643179, 'MOCq1pTu', 18405, 82, 0, 'g0A6S0Fu')"
+                    % (currts + i)
+                )
                 finish = i + 1
                 if (1048576 - len(sql)) < 16384:
                     break
             tdSql.execute(sql)
 
-        binPath = self.getPath()
-        if (binPath == ""):
+        binPath = self.getPath("taosdump")
+        if binPath == "":
             tdLog.exit("taosdump not found!")
         else:
             tdLog.info("taosdump found in %s" % binPath)
@@ -89,9 +100,7 @@ class TDTestCase:
         os.system("rm ./taosdumptest/tmp/*.sql")
         os.system("rm ./taosdumptest/tmp/*.avro*")
         os.system("rm -rf ./taosdumptest/taosdump.*")
-        os.system(
-            "%s --databases db -o ./taosdumptest/tmp " %
-            binPath)
+        os.system("%s --databases db -o ./taosdumptest/tmp " % binPath)
 
         tdSql.execute("drop database db")
         tdSql.query("show databases")
@@ -101,12 +110,12 @@ class TDTestCase:
 
         tdSql.query("show databases")
         tdSql.checkRows(3)
-        tdSql.checkData(2, 0, 'db')
+        tdSql.checkData(2, 0, "db")
 
         tdSql.execute("use db")
         tdSql.query("show stables")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 'st')
+        tdSql.checkData(0, 0, "st")
 
         tdSql.query("select count(*) from t1")
         tdSql.checkData(0, 0, self.numberOfRecords)
@@ -115,12 +124,16 @@ class TDTestCase:
         tdSql.execute("create database test")
         tdSql.execute("use test")
         tdSql.execute(
-            "create table stb(ts timestamp, c1 binary(16374), c2 binary(16374), c3 binary(16374)) tags(t1 nchar(256))")
+            "create table stb(ts timestamp, c1 binary(16374), c2 binary(16374), c3 binary(16374)) tags(t1 nchar(256))"
+        )
         tdSql.execute(
-            "insert into t1 using stb tags('t1') values(now, '%s', '%s', '%s')" %
-            (self.generateString(16374),
-             self.generateString(16374),
-             self.generateString(16374)))
+            "insert into t1 using stb tags('t1') values(now, '%s', '%s', '%s')"
+            % (
+                self.generateString(16374),
+                self.generateString(16374),
+                self.generateString(16374),
+            )
+        )
 
         os.system("rm ./taosdumptest/tmp/*.sql")
         os.system("rm ./taosdumptest/tmp/*.avro*")
@@ -136,7 +149,7 @@ class TDTestCase:
         tdSql.execute("use test")
         tdSql.query("show stables")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 'stb')
+        tdSql.checkData(0, 0, "stb")
 
         tdSql.query("select * from stb")
         tdSql.checkRows(1)

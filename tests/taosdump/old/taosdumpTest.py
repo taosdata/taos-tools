@@ -30,7 +30,7 @@ class TDTestCase:
 
     def checkCommunity(self):
         selfPath = os.path.dirname(os.path.realpath(__file__))
-        if ("community" in selfPath):
+        if "community" in selfPath:
             return False
         else:
             return True
@@ -38,19 +38,26 @@ class TDTestCase:
     def getPath(self, tool="taosdump"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/debug/" in selfPath:
+            projPath = selfPath[: selfPath.find("/debug/")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             return ""
         return paths[0]
 
@@ -72,7 +79,8 @@ class TDTestCase:
         tdSql.execute("create database db1 duration 12 keep 3640")
         tdSql.execute("use db")
         tdSql.execute(
-            "create table st(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))")
+            "create table st(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))"
+        )
         tdSql.execute("create table t1 using st tags(1, 'beijing')")
         sql = "insert into t1 values"
         currts = self.ts
@@ -86,16 +94,14 @@ class TDTestCase:
             sql += "(%d, %d, 'nchar%d')" % (currts + i, i % 100, i % 100)
         tdSql.execute(sql)
 
-        binPath = self.getPath()
-        if (binPath == ""):
+        binPath = self.getPath("taosdump")
+        if binPath == "":
             tdLog.exit("taosdump not found!")
         else:
             tdLog.info("taosdump found: %s" % binPath)
 
         os.system("%s -y --databases db -o ./taosdumptest/tmp1" % binPath)
-        os.system(
-            "%s -y --databases db1 -o ./taosdumptest/tmp2" %
-            binPath)
+        os.system("%s -y --databases db1 -o ./taosdumptest/tmp2" % binPath)
 
         tdSql.execute("drop database db")
         tdSql.execute("drop database db1")
@@ -114,7 +120,7 @@ class TDTestCase:
         isCommunity = self.checkCommunity()
         print("iscommunity: %d" % isCommunity)
         for i in range(len(dbresult)):
-            if dbresult[i][0] == 'db':
+            if dbresult[i][0] == "db":
                 print(dbresult[i])
                 print(type(dbresult[i][6]))
                 print(type(dbresult[i][7]))
@@ -122,7 +128,7 @@ class TDTestCase:
                 assert dbresult[i][6] == "15840m"
                 print((dbresult[i][7]))
                 assert dbresult[i][7] == "5254560m,5254560m,5254560m"
-            if dbresult[i][0] == 'db1':
+            if dbresult[i][0] == "db1":
                 print((dbresult[i][6]))
                 assert dbresult[i][6] == "17280m"
                 print((dbresult[i][7]))
@@ -130,14 +136,14 @@ class TDTestCase:
 
         tdSql.query("show stables")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 'st')
+        tdSql.checkData(0, 0, "st")
 
         tdSql.query("show tables")
         tdSql.checkRows(2)
         dbresult = tdSql.queryResult
         print(dbresult)
         for i in range(len(dbresult)):
-            assert ((dbresult[i][0] == "t1") or (dbresult[i][0] == "t2"))
+            assert (dbresult[i][0] == "t1") or (dbresult[i][0] == "t2")
 
         tdSql.query("select * from t1")
         tdSql.checkRows(100)
@@ -159,21 +165,35 @@ class TDTestCase:
         os.system("rm -rf ./taosdumptest/tmp2")
         os.makedirs("./taosdumptest/tmp1")
         tdSql.execute("create database db12312313231231321312312312_323")
-        tdSql.error("create database db012345678911234567892234567893323456789423456789523456789bcdefe")
+        tdSql.error(
+            "create database db012345678911234567892234567893323456789423456789523456789bcdefe"
+        )
         tdSql.execute("use db12312313231231321312312312_323")
-        tdSql.execute("create stable st12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))")
-        tdSql.error("create stable st_12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))")
         tdSql.execute(
-            "create stable st(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))")
-        tdSql.error("create stable st1(ts timestamp, c1 int, col2_012345678901234567890123456789012345678901234567890123456789 nchar(10)) tags(t1 int, t2 binary(10))")
+            "create stable st12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))"
+        )
+        tdSql.error(
+            "create stable st_12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))"
+        )
+        tdSql.execute(
+            "create stable st(ts timestamp, c1 int, c2 nchar(10)) tags(t1 int, t2 binary(10))"
+        )
+        tdSql.error(
+            "create stable st1(ts timestamp, c1 int, col2_012345678901234567890123456789012345678901234567890123456789 nchar(10)) tags(t1 int, t2 binary(10))"
+        )
 
-        tdSql.execute("select * from db12312313231231321312312312_323.st12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9")
-        tdSql.error("create table t0_12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9 using st tags(1, 'beijing')")
+        tdSql.execute(
+            "select * from db12312313231231321312312312_323.st12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9"
+        )
+        tdSql.error(
+            "create table t0_12345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678912345678_9 using st tags(1, 'beijing')"
+        )
         tdSql.query("show stables")
         tdSql.checkRows(2)
         os.system(
-            "%s -y --databases db12312313231231321312312312_323 -o ./taosdumptest/tmp1" %
-            binPath)
+            "%s -y --databases db12312313231231321312312312_323 -o ./taosdumptest/tmp1"
+            % binPath
+        )
         tdSql.execute("drop database db12312313231231321312312312_323")
         os.system("%s -i ./taosdumptest/tmp1" % binPath)
         tdSql.execute("use db12312313231231321312312312_323")
