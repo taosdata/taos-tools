@@ -204,17 +204,17 @@ jobs:
           echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
           echo "TEST: taodump -c"
-          ./build/bin/taosdump -c > /dev/null 2>&1 || :
+          ./build/bin/taosdump -c > /dev/null || :
           echo "TEST: taodump --port 100000"
-          ./build/bin/taosdump --port 100000 > /dev/null 2>&1 || :
+          ./build/bin/taosdump --port 100000 > /dev/null || :
           echo "TEST: taodump --port NotANumber"
-          ./build/bin/taosdump --port NotANumber > /dev/null 2>&1 || :
+          ./build/bin/taosdump --port NotANumber > /dev/null || :
           echo "TEST: taodump -C"
-          ./build/bin/taosdump -C > /dev/null 2>&1 || :
+          ./build/bin/taosdump -C > /dev/null || :
           echo "TEST: taodump -D"
-          ./build/bin/taosdump -D > /dev/null 2>&1 || :
+          ./build/bin/taosdump -D > /dev/null || :
           echo "TEST: taodump --databases -h localhost -u root"
-          ./build/bin/taosdump --databases -h localhost -u root > /dev/null 2>&1 || :
+          ./build/bin/taosdump --databases -h localhost -u root > /dev/null || :
 
 
           # test codec
@@ -450,7 +450,7 @@ jobs:
 
           if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: taosdump WebSocket Develop Test
@@ -473,7 +473,7 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws3 -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
       - name: taosdump System Test cases
@@ -494,10 +494,10 @@ jobs:
           echo "TEST: system test cases"
           if find taosdump/system-test -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/system-test -name "*.py"|grep -v taosdumpTestColTag`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/system-test -name "*.py"|grep -v taosdumpTestColTag`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-          python3 test.py -f taosdump/system-test/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m"
+          python3 test.py -f taosdump/system-test/TD-12478.py > /dev/null && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m"
 
       - name: taosBenchmark Develop Test cases
         if:
@@ -517,7 +517,7 @@ jobs:
           echo "TEST: taosdemo develop test cases"
           if find taosbenchmark/develop-test -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/develop-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosbenchmark/develop-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: taosBenchmark System Test cases
@@ -538,7 +538,7 @@ jobs:
           echo "TEST: taosdemo system test cases"
           if find taosbenchmark/system-test -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/system-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosbenchmark/system-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: Generate report
