@@ -79,17 +79,6 @@ jobs:
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
 
-          #      - name: Checkout TDengine with same branch of taos-tools
-          #run: |
-          #cd TDengine
-          #git pull
-          #git branch -a | grep -w ${{ github.head_ref }} \
-          #  && git checkout ${{ github.head_ref }} \
-          #  && git submodule update --init --recursive \
-          #  || echo "${{ github.head_ref }} not found in TDengine"
-
-          #if: github.event_name == 'pull_request'
-
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
@@ -150,7 +139,9 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
+        run: |
+          sudo apt update > /dev/null
+          sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if: |
@@ -509,8 +500,9 @@ jobs:
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
-          path: 'TDengine-develop'
-          ref: 'develop'
+          path: 'TDengine-2.6'
+          submodules: recursive
+          ref: '2.6'
 
       - name: build TDengine 2.6
         if: |
@@ -520,6 +512,7 @@ jobs:
         run: |
           whoami
           cd TDengine-2.6
+          git submodule update --init --recursive
           mkdir debug ||:
           cd debug
           cmake .. -DBUILD_HTTP=false > /dev/null
