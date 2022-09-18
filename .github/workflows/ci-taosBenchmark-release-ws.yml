@@ -1,4 +1,4 @@
-name: Ubuntu (2.x taosbenchmark WebSocket)
+name: Ubuntu (3.0 taosbenchmark WebSocket)
 
 on:
   push:
@@ -66,14 +66,6 @@ jobs:
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
 
-          #- name: Checkout TDengine with same branch of taos-tools
-          #run: |
-          #cd TDengine
-          #git pull
-          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
-          #git submodule update --init --recursive
-          #if: github.event_name == 'pull_request'
-
       - name: Checkout TDengine's taos-tools to PR number
         if: |
           github.event_name == 'pull_request' &&
@@ -121,8 +113,12 @@ jobs:
       - name: Test
         run: |
           cd TDengine/tools/taos-tools/tests
-          for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
-      
+
+          if find taosbenchmark/ws -name "*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
+          fi
+
       - name: Check Test Result
         run: |
           if [ -f ~/benchmark-ws-failed.txt ];then

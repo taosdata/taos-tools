@@ -59,7 +59,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine
+      - name: Checkout TDengine 3.0
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -119,7 +119,7 @@ jobs:
             TDengine/tools/taosws-rs/target/
           key: ${{ runner.os }}-cargo-target-${{ steps.setup-rust.outputs.rustc_hash }}
 
-      - name: cmake first TDengine
+      - name: first build TDengine 3.0
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -409,17 +409,10 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-          sleep 5
-
-          nohup taosadapter > /dev/null &
-          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
-          sleep 10
-
           cd tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
+          sleep 5
 
           echo "TEST: old cases"
           python3 ./test.py -f taosdump/old/taosdumpTest.py > /dev/null
@@ -434,20 +427,12 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
+          cd tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
           sleep 5
 
-          nohup taosadapter > /dev/null &
-          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
-          sleep 10
-
-          cd tests
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-
           echo "TEST: develop test cases"
-
           if find taosdump/native -name "*.py"|grep -q .;
           then
             for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
@@ -486,20 +471,14 @@ jobs:
           sudo pkill -9 taosd || :
           sleep 5
 
-          nohup taosadapter > /dev/null &
-          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
-          sleep 10
-
           cd tests
           echo "TEST: system test cases"
           if find taosdump/system-test -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/system-test -name "*.py"|grep -v taosdumpTestColTag`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/system-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-          python3 test.py -f taosdump/system-test/TD-12478.py > /dev/null && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m"
-
-      - name: taosBenchmark Develop Test cases
+      - name: taosBenchmark Test cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -509,36 +488,63 @@ jobs:
           sudo pkill -9 taosd || :
           sleep 5
 
-          nohup taosadapter > /dev/null &
-          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
-          sleep 10
-
           cd tests
-          echo "TEST: taosdemo develop test cases"
-          if find taosbenchmark/develop-test -name "*.py"|grep -q .;
+          echo "TEST: taosBenchmark develop test cases"
+
+          if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/develop-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-      - name: taosBenchmark System Test cases
+          if find taosbenchmark/ws -name "*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+          fi
+
+      - name: Checkout TDengine 2.6
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        uses: actions/checkout@v2
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine-develop'
+          ref: 'develop'
+
+      - name: build TDengine 2.6
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          whoami
+          cd TDengine-2.6
+          mkdir debug ||:
+          cd debug
+          cmake .. -DBUILD_HTTP=false > /dev/null
+          make -j8 > /dev/null && sudo rmtaos && sudo make install > /dev/null && cd .. && rm -rf debug
+          if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
+          then
+            echo "TDengine build failure"
+            exit 1
+          fi
+
+      - name: taosdump native Develop Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
+          cd tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
           sleep 5
 
-          nohup taosadapter > /dev/null &
-          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
-          sleep 10
-
-          cd tests
-          echo "TEST: taosdemo system test cases"
-          if find taosbenchmark/system-test -name "*.py"|grep -q .;
+          echo "TEST: develop test cases"
+          if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/system-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: Generate report
