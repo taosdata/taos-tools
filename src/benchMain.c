@@ -44,13 +44,14 @@ void* benchCancelHandler(void* arg) {
 #endif
 
 int main(int argc, char* argv[]) {
+    init_argument();
+
     sprintf(g_client_info, "%s", taos_get_client_info());
     g_majorVersionOfClient = atoi(g_client_info);
     debugPrint("Client info: %s, major version: %d\n",
             g_client_info,
             g_majorVersionOfClient);
 
-    init_argument();
 #ifdef LINUX
     if (sem_init(&g_arguments->cancelSem, 0, 0) != 0) {
         errorPrint("%s", "failed to create cancel semaphore\n");
