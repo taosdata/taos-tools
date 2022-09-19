@@ -39,14 +39,17 @@ static int create_topic(BArray* sqls) {
         SSQL * sql = benchArrayGet(sqls, i);
         char buffer[SQL_BUFF_LEN];
         memset(buffer, 0, SQL_BUFF_LEN);
-        snprintf(buffer, SQL_BUFF_LEN, "create topic if not exists topic_%d as %s", i, sql->command);
+        snprintf(buffer, SQL_BUFF_LEN, "create topic if not exists "
+                "topic_%d as %s",
+                i, sql->command);
         res = taos_query(taos, buffer);
         if (taos_errno(res) != 0) {
-            errorPrint(stderr, "failed to create topic_%d, reason: %s\n", i, taos_errstr(res));
+            errorPrint("failed to create topic_%d, reason: %s\n",
+                    i, taos_errstr(res));
             close_bench_conn(conn);
             return -1;
         }
-        infoPrint(stdout, "successfully create topic_%d\n", i);
+        infoPrint("successfully create topic_%d\n", i);
     }
     close_bench_conn(conn);
     return 0;
@@ -59,7 +62,7 @@ static tmq_list_t * build_topic_list(int size) {
         sprintf(buf, "topic_%d", i);
         tmq_list_append(topic_list, buf);
     }
-    infoPrint(stdout, "%s", "successfully build topic list\n");
+    infoPrint("%s", "successfully build topic list\n");
     return topic_list;
 }
 
@@ -69,8 +72,9 @@ static void* tmqConsume(void* arg) {
     int64_t st = toolsGetTimestampUs();
     int64_t et = toolsGetTimestampUs();
     while(!g_arguments->terminate) {
-        debugPrint(stdout, "%s", "tmq_consumer_poll()");
-        TAOS_RES * tmqMessage = tmq_consumer_poll(pThreadInfo->tmq, g_queryInfo.specifiedQueryInfo.queryInterval);
+        debugPrint("%s", "tmq_consumer_poll()");
+        TAOS_RES * tmqMessage = tmq_consumer_poll(
+                pThreadInfo->tmq, g_queryInfo.specifiedQueryInfo.queryInterval);
         if (tmqMessage != NULL) {
             if (first_time) {
                 st = toolsGetTimestampUs();
@@ -82,7 +86,9 @@ static void* tmqConsume(void* arg) {
             void * data;
             int code = taos_fetch_raw_block(tmqMessage, &numOfRows, &data);
             if (code) {
-                errorPrint(stderr, "thread[%d]: failed to execute taos_fetch_raw_block, code: %d\n", pThreadInfo->id, code);
+                errorPrint("thread[%d]: failed to execute "
+                        "taos_fetch_raw_block(), code: %d\n",
+                        pThreadInfo->id, code);
                 return NULL;
             }
             pThreadInfo->rows += numOfRows;
@@ -90,9 +96,10 @@ static void* tmqConsume(void* arg) {
     }
     int code = tmq_consumer_close(pThreadInfo->tmq);
     if (code) {
-        errorPrint(stderr, "failed to close consumer: %s\n", tmq_err2str(code));
+        errorPrint("failed to close consumer: %s\n", tmq_err2str(code));
     }
-    infoPrint(stdout, "thread[%d] spend %.6f seconds consume %d rows\n", pThreadInfo->id, (et - st)/1E6, pThreadInfo->rows);
+    infoPrint("thread[%d] spend %.6f seconds consume %d rows\n",
+            pThreadInfo->id, (et - st)/1E6, pThreadInfo->rows);
     return NULL;
 }
 
@@ -124,16 +131,17 @@ int subscribeTestProcess() {
         pThreadInfo->tmq = tmq_consumer_new(conf, NULL, 0);
         tmq_conf_destroy(conf);
         if (pThreadInfo->tmq == NULL) {
-            errorPrint(stderr, "%s" ,"failed to execute tmq_consumer_new\n");
+            errorPrint("%s" ,"failed to execute tmq_consumer_new\n");
             return -1;
         }
-        infoPrint(stdout, "thread[%d]: successfully create consumer\n", i);
+        infoPrint("thread[%d]: successfully create consumer\n", i);
         int32_t code = tmq_subscribe(pThreadInfo->tmq, topic_list);
         if (code) {
-            errorPrint(stderr, "failed to execute tmq_subscribe, reason: %s\n", tmq_err2str(code));
+            errorPrint("failed to execute tmq_subscribe, reason: %s\n",
+                    tmq_err2str(code));
             return -1;
         }
-        infoPrint(stdout, "thread[%d]: successfully subscribe topics\n", i);
+        infoPrint("thread[%d]: successfully subscribe topics\n", i);
         pthread_create(pids + i, NULL, tmqConsume, pThreadInfo);
     }
 

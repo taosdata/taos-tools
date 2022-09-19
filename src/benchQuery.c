@@ -14,24 +14,26 @@
  */
 
 #include "bench.h"
+extern int g_majorVersionOfClient;
 
 int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     if (g_queryInfo.iface == REST_IFACE) {
-        int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE, 0, false, pThreadInfo->sockfd, pThreadInfo->filePath);
+        int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE,
+                0, false, pThreadInfo->sockfd, pThreadInfo->filePath);
         if (0 != retCode) {
-            errorPrint(stderr, "====restful return fail, threadID[%d]\n",
+            errorPrint("====restful return fail, threadID[%d]\n",
                        pThreadInfo->threadID);
             return -1;
         }
     } else {
         if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
-            errorPrint(stderr, "thread[%d]: failed to select database(%s)\n",
+            errorPrint("thread[%d]: failed to select database(%s)\n",
                 pThreadInfo->threadID, g_queryInfo.dbName);
             return -1;
         }
         TAOS_RES *res = taos_query(pThreadInfo->conn->taos, command);
         if (res == NULL || taos_errno(res) != 0) {
-            errorPrint(stderr, "failed to execute sql:%s, reason:%s\n", command,
+            errorPrint("failed to execute sql:%s, reason:%s\n", command,
                        taos_errstr(res));
             taos_free_result(res);
             return -1;
@@ -64,33 +66,35 @@ static void *mixedQuery(void *sarg) {
             }
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
-                int retCode = postProceSql(sql->command, g_queryInfo.dbName, 0, g_queryInfo.iface, 0, false, pThreadInfo->sockfd, "");
+                int retCode = postProceSql(sql->command, g_queryInfo.dbName,
+                        0, g_queryInfo.iface, 0, false, pThreadInfo->sockfd, "");
                 if (retCode) {
-                    errorPrint(stderr, "thread[%d]: restful query <%s> failed\n", pThreadInfo->threadId, sql->command);
+                    errorPrint("thread[%d]: restful query <%s> failed\n",
+                            pThreadInfo->threadId, sql->command);
                     continue;
                 }
             } else {
                 if (g_queryInfo.dbName != NULL) {
                     if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
-                        errorPrint(stderr, "thread[%d]: failed to select database(%s)\n",
+                        errorPrint("thread[%d]: failed to select database(%s)\n",
                                 pThreadInfo->threadId, g_queryInfo.dbName);
                         return NULL;
                     }
                 }
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos, sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
-                    errorPrint(stderr,
-							"thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",
-							pThreadInfo->threadId,
-							sql->command,
-							taos_errno(res), taos_errstr(res));
+                    errorPrint(
+                            "thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",
+                            pThreadInfo->threadId,
+                            sql->command,
+                            taos_errno(res), taos_errstr(res));
                     if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
-							taos_errno(res)) {
+                            taos_errno(res)) {
                         return NULL;
                     }
                     continue;
                 }
-				taos_free_result(res);
+                taos_free_result(res);
             }
             et = toolsGetTimestampUs();
             int64_t* delay = benchCalloc(1, sizeof(int64_t), false);
@@ -99,7 +103,9 @@ static void *mixedQuery(void *sarg) {
             benchArrayPush(pThreadInfo->query_delay_list, delay);
             int64_t currentPrintTs = toolsGetTimestampMs();
             if (currentPrintTs - lastPrintTs > 10 * 1000) {
-                infoPrint(stdout, "thread[%d] has currently complete query %d times\n", pThreadInfo->threadId, (int)pThreadInfo->query_delay_list->size);
+                infoPrint("thread[%d] has currently complete query %d times\n",
+                        pThreadInfo->threadId,
+                        (int)pThreadInfo->query_delay_list->size);
                 lastPrintTs = currentPrintTs;
             }
         }
@@ -161,7 +167,7 @@ static void *specifiedTableQuery(void *sarg) {
         uint64_t currentPrintTime = toolsGetTimestampMs();
         uint64_t endTs = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
-            debugPrint(stdout,
+            debugPrint(
                       "thread[%d] has currently completed queries: %" PRIu64
                       ", QPS: %10.6f\n",
                       pThreadInfo->threadID, pThreadInfo->totalQueried,
@@ -218,7 +224,6 @@ static void *superTableQuery(void *sarg) {
                 int64_t endTs = toolsGetTimestampMs();
                 if (currentPrintTime - lastPrintTime > 30 * 1000) {
                     infoPrint(
-                        stdout,
                         "thread[%d] has currently completed queries: %" PRIu64
                         ", QPS: %10.3f\n",
                         pThreadInfo->threadID, pThreadInfo->totalQueried,
@@ -230,7 +235,6 @@ static void *superTableQuery(void *sarg) {
         }
         et = toolsGetTimestampMs();
         infoPrint(
-            stdout,
             "thread[%d] complete all sqls to allocate all sub-tables[%" PRIu64
             " - %" PRIu64 "] once queries duration:%.4fs\n",
             pThreadInfo->threadID, pThreadInfo->start_table_from,
@@ -285,10 +289,10 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                 sockfd = socket(AF_INET, SOCK_STREAM, 0);
                 if (sockfd < 0) {
 #ifdef WINDOWS
-                    errorPrint(stderr, "Could not create socket : %d",
+                    errorPrint("Could not create socket : %d",
                                WSAGetLastError());
 #endif
-                    debugPrint(stdout, "sockfd=%d\n", sockfd);
+                    debugPrint("sockfd=%d\n", sockfd);
                     goto OVER;
                 }
 
@@ -296,7 +300,7 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                         sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
                         sizeof(struct sockaddr));
                 if (retConn < 0) {
-                    errorPrint(stderr, "connect return %d\n", retConn);
+                    errorPrint("connect return %d\n", retConn);
                     goto OVER;
                 }
                 pThreadInfo->sockfd = sockfd;
@@ -375,13 +379,13 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     sockfd = socket(AF_INET, SOCK_STREAM, 0);
                     // int iMode = 1;
                     // ioctl(sockfd, FIONBIO, &iMode);
-                    debugPrint(stdout, "sockfd=%d\n", sockfd);
+                    debugPrint("sockfd=%d\n", sockfd);
                     if (sockfd < 0) {
 #ifdef WINDOWS
-                        errorPrint(stderr, "Could not create socket : %d",
+                        errorPrint("Could not create socket : %d",
                                    WSAGetLastError());
 #endif
-                        errorPrint(stderr,
+                        errorPrint(
                                    "failed to create socket, reason: %s\n",
                                    strerror(errno));
                         tmfree((char *)pids);
@@ -394,7 +398,6 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                             sizeof(struct sockaddr));
                     if (retConn < 0) {
                         errorPrint(
-                                stderr,
                                 "failed to connect with socket, reason: %s\n",
                                 strerror(errno));
                         tmfree((char *)pids);
@@ -444,7 +447,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
             }
             avg_delay /= nConcurrent;
             qsort(sql->delay_list, total_query_times, sizeof(uint64_t), compare);
-            infoPrint(stdout, "complete query <%s> with %d threads and %"PRIu64
+            infoPrint("complete query <%s> with %d threads and %"PRIu64
                     " times for each, query delay min: %.6fs,"
                     "avg: %.6fs, p90: %.6fs, p95: %.6fs, p99: %.6fs, max: %.6fs\n",
                       sql->command, nConcurrent, query_times,
@@ -504,13 +507,13 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 #endif
 
             sockfd = socket(AF_INET, SOCK_STREAM, 0);
-            debugPrint(stdout, "sockfd=%d\n", sockfd);
+            debugPrint("sockfd=%d\n", sockfd);
             if (sockfd < 0) {
 #ifdef WINDOWS
-                errorPrint(stderr, "Could not create socket : %d",
+                errorPrint("Could not create socket : %d",
                                    WSAGetLastError());
 #endif
-                errorPrint(stderr, "failed to create socket, reason: %s\n", strerror(errno));
+                errorPrint("failed to create socket, reason: %s\n", strerror(errno));
                 goto OVER;
             }
 
@@ -518,7 +521,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
                     sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
                     sizeof(struct sockaddr));
             if (retConn < 0) {
-                errorPrint(stderr, "failed to connect with socket, reason: %s\n", strerror(errno));
+                errorPrint("failed to connect with socket, reason: %s\n", strerror(errno));
                 goto OVER;
             }
             pQueryThreadInfo->sockfd = sockfd;
@@ -542,7 +545,8 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
     int64_t total_delay = 0;
     for (int i = 0; i < thread; ++i) {
         queryThreadInfo * pThreadInfo = infos + i;
-        benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData, pThreadInfo->query_delay_list->size);
+        benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData,
+                pThreadInfo->query_delay_list->size);
         total_delay += pThreadInfo->total_delay;
         tmfree(pThreadInfo->query_delay_list);
         if (iface == REST_IFACE) {
@@ -557,7 +561,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
         }
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
-    infoPrint(stdout,
+    infoPrint(
               "spend %.6fs using "
               "%d threads complete query %d times,cd  "
               "min delay: %.6fs, "
@@ -589,7 +593,7 @@ int queryTestProcess() {
         if (convertHostToServAddr(g_arguments->host,
                                   g_arguments->port + TSDB_PORT_HTTP,
                                   &(g_arguments->serv_addr)) != 0) {
-            errorPrint(stderr, "%s", "convert host to server address\n");
+            errorPrint("%s", "convert host to server address\n");
             return -1;
         }
     }
@@ -601,12 +605,17 @@ int queryTestProcess() {
             return -1;
         }
         char  cmd[SQL_BUFF_LEN] = "\0";
-        snprintf(cmd, SQL_BUFF_LEN, "select count(tbname) from %s.%s",
-                 g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+        if (3 == g_majorVersionOfClient) {
+            snprintf(cmd, SQL_BUFF_LEN, "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
+                    g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+        } else {
+            snprintf(cmd, SQL_BUFF_LEN, "SELECT COUNT(TBNAME) FROM %s.%s",
+                    g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+        }
         TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
-            errorPrint(stderr,
+            errorPrint(
                        "failed to count child table name: %s. reason: %s\n",
                        cmd, taos_errstr(res));
             taos_free_result(res);
@@ -618,7 +627,7 @@ int queryTestProcess() {
         TAOS_FIELD *fields = taos_fetch_fields(res);
         while ((row = taos_fetch_row(res)) != NULL) {
             if (0 == strlen((char *)(row[0]))) {
-                errorPrint(stderr, "stable %s have no child table\n",
+                errorPrint("stable %s have no child table\n",
                            g_queryInfo.superQueryInfo.stbName);
                 return -1;
             }
@@ -626,7 +635,7 @@ int queryTestProcess() {
             taos_print_row(temp, row, fields, num_fields);
             g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
         }
-        infoPrint(stdout, "%s's childTblCount: %" PRId64 "\n",
+        infoPrint("%s's childTblCount: %" PRId64 "\n",
                   g_queryInfo.superQueryInfo.stbName,
                   g_queryInfo.superQueryInfo.childTblCount);
         taos_free_result(res);
@@ -669,7 +678,7 @@ int queryTestProcess() {
     int64_t t = endTs - startTs;
     double  tInS = (double)t / 1000.0;
 
-    debugPrint(stdout,
+    debugPrint(
               "Spend %.4f second completed total queries: %" PRIu64
               ", the QPS of all threads: %10.3f\n\n",
               tInS, totalQueried, (double)totalQueried / tInS);

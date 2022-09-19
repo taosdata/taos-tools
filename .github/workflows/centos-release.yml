@@ -14,8 +14,9 @@ jobs:
   check-changed:
     runs-on: ubuntu-latest
     outputs:
-      changedflag: ${{ steps.changedresult.outputs.changed }}
-
+      output1: ${{ steps.step1.outputs.test }}
+      output2: ${{ steps.step2.outputs.test }}
+      changedflag: ${{ steps.changedflag.outputs.changedflag }}
     steps:
       - name: Step that prints name of pull request's base branch
         run: |
@@ -41,7 +42,7 @@ jobs:
           done
 
       - name: Get specific changed files
-        id: changedresult
+        id: changed-files-specific
         uses: tj-actions/changed-files@v23.2
         with:
           files: |
@@ -51,13 +52,8 @@ jobs:
             .github/workflows/centos-release.yml
 
       - name: Run step if any of the listed files above change
-        if: steps.changedresult.outputs.any_changed == 'false'
-        run: |
-          echo "No files listed above changed." > ~/changed.log
-          echo "::set-output name=changedflag::false"
-
-      - name: Run step if any of the listed files above change
-        if: steps.changedresult.outputs.any_changed == 'true'
+        id: changedflag
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           echo "One or more files listed above has changed." > ~/changed.log
           echo "::set-output name=changedflag::true"

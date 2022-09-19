@@ -122,7 +122,7 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     }
     sprintf(prepare + len, ")");
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
-        infoPrint(stdout,
+        infoPrint(
                   "in stmt mode, batch size(%u) can not larger than prepared "
                   "sample data size(%" PRId64
                   "), restart with larger prepared_rand or batch size will be "
@@ -132,7 +132,7 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
         g_arguments->reqPerReq = g_arguments->prepared_rand;
     }
     if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
-        errorPrint(stderr, "taos_stmt_prepare(%s) failed\n", prepare);
+        errorPrint("taos_stmt_prepare(%s) failed\n", prepare);
         tmfree(prepare);
         return -1;
     }
@@ -149,7 +149,7 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
 
     FILE *fp = fopen(file, "r");
     if (fp == NULL) {
-        errorPrint(stderr, "Failed to open sample file: %s, reason:%s\n", file,
+        errorPrint("Failed to open sample file: %s, reason:%s\n", file,
                    strerror(errno));
         return -1;
     }
@@ -162,7 +162,7 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
 #endif
         if (-1 == readLen) {
             if (0 != fseek(fp, 0, SEEK_SET)) {
-                errorPrint(stderr, "Failed to fseek file: %s, reason:%s\n",
+                errorPrint("Failed to fseek file: %s, reason:%s\n",
                            file, strerror(errno));
                 fclose(fp);
                 return -1;
@@ -180,7 +180,6 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
 
         if (readLen > length) {
             infoPrint(
-                stdout,
                 "sample row len[%d] overflow define schema len[%d], so discard "
                 "this row\n",
                 (int32_t)readLen, length);
@@ -206,7 +205,7 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
     int     line_count = 0;
     char *  buf = NULL;
     if (fp == NULL) {
-        errorPrint(stderr, "Failed to open sample file: %s, reason:%s\n",
+        errorPrint("Failed to open sample file: %s, reason:%s\n",
                    stbInfo->sampleFile, strerror(errno));
         goto free_of_get_set_rows_from_csv;
     }
@@ -732,7 +731,7 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 col->none = true;
             }
-            debugPrint(stdout, "partialColumnNameBuf: %s\n",
+            debugPrint("partialColumnNameBuf: %s\n",
                        stbInfo->partialColumnNameBuf);
         }
     } else {
@@ -740,7 +739,7 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
     }
     stbInfo->sampleDataBuf =
             benchCalloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand, true);
-    infoPrint(stdout,
+    infoPrint(
               "generate stable<%s> columns data with lenOfCols<%u> * "
               "prepared_rand<%" PRIu64 ">\n",
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
@@ -757,12 +756,12 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
             return -1;
         }
     }
-    debugPrint(stdout, "sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
+    debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
 
     if (!stbInfo->childTblExists && stbInfo->tags->size != 0) {
         stbInfo->tagDataBuf =
                 benchCalloc(1, stbInfo->childTblCount * stbInfo->lenOfTags, true);
-        infoPrint(stdout,
+        infoPrint(
                   "generate stable<%s> tags data with lenOfTags<%u> * "
                   "childTblCount<%" PRIu64 ">\n",
                   stbInfo->stbName, stbInfo->lenOfTags, stbInfo->childTblCount);
@@ -776,7 +775,7 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
             generateRandData(stbInfo, stbInfo->tagDataBuf, stbInfo->lenOfTags,
                              stbInfo->tags, stbInfo->childTblCount, true);
         }
-        debugPrint(stdout, "tagDataBuf: %s\n", stbInfo->tagDataBuf);
+        debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
@@ -786,14 +785,14 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
             if (convertHostToServAddr(g_arguments->host,
                                       g_arguments->telnet_tcp_port,
                                       &(g_arguments->serv_addr))) {
-                errorPrint(stderr, "%s\n", "convert host to server address");
+                errorPrint("%s\n", "convert host to server address");
                 return -1;
             }
         } else {
             if (convertHostToServAddr(g_arguments->host,
                                       g_arguments->port + TSDB_PORT_HTTP,
                                       &(g_arguments->serv_addr))) {
-                errorPrint(stderr, "%s\n", "convert host to server address");
+                errorPrint("%s\n", "convert host to server address");
                 return -1;
             }
         }
@@ -838,7 +837,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             data_type = col->type;
             param->buffer = col->data;
             param->buffer_length = col->length;
-            debugPrint(stdout, "col[%d]: type: %s, len: %d\n", c,
+            debugPrint("col[%d]: type: %s, len: %d\n", c,
                        taos_convert_datatype_to_string(data_type),
                        col->length);
         }
@@ -867,7 +866,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
 
     if (taos_stmt_bind_param_batch(
             stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
-        errorPrint(stderr, "taos_stmt_bind_param_batch() failed! reason: %s\n",
+        errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
         return -1;
     }
@@ -881,7 +880,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
 
     // if msg > 3MB, break
     if (taos_stmt_add_batch(stmt)) {
-        errorPrint(stderr, "taos_stmt_add_batch() failed! reason: %s\n",
+        errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
         return -1;
     }

@@ -236,7 +236,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'F':
             g_arguments->prepared_rand = atol(arg);
             if (g_arguments->prepared_rand <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -F: %s, will auto set to default(10000)\n",
                            arg);
                 g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
@@ -252,7 +252,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'P':
             g_arguments->port = atoi(arg);
             if (g_arguments->port <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -P: %s, will auto set to default(6030)\n",
                            arg);
                 g_arguments->port = DEFAULT_PORT;
@@ -268,7 +268,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             } else if (0 == strcasecmp(arg, "sml")) {
                 stbInfo->iface = SML_IFACE;
             } else {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -I: %s, will auto set to default (taosc)\n",
                            arg);
                 stbInfo->iface = TAOSC_IFACE;
@@ -289,7 +289,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'T':
             g_arguments->nthreads = atoi(arg);
             if (g_arguments->nthreads <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -T: %s, will auto set to default(8)\n",
                            arg);
                 g_arguments->nthreads = DEFAULT_NTHREADS;
@@ -300,7 +300,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'i':
             stbInfo->insert_interval = atoi(arg);
             if (stbInfo->insert_interval <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -i: %s, will auto set to default(0)\n",
                            arg);
                 stbInfo->insert_interval = 0;
@@ -309,7 +309,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'S':
             stbInfo->timestamp_step = atol(arg);
             if (stbInfo->timestamp_step <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -S: %s, will auto set to default(1)\n",
                            arg);
                 stbInfo->timestamp_step = 1;
@@ -318,7 +318,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'B':
             stbInfo->interlaceRows = atoi(arg);
             if (stbInfo->interlaceRows <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -B: %s, will auto set to default(0)\n",
                            arg);
                 stbInfo->interlaceRows = 0;
@@ -328,7 +328,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->reqPerReq = atoi(arg);
             if (g_arguments->reqPerReq <= 0 ||
                 g_arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -r: %s, will auto set to default(30000)\n",
                            arg);
                 g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
@@ -337,7 +337,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 't':
             stbInfo->childTblCount = atoi(arg);
             if (stbInfo->childTblCount <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -t: %s, will auto set to default(10000)\n",
                            arg);
                 stbInfo->childTblCount = DEFAULT_CHILDTABLES;
@@ -347,7 +347,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'n':
             stbInfo->insertRows = atol(arg);
             if (stbInfo->insertRows <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -n: %s, will auto set to default(10000)\n",
                            arg);
                 stbInfo->insertRows = DEFAULT_INSERT_ROWS;
@@ -360,7 +360,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->demo_mode = false;
             g_arguments->intColumnCount = atoi(arg);
             if (g_arguments->intColumnCount <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid -l: %s, will auto set to default(0)\n",
                            arg);
                 g_arguments->intColumnCount = 0;
@@ -378,12 +378,11 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->binwidth = atoi(arg);
             if (g_arguments->binwidth <= 0) {
                 errorPrint(
-                        stderr,
                         "Invalid value for w: %s, will auto set to default(64)\n",
                         arg);
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
             } else if (g_arguments->binwidth > TSDB_MAX_BINARY_LEN) {
-                errorPrint(stderr,
+                errorPrint(
                            "-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
                                    "), will auto set to default(64)\n",
                            g_arguments->binwidth, (uint64_t)TSDB_MAX_BINARY_LEN);
@@ -416,7 +415,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'R':
             stbInfo->disorderRange = atoi(arg);
             if (stbInfo->disorderRange <= 0) {
-                errorPrint(stderr,
+                errorPrint(
                            "Invalid value for -R: %s, will auto set to "
                            "default(1000)\n",
                            arg);
@@ -428,7 +427,6 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             stbInfo->disorderRatio = atoi(arg);
             if (stbInfo->disorderRatio <= 0) {
                 errorPrint(
-                        stderr,
                         "Invalid value for -O: %s, will auto set to default(0)\n",
                         arg);
                 stbInfo->disorderRatio = 0;
@@ -438,7 +436,6 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             int replica = atoi(arg);
             if (replica <= 0) {
                 errorPrint(
-                        stderr,
                         "Invalid value for -a: %s, will auto set to default(1)\n",
                         arg);
                 replica = 1;
@@ -474,7 +471,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
 int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-            infoPrint(stdout, "taos client version: %s\n", taos_get_client_info());
+            infoPrint("taos client version: %s\n", taos_get_client_info());
             exit(EXIT_SUCCESS);
         }
 
@@ -486,11 +483,11 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
         char* key = argv[i];
         int32_t key_len = strlen(key);
         if (key_len != 2) {
-            errorPrint(stderr, "Invalid option %s\r\n", key);
+            errorPrint("Invalid option %s\r\n", key);
             return -1;
         }
         if (key[0] != '-') {
-            errorPrint(stderr, "Invalid option %s\r\n", key);
+            errorPrint("Invalid option %s\r\n", key);
             return -1;
         }
 
@@ -506,12 +503,12 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
 #endif
             ) {
             if (i + 1 >= argc) {
-                errorPrint(stderr, "option %s requires an argument\r\n", key);
+                errorPrint("option %s requires an argument\r\n", key);
                 return -1;
             }
             char* val = argv[i+1];
             if (val[0] == '-') {
-                errorPrint(stderr, "option %s requires an argument\r\n", key);
+                errorPrint("option %s requires an argument\r\n", key);
                 return -1;
             }
             bench_parse_single_opt(key[1], val);
@@ -520,7 +517,7 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             key[1] == 'x' || key[1] == 'y' || key[1] == 'g' || key[1] == 'G') {
             bench_parse_single_opt(key[1], NULL);
         } else {
-            errorPrint(stderr, "Invalid option %s\r\n", key);
+            errorPrint("Invalid option %s\r\n", key);
             return -1;
         }
     }
@@ -657,7 +654,7 @@ void init_argument() {
     g_arguments->aggr_func = 0;
     g_arguments->terminate = false;
 #ifdef WEBSOCKET
-	g_arguments->timeout = 10;
+    g_arguments->timeout = 10;
 #endif
     init_database();
     init_stable();
@@ -674,7 +671,7 @@ void modify_argument() {
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint(stderr, "Invalid path %s\n", configDir);
+            errorPrint("Invalid path %s\n", configDir);
             exit(EXIT_FAILURE);
         }
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
@@ -750,7 +747,7 @@ static void *queryStableAggrFunc(void *sarg) {
         n = sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0]);
     }
 
-    infoPrint(stdout, "total Data: %" PRId64 "\n", totalData);
+    infoPrint("total Data: %" PRId64 "\n", totalData);
     if (fp) {
         fprintf(fp, "Querying On %" PRId64 " records:\n", totalData);
     }
@@ -788,7 +785,7 @@ static void *queryStableAggrFunc(void *sarg) {
             int32_t   code = taos_errno(pSql);
 
             if (code != 0) {
-                errorPrint(stderr, "Failed to query:%s\n", taos_errstr(pSql));
+                errorPrint("Failed to query:%s\n", taos_errstr(pSql));
                 taos_free_result(pSql);
                 free(command);
                 return NULL;
@@ -802,7 +799,7 @@ static void *queryStableAggrFunc(void *sarg) {
                 fprintf(fp, "| Speed: %12.2f(per s) | Latency: %.4f(ms) |\n",
                         totalData / (t / 1000), t);
             }
-            infoPrint(stdout, "%s took %.6f second(s)\n\n", command,
+            infoPrint("%s took %.6f second(s)\n\n", command,
                       t / 1000000);
 
             taos_free_result(pSql);
@@ -834,7 +831,7 @@ static void *queryNtableAggrFunc(void *sarg) {
         n = sizeof(g_aggreFunc) / sizeof(g_aggreFunc[0]);
     }
 
-    infoPrint(stdout, "totalData: %" PRId64 "\n", totalData);
+    infoPrint("totalData: %" PRId64 "\n", totalData);
     if (fp) {
         fprintf(fp,
                 "| QFunctions |    QRecords    |   QSpeed(R/s)   |  "
@@ -864,7 +861,7 @@ static void *queryNtableAggrFunc(void *sarg) {
             int32_t   code = taos_errno(pSql);
 
             if (code != 0) {
-                errorPrint(stderr, "Failed to query <%s>, reason:%s\n", command,
+                errorPrint("Failed to query <%s>, reason:%s\n", command,
                            taos_errstr(pSql));
                 taos_free_result(pSql);
                 free(command);
@@ -886,7 +883,7 @@ static void *queryNtableAggrFunc(void *sarg) {
                     (double)(stbInfo->childTblCount * stbInfo->insertRows) / totalT,
                     totalT / 1000000);
         }
-        infoPrint(stdout, "<%s> took %.6f second(s)\n", command,
+        infoPrint("<%s> took %.6f second(s)\n", command,
                   totalT / 1000000);
     }
     free(command);
