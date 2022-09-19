@@ -19,9 +19,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         [TD-11510] taosBenchmark test cases
-        '''
+        """
         return
 
     def init(self, conn, logSql):
@@ -31,23 +31,26 @@ class TDTestCase:
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
-        elif ("src" in selfPath):
-            projPath = selfPath[:selfPath.find("src")]
-        elif ("/tools/" in selfPath):
-            projPath = selfPath[:selfPath.find("/tools/")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/debug/" in selfPath:
+            projPath = selfPath[: selfPath.find("/debug/")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             tdLog.exit("taosBenchmark not found!")
             return
         else:
@@ -55,8 +58,12 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
+        tdSql.query("select client_version()")
+        client_ver = "".join(tdSql.queryResult[0])
+        major_ver = client_ver.split(".")[0]
+
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/sml_json_alltypes.json" %binPath
+        cmd = "%s -f ./taosbenchmark/json/sml_json_alltypes.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
@@ -75,11 +82,20 @@ class TDTestCase:
         tdSql.query("describe db.stb7")
         tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb8")
-        tdSql.checkData(1, 1, "BINARY")
-        tdSql.checkData(1, 2, 8)
+        if major_ver == "3":
+            tdSql.checkData(1, 1, "VARCHAR")
+            tdSql.checkData(1, 2, 16)
+        else:
+            tdSql.checkData(1, 1, "BINARY")
+            tdSql.checkData(1, 2, 8)
+
         tdSql.query("describe db.stb9")
         tdSql.checkData(1, 1, "NCHAR")
-        tdSql.checkData(1, 2, 8)
+        if major_ver == "3":
+            tdSql.checkData(1, 2, 16)
+        else:
+            tdSql.checkData(1, 2, 8)
+
         tdSql.query("select count(*) from db.stb1")
         tdSql.checkData(0, 0, 160)
         tdSql.query("select count(*) from db.stb2")
