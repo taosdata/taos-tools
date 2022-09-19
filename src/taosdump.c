@@ -134,7 +134,7 @@ typedef struct {
     do { if (g_args.verbose_print) \
         fprintf(stdout, "VERB: "fmt, __VA_ARGS__); } while(0)
 
-#define performancePrint(fmt, ...) \
+#define perfPrint(fmt, ...) \
     do { if (g_args.performance_print) \
         fprintf(stdout, "PERF: "fmt, __VA_ARGS__); } while(0)
 

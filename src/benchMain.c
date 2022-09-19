@@ -14,11 +14,15 @@
  */
 
 #include "bench.h"
+
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 tools_cJSON*   root;
+
+static char      g_client_info[32] = {0};
+int       g_majorVersionOfClient = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
@@ -30,7 +34,7 @@ void* benchCancelHandler(void* arg) {
     if (bsem_wait(&g_arguments->cancelSem) != 0) {
         toolsMsleep(10);
     }
-    infoPrint(stdout, "%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
+    infoPrint("%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
     if(g_arguments->in_prompt) {
         exit(EXIT_SUCCESS);
     }
@@ -40,10 +44,16 @@ void* benchCancelHandler(void* arg) {
 #endif
 
 int main(int argc, char* argv[]) {
+    sprintf(g_client_info, "%s", taos_get_client_info());
+    g_majorVersionOfClient = atoi(g_client_info);
+    debugPrint("Client info: %s, major version: %d\n",
+            g_client_info,
+            g_majorVersionOfClient);
+
     init_argument();
 #ifdef LINUX
     if (sem_init(&g_arguments->cancelSem, 0, 0) != 0) {
-        errorPrint(stderr, "%s", "failed to create cancel semaphore\n");
+        errorPrint("%s", "failed to create cancel semaphore\n");
         exit(EXIT_FAILURE);
     }
     pthread_t spid = {0};
@@ -75,10 +85,10 @@ int main(int argc, char* argv[]) {
 
     g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
     if (NULL == g_arguments->fpOfInsertResult) {
-        errorPrint(stderr, "failed to open %s for save result\n",
+        errorPrint("failed to open %s for save result\n",
                    g_arguments->output_file);
     }
-    infoPrint(stdout, "taos client version: %s\n", taos_get_client_info());
+    infoPrint("taos client version: %s\n", taos_get_client_info());
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) exit(EXIT_FAILURE);
     } else if (g_arguments->test_mode == QUERY_TEST) {
