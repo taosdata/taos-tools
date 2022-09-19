@@ -35,15 +35,15 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     res = taos_query(conn->taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        debugPrint(stdout, "failed to run command %s, reason: %s\n", command,
+        debugPrint("failed to run command %s, reason: %s\n", command,
                    taos_errstr(res));
-        infoPrint(stdout, "stable %s does not exist, will create one\n",
+        infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
         taos_free_result(res);
         close_bench_conn(conn);
         return -1;
     }
-    infoPrint(stdout, "find stable<%s>, will get meta data from server\n",
+    infoPrint("find stable<%s>, will get meta data from server\n",
               stbInfo->stbName);
     benchArrayClear(stbInfo->tags);
     benchArrayClear(stbInfo->cols);
@@ -55,7 +55,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
         }
         int32_t *lengths = taos_fetch_lengths(res);
         if (lengths == NULL) {
-            errorPrint(stderr, "%s", "failed to execute taos_fetch_length\n");
+            errorPrint("%s", "failed to execute taos_fetch_length\n");
             taos_free_result(res);
             return -1;
         }
@@ -151,8 +151,8 @@ skip:
     int length = snprintf(
         command, BUFFER_SIZE,
         stbInfo->escape_character
-            ? "CREATE TABLE IF NOT EXISTS %s.`%s` (ts TIMESTAMP%s) TAGS %s"
-            : "CREATE TABLE IF NOT EXISTS %s.%s (ts TIMESTAMP%s) TAGS %s",
+            ? "CREATE TABLE %s.`%s` (ts TIMESTAMP%s) TAGS %s"
+            : "CREATE TABLE %s.%s (ts TIMESTAMP%s) TAGS %s",
         database->dbName, stbInfo->stbName, cols, tags);
     tmfree(cols);
     tmfree(tags);
@@ -197,14 +197,14 @@ skip:
     if (!first_sma) {
         sprintf(command + length, ")");
     }
-    infoPrint(stdout, "create stable: <%s>\n", command);
+    infoPrint("create stable: <%s>\n", command);
     SBenchConn* conn = init_bench_conn();
     if (NULL == conn) {
         free(command);
         return -1;
     }
     if (0 != queryDbExec(conn, command)) {
-        errorPrint(stderr, "create supertable %s failed!\n\n",
+        errorPrint("create supertable %s failed!\n\n",
                    stbInfo->stbName);
         close_bench_conn(conn);
         free(command);
@@ -230,7 +230,7 @@ int createDatabase(SDataBase* database) {
                     close_bench_conn(conn);
                     return -1;
                 }
-                infoPrint(stdout, "%s\n",command);
+                infoPrint("%s\n",command);
                 memset(command, 0, SQL_BUFF_LEN);
             }
         }
@@ -274,11 +274,11 @@ int createDatabase(SDataBase* database) {
 
     if (0 != queryDbExec(conn, command)) {
         close_bench_conn(conn);
-        errorPrint(stderr, "\ncreate database %s failed!\n\n",
+        errorPrint("\ncreate database %s failed!\n\n",
                    database->dbName);
         return -1;
     }
-    infoPrint(stdout, "create database: <%s>\n", command);
+    infoPrint("create database: <%s>\n", command);
 #ifdef LINUX
     sleep(2);
 #elif defined(DARWIN)
@@ -301,7 +301,7 @@ static void *createTable(void *sarg) {
     pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
     int len = 0;
     int batchNum = 0;
-    infoPrint(stdout,
+    infoPrint(
               "thread[%d] start creating table from %" PRIu64 " to %" PRIu64
               "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
@@ -316,15 +316,15 @@ static void *createTable(void *sarg) {
             if (stbInfo->childTblCount == 1) {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
                          stbInfo->escape_character
-                         ? "CREATE TABLE IF NOT EXISTS %s.`%s` %s;"
-                         : "CREATE TABLE IF NOT EXISTS %s.%s %s;",
+                         ? "CREATE TABLE %s.`%s` %s;"
+                         : "CREATE TABLE %s.%s %s;",
                          database->dbName, stbInfo->stbName,
                          stbInfo->colsOfCreateChildTable);
             } else {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_SQL_LEN,
                          stbInfo->escape_character
-                         ? "CREATE TABLE IF NOT EXISTS %s.`%s%" PRIu64 "` %s;"
-                         : "CREATE TABLE IF NOT EXISTS %s.%s%" PRIu64 " %s;",
+                         ? "CREATE TABLE %s.`%s%" PRIu64 "` %s;"
+                         : "CREATE TABLE %s.%s%" PRIu64 " %s;",
                          database->dbName, stbInfo->childTblPrefix, i,
                          stbInfo->colsOfCreateChildTable);
             }
@@ -339,9 +339,9 @@ static void *createTable(void *sarg) {
 
             len += snprintf(
                 pThreadInfo->buffer + len, TSDB_MAX_SQL_LEN - len,
-                stbInfo->escape_character ? "if not exists %s.`%s%" PRIu64
+                stbInfo->escape_character ? "%s.`%s%" PRIu64
                                             "` using %s.`%s` tags (%s) "
-                                          : "if not exists %s.%s%" PRIu64
+                                          : "%s.%s%" PRIu64
                                             " using %s.%s tags (%s) ",
                 database->dbName, stbInfo->childTblPrefix, i, database->dbName,
                 stbInfo->stbName, stbInfo->tagDataBuf + i * stbInfo->lenOfTags);
@@ -363,7 +363,7 @@ static void *createTable(void *sarg) {
         batchNum = 0;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
-            infoPrint(stdout,
+            infoPrint(
                        "thread[%d] already created %" PRId64 " tables\n",
                        pThreadInfo->threadID, pThreadInfo->tables_created);
             lastPrintTime = currentPrintTime;
@@ -376,7 +376,7 @@ static void *createTable(void *sarg) {
             goto create_table_end;
         }
         pThreadInfo->tables_created += batchNum;
-        debugPrint(stdout, "thread[%d] already created %" PRId64 " tables\n",
+        debugPrint("thread[%d] already created %" PRId64 " tables\n",
                    pThreadInfo->threadID, pThreadInfo->tables_created);
     }
 create_table_end:
@@ -402,7 +402,7 @@ static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* st
     }
 
     if (ntables == 0) {
-        errorPrint(stderr, "failed to create child table, childTblCount: %"PRId64"\n", ntables);
+        errorPrint("failed to create child table, childTblCount: %"PRId64"\n", ntables);
         goto over;
     }
     int64_t b = ntables % threads;
@@ -451,10 +451,10 @@ over:
 
 static int createChildTables() {
     int32_t    code;
-    infoPrint(stdout, "start creating %" PRId64 " table(s) with %d thread(s)\n",
+    infoPrint("start creating %" PRId64 " table(s) with %d thread(s)\n",
               g_arguments->g_totalChildTables, g_arguments->table_threads);
     if (g_arguments->fpOfInsertResult) {
-        infoPrint(g_arguments->fpOfInsertResult,
+        infoPrintToFile(g_arguments->fpOfInsertResult,
                   "start creating %" PRId64 " table(s) with %d thread(s)\n",
                   g_arguments->g_totalChildTables, g_arguments->table_threads);
     }
@@ -476,7 +476,7 @@ static int createChildTables() {
                             stbInfo->childTblCount;
                     continue;
                 }
-                debugPrint(stdout, "colsOfCreateChildTable: %s\n",
+                debugPrint("colsOfCreateChildTable: %s\n",
                         stbInfo->colsOfCreateChildTable);
 
                 code = startMultiThreadCreateChildTable(database, stbInfo);
@@ -488,7 +488,7 @@ static int createChildTables() {
     }
 
     double end = (double)toolsGetTimestampMs();
-    infoPrint(stdout,
+    infoPrint(
               "Spent %.4f seconds to create %" PRId64
               " table(s) with %d thread(s), already exist %" PRId64
               " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
@@ -580,7 +580,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case STMT_IFACE:
             if (taos_stmt_execute(pThreadInfo->conn->stmt)) {
-                errorPrint(stderr,
+                errorPrint(
                            "failed to execute insert statement. reason: %s\n",
                            taos_stmt_errstr(pThreadInfo->conn->stmt));
                 code = -1;
@@ -602,7 +602,6 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             code = taos_errno(res);
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
-                    stderr,
                     "failed to execute schemaless insert. content: %s, reason: "
                     "%s\n",
                     pThreadInfo->lines[0], taos_errstr(res));
@@ -645,7 +644,7 @@ static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
-    infoPrint(stdout,
+    infoPrint(
               "thread[%d] start interlace inserting into table from "
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
@@ -721,7 +720,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     stbInfo->sampleDataBuf + pos * stbInfo->lenOfCols,
                                     ") ");
                         if (ds_len(pThreadInfo->buffer) > stbInfo->max_sql_len) {
-                            errorPrint(stderr, "sql buffer length (%"PRIu64") is larger than max sql length (%"PRId64")\n",
+                            errorPrint("sql buffer length (%"PRIu64") is larger than max sql length (%"PRId64")\n",
                                        ds_len(pThreadInfo->buffer), stbInfo->max_sql_len);
                             goto free_of_interlace;
                         }
@@ -744,7 +743,6 @@ static void *syncWriteInterlace(void *sarg) {
                 case STMT_IFACE: {
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt, tableName)) {
                         errorPrint(
-                            stderr,
                             "taos_stmt_set_tbname(%s) failed, reason: %s\n",
                             tableName, taos_stmt_errstr(pThreadInfo->conn->stmt));
                         g_fail = true;
@@ -814,7 +812,7 @@ static void *syncWriteInterlace(void *sarg) {
                     insertRows -= interlaceRows;
                 }
                 if (stbInfo->insert_interval > 0) {
-                    performancePrint(stdout, "sleep %" PRIu64 " ms\n",
+                    perfPrint("sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval);
                     toolsMsleep((int32_t)stbInfo->insert_interval);
                 }
@@ -834,7 +832,7 @@ static void *syncWriteInterlace(void *sarg) {
         switch (stbInfo->iface) {
             case TAOSC_IFACE:
             case REST_IFACE:
-                debugPrint(stdout, "pThreadInfo->buffer: %s\n",
+                debugPrint("pThreadInfo->buffer: %s\n",
                            pThreadInfo->buffer);
                 free_ds(&pThreadInfo->buffer);
                 pThreadInfo->buffer = new_ds(0);
@@ -844,14 +842,14 @@ static void *syncWriteInterlace(void *sarg) {
                        g_arguments->reqPerReq * (pThreadInfo->max_sql_len + 1));
             case SML_IFACE:
                 if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                    debugPrint(stdout, "pThreadInfo->lines[0]: %s\n",
+                    debugPrint("pThreadInfo->lines[0]: %s\n",
                                pThreadInfo->lines[0]);
                     tools_cJSON_Delete(pThreadInfo->json_array);
                     pThreadInfo->json_array = tools_cJSON_CreateArray();
                     tmfree(pThreadInfo->lines[0]);
                 } else {
                     for (int j = 0; j < generated; ++j) {
-                        debugPrint(stdout, "pThreadInfo->lines[%d]: %s\n", j,
+                        debugPrint("pThreadInfo->lines[%d]: %s\n", j,
                                    pThreadInfo->lines[j]);
                         memset(pThreadInfo->lines[j], 0,
                                pThreadInfo->max_sql_len);
@@ -863,7 +861,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         int64_t delay = endTs - startTs;
-        performancePrint(stdout, "insert execution time is %10.2f ms\n",
+        perfPrint("insert execution time is %10.2f ms\n",
                          delay / 1000.0);
 
         int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
@@ -873,7 +871,7 @@ static void *syncWriteInterlace(void *sarg) {
 
         int64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
-                infoPrint(stdout,
+                infoPrint(
                           "thread[%d] has currently inserted rows: %" PRIu64
                                   "\n",
                           pThreadInfo->threadID, pThreadInfo->totalInsertRows);
@@ -883,7 +881,7 @@ static void *syncWriteInterlace(void *sarg) {
 free_of_interlace:
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
 
-    infoPrint(stdout,
+    infoPrint(
                   "thread[%d] completed total inserted rows: %" PRIu64
                           ", %.2f records/second\n",
                   pThreadInfo->threadID, pThreadInfo->totalInsertRows,
@@ -896,7 +894,7 @@ void *syncWriteProgressive(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
-    infoPrint(stdout,
+    infoPrint(
               "thread[%d] start progressive inserting into table from "
               "%" PRIu64 " to %" PRIu64 "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
@@ -1001,7 +999,7 @@ void *syncWriteProgressive(void *sarg) {
                 case STMT_IFACE: {
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                 tableName)) {
-                        errorPrint(stderr,
+                        errorPrint(
                                 "taos_stmt_set_tbname(%s) failed,"
                                 "reason: %s\n", tableName,
                                 taos_stmt_errstr(pThreadInfo->conn->stmt));
@@ -1103,7 +1101,7 @@ void *syncWriteProgressive(void *sarg) {
                         tmfree(pThreadInfo->lines[0]);
                     } else {
                         for (int j = 0; j < generated; ++j) {
-                            debugPrint(stdout, "pThreadInfo->lines[%d]: %s\n",
+                            debugPrint("pThreadInfo->lines[%d]: %s\n",
                                        j, pThreadInfo->lines[j]);
                             memset(pThreadInfo->lines[j], 0,
                                    pThreadInfo->max_sql_len);
@@ -1115,7 +1113,7 @@ void *syncWriteProgressive(void *sarg) {
             }
 
             int64_t delay = endTs - startTs;
-            performancePrint(stdout, "insert execution time is %.6f s\n",
+            perfPrint("insert execution time is %.6f s\n",
                              delay / 1E6);
 
             int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
@@ -1125,7 +1123,7 @@ void *syncWriteProgressive(void *sarg) {
 
             int64_t currentPrintTime = toolsGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
-                infoPrint(stdout,
+                infoPrint(
                           "thread[%d] has currently inserted rows: "
                           "%" PRId64 "\n",
                           pThreadInfo->threadID, pThreadInfo->totalInsertRows);
@@ -1138,7 +1136,7 @@ void *syncWriteProgressive(void *sarg) {
     }      // tableSeq
 free_of_progressive:
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
-        infoPrint(stdout,
+        infoPrint(
                   "thread[%d] completed total inserted rows: %" PRIu64
                           ", %.2f records/second\n",
                   pThreadInfo->threadID, pThreadInfo->totalInsertRows,
@@ -1150,13 +1148,12 @@ free_of_progressive:
 static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo) {
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) &&
         !stbInfo->use_metric) {
-        errorPrint(stderr, "%s", "schemaless cannot work without stable\n");
+        errorPrint("%s", "schemaless cannot work without stable\n");
         return -1;
     }
 
     if (stbInfo->interlaceRows > g_arguments->reqPerReq) {
         infoPrint(
-            stdout,
             "interlaceRows(%d) is larger than record per request(%u), which "
             "will be set to %u\n",
             stbInfo->interlaceRows, g_arguments->reqPerReq,
@@ -1165,15 +1162,15 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
     }
 
     if (stbInfo->interlaceRows > stbInfo->insertRows) {
-        infoPrint(stdout,
+        infoPrint(
                   "interlaceRows larger than insertRows %d > %" PRId64 "\n",
                   stbInfo->interlaceRows, stbInfo->insertRows);
-        infoPrint(stdout, "%s", "interlaceRows will be set to 0\n");
+        infoPrint("%s", "interlaceRows will be set to 0\n");
         stbInfo->interlaceRows = 0;
     }
 
     if (stbInfo->interlaceRows == 0 && g_arguments->reqPerReq > stbInfo->insertRows) {
-        infoPrint(stdout, "record per request (%u) is larger than insert rows (%"PRIu64")"
+        infoPrint("record per request (%u) is larger than insert rows (%"PRIu64")"
                   " in progressive mode, which will be set to %"PRIu64"\n",
                   g_arguments->reqPerReq, stbInfo->insertRows, stbInfo->insertRows);
         g_arguments->reqPerReq = stbInfo->insertRows;
@@ -1181,7 +1178,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
 
     if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE &&
         stbInfo->autoCreateTable) {
-        infoPrint(stdout, "%s",
+        infoPrint("%s",
                   "not support autocreate table with interlace row in stmt "
                   "insertion, will change to progressive mode\n");
         stbInfo->interlaceRows = 0;
@@ -1214,12 +1211,12 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                      database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                      stbInfo->childTblOffset);
         }
-        debugPrint(stdout, "cmd: %s\n", cmd);
+        debugPrint("cmd: %s\n", cmd);
         TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         int64_t   count = 0;
         if (code) {
-            errorPrint(stderr, "failed to get child table name: %s. reason: %s",
+            errorPrint("failed to get child table name: %s. reason: %s",
                        cmd, taos_errstr(res));
             taos_free_result(res);
             close_bench_conn(conn);
@@ -1232,7 +1229,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
             strncpy(stbInfo->childTblName[count] + 1, row[0], lengths[0]);
             stbInfo->childTblName[count][lengths[0] + 1] = '`';
             stbInfo->childTblName[count][lengths[0] + 2] = '\0';
-            debugPrint(stdout, "stbInfo->childTblName[%" PRId64 "]: %s\n",
+            debugPrint("stbInfo->childTblName[%" PRId64 "]: %s\n",
                        count, stbInfo->childTblName[count]);
             count++;
         }
@@ -1307,12 +1304,12 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 sockfd = socket(AF_INET, SOCK_STREAM, 0);
                 if (sockfd < 0) {
 #ifdef WINDOWS
-                    errorPrint(stderr, "Could not create socket : %d",
+                    errorPrint("Could not create socket : %d",
                                WSAGetLastError());
 #endif
-                    debugPrint(stdout, "%s() LN%d, sockfd=%d\n", __func__,
+                    debugPrint("%s() LN%d, sockfd=%d\n", __func__,
                                __LINE__, sockfd);
-                    errorPrint(stderr, "%s\n", "failed to create socket");
+                    errorPrint("%s\n", "failed to create socket");
                     return -1;
                 }
 
@@ -1320,7 +1317,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                     sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
                     sizeof(struct sockaddr));
                 if (retConn < 0) {
-                    errorPrint(stderr, "%s\n", "failed to connect");
+                    errorPrint("%s\n", "failed to connect");
 #ifdef WINDOWS
                     closesocket(pThreadInfo->sockfd);
                     WSACleanup();
@@ -1343,14 +1340,14 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 if (NULL == pThreadInfo->conn->stmt) {
                     tmfree(pids);
                     tmfree(infos);
-                    errorPrint(stderr, "taos_stmt_init() failed, reason: %s\n",
+                    errorPrint("taos_stmt_init() failed, reason: %s\n",
                                taos_errstr(NULL));
                     return -1;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     tmfree(pids);
                     tmfree(infos);
-                    errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
+                    errorPrint("taos select database(%s) failed\n", database->dbName);
                     return -1;
                 }
                 if (!stbInfo->autoCreateTable) {
@@ -1377,21 +1374,21 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 int sockfd;
 #endif
                 sockfd = socket(AF_INET, SOCK_STREAM, 0);
-                debugPrint(stdout, "sockfd=%d\n", sockfd);
+                debugPrint("sockfd=%d\n", sockfd);
                 if (sockfd < 0) {
 #ifdef WINDOWS
-                    errorPrint(stderr, "Could not create socket : %d",
+                    errorPrint("Could not create socket : %d",
                                WSAGetLastError());
 #endif
 
-                    errorPrint(stderr, "%s\n", "failed to create socket");
+                    errorPrint("%s\n", "failed to create socket");
                     return -1;
                 }
                 int retConn = connect(
                     sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
                     sizeof(struct sockaddr));
                 if (retConn < 0) {
-                    errorPrint(stderr, "%s\n", "failed to connect");
+                    errorPrint("%s\n", "failed to connect");
 #ifdef WINDOWS
                     closesocket(pThreadInfo->sockfd);
                     WSACleanup();
@@ -1412,7 +1409,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     tmfree(pids);
                     tmfree(infos);
-                    errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
+                    errorPrint("taos select database(%s) failed\n", database->dbName);
                     return -1;
                 }
                 pThreadInfo->max_sql_len =
@@ -1435,7 +1432,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                             stbInfo, pThreadInfo->sml_tags[t],
                             stbInfo->lenOfCols + stbInfo->lenOfTags,
                             stbInfo->tags, 1, true);
-                        debugPrint(stdout, "pThreadInfo->sml_tags[%d]: %s\n", t,
+                        debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }
                     pThreadInfo->lines =
@@ -1467,7 +1464,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 if (queryDbExec(pThreadInfo->conn, command)) {
                     tmfree(pids);
                     tmfree(infos);
-                    errorPrint(stderr, "taos select database(%s) failed\n", database->dbName);
+                    errorPrint("taos select database(%s) failed\n", database->dbName);
                     return -1;
                 }
                 if (stbInfo->interlaceRows > 0) {
@@ -1484,7 +1481,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
 
     }
 
-    infoPrint(stdout, "Estimate memory usage: %.2fMB\n",
+    infoPrint("Estimate memory usage: %.2fMB\n",
               (double)g_memoryUsage / 1048576);
     prompt(0);
 
@@ -1565,32 +1562,36 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
         }
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
-        benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData, pThreadInfo->delayList->size);
+        benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData,
+                pThreadInfo->delayList->size);
         tmfree(pThreadInfo->delayList);
     }
-    qsort(total_delay_list->pData, total_delay_list->size, total_delay_list->elemSize, compare);
+    qsort(total_delay_list->pData, total_delay_list->size,
+            total_delay_list->elemSize, compare);
 
     free(pids);
     free(infos);
 
-    infoPrint(stdout, "Spent %.6f seconds to insert rows: %" PRIu64
+    infoPrint("Spent %.6f seconds to insert rows: %" PRIu64
                           " with %d thread(s) into %s %.2f records/second\n",
                   (end - start)/1E6, totalInsertRows, threads,
-                  database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
+                  database->dbName,
+                  (double)(totalInsertRows / ((end - start)/1E6)));
 
     if (g_arguments->fpOfInsertResult) {
-            infoPrint(g_arguments->fpOfInsertResult,
+            infoPrintToFile(g_arguments->fpOfInsertResult,
                       "Spent %.6f seconds to insert rows: %" PRIu64
                               " with %d thread(s) into %s %.2f records/second\n",
                       (end - start)/1E6, totalInsertRows, threads,
-                      database->dbName, (double)(totalInsertRows / ((end - start)/1E6)));
+                      database->dbName,
+                      (double)(totalInsertRows / ((end - start)/1E6)));
     }
-	if (!total_delay_list->size) {
-		benchArrayDestroy(total_delay_list);
-		return -1;
-	}
+    if (!total_delay_list->size) {
+        benchArrayDestroy(total_delay_list);
+        return -1;
+    }
 
-    infoPrint(stdout, "insert delay, "
+    infoPrint("insert delay, "
                       "min: %.2fms, "
                       "avg: %.2fms, "
                       "p90: %.2fms, "
@@ -1605,7 +1606,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                       *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E3);
 
     if (g_arguments->fpOfInsertResult) {
-        infoPrint(g_arguments->fpOfInsertResult,
+        infoPrintToFile(g_arguments->fpOfInsertResult,
                           "insert delay, "
                           "min: %.2fms, "
                           "avg: %.2fms, "
@@ -1634,7 +1635,7 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
     TAOS_RES* res = taos_query(taos, command);
     int code = taos_errno(res);
     if (code != 0) {
-        errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command, taos_errstr(res));
+        errorPrint("Failed to execute <%s>, reason: %s\n", command, taos_errstr(res));
         taos_free_result(res);
         return -1;
     }
@@ -1658,7 +1659,7 @@ static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     }
     int code = queryDbExec(conn, command);
     if (code == 0) {
-        infoPrint(stdout, "successfully create tsma with command <%s>\n", command);
+        infoPrint("successfully create tsma with command <%s>\n", command);
     }
 }
 
@@ -1671,7 +1672,7 @@ static void* create_tsmas(void* args) {
     }
     int finished = 0;
     if (taos_select_db(conn->taos, pThreadInfo->dbName)) {
-        errorPrint(stderr, "failed to use database (%s)\n", pThreadInfo->dbName);
+        errorPrint("failed to use database (%s)\n", pThreadInfo->dbName);
         close_bench_conn(conn);
         return NULL;
     }
@@ -1697,7 +1698,7 @@ static int createStream(SSTREAM* stream) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
     snprintf(command, BUFFER_SIZE, "drop stream if exists %s", stream->stream_name);
-    infoPrint(stderr, "%s\n", command);
+    infoPrint("%s\n", command);
     SBenchConn* conn = init_bench_conn();
     if (NULL == conn) {
         goto END;
@@ -1715,7 +1716,7 @@ static int createStream(SSTREAM* stream) {
         pos += snprintf(command + pos, BUFFER_SIZE - pos, "watermark %s ", stream->watermark);
     }
     snprintf(command + pos, BUFFER_SIZE - pos, "into %s as %s", stream->stream_stb, stream->source_sql);
-    infoPrint(stderr, "%s\n", command);
+    infoPrint("%s\n", command);
     if (queryDbExec(conn, command)) {
         close_bench_conn(conn);
         goto END;
