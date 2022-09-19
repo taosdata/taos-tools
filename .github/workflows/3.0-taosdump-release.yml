@@ -111,11 +111,16 @@ jobs:
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
-          || github.event_name == 'push'
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
+      - name: Build taos-tools
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
           mkdir debug ||:
           cd debug
           cmake .. -DTOOLS_BUILD_TYPE=Release > /dev/null
