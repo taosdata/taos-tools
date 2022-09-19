@@ -155,7 +155,7 @@ typedef struct {
 
 #define infoPrint(fmt, ...) \
     do { \
-        fprintf(stderr, "INFO: "fmt, __VA_ARGS__); \
+        fprintf(stdout, "INFO: "fmt, __VA_ARGS__); \
     } while(0)
 
 static bool isStringNumber(char *input)

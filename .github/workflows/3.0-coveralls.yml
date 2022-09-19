@@ -15,9 +15,8 @@ jobs:
 
     steps:
       - name: Run test for Coveralls report
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
-          submodules: recursive
           path: 'taos-tools'
           ref: 'develop'
 
@@ -60,7 +59,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine
+      - name: Checkout TDengine 3.0
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -69,7 +68,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-14141-update-taostools-for3.0'
+          ref: '3.0'
 
       - name: Change time zone
         if:
@@ -79,17 +78,6 @@ jobs:
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
-
-          #      - name: Checkout TDengine with same branch of taos-tools
-          #run: |
-          #cd TDengine
-          #git pull
-          #git branch -a | grep -w ${{ github.head_ref }} \
-          #  && git checkout ${{ github.head_ref }} \
-          #  && git submodule update --init --recursive \
-          #  || echo "${{ github.head_ref }} not found in TDengine"
-
-          #if: github.event_name == 'pull_request'
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -120,19 +108,23 @@ jobs:
             TDengine/tools/taosws-rs/target/
           key: ${{ runner.os }}-cargo-target-${{ steps.setup-rust.outputs.rustc_hash }}
 
-      - name: cmake first TDengine
+      - name: first build TDengine 3.0
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          sudo apt update -y > /dev/null
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          whoami
           cd TDengine
-          mkdir debug
+          mkdir debug ||:
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true -DTOOLS_COVER=true > /dev/null
-          make -j8 > /dev/null
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
+          make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
+          then
+            echo "TDengine build failure"
+            exit 1
+          fi
 
       - name: show TDengine's taosws commit
         if: |
@@ -142,34 +134,28 @@ jobs:
           cd TDengine/tools/taosws-rs
           git log --oneline | head -1
 
-      - name: Install packages
+      - name: Install packages for build taos-tools
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
+        run: |
+          sudo apt update > /dev/null
+          sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
 
-      - name: Checkout TDengine's taos-tools to PR number
+      - name: Checkout taos-tools to PR number
         if: |
           github.event_name == 'pull_request' &&
           steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/tools/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
-      - name: Build & Install TDengine
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        run: |
-          cd TDengine
           mkdir debug ||:
           cd debug
-          make -j8 > /dev/null
-          sudo make install > /dev/null
-          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          cmake .. -DTOOLS_BUILD_TYPE=Debug -DWEBSOCKET=true -DTOOLS_COVER=true > /dev/null
+          make -j8 > /dev/null && sudo make install > /dev/null
+          if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
             exit 1
@@ -184,7 +170,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           echo "TEST: taodump -p"
-          cd TDengine/tools/taos-tools/tests/taosdump
+          cd tests/taosdump
           ./exp.sh
 
       - name: Basic Test
@@ -193,7 +179,15 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/debug
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          cd debug
           echo "TEST: taosBenchmark --help"
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taodump --help"
@@ -201,20 +195,18 @@ jobs:
           echo "TEST: taodump --version"
           ./build/bin/taosdump --version > /dev/null
           echo "TEST: taodump -c"
-          ./build/bin/taosdump -c > /dev/null 2>&1 || :
+          ./build/bin/taosdump -c > /dev/null || :
           echo "TEST: taodump --port 100000"
-          ./build/bin/taosdump --port 100000 > /dev/null 2>&1 || :
+          ./build/bin/taosdump --port 100000 > /dev/null || :
           echo "TEST: taodump --port NotANumber"
-          ./build/bin/taosdump --port NotANumber > /dev/null 2>&1 || :
+          ./build/bin/taosdump --port NotANumber > /dev/null || :
           echo "TEST: taodump -C"
-          ./build/bin/taosdump -C > /dev/null 2>&1 || :
+          ./build/bin/taosdump -C > /dev/null || :
           echo "TEST: taodump -D"
-          ./build/bin/taosdump -D > /dev/null 2>&1 || :
+          ./build/bin/taosdump -D > /dev/null || :
           echo "TEST: taodump --databases -h localhost -u root"
-          ./build/bin/taosdump --databases -h localhost -u root > /dev/null 2>&1 || :
+          ./build/bin/taosdump --databases -h localhost -u root > /dev/null || :
 
-          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
-          sleep 10
 
           # test codec
       - name: taosdump codec Test
@@ -223,7 +215,15 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/debug
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          cd debug
           echo "TEST: simple and log database"
           ./build/bin/taosBenchmark -t 1 -n 1 -y
           ./build/bin/taosdump -D test -a
@@ -234,45 +234,45 @@ jobs:
 
           echo "TEST: whole db with null codec"
           ./build/bin/taosdump -D test -d null -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -d null -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: whole db with snappy codec"
           ./build/bin/taosdump -D test -d snappy -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -d snappy -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: whole db with deflate codec"
           ./build/bin/taosdump -D test -d deflate -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -d deflate -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: whole db with lzma codec"
           ./build/bin/taosdump -D test -d lzma -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -d lzma -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: whole db with unknown codec"
           ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
-          ./build/bin/taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit 1
+          taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit 1
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: singal normal table with unknown codec"
           ./build/bin/taosdump test d0 -d unknown -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: unknown codec"
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
@@ -282,7 +282,15 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/debug
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          cd debug
           echo "TEST: epoch time and batch"
           ./build/bin/taosdump -D test -S 1500000000000 -E 1500000000004 -B 10 -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
@@ -297,18 +305,26 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/debug
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          cd debug
           echo "TEST: normal table"
           ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: singla normal table"
           ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
           ./build/bin/taosdump test d0 > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
           taos -s "select count(tbname) from test.meters" | grep "1 row" || exit 1
           rm -rf *.sql *.avro* taosdump.*
@@ -319,33 +335,41 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/debug
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          cd debug
           echo "TEST: -n escape_char"
           ./build/bin/taosdump -n -D test > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -n -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: escaped tag"
-          ./build/bin/taos -s "drop database test"
-          ./build/bin/taos -s "create database test"
-          ./build/bin/taos -s "create stable stb (ts timestamp, \`N\` int) tags(`T` int)"
-          ./build/bin/taos -s "insert into test.tb using test.stb tags(0) values(now, 0)"
+          taos -s "drop database test"
+          taos -s "create database test"
+          taos -s "create stable stb (ts timestamp, \`N\` int) tags(`T` int)"
+          taos -s "insert into test.tb using test.stb tags(0) values(now, 0)"
           ./build/bin/taosdump -D test > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -n -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: -L loose_mode"
           ./build/bin/taosdump -L -D test > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -L -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex with larger binary"
           ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
-          ./build/bin/taos -s "drop database test"
+          taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
@@ -355,10 +379,18 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/debug
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          cd debug
           echo "TEST: dump old format data in"
-          ./build/bin/taos -s "drop database test"
-          tar xvJf ../tools/taos-tools/example-data/example-data.tar.xz -C .
+          taos -s "drop database test"
+          tar xvJf ../example-data/example-data.tar.xz -C .
           ./build/bin/taosdump -i dump -gg
           rm -rf *.sql *.avro* taosdump.*
 
@@ -368,14 +400,15 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/tests/pytest
+          cd tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
+          sleep 5
 
           echo "TEST: old cases"
-          python3 ./test.py -f tools/taosdumpTest.py > /dev/null
-          python3 ./test.py -f tools/taosdumpTest2.py > /dev/null
-          python3 ./test.py -f tools/taosdumpTestNanoSupport.py > /dev/null
+          python3 ./test.py -f taosdump/old/taosdumpTest.py > /dev/null
+          python3 ./test.py -f taosdump/old/taosdumpTest2.py > /dev/null
+          python3 ./test.py -f taosdump/old/taosdumpTestNanoSupport.py > /dev/null
           #python3 test.py -f query/nestedQuery/nestedQuery.py > /dev/null
           #python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null
 
@@ -385,15 +418,15 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/tools/taos-tools/tests
+          cd tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
+          sleep 5
 
           echo "TEST: develop test cases"
-
           if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: taosdump WebSocket Develop Test
@@ -402,42 +435,109 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/tools/taos-tools/tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          cd tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws3 -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
-      - name: System Test cases
+      - name: taosdump System Test cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine/tests/system-test
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          cd tests
           echo "TEST: system test cases"
-          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
+          if find taosdump/system-test -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"|grep -v taosdumpTestColTag`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/system-test -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-          python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null 2>&1 && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"|| echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m"
+      - name: taosBenchmark Test cases
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
 
-          echo "TEST: taosdemo develop test cases"
-          cd ../develop-test
-          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          cd tests
+          echo "TEST: taosBenchmark develop test cases"
+
+          if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-          echo "TEST: taosdemo system test cases"
-          cd ../system-test
-          if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
+          if find taosbenchmark/ws -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+          fi
+
+      - name: Checkout TDengine 2.6
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        uses: actions/checkout@v2
+        with:
+          repository: 'taosdata/TDengine'
+          path: 'TDengine-2.6'
+          submodules: recursive
+          ref: '2.6'
+
+      - name: build TDengine 2.6
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          whoami
+          cd TDengine-2.6
+          git submodule update --init --recursive
+          mkdir debug ||:
+          cd debug
+          cmake .. -DBUILD_HTTP=false > /dev/null
+          make -j8 > /dev/null && sudo rmtaos && sudo make install > /dev/null && cd .. && rm -rf debug
+          if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
+          then
+            echo "TDengine build failure"
+            exit 1
+          fi
+
+      - name: taosdump native Develop Test
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          cd tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          echo "TEST: develop test cases"
+          if find taosdump/native -name "*.py"|grep -q .;
+          then
+            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: Generate report
@@ -447,17 +547,17 @@ jobs:
           || github.event_name == 'push'
         run: |
           topdir=`pwd`
-          cd TDengine/debug/tools/taos-tools
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/taosdump.c -o src/CMakeFiles/taosdump.dir/taosdump.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchMain.c -o src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchCommandOpt.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchData.c -o src/CMakeFiles/taosBenchmark.dir/benchData.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosBenchmark.dir/benchInsert.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosBenchmark.dir/benchOutput.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosBenchmark.dir/benchQuery.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosBenchmark.dir/benchSubscribe.c.gcno
-          gcov -abcfu ${topdir}/TDengine/tools/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
+          cd debug
+          gcov -abcfu ${topdir}/taos-tools/src/taosdump.c -o src/CMakeFiles/taosdump.dir/taosdump.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchMain.c -o src/CMakeFiles/taosBenchmark.dir/benchMain.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchCommandOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchCommandOpt.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchData.c -o src/CMakeFiles/taosBenchmark.dir/benchData.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchInsert.c -o src/CMakeFiles/taosBenchmark.dir/benchInsert.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosBenchmark.dir/benchOutput.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosBenchmark.dir/benchQuery.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosBenchmark.dir/benchSubscribe.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
           mkdir ${topdir}/coverage || :
           lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info
           lcov -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info

@@ -1,4 +1,4 @@
-name: Ubuntu (2.x taosbenchmark WebSocket)
+name: Ubuntu (3.0 taosbenchmark release)
 
 on:
   push:
@@ -66,20 +66,11 @@ jobs:
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
 
-          #- name: Checkout TDengine with same branch of taos-tools
-          #run: |
-          #cd TDengine
-          #git pull
-          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
-          #git submodule update --init --recursive
-          #if: github.event_name == 'pull_request'
-
-      - name: Checkout TDengine's taos-tools to PR number
+      - name: Checkout taos-tools to PR number
         if: |
           github.event_name == 'pull_request' &&
           steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
@@ -108,23 +99,64 @@ jobs:
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true && make -j8 && sudo make install
-          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
+          then
+            echo "TDengine build failure"
+            exit 1
+          fi
+
+      - name: Install packages for build taos-tools
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          sudo apt update > /dev/null
+          sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config expect -y > /dev/null
+
+
+      - name: Checkout taos-tools to PR number
+        if: |
+          github.event_name == 'pull_request' &&
+          steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+          git checkout -qf FETCH_HEAD
+
+          mkdir debug ||:
+          cd debug
+          cmake .. -DTOOLS_BUILD_TYPE=Release -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
             exit 1
           fi
+
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: Test
         run: |
-          cd TDengine/tools/taos-tools/tests
-          for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
-      
+          cd tests
+
+          if find taosbenchmark -name "*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "sml_*|telnet_tcp|websocket`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
+          fi
+
+          if find taosbenchmark/ws -name "*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
+          fi
+
       - name: Check Test Result
         run: |
+          if [ -f ~/taosbenchmark-release-failed.txt ];then
+            cat ~/taosbenchmark-release-failed.txt
+            exit 1
+          fi
+
           if [ -f ~/benchmark-ws-failed.txt ];then
             cat ~/benchmark-ws-failed.txt
             exit 1
