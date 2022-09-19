@@ -477,12 +477,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             }
         }
 
+#ifdef WEBSOCKET
         if (g_arguments->websocket) {
             infoPrint("Since WebSocket interface is enabled, "
                     "the interface %s is changed to use WebSocket.\n",
                     stbIface->valuestring);
             superTable->iface = TAOSC_IFACE;
         }
+#endif
 
         tools_cJSON *stbLineProtocol = tools_cJSON_GetObjectItem(stbInfo, "line_protocol");
         if (tools_cJSON_IsString(stbLineProtocol)) {
