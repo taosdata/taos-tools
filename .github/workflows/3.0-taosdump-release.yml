@@ -101,7 +101,7 @@ jobs:
           fi
 
       - name: Install packages for build taos-tools
-        if:
+        if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
@@ -109,8 +109,9 @@ jobs:
 
       - name: Checkout taos-tools to PR number
         if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD

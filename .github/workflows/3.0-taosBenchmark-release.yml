@@ -68,20 +68,27 @@ jobs:
 
       - name: Checkout taos-tools to PR number
         if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
       - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
           go-version: 1.14
 
       - name: Set up Rust
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -97,7 +104,10 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ steps.setup-rust.outputs.rustc_hash }}
 
       - name: Build & Install TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
@@ -115,11 +125,11 @@ jobs:
           sudo apt update > /dev/null
           sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config expect -y > /dev/null
 
-
       - name: Checkout taos-tools to PR number
-        if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
@@ -137,6 +147,10 @@ jobs:
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
       - name: Test
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd tests
 
@@ -151,6 +165,10 @@ jobs:
           fi
 
       - name: Check Test Result
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           if [ -f ~/taosbenchmark-release-failed.txt ];then
             cat ~/taosbenchmark-release-failed.txt
