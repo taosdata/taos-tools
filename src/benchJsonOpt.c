@@ -476,6 +476,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->iface = SML_REST_IFACE;
             }
         }
+
+        if (g_arguments->websocket) {
+            infoPrint("Since WebSocket interface is enabled, "
+                    "the interface %s is changed to use WebSocket.\n",
+                    stbIface->valuestring);
+            superTable->iface = TAOSC_IFACE;
+        }
+
         tools_cJSON *stbLineProtocol = tools_cJSON_GetObjectItem(stbInfo, "line_protocol");
         if (tools_cJSON_IsString(stbLineProtocol)) {
             if (0 == strcasecmp(stbLineProtocol->valuestring, "telnet")) {
