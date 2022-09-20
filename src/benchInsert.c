@@ -913,6 +913,13 @@ void *syncWriteProgressive(void *sarg) {
         if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+            if (NULL == pThreadInfo->conn->stmt) {
+                errorPrint("taos_stmt_init() failed, reason: %s\n",
+                        taos_errstr(NULL));
+                g_fail = true;
+                goto free_of_progressive;
+            }
+
             if (stmt_prepare(stbInfo, pThreadInfo->conn->stmt, tableSeq)) {
                 g_fail = true;
                 goto free_of_progressive;
