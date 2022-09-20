@@ -90,7 +90,7 @@ jobs:
           yum install -y gcc gcc-c++ make cmake3 git openssl-devel wget > /dev/null
           ln -sf /usr/bin/cmake3 /usr/bin/cmake
 
-      - name: Checkout tdengine
+      - name: Checkout TDengine develop branch
         if: |
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
