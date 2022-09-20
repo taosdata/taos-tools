@@ -57,7 +57,7 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -t 1 -n 1 -y -W http://localhost:6041/rest/ws -D 30" % binPath
+        cmd = "%s -t 1 -n 1 -y -W http://localhost:6041 -D 30" % binPath
         tdLog.info("%s" %cmd)
         os.system("%s" %cmd)
         tdSql.execute("reset query cache")

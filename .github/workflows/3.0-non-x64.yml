@@ -176,7 +176,7 @@ jobs:
           distro: ubuntu18.04
           run: |
             apt update -y > /dev/null
-            apt install cmake build-essential lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config expect -y > /dev/null
+            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev > /dev/null
 
             mkdir debug ||:
             cd debug
