@@ -32,7 +32,7 @@ jobs:
               #            distro: ubuntu18.04
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: uraimo/run-on-arch-action@v2.1.1
         name: Run setup
         id: setup
@@ -86,14 +86,6 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine 3.0
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/checkout@v2
-        with:
-          repository: 'taosdata/TDengine'
-          path: 'TDengine'
-          ref: '3.0'
-
       - name: Change time zone
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
@@ -125,7 +117,7 @@ jobs:
           #              exit 1
           #            fi
 
-      - name: Build and Install TDengine on aarch64
+      - name: Build TDengine 3.0 and taos-tools and run test on aarch64
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -135,74 +127,41 @@ jobs:
           arch: aarch64
           distro: ubuntu18.04
           run: |
-            echo "The uname output was ${{ steps.setup.outputs.uname }}"
+            echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
-            apt install git cmake build-essential -y > /dev/null
-            cd TDengine
+            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev > /dev/null
+
+            echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
+            git clone --branch 3.0 --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
+
+            echo "build TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
+            cd TDengine || exit 1
             mkdir debug ||:
-            cd debug
-            cmake .. > /dev/null
-            make > /dev/null && make install > /dev/null
+            cd debug || exit 1
+            cmake .. > /dev/null && make -j8 > /dev/null && make install > /dev/null
             if [[ ! -f /usr/local/taos/bin/taosd ]]
             then
               echo "TDengine build failure"
               exit 1
             fi
 
-      - name: Checkout taos-tools to PR number on aarch64
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-        uses: uraimo/run-on-arch-action@v2.1.1
-        with:
-          arch: aarch64
-          distro: ubuntu18.04
-          run: |
-            echo "Checkout taos-tools to PR number on was ${{ steps.setup.outputs.uname }}"
-            apt update -y > /dev/null
-            apt install -y git > /dev/null
+            echo "Checkout taos-tools to PR number on ${{ steps.setup.outputs.uname }}"
             git config --global --add safe.directory /home/runner/work/taos-tools/taos-tools
+            cd /home/runner/work/taos-tools/taos-tools
             git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
             git checkout -qf FETCH_HEAD
 
-      - name: Build taos-tools on aarch64
-        if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        uses: uraimo/run-on-arch-action@v2.1.1
-        with:
-          arch: aarch64
-          distro: ubuntu18.04
-          run: |
-            apt update -y > /dev/null
-            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev > /dev/null
-
             mkdir debug ||:
             cd debug
-            cmake .. -DTOOLS_BUILD_TYPE=Release > /dev/null && make > /dev/null && make install > /dev/null
+            cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make -j8 > /dev/null && make install > /dev/null
             if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
             then
               echo "taos-tools build failure"
               exit 1
             fi
 
-      - name: Test on aarch64
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        uses: uraimo/run-on-arch-action@v2.1.1
-        with:
-          arch: aarch64
-          distro: ubuntu18.04
-          run: |
             echo "TEST: old cases"
-            cd tests
-
-            pkill -9 taosadapter || :
-            pkill -9 taosd || :
-            sleep 5
+            cd ../tests
 
             apt install python3 python3-pip -y > /dev/null
             pip3 install --upgrade pip > /dev/null
@@ -212,13 +171,6 @@ jobs:
 
             python3 ./test.py -f taosdump/old/taosdumpTest.py && echo -e "\033[32m taosdumpTest.py success! \033[0m" || echo -e "\033[31m taosdumpTest.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
-      - name: Check Test Result on aarch64
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: uraimo/run-on-arch-action@v2.1.1
-        with:
-          arch: aarch64
-          distro: ubuntu18.04
-          run: |
             if [ -f ~/taosdump-failed.txt ];then
               cat ~/taosdump-failed.txt;
               exit 1;
