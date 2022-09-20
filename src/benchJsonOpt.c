@@ -39,7 +39,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
-            errorPrint(stderr, "%s", "Invalid column format in json\n");
+            errorPrint("%s", "Invalid column format in json\n");
             goto PARSE_OVER;
         }
         tools_cJSON *countObj = tools_cJSON_GetObjectItem(column, "count");
@@ -142,7 +142,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
         int32_t length = 4;
         tools_cJSON *tagObj = tools_cJSON_GetArrayItem(tags, k);
         if (!tools_cJSON_IsObject(tagObj)) {
-            errorPrint(stderr, "%s", "Invalid tag format in json\n");
+            errorPrint("%s", "Invalid tag format in json\n");
             goto PARSE_OVER;
         }
         tools_cJSON *countObj = tools_cJSON_GetObjectItem(tagObj, "count");
@@ -250,7 +250,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
     tools_cJSON *db = tools_cJSON_GetObjectItem(dbinfo, "dbinfo");
     if (!tools_cJSON_IsObject(db)) {
-        errorPrint(stderr, "%s", "Invalid dbinfo format in json\n");
+        errorPrint("%s", "Invalid dbinfo format in json\n");
         return -1;
     }
 
@@ -284,7 +284,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
                 cfg->valueint = (int)cfg_object->valueint;
                 cfg->valuestring = NULL;
             } else {
-                errorPrint(stderr, "Invalid value format for %s\n", cfg->name);
+                errorPrint("Invalid value format for %s\n", cfg->name);
                 return -1;
             }
             benchArrayPush(database->cfgs, cfg);
@@ -293,7 +293,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     }
 
     if (database->dbName  == NULL) {
-        errorPrint(stderr, "%s", "miss name in dbinfo\n");
+        errorPrint("%s", "miss name in dbinfo\n");
         return -1;
     }
 
@@ -307,40 +307,40 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         return 0;
     }
     if (!tools_cJSON_IsArray(tsmas_obj)) {
-        errorPrint(stderr, "%s", "invalid tsmas format in json\n");
+        errorPrint("%s", "invalid tsmas format in json\n");
         return -1;
     }
     for (int i = 0; i < tools_cJSON_GetArraySize(tsmas_obj); ++i) {
         tools_cJSON* tsma_obj = tools_cJSON_GetArrayItem(tsmas_obj, i);
         if (!tools_cJSON_IsObject(tsma_obj)) {
-            errorPrint(stderr, "%s", "Invalid tsma format in json\n");
+            errorPrint("%s", "Invalid tsma format in json\n");
             return -1;
         }
         TSMA* tsma = benchCalloc(1, sizeof(TSMA), true);
         tools_cJSON* tsma_name_obj = tools_cJSON_GetObjectItem(tsma_obj, "name");
         if(!tools_cJSON_IsString(tsma_name_obj)) {
-            errorPrint(stderr, "%s", "Invalid tsma name format in json\n");
+            errorPrint("%s", "Invalid tsma name format in json\n");
             return -1;
         }
         tsma->name = tsma_name_obj->valuestring;
 
         tools_cJSON* tsma_func_obj = tools_cJSON_GetObjectItem(tsma_obj, "function");
         if (!tools_cJSON_IsString(tsma_func_obj)) {
-            errorPrint(stderr, "%s", "Invalid tsma function format in json\n");
+            errorPrint("%s", "Invalid tsma function format in json\n");
             return -1;
         }
         tsma->func = tsma_func_obj->valuestring;
 
         tools_cJSON* tsma_interval_obj = tools_cJSON_GetObjectItem(tsma_obj, "interval");
         if(!tools_cJSON_IsString(tsma_interval_obj)) {
-            errorPrint(stderr, "%s", "Invalid tsma interval format in json\n");
+            errorPrint("%s", "Invalid tsma interval format in json\n");
             return -1;
         }
         tsma->interval = tsma_interval_obj->valuestring;
 
         tools_cJSON* tsma_sliding_obj = tools_cJSON_GetObjectItem(tsma_obj, "sliding");
         if (!tools_cJSON_IsString(tsma_sliding_obj)) {
-            errorPrint(stderr, "%s", "Invalid tsma sliding format in json\n");
+            errorPrint("%s", "Invalid tsma sliding format in json\n");
             return -1;
         }
         tsma->sliding = tsma_sliding_obj->valuestring;
@@ -366,7 +366,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
     tools_cJSON *    dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
     tools_cJSON *    stables = tools_cJSON_GetObjectItem(dbinfo, "super_tables");
     if (!tools_cJSON_IsArray(stables)) {
-        infoPrint(stdout, "create database %s without stables\n", database->dbName);
+        infoPrint("create database %s without stables\n", database->dbName);
         return 0;
     }
     for (int i = 0; i < tools_cJSON_GetArraySize(stables); ++i) {
@@ -464,18 +464,28 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint(stderr, "reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
                 superTable->iface = SML_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint(stderr, "reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
                 superTable->iface = SML_REST_IFACE;
             }
         }
+
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            infoPrint("Since WebSocket interface is enabled, "
+                    "the interface %s is changed to use WebSocket.\n",
+                    stbIface->valuestring);
+            superTable->iface = TAOSC_IFACE;
+        }
+#endif
+
         tools_cJSON *stbLineProtocol = tools_cJSON_GetObjectItem(stbInfo, "line_protocol");
         if (tools_cJSON_IsString(stbLineProtocol)) {
             if (0 == strcasecmp(stbLineProtocol->valuestring, "telnet")) {
@@ -511,7 +521,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                                    &(superTable->startTimestamp),
                                    (int32_t)strlen(ts->valuestring),
                                    database->precision, 0)) {
-                    errorPrint(stderr, "failed to parse time %s\n",
+                    errorPrint("failed to parse time %s\n",
                                ts->valuestring);
                     return -1;
                 }
@@ -625,14 +635,14 @@ static int getStreamInfo(tools_cJSON* json) {
         for (int i = 0; i < streamCnt; ++i) {
             tools_cJSON* streamObj = tools_cJSON_GetArrayItem(streamsObj, i);
             if (!tools_cJSON_IsObject(streamObj)) {
-                errorPrint(stderr, "%s", "invalid stream format in json\n");
+                errorPrint("%s", "invalid stream format in json\n");
                 return -1;
             }
             tools_cJSON* stream_name = tools_cJSON_GetObjectItem(streamObj, "stream_name");
             tools_cJSON* stream_stb = tools_cJSON_GetObjectItem(streamObj, "stream_stb");
             tools_cJSON* source_sql = tools_cJSON_GetObjectItem(streamObj, "source_sql");
             if (!tools_cJSON_IsString(stream_name) || !tools_cJSON_IsString(stream_stb) || !tools_cJSON_IsString(source_sql)) {
-                errorPrint(stderr, "%s", "Invalid or miss 'stream_name'/'stream_stb'/'source_sql' key in json\n");
+                errorPrint("%s", "Invalid or miss 'stream_name'/'stream_stb'/'source_sql' key in json\n");
                 return -1;
             }
             SSTREAM * stream = benchCalloc(1, sizeof(SSTREAM), true);
@@ -654,7 +664,7 @@ static int getStreamInfo(tools_cJSON* json) {
                 } else if (0 == strcasecmp(drop->valuestring, "no")) {
                     stream->drop = false;
                 } else {
-                    errorPrint(stderr, "invalid value for drop field: %s\n", drop->valuestring);
+                    errorPrint("invalid value for drop field: %s\n", drop->valuestring);
                     return -1;
                 }
             }
@@ -724,7 +734,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (strlen(configDir)) {
         wordexp_t full_path;
         if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint(stderr, "Invalid path %s\n", configDir);
+            errorPrint("Invalid path %s\n", configDir);
             exit(EXIT_FAILURE);
         }
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
@@ -771,7 +781,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
 
     tools_cJSON *dbinfos = tools_cJSON_GetObjectItem(json, "databases");
     if (!tools_cJSON_IsArray(dbinfos)) {
-        errorPrint(stderr, "%s", "Invalid databases format in json\n");
+        errorPrint("%s", "Invalid databases format in json\n");
         return -1;
     }
     int dbSize = tools_cJSON_GetArraySize(dbinfos);
@@ -873,7 +883,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         } else if (0 == strcasecmp(queryMode->valuestring, "taosc")) {
             g_queryInfo.iface = TAOSC_IFACE;
         } else {
-            errorPrint(stderr, "Invalid query_mode value: %s\n", queryMode->valuestring);
+            errorPrint("Invalid query_mode value: %s\n", queryMode->valuestring);
             goto PARSE_OVER;
         }
     }
@@ -909,7 +919,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             } else if (0 == strcasecmp(mixedQueryObj->valuestring, "no")) {
                 g_queryInfo.specifiedQueryInfo.mixed_query = false;
             } else {
-                errorPrint(stderr, "Invalid mixed_query value: %s\n", mixedQueryObj->valuestring);
+                errorPrint("Invalid mixed_query value: %s\n", mixedQueryObj->valuestring);
                 goto PARSE_OVER;
             }
         }
@@ -974,7 +984,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         if (tools_cJSON_IsString(sqlFileObj)) {
             FILE * fp = fopen(sqlFileObj->valuestring, "r");
             if (fp == NULL) {
-                errorPrint(stderr, "failed to open file: %s\n", sqlFileObj->valuestring);
+                errorPrint("failed to open file: %s\n", sqlFileObj->valuestring);
                 goto PARSE_OVER;
             }
             char buf[BUFFER_SIZE];
@@ -982,12 +992,13 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             while (fgets(buf, BUFFER_SIZE, fp)) {
                 SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
                 benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
-                sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size - 1);
+                sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
+                        g_queryInfo.specifiedQueryInfo.sqls->size - 1);
                 sql->command = benchCalloc(1, strlen(buf), true);
                 sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
                 tstrncpy(sql->command, buf, strlen(buf));
-                debugPrint(stdout, "read file buffer: %s\n", sql->command);
+                debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, BUFFER_SIZE);
             }
         }
@@ -1000,7 +1011,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 if (tools_cJSON_IsObject(sqlObj)) {
                     SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
                     benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
-                    sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, g_queryInfo.specifiedQueryInfo.sqls->size -1);
+                    sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
+                            g_queryInfo.specifiedQueryInfo.sqls->size -1);
                     sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
 
@@ -1037,7 +1049,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                             memset(sql->result, 0, MAX_FILE_NAME_LEN);
                         }
                     } else {
-                        errorPrint(stderr, "%s","Invalid sql in json\n");
+                        errorPrint("%s","Invalid sql in json\n");
                         goto PARSE_OVER;
                     }
                 }
@@ -1162,7 +1174,6 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             int superSqlSize = tools_cJSON_GetArraySize(superSqls);
             if (superSqlSize > MAX_QUERY_SQL_COUNT) {
                 errorPrint(
-                    stderr,
                     "failed to read json, query sql size overflow, max is %d\n",
                     MAX_QUERY_SQL_COUNT);
                 goto PARSE_OVER;
@@ -1203,7 +1214,7 @@ int getInfoFromJsonFile() {
     int32_t code = -1;
     FILE *  fp = fopen(file, "r");
     if (!fp) {
-        errorPrint(stderr, "failed to read %s, reason:%s\n", file,
+        errorPrint("failed to read %s, reason:%s\n", file,
                    strerror(errno));
         return code;
     }
@@ -1212,20 +1223,20 @@ int getInfoFromJsonFile() {
     char *content = benchCalloc(1, maxLen + 1, false);
     int   len = (int)fread(content, 1, maxLen, fp);
     if (len <= 0) {
-        errorPrint(stderr, "failed to read %s, content is null", file);
+        errorPrint("failed to read %s, content is null", file);
         goto PARSE_OVER;
     }
 
     content[len] = 0;
     root = tools_cJSON_Parse(content);
     if (root == NULL) {
-        errorPrint(stderr, "failed to cjson parse %s, invalid json format\n",
+        errorPrint("failed to cjson parse %s, invalid json format\n",
                    file);
         goto PARSE_OVER;
     }
 
     char *pstr = tools_cJSON_Print(root);
-    infoPrint(stdout, "%s\n%s\n", file, pstr);
+    infoPrint("%s\n%s\n", file, pstr);
     tmfree(pstr);
 
     tools_cJSON *filetype = tools_cJSON_GetObjectItem(root, "filetype");
@@ -1237,7 +1248,7 @@ int getInfoFromJsonFile() {
         } else if (0 == strcasecmp("subscribe", filetype->valuestring)) {
             g_arguments->test_mode = SUBSCRIBE_TEST;
         } else {
-            errorPrint(stderr, "%s",
+            errorPrint("%s",
                        "failed to read json, filetype not support\n");
             goto PARSE_OVER;
         }

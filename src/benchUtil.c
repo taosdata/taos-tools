@@ -18,7 +18,7 @@
 inline void* benchCalloc(size_t nmemb, size_t size, bool record) {
     void* ret = calloc(nmemb, size);
     if (NULL == ret) {
-        errorPrint(stderr, "%s", "failed to allocate memory\n");
+        errorPrint("%s", "failed to allocate memory\n");
         exit(EXIT_FAILURE);
     }
     if (record) {
@@ -42,7 +42,7 @@ inline void tmfree(void *buf) {
 }
 
 void ERROR_EXIT(const char *msg) {
-    errorPrint(stderr, "%s", msg);
+    errorPrint("%s", msg);
     exit(EXIT_FAILURE);
 }
 
@@ -136,7 +136,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
     int32_t   code = taos_errno(res);
     int64_t   count = 0;
     if (code) {
-        errorPrint(stderr, "failed to get child table name: %s. reason: %s",
+        errorPrint("failed to get child table name: %s. reason: %s",
                    cmd, taos_errstr(res));
         taos_free_result(res);
 
@@ -145,7 +145,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         if (0 == strlen((char *)(row[0]))) {
-            errorPrint(stderr, "No.%" PRId64 " table return empty name\n",
+            errorPrint("No.%" PRId64 " table return empty name\n",
                        count);
             return -1;
         }
@@ -155,7 +155,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         strncpy(childTblNameOfSuperTbl[count] + 1, row[0], lengths[0]);
         childTblNameOfSuperTbl[count][lengths[0] + 1] = '`';
         childTblNameOfSuperTbl[count][lengths[0] + 2] = '\0';
-        debugPrint(stdout, "childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
+        debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
                    childTblNameOfSuperTbl[count]);
         count++;
     }
@@ -168,11 +168,11 @@ int convertHostToServAddr(char *host, uint16_t port,
     if (!host) {
         host = "localhost";
     }
-    debugPrint(stdout, "convertHostToServAddr(host: %s, port: %d)\n", host,
+    debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host,
                port);
     struct hostent *server = gethostbyname(host);
     if ((server == NULL) || (server->h_addr == NULL)) {
-        errorPrint(stderr, "%s", "no such host");
+        errorPrint("%s", "no such host");
         return -1;
     }
     memset(serv_addr, 0, sizeof(struct sockaddr_in));
@@ -210,7 +210,7 @@ void prompt(bool nonStopMode) {
 static void appendResultBufToFile(char *resultBuf, char * filePath) {
     FILE* fp = fopen(filePath, "at");
     if (fp == NULL) {
-        errorPrint(stderr,
+        errorPrint(
                    "failed to open result file: %s, result will not save "
                    "to file\n", filePath);
         return;
@@ -301,16 +301,18 @@ SBenchConn* init_bench_conn() {
     if (g_arguments->websocket) {
         conn->taos_ws = ws_connect_with_dsn(g_arguments->dsn);
         if (conn->taos_ws == NULL) {
-            errorPrint(stderr, "failed to connect %s, reason: %s\n",
+            errorPrint("failed to connect %s, reason: %s\n",
                     g_arguments->dsn, ws_errstr(NULL));
             tmfree(conn);
             return NULL;
         }
     } else {
 #endif
-        conn->taos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
+        conn->taos = taos_connect(g_arguments->host,
+                g_arguments->user, g_arguments->password, NULL, g_arguments->port);
         if (conn->taos == NULL) {
-            errorPrint(stderr, "failde to connect native %s:%d, reason: %s\n", g_arguments->host, g_arguments->port, taos_errstr(NULL));
+            errorPrint("failde to connect native %s:%d, reason: %s\n",
+                    g_arguments->host, g_arguments->port, taos_errstr(NULL));
             tmfree(conn);
             return NULL;
         }
@@ -340,7 +342,7 @@ int queryDbExec(SBenchConn *conn, char *command) {
         WS_RES* res = ws_query_timeout(conn->taos_ws, command, g_arguments->timeout);
         code = ws_errno(res);
         if (code != 0) {
-            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+            errorPrint("Failed to execute <%s>, reason: %s\n", command,
                     ws_errstr(res));
             ws_free_result(res);
             return -1;
@@ -351,7 +353,7 @@ int queryDbExec(SBenchConn *conn, char *command) {
         TAOS_RES *res = taos_query(conn->taos, command);
         code = taos_errno(res);
         if (code != 0) {
-            errorPrint(stderr, "Failed to execute <%s>, reason: %s\n", command,
+            errorPrint("Failed to execute <%s>, reason: %s\n", command,
                        taos_errstr(res));
             taos_free_result(res);
             return -1;
@@ -453,13 +455,13 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     }
 
     req_str_len = (int)strlen(request_buf);
-    debugPrint(stdout, "request buffer: %s\n", request_buf);
+    debugPrint("request buffer: %s\n", request_buf);
     sent = 0;
     do {
         bytes = send(sockfd, request_buf + sent,
                      req_str_len - sent, 0);
         if (bytes < 0) {
-            errorPrint(stderr, "%s", "writing no message to socket\n");
+            errorPrint("%s", "writing no message to socket\n");
             goto free_of_post;
         }
         if (bytes == 0) break;
@@ -485,7 +487,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     do {
         bytes = recv(sockfd, response_buf + received,
                      resp_len - received, 0);
-        debugPrint(stdout, "response_buffer: %s\n", response_buf);
+        debugPrint("response_buffer: %s\n", response_buf);
         if (NULL != strstr(response_buf, resEncodingChunk)) {
             chunked = true;
         }
@@ -493,7 +495,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         while (response_buf[index] == '\n' || response_buf[index] == '\r') {
             index--;
         }
-        debugPrint(stdout, "index: %" PRId64 "\n", index);
+        debugPrint("index: %" PRId64 "\n", index);
         if (chunked && response_buf[index] == '0') {
             break;
         }
@@ -502,7 +504,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         }
 
         if (bytes <= 0) {
-            errorPrint(stderr, "%s", "reading no response from socket\n");
+            errorPrint("%s", "reading no response from socket\n");
             goto free_of_post;
         }
 
@@ -522,7 +524,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     } while (received < resp_len);
 
     if (received == resp_len) {
-        errorPrint(stderr, "%s", "storing complete response from socket\n");
+        errorPrint("%s", "storing complete response from socket\n");
         goto free_of_post;
     }
 
@@ -530,7 +532,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         NULL == strstr(response_buf, influxHttpOk) &&
         NULL == strstr(response_buf, succMessage) &&
         NULL == strstr(response_buf, opentsdbHttpOk)) {
-        errorPrint(stderr, "Response:\n%s\n", response_buf);
+        errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
     }
 
@@ -558,19 +560,19 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     }
 
     if (g_arguments->test_mode == INSERT_TEST) {
-        debugPrint(stdout, "Response: \n%s\n", response_buf);
+        debugPrint("Response: \n%s\n", response_buf);
         char* start = strstr(response_buf, "{");
         if (start == NULL) {
-            errorPrint(stderr, "Invalid response format: %s\n", response_buf);
+            errorPrint("Invalid response format: %s\n", response_buf);
             goto free_of_post;
         }
         tools_cJSON* resObj = tools_cJSON_Parse(start);
         if (resObj == NULL) {
-            errorPrint(stderr, "Cannot parse response into json: %s\n", start);
+            errorPrint("Cannot parse response into json: %s\n", start);
         }
         tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
         if (!tools_cJSON_IsNumber(codeObj)) {
-            errorPrint(stderr, "Invalid or miss 'code' key in json: %s\n", tools_cJSON_Print(resObj));
+            errorPrint("Invalid or miss 'code' key in json: %s\n", tools_cJSON_Print(resObj));
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
@@ -578,10 +580,10 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
             (iface == SML_REST_IFACE && protocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
             tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
             if (!tools_cJSON_IsString(desc)) {
-                errorPrint(stderr, "Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
+                errorPrint("Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
                 goto free_of_post;
             }
-            errorPrint(stderr, "insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
+            errorPrint("insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
@@ -620,7 +622,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         char temp[HEAD_BUFF_LEN] = {0};
         int  len = taos_print_row(temp, row, fields, num_fields);
         len += sprintf(temp + len, "\n");
-        debugPrint(stdout, "query result:%s\n", temp);
+        debugPrint("query result:%s\n", temp);
         memcpy(databuf + totalLen, temp, len);
         totalLen += len;
     }
@@ -790,7 +792,7 @@ int taos_convert_string_to_datatype(char *type, int length) {
         } else if (0 == strcasecmp(type, "varchar")) {
             return TSDB_DATA_TYPE_BINARY;
         } else {
-            errorPrint(stderr, "unknown data type: %s\n", type);
+            errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
         }
     } else {
@@ -827,7 +829,7 @@ int taos_convert_string_to_datatype(char *type, int length) {
         } else if (0 == strncasecmp(type, "varchar", length)) {
             return TSDB_DATA_TYPE_BINARY;
         } else {
-            errorPrint(stderr, "unknown data type: %s\n", type);
+            errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
         }
     }
@@ -906,7 +908,7 @@ void benchArrayClear(BArray* pArray) {
 
 void* benchArrayGet(const BArray* pArray, size_t index) {
     if (index >= pArray->size) {
-        errorPrint(stderr, "index(%zu) greater than BArray size(%zu)\n", index, pArray->size);
+        errorPrint("index(%zu) greater than BArray size(%zu)\n", index, pArray->size);
         exit(EXIT_FAILURE);
     }
     return BARRAY_GET_ELEM(pArray, index);

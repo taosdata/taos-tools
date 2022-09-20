@@ -20,9 +20,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         case1<sdsang>: [TD-12526] taosdump supports binary
-        '''
+        """
         return
 
     def init(self, conn, logSql):
@@ -33,23 +33,26 @@ class TDTestCase:
     def getPath(self, tool="taosdump"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
-        elif ("src" in selfPath):
-            projPath = selfPath[:selfPath.find("src")]
-        elif ("/tools/" in selfPath):
-            projPath = selfPath[:selfPath.find("/tools/")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/debug/" in selfPath:
+            projPath = selfPath[: selfPath.find("/debug/")]
         else:
-            tdLog.exit("path: %s is not supported" % selfPath)
+            tdLog.info("Cannot find %s in path: %s" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             return ""
         return paths[0]
 
@@ -61,7 +64,8 @@ class TDTestCase:
 
         tdSql.execute("use db")
         tdSql.execute(
-            "create table st(ts timestamp, c1 BINARY(5), c2 BINARY(5)) tags(btag BINARY(5))")
+            "create table st(ts timestamp, c1 BINARY(5), c2 BINARY(5)) tags(btag BINARY(5))"
+        )
         tdSql.execute("create table t1 using st tags('test')")
         tdSql.execute("insert into t1 values(1640000000000, '01234', '56789')")
         tdSql.execute("insert into t1 values(1640000000001, 'abcd', 'efgh')")
@@ -69,7 +73,7 @@ class TDTestCase:
         tdSql.execute("insert into t2 values(1640000000000, NULL, NULL)")
 
         binPath = self.getPath("taosdump")
-        if (binPath == ""):
+        if binPath == "":
             tdLog.exit("taosdump not found!")
         else:
             tdLog.info("taosdump found in %s" % binPath)
@@ -83,7 +87,7 @@ class TDTestCase:
 
         os.system("%s -R -D db -o %s" % (binPath, self.tmpdir))
 
-#        sys.exit(1)
+        #        sys.exit(1)
         tdSql.execute("drop database db")
 
         os.system("%s -R -i %s" % (binPath, self.tmpdir))
@@ -94,7 +98,7 @@ class TDTestCase:
         found = False
         for i in range(len(dbresult)):
             print("Found db: %s" % dbresult[i][0])
-            if (dbresult[i][0] == "db"):
+            if dbresult[i][0] == "db":
                 found = True
                 break
 
@@ -103,14 +107,14 @@ class TDTestCase:
         tdSql.execute("use db")
         tdSql.query("show stables")
         tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 'st')
+        tdSql.checkData(0, 0, "st")
 
         tdSql.query("show tables")
         tdSql.checkRows(2)
         dbresult = tdSql.queryResult
         print(dbresult)
         for i in range(len(dbresult)):
-            assert ((dbresult[i][0] == "t1") or (dbresult[i][0] == "t2"))
+            assert (dbresult[i][0] == "t1") or (dbresult[i][0] == "t2")
 
         tdSql.query("select distinct(btag) from st where tbname = 't1'")
         tdSql.checkRows(1)

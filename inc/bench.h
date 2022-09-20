@@ -173,7 +173,7 @@
 #define FORCE_INLINE
 #endif
 
-#define debugPrint(fp, fmt, ...)                                             \
+#define debugPrint(fmt, ...)                                             \
     do {                                                                     \
         if (g_arguments->debug_print) {                                      \
             struct tm      Tm, *ptm;                                         \
@@ -182,16 +182,30 @@
             toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
             ptm = toolsLocalTime(&curTime, &Tm);                                \
-            fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+            fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
-            fprintf(fp, "DEBG: ");                                           \
-            fprintf(fp, "%s(%d) ", __FILE__, __LINE__);                      \
-            fprintf(fp, "" fmt, __VA_ARGS__);                                \
+            fprintf(stdout, "DEBG: ");                                           \
+            fprintf(stdout, "%s(%d) ", __FILE__, __LINE__);                      \
+            fprintf(stdout, "" fmt, __VA_ARGS__);                                \
         }                                                                    \
     } while (0)
 
-#define infoPrint(fp, fmt, ...)                                          \
+#define infoPrint(fmt, ...)                                          \
+    do {                                                                 \
+        struct tm      Tm, *ptm;                                         \
+        struct timeval timeSecs;                                         \
+        time_t         curTime;                                          \
+        toolsGetTimeOfDay(&timeSecs);                                    \
+        curTime = timeSecs.tv_sec;                                       \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
+        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
+                (int32_t)timeSecs.tv_usec);                              \
+        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                          \
+    } while (0)
+
+#define infoPrintToFile(fp, fmt, ...)                                          \
     do {                                                                 \
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
@@ -205,7 +219,7 @@
         fprintf(fp, "INFO: " fmt, __VA_ARGS__);                          \
     } while (0)
 
-#define performancePrint(fp, fmt, ...)                                       \
+#define perfPrint(fmt, ...)                                       \
     do {                                                                     \
         if (g_arguments->performance_print) {                                \
             struct tm      Tm, *ptm;                                         \
@@ -214,14 +228,14 @@
             toolsGetTimeOfDay(&timeSecs);                                    \
             curTime = timeSecs.tv_sec;                                       \
             ptm = toolsLocalTime(&curTime, &Tm);                                \
-            fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                     (int32_t)timeSecs.tv_usec);                              \
-            fprintf(fp, "PERF: " fmt, __VA_ARGS__);                          \
+            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                          \
         }                                                                    \
     } while (0)
 
-#define errorPrint(fp, fmt, ...)                                         \
+#define errorPrint(fmt, ...)                                         \
     do {                                                                 \
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
@@ -229,16 +243,16 @@
         toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
-        fprintf(fp, "\033[31m");                                         \
-        fprintf(fp, "ERROR: ");                                          \
+        fprintf(stderr, "\033[31m");                                         \
+        fprintf(stderr, "ERROR: ");                                          \
         if (g_arguments->debug_print) {                                  \
-            fprintf(fp, "%s(%d) ", __FILE__, __LINE__);                  \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                  \
         }                                                                \
-        fprintf(fp, "" fmt, __VA_ARGS__);                                \
-        fprintf(fp, "\033[0m");                                          \
+        fprintf(stderr, "" fmt, __VA_ARGS__);                                \
+        fprintf(stderr, "\033[0m");                                          \
     } while (0)
 
 enum TEST_MODE {
