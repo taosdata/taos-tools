@@ -148,8 +148,11 @@ jobs:
             echo "Checkout taos-tools to PR number on ${{ steps.setup.outputs.uname }}"
             git config --global --add safe.directory /home/runner/work/taos-tools/taos-tools
             cd /home/runner/work/taos-tools/taos-tools
-            git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
-            git checkout -qf FETCH_HEAD
+
+            if [ ! -z "${{env.PR_NUMBER}}" ]; then
+              git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
+              git checkout -qf FETCH_HEAD
+            fi
 
             mkdir debug ||:
             cd debug
