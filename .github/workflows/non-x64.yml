@@ -87,7 +87,10 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout tdengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -96,31 +99,25 @@ jobs:
           ref: 'develop'
 
       - name: Change time zone
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           echo "The uname output was ${{ steps.setup.outputs.uname }}"
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
 
-          #- name: Checkout TDengine with same branch of taos-tools
-          #run: |
-          #echo "The uname output was ${{ steps.setup.outputs.uname }}"
-          #cd TDengine
-          #git pull
-          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
-          #git submodule update --init --recursive
-          #if: github.event_name == 'pull_request'
-
       - name: Checkout TDengine's taos-tools to PR number
         if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
           run: |
-            echo "The uname output was ${{ steps.setup.outputs.uname }}"
+            echo "Checkout taos-tools to PR number on was ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
             apt install git -y > /dev/null
             git config --global --add safe.directory /home/runner/work/taos-tools/taos-tools/TDengine/src/kit/taos-tools
@@ -128,8 +125,11 @@ jobs:
             git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
             git checkout -qf FETCH_HEAD
 
-      - name: Build TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+      - name: Build TDengine on armv7
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: armv7
@@ -139,13 +139,22 @@ jobs:
             apt update -y > /dev/null
             apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
             cd TDengine
-            mkdir armv7-debug ||:
-            cd armv7-debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null
-            make > /dev/null
+            mkdir debug ||:
+            cd debug
+            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null && make > /dev/null
+            if [[ ! -f build/bin/taosd ]] || [[ ! -f build/bin/taosdump ]] || [[ ! -f build/bin/taosBenchmark ]]
+            then
+              echo "TDengine build failure"
+              exit 1
+            fi
 
-      - name: Build TDengine and run taosdump Old Test cases
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+            cd .. && rm -rf debug
+
+      - name: Build TDengine on aarch64
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: aarch64
@@ -153,28 +162,50 @@ jobs:
           run: |
             apt update -y > /dev/null
             apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+
+            cd TDengine
+            mkdir debug ||:
+            cd debug
+            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null
+            make > /dev/null && make install > /dev/null
+
+            if [[ ! -f /usr/local/taos/bin/taosd ]]
+            then
+              echo "TDengine build failure"
+              exit 1
+            fi
+
+      - name: run taosdump Old Test cases on aarch64
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        uses: uraimo/run-on-arch-action@v2.1.1
+        with:
+          arch: aarch64
+          distro: ubuntu18.04
+          run: |
+            echo "TEST: old cases"
+            cd TDengine/tests/pytest
+
+            pkill -9 taosadapter || :
+            pkill -9 taosd || :
+            sleep 5
+
+            apt update -y > /dev/null
             apt install python3 python3-pip -y > /dev/null
             pip3 install --upgrade pip > /dev/null
             pip3 install numpy psutil pandas faker toml > /dev/null
             pip3 install taospy > /dev/null
             pip3 install fabric2 > /dev/null
 
-            cd TDengine
-            mkdir debug ||:
-            cd debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null
-            make > /dev/null
-            make install
-
-            cd ../tests/pytest
-            pkill -9 taosadapter || :
-            pkill -9 taosd || :
-
-            echo "TEST: old cases"
             python3 ./test.py -f tools/taosdumpTest.py && echo -e "\033[32m pytest/tools/taosdumpTest.py success! \033[0m" || echo -e "\033[31m system-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
-      - name: Check Test Result
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+      - name: Check Test Result on aarch64
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: aarch64

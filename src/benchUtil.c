@@ -308,9 +308,11 @@ SBenchConn* init_bench_conn() {
         }
     } else {
 #endif
-        conn->taos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
+        conn->taos = taos_connect(g_arguments->host,
+                g_arguments->user, g_arguments->password, NULL, g_arguments->port);
         if (conn->taos == NULL) {
-            errorPrint("failde to connect native %s:%d, reason: %s\n", g_arguments->host, g_arguments->port, taos_errstr(NULL));
+            errorPrint("failde to connect native %s:%d, reason: %s\n",
+                    g_arguments->host, g_arguments->port, taos_errstr(NULL));
             tmfree(conn);
             return NULL;
         }

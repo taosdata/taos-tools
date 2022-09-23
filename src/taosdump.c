@@ -1293,6 +1293,7 @@ static int getTableRecordInfoImplWS(
         ws_res = NULL;
         return 0;
     }
+    ws_free_result(ws_res);
 
     if (3 == g_majorVersionOfClient) {
         if (tryStable) {
@@ -1797,6 +1798,7 @@ static int getDumpDbCount() {
                     __func__, __LINE__, command,
                     taos_errstr(res)
                     );
+            taos_free_result(res);
             taos_close(taos);
             return 0;
         }
@@ -10112,6 +10114,15 @@ static int dumpInDbs(const char *dbPath)
                    "\tPlease use a correct version taosdump "
                    "to restore them.\n\n",
                 g_dumpInDataMajorVer, taosToolsMajorVer);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            ws_close(taos_v);
+        } else {
+#endif
+            taos_close(taos_v);
+#ifdef WEBSOCKET
+        }
+#endif
         return -1;
     }
 
@@ -10628,7 +10639,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
     if (ws_code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
                 dbInfo->name, ws_errstr(ws_res));
-        taos_free_result(ws_res);
+        ws_free_result(ws_res);
         return -1;
     }
 
@@ -10728,6 +10739,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
             ws_taos = NULL;
             return 0;
         }
+        ws_free_result(ws_res);
         sprintf(command, "SHOW TABLES");
     }
 
@@ -10849,6 +10861,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo)
             taos_free_result(res);
             return 0;
         }
+        taos_free_result(res);
 
         sprintf(command, "SHOW TABLES");
     }
@@ -10924,6 +10937,8 @@ static int64_t dumpStbAndChildTbOfDbNative(
         return -1;
     }
 
+    taos_free_result(res);
+
     if (3 == g_majorVersionOfClient) {
         sprintf(command,
                 "SELECT STABLE_NAME FROM information_schema.ins_stables "
@@ -10964,6 +10979,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
         }
     }
 
+    taos_free_result(res);
     return ret;
 }
 
@@ -11718,6 +11734,7 @@ static int fillDbExtraInfoV3Native(
         }
     }
 
+    taos_free_result(res);
     return ret;
 }
 

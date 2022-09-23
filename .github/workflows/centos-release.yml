@@ -90,7 +90,11 @@ jobs:
           yum install -y gcc gcc-c++ make cmake3 git openssl-devel wget > /dev/null
           ln -sf /usr/bin/cmake3 /usr/bin/cmake
 
-      - name: Checkout tdengine
+      - name: Checkout TDengine develop branch
+        if: |
+          (needs.check-changed.outputs.changedflag == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -99,6 +103,10 @@ jobs:
           ref: 'develop'
 
       - name: Change time zone
+        if: |
+          (needs.check-changed.outputs.changedflag == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           echo "disable timezone changing"
           #timedatectl set-timezone Asia/Shanghai
@@ -153,14 +161,12 @@ jobs:
         run: |
           yum install -y python3 python3-pip zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel > /dev/null
           python3 -m pip install --upgrade pip > /dev/null 2>&1
-          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && make install
-          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && make install
+          if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
             exit 1
           fi
-          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
-          pip3 install taospy > /dev/null
 
       - name: taosdump Old Test cases
         if: |
@@ -168,6 +174,9 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
+          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          pip3 install taospy > /dev/null
+
           cd TDengine/tests/pytest
           pkill -9 taosadapter || :
           pkill -9 taosd || :
