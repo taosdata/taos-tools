@@ -3516,7 +3516,8 @@ static FILE* openDumpInFile(char *fptr) {
     if ((fname) && (strlen(fname) > 0)) {
         f = fopen(fname, "r");
         if (f == NULL) {
-            errorPrint("Failed to open file %s\n", fname);
+            errorPrint("Failed to open file %s. Errno is %d. Reason is %s.\n",
+                    fname, errno, strerror(errno));
         }
     }
 
@@ -8408,8 +8409,9 @@ static int64_t dumpANormalTableNotBelong(
 
         fp = fopen(dumpFilename, "w");
         if (fp == NULL) {
-            errorPrint("%s() LN%d, failed to open file %s\n",
-                    __func__, __LINE__, dumpFilename);
+            errorPrint("%s() LN%d, failed to open file %s. "
+                    "Errno is %d. Reason is %s.\n",
+                    __func__, __LINE__, dumpFilename, errno, strerror(errno));
             return -1;
         }
 
@@ -9269,8 +9271,9 @@ static int64_t dumpANormalTableBelongStb(
         fp = fopen(dumpFilename, "w");
 
         if (fp == NULL) {
-            errorPrint("%s() LN%d, failed to open file %s\n",
-                    __func__, __LINE__, dumpFilename);
+            errorPrint("%s() LN%d, failed to open file %s. "
+                    "Errno is %d. Reason is %s.\n",
+                    __func__, __LINE__, dumpFilename, errno, strerror(errno));
             return -1;
         }
     }
@@ -9421,7 +9424,10 @@ static int checkParam() {
 
     g_fpOfResult = fopen(g_args.resultFile, "a");
     if (NULL == g_fpOfResult) {
-        errorPrint("Failed to open %s for save res\n", g_args.resultFile);
+        errorPrint("Failed to open %s for save res. "
+                "Errno is %d. Reason is %s.\n",
+                g_args.resultFile,
+                errno, strerror(errno));
         exit(EXIT_FAILURE);
     };
 
@@ -9566,7 +9572,12 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                 "code: 0x%08x, reason:%s\n",
                 ws_errno(ws_res), ws_errstr(ws_res));
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
-        fwrite(buffer, strlen(buffer), 1, fp);
+        size_t len = fwrite(buffer, strlen(buffer), 1, fp);
+        if (len != strlen(buffer)) {
+            errorPrint("%s() LN%d, write to file. "
+                    "Errno is %d. Reason is %s.\n",
+                    __func__, __LINE__, errno, strerror(errno));
+        }
         ws_free_result(ws_res);
         ws_res = NULL;
         return;
@@ -9603,7 +9614,12 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                 snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tmp);
                 debugPrint("%s() LN%d buffer: %s\n",
                         __func__, __LINE__, buffer);
-                fwrite(buffer, strlen(buffer), 1, fp);
+                size_t w_len = fwrite(buffer, strlen(buffer), 1, fp);
+                if (w_len != strlen(buffer)) {
+                    errorPrint("%s() LN%d, write to file. "
+                            "Errno is %d. Reason is %s.\n",
+                            __func__, __LINE__, errno, strerror(errno));
+                }
             }
         }
     }
@@ -9632,7 +9648,13 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
                 taos_errno(res), taos_errstr(res));
         fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
-        fwrite(buffer, strlen(buffer), 1, fp);
+        size_t len = fwrite(buffer, strlen(buffer), 1, fp);
+        if (len != strlen(buffer)) {
+            errorPrint("%s() LN%d, write to file. "
+                    "Errno is %d. Reason is %s.\n",
+                    __func__, __LINE__, errno, strerror(errno));
+        }
+
         taos_free_result(res);
         return;
     }
@@ -9648,7 +9670,12 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
                 tempRow0, tempRow1);
         if (0 == strcmp(tempRow0, "charset")) {
             snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tempRow1);
-            fwrite(buffer, strlen(buffer), 1, fp);
+            size_t len = fwrite(buffer, strlen(buffer), 1, fp);
+            if (len != strlen(buffer)) {
+                errorPrint("%s() LN%d, write to file. "
+                        "Errno is %d. Reason is %s.\n",
+                        __func__, __LINE__, errno, strerror(errno));
+            }
         }
     }
     taos_free_result(res);
@@ -9680,22 +9707,43 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
         return -1;
     }
     int firstreturn = (int)(firstline - buffer);
-    fwrite(buffer, firstreturn+1, 1, fp);
+    size_t len;
+    len = fwrite(buffer, firstreturn+1, 1, fp);
+    if (len != firstreturn+1) {
+        errorPrint("%s() LN%d, write to file. "
+                "Errno is %d. Reason is %s.\n",
+                __func__, __LINE__, errno, strerror(errno));
+    }
 
     char taostools_ver[] = TAOSTOOLS_TAG;
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
 
     snprintf(buffer, BUFFER_LEN, "#!taosdump_ver: %s_%s\n",
                 taostools_ver, taosdump_commit);
-    fwrite(buffer, strlen(buffer), 1, fp);
+    len = fwrite(buffer, strlen(buffer), 1, fp);
+    if (len != strlen(buffer)) {
+        errorPrint("%s() LN%d, write to file. "
+                "Errno is %d. Reason is %s.\n",
+                __func__, __LINE__, errno, strerror(errno));
+    }
 
     snprintf(buffer, BUFFER_LEN, "#!escape_char: %s\n",
                 g_args.escape_char?"true":"false");
-    fwrite(buffer, strlen(buffer), 1, fp);
+    len = fwrite(buffer, strlen(buffer), 1, fp);
+    if (len != strlen(buffer)) {
+        errorPrint("%s() LN%d, write to file. "
+                "Errno is %d. Reason is %s.\n",
+                __func__, __LINE__, errno, strerror(errno));
+    }
 
     snprintf(buffer, BUFFER_LEN, "#!loose_mode: %s\n",
                 g_args.loose_mode?"true":"false");
-    fwrite(buffer, strlen(buffer), 1, fp);
+    len = fwrite(buffer, strlen(buffer), 1, fp);
+    if (len != strlen(buffer)) {
+        errorPrint("%s() LN%d, write to file. "
+                "Errno is %d. Reason is %s.\n",
+                __func__, __LINE__, errno, strerror(errno));
+    }
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -10360,8 +10408,9 @@ static void *dumpNormalTablesOfStb(void *arg) {
         fp = fopen(dumpFilename, "w");
 
         if (fp == NULL) {
-            errorPrint("%s() LN%d, failed to open file %s\n",
-                    __func__, __LINE__, dumpFilename);
+            errorPrint("%s() LN%d, failed to open file %s. "
+                    "Errno is %d. Reason is %s.\n",
+                    __func__, __LINE__, dumpFilename, errno, strerror(errno));
             return NULL;
         }
     }
@@ -11018,8 +11067,9 @@ static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
         fpDbs = fopen(dumpDbsSql, "w");
 
         if (NULL == fpDbs) {
-            errorPrint("%s() LN%d, failed to open file %s\n",
-                    __func__, __LINE__, dumpDbsSql);
+            errorPrint("%s() LN%d, failed to open file %s. "
+                    "Errno is %d. Reason is %s.\n",
+                    __func__, __LINE__, dumpDbsSql, errno, strerror(errno));
         }
     } else {
         sprintf(dumpDbsSql, "%sdbs.sql", g_args.outpath);
@@ -11842,8 +11892,9 @@ static int dumpOut() {
 
     fp = fopen(dumpFilename, "w");
     if (fp == NULL) {
-        errorPrint("%s() LN%d, failed to open file %s\n",
-                __func__, __LINE__, dumpFilename);
+        errorPrint("%s() LN%d, failed to open file %s. "
+                "Errno is %d. Reason is %s.\n",
+                __func__, __LINE__, dumpFilename, errno, strerror(errno));
         return -1;
     }
 
