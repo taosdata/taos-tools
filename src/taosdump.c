@@ -60,7 +60,7 @@
 #define BUFFER_LEN              256             // use 256 as normal buffer length
 #define MAX_FILE_NAME_LEN       256             // max file name length on Linux is 255
 #define MAX_PATH_LEN            4096            // max path length on Linux is 4095
-#define WS_VALUE_BUF_LEN        4096
+#define VALUE_BUF_LEN           4096
 #define COMMAND_SIZE            (1024*1024)
 #define MAX_RECORDS_PER_REQ     32766
 
@@ -1248,7 +1248,7 @@ static int getPrecisionByString(char *precision)
                 "ns", 2)) {
         return TSDB_TIME_PRECISION_NANO;
     } else {
-        errorPrint("Invalid time precision: %s",
+        errorPrint("Invalid time precision: %s.\n",
                 precision);
     }
 
@@ -1351,7 +1351,7 @@ static int getTableRecordInfoImplWS(
 
         uint8_t type;
         uint32_t length;
-        char buffer[WS_VALUE_BUF_LEN];
+        char buffer[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row ++) {
             const void *value0 = ws_get_value_in_block(ws_res, row,
@@ -1365,7 +1365,7 @@ static int getTableRecordInfoImplWS(
                 continue;
             }
 
-            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memset(buffer, 0, VALUE_BUF_LEN);
             memcpy(buffer, value0, length);
 
             if (0 == strcmp(buffer, table)) {
@@ -1402,7 +1402,7 @@ static int getTableRecordInfoImplWS(
                         }
 
                         pTableRecordInfo->belongStb = true;
-                        memset(buffer, 0, WS_VALUE_BUF_LEN);
+                        memset(buffer, 0, VALUE_BUF_LEN);
                         memcpy(buffer, value1, length);
                         tstrncpy(pTableRecordInfo->tableRecord.stable,
                                 buffer,
@@ -1660,7 +1660,7 @@ static int getDbCountWS(WS_RES *ws_res) {
 
         uint8_t type;
         uint32_t length;
-        char buffer[WS_VALUE_BUF_LEN];
+        char buffer[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row++) {
             const void *value = ws_get_value_in_block(ws_res, row,
@@ -1673,7 +1673,7 @@ static int getDbCountWS(WS_RES *ws_res) {
                 continue;
             }
 
-            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memset(buffer, 0, VALUE_BUF_LEN);
             memcpy(buffer, value, length);
             debugPrint("%s() LN%d, dbname: %s\n", __func__, __LINE__, buffer);
 
@@ -2619,7 +2619,7 @@ static int getTableDesWS(
 
         uint8_t type;
         uint32_t len;
-        char buffer[WS_VALUE_BUF_LEN];
+        char buffer[VALUE_BUF_LEN] = {0};
         const void *value = NULL;
 
         for (int row = 0; row < rows; row ++) {
@@ -2634,7 +2634,7 @@ static int getTableDesWS(
                         row);
                 continue;
             }
-            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memset(buffer, 0, VALUE_BUF_LEN);
             memcpy(buffer, value, len);
             strncpy(tableDes->cols[colCount].field,
                     buffer, len);
@@ -2650,7 +2650,7 @@ static int getTableDesWS(
                         row);
                 continue;
             }
-            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memset(buffer, 0, VALUE_BUF_LEN);
             memcpy(buffer, value, len);
             tableDes->cols[colCount].type = typeStrToType(buffer);
 
@@ -2675,7 +2675,7 @@ static int getTableDesWS(
                         row);
                 continue;
             }
-            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memset(buffer, 0, VALUE_BUF_LEN);
             memcpy(buffer, value, len);
 
             debugPrint("%s() LN%d, buffer: %s\n", __func__, __LINE__, buffer);
@@ -3050,7 +3050,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
     json_object_foreach(element, key, value) {
         if (0 == strcmp(key, "name")) {
             tstrncpy(recordSchema->name, json_string_value(value),
-                    RECORD_NAME_LEN-1);
+                    RECORD_NAME_LEN);
         } else if (0 == strcmp(key, "fields")) {
             if (JSON_ARRAY == json_typeof(value)) {
 
@@ -8944,7 +8944,7 @@ static int64_t fillTbNameArrWS(
 
         uint8_t type;
         uint32_t len;
-        char tmp[WS_VALUE_BUF_LEN] = {0};
+        char tmp[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row ++) {
             const void *value0 = ws_get_value_in_block(
@@ -8960,7 +8960,7 @@ static int64_t fillTbNameArrWS(
                 debugPrint("%s() LN%d, ws_get_value_in_blocK() return %s. len: %d\n",
                         __func__, __LINE__, (char *)value0, len);
             }
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memset(tmp, 0, VALUE_BUF_LEN);
             memcpy(tmp, value0, len);
 
             strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
@@ -10609,6 +10609,10 @@ static int64_t dumpNtbOfStbByThreads(
             ((threadInfo *)(infos + i - 1))->count;
         pThreadInfo->dbInfo = dbInfo;
         pThreadInfo->precision = getPrecisionByString(dbInfo->precision);
+        if (-1 == pThreadInfo->precision) {
+            errorPrint("%s() LN%d, get precision error\n", __func__, __LINE__);
+            exit(EXIT_FAILURE);
+        }
 
         strcpy(pThreadInfo->stbName, stbName);
         pThreadInfo->stbTableDes = stbTableDes;
@@ -10743,7 +10747,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
 
         uint8_t type;
         uint32_t len;
-        char buffer[WS_VALUE_BUF_LEN];
+        char buffer[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row ++) {
             const void *value0 = ws_get_value_in_block(
@@ -10754,7 +10758,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
                         row);
                 continue;
             }
-            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memset(buffer, 0, VALUE_BUF_LEN);
             memcpy(buffer, value0, len);
             debugPrint("%s() LN%d, stable: %s\n",
                     __func__, __LINE__, buffer);
@@ -10837,7 +10841,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
 
         uint8_t type;
         uint32_t len0, len1;
-        char buffer[WS_VALUE_BUF_LEN] = {0};
+        char buffer[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row ++) {
 
@@ -10856,7 +10860,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
 
             if (len1) {
                 if (g_args.debug_print || g_args.verbose_print) {
-                    memset(buffer, 0, WS_VALUE_BUF_LEN);
+                    memset(buffer, 0, VALUE_BUF_LEN);
                     memcpy(buffer, value1, len1);
                     debugPrint("%s() LN%d, get table belong %s\n",
                             __func__, __LINE__, buffer);
@@ -10872,7 +10876,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
                     continue;
                 }
 
-                memset(buffer, 0, WS_VALUE_BUF_LEN);
+                memset(buffer, 0, VALUE_BUF_LEN);
                 memcpy(buffer, value0, len0);
                 debugPrint("%s() LN%d count: %"PRId64", table name: %s, "
                         "length: %d\n",
@@ -11257,7 +11261,7 @@ static bool fillDBInfoWithFieldsWS(
         WS_RES *res) {
     uint8_t type;
     uint32_t len;
-    char tmp[WS_VALUE_BUF_LEN];
+    char tmp[VALUE_BUF_LEN] = {0};
 
     const void *value = ws_get_value_in_block(
             res, row, f, &type, &len);
@@ -11268,7 +11272,7 @@ static bool fillDBInfoWithFieldsWS(
                     __func__, __LINE__, row, f);
             return false;
         } else {
-            memset(tmp, 0, WS_VALUE_BUF_LEN);
+            memset(tmp, 0, VALUE_BUF_LEN);
             memcpy(tmp, value, len);
             strncpy(g_dbInfos[index]->name,
                     tmp, len);
@@ -11304,7 +11308,7 @@ static bool fillDBInfoWithFieldsWS(
             return false;
         }
     } else if (0 == strcmp(name, "strict")) {
-        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memset(tmp, 0, VALUE_BUF_LEN);
         memcpy(tmp, value, len);
         debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                 __func__, __LINE__, f,
@@ -11319,7 +11323,7 @@ static bool fillDBInfoWithFieldsWS(
         g_dbInfos[index]->days = *((int16_t *)value);
     } else if ((0 == strcmp(name, "keep"))
             || (0 == strcmp(name, "keep0,keep1,keep2"))) {
-        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memset(tmp, 0, VALUE_BUF_LEN);
         memcpy(tmp, value, len);
         debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                 __func__, __LINE__, f,
@@ -11328,7 +11332,7 @@ static bool fillDBInfoWithFieldsWS(
                 tmp,
                 min(KEEPLIST_LEN, len));
     } else if (0 == strcmp(name, "duration")) {
-        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memset(tmp, 0, VALUE_BUF_LEN);
         memcpy(tmp, value, len);
         strncpy(g_dbInfos[index]->duration,
                 tmp,
@@ -11409,7 +11413,7 @@ static bool fillDBInfoWithFieldsWS(
             return false;
         }
     } else if (0 == strcmp(name, "precision")) {
-        memset(tmp, 0, WS_VALUE_BUF_LEN);
+        memset(tmp, 0, VALUE_BUF_LEN);
         memcpy(tmp, value, len);
         strncpy(g_dbInfos[index]->precision,
                 tmp,
@@ -11426,12 +11430,19 @@ static bool fillDBInfoWithFieldsWS(
 static bool fillDBInfoWithFieldsNative(const int index,
         const TAOS_FIELD *fields, const TAOS_ROW row,
         const int *lengths, int fieldCount) {
+
+    char tmp[VALUE_BUF_LEN] = {0};
     for (int f = 0; f < fieldCount; f++) {
         if (0 == strcmp(fields[f].name, "name")) {
-            tstrncpy(g_dbInfos[index]->name,
-                    (char *)row[f],
+            memset(tmp, 0, VALUE_BUF_LEN);
+            memcpy(tmp, (char*)row[f], lengths[f]);
+            strncpy(g_dbInfos[index]->name,
+                    tmp,
                     min(TSDB_DB_NAME_LEN,
-                        lengths[f] + 1));
+                        lengths[f]));
+            debugPrint("%s() LN%d, db name: %s, len: %d\n",
+                    __func__, __LINE__,
+                    g_dbInfos[index]->name, lengths[f]);
 
         } else if (0 == strcmp(fields[f].name, "vgroups")) {
             if (TSDB_DATA_TYPE_INT == fields[f].type) {
@@ -11464,9 +11475,11 @@ static bool fillDBInfoWithFieldsNative(const int index,
                 return false;
             }
         } else if (0 == strcmp(fields[f].name, "strict")) {
-            tstrncpy(g_dbInfos[index]->strict,
-                    (char *)row[f],
-                    min(STRICT_LEN, lengths[f] + 1));
+            memset(tmp, 0, VALUE_BUF_LEN);
+            memcpy(tmp, (char*)row[f], lengths[f]);
+            strncpy(g_dbInfos[index]->strict,
+                    tmp,
+                    min(STRICT_LEN, lengths[f]));
             debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->strict,
@@ -11478,17 +11491,21 @@ static bool fillDBInfoWithFieldsNative(const int index,
             g_dbInfos[index]->days = *((int16_t *)row[f]);
         } else if ((0 == strcmp(fields[f].name, "keep"))
                 || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
-            tstrncpy(g_dbInfos[index]->keeplist,
-                    (char *)row[f],
-                    min(KEEPLIST_LEN, lengths[f] + 1));
+            memset(tmp, 0, VALUE_BUF_LEN);
+            memcpy(tmp, (char*)row[f], lengths[f]);
+            strncpy(g_dbInfos[index]->keeplist,
+                    tmp,
+                    min(KEEPLIST_LEN, lengths[f]));
             debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->keeplist,
                     lengths[f]);
         } else if (0 == strcmp(fields[f].name, "duration")) {
-            tstrncpy(g_dbInfos[index]->duration,
-                    (char *)row[f],
-                    min(DURATION_LEN, lengths[f] + 1));
+            memset(tmp, 0, VALUE_BUF_LEN);
+            memcpy(tmp, (char*)row[f], lengths[f]);
+            strncpy(g_dbInfos[index]->duration,
+                    tmp,
+                    min(DURATION_LEN, lengths[f]));
             debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->duration,
@@ -11565,9 +11582,14 @@ static bool fillDBInfoWithFieldsNative(const int index,
                 return false;
             }
         } else if (0 == strcmp(fields[f].name, "precision")) {
-            tstrncpy(g_dbInfos[index]->precision,
-                    (char *)row[f],
-                    min(lengths[f] + 1, DB_PRECISION_LEN));
+            memset(tmp, 0, VALUE_BUF_LEN);
+            memcpy(tmp, (char*)row[f], lengths[f]);
+            strncpy(g_dbInfos[index]->precision,
+                    tmp,
+                    min(lengths[f], DB_PRECISION_LEN));
+            debugPrint("%s() LN%d, db precision: %s, len: %d\n",
+                    __func__, __LINE__,
+                    g_dbInfos[index]->precision, lengths[f]);
         } else if (0 == strcmp(fields[f].name, "update")) {
             g_dbInfos[index]->update = *((int8_t *)row[f]);
         }
@@ -11677,7 +11699,7 @@ static int fillDbInfoWS(void *taos) {
 
         uint8_t type;
         uint32_t len;
-        char buffer[WS_VALUE_BUF_LEN];
+        char buffer[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row ++) {
             const void *value0 = ws_get_value_in_block(ws_res, row,
@@ -11688,7 +11710,7 @@ static int fillDbInfoWS(void *taos) {
                         row);
                 continue;
             }
-            memset(buffer, 0, WS_VALUE_BUF_LEN);
+            memset(buffer, 0, VALUE_BUF_LEN);
             memcpy(buffer, value0, len);
             debugPrint("%s() LN%d, dbname: %s\n",
                     __func__, __LINE__, buffer);
@@ -12332,7 +12354,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
     json_object_foreach(element, key, value) {
         if (0 == strcmp(key, "name")) {
             tstrncpy(recordSchema->name, json_string_value(value),
-                    RECORD_NAME_LEN-1);
+                    RECORD_NAME_LEN);
         } else if (0 == strcmp(key, "fields")) {
             if (JSON_ARRAY == json_typeof(value)) {
 

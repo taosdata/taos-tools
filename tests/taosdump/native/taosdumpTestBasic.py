@@ -41,6 +41,8 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("/tools/")]
         elif "/debug/" in selfPath:
             projPath = selfPath[: selfPath.find("/debug/")]
+        elif "/taos-tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/taos-tools/")]
         else:
             tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
             projPath = "/usr/local/taos/bin/"
