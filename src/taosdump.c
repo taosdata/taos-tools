@@ -9572,11 +9572,13 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                 "code: 0x%08x, reason:%s\n",
                 ws_errno(ws_res), ws_errstr(ws_res));
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
-        size_t len = fwrite(buffer, strlen(buffer), 1, fp);
+        size_t len = fwrite(buffer, 1, strlen(buffer), fp);
         if (len != strlen(buffer)) {
             errorPrint("%s() LN%d, write to file. "
+                    "try to write %zd, actual len %zd, "
                     "Errno is %d. Reason is %s.\n",
-                    __func__, __LINE__, errno, strerror(errno));
+                    __func__, __LINE__, strlen(buffer), len,
+                    errno, strerror(errno));
         }
         ws_free_result(ws_res);
         ws_res = NULL;
@@ -9614,11 +9616,13 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                 snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tmp);
                 debugPrint("%s() LN%d buffer: %s\n",
                         __func__, __LINE__, buffer);
-                size_t w_len = fwrite(buffer, strlen(buffer), 1, fp);
+                size_t w_len = fwrite(buffer, 1, strlen(buffer), fp);
                 if (w_len != strlen(buffer)) {
                     errorPrint("%s() LN%d, write to file. "
+                            "try to write %zd, actual len %zd, "
                             "Errno is %d. Reason is %s.\n",
-                            __func__, __LINE__, errno, strerror(errno));
+                            __func__, __LINE__, strlen(buffer), len,
+                            errno, strerror(errno));
                 }
             }
         }
@@ -9648,11 +9652,13 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
                 taos_errno(res), taos_errstr(res));
         fprintf(g_fpOfResult, "# charset: %s\n", "UTF-8 (default)");
         snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", "UTF-8");
-        size_t len = fwrite(buffer, strlen(buffer), 1, fp);
+        size_t len = fwrite(buffer, 1, strlen(buffer), fp);
         if (len != strlen(buffer)) {
             errorPrint("%s() LN%d, write to file. "
+                    "try to write %zd, actual len %zd, "
                     "Errno is %d. Reason is %s.\n",
-                    __func__, __LINE__, errno, strerror(errno));
+                    __func__, __LINE__, strlen(buffer), len,
+                    errno, strerror(errno));
         }
 
         taos_free_result(res);
@@ -9670,11 +9676,13 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
                 tempRow0, tempRow1);
         if (0 == strcmp(tempRow0, "charset")) {
             snprintf(buffer, BUFFER_LEN, "#!charset: %s\n", tempRow1);
-            size_t len = fwrite(buffer, strlen(buffer), 1, fp);
+            size_t len = fwrite(buffer, 1, strlen(buffer), fp);
             if (len != strlen(buffer)) {
                 errorPrint("%s() LN%d, write to file. "
+                        "try to write %zd, actual len %zd, "
                         "Errno is %d. Reason is %s.\n",
-                        __func__, __LINE__, errno, strerror(errno));
+                        __func__, __LINE__, strlen(buffer), len,
+                        errno, strerror(errno));
             }
         }
     }
@@ -9706,13 +9714,16 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
     if (NULL == firstline) {
         return -1;
     }
+
     int firstreturn = (int)(firstline - buffer);
     size_t len;
-    len = fwrite(buffer, firstreturn+1, 1, fp);
+    len = fwrite(buffer, 1, firstreturn+1, fp);
     if (len != firstreturn+1) {
         errorPrint("%s() LN%d, write to file. "
+                "try to write %d, actual len %zd, "
                 "Errno is %d. Reason is %s.\n",
-                __func__, __LINE__, errno, strerror(errno));
+                __func__, __LINE__, firstreturn +1, len,
+                errno, strerror(errno));
     }
 
     char taostools_ver[] = TAOSTOOLS_TAG;
@@ -9720,29 +9731,35 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
 
     snprintf(buffer, BUFFER_LEN, "#!taosdump_ver: %s_%s\n",
                 taostools_ver, taosdump_commit);
-    len = fwrite(buffer, strlen(buffer), 1, fp);
+    len = fwrite(buffer, 1, strlen(buffer), fp);
     if (len != strlen(buffer)) {
         errorPrint("%s() LN%d, write to file. "
+                "try to write %zd, actual len %zd, "
                 "Errno is %d. Reason is %s.\n",
-                __func__, __LINE__, errno, strerror(errno));
+                __func__, __LINE__, strlen(buffer), len,
+                    errno, strerror(errno));
     }
 
     snprintf(buffer, BUFFER_LEN, "#!escape_char: %s\n",
                 g_args.escape_char?"true":"false");
-    len = fwrite(buffer, strlen(buffer), 1, fp);
+    len = fwrite(buffer, 1, strlen(buffer), fp);
     if (len != strlen(buffer)) {
         errorPrint("%s() LN%d, write to file. "
+                "try to write %zd, actual len %zd, "
                 "Errno is %d. Reason is %s.\n",
-                __func__, __LINE__, errno, strerror(errno));
+                __func__, __LINE__, strlen(buffer), len,
+                errno, strerror(errno));
     }
 
     snprintf(buffer, BUFFER_LEN, "#!loose_mode: %s\n",
                 g_args.loose_mode?"true":"false");
-    len = fwrite(buffer, strlen(buffer), 1, fp);
+    len = fwrite(buffer, 1, strlen(buffer), fp);
     if (len != strlen(buffer)) {
         errorPrint("%s() LN%d, write to file. "
+                "try to write %zd, actual len %zd, "
                 "Errno is %d. Reason is %s.\n",
-                __func__, __LINE__, errno, strerror(errno));
+                __func__, __LINE__, strlen(buffer), len,
+                errno, strerror(errno));
     }
 
 #ifdef WEBSOCKET
