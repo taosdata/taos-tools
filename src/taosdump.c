@@ -83,7 +83,7 @@ static char      g_escapeChar[2] = "`";
 static char      g_client_info[32] = {0};
 static int       g_majorVersionOfClient = 0;
 
-static int      g_maxFilesPerDir = 2;
+static int      g_maxFilesPerDir = 100000;
 static uint64_t g_countOfDataFile = 0;
 
 static void print_json_aux(json_t *element, int indent);
