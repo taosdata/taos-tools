@@ -453,9 +453,10 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_INT: {
                     int32_t int_;
                     if ((g_arguments->demo_mode) && (i == 0)) {
-                        int_ = taosRandom() % 10 + 1;
+                        unsigned int tmpRand = taosRandom();
+                        int_ = tmpRand % 10 + 1;
                     } else if ((g_arguments->demo_mode) && (i == 1)) {
-                        int_ = 110 + taosRandom() % 10;
+                        int_ = 105 + taosRandom() % 10;
                     } else {
                         if (field->min < (-1 * (RAND_MAX >> 1))) {
                             field->min = -1 * (RAND_MAX >> 1);
@@ -573,7 +574,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         float_ = (float)(9.8 + 0.04 * (taosRandom() % 10) +
                                          float_ / 1000000000);
                     } else if (g_arguments->demo_mode && i == 2) {
-                        float_ = (float)((115 + taosRandom() % 10 +
+                        float_ = (float)((105 + taosRandom() % 10 +
                                           float_ / 1000000000) /
                                          360);
                     }
@@ -633,12 +634,13 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (g_arguments->demo_mode) {
+                        unsigned int tmpRand = taosRandom();
                         if (g_arguments->chinese) {
-                            sprintf(tmp, "%s", locations_chinese[taosRandom() % 10]);
+                            sprintf(tmp, "%s", locations_chinese[tmpRand % 10]);
                         } else if (stbInfo->iface == SML_IFACE) {
-                            sprintf(tmp, "%s", locations_sml[taosRandom() % 10]);
+                            sprintf(tmp, "%s", locations_sml[tmpRand % 10]);
                         } else {
-                            sprintf(tmp, "%s", locations[taosRandom() % 10]);
+                            sprintf(tmp, "%s", locations[tmpRand % 10]);
                         }
                     } else if (field->values) {
                         tools_cJSON *buf = tools_cJSON_GetArrayItem(

@@ -91,8 +91,8 @@ void resetAfterAnsiEscape(void) {
     }
 }
 
-int taosRandom() {
-    int number;
+unsigned int taosRandom() {
+    unsigned int number;
     rand_s(&number);
 
     return number;
@@ -119,7 +119,7 @@ void resetAfterAnsiEscape(void) {
     printf("\x1b[0m");
 }
 
-int taosRandom() { return rand(); }
+unsigned int taosRandom() { return (unsigned int)rand(); }
 
 #endif
 
