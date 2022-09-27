@@ -58,6 +58,10 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
+        tdSql.query("select client_version()")
+        client_ver = "".join(tdSql.queryResult[0])
+        major_ver = client_ver.split(".")[0]
+
         binPath = self.getPath()
         cmd = "%s -f ./taosbenchmark/json/taosc_auto_create_table.json" % binPath
         tdLog.info("%s" % cmd)
@@ -104,15 +108,16 @@ class TDTestCase:
         tdSql.query("select distinct(c12) from db.`stb1-2`")
         tdSql.checkData(0, 0, None)
 
-        tdSql.query(
+        if major_ver == "3":
+            tdSql.query(
             "select `ttl` from information_schema.ins_tables where db_name = 'db' and table_name like 'stb\_%' limit 1"
         )
-        tdSql.checkData(0, 0, 360)
+            tdSql.checkData(0, 0, 360)
 
-        tdSql.query(
+            tdSql.query(
             "select `ttl` from information_schema.ins_tables where db_name = 'db' and table_name like 'stb1-%' limit 1"
         )
-        tdSql.checkData(0, 0, 180)
+            tdSql.checkData(0, 0, 180)
 
     def stop(self):
         tdSql.close()

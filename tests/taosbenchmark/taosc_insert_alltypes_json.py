@@ -59,6 +59,10 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
+        tdSql.query("select client_version()")
+        client_ver = "".join(tdSql.queryResult[0])
+        major_ver = client_ver.split(".")[0]
+
         binPath = self.getPath()
         cmd = "%s -f ./taosbenchmark/json/taosc_insert_alltypes.json" % binPath
         tdLog.info("%s" % cmd)
@@ -151,8 +155,11 @@ class TDTestCase:
         tdSql.checkData(0, 0, 160)
         tdSql.query("select count(*) from db.stb where t13 = 'b1' or t13 = 'b2'")
         tdSql.checkData(0, 0, 160)
-        tdSql.query("select `ttl` from information_schema.ins_tables where db_name = 'db' limit 1")
-        tdSql.checkData(0, 0, 360)
+
+
+        if major_ver == "3":
+            tdSql.query("select `ttl` from information_schema.ins_tables where db_name = 'db' limit 1")
+            tdSql.checkData(0, 0, 360)
 
     def stop(self):
         tdSql.close()
