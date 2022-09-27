@@ -109,10 +109,15 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, BUFFER_SIZE, true);
     if (stbInfo->autoCreateTable) {
+        char ttl[20] = "";
+        if (stbInfo->ttl != 0) {
+            sprintf(ttl, "TTL %d", stbInfo->ttl);
+        }
         len += sprintf(prepare + len,
-                       "INSERT INTO ? USING `%s` TAGS (%s) VALUES(?",
+                       "INSERT INTO ? USING `%s` TAGS (%s) %s VALUES(?",
                        stbInfo->stbName,
-                       stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq);
+                       stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
+                       ttl);
     } else {
         len += sprintf(prepare + len, "INSERT INTO ? VALUES(?");
     }

@@ -37,11 +37,8 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
-        elif "/tests/" in selfPath:
-            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
-            projPath = "/usr/local/taos/bin/"
+            projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
         for root, dirs, files in os.walk(projPath):
@@ -58,31 +55,20 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
-        tdSql.query("select client_version()")
-        client_ver = "".join(tdSql.queryResult[0])
-        major_ver = client_ver.split(".")[0]
-
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/sml_interlace.json" % binPath
+
+        cmd = "%s -f ./taosbenchmark/json/stmt_auto_create_table.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
-        if major_ver == "3":
-            tdSql.query("select count(*) from (select distinct(tbname) from db.stb1)")
-        else:
-            tdSql.query("select count(tbname) from db.stb1")
-        tdSql.checkData(0, 0, 8)
-        if major_ver == "3":
-            tdSql.query("select count(*) from (select distinct(tbname) from db.stb2)")
-        else:
-            tdSql.query("select count(tbname) from db.stb2")
-        tdSql.checkData(0, 0, 8)
-        tdSql.query("select count(*) from db.stb1")
-        result = tdSql.getData(0, 0)
-        assert result <= 160, "result is %s > expect: 160" % result
+        tdSql.query("show db.tables")
+        tdSql.checkRows(16)
         tdSql.query("select count(*) from db.stb2")
-        result = tdSql.getData(0, 0)
-        assert result <= 160, "result is %s > expect: 160" % result
+        tdSql.checkData(0, 0, 160)
+
+        tdSql.execute("reset query cache")
+        tdSql.query("select count(*) from db.`stb2-2`")
+        tdSql.checkData(0, 0, 160)
 
     def stop(self):
         tdSql.close()
