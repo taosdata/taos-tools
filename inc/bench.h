@@ -320,18 +320,18 @@ typedef struct BArray {
 } BArray;
 
 typedef struct {
-	uint64_t magic;
-	uint64_t custom;
-	uint64_t len;
-	uint64_t cap;
-	char data[];
+    uint64_t magic;
+    uint64_t custom;
+    uint64_t len;
+    uint64_t cap;
+    char data[];
 } dstr;
 
 static const int DS_HEADER_SIZE = sizeof(uint64_t) * 4;
 static const uint64_t MAGIC_NUMBER = 0xDCDC52545344DADA;
 
-static const int OFF_MAGIC	 = -4;
-static const int OFF_CUSTOM	 = -3;
+static const int OFF_MAGIC     = -4;
+static const int OFF_CUSTOM     = -3;
 static const int OFF_LEN     = -2;
 static const int OFF_CAP     = -1;
 
@@ -406,6 +406,7 @@ typedef struct SSuperTable_S {
     char *rollup;
     char* max_delay;
     char* watermark;
+    int   ttl;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -526,7 +527,7 @@ typedef struct SArguments_S {
     bool               terminate;
     bool               in_prompt;
 #ifdef WEBSOCKET
-	int32_t            timeout;
+    int32_t            timeout;
     char*              dsn;
     bool               websocket;
 #endif

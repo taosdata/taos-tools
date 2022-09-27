@@ -9621,7 +9621,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                     errorPrint("%s() LN%d, write to file. "
                             "try to write %zd, actual len %zd, "
                             "Errno is %d. Reason is %s.\n",
-                            __func__, __LINE__, strlen(buffer), len,
+                            __func__, __LINE__, strlen(buffer), w_len,
                             errno, strerror(errno));
                 }
             }

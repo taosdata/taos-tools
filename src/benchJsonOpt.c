@@ -607,6 +607,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->rollup = rollup->valuestring;
             }
 
+            tools_cJSON *ttl = tools_cJSON_GetObjectItem(stbInfo, "ttl");
+            if (tools_cJSON_IsNumber(ttl)) {
+                superTable->ttl = (int)ttl->valueint;
+            }
+
             tools_cJSON *max_delay_obj = tools_cJSON_GetObjectItem(stbInfo, "max_delay");
             if (tools_cJSON_IsString(max_delay_obj)) {
                 superTable->max_delay = max_delay_obj->valuestring;

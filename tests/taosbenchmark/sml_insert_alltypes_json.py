@@ -37,12 +37,10 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
-        elif "/tests/" in selfPath:
-            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
-            projPath = "/usr/local/taos/bin/"
+            projPath = selfPath[: selfPath.find("tests")]
 
+        tdLog.info("projPath: %s" % projPath)
         paths = []
         for root, dirs, files in os.walk(projPath):
             if (tool) in files:
@@ -58,31 +56,48 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
-        tdSql.query("select client_version()")
-        client_ver = "".join(tdSql.queryResult[0])
-        major_ver = client_ver.split(".")[0]
-
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/sml_interlace.json" % binPath
+
+        cmd = "%s -f ./taosbenchmark/json/sml_insert_alltypes.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
+        tdSql.query("select count(*) from db.stb")
+        tdSql.checkData(0, 0, 160)
         tdSql.execute("reset query cache")
-        if major_ver == "3":
-            tdSql.query("select count(*) from (select distinct(tbname) from db.stb1)")
-        else:
-            tdSql.query("select count(tbname) from db.stb1")
-        tdSql.checkData(0, 0, 8)
-        if major_ver == "3":
-            tdSql.query("select count(*) from (select distinct(tbname) from db.stb2)")
-        else:
-            tdSql.query("select count(tbname) from db.stb2")
-        tdSql.checkData(0, 0, 8)
-        tdSql.query("select count(*) from db.stb1")
-        result = tdSql.getData(0, 0)
-        assert result <= 160, "result is %s > expect: 160" % result
-        tdSql.query("select count(*) from db.stb2")
-        result = tdSql.getData(0, 0)
-        assert result <= 160, "result is %s > expect: 160" % result
+        tdSql.query("describe db.stb")
+        tdSql.checkRows(27)
+        tdSql.checkData(0, 1, "TIMESTAMP")
+        tdSql.checkData(1, 1, "INT")
+        tdSql.checkData(2, 1, "BIGINT")
+        tdSql.checkData(3, 1, "FLOAT")
+        tdSql.checkData(4, 1, "DOUBLE")
+        tdSql.checkData(5, 1, "SMALLINT")
+        tdSql.checkData(6, 1, "TINYINT")
+        tdSql.checkData(7, 1, "BOOL")
+        tdSql.checkData(8, 1, "NCHAR")
+        # sml nchar and binary length will auto changed in 3.0
+        # tdSql.checkData(8, 2, 32)
+        tdSql.checkData(9, 1, "INT UNSIGNED")
+        tdSql.checkData(10, 1, "BIGINT UNSIGNED")
+        tdSql.checkData(11, 1, "TINYINT UNSIGNED")
+        tdSql.checkData(12, 1, "SMALLINT UNSIGNED")
+        # binary/varchar diff in 2.x/3.x
+        # tdSql.checkData(13, 1, "BINARY")
+        # sml nchar and binary length will auto changed in 3.0
+        # tdSql.checkData(13, 2, 32)
+        tdSql.checkData(14, 1, "NCHAR")
+        tdSql.checkData(15, 1, "NCHAR")
+        tdSql.checkData(16, 1, "NCHAR")
+        tdSql.checkData(17, 1, "NCHAR")
+        tdSql.checkData(18, 1, "NCHAR")
+        tdSql.checkData(19, 1, "NCHAR")
+        tdSql.checkData(20, 1, "NCHAR")
+        tdSql.checkData(21, 1, "NCHAR")
+        tdSql.checkData(22, 1, "NCHAR")
+        tdSql.checkData(23, 1, "NCHAR")
+        tdSql.checkData(24, 1, "NCHAR")
+        tdSql.checkData(25, 1, "NCHAR")
+        tdSql.checkData(26, 1, "NCHAR")
 
     def stop(self):
         tdSql.close()
