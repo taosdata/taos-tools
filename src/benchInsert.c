@@ -175,11 +175,15 @@ skip:
     }
 
     if (stbInfo->max_delay != NULL) {
-        length += snprintf(command + length, BUFFER_SIZE - length, " max_delay %s", stbInfo->max_delay);
+        length += snprintf(command + length, BUFFER_SIZE - length, " MAX_DELAY %s", stbInfo->max_delay);
     }
 
     if (stbInfo->watermark != NULL) {
-        length += snprintf(command + length, BUFFER_SIZE - length, " watermark %s", stbInfo->watermark);
+        length += snprintf(command + length, BUFFER_SIZE - length, " WATERMARK %s", stbInfo->watermark);
+    }
+
+    if (stbInfo->ttl != 0) {
+        length += snprintf(command + length, BUFFER_SIZE - length, " TTL %d", stbInfo->ttl);
     }
 
     bool first_sma = true;
@@ -307,6 +311,11 @@ static void *createTable(void *sarg) {
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
 
+    char ttl[20] = "";
+    if (stbInfo->ttl != 0) {
+        sprintf(ttl, "TTL %d", stbInfo->ttl);
+    }
+
     for (uint64_t i = pThreadInfo->start_table_from;
          i <= pThreadInfo->end_table_to; i++) {
         if (g_arguments->terminate) {
@@ -340,11 +349,11 @@ static void *createTable(void *sarg) {
             len += snprintf(
                 pThreadInfo->buffer + len, TSDB_MAX_SQL_LEN - len,
                 stbInfo->escape_character ? "%s.`%s%" PRIu64
-                                            "` using %s.`%s` tags (%s) "
+                                            "` USING %s.`%s` TAGS (%s) %s "
                                           : "%s.%s%" PRIu64
-                                            " using %s.%s tags (%s) ",
+                                            " USING %s.%s TAGS (%s) %s ",
                 database->dbName, stbInfo->childTblPrefix, i, database->dbName,
-                stbInfo->stbName, stbInfo->tagDataBuf + i * stbInfo->lenOfTags);
+                stbInfo->stbName, stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
             batchNum++;
             if ((batchNum < stbInfo->batchCreateTableNum) &&
                 ((TSDB_MAX_SQL_LEN - len) >=
@@ -672,6 +681,10 @@ static void *syncWriteInterlace(void *sarg) {
             }
             int64_t timestamp = pThreadInfo->start_time;
             char *  tableName = stbInfo->childTblName[tableSeq];
+            char ttl[20] = "";
+            if (stbInfo->ttl != 0) {
+                sprintf(ttl, "TTL %d", stbInfo->ttl);
+            }
             switch (stbInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE: {
@@ -680,33 +693,33 @@ static void *syncWriteInterlace(void *sarg) {
                     }
                     if (stbInfo->partialColumnNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
-                            ds_add_strs(&pThreadInfo->buffer, 6,
+                            ds_add_strs(&pThreadInfo->buffer, 8,
                                         tableName,
-                                        " using `",
+                                        " USING `",
                                         stbInfo->stbName,
-                                        "` tags (",
+                                        "` TAGS (",
                                         stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
-                                        ") values ");
+                                        ") ", ttl, " VALUES ");
                         } else {
-                            ds_add_strs(&pThreadInfo->buffer, 2, tableName, " values ");
+                            ds_add_strs(&pThreadInfo->buffer, 2, tableName, " VALUES ");
                         }
                     } else {
                         if (stbInfo->autoCreateTable) {
-                            ds_add_strs(&pThreadInfo->buffer, 8,
+                            ds_add_strs(&pThreadInfo->buffer, 10,
                                         tableName,
                                         " (",
                                         stbInfo->partialColumnNameBuf,
-                                        ") using `",
+                                        ") USING `",
                                         stbInfo->stbName,
-                                        "` tags (",
+                                        "` TAGS (",
                                         stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
-                                        ") values ");
+                                        ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 4,
                                         tableName,
                                         "(",
                                         stbInfo->partialColumnNameBuf,
-                                        ") values ");
+                                        ") VALUES ");
                         }
                     }
 
@@ -720,8 +733,11 @@ static void *syncWriteInterlace(void *sarg) {
                                     stbInfo->sampleDataBuf + pos * stbInfo->lenOfCols,
                                     ") ");
                         if (ds_len(pThreadInfo->buffer) > stbInfo->max_sql_len) {
-                            errorPrint("sql buffer length (%"PRIu64") is larger than max sql length (%"PRId64")\n",
-                                       ds_len(pThreadInfo->buffer), stbInfo->max_sql_len);
+                            errorPrint("sql buffer length (%"PRIu64") "
+                                    "is larger than max sql length "
+                                    "(%"PRId64")\n",
+                                    ds_len(pThreadInfo->buffer),
+                                    stbInfo->max_sql_len);
                             goto free_of_interlace;
                         }
                         generated++;
@@ -926,6 +942,10 @@ void *syncWriteProgressive(void *sarg) {
             }
         }
 
+        char ttl[20] = "";
+        if (stbInfo->ttl != 0) {
+            sprintf(ttl, "TTL %d", stbInfo->ttl);
+        }
         for (uint64_t i = 0; i < stbInfo->insertRows;) {
             if (g_arguments->terminate) {
                 goto free_of_progressive;
@@ -938,28 +958,30 @@ void *syncWriteProgressive(void *sarg) {
                         if (stbInfo->autoCreateTable) {
                             len =
                                 snprintf(pstr, MAX_SQL_LEN,
-                                         "%s %s.%s using %s.%s tags (%s) values ",
+                                         "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ",
                                          STR_INSERT_INTO, database->dbName,
-                                         tableName, database->dbName, stbInfo->stbName,
+                                         tableName, database->dbName,
+                                         stbInfo->stbName,
                                          stbInfo->tagDataBuf +
-                                             stbInfo->lenOfTags * tableSeq);
+                                             stbInfo->lenOfTags * tableSeq, ttl);
                         } else {
                             len = snprintf(pstr, MAX_SQL_LEN,
-                                           "%s %s.%s values ", STR_INSERT_INTO,
+                                           "%s %s.%s VALUES ", STR_INSERT_INTO,
                                            database->dbName, tableName);
                         }
                     } else {
                         if (stbInfo->autoCreateTable) {
                             len = snprintf(
                                 pstr, MAX_SQL_LEN,
-                                "%s %s.%s (%s) using %s.%s tags (%s) values ",
+                                "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ",
                                 STR_INSERT_INTO, database->dbName, tableName,
-                                stbInfo->partialColumnNameBuf, database->dbName, stbInfo->stbName,
+                                stbInfo->partialColumnNameBuf,
+                                database->dbName, stbInfo->stbName,
                                 stbInfo->tagDataBuf +
-                                    stbInfo->lenOfTags * tableSeq);
+                                    stbInfo->lenOfTags * tableSeq, ttl);
                         } else {
                             len = snprintf(pstr, MAX_SQL_LEN,
-                                           "%s %s.%s (%s) values ",
+                                           "%s %s.%s (%s) VALUES ",
                                            STR_INSERT_INTO, database->dbName,
                                            tableName,
                                            stbInfo->partialColumnNameBuf);
@@ -1176,10 +1198,13 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
         stbInfo->interlaceRows = 0;
     }
 
-    if (stbInfo->interlaceRows == 0 && g_arguments->reqPerReq > stbInfo->insertRows) {
-        infoPrint("record per request (%u) is larger than insert rows (%"PRIu64")"
+    if (stbInfo->interlaceRows == 0
+            && g_arguments->reqPerReq > stbInfo->insertRows) {
+        infoPrint("record per request (%u) is larger than "
+                "insert rows (%"PRIu64")"
                   " in progressive mode, which will be set to %"PRIu64"\n",
-                  g_arguments->reqPerReq, stbInfo->insertRows, stbInfo->insertRows);
+                  g_arguments->reqPerReq, stbInfo->insertRows,
+                  stbInfo->insertRows);
         g_arguments->reqPerReq = stbInfo->insertRows;
     }
 
@@ -1193,7 +1218,8 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
 
     uint64_t tableFrom = 0;
     uint64_t ntables = stbInfo->childTblCount;
-    stbInfo->childTblName = benchCalloc(stbInfo->childTblCount, sizeof(char *), true);
+    stbInfo->childTblName = benchCalloc(stbInfo->childTblCount,
+            sizeof(char *), true);
     for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
         stbInfo->childTblName[i] = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
     }
