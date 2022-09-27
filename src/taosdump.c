@@ -7,9 +7,6 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #define _GNU_SOURCE
@@ -2800,17 +2797,9 @@ static int getTableTagValueNativeV2(
 
     debugPrint("%s() LN%d, row: %p\n", __func__, __LINE__,
             row[TSDB_SHOW_TABLES_NAME_INDEX]);
-/*  if (row[TSDB_SHOW_TABLES_NAME_INDEX] == NULL) {
-        sprintf(tableDes->cols[i].note, "%s", "NUL");
-        sprintf(tableDes->cols[i].value, "%s", "NULL");
-        taos_free_result(res);
-        return -1;
-    }
-    */
 
     for (int j = tableDes->columns;
             j < (tableDes->columns + tableDes->tags); j++) {
-        debugPrint("%s() LN%d, \n", __func__, __LINE__);
         if (NULL == row[j - tableDes->columns]) {
             strcpy(tableDes->cols[j].value, "NULL");
             strcpy(tableDes->cols[j].note , "NUL");
@@ -9072,7 +9061,7 @@ static int64_t fillTbNameArr(
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     }
 
-    infoPrint("Getting tables' number of %s...\n", stable);
+    infoPrint("Getting tables' number of super table (%s) ...\n", stable);
 
     int64_t preCount = 0;
 #ifdef WEBSOCKET
@@ -9090,6 +9079,7 @@ static int64_t fillTbNameArr(
     } else if (0 > preCount) {
         errorPrint("Failed to get count of normal table of %s!\n", stable);
     }
+    infoPrint("The number of tables of %s is %"PRId64"!\n", stable, preCount);
 
     *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
     if (NULL == *tbNameArr) {
@@ -9124,6 +9114,9 @@ static int64_t fillTbNameArr(
 #ifdef WEBSOCKET
     }
 #endif
+    infoPrint("The number of tables of %s be filled is %"PRId64"!\n",
+            stable, ntbCount);
+
     return ntbCount;
 }
 
@@ -9433,63 +9426,6 @@ static int checkParam() {
 
     return 0;
 }
-
-/*
-static bool isEmptyCommand(char *cmd) {
-  char *pchar = cmd;
-
-  while (*pchar != '\0') {
-    if (*pchar != ' ') return false;
-    pchar++;
-  }
-
-  return true;
-}
-
-static void taosReplaceCtrlChar(char *str) {
-  bool ctrlOn = false;
-  char *pstr = NULL;
-
-  for (pstr = str; *str != '\0'; ++str) {
-    if (ctrlOn) {
-      switch (*str) {
-        case 'n':
-          *pstr = '\n';
-          pstr++;
-          break;
-        case 'r':
-          *pstr = '\r';
-          pstr++;
-          break;
-        case 't':
-          *pstr = '\t';
-          pstr++;
-          break;
-        case '\\':
-          *pstr = '\\';
-          pstr++;
-          break;
-        case '\'':
-          *pstr = '\'';
-          pstr++;
-          break;
-        default:
-          break;
-      }
-      ctrlOn = false;
-    } else {
-      if (*str == '\\') {
-        ctrlOn = true;
-      } else {
-        *pstr = *str;
-        pstr++;
-      }
-    }
-  }
-
-  *pstr = '\0';
-}
-*/
 
 char *ascii_literal_list[] = {
     "\\x00", "\\x01", "\\x02", "\\x03", "\\x04", "\\x05", "\\x06", "\\x07", "\\x08", "\\t",   "\\n",   "\\x0b", "\\x0c",
@@ -10465,7 +10401,7 @@ static int64_t dumpNtbOfStbByThreads(
                 dbInfo->name, g_escapeChar, stbName, g_escapeChar);
     }
 
-    infoPrint("Getting tables' number of %s...\n", stbName);
+    infoPrint("Getting tables' number of super table (%s) ...\n", stbName);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -10477,7 +10413,7 @@ static int64_t dumpNtbOfStbByThreads(
     }
 #endif
 
-    debugPrint("%s() LN%d, %s's %s's total normal table count: %"PRId64"\n",
+    infoPrint("%s() LN%d, %s's %s's total normal table count: %"PRId64"\n",
             __func__, __LINE__, dbInfo->name, stbName, ntbCount);
     if (ntbCount <= 0) {
         return 0;
@@ -10514,7 +10450,6 @@ static int64_t dumpNtbOfStbByThreads(
         }
         exit(-1);
     }
-
 
     if (g_args.avro) {
         int ret = createMTableAvroHead(
@@ -11608,7 +11543,7 @@ static int fillDbExtraInfoV3WS(
     sprintf(command, "SELECT COUNT(table_name) FROM "
             "information_schema.ins_tables WHERE db_name='%s'", dbName);
 
-    infoPrint("Getting table(s) count of %s ...\n", dbName);
+    infoPrint("Getting table(s) count of db (%s) ...\n", dbName);
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     int32_t ws_code = ws_errno(ws_res);
@@ -11801,7 +11736,7 @@ static int fillDbExtraInfoV3Native(
             "information_schema.ins_tables WHERE db_name='%s'",
             dbName);
 
-    infoPrint("Getting table(s) count of %s ...\n", dbName);
+    infoPrint("Getting table(s) count of db (%s) ...\n", dbName);
 
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
