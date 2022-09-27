@@ -94,7 +94,7 @@ static void rand_string(char *str, int size, bool chinese) {
             //--size;
             int n;
             for (n = 0; n < size; n++) {
-                int key = abs(taosRandom()) % (int)(sizeof(charset) - 1);
+                int key = taosRandom() % (unsigned int)(sizeof(charset) - 1);
                 str[n] = charset[key];
             }
             str[n] = 0;
