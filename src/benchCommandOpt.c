@@ -187,14 +187,14 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
             sscanf(dataType, "%[^(](%[^)]", type, length);
-            field->type = taos_convert_string_to_datatype(type, 0);
+            field->type = convertStringToDatatype(type, 0);
             field->length = atoi(length);
         } else {
-            field->type = taos_convert_string_to_datatype(dataType, 0);
-            field->length = taos_convert_type_to_length(field->type);
+            field->type = convertStringToDatatype(dataType, 0);
+            field->length = convertTypeToLength(field->type);
         }
-        field->min = taos_convert_datatype_to_default_min(field->type);
-        field->max = taos_convert_datatype_to_default_max(field->type);
+        field->min = convertDatatypeToDefaultMin(field->type);
+        field->max = convertDatatypeToDefaultMax(field->type);
         tstrncpy(field->name, isTag?"t0":"c0", TSDB_COL_NAME_LEN);
     } else {
         dup_str = strdup(dataType);
@@ -210,14 +210,14 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
                 char type[DATATYPE_BUFF_LEN];
                 char length[BIGINT_BUFF_LEN];
                 sscanf(token, "%[^(](%[^)]", type, length);
-                field->type = taos_convert_string_to_datatype(type, 0);
+                field->type = convertStringToDatatype(type, 0);
                 field->length = atoi(length);
             } else {
-                field->type = taos_convert_string_to_datatype(token, 0);
-                field->length = taos_convert_type_to_length(field->type);
+                field->type = convertStringToDatatype(token, 0);
+                field->length = convertTypeToLength(field->type);
             }
-            field->max = taos_convert_datatype_to_default_max(field->type);
-            field->min = taos_convert_datatype_to_default_min(field->type);
+            field->max = convertDatatypeToDefaultMax(field->type);
+            field->min = convertDatatypeToDefaultMin(field->type);
             snprintf(field->name, TSDB_COL_NAME_LEN, isTag?"t%d":"c%d", index);
             index++;
             token = strsep(&running, ",");
@@ -716,8 +716,8 @@ void modify_argument() {
             col->type = TSDB_DATA_TYPE_INT;
             col->length = sizeof(int32_t);
             snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", i);
-            col->min = taos_convert_datatype_to_default_min(col->type);
-            col->max = taos_convert_datatype_to_default_max(col->type);
+            col->min = convertDatatypeToDefaultMin(col->type);
+            col->max = convertDatatypeToDefaultMax(col->type);
         }
     }
 }

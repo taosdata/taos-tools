@@ -61,12 +61,12 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             Field* tag = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(stbInfo->tags, tag);
             tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
-            tag->type = taos_convert_string_to_datatype(
+            tag->type = convertStringToDatatype(
                     (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
             tag->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            tag->min = taos_convert_datatype_to_default_min(tag->type);
-            tag->max = taos_convert_datatype_to_default_max(tag->type);
+            tag->min = convertDatatypeToDefaultMin(tag->type);
+            tag->max = convertDatatypeToDefaultMax(tag->type);
             tstrncpy(tag->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                      lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
@@ -74,12 +74,12 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
             Field * col = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(stbInfo->cols, col);
             col = benchArrayGet(stbInfo->cols, stbInfo->cols->size - 1);
-            col->type = taos_convert_string_to_datatype(
+            col->type = convertStringToDatatype(
                     (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
             col->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            col->min = taos_convert_datatype_to_default_min(col->type);
-            col->max = taos_convert_datatype_to_default_max(col->type);
+            col->min = convertDatatypeToDefaultMin(col->type);
+            col->max = convertDatatypeToDefaultMax(col->type);
             tstrncpy(col->name,
                      (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
                      lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
@@ -101,10 +101,10 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         if (col->type == TSDB_DATA_TYPE_BINARY ||
                 col->type == TSDB_DATA_TYPE_NCHAR){
             len += snprintf(cols + len, col_buffer_len - len, ",%s %s(%d)", col->name,
-                            taos_convert_datatype_to_string(col->type), col->length);
+                            convertDatatypeToString(col->type), col->length);
         } else {
             len += snprintf(cols + len, col_buffer_len - len, ",%s %s",col->name,
-                            taos_convert_datatype_to_string(col->type));
+                            convertDatatypeToString(col->type));
         }
     }
 
@@ -132,13 +132,13 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         if (tag->type == TSDB_DATA_TYPE_BINARY ||
                 tag->type == TSDB_DATA_TYPE_NCHAR) {
             len += snprintf(tags + len, tag_buffer_len - len, "%s %s(%d),", tag->name,
-                            taos_convert_datatype_to_string(tag->type), tag->length);
+                            convertDatatypeToString(tag->type), tag->length);
         } else if (tag->type == TSDB_DATA_TYPE_JSON) {
             len += snprintf(tags + len, tag_buffer_len - len, "%s json", tag->name);
             goto skip;
         } else {
             len += snprintf(tags + len, tag_buffer_len - len, "%s %s,", tag->name,
-                            taos_convert_datatype_to_string(tag->type));
+                            convertDatatypeToString(tag->type));
         }
     }
     len -= 1;
@@ -1171,6 +1171,203 @@ free_of_progressive:
     return NULL;
 }
 
+static int parseSamplefileToStmtBatch(
+        SSuperTable* stbInfo)
+{
+    // char *sampleDataBuf = (stbInfo)?
+    //    stbInfo->sampleDataBuf:g_sampleDataBuf;
+    int32_t columnCount;
+    if (stbInfo) {
+        columnCount = stbInfo->cols->size;
+    } else {
+        SDataBase *db = benchArrayGet(g_arguments->databases, 0);
+        ASSERT(db);
+        stbInfo = benchArrayGet(db->superTbls, 0);
+        ASSERT(stbInfo);
+        columnCount = stbInfo->cols->size;
+    }
+
+    char *sampleBindBatchArray = NULL;
+
+    stbInfo->sampleBindBatchArray = calloc(1, sizeof(uintptr_t *) * columnCount);
+    sampleBindBatchArray = stbInfo->sampleBindBatchArray;
+    ASSERT(sampleBindBatchArray);
+
+    for (int c = 0; c < columnCount; c++) {
+        Field *col = benchArrayGet(stbInfo->cols, c);
+        char dataType = col->type;
+
+        char *tmpP = NULL;
+
+        switch(dataType) {
+            case TSDB_DATA_TYPE_INT:
+            case TSDB_DATA_TYPE_UINT:
+                tmpP = calloc(1, sizeof(int) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_TINYINT:
+            case TSDB_DATA_TYPE_UTINYINT:
+                tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_SMALLINT:
+            case TSDB_DATA_TYPE_USMALLINT:
+                tmpP = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_BIGINT:
+            case TSDB_DATA_TYPE_UBIGINT:
+                tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_BOOL:
+                tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_FLOAT:
+                tmpP = calloc(1, sizeof(float) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_DOUBLE:
+                tmpP = calloc(1, sizeof(double) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_NCHAR:
+                tmpP = calloc(1, g_arguments->prepared_rand * col->length);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            case TSDB_DATA_TYPE_TIMESTAMP:
+                tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
+                assert(tmpP);
+                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                break;
+
+            default:
+                errorPrint("Unknown data type: %s\n",
+                        convertDatatypeToString(dataType));
+                exit(EXIT_FAILURE);
+        }
+    }
+
+    char *sampleDataBuf = stbInfo->sampleDataBuf;
+    int64_t lenOfOneRow = stbInfo->lenOfCols;
+
+    for (int i=0; i < g_arguments->prepared_rand; i++) {
+        int cursor = 0;
+
+        for (int c = 0; c < columnCount; c++) {
+            Field *col = benchArrayGet(stbInfo->cols, c);
+            char dataType = col->type;
+            char *restStr = sampleDataBuf
+                + lenOfOneRow * i + cursor;
+            int lengthOfRest = strlen(restStr);
+
+            int index = 0;
+            for (index = 0; index < lengthOfRest; index ++) {
+                if (restStr[index] == ',') {
+                    break;
+                }
+            }
+
+            char *tmpStr = calloc(1, index + 1);
+            if (NULL == tmpStr) {
+                errorPrint("%s() LN%d, Failed to allocate %d bind buffer\n",
+                        __func__, __LINE__, index + 1);
+                return -1;
+            }
+
+            strncpy(tmpStr, restStr, index);
+            cursor += index + 1; // skip ',' too
+            char *tmpP;
+
+            switch(dataType) {
+                case TSDB_DATA_TYPE_INT:
+                case TSDB_DATA_TYPE_UINT:
+                    *((int32_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(int32_t)*i)) =
+                        atoi(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_FLOAT:
+                    *(float*)(((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(float)*i)) =
+                        (float)atof(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_DOUBLE:
+                    *(double*)(((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(double)*i)) =
+                        atof(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_TINYINT:
+                case TSDB_DATA_TYPE_UTINYINT:
+                    *((int8_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(int8_t)*i)) =
+                        (int8_t)atoi(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_SMALLINT:
+                case TSDB_DATA_TYPE_USMALLINT:
+                    *((int16_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(int16_t)*i)) =
+                        (int16_t)atoi(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_BIGINT:
+                case TSDB_DATA_TYPE_UBIGINT:
+                    *((int64_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(int64_t)*i)) =
+                        (int64_t)atol(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_BOOL:
+                    *((int8_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(int8_t)*i)) =
+                        (int8_t)atoi(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_TIMESTAMP:
+                    *((int64_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
+                                    +sizeof(char*)*c)+sizeof(int64_t)*i)) =
+                        (int64_t)atol(tmpStr);
+                    break;
+
+                case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_NCHAR:
+                    tmpP = (char *)(*(uintptr_t*)(sampleBindBatchArray
+                            +sizeof(char*)*c));
+                    strcpy(tmpP + i * col->length, tmpStr);
+                    break;
+
+                default:
+                    break;
+            }
+
+            free(tmpStr);
+        }
+    }
+
+    return 0;
+}
+
 static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo) {
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE) &&
         !stbInfo->use_metric) {
@@ -1392,6 +1589,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 pThreadInfo->bindParams = benchCalloc(
                     1, sizeof(TAOS_MULTI_BIND) * (stbInfo->cols->size + 1), true);
                 pThreadInfo->is_null = benchCalloc(1, g_arguments->reqPerReq, true);
+                parseSamplefileToStmtBatch(stbInfo);
 
                 break;
             }

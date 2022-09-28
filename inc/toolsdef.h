@@ -132,4 +132,13 @@ do {                                                               \
   *(__pN)=strlen(*(__pLine));                                      \
 } while(0)
 
+#ifdef RELEASE
+#define ASSERT(x)   do { \
+    if (!(x)) errorPrint("%s() LN%d, %s\n", \
+            __func__, __LINE__, "assertion");} while(0)
+#else
+#include <assert.h>
+#define ASSERT(x)   do { assert(x); } while(0)
+#endif // RELEASE
+
 #endif // __TOOLSTYPES_H_

@@ -842,7 +842,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             param->buffer = col->data;
             param->buffer_length = col->length;
             debugPrint("col[%d]: type: %s, len: %d\n", c,
-                       taos_convert_datatype_to_string(data_type),
+                       convertDatatypeToString(data_type),
                        col->length);
         }
         param->buffer_type = data_type;
@@ -945,7 +945,7 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                 tools_cJSON_AddNumberToObject(
                         tagObj, "value",
                         tag->min + (taosRandom() % (tag->max - tag->min)));
-                tools_cJSON_AddStringToObject(tagObj, "type", taos_convert_datatype_to_string(tag->type));
+                tools_cJSON_AddStringToObject(tagObj, "type", convertDatatypeToString(tag->type));
                 break;
         }
         tools_cJSON_AddItemToObject(tags, tagName, tagObj);
@@ -1009,7 +1009,7 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbI
                     value, "value",
                     (double)col->min +
                     (taosRandom() % (col->max - col->min)));
-            tools_cJSON_AddStringToObject(value, "type", taos_convert_datatype_to_string(col->type));
+            tools_cJSON_AddStringToObject(value, "type", convertDatatypeToString(col->type));
             break;
     }
     tools_cJSON_AddItemToObject(record, "timestamp", ts);
