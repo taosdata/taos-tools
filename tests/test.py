@@ -18,6 +18,7 @@ import getopt
 import subprocess
 import time
 from fabric2 import Connection
+
 sys.path.append("./pytest")
 from util.log import *
 from util.dnodes import *
@@ -37,70 +38,84 @@ if __name__ == "__main__":
     stop = 0
     restart = False
     windows = 0
-    opts, args = getopt.gnu_getopt(sys.argv[1:], 'f:p:m:l:scghrw', [
-        'file=', 'path=', 'master', 'logSql', 'stop', 'cluster', 'valgrind',
-        'help', 'windows'])
+    opts, args = getopt.gnu_getopt(
+        sys.argv[1:],
+        "f:p:m:l:scghrw",
+        [
+            "file=",
+            "path=",
+            "master",
+            "logSql",
+            "stop",
+            "cluster",
+            "valgrind",
+            "help",
+            "windows",
+        ],
+    )
     for key, value in opts:
-        if key in ['-h', '--help']:
-            tdLog.printNoPrefix(
-                'A collection of test cases written using Python')
-            tdLog.printNoPrefix('-f Name of test case file written by Python')
-            tdLog.printNoPrefix('-p Deploy Path for Simulator')
-            tdLog.printNoPrefix('-m Master Ip for Simulator')
-            tdLog.printNoPrefix('-l <True:False> logSql Flag')
-            tdLog.printNoPrefix('-s stop All dnodes')
-            tdLog.printNoPrefix('-c Test Cluster Flag')
-            tdLog.printNoPrefix('-g valgrind Test Flag')
-            tdLog.printNoPrefix('-r taosd restart test')
-            tdLog.printNoPrefix('-w taos on windows')
+        if key in ("-h", "--help"):
+            tdLog.printNoPrefix("A collection of test cases written using Python")
+            tdLog.printNoPrefix("-f Name of test case file written by Python")
+            tdLog.printNoPrefix("-p Deploy Path for Simulator")
+            tdLog.printNoPrefix("-m Master Ip for Simulator")
+            tdLog.printNoPrefix("-l <True:False> logSql Flag")
+            tdLog.printNoPrefix("-s stop All dnodes")
+            tdLog.printNoPrefix("-c Test Cluster Flag")
+            tdLog.printNoPrefix("-g valgrind Test Flag")
+            tdLog.printNoPrefix("-r taosd restart test")
+            tdLog.printNoPrefix("-w taos on windows")
             sys.exit(0)
 
-        if key in ['-r', '--restart']:
+        if key in ("-r", "--restart"):
             restart = True
 
-        if key in ['-f', '--file']:
+        if key in ("-f", "--file"):
             fileName = value
 
-        if key in ['-p', '--path']:
+        if key in ("-p", "--path"):
             deployPath = value
 
-        if key in ['-m', '--master']:
+        if key in ("-m", "--master"):
             masterIp = value
 
-        if key in ['-l', '--logSql']:
-            if (value.upper() == "TRUE"):
+        if key in ("-l", "--logSql"):
+            if value.upper() == "TRUE":
                 logSql = True
-            elif (value.upper() == "FALSE"):
+            elif value.upper() == "FALSE":
                 logSql = False
             else:
                 tdLog.printNoPrefix("logSql value %s is invalid" % logSql)
                 sys.exit(0)
 
-        if key in ['-c', '--cluster']:
+        if key in ("-c", "--cluster"):
             testCluster = True
 
-        if key in ['-g', '--valgrind']:
+        if key in ("-g", "--valgrind"):
             valgrind = 1
 
-        if key in ['-s', '--stop']:
+        if key in ("-s", "--stop"):
             stop = 1
 
-        if key in ['-w', '--windows']:
+        if key in ("-w", "--windows"):
             windows = 1
 
-    if (stop != 0):
-        if (valgrind == 0):
+    if stop != 0:
+        if valgrind == 0:
             toBeKilled = "taosd"
         else:
             toBeKilled = "valgrind.bin"
 
-        killCmd = "ps -ef|grep -w %s| grep -v grep | awk '{print $2}' | \
-                xargs kill -TERM > /dev/null 2>&1" % toBeKilled
+        killCmd = (
+            "ps -ef|grep -w %s| grep -v grep | awk '{print $2}' | \
+                xargs kill -TERM > /dev/null 2>&1"
+            % toBeKilled
+        )
 
         psCmd = "ps -ef|grep -w %s| grep -v grep | awk '{print $2}'" % toBeKilled
         processID = subprocess.check_output(psCmd, shell=True)
 
-        while(processID):
+        while processID:
             os.system(killCmd)
             time.sleep(1)
             processID = subprocess.check_output(psCmd, shell=True)
@@ -117,10 +132,10 @@ if __name__ == "__main__":
         if valgrind:
             time.sleep(2)
 
-        tdLog.info('stop All dnodes')
+        tdLog.info("stop All dnodes")
 
     if masterIp == "":
-        host = '127.0.0.1'
+        host = "127.0.0.1"
     else:
         host = masterIp
 
@@ -132,11 +147,10 @@ if __name__ == "__main__":
         td_clinet.deploy()
         remote_conn = Connection("root@%s" % host)
         with remote_conn.cd(
-                '/var/lib/jenkins/workspace/TDinternal/community/tests/pytest'):
+            "/var/lib/jenkins/workspace/TDinternal/community/tests/pytest"
+        ):
             remote_conn.run("python3 ./test.py")
-        conn = taos.connect(
-            host="%s" % (host),
-            config=td_clinet.cfgDir)
+        conn = taos.connect(host="%s" % (host), config=td_clinet.cfgDir)
         tdCases.runOneWindows(conn, fileName)
     else:
         tdDnodes.init(deployPath)
@@ -144,12 +158,10 @@ if __name__ == "__main__":
         tdDnodes.setValgrind(valgrind)
         tdDnodes.stopAll()
         is_test_framework = 0
-        key_word = 'tdCases.addLinux'
-        try:
+        key_word = "tdCases.addLinux"
+        with suppress(BaseException):
             if key_word in open(fileName).read():
                 is_test_framework = 1
-        except BaseException:
-            pass
         if is_test_framework:
             moduleName = fileName.replace(".py", "").replace("/", ".")
             uModule = importlib.import_module(moduleName)
@@ -174,9 +186,7 @@ if __name__ == "__main__":
                 tdCases.runOneCluster(fileName)
         else:
             tdLog.info("Procedures for testing self-deployment")
-            conn = taos.connect(
-                host,
-                config=tdDnodes.getSimCfgPath())
+            conn = taos.connect(host, config=tdDnodes.getSimCfgPath())
             if fileName == "all":
                 tdCases.runAllLinux(conn)
             else:
@@ -191,9 +201,7 @@ if __name__ == "__main__":
                     tdDnodes.start(1)
                     time.sleep(1)
                     conn = taos.connect(host, config=tdDnodes.getSimCfgPath())
-                    tdLog.info(
-                        "Procedures for tdengine deployed in %s" %
-                        (host))
+                    tdLog.info("Procedures for tdengine deployed in %s" % (host))
                     tdLog.info("query test after taosd restart")
                     tdCases.runOneLinux(conn, sp[0] + "_" + "restart.py")
                 else:
