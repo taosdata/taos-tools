@@ -21,10 +21,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         [TD-11510] taosBenchmark test cases
-        '''
-        return
+        """
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -33,23 +32,23 @@ class TDTestCase:
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
-        elif ("src" in selfPath):
-            projPath = selfPath[:selfPath.find("src")]
-        elif ("/tools/" in selfPath):
-            projPath = selfPath[:selfPath.find("/tools/")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             tdLog.exit("taosBenchmark not found!")
             return
         else:
@@ -58,7 +57,10 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -F 7 -H 9 -n 10 -t 2 -x -y -M -C -d newtest -l 5 -A binary,nchar\(31\) -b tinyint,binary\(23\),bool,nchar -w 29 -E -m $%%^*" %binPath
+        cmd = (
+            "%s -F 7 -H 9 -n 10 -t 2 -x -y -M -C -d newtest -l 5 -A binary,nchar\(31\) -b tinyint,binary\(23\),bool,nchar -w 29 -E -m $%%^*"
+            % binPath
+        )
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use newtest")
@@ -69,7 +71,7 @@ class TDTestCase:
         tdSql.checkData(0, 1, "TIMESTAMP")
         tdSql.checkData(1, 1, "TINYINT")
         # 2.x is binary and 3.x is varchar
-        #tdSql.checkData(2, 1, "BINARY")
+        # tdSql.checkData(2, 1, "BINARY")
         tdSql.checkData(2, 2, 23)
         tdSql.checkData(3, 1, "BOOL")
         tdSql.checkData(4, 1, "NCHAR")
@@ -86,7 +88,7 @@ class TDTestCase:
         tdSql.checkRows(2)
         tdSql.execute("drop database if exists newtest")
 
-        cmd = "%s -F 7 -n 10 -t 2 -y -M -I stmt" %binPath
+        cmd = "%s -F 7 -n 10 -t 2 -y -M -I stmt" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("show test.tables")
@@ -94,55 +96,69 @@ class TDTestCase:
         tdSql.query("select count(*) from test.meters")
         tdSql.checkData(0, 0, 20)
 
-        cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 2>&1 | grep sleep | wc -l" %binPath
+        cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 2>&1 | grep sleep | wc -l" % binPath
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        if (int(sleepTimes) != 2):
+        if int(sleepTimes) != 2:
             tdLog.exit("expected sleep times 2, actual %d" % int(sleepTimes))
 
-        cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -r 1 2>&1 | grep sleep | wc -l" %binPath
+        cmd = (
+            "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -r 1 2>&1 | grep sleep | wc -l" % binPath
+        )
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        if (int(sleepTimes) != 3):
+        if int(sleepTimes) != 3:
             tdLog.exit("expected sleep times 3, actual %d" % int(sleepTimes))
 
-        cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -I sml 2>&1 | grep sleep | wc -l" %binPath
+        cmd = (
+            "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -I sml 2>&1 | grep sleep | wc -l"
+            % binPath
+        )
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        if (int(sleepTimes) != 2):
+        if int(sleepTimes) != 2:
             tdLog.exit("expected sleep times 2, actual %d" % int(sleepTimes))
 
-        cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -r 1 -I sml 2>&1 | grep sleep | wc -l" %binPath
+        cmd = (
+            "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -r 1 -I sml 2>&1 | grep sleep | wc -l"
+            % binPath
+        )
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        if (int(sleepTimes) != 3):
+        if int(sleepTimes) != 3:
             tdLog.exit("expected sleep times 3, actual %d" % int(sleepTimes))
 
-        cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -I stmt 2>&1 | grep sleep | wc -l" %binPath
+        cmd = (
+            "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -I stmt 2>&1 | grep sleep | wc -l"
+            % binPath
+        )
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        if (int(sleepTimes) != 2):
+        if int(sleepTimes) != 2:
             tdLog.exit("expected sleep times 2, actual %d" % int(sleepTimes))
 
-        cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -r 1 -I stmt 2>&1 | grep sleep | wc -l" %binPath
+        cmd = (
+            "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 -r 1 -I stmt 2>&1 | grep sleep | wc -l"
+            % binPath
+        )
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        if (int(sleepTimes) != 3):
+        if int(sleepTimes) != 3:
             tdLog.exit("expected sleep times 3, actual %d" % int(sleepTimes))
 
-        cmd = "%s -S 17 -n 3 -t 1 -y -x" %binPath
+        cmd = "%s -S 17 -n 3 -t 1 -y -x" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("select last(ts) from test.meters")
-        tdSql.checkData(0, 0 , "2017-07-14 10:40:00.034")
+        tdSql.checkData(0, 0, "2017-07-14 10:40:00.034")
 
-        cmd = "%s -N -I taosc -t 11 -n 11 -y -x -E" %binPath
+        cmd = "%s -N -I taosc -t 11 -n 11 -y -x -E" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
@@ -153,7 +169,7 @@ class TDTestCase:
         tdSql.query("select count(*) from `d10`")
         tdSql.checkData(0, 0, 11)
 
-        cmd = "%s -N -I rest -t 11 -n 11 -y -x" %binPath
+        cmd = "%s -N -I rest -t 11 -n 11 -y -x" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
@@ -164,7 +180,7 @@ class TDTestCase:
         tdSql.query("select count(*) from d10")
         tdSql.checkData(0, 0, 11)
 
-        cmd = "%s -N -I stmt -t 11 -n 11 -y -x" %binPath
+        cmd = "%s -N -I stmt -t 11 -n 11 -y -x" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
@@ -175,102 +191,102 @@ class TDTestCase:
         tdSql.query("select count(*) from d10")
         tdSql.checkData(0, 0, 11)
 
-        cmd = "%s -N -I sml -y" %binPath
+        cmd = "%s -N -I sml -y" % binPath
         tdLog.info("%s" % cmd)
-        assert(os.system("%s" % cmd) !=0 )
+        assert os.system("%s" % cmd) != 0
 
-        cmd = "%s -n 1 -t 1 -y -b bool" %binPath
+        cmd = "%s -n 1 -t 1 -y -b bool" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "BOOL")
 
-        cmd = "%s -n 1 -t 1 -y -b tinyint" %binPath
+        cmd = "%s -n 1 -t 1 -y -b tinyint" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "TINYINT")
 
-        cmd = "%s -n 1 -t 1 -y -b utinyint" %binPath
+        cmd = "%s -n 1 -t 1 -y -b utinyint" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "TINYINT UNSIGNED")
 
-        cmd = "%s -n 1 -t 1 -y -b smallint" %binPath
+        cmd = "%s -n 1 -t 1 -y -b smallint" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "SMALLINT")
 
-        cmd = "%s -n 1 -t 1 -y -b usmallint" %binPath
+        cmd = "%s -n 1 -t 1 -y -b usmallint" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "SMALLINT UNSIGNED")
 
-        cmd = "%s -n 1 -t 1 -y -b int" %binPath
+        cmd = "%s -n 1 -t 1 -y -b int" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "INT")
 
-        cmd = "%s -n 1 -t 1 -y -b uint" %binPath
+        cmd = "%s -n 1 -t 1 -y -b uint" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "INT UNSIGNED")
 
-        cmd = "%s -n 1 -t 1 -y -b bigint" %binPath
+        cmd = "%s -n 1 -t 1 -y -b bigint" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "BIGINT")
 
-        cmd = "%s -n 1 -t 1 -y -b ubigint" %binPath
+        cmd = "%s -n 1 -t 1 -y -b ubigint" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "BIGINT UNSIGNED")
 
-        cmd = "%s -n 1 -t 1 -y -b timestamp" %binPath
+        cmd = "%s -n 1 -t 1 -y -b timestamp" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "TIMESTAMP")
 
-        cmd = "%s -n 1 -t 1 -y -b float" %binPath
+        cmd = "%s -n 1 -t 1 -y -b float" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "FLOAT")
 
-        cmd = "%s -n 1 -t 1 -y -b double" %binPath
+        cmd = "%s -n 1 -t 1 -y -b double" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "DOUBLE")
 
-        cmd = "%s -n 1 -t 1 -y -b nchar" %binPath
+        cmd = "%s -n 1 -t 1 -y -b nchar" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(1, 1, "NCHAR")
 
-        cmd = "%s -n 1 -t 1 -y -b nchar\(7\)" %binPath
+        cmd = "%s -n 1 -t 1 -y -b nchar\(7\)" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
@@ -292,23 +308,20 @@ class TDTestCase:
         # tdSql.query("describe test.meters")
         # tdSql.checkData(1, 1, "BINARY")
 
-        cmd = "%s -n 1 -t 1 -y -A json\(7\)" %binPath
+        cmd = "%s -n 1 -t 1 -y -A json\(7\)" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe test.meters")
         tdSql.checkData(4, 1, "JSON")
 
-        cmd = "%s -n 1 -t 1 -y -b int,x" %binPath
+        cmd = "%s -n 1 -t 1 -y -b int,x" % binPath
         tdLog.info("%s" % cmd)
-        assert(os.system("%s" % cmd) != 0)
+        assert os.system("%s" % cmd) != 0
 
-        cmd = "%s -n 1 -t 1 -y -A int,json" %binPath
+        cmd = "%s -n 1 -t 1 -y -A int,json" % binPath
         tdLog.info("%s" % cmd)
-        assert(os.system("%s" % cmd) != 0)
-
-
-
+        assert os.system("%s" % cmd) != 0
 
     def stop(self):
         tdSql.close()

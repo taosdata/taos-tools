@@ -23,7 +23,6 @@ class TDTestCase:
         """
         case1<sdsang>: [TD-12526] taosdump supports binary
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -72,7 +71,7 @@ class TDTestCase:
         tdSql.execute("create table t2 using st tags(NULL)")
         tdSql.execute("insert into t2 values(1640000000000, NULL, NULL)")
 
-        binPath = self.getPath("taosdump")
+        binPath = self.getPath()
         if binPath == "":
             tdLog.exit("taosdump not found!")
         else:
@@ -114,7 +113,7 @@ class TDTestCase:
         dbresult = tdSql.queryResult
         print(dbresult)
         for i in range(len(dbresult)):
-            assert (dbresult[i][0] == "t1") or (dbresult[i][0] == "t2")
+            assert dbresult[i][0]("t1", "t2")
 
         tdSql.query("select distinct(btag) from st where tbname = 't1'")
         tdSql.checkRows(1)

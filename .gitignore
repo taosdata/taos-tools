@@ -68,3 +68,4 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+.mypy_cache/
