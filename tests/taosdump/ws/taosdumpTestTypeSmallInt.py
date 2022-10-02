@@ -23,7 +23,6 @@ class TDTestCase:
         """
         case1<sdsang>: [TD-12526] taosdump supports small int
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)

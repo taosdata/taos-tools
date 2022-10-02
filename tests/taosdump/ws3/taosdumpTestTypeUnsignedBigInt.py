@@ -23,7 +23,6 @@ class TDTestCase:
         """
         case1<sdsang>: [TD-12655] taosdump supports unsigned big int
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)

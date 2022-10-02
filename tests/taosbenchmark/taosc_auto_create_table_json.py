@@ -22,7 +22,6 @@ class TDTestCase:
         """
         [TD-11510] taosBenchmark test cases
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -110,13 +109,13 @@ class TDTestCase:
 
         if major_ver == "3":
             tdSql.query(
-            "select `ttl` from information_schema.ins_tables where db_name = 'db' and table_name like 'stb\_%' limit 1"
-        )
+                "select `ttl` from information_schema.ins_tables where db_name = 'db' and table_name like 'stb\_%' limit 1"
+            )
             tdSql.checkData(0, 0, 360)
 
             tdSql.query(
-            "select `ttl` from information_schema.ins_tables where db_name = 'db' and table_name like 'stb1-%' limit 1"
-        )
+                "select `ttl` from information_schema.ins_tables where db_name = 'db' and table_name like 'stb1-%' limit 1"
+            )
             tdSql.checkData(0, 0, 180)
 
     def stop(self):

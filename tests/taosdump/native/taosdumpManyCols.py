@@ -23,7 +23,6 @@ class TDTestCase:
         """
         case1<sdsang>: [TS-1762] taosdump with many columns
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -91,7 +90,7 @@ class TDTestCase:
             ins_sql += ")"
             tdSql.execute(ins_sql)
 
-        binPath = self.getPath("taosdump")
+        binPath = self.getPath()
         if binPath == "":
             tdLog.exit("taosdump not found!")
         else:

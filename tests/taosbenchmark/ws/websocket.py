@@ -20,10 +20,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         [TD-17079] taosBenchmark test cloud
-        '''
-        return
+        """
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -32,23 +31,23 @@ class TDTestCase:
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
-        elif ("src" in selfPath):
-            projPath = selfPath[:selfPath.find("src")]
-        elif ("/tools/" in selfPath):
-            projPath = selfPath[:selfPath.find("/tools/")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
+        if len(paths) == 0:
             tdLog.exit("taosBenchmark not found!")
             return
         else:
@@ -58,15 +57,12 @@ class TDTestCase:
     def run(self):
         binPath = self.getPath()
         cmd = "%s -t 1 -n 1 -y -W http://localhost:6041 -D 30" % binPath
-        tdLog.info("%s" %cmd)
-        os.system("%s" %cmd)
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.execute("use test")
         tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0,0,1)
-
-
-
+        tdSql.checkData(0, 0, 1)
 
     def stop(self):
         tdSql.close()

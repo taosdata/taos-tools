@@ -22,7 +22,6 @@ class TDTestCase:
         """
         [TD-11510] taosBenchmark test cases
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -156,9 +155,10 @@ class TDTestCase:
         tdSql.query("select count(*) from db.stb where t13 = 'b1' or t13 = 'b2'")
         tdSql.checkData(0, 0, 160)
 
-
         if major_ver == "3":
-            tdSql.query("select `ttl` from information_schema.ins_tables where db_name = 'db' limit 1")
+            tdSql.query(
+                "select `ttl` from information_schema.ins_tables where db_name = 'db' limit 1"
+            )
             tdSql.checkData(0, 0, 360)
 
     def stop(self):
