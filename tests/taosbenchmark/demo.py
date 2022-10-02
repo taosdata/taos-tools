@@ -23,7 +23,6 @@ class TDTestCase:
         """
         [TD-13823] taosBenchmark test cases
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)

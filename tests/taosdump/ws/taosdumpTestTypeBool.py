@@ -23,7 +23,6 @@ class TDTestCase:
         """
         case1<sdsang>: [TD-12526] taosdump supports bool
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -71,7 +70,7 @@ class TDTestCase:
         tdSql.execute("create table t3 using st tags(NULL)")
         tdSql.execute("insert into t3 values(1640000000000, NULL)")
 
-        binPath = self.getPath("taosdump")
+        binPath = self.getPath()
         if binPath == "":
             tdLog.exit("taosdump not found!")
         else:

@@ -23,7 +23,6 @@ class TDTestCase:
         """
         case1<sdsang>: [TD-12362] taosdump supports JSON
         """
-        return
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
@@ -75,7 +74,7 @@ class TDTestCase:
 
         #        sys.exit(1)
 
-        binPath = self.getPath("taosdump")
+        binPath = self.getPath()
         if binPath == "":
             tdLog.exit("taosdump not found!")
         else:
