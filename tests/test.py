@@ -17,6 +17,7 @@ import sys
 import getopt
 import subprocess
 import time
+from contextlib import suppress
 from fabric2 import Connection
 
 sys.path.append("./pytest")
