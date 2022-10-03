@@ -572,10 +572,12 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
     switch (iface) {
         case TAOSC_IFACE:
+            debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
             break;
 
         case REST_IFACE:
+            debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code =  postProceSql(pThreadInfo->buffer,
                                   database->dbName,
                                   database->precision,
@@ -592,10 +594,11 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                            "failed to execute insert statement. reason: %s\n",
                            taos_stmt_errstr(pThreadInfo->conn->stmt));
                 code = -1;
-                break;
+            } else {
+                code = 0;
             }
-            code = 0;
             break;
+
         case SML_IFACE:
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
@@ -615,6 +618,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     pThreadInfo->lines[0], taos_errstr(res));
             }
             break;
+
         case SML_REST_IFACE: {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
@@ -919,12 +923,12 @@ void *syncWriteProgressive(void *sarg) {
     int64_t   endTs;
 
     char *  pstr = pThreadInfo->buffer;
-    int32_t pos = 0;
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
          tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
         char *   tableName = stbInfo->childTblName[tableSeq];
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
+        int32_t pos = 0;
         if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
@@ -935,7 +939,7 @@ void *syncWriteProgressive(void *sarg) {
                 goto free_of_progressive;
             }
 
-            if (stmt_prepare(stbInfo, pThreadInfo->conn->stmt, tableSeq)) {
+            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tableSeq)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
@@ -1173,7 +1177,7 @@ free_of_progressive:
     return NULL;
 }
 
-static int parseSamplefileToStmtBatch(
+static int parseBufferToStmtBatch(
         SSuperTable* stbInfo)
 {
     // char *sampleDataBuf = (stbInfo)?
@@ -1265,12 +1269,13 @@ static int parseSamplefileToStmtBatch(
     char *sampleDataBuf = stbInfo->sampleDataBuf;
     int64_t lenOfOneRow = stbInfo->lenOfCols;
 
+    if (stbInfo->useSampleTs) {
+        columnCount += 1; // for skiping first column
+    }
     for (int i=0; i < g_arguments->prepared_rand; i++) {
         int cursor = 0;
 
         for (int c = 0; c < columnCount; c++) {
-            Field *col = benchArrayGet(stbInfo->cols, c);
-            char dataType = col->type;
             char *restStr = sampleDataBuf
                 + lenOfOneRow * i + cursor;
             int lengthOfRest = strlen(restStr);
@@ -1282,16 +1287,22 @@ static int parseSamplefileToStmtBatch(
                 }
             }
 
+            cursor += index + 1; // skip ',' too
+            if ((0 == c) && stbInfo->useSampleTs) {
+                continue;
+            }
+
             char *tmpStr = calloc(1, index + 1);
             if (NULL == tmpStr) {
                 errorPrint("%s() LN%d, Failed to allocate %d bind buffer\n",
                         __func__, __LINE__, index + 1);
                 return -1;
             }
+            Field *col = benchArrayGet(stbInfo->cols,
+                    (stbInfo->useSampleTs?c-1:c));
+            char dataType = col->type;
 
             strncpy(tmpStr, restStr, index);
-            cursor += index + 1; // skip ',' too
-            char *tmpP;
 
             switch(dataType) {
                 case TSDB_DATA_TYPE_INT:
@@ -1332,7 +1343,15 @@ static int parseSamplefileToStmtBatch(
 
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR:
-                    strcpy((char *)col->data + i * col->length, tmpStr);
+                    {
+                        size_t tmpLen = strlen(tmpStr);
+                        if (tmpLen > 2) {
+                            strncpy((char *)col->data + i * col->length,
+                                    tmpStr+1, tmpLen - 2);
+                        } else {
+                            strcpy((char *)col->data + i * col->length, "");
+                        }
+                    }
                     break;
 
                 default:
@@ -1556,7 +1575,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                     return -1;
                 }
                 if (!stbInfo->autoCreateTable) {
-                    if (stmt_prepare(stbInfo, pThreadInfo->conn->stmt, 0)) {
+                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, 0)) {
                         return -1;
                     }
                 }
@@ -1567,7 +1586,7 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
                 pThreadInfo->bindParams = benchCalloc(
                     1, sizeof(TAOS_MULTI_BIND) * (stbInfo->cols->size + 1), true);
                 pThreadInfo->is_null = benchCalloc(1, g_arguments->reqPerReq, true);
-                parseSamplefileToStmtBatch(stbInfo);
+                parseBufferToStmtBatch(stbInfo);
 
                 break;
             }
@@ -1970,7 +1989,7 @@ int insertTestProcess() {
                         if (createSuperTable(database, stbInfo)) return -1;
                     }
                 }
-                if (0 != prepare_sample_data(database, stbInfo)) {
+                if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
                 }
             }

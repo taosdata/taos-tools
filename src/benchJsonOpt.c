@@ -389,7 +389,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->timestamp_step = 1;
         superTable->useSampleTs = false;
         superTable->non_stop = false;
-        superTable->insertRows = 10;
+        superTable->insertRows = 0;
         superTable->interlaceRows = 0;
         superTable->disorderRatio = 0;
         superTable->disorderRange = DEFAULT_DISORDER_RANGE;
