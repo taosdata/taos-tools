@@ -102,7 +102,7 @@ static void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
+int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, BUFFER_SIZE, true);
     if (stbInfo->autoCreateTable) {
@@ -143,7 +143,7 @@ int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
 }
 
 static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
-                                       int64_t size) {
+                                       int64_t size, bool isData) {
     size_t  n = 0;
     ssize_t readLen = 0;
     char *  line = NULL;
@@ -163,13 +163,18 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         readLen = getline(&line, &n, fp);
 #endif
         if (-1 == readLen) {
-            if (0 != fseek(fp, 0, SEEK_SET)) {
-                errorPrint("Failed to fseek file: %s, reason:%s\n",
-                           file, strerror(errno));
-                fclose(fp);
-                return -1;
+            if (isData) {
+                g_arguments->prepared_rand = getRows;
+                break;
+            } else {
+                if (0 != fseek(fp, 0, SEEK_SET)) {
+                    errorPrint("Failed to fseek file: %s, reason:%s\n",
+                            file, strerror(errno));
+                    fclose(fp);
+                    return -1;
+                }
+                continue;
             }
-            continue;
         }
 
         if (('\r' == line[readLen - 1]) || ('\n' == line[readLen - 1])) {
@@ -716,7 +721,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     }
 }
 
-int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
+int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     stbInfo->lenOfCols = calcRowLen(stbInfo->cols, stbInfo->iface);
     stbInfo->lenOfTags = calcRowLen(stbInfo->tags, stbInfo->iface);
     if (stbInfo->partialColumnNum != 0 &&
@@ -756,8 +761,10 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
         }
         if (generateSampleFromCsvForStb(stbInfo->sampleDataBuf,
                                         stbInfo->sampleFile, stbInfo->lenOfCols,
-                                        g_arguments->prepared_rand)) {
+                                        g_arguments->prepared_rand, true)) {
             return -1;
+        } else {
+            stbInfo->insertRows = g_arguments->prepared_rand;
         }
     }
     debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
@@ -772,7 +779,7 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
         if (stbInfo->tagsFile[0] != 0) {
             if (generateSampleFromCsvForStb(
                     stbInfo->tagDataBuf, stbInfo->tagsFile, stbInfo->lenOfTags,
-                    stbInfo->childTblCount)) {
+                    stbInfo->childTblCount, false)) {
                 return -1;
             }
         } else {
@@ -783,19 +790,19 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
-    if (stbInfo->tcpTransfer
-            && stbInfo->iface == SML_REST_IFACE
-            && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
+        if (stbInfo->tcpTransfer
+                && stbInfo->iface == SML_REST_IFACE
+                && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
             if (convertHostToServAddr(g_arguments->host,
-                                      g_arguments->telnet_tcp_port,
-                                      &(g_arguments->serv_addr))) {
+                        g_arguments->telnet_tcp_port,
+                        &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
                 return -1;
             }
         } else {
             if (convertHostToServAddr(g_arguments->host,
-                                      g_arguments->port + TSDB_PORT_HTTP,
-                                      &(g_arguments->serv_addr))) {
+                        g_arguments->port + TSDB_PORT_HTTP,
+                        &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
                 return -1;
             }
@@ -842,7 +849,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             param->buffer = col->data;
             param->buffer_length = col->length;
             debugPrint("col[%d]: type: %s, len: %d\n", c,
-                       taos_convert_datatype_to_string(data_type),
+                       convertDatatypeToString(data_type),
                        col->length);
         }
         param->buffer_type = data_type;
@@ -945,7 +952,7 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                 tools_cJSON_AddNumberToObject(
                         tagObj, "value",
                         tag->min + (taosRandom() % (tag->max - tag->min)));
-                tools_cJSON_AddStringToObject(tagObj, "type", taos_convert_datatype_to_string(tag->type));
+                tools_cJSON_AddStringToObject(tagObj, "type", convertDatatypeToString(tag->type));
                 break;
         }
         tools_cJSON_AddItemToObject(tags, tagName, tagObj);
@@ -1009,7 +1016,7 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbI
                     value, "value",
                     (double)col->min +
                     (taosRandom() % (col->max - col->min)));
-            tools_cJSON_AddStringToObject(value, "type", taos_convert_datatype_to_string(col->type));
+            tools_cJSON_AddStringToObject(value, "type", convertDatatypeToString(col->type));
             break;
     }
     tools_cJSON_AddItemToObject(record, "timestamp", ts);

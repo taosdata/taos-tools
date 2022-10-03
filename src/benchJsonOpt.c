@@ -56,20 +56,20 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
         if (!tools_cJSON_IsString(dataType)) {
             goto PARSE_OVER;
         }
-        type = taos_convert_string_to_datatype(dataType->valuestring, 0);
+        type = convertStringToDatatype(dataType->valuestring, 0);
 
         tools_cJSON *dataMax = tools_cJSON_GetObjectItem(column, "max");
         if (tools_cJSON_IsNumber(dataMax)) {
             max = dataMax->valueint;
         } else {
-            max = taos_convert_datatype_to_default_max(type);
+            max = convertDatatypeToDefaultMax(type);
         }
 
         tools_cJSON *dataMin = tools_cJSON_GetObjectItem(column, "min");
         if (tools_cJSON_IsNumber(dataMin)) {
             min = dataMin->valueint;
         } else {
-            min = taos_convert_datatype_to_default_min(type);
+            min = convertDatatypeToDefaultMin(type);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
@@ -89,7 +89,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
             if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
                 length = g_arguments->binwidth;
             } else {
-                length = taos_convert_type_to_length(type);
+                length = convertTypeToLength(type);
             }
         }
 
@@ -158,7 +158,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
         if (!tools_cJSON_IsString(dataType)) {
             goto PARSE_OVER;
         }
-        type = taos_convert_string_to_datatype(dataType->valuestring, 0);
+        type = convertStringToDatatype(dataType->valuestring, 0);
 
         if ((tagSize == 1) && (type == TSDB_DATA_TYPE_JSON)) {
             Field * tag = benchCalloc(1, sizeof(Field), true);
@@ -179,14 +179,14 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
         if (tools_cJSON_IsNumber(dataMax)) {
             max = dataMax->valueint;
         } else {
-            max = taos_convert_datatype_to_default_max(type);
+            max = convertDatatypeToDefaultMax(type);
         }
 
         tools_cJSON *dataMin = tools_cJSON_GetObjectItem(tagObj, "min");
         if (tools_cJSON_IsNumber(dataMin)) {
             min = dataMin->valueint;
         } else {
-            min = taos_convert_datatype_to_default_min(type);
+            min = convertDatatypeToDefaultMin(type);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(tagObj, "values");
@@ -198,7 +198,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
             if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
                 length = g_arguments->binwidth;
             } else {
-                length = taos_convert_type_to_length(type);
+                length = convertTypeToLength(type);
             }
         }
 
@@ -389,7 +389,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->timestamp_step = 1;
         superTable->useSampleTs = false;
         superTable->non_stop = false;
-        superTable->insertRows = 10;
+        superTable->insertRows = 0;
         superTable->interlaceRows = 0;
         superTable->disorderRatio = 0;
         superTable->disorderRange = DEFAULT_DISORDER_RANGE;

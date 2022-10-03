@@ -45,15 +45,6 @@
 #include <avro.h>
 #include <jansson.h>
 
-#ifdef RELEASE
-#define ASSERT(x)   do { \
-    if (!(x)) errorPrint("%s() LN%d, %s\n", \
-            __func__, __LINE__, "assertion");} while(0)
-#else
-#include <assert.h>
-#define ASSERT(x)   do { assert(x); } while(0)
-#endif // RELEASE
-
 #define BUFFER_LEN              256             // use 256 as normal buffer length
 #define MAX_FILE_NAME_LEN       256             // max file name length on Linux is 255
 #define MAX_PATH_LEN            4096            // max path length on Linux is 4095

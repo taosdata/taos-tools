@@ -116,8 +116,8 @@
 int64_t strnatoi(char *num, int32_t len);
 char *  strnchr(char *haystack, char needle, int32_t len, bool skipquote);
 int64_t tools_user_mktime64(const unsigned int year0, const unsigned int mon0,
-		const unsigned int day, const unsigned int hour,
-		const unsigned int min, const unsigned int sec, int64_t time_zone);
+        const unsigned int day, const unsigned int hour,
+        const unsigned int min, const unsigned int sec, int64_t time_zone);
 int32_t parseTimezone(char* str, int64_t* tzOffset);
 int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePrec, int8_t day_light);
 struct tm* toolsLocalTime(const time_t *timep, struct tm *result);
@@ -131,5 +131,14 @@ do {                                                               \
   (*(__pLine))[1023] = 0;                                          \
   *(__pN)=strlen(*(__pLine));                                      \
 } while(0)
+
+#ifdef RELEASE
+#define ASSERT(x)   do { \
+    if (!(x)) errorPrint("%s() LN%d, %s\n", \
+            __func__, __LINE__, "assertion");} while(0)
+#else
+#include <assert.h>
+#define ASSERT(x)   do { assert(x); } while(0)
+#endif // RELEASE
 
 #endif // __TOOLSTYPES_H_
