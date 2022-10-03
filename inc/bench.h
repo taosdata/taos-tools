@@ -407,7 +407,6 @@ typedef struct SSuperTable_S {
     char* max_delay;
     char* watermark;
     int   ttl;
-    char  *sampleBindBatchArray;
 } SSuperTable;
 
 typedef struct SDbCfg_S {

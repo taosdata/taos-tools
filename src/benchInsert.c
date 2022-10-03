@@ -568,6 +568,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     int32_t      code;
     uint16_t     iface = stbInfo->iface;
 
+    debugPrint("iface: %d\n", iface);
+
     switch (iface) {
         case TAOSC_IFACE:
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
@@ -1140,7 +1142,7 @@ void *syncWriteProgressive(void *sarg) {
 
             int64_t delay = endTs - startTs;
             perfPrint("insert execution time is %.6f s\n",
-                             delay / 1E6);
+                    delay / 1E6);
 
             int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
             *pDelay = delay;
@@ -1150,9 +1152,9 @@ void *syncWriteProgressive(void *sarg) {
             int64_t currentPrintTime = toolsGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
                 infoPrint(
-                          "thread[%d] has currently inserted rows: "
-                          "%" PRId64 "\n",
-                          pThreadInfo->threadID, pThreadInfo->totalInsertRows);
+                        "thread[%d] has currently inserted rows: "
+                        "%" PRId64 "\n",
+                        pThreadInfo->threadID, pThreadInfo->totalInsertRows);
                 lastPrintTime = currentPrintTime;
             }
             if (i >= stbInfo->insertRows) {
@@ -1162,12 +1164,12 @@ void *syncWriteProgressive(void *sarg) {
     }      // tableSeq
 free_of_progressive:
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
-        infoPrint(
-                  "thread[%d] completed total inserted rows: %" PRIu64
-                          ", %.2f records/second\n",
-                  pThreadInfo->threadID, pThreadInfo->totalInsertRows,
-                  (double)(pThreadInfo->totalInsertRows /
-                           ((double)pThreadInfo->totalDelay / 1000000.0)));
+    infoPrint(
+            "thread[%d] completed total inserted rows: %" PRIu64
+            ", %.2f records/second\n",
+            pThreadInfo->threadID, pThreadInfo->totalInsertRows,
+            (double)(pThreadInfo->totalInsertRows /
+                ((double)pThreadInfo->totalDelay / 1000000.0)));
     return NULL;
 }
 
@@ -1187,12 +1189,6 @@ static int parseSamplefileToStmtBatch(
         columnCount = stbInfo->cols->size;
     }
 
-    char *sampleBindBatchArray = NULL;
-
-    stbInfo->sampleBindBatchArray = calloc(1, sizeof(uintptr_t *) * columnCount);
-    sampleBindBatchArray = stbInfo->sampleBindBatchArray;
-    ASSERT(sampleBindBatchArray);
-
     for (int c = 0; c < columnCount; c++) {
         Field *col = benchArrayGet(stbInfo->cols, c);
         char dataType = col->type;
@@ -1204,59 +1200,59 @@ static int parseSamplefileToStmtBatch(
             case TSDB_DATA_TYPE_UINT:
                 tmpP = calloc(1, sizeof(int) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_TINYINT:
             case TSDB_DATA_TYPE_UTINYINT:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_SMALLINT:
             case TSDB_DATA_TYPE_USMALLINT:
                 tmpP = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BIGINT:
             case TSDB_DATA_TYPE_UBIGINT:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BOOL:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_FLOAT:
                 tmpP = calloc(1, sizeof(float) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_DOUBLE:
                 tmpP = calloc(1, sizeof(double) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
                 tmpP = calloc(1, g_arguments->prepared_rand * col->length);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_TIMESTAMP:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                *(uintptr_t*)(sampleBindBatchArray+ sizeof(uintptr_t*)*c) = (uintptr_t)tmpP;
+                col->data = (void*)tmpP;
                 break;
 
             default:
@@ -1300,61 +1296,43 @@ static int parseSamplefileToStmtBatch(
             switch(dataType) {
                 case TSDB_DATA_TYPE_INT:
                 case TSDB_DATA_TYPE_UINT:
-                    *((int32_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(int32_t)*i)) =
-                        atoi(tmpStr);
+                    *((int32_t*)col->data + i) = atoi(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_FLOAT:
-                    *(float*)(((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(float)*i)) =
-                        (float)atof(tmpStr);
+                    *((float*)col->data +i) = (float)atof(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_DOUBLE:
-                    *(double*)(((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(double)*i)) =
-                        atof(tmpStr);
+                    *((double*)col->data + i) = atof(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_TINYINT:
                 case TSDB_DATA_TYPE_UTINYINT:
-                    *((int8_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(int8_t)*i)) =
-                        (int8_t)atoi(tmpStr);
+                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_SMALLINT:
                 case TSDB_DATA_TYPE_USMALLINT:
-                    *((int16_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(int16_t)*i)) =
-                        (int16_t)atoi(tmpStr);
+                    *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_BIGINT:
                 case TSDB_DATA_TYPE_UBIGINT:
-                    *((int64_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(int64_t)*i)) =
-                        (int64_t)atol(tmpStr);
+                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_BOOL:
-                    *((int8_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(int8_t)*i)) =
-                        (int8_t)atoi(tmpStr);
+                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_TIMESTAMP:
-                    *((int64_t*)((uintptr_t)*(uintptr_t*)(sampleBindBatchArray
-                                    +sizeof(char*)*c)+sizeof(int64_t)*i)) =
-                        (int64_t)atol(tmpStr);
+                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
                     break;
 
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR:
-                    tmpP = (char *)(*(uintptr_t*)(sampleBindBatchArray
-                            +sizeof(char*)*c));
-                    strcpy(tmpP + i * col->length, tmpStr);
+                    strcpy((char *)col->data + i * col->length, tmpStr);
                     break;
 
                 default:
@@ -1820,34 +1798,42 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
     }
 
     infoPrint("insert delay, "
-                      "min: %.2fms, "
-                      "avg: %.2fms, "
-                      "p90: %.2fms, "
-                      "p95: %.2fms, "
-                      "p99: %.2fms, "
-                      "max: %.2fms\n",
-                      *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
-                      (double)totalDelay/total_delay_list->size/1E3,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E3,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E3,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E3,
-                      *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E3);
+            "min: %.2fms, "
+            "avg: %.2fms, "
+            "p90: %.2fms, "
+            "p95: %.2fms, "
+            "p99: %.2fms, "
+            "max: %.2fms\n",
+            *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
+            (double)totalDelay/total_delay_list->size/1E3,
+            *(int64_t *)(benchArrayGet(total_delay_list,
+                    (int32_t)(total_delay_list->size * 0.9)))/1E3,
+            *(int64_t *)(benchArrayGet(total_delay_list,
+                    (int32_t)(total_delay_list->size * 0.95)))/1E3,
+            *(int64_t *)(benchArrayGet(total_delay_list,
+                    (int32_t)(total_delay_list->size * 0.99)))/1E3,
+            *(int64_t *)(benchArrayGet(total_delay_list,
+                    (int32_t)(total_delay_list->size - 1)))/1E3);
 
     if (g_arguments->fpOfInsertResult) {
         infoPrintToFile(g_arguments->fpOfInsertResult,
-                          "insert delay, "
-                          "min: %.2fms, "
-                          "avg: %.2fms, "
-                          "p90: %.2fms, "
-                          "p95: %.2fms, "
-                          "p99: %.2fms, "
-                          "max: %.2fms\n",
-                  *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
-                  (double)totalDelay/total_delay_list->size/1E3,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.9)))/1E3,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.95)))/1E3,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size * 0.99)))/1E3,
-                  *(int64_t *)(benchArrayGet(total_delay_list, (int32_t)(total_delay_list->size - 1)))/1E3);
+                "insert delay, "
+                "min: %.2fms, "
+                "avg: %.2fms, "
+                "p90: %.2fms, "
+                "p95: %.2fms, "
+                "p99: %.2fms, "
+                "max: %.2fms\n",
+                *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
+                (double)totalDelay/total_delay_list->size/1E3,
+                *(int64_t *)(benchArrayGet(total_delay_list,
+                        (int32_t)(total_delay_list->size * 0.9)))/1E3,
+                *(int64_t *)(benchArrayGet(total_delay_list,
+                        (int32_t)(total_delay_list->size * 0.95)))/1E3,
+                *(int64_t *)(benchArrayGet(total_delay_list,
+                        (int32_t)(total_delay_list->size * 0.99)))/1E3,
+                *(int64_t *)(benchArrayGet(total_delay_list,
+                        (int32_t)(total_delay_list->size - 1)))/1E3);
     }
     benchArrayDestroy(total_delay_list);
     if (g_fail) {
@@ -1863,7 +1849,8 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
     TAOS_RES* res = taos_query(taos, command);
     int code = taos_errno(res);
     if (code != 0) {
-        errorPrint("Failed to execute <%s>, reason: %s\n", command, taos_errstr(res));
+        errorPrint("Failed to execute <%s>, reason: %s\n",
+                command, taos_errstr(res));
         taos_free_result(res);
         return -1;
     }
@@ -1905,7 +1892,8 @@ static void* create_tsmas(void* args) {
         return NULL;
     }
     while(finished < pThreadInfo->tsmas->size && inserted_rows >= 0) {
-        inserted_rows = (int)get_stb_inserted_rows(pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
+        inserted_rows = (int)get_stb_inserted_rows(
+                pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
         for (int i = 0; i < pThreadInfo->tsmas->size; i++) {
             TSMA* tsma = benchArrayGet(pThreadInfo->tsmas, i);
             if (!tsma->done &&  inserted_rows >= tsma->start_when_inserted) {
@@ -1936,14 +1924,18 @@ static int createStream(SSTREAM* stream) {
         goto END;
     }
     memset(command, 0, BUFFER_SIZE);
-    int pos = snprintf(command, BUFFER_SIZE, "create stream if not exists %s ", stream->stream_name);
+    int pos = snprintf(command, BUFFER_SIZE,
+            "create stream if not exists %s ", stream->stream_name);
     if (stream->trigger_mode[0] != '\0') {
-        pos += snprintf(command + pos, BUFFER_SIZE - pos, "trigger %s ", stream->trigger_mode);
+        pos += snprintf(command + pos, BUFFER_SIZE - pos,
+                "trigger %s ", stream->trigger_mode);
     }
     if (stream->watermark[0] != '\0') {
-        pos += snprintf(command + pos, BUFFER_SIZE - pos, "watermark %s ", stream->watermark);
+        pos += snprintf(command + pos, BUFFER_SIZE - pos,
+                "watermark %s ", stream->watermark);
     }
-    snprintf(command + pos, BUFFER_SIZE - pos, "into %s as %s", stream->stream_stb, stream->source_sql);
+    snprintf(command + pos, BUFFER_SIZE - pos,
+            "into %s as %s", stream->stream_stb, stream->source_sql);
     infoPrint("%s\n", command);
     if (queryDbExec(conn, command)) {
         close_bench_conn(conn);
@@ -1996,7 +1988,8 @@ int insertTestProcess() {
                         continue;
                     }
                     if (stbInfo->tsmas->size > 0) {
-                        tsmaThreadInfo* pThreadInfo = benchCalloc(1, sizeof(tsmaThreadInfo), true);
+                        tsmaThreadInfo* pThreadInfo =
+                            benchCalloc(1, sizeof(tsmaThreadInfo), true);
                         pthread_t tsmas_pid = {0};
                         pThreadInfo->dbName = database->dbName;
                         pThreadInfo->stbName = stbInfo->stbName;
