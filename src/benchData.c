@@ -143,7 +143,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
 }
 
 static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
-                                       int64_t size, bool isData) {
+                                       int64_t size) {
     size_t  n = 0;
     ssize_t readLen = 0;
     char *  line = NULL;
@@ -163,18 +163,13 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         readLen = getline(&line, &n, fp);
 #endif
         if (-1 == readLen) {
-            if (isData) {
-                g_arguments->prepared_rand = getRows;
-                break;
-            } else {
-                if (0 != fseek(fp, 0, SEEK_SET)) {
-                    errorPrint("Failed to fseek file: %s, reason:%s\n",
-                            file, strerror(errno));
-                    fclose(fp);
-                    return -1;
-                }
-                continue;
+            if (0 != fseek(fp, 0, SEEK_SET)) {
+                errorPrint("Failed to fseek file: %s, reason:%s\n",
+                        file, strerror(errno));
+                fclose(fp);
+                return -1;
             }
+            continue;
         }
 
         if (('\r' == line[readLen - 1]) || ('\n' == line[readLen - 1])) {
@@ -761,10 +756,10 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         }
         if (generateSampleFromCsvForStb(stbInfo->sampleDataBuf,
                                         stbInfo->sampleFile, stbInfo->lenOfCols,
-                                        g_arguments->prepared_rand, true)) {
+                                        g_arguments->prepared_rand)) {
+            errorPrint("Failed to generate sample from csv file %s\n",
+                    stbInfo->sampleFile);
             return -1;
-        } else {
-            stbInfo->insertRows = g_arguments->prepared_rand;
         }
     }
     debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
@@ -779,7 +774,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         if (stbInfo->tagsFile[0] != 0) {
             if (generateSampleFromCsvForStb(
                     stbInfo->tagDataBuf, stbInfo->tagsFile, stbInfo->lenOfTags,
-                    stbInfo->childTblCount, false)) {
+                    stbInfo->childTblCount)) {
                 return -1;
             }
         } else {

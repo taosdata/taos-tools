@@ -1180,8 +1180,6 @@ free_of_progressive:
 static int parseBufferToStmtBatch(
         SSuperTable* stbInfo)
 {
-    // char *sampleDataBuf = (stbInfo)?
-    //    stbInfo->sampleDataBuf:g_sampleDataBuf;
     int32_t columnCount;
     if (stbInfo) {
         columnCount = stbInfo->cols->size;

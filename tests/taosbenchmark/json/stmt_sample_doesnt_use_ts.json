@@ -31,6 +31,7 @@
       "line_protocol": "line",
       "childtable_limit": 0,
       "childtable_offset": 0,
+      "insert_rows": 10,
       "insert_interval": 0,
       "interlace_rows": 0,
       "disorder_ratio": 0,
