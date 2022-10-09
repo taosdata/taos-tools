@@ -12,6 +12,22 @@
 
 #include "bench.h"
 
+extern char version[];
+
+// get taosBenchmark commit number version
+#ifndef TAOSBENCHMARK_COMMIT_SHA1
+#define TAOSBENCHMARK_COMMIT_SHA1 "unknown"
+#endif
+
+#ifndef TAOSBENCHMARK_TAG
+#define TAOSBENCHMARK_TAG "0.1.0"
+#endif
+
+#ifndef TAOSBENCHMARK_STATUS
+#define TAOSBENCHMARK_STATUS "unknown"
+#endif
+
+
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
 #define BENCH_HOST  "TDengine server FQDN to connect, default is localhost."
@@ -114,7 +130,7 @@ void bench_print_help() {
 
 #include <argp.h>
 
-const char *              argp_program_version;
+const char *              argp_program_version = version;
 const char *              argp_program_bug_address = BENCH_EMAIL;
 
 static struct argp_option bench_options[] = {
@@ -156,6 +172,7 @@ static struct argp_option bench_options[] = {
     {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
     {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
 #endif
+    {"version", 'V', 0, 0, BENCH_VERSION},
     {0}
 };
 
@@ -166,8 +183,7 @@ static error_t bench_parse_opt(int key, char *arg, struct argp_state *state) {
 static struct argp bench_argp = {bench_options, bench_parse_opt, "", ""};
 
 void bench_parse_args_in_argp(int argc, char *argv[]) {
-  argp_program_version = taos_get_client_info();
-  argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
+    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
 }
 
 #endif
@@ -183,7 +199,9 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
         Field * field = benchCalloc(1, sizeof(Field), true);
         benchArrayPush(fields, field);
         field = benchArrayGet(fields, 0);
-        if (1 == regexMatch(dataType, "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$", REG_ICASE | REG_EXTENDED)) {
+        if (1 == regexMatch(dataType,
+                    "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                    REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
             sscanf(dataType, "%[^(](%[^)]", type, length);
@@ -223,6 +241,19 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
             token = strsep(&running, ",");
         }
         tmfree(dup_str);
+    }
+}
+
+static void printVersion() {
+    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
+    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
+    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
+    if (0 == strlen(taosBenchmark_status)) {
+        printf("taosBenchmark version: %s\ngitinfo: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit);
+    } else {
+        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
     }
 }
 
@@ -453,12 +484,15 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 #ifdef WEBSOCKET
         case 'W':
-          g_arguments->dsn = arg;
-          break;
+            g_arguments->dsn = arg;
+            break;
         case 'D':
-          g_arguments->timeout = atoi(arg);
-          break;
+            g_arguments->timeout = atoi(arg);
+            break;
 #endif
+        case 'V':
+            printVersion();
+            exit(0);
         default:
             return ARGP_ERR_UNKNOWN;
     }
@@ -510,8 +544,10 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             }
             bench_parse_single_opt(key[1], val);
             i++;
-        } else if (key[1] == 'E' || key[1] == 'C' || key[1] == 'N' || key[1] == 'M' ||
-            key[1] == 'x' || key[1] == 'y' || key[1] == 'g' || key[1] == 'G') {
+        } else if (key[1] == 'E' || key[1] == 'C'
+                || key[1] == 'N' || key[1] == 'M'
+                || key[1] == 'x' || key[1] == 'y'
+                || key[1] == 'g' || key[1] == 'G' || key[1] == 'V') {
             bench_parse_single_opt(key[1], NULL);
         } else {
             errorPrint("Invalid option %s\r\n", key);

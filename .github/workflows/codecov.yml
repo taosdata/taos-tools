@@ -30,7 +30,7 @@ jobs:
           BASE_BRANCH: ${{ github.base_ref }}
         if: github.event_name == 'pull_request'
 
-      - name: Checkout tdengine
+      - name: Checkout TDengine
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -70,7 +70,7 @@ jobs:
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=true -DBUILD_TOOLS=true -DTOOLS_COVER=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZER=true
           make > /dev/null
           sudo make install > /dev/null
-          if [[ ! -f /usr/bin/taosdump ]] && [[ ! -f /usr/bin/taosBenchmark ]]
+          if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
             exit 1
