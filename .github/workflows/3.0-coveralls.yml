@@ -532,6 +532,22 @@ jobs:
             exit 1
           fi
 
+      - name: build taos-tools again
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          mkdir debug ||:
+          cd debug
+          cmake .. -DTOOLS_BUILD_TYPE=Debug -DTD_VER_COMPATIBLE=2.0.0.0 -DTOOLS_COVER=true > /dev/null
+          make -j8 > /dev/null
+          if [[ ! -f build/bin/taosdump ]] || [[ ! -f build/bin/taosBenchmark ]]
+          then
+            echo "taos-tools build failure"
+            exit 1
+          fi
+
       - name: taosdump native Develop Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
