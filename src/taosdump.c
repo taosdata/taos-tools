@@ -7315,13 +7315,13 @@ static void* dumpInAvroWorkThreadFp(void *arg)
             case AVRO_NTB:
                 if (rows >= 0) {
                     atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
-                    okPrint("[%d] %"PRId64""
+                    okPrint("[%d] %"PRId64" "
                             "normal table(s) from (%s) be successfully dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
                 } else {
                     atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
-                    errorPrint("[%d] %"PRId64""
+                    errorPrint("[%d] %"PRId64" "
                             "normal tables from (%s) failed to dumped in!\n",
                             pThreadInfo->threadIndex, rows,
                             fileList[pThreadInfo->from + i]);
