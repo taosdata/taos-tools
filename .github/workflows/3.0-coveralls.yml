@@ -196,6 +196,9 @@ jobs:
           cd debug
           echo "TEST: taosBenchmark --help"
           ./build/bin/taosBenchmark --help > /dev/null
+          echo "TEST: taosBenchmark -V"
+          ./build/bin/taosBenchmark -V
+
           echo "TEST: taodump --help"
           ./build/bin/taosdump --help > /dev/null
           echo "TEST: taodump --version"
