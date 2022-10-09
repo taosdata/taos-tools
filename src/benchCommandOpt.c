@@ -12,6 +12,22 @@
 
 #include "bench.h"
 
+extern char version[256];
+
+// get taosBenchmark commit number version
+#ifndef TAOSBENCHMARK_COMMIT_SHA1
+#define TAOSBENCHMARK_COMMIT_SHA1 "unknown"
+#endif
+
+#ifndef TAOSBENCHMARK_TAG
+#define TAOSBENCHMARK_TAG "0.1.0"
+#endif
+
+#ifndef TAOSBENCHMARK_STATUS
+#define TAOSBENCHMARK_STATUS "unknown"
+#endif
+
+
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
 #define BENCH_HOST  "TDengine server FQDN to connect, default is localhost."
@@ -166,8 +182,18 @@ static error_t bench_parse_opt(int key, char *arg, struct argp_state *state) {
 static struct argp bench_argp = {bench_options, bench_parse_opt, "", ""};
 
 void bench_parse_args_in_argp(int argc, char *argv[]) {
-  argp_program_version = taos_get_client_info();
-  argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
+    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
+    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
+    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
+    if (0 == strlen(taosBenchmark_status)) {
+        sprintf(version, "taosBenchmark version: %s\ngitinfo: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit);
+    } else {
+        sprintf(version, "taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
+    }
+    argp_program_version = version;
+    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
 }
 
 #endif
@@ -183,7 +209,9 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
         Field * field = benchCalloc(1, sizeof(Field), true);
         benchArrayPush(fields, field);
         field = benchArrayGet(fields, 0);
-        if (1 == regexMatch(dataType, "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$", REG_ICASE | REG_EXTENDED)) {
+        if (1 == regexMatch(dataType,
+                    "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                    REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
             sscanf(dataType, "%[^(](%[^)]", type, length);
