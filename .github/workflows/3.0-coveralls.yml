@@ -468,13 +468,13 @@ jobs:
           ./build/bin/taosdump -R -i . -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
-          echo "TEST: singla normal table"
-          ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
-          ./build/bin/taosdump test d0 -R > /dev/null
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -gg > /dev/null
-          taos -s "select count(tbname) from test.meters" | grep "1 row" || exit 1
-          rm -rf *.sql *.avro* taosdump.*
+          #          echo "TEST: singla normal table"
+          #./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
+          #./build/bin/taosdump test d0 -R > /dev/null
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -gg > /dev/null
+          #taos -s "select count(tbname) from test.meters" | grep "1 row" || exit 1
+          #rm -rf *.sql *.avro* taosdump.*
 
       - name: taosdump WebSocket escape char Test
         if:
