@@ -2747,10 +2747,10 @@ static int getTableTagValueNativeV2(
     for (int i = tableDes->columns+1;
             i < (tableDes->columns + tableDes->tags); i++) {
 
-        sqlstr += sprintf(sqlstr, ",%s%s%s ",
+        sqlstr += sprintf(sqlstr, ",%s%s%s",
                 g_escapeChar, tableDes->cols[i].field, g_escapeChar);
     }
-    sqlstr += sprintf(sqlstr, "FROM %s.%s%s%s LIMIT 1",
+    sqlstr += sprintf(sqlstr, " FROM %s.%s%s%s LIMIT 1",
             dbName, g_escapeChar, table, g_escapeChar);
 
     TAOS_RES *res = taos_query(taos, command);
