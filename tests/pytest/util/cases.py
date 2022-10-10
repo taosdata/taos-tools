@@ -35,7 +35,7 @@ class TDCases:
 
     def __dynamicLoadModule(self, fileName):
         moduleName = fileName.replace(".py", "").replace(os.sep, ".")
-        return importlib.import_module(moduleName, package='..')
+        return importlib.import_module(moduleName, package="..")
 
     def logSql(self, logSql):
         self._logSql = logSql
@@ -111,7 +111,6 @@ class TDCases:
                 runNum += 1
                 continue
         tdLog.notice("total %d Windows case(s) executed" % (runNum))
-
 
     def runAllCluster(self):
         # TODO: load all cluster case module here

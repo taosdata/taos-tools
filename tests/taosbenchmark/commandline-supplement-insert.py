@@ -11,6 +11,8 @@
 
 # -*- coding: utf-8 -*-
 import os
+import subprocess
+
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -20,7 +22,7 @@ from util.dnodes import *
 class TDTestCase:
     def caseDescription(self):
         """
-        [TD-11510] taosBenchmark test cases
+        [TD-19352] taosBenchmark supplement insert test cases
         """
 
     def init(self, conn, logSql):
@@ -36,8 +38,11 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/tests/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            projPath = selfPath[: selfPath.find("tests")]
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
@@ -47,23 +52,27 @@ class TDTestCase:
                     paths.append(os.path.join(root, tool))
                     break
         if len(paths) == 0:
-            tdLog.exit("taosBenchmark not found!")
-            return
-        else:
-            tdLog.info("taosBenchmark found in %s" % paths[0])
-            return paths[0]
+            return ""
+        return paths[0]
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/default.json" % binPath
+        cmd = (
+            "%s -t 1 -n 1 -y"
+            % binPath
+        )
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        tdSql.execute("reset query cache")
-        tdSql.query("show db.tables")
-        tdSql.checkRows(10)
-        tdSql.query("select count(*) from db.stb")
-        if len(tdSql.queryResult):
-            tdLog.exit("query result is %d" % len(tdSql.queryResult))
+
+        cmd = "%s -t 1 -n 10 -U -s 1600000000000 -y" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        tdSql.query("select count(*) from test.meters")
+        tdSql.checkData(0, 0, 11)
+        tdSql.query("select * from test.meters")
+        tdSql.checkData(0, 0, 1500000000000)
+        tdSql.checkData(1, 0, 1600000000000)
+        tdSql.checkData(10, 0, 1600000000010)
 
     def stop(self):
         tdSql.close()

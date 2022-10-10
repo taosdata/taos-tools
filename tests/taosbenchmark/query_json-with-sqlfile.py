@@ -71,10 +71,11 @@ class TDTestCase:
         cmd = "%s -f ./taosbenchmark/json/taosc_query-sqlfile.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
- #       with open("%s" % "taosc_query_specified-sqlfile-0", "r+") as f1:
- #           for line in f1.readlines():
- #               queryTaosc = line.strip().split()[0]
- #               assert queryTaosc == "3", "result is %s != expect: 3" % queryTaosc
+
+    #       with open("%s" % "taosc_query_specified-sqlfile-0", "r+") as f1:
+    #           for line in f1.readlines():
+    #               queryTaosc = line.strip().split()[0]
+    #               assert queryTaosc == "3", "result is %s != expect: 3" % queryTaosc
 
     def stop(self):
         tdSql.close()

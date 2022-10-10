@@ -14,9 +14,9 @@
 import os
 import taos
 
-class BuildDockerCluser:
 
-    def init(self, numOfNodes = 3, dockerDir = "/data"):
+class BuildDockerCluser:
+    def init(self, numOfNodes=3, dockerDir="/data"):
         self.numOfNodes = numOfNodes
         self.dockerDir = dockerDir
 
@@ -26,26 +26,26 @@ class BuildDockerCluser:
         self.configDir = "/etc/taos"
         self.dirs = ["data", "cfg", "log", "core"]
         self.cfgDict = {
-            "numOfLogLines":"100000000",
-            "mnodeEqualVnodeNum":"0",
-            "walLevel":"1",
-            "numOfThreadsPerCore":"2.0",
-            "monitor":"0",
-            "vnodeBak":"1",
-            "dDebugFlag":"135",
-            "mDebugFlag":"135",
-            "sdbDebugFlag":"135",
-            "rpcDebugFlag":"135",
-            "tmrDebugFlag":"131",
-            "cDebugFlag":"135",
-            "httpDebugFlag":"135",
-            "monitorDebugFlag":"135",
-            "udebugFlag":"135",
-            "jnidebugFlag":"135",
-            "qdebugFlag":"135",
-            "maxSQLLength":"1048576"
+            "numOfLogLines": "100000000",
+            "mnodeEqualVnodeNum": "0",
+            "walLevel": "1",
+            "numOfThreadsPerCore": "2.0",
+            "monitor": "0",
+            "vnodeBak": "1",
+            "dDebugFlag": "135",
+            "mDebugFlag": "135",
+            "sdbDebugFlag": "135",
+            "rpcDebugFlag": "135",
+            "tmrDebugFlag": "131",
+            "cDebugFlag": "135",
+            "httpDebugFlag": "135",
+            "monitorDebugFlag": "135",
+            "udebugFlag": "135",
+            "jnidebugFlag": "135",
+            "qdebugFlag": "135",
+            "maxSQLLength": "1048576",
         }
-        os.makedirs(self.dockerDir, exist_ok=True) # like "mkdir -p"
+        os.makedirs(self.dockerDir, exist_ok=True)  # like "mkdir -p"
 
         real_path = os.path.realpath(__file__)
         self.current_dir = os.path.dirname(real_path)
@@ -74,22 +74,30 @@ class BuildDockerCluser:
     def getTaosdVersion(self):
         cmd = "taosd -V |grep version|awk '{print $3}'"
         taosdVersion = self.execCmdAndGetOutput(cmd)
-        cmd = "find %s -name '*server*.tar.gz' | awk -F- '{print $(NF-2)}'|sort|awk 'END {print}'" % self.dockerDir
+        cmd = (
+            "find %s -name '*server*.tar.gz' | awk -F- '{print $(NF-2)}'|sort|awk 'END {print}'"
+            % self.dockerDir
+        )
         packageVersion = self.execCmdAndGetOutput(cmd)
 
-        if (taosdVersion is None or taosdVersion.isspace()) and (packageVersion is None or packageVersion.isspace()):
+        if (taosdVersion is None or taosdVersion.isspace()) and (
+            packageVersion is None or packageVersion.isspace()
+        ):
             print("Please install taosd or have a install package ready")
             quit()
         else:
-            self.version = taosdVersion  if taosdVersion >= packageVersion else packageVersion
+            self.version = (
+                taosdVersion if taosdVersion >= packageVersion else packageVersion
+            )
             return self.version.strip()
 
     def getConnection(self):
         self.conn = taos.connect(
-            host = self.hostName,
-            user = self.user,
-            password = self.password,
-            config = self.configDir)
+            host=self.hostName,
+            user=self.user,
+            password=self.password,
+            config=self.configDir,
+        )
 
     def removeFile(self, rootDir, index, dir):
         cmd = "rm -rf %s/node%d/%s/*" % (rootDir, index, dir)
@@ -105,7 +113,9 @@ class BuildDockerCluser:
             self.removeFile(self.dockerDir, i, self.dirs[2])
 
     def createDir(self, rootDir, index, dir):
-        os.makedirs("%s/node%d/%s" % (rootDir, index, dir), exist_ok=True) # like "mkdir -p"
+        os.makedirs(
+            "%s/node%d/%s" % (rootDir, index, dir), exist_ok=True
+        )  # like "mkdir -p"
 
     def createDirs(self):
         for i in range(1, self.numOfNodes + 1):
@@ -122,10 +132,10 @@ class BuildDockerCluser:
         self.execCmd(cmd)
 
     def updateLocalhosts(self):
-        hosts = open('/etc/hosts', 'r')
+        hosts = open("/etc/hosts", "r")
         for line in hosts:
             # print(line.split())
-            if line.split()[1:] == 'tdNode2':
+            if line.split()[1:] == "tdNode2":
                 print("*******")
 
     def deploy(self):
@@ -142,8 +152,11 @@ class BuildDockerCluser:
             print("create dnode tdnode%d" % i)
             self.cursor.execute("create dnode tdnode%d" % i)
 
-    def startArbitrator(self, hostname = 'tdnode1'):
-        cmd = "docker exec -d $(docker ps|grep '%s'|awk '{print $1}') tarbitrator" % hostname
+    def startArbitrator(self, hostname="tdnode1"):
+        cmd = (
+            "docker exec -d $(docker ps|grep '%s'|awk '{print $1}') tarbitrator"
+            % hostname
+        )
         self.execCmd(cmd)
 
     def prepardBuild(self):
@@ -154,11 +167,17 @@ class BuildDockerCluser:
         self.deploy()
 
     def run(self):
-        cmd = "%s/buildClusterEnv.sh -n %d -v %s -d %s" % (self.current_dir, self.numOfNodes, self.getTaosdVersion(), self.dockerDir)
+        cmd = "%s/buildClusterEnv.sh -n %d -v %s -d %s" % (
+            self.current_dir,
+            self.numOfNodes,
+            self.getTaosdVersion(),
+            self.dockerDir,
+        )
         display = "echo %s" % cmd
         self.execCmd(display)
         self.execCmd(cmd)
         self.getConnection()
         self.createDondes()
+
 
 cluster = BuildDockerCluser()

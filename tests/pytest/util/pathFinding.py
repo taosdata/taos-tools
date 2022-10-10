@@ -16,13 +16,11 @@ import os
 from util.log import *
 
 
-
 class TDFindPath:
-    """This class is for finding path within TDengine
-    """
+    """This class is for finding path within TDengine"""
+
     def __init__(self):
         self.file = ""
-
 
     def init(self, file):
         """[summary]
@@ -40,18 +38,18 @@ class TDFindPath:
         """
         selfPath = os.path.dirname(os.path.realpath(self.file))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            projPath = selfPath[: selfPath.find("tests")]
 
         for root, dirs, files in os.walk(projPath):
-            if ("taosd" in files):
+            if "taosd" in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
-                    buildPath = root[:len(root)-len("/build/bin")]
+                if "packaging" not in rootRealPath:
+                    buildPath = root[: len(root) - len("/build/bin")]
                     break
-        if (buildPath == ""):
+        if buildPath == "":
             tdLog.exit("taosd not found!")
         else:
             tdLog.info(f"taosd found in {buildPath}")
@@ -65,19 +63,20 @@ class TDFindPath:
         """
         selfPath = os.path.dirname(os.path.realpath(self.file))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            projPath = selfPath[: selfPath.find("tests")]
         print(projPath)
         for root, dirs, files in os.walk(projPath):
-            if ("sim" in dirs):
+            if "sim" in dirs:
                 print(root)
                 rootRealPath = os.path.realpath(root)
-        if (rootRealPath == ""):
+        if rootRealPath == "":
             tdLog.exit("TDengine not found!")
         else:
             tdLog.info(f"TDengine found in {rootRealPath}")
         return rootRealPath
+
 
 tdFindPath = TDFindPath()
