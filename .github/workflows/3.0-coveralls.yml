@@ -198,6 +198,10 @@ jobs:
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taosBenchmark -V"
           ./build/bin/taosBenchmark -V
+          echo "TEST: kill taosBenchmark"
+          ./build/bin/taosBenchmark -t 1 -n 100 -B 1 -i 1000 -r 1 -y &
+          sleep 5
+          pkill -INT taosBenchmark
 
           echo "TEST: taodump --help"
           ./build/bin/taosdump --help > /dev/null
