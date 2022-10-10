@@ -56,12 +56,12 @@ class TDTaosdemoCfg:
             "insert_interval": 0,
             "num_of_records_per_req": 32766,
             "max_sql_len": 32766,
-            "databases": None
+            "databases": None,
         }
 
         self.db = {
-            "name": 'db',
-            "drop": 'yes',
+            "name": "db",
+            "drop": "yes",
             "replica": 1,
             "days": 10,
             "cache": 16,
@@ -75,7 +75,7 @@ class TDTaosdemoCfg:
             "cachelast": 0,
             "quorum": 1,
             "fsync": 3000,
-            "update": 0
+            "update": 0,
         }
 
         self.query_cfg = {
@@ -90,20 +90,16 @@ class TDTaosdemoCfg:
             "query_times": 2,
             "query_mode": "taosc",
             "specified_table_query": None,
-            "super_table_query": None
+            "super_table_query": None,
         }
 
-        self.table_query = {
-            "query_interval": 1,
-            "concurrent": 3,
-            "sqls": None
-        }
+        self.table_query = {"query_interval": 1, "concurrent": 3, "sqls": None}
 
         self.stable_query = {
             "stblname": "stb",
             "query_interval": 1,
             "threads": 3,
-            "sqls": None
+            "sqls": None,
         }
 
         self.sub_cfg = {
@@ -116,7 +112,7 @@ class TDTaosdemoCfg:
             "databases": "db",
             "confirm_parameter_prompt": "no",
             "specified_table_query": None,
-            "super_table_query": None
+            "super_table_query": None,
         }
 
         self.table_sub = {
@@ -125,7 +121,7 @@ class TDTaosdemoCfg:
             "interval": 10000,
             "restart": "yes",
             "keepProgress": "yes",
-            "sqls": None
+            "sqls": None,
         }
 
         self.stable_sub = {
@@ -135,7 +131,7 @@ class TDTaosdemoCfg:
             "interval": 10000,
             "restart": "yes",
             "keepProgress": "yes",
-            "sqls": None
+            "sqls": None,
         }
 
         self.stbs = []
@@ -162,31 +158,31 @@ class TDTaosdemoCfg:
             "sample_file": "./sample.csv",
             "tags_file": "",
             "columns": [{"type": "INT", "count": 1}],
-            "tags": [{"type": "BIGINT", "count": 1}]
+            "tags": [{"type": "BIGINT", "count": 1}],
         }
 
         self.tb_query_sql = []
         self.tb_query_sql_template = {
             "sql": "select last_row(*) from stb_0 ",
-            "result": "temp/query_res0.txt"
+            "result": "temp/query_res0.txt",
         }
 
         self.stb_query_sql = []
         self.stb_query_sql_template = {
             "sql": "select last_row(ts) from xxxx",
-            "result": "temp/query_res2.txt"
+            "result": "temp/query_res2.txt",
         }
 
         self.tb_sub_sql = []
         self.tb_sub_sql_template = {
             "sql": "select * from stb_0 ;",
-            "result": "temp/subscribe_res0.txt"
+            "result": "temp/subscribe_res0.txt",
         }
 
         self.stb_sub_sql = []
         self.stb_sub_sql_template = {
             "sql": "select * from xxxx where ts > '2021-02-25 11:35:00.000' ;",
-            "result": "temp/subscribe_res1.txt"
+            "result": "temp/subscribe_res1.txt",
         }
 
     # The following functions are import functions for different dicts and lists
@@ -229,14 +225,15 @@ class TDTaosdemoCfg:
                 fileType: query, sub
                 tableType: table, stable
         """
-        if mode == 'query_table':
+        if mode == "query_table":
             self.tb_query_sql = Sql_in
-        elif mode == 'query_stable':
+        elif mode == "query_stable":
             self.stb_query_sql = Sql_in
-        elif mode == 'sub_table':
+        elif mode == "sub_table":
             self.tb_sub_sql = Sql_in
-        elif mode == 'sub_stable':
+        elif mode == "sub_stable":
             self.stb_sub_sql = Sql_in
+
     # import functions end
 
     # The following functions are alter functions for different dicts
@@ -248,13 +245,8 @@ class TDTaosdemoCfg:
 
     def alter_insert_cfg(self, key, value):
 
-        if key == 'databases':
-            self.insert_cfg[key] = [
-                {
-                    'dbinfo': self.db,
-                    'super_tables': self.stbs
-                }
-            ]
+        if key == "databases":
+            self.insert_cfg[key] = [{"dbinfo": self.db, "super_tables": self.stbs}]
         else:
             self.insert_cfg[key] = value
 
@@ -300,6 +292,7 @@ class TDTaosdemoCfg:
             self.table_sub[key] = self.tb_sub_sql
         else:
             self.table_sub[key] = value
+
     # alter function ends
 
     # the following functions are for handling the sql lists
@@ -314,15 +307,15 @@ class TDTaosdemoCfg:
                 unique: 'insert_stbs'
             value (dict): the sql dict going to be appended
         """
-        if target == 'insert_stbs':
+        if target == "insert_stbs":
             self.stbs.append(value)
-        elif target == 'query_table':
+        elif target == "query_table":
             self.tb_query_sql.append(value)
-        elif target == 'query_stable':
+        elif target == "query_stable":
             self.stb_query_sql.append(value)
-        elif target == 'sub_table':
+        elif target == "sub_table":
             self.tb_sub_sql.append(value)
-        elif target == 'sub_stable':
+        elif target == "sub_stable":
             self.stb_sub_sql.append(value)
 
     def pop_sql_stb(self, target, index):
@@ -336,16 +329,17 @@ class TDTaosdemoCfg:
                 unique: 'insert_stbs'
             index (int): the sql dict that is going to be popped
         """
-        if target == 'insert_stbs':
+        if target == "insert_stbs":
             self.stbs.pop(index)
-        elif target == 'query_table':
+        elif target == "query_table":
             self.tb_query_sql.pop(index)
-        elif target == 'query_stable':
+        elif target == "query_stable":
             self.stb_query_sql.pop(index)
-        elif target == 'sub_table':
+        elif target == "sub_table":
             self.tb_sub_sql.pop(index)
-        elif target == 'sub_stable':
+        elif target == "sub_stable":
             self.stb_sub_sql.pop(index)
+
     # sql list modification function end
 
     # The following functions are get functions for different dicts
@@ -386,13 +380,13 @@ class TDTaosdemoCfg:
                 tableType: table, stable
                 unique: 'insert_stbs'
         """
-        if target == 'query_table':
+        if target == "query_table":
             return self.tb_query_sql
-        elif target == 'query_stable':
+        elif target == "query_stable":
             return self.stb_query_sql
-        elif target == 'sub_table':
+        elif target == "sub_table":
             return self.tb_sub_sql
-        elif target == 'sub_stable':
+        elif target == "sub_stable":
             return self.stb_sub_sql
 
     def get_template(self, target):
@@ -405,18 +399,18 @@ class TDTaosdemoCfg:
                 tableType: table, stable
                 unique: 'insert_stbs'
         """
-        if target == 'insert_stbs':
+        if target == "insert_stbs":
             return self.stb_template
-        elif target == 'query_table':
+        elif target == "query_table":
             return self.tb_query_sql_template
-        elif target == 'query_stable':
+        elif target == "query_stable":
             return self.stb_query_sql_template
-        elif target == 'sub_table':
+        elif target == "sub_table":
             return self.tb_sub_sql_template
-        elif target == 'sub_stable':
+        elif target == "sub_stable":
             return self.stb_sub_sql_template
         else:
-            print(f'did not find {target}')
+            print(f"did not find {target}")
 
     # the folloing are the file generation functions
     """defalut document:
@@ -431,35 +425,36 @@ class TDTaosdemoCfg:
     """
 
     def generate_insert_cfg(self, pathName, fileName):
-        cfgFileName = f'{pathName}/insert_{fileName}.json'
-        self.alter_insert_cfg('databases', None)
-        with open(cfgFileName, 'w') as file:
+        cfgFileName = f"{pathName}/insert_{fileName}.json"
+        self.alter_insert_cfg("databases", None)
+        with open(cfgFileName, "w") as file:
             json.dump(self.insert_cfg, file)
         return cfgFileName
 
     def generate_query_cfg(self, pathName, fileName):
-        cfgFileName = f'{pathName}/query_{fileName}.json'
-        self.alter_query_tb('sqls', None)
-        self.alter_query_stb('sqls', None)
-        self.alter_query_cfg('specified_table_query', None)
-        self.alter_query_cfg('super_table_query', None)
-        with open(cfgFileName, 'w') as file:
+        cfgFileName = f"{pathName}/query_{fileName}.json"
+        self.alter_query_tb("sqls", None)
+        self.alter_query_stb("sqls", None)
+        self.alter_query_cfg("specified_table_query", None)
+        self.alter_query_cfg("super_table_query", None)
+        with open(cfgFileName, "w") as file:
             json.dump(self.query_cfg, file)
         return cfgFileName
 
     def generate_subscribe_cfg(self, pathName, fileName):
-        cfgFileName = f'{pathName}/subscribe_{fileName}.json'
-        self.alter_sub_tb('sqls', None)
-        self.alter_sub_stb('sqls', None)
-        self.alter_sub_cfg('specified_table_query', None)
-        self.alter_sub_cfg('super_table_query', None)
-        with open(cfgFileName, 'w') as file:
+        cfgFileName = f"{pathName}/subscribe_{fileName}.json"
+        self.alter_sub_tb("sqls", None)
+        self.alter_sub_stb("sqls", None)
+        self.alter_sub_cfg("specified_table_query", None)
+        self.alter_sub_cfg("super_table_query", None)
+        with open(cfgFileName, "w") as file:
             json.dump(self.sub_cfg, file)
         return cfgFileName
+
     # file generation functions ends
 
     def drop_cfg_file(self, fileName):
-        os.remove(f'{fileName}')
+        os.remove(f"{fileName}")
 
 
 taosdemoCfg = TDTaosdemoCfg()

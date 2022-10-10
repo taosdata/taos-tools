@@ -62,21 +62,11 @@ class TDTestCase:
         tdSql.execute("create database db  keep 3649 ")
 
         tdSql.execute("use db")
-        tdSql.execute(
-            "create table st(ts timestamp, c1 INT) tags(n1 INT)"
-        )
-        tdSql.execute(
-            "create table t1 using st tags(1)"
-        )
-        tdSql.execute(
-            "insert into t1 values(1640000000000, 1)"
-        )
-        tdSql.execute(
-            "create table t2 using st tags(NULL)"
-        )
-        tdSql.execute(
-            "insert into t2 values(1640000000000, NULL)"
-        )
+        tdSql.execute("create table st(ts timestamp, c1 INT) tags(n1 INT)")
+        tdSql.execute("create table t1 using st tags(1)")
+        tdSql.execute("insert into t1 values(1640000000000, 1)")
+        tdSql.execute("create table t2 using st tags(NULL)")
+        tdSql.execute("insert into t2 values(1640000000000, NULL)")
         tdSql.execute(
             "create table db.nt1 (ts timestamp, c1 INT, c2 BOOL, c3 TINYINT, c4 SMALLINT, c5 BIGINT, c6 FLOAT, c7 DOUBLE, c8 TIMESTAMP, c9 BINARY(10), c10 NCHAR(10), c11 TINYINT UNSIGNED, c12 SMALLINT UNSIGNED, c13 INT UNSIGNED, c14 BIGINT UNSIGNED)"
         )
