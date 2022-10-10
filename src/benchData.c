@@ -426,7 +426,8 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = field->min + (taosRandom() % (field->max - field->min));
+                    uint16_t usmallint = field->min
+                        + (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
                         ((uint16_t *)field->data)[k] = usmallint;
                     }

@@ -39,6 +39,8 @@ extern char version[];
 #define BENCH_THREAD  "The number of thread when insert data, default is 8."
 #define BENCH_INTERVAL  "Insert interval for interlace mode in milliseconds, default is 0."
 #define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
+#define BENCH_SUPPLEMENT "Supplementally insert data without create database and table, optional, default is off."
+#define BENCH_START_TIMESTAMP "Specify timestamp to insert data. Optional, default is 1500000000000 (2017-07-14 10:40:00.000)."
 #define BENCH_INTERLACE "The number of interlace rows insert into tables, default is 0."
 #define BENCH_BATCH "Number of records in each insert request, default is 30000."
 #define BENCH_TABLE "Number of child tables, default is 10000."
@@ -96,6 +98,7 @@ void bench_print_help() {
     printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
     printf("%s%s%s%s\r\n", indent, "-i,", indent, BENCH_INTERVAL);
     printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
+    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
     printf("%s%s%s%s\r\n", indent, "-B,", indent, BENCH_INTERLACE);
     printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
     printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
@@ -145,6 +148,8 @@ static struct argp_option bench_options[] = {
     {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
     {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
     {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
+    {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
+    {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
     {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},
     {"rec-per-req", 'r', "NUMBER", 0, BENCH_BATCH},
     {"tables", 't', "NUMBER", 0, BENCH_TABLE},
@@ -220,11 +225,12 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
         char *token = strsep(&running, ",");
         int   index = 0;
         while (token != NULL) {
-
             Field * field = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(fields, field);
             field = benchArrayGet(fields, index);
-            if (1 == regexMatch(token, "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$", REG_ICASE | REG_EXTENDED)) {
+            if (1 == regexMatch(token,
+                        "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                        REG_ICASE | REG_EXTENDED)) {
                 char type[DATATYPE_BUFF_LEN];
                 char length[BIGINT_BUFF_LEN];
                 sscanf(token, "%[^(](%[^)]", type, length);
@@ -352,6 +358,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->interlaceRows = 0;
             }
             break;
+
         case 'r':
             g_arguments->reqPerReq = atoi(arg);
             if (g_arguments->reqPerReq <= 0 ||
@@ -362,6 +369,15 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
             }
             break;
+
+        case 's':
+            g_arguments->startTimestamp = atol(arg);
+            break;
+
+        case 'U':
+            g_arguments->supplementInsert = true;
+            break;
+
         case 't':
             stbInfo->childTblCount = atoi(arg);
             if (stbInfo->childTblCount <= 0) {
@@ -637,7 +653,7 @@ static void init_stable() {
     stbInfo->childTblExists = false;
     stbInfo->random_data_source = true;
     stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
-    stbInfo->startTimestamp = DEFAULT_START_TIME;
+    stbInfo->startTimestamp = g_arguments->startTimestamp;
     stbInfo->insertRows = DEFAULT_INSERT_ROWS;
     stbInfo->disorderRange = DEFAULT_DISORDER_RANGE;
     stbInfo->disorderRatio = 0;
@@ -656,6 +672,7 @@ static void init_database() {
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
 }
+
 void init_argument() {
     g_arguments = benchCalloc(1, sizeof(SArguments), true);
     if (taos_get_client_info()[0] == '3') {
@@ -689,6 +706,10 @@ void init_argument() {
 #ifdef WEBSOCKET
     g_arguments->timeout = 10;
 #endif
+
+    g_arguments->supplementInsert = false;
+    g_arguments->startTimestamp = DEFAULT_START_TIME;
+
     init_database();
     init_stable();
     g_arguments->streams = benchArrayInit(1, sizeof(SSTREAM));
@@ -701,19 +722,21 @@ void modify_argument() {
     if (!g_arguments->websocket) {
 #endif
 #ifdef LINUX
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
-            exit(EXIT_FAILURE);
+        if (strlen(configDir)) {
+            wordexp_t full_path;
+            if (wordexp(configDir, &full_path, 0) != 0) {
+                errorPrint("Invalid path %s\n", configDir);
+                exit(EXIT_FAILURE);
+            }
+            taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+            wordfree(&full_path);
         }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
 #endif
 #ifdef WEBSOCKET
     }
 #endif
+
+    superTable->startTimestamp = g_arguments->startTimestamp;
 
     if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
@@ -728,6 +751,8 @@ void modify_argument() {
         Field * col = benchArrayGet(superTable->cols, i);
         if (!g_arguments->demo_mode) {
             snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", i);
+            col->min = convertDatatypeToDefaultMin(col->type);
+            col->max = convertDatatypeToDefaultMax(col->type);
         }
         if (col->length == 0) {
             col->length = g_arguments->binwidth;
@@ -745,7 +770,8 @@ void modify_argument() {
     }
 
     if (g_arguments->intColumnCount > superTable->cols->size) {
-        for (int i = superTable->cols->size; i < g_arguments->intColumnCount; ++i) {
+        for (int i = superTable->cols->size;
+                i < g_arguments->intColumnCount; ++i) {
             Field * col = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(superTable->cols, col);
             col = benchArrayGet(superTable->cols, i);

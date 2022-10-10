@@ -531,6 +531,8 @@ typedef struct SArguments_S {
     char*              dsn;
     bool               websocket;
 #endif
+    bool               supplementInsert;
+    int64_t            startTimestamp;
 } SArguments;
 
 typedef struct SBenchConn{
