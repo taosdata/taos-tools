@@ -209,17 +209,27 @@ jobs:
           ./build/bin/taosdump --version > /dev/null
           echo "TEST: taodump -c"
           ./build/bin/taosdump -c > /dev/null || :
+          ./build/bin/taosdump -c not-exist > /dev/null || :
           echo "TEST: taodump --port 100000"
           ./build/bin/taosdump --port 100000 > /dev/null || :
           echo "TEST: taodump --port NotANumber"
           ./build/bin/taosdump --port NotANumber > /dev/null || :
-          echo "TEST: taodump -C"
-          ./build/bin/taosdump -C > /dev/null || :
           echo "TEST: taodump -D"
           ./build/bin/taosdump -D > /dev/null || :
           echo "TEST: taodump --databases -h localhost -u root"
           ./build/bin/taosdump --databases -h localhost -u root > /dev/null || :
 
+          echo "TEST: taodump -C"
+          ./build/bin/taosdump -C > /dev/null || :
+          rm -rf *.sql *.avro* taosdump.*
+          ./build/bin/taosdump -C https://not-exist.com:80/cloud -D test ||:
+          rm -rf *.sql *.avro* taosdump.*
+
+          echo "TEST: taodump with env var"
+          export TDENGINE_CLOUD_DSN=https://not-exist.com:80/cloud 
+          ./build/bin/taosdump -D test ||:
+          unset TDENGINE_CLOUD_DSN
+          rm -rf *.sql *.avro* taosdump.*
 
           # test codec
       - name: taosdump codec Test
