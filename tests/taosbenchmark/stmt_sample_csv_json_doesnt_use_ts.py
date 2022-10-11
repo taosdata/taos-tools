@@ -55,15 +55,22 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/default.json" % binPath
+        cmd = "%s -f ./taosbenchmark/json/stmt_sample_doesnt_use_ts.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("show db.tables")
-        tdSql.checkRows(10)
+        tdSql.checkRows(8)
         tdSql.query("select count(*) from db.stb")
-        if len(tdSql.queryResult):
-            tdLog.exit("query result is %d" % len(tdSql.queryResult))
+        tdSql.checkData(0, 0, 80)
+        tdSql.query("select * from db.stb_0")
+        tdSql.checkRows(10)
+        tdSql.checkData(0, 1, 1)
+        tdSql.checkData(1, 1, 2)
+        tdSql.checkData(2, 1, 3)
+        tdSql.query("select distinct(t0) from db.stb")
+        tdSql.checkRows(1)
+        tdSql.checkData(0, 0, 17)
 
     def stop(self):
         tdSql.close()

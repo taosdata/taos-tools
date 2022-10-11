@@ -38,8 +38,11 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/tests/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            projPath = selfPath[: selfPath.find("tests")]
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
@@ -49,11 +52,8 @@ class TDTestCase:
                     paths.append(os.path.join(root, tool))
                     break
         if len(paths) == 0:
-            tdLog.exit("taosBenchmark not found!")
-            return
-        else:
-            tdLog.info("taosBenchmark found in %s" % paths[0])
-            return paths[0]
+            return ""
+        return paths[0]
 
     def run(self):
         binPath = self.getPath()

@@ -12,6 +12,22 @@
 
 #include "bench.h"
 
+extern char version[];
+
+// get taosBenchmark commit number version
+#ifndef TAOSBENCHMARK_COMMIT_SHA1
+#define TAOSBENCHMARK_COMMIT_SHA1 "unknown"
+#endif
+
+#ifndef TAOSBENCHMARK_TAG
+#define TAOSBENCHMARK_TAG "0.1.0"
+#endif
+
+#ifndef TAOSBENCHMARK_STATUS
+#define TAOSBENCHMARK_STATUS "unknown"
+#endif
+
+
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
 #define BENCH_HOST  "TDengine server FQDN to connect, default is localhost."
@@ -23,6 +39,8 @@
 #define BENCH_THREAD  "The number of thread when insert data, default is 8."
 #define BENCH_INTERVAL  "Insert interval for interlace mode in milliseconds, default is 0."
 #define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
+#define BENCH_SUPPLEMENT "Supplementally insert data without create database and table, optional, default is off."
+#define BENCH_START_TIMESTAMP "Specify timestamp to insert data. Optional, default is 1500000000000 (2017-07-14 10:40:00.000)."
 #define BENCH_INTERLACE "The number of interlace rows insert into tables, default is 0."
 #define BENCH_BATCH "Number of records in each insert request, default is 30000."
 #define BENCH_TABLE "Number of child tables, default is 10000."
@@ -80,6 +98,7 @@ void bench_print_help() {
     printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
     printf("%s%s%s%s\r\n", indent, "-i,", indent, BENCH_INTERVAL);
     printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
+    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
     printf("%s%s%s%s\r\n", indent, "-B,", indent, BENCH_INTERLACE);
     printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
     printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
@@ -114,7 +133,7 @@ void bench_print_help() {
 
 #include <argp.h>
 
-const char *              argp_program_version;
+const char *              argp_program_version = version;
 const char *              argp_program_bug_address = BENCH_EMAIL;
 
 static struct argp_option bench_options[] = {
@@ -129,6 +148,8 @@ static struct argp_option bench_options[] = {
     {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
     {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
     {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
+    {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
+    {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
     {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},
     {"rec-per-req", 'r', "NUMBER", 0, BENCH_BATCH},
     {"tables", 't', "NUMBER", 0, BENCH_TABLE},
@@ -156,6 +177,7 @@ static struct argp_option bench_options[] = {
     {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
     {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
 #endif
+    {"version", 'V', 0, 0, BENCH_VERSION},
     {0}
 };
 
@@ -166,8 +188,7 @@ static error_t bench_parse_opt(int key, char *arg, struct argp_state *state) {
 static struct argp bench_argp = {bench_options, bench_parse_opt, "", ""};
 
 void bench_parse_args_in_argp(int argc, char *argv[]) {
-  argp_program_version = taos_get_client_info();
-  argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
+    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
 }
 
 #endif
@@ -183,18 +204,20 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
         Field * field = benchCalloc(1, sizeof(Field), true);
         benchArrayPush(fields, field);
         field = benchArrayGet(fields, 0);
-        if (1 == regexMatch(dataType, "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$", REG_ICASE | REG_EXTENDED)) {
+        if (1 == regexMatch(dataType,
+                    "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                    REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
             sscanf(dataType, "%[^(](%[^)]", type, length);
-            field->type = taos_convert_string_to_datatype(type, 0);
+            field->type = convertStringToDatatype(type, 0);
             field->length = atoi(length);
         } else {
-            field->type = taos_convert_string_to_datatype(dataType, 0);
-            field->length = taos_convert_type_to_length(field->type);
+            field->type = convertStringToDatatype(dataType, 0);
+            field->length = convertTypeToLength(field->type);
         }
-        field->min = taos_convert_datatype_to_default_min(field->type);
-        field->max = taos_convert_datatype_to_default_max(field->type);
+        field->min = convertDatatypeToDefaultMin(field->type);
+        field->max = convertDatatypeToDefaultMax(field->type);
         tstrncpy(field->name, isTag?"t0":"c0", TSDB_COL_NAME_LEN);
     } else {
         dup_str = strdup(dataType);
@@ -202,27 +225,41 @@ void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
         char *token = strsep(&running, ",");
         int   index = 0;
         while (token != NULL) {
-
             Field * field = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(fields, field);
             field = benchArrayGet(fields, index);
-            if (1 == regexMatch(token, "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$", REG_ICASE | REG_EXTENDED)) {
+            if (1 == regexMatch(token,
+                        "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                        REG_ICASE | REG_EXTENDED)) {
                 char type[DATATYPE_BUFF_LEN];
                 char length[BIGINT_BUFF_LEN];
                 sscanf(token, "%[^(](%[^)]", type, length);
-                field->type = taos_convert_string_to_datatype(type, 0);
+                field->type = convertStringToDatatype(type, 0);
                 field->length = atoi(length);
             } else {
-                field->type = taos_convert_string_to_datatype(token, 0);
-                field->length = taos_convert_type_to_length(field->type);
+                field->type = convertStringToDatatype(token, 0);
+                field->length = convertTypeToLength(field->type);
             }
-            field->max = taos_convert_datatype_to_default_max(field->type);
-            field->min = taos_convert_datatype_to_default_min(field->type);
+            field->max = convertDatatypeToDefaultMax(field->type);
+            field->min = convertDatatypeToDefaultMin(field->type);
             snprintf(field->name, TSDB_COL_NAME_LEN, isTag?"t%d":"c%d", index);
             index++;
             token = strsep(&running, ",");
         }
         tmfree(dup_str);
+    }
+}
+
+static void printVersion() {
+    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
+    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
+    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
+    if (0 == strlen(taosBenchmark_status)) {
+        printf("taosBenchmark version: %s\ngitinfo: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit);
+    } else {
+        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
     }
 }
 
@@ -321,6 +358,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->interlaceRows = 0;
             }
             break;
+
         case 'r':
             g_arguments->reqPerReq = atoi(arg);
             if (g_arguments->reqPerReq <= 0 ||
@@ -331,6 +369,15 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
             }
             break;
+
+        case 's':
+            g_arguments->startTimestamp = atol(arg);
+            break;
+
+        case 'U':
+            g_arguments->supplementInsert = true;
+            break;
+
         case 't':
             stbInfo->childTblCount = atoi(arg);
             if (stbInfo->childTblCount <= 0) {
@@ -453,12 +500,15 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 #ifdef WEBSOCKET
         case 'W':
-          g_arguments->dsn = arg;
-          break;
+            g_arguments->dsn = arg;
+            break;
         case 'D':
-          g_arguments->timeout = atoi(arg);
-          break;
+            g_arguments->timeout = atoi(arg);
+            break;
 #endif
+        case 'V':
+            printVersion();
+            exit(0);
         default:
             return ARGP_ERR_UNKNOWN;
     }
@@ -510,8 +560,10 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             }
             bench_parse_single_opt(key[1], val);
             i++;
-        } else if (key[1] == 'E' || key[1] == 'C' || key[1] == 'N' || key[1] == 'M' ||
-            key[1] == 'x' || key[1] == 'y' || key[1] == 'g' || key[1] == 'G') {
+        } else if (key[1] == 'E' || key[1] == 'C'
+                || key[1] == 'N' || key[1] == 'M'
+                || key[1] == 'x' || key[1] == 'y'
+                || key[1] == 'g' || key[1] == 'G' || key[1] == 'V') {
             bench_parse_single_opt(key[1], NULL);
         } else {
             errorPrint("Invalid option %s\r\n", key);
@@ -601,7 +653,7 @@ static void init_stable() {
     stbInfo->childTblExists = false;
     stbInfo->random_data_source = true;
     stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
-    stbInfo->startTimestamp = DEFAULT_START_TIME;
+    stbInfo->startTimestamp = g_arguments->startTimestamp;
     stbInfo->insertRows = DEFAULT_INSERT_ROWS;
     stbInfo->disorderRange = DEFAULT_DISORDER_RANGE;
     stbInfo->disorderRatio = 0;
@@ -620,6 +672,7 @@ static void init_database() {
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
 }
+
 void init_argument() {
     g_arguments = benchCalloc(1, sizeof(SArguments), true);
     if (taos_get_client_info()[0] == '3') {
@@ -653,6 +706,10 @@ void init_argument() {
 #ifdef WEBSOCKET
     g_arguments->timeout = 10;
 #endif
+
+    g_arguments->supplementInsert = false;
+    g_arguments->startTimestamp = DEFAULT_START_TIME;
+
     init_database();
     init_stable();
     g_arguments->streams = benchArrayInit(1, sizeof(SSTREAM));
@@ -665,19 +722,21 @@ void modify_argument() {
     if (!g_arguments->websocket) {
 #endif
 #ifdef LINUX
-    if (strlen(configDir)) {
-        wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
-            exit(EXIT_FAILURE);
+        if (strlen(configDir)) {
+            wordexp_t full_path;
+            if (wordexp(configDir, &full_path, 0) != 0) {
+                errorPrint("Invalid path %s\n", configDir);
+                exit(EXIT_FAILURE);
+            }
+            taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+            wordfree(&full_path);
         }
-        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
-        wordfree(&full_path);
-    }
 #endif
 #ifdef WEBSOCKET
     }
 #endif
+
+    superTable->startTimestamp = g_arguments->startTimestamp;
 
     if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
@@ -692,6 +751,8 @@ void modify_argument() {
         Field * col = benchArrayGet(superTable->cols, i);
         if (!g_arguments->demo_mode) {
             snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", i);
+            col->min = convertDatatypeToDefaultMin(col->type);
+            col->max = convertDatatypeToDefaultMax(col->type);
         }
         if (col->length == 0) {
             col->length = g_arguments->binwidth;
@@ -709,15 +770,16 @@ void modify_argument() {
     }
 
     if (g_arguments->intColumnCount > superTable->cols->size) {
-        for (int i = superTable->cols->size; i < g_arguments->intColumnCount; ++i) {
+        for (int i = superTable->cols->size;
+                i < g_arguments->intColumnCount; ++i) {
             Field * col = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(superTable->cols, col);
             col = benchArrayGet(superTable->cols, i);
             col->type = TSDB_DATA_TYPE_INT;
             col->length = sizeof(int32_t);
             snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", i);
-            col->min = taos_convert_datatype_to_default_min(col->type);
-            col->max = taos_convert_datatype_to_default_max(col->type);
+            col->min = convertDatatypeToDefaultMin(col->type);
+            col->max = convertDatatypeToDefaultMax(col->type);
         }
     }
 }

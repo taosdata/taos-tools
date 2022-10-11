@@ -55,7 +55,7 @@ brew install argp-standalone
 
 ### Install TDengine client
 
-Please download TDengine client package from [taosdata.com](https://www.taosdata.com/cn/all-downloads/)
+Please download TDengine client package from [tdengine.com](https://www.tdengine.com/cn/all-downloads/)
 or compile TDengine source from [GitHub](github.com/taosdata/TDengine)
 and install to your system.
 

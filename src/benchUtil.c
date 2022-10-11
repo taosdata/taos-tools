@@ -630,7 +630,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     free(databuf);
 }
 
-char *taos_convert_datatype_to_string(int type) {
+char *convertDatatypeToString(int type) {
     switch (type) {
         case TSDB_DATA_TYPE_BINARY:
             return "binary";
@@ -668,7 +668,7 @@ char *taos_convert_datatype_to_string(int type) {
     return "unknown type";
 }
 
-int taos_convert_type_to_length(uint8_t type) {
+int convertTypeToLength(uint8_t type) {
     uint8_t ret = 0;
     switch (type) {
         case TSDB_DATA_TYPE_TIMESTAMP:
@@ -701,7 +701,7 @@ int taos_convert_type_to_length(uint8_t type) {
     return ret;
 }
 
-int64_t taos_convert_datatype_to_default_min(uint8_t type) {
+int64_t convertDatatypeToDefaultMin(uint8_t type) {
     int64_t ret = 0;
     switch (type) {
         case TSDB_DATA_TYPE_TINYINT:
@@ -722,7 +722,7 @@ int64_t taos_convert_datatype_to_default_min(uint8_t type) {
     return ret;
 }
 
-int64_t taos_convert_datatype_to_default_max(uint8_t type) {
+int64_t convertDatatypeToDefaultMax(uint8_t type) {
     int64_t ret = 0;
     switch (type) {
         case TSDB_DATA_TYPE_TINYINT:
@@ -754,7 +754,7 @@ int64_t taos_convert_datatype_to_default_max(uint8_t type) {
     return ret;
 }
 
-int taos_convert_string_to_datatype(char *type, int length) {
+int convertStringToDatatype(char *type, int length) {
     if (length == 0) {
         if (0 == strcasecmp(type, "binary")) {
             return TSDB_DATA_TYPE_BINARY;

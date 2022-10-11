@@ -102,7 +102,7 @@ static void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-int stmt_prepare(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
+int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, BUFFER_SIZE, true);
     if (stbInfo->autoCreateTable) {
@@ -165,7 +165,7 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         if (-1 == readLen) {
             if (0 != fseek(fp, 0, SEEK_SET)) {
                 errorPrint("Failed to fseek file: %s, reason:%s\n",
-                           file, strerror(errno));
+                        file, strerror(errno));
                 fclose(fp);
                 return -1;
             }
@@ -426,7 +426,8 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = field->min + (taosRandom() % (field->max - field->min));
+                    uint16_t usmallint = field->min
+                        + (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
                         ((uint16_t *)field->data)[k] = usmallint;
                     }
@@ -716,7 +717,7 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     }
 }
 
-int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
+int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     stbInfo->lenOfCols = calcRowLen(stbInfo->cols, stbInfo->iface);
     stbInfo->lenOfTags = calcRowLen(stbInfo->tags, stbInfo->iface);
     if (stbInfo->partialColumnNum != 0 &&
@@ -757,6 +758,8 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
         if (generateSampleFromCsvForStb(stbInfo->sampleDataBuf,
                                         stbInfo->sampleFile, stbInfo->lenOfCols,
                                         g_arguments->prepared_rand)) {
+            errorPrint("Failed to generate sample from csv file %s\n",
+                    stbInfo->sampleFile);
             return -1;
         }
     }
@@ -783,19 +786,19 @@ int prepare_sample_data(SDataBase* database, SSuperTable* stbInfo) {
     }
 
     if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
-    if (stbInfo->tcpTransfer
-            && stbInfo->iface == SML_REST_IFACE
-            && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
+        if (stbInfo->tcpTransfer
+                && stbInfo->iface == SML_REST_IFACE
+                && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
             if (convertHostToServAddr(g_arguments->host,
-                                      g_arguments->telnet_tcp_port,
-                                      &(g_arguments->serv_addr))) {
+                        g_arguments->telnet_tcp_port,
+                        &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
                 return -1;
             }
         } else {
             if (convertHostToServAddr(g_arguments->host,
-                                      g_arguments->port + TSDB_PORT_HTTP,
-                                      &(g_arguments->serv_addr))) {
+                        g_arguments->port + TSDB_PORT_HTTP,
+                        &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
                 return -1;
             }
@@ -842,7 +845,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             param->buffer = col->data;
             param->buffer_length = col->length;
             debugPrint("col[%d]: type: %s, len: %d\n", c,
-                       taos_convert_datatype_to_string(data_type),
+                       convertDatatypeToString(data_type),
                        col->length);
         }
         param->buffer_type = data_type;
@@ -945,7 +948,7 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                 tools_cJSON_AddNumberToObject(
                         tagObj, "value",
                         tag->min + (taosRandom() % (tag->max - tag->min)));
-                tools_cJSON_AddStringToObject(tagObj, "type", taos_convert_datatype_to_string(tag->type));
+                tools_cJSON_AddStringToObject(tagObj, "type", convertDatatypeToString(tag->type));
                 break;
         }
         tools_cJSON_AddItemToObject(tags, tagName, tagObj);
@@ -1009,7 +1012,7 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbI
                     value, "value",
                     (double)col->min +
                     (taosRandom() % (col->max - col->min)));
-            tools_cJSON_AddStringToObject(value, "type", taos_convert_datatype_to_string(col->type));
+            tools_cJSON_AddStringToObject(value, "type", convertDatatypeToString(col->type));
             break;
     }
     tools_cJSON_AddItemToObject(record, "timestamp", ts);

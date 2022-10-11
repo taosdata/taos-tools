@@ -114,7 +114,7 @@ class TDDnode:
     def getDataSize(self):
         totalSize = 0
 
-        if (self.deployed == 1):
+        if self.deployed == 1:
             for dirpath, dirnames, filenames in os.walk(self.dataDir):
                 for f in filenames:
                     fp = os.path.join(dirpath, f)
@@ -128,8 +128,7 @@ class TDDnode:
         self.logDir = "%s/sim/dnode%d/log" % (self.path, self.index)
         self.dataDir = "%s/sim/dnode%d/data" % (self.path, self.index)
         self.cfgDir = "%s/sim/dnode%d/cfg" % (self.path, self.index)
-        self.cfgPath = "%s/sim/dnode%d/cfg/taos.cfg" % (
-            self.path, self.index)
+        self.cfgPath = "%s/sim/dnode%d/cfg/taos.cfg" % (self.path, self.index)
 
         cmd = "rm -rf " + self.dataDir
         if os.system(cmd) != 0:
@@ -193,22 +192,22 @@ class TDDnode:
         self.cfg("qdebugFlag", "135")
         self.deployed = 1
         tdLog.debug(
-            "dnode:%d is deployed and configured by %s" %
-            (self.index, self.cfgPath))
+            "dnode:%d is deployed and configured by %s" % (self.index, self.cfgPath)
+        )
 
     def getPath(self, tool="taosd"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
         for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
         return paths[0]
@@ -216,7 +215,7 @@ class TDDnode:
     def start(self):
         binPath = self.getPath()
 
-        if (binPath == ""):
+        if binPath == "":
             tdLog.exit("taosd not found!")
         else:
             tdLog.info("taosd found: %s" % binPath)
@@ -226,12 +225,13 @@ class TDDnode:
 
         if self.valgrind == 0:
             cmd = "nohup %s -c %s --random-file-fail-factor 0 > /dev/null 2>&1 & " % (
-                binPath, self.cfgDir)
+                binPath,
+                self.cfgDir,
+            )
         else:
             valgrindCmdline = "valgrind --tool=memcheck --leak-check=full --show-reachable=no --track-origins=yes --show-leak-kinds=all -v --workaround-gcc296-bugs=yes"
 
-            cmd = "nohup %s %s -c %s 2>&1 & " % (
-                valgrindCmdline, binPath, self.cfgDir)
+            cmd = "nohup %s %s -c %s 2>&1 & " % (valgrindCmdline, binPath, self.cfgDir)
 
             print(cmd)
 
@@ -251,15 +251,13 @@ class TDDnode:
 
         if self.running != 0:
             psCmd = "ps -ef|grep -w %s| grep -v grep | awk '{print $2}'" % toBeKilled
-            processID = subprocess.check_output(
-                psCmd, shell=True).decode("utf-8")
+            processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
 
-            while(processID):
+            while processID:
                 killCmd = "kill -INT %s > /dev/null 2>&1" % processID
                 os.system(killCmd)
                 time.sleep(1)
-                processID = subprocess.check_output(
-                    psCmd, shell=True).decode("utf-8")
+                processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
             for port in range(6030, 6041):
                 fuserCmd = "fuser -k -n tcp %d" % port
                 os.system(fuserCmd)
@@ -277,15 +275,13 @@ class TDDnode:
 
         if self.running != 0:
             psCmd = "ps -ef|grep -w %s| grep -v grep | awk '{print $2}'" % toBeKilled
-            processID = subprocess.check_output(
-                psCmd, shell=True).decode("utf-8")
+            processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
 
-            while(processID):
+            while processID:
                 killCmd = "kill -KILL %s > /dev/null 2>&1" % processID
                 os.system(killCmd)
                 time.sleep(1)
-                processID = subprocess.check_output(
-                    psCmd, shell=True).decode("utf-8")
+                processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
             for port in range(6030, 6041):
                 fuserCmd = "fuser -k -n tcp %d" % port
                 os.system(fuserCmd)
@@ -301,8 +297,7 @@ class TDDnode:
             tdLog.exit(cmd)
 
     def stopIP(self):
-        cmd = "sudo ifconfig lo:%d 192.168.0.%d down" % (
-            self.index, self.index)
+        cmd = "sudo ifconfig lo:%d 192.168.0.%d down" % (self.index, self.index)
         if os.system(cmd) != 0:
             tdLog.exit(cmd)
 
@@ -338,21 +333,19 @@ class TDDnodes:
     def init(self, path):
         psCmd = "ps -ef|grep -w taosd| grep -v grep | awk '{print $2}'"
         processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
-        while(processID):
+        while processID:
             killCmd = "kill -TERM %s > /dev/null 2>&1" % processID
             os.system(killCmd)
             time.sleep(1)
-            processID = subprocess.check_output(
-                psCmd, shell=True).decode("utf-8")
+            processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
 
         psCmd = "ps -ef|grep -w valgrind.bin| grep -v grep | awk '{print $2}'"
         processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
-        while(processID):
+        while processID:
             killCmd = "kill -TERM %s > /dev/null 2>&1" % processID
             os.system(killCmd)
             time.sleep(1)
-            processID = subprocess.check_output(
-                psCmd, shell=True).decode("utf-8")
+            processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
 
         binPath = os.path.dirname(os.path.realpath(__file__))
         binPath = binPath + "/../../../debug/"
@@ -395,7 +388,7 @@ class TDDnodes:
     def deploy(self, index):
         self.sim.setTestCluster(self.testCluster)
 
-        if (self.simDeployed == False):
+        if self.simDeployed == False:
             self.sim.deploy()
             self.simDeployed = True
 
@@ -454,21 +447,19 @@ class TDDnodes:
         # tdLog.exit(cmd)
         psCmd = "ps -ef|grep -w taosd| grep -v grep | awk '{print $2}'"
         processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
-        while(processID):
+        while processID:
             killCmd = "kill -TERM %s > /dev/null 2>&1" % processID
             os.system(killCmd)
             time.sleep(1)
-            processID = subprocess.check_output(
-                psCmd, shell=True).decode("utf-8")
+            processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
 
         psCmd = "ps -ef|grep -w valgrind.bin| grep -v grep | awk '{print $2}'"
         processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
-        while(processID):
+        while processID:
             killCmd = "kill -TERM %s > /dev/null 2>&1" % processID
             os.system(killCmd)
             time.sleep(1)
-            processID = subprocess.check_output(
-                psCmd, shell=True).decode("utf-8")
+            processID = subprocess.check_output(psCmd, shell=True).decode("utf-8")
 
         # if os.system(cmd) != 0 :
         # tdLog.exit(cmd)
