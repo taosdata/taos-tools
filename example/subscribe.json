@@ -15,7 +15,7 @@
 		"resubAfterConsume": 10,
 		"sqls": [
 			{
-				"sql": "select avg(current) from meters where location = 'beijing';",
+				"sql": "select current from meters where location = 'beijing';",
 				"result": "./subscribe_res0.txt"
 			}
 		]
