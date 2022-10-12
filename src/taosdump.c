@@ -9329,7 +9329,7 @@ static void printArgs(FILE *file)
         char first4OfToken[5] = {0};
         char last4OfToken[5] = {0};
 
-        if (strlen(g_args.cloudToken) > 12) {
+        if (g_args.cloudToken && strlen(g_args.cloudToken) > 12) {
             strncpy(first4OfToken, g_args.cloudToken, 4);
             strncpy(last4OfToken, g_args.cloudToken + strlen(g_args.cloudToken) - 4, 4);
             fprintf(file, "first 4 letter of cloud token: %s\n", first4OfToken);

@@ -192,6 +192,17 @@ jobs:
 
           for i in `find taosdump/ws3 -name "*.py" | grep "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
 
+      - name: taosdump Cmd line Test
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          cd debug
+          ./build/bin/taosdump -C https://not-exist.com:80/cloud -D test ||:
+          export TDENGINE_CLOUD_DSN=https://not-exist.com:80/cloud 
+          ./build/bin/taosdump -D test ||:
+
       - name: Check Test Result
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
