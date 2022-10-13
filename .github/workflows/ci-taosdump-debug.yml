@@ -62,7 +62,7 @@ jobs:
           submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'szhou/fixbugs26'
+          ref: '2.6'
 
       - name: Change time zone
         run: |
