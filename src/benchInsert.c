@@ -516,26 +516,15 @@ static int createChildTables() {
     }
 
     double end = (double)toolsGetTimestampMs();
-    infoPrint(
-              "Spent %.4f seconds to create %" PRId64
-              " table(s) with %d thread(s), already exist %" PRId64
-              " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
-              " table(s) will be auto created\n",
-              (end - start) / 1000.0, g_arguments->g_totalChildTables,
-              g_arguments->table_threads, g_arguments->g_existedChildTables,
-              g_arguments->g_actualChildTables,
-              g_arguments->g_autoCreatedChildTables);
-    if (g_arguments->fpOfInsertResult) {
-        fprintf(g_arguments->fpOfInsertResult,
-                "Spent %.4f seconds to create %" PRId64
-                " table(s) with %d thread(s), already exist %" PRId64
-                " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
-                " table(s) will be auto created\n",
-                (end - start) / 1000.0, g_arguments->g_totalChildTables,
-                g_arguments->table_threads, g_arguments->g_existedChildTables,
-                g_arguments->g_actualChildTables,
-                g_arguments->g_autoCreatedChildTables);
-    }
+    succPrint(
+            "Spent %.4f seconds to create %" PRId64
+            " table(s) with %d thread(s), already exist %" PRId64
+            " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
+            " table(s) will be auto created\n",
+            (end - start) / 1000.0, g_arguments->g_totalChildTables,
+            g_arguments->table_threads, g_arguments->g_existedChildTables,
+            g_arguments->g_actualChildTables,
+            g_arguments->g_autoCreatedChildTables);
     return 0;
 }
 
@@ -925,7 +914,7 @@ static void *syncWriteInterlace(void *sarg) {
 free_of_interlace:
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
 
-    infoPrint(
+    succPrint(
             "thread[%d] completed total inserted rows: %" PRIu64
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
@@ -1193,7 +1182,7 @@ void *syncWriteProgressive(void *sarg) {
     }      // tableSeq
 free_of_progressive:
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
-    infoPrint(
+    succPrint(
             "thread[%d] completed total inserted rows: %" PRIu64
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
@@ -1823,26 +1812,17 @@ static int startMultiThreadInsertData(SDataBase* database,
     free(pids);
     free(infos);
 
-    infoPrint("Spent %.6f seconds to insert rows: %" PRIu64
+    succPrint("Spent %.6f seconds to insert rows: %" PRIu64
                           " with %d thread(s) into %s %.2f records/second\n",
                   (end - start)/1E6, totalInsertRows, threads,
                   database->dbName,
                   (double)(totalInsertRows / ((end - start)/1E6)));
-
-    if (g_arguments->fpOfInsertResult) {
-            infoPrintToFile(g_arguments->fpOfInsertResult,
-                      "Spent %.6f seconds to insert rows: %" PRIu64
-                              " with %d thread(s) into %s %.2f records/second\n",
-                      (end - start)/1E6, totalInsertRows, threads,
-                      database->dbName,
-                      (double)(totalInsertRows / ((end - start)/1E6)));
-    }
     if (!total_delay_list->size) {
         benchArrayDestroy(total_delay_list);
         return -1;
     }
 
-    infoPrint("insert delay, "
+    succPrint("insert delay, "
             "min: %.2fms, "
             "avg: %.2fms, "
             "p90: %.2fms, "
@@ -1860,26 +1840,6 @@ static int startMultiThreadInsertData(SDataBase* database,
             *(int64_t *)(benchArrayGet(total_delay_list,
                     (int32_t)(total_delay_list->size - 1)))/1E3);
 
-    if (g_arguments->fpOfInsertResult) {
-        infoPrintToFile(g_arguments->fpOfInsertResult,
-                "insert delay, "
-                "min: %.2fms, "
-                "avg: %.2fms, "
-                "p90: %.2fms, "
-                "p95: %.2fms, "
-                "p99: %.2fms, "
-                "max: %.2fms\n",
-                *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
-                (double)totalDelay/total_delay_list->size/1E3,
-                *(int64_t *)(benchArrayGet(total_delay_list,
-                        (int32_t)(total_delay_list->size * 0.9)))/1E3,
-                *(int64_t *)(benchArrayGet(total_delay_list,
-                        (int32_t)(total_delay_list->size * 0.95)))/1E3,
-                *(int64_t *)(benchArrayGet(total_delay_list,
-                        (int32_t)(total_delay_list->size * 0.99)))/1E3,
-                *(int64_t *)(benchArrayGet(total_delay_list,
-                        (int32_t)(total_delay_list->size - 1)))/1E3);
-    }
     benchArrayDestroy(total_delay_list);
     if (g_fail) {
         return -1;
