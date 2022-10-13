@@ -90,7 +90,7 @@ jobs:
           yum install -y gcc gcc-c++ make cmake3 git openssl-devel wget > /dev/null
           ln -sf /usr/bin/cmake3 /usr/bin/cmake
 
-      - name: Checkout TDengine develop branch
+      - name: Checkout TDengine 2.6 branch
         if: |
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
@@ -100,7 +100,7 @@ jobs:
           submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: '2.6'
 
       - name: Change time zone
         if: |

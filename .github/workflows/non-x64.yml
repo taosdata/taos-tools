@@ -39,7 +39,7 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
-          ref: develop
+          ref: 'develop'
           path: 'taos-tools'
           # Set an output parameter `uname` for use in subsequent steps
           run: |
@@ -86,7 +86,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine
+      - name: Checkout TDengine 2.6
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -96,7 +96,7 @@ jobs:
           submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: '2.6'
 
       - name: Change time zone
         if: |

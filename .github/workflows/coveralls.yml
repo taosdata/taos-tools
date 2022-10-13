@@ -60,14 +60,14 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout tdengine
+      - name: Checkout TDengine 2.6
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/checkout@v2
         with:
           submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'develop'
+          ref: '2.6'
 
       - name: Change time zone
         if: steps.changed-files-specific.outputs.any_changed == 'true'

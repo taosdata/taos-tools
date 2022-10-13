@@ -39,7 +39,7 @@ jobs:
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
-          ref: develop
+          ref: 'develop'
           path: 'taos-tools'
           # Set an output parameter `uname` for use in subsequent steps
           run: |
