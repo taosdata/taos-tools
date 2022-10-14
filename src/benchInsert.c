@@ -628,6 +628,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     "%s\n",
                     pThreadInfo->lines[0], taos_errstr(res));
             }
+            taos_free_result(res);
             break;
 
         case SML_REST_IFACE: {
