@@ -100,15 +100,15 @@ unsigned int taosRandom() {
 
 void usleep(__int64 usec)
 {
-  HANDLE timer;
-  LARGE_INTEGER ft;
+    HANDLE timer;
+    LARGE_INTEGER ft;
 
-  ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
 
-  timer = CreateWaitableTimer(NULL, TRUE, NULL);
-  SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
-  WaitForSingleObject(timer, INFINITE);
-  CloseHandle(timer);
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
 }
 
 #else  // Not windows
@@ -124,17 +124,17 @@ unsigned int taosRandom() { return (unsigned int)rand(); }
 #endif
 
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
-                                char ** childTblNameOfSuperTbl,
-                                int64_t childTblCountOfSuperTbl) {
+        char ** childTblNameOfSuperTbl,
+        int64_t childTblCountOfSuperTbl) {
     char cmd[SQL_BUFF_LEN] = "\0";
     snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %" PRId64 "",
-             dbName, stbName, childTblCountOfSuperTbl);
+            dbName, stbName, childTblCountOfSuperTbl);
     TAOS_RES *res = taos_query(taos, cmd);
     int32_t   code = taos_errno(res);
     int64_t   count = 0;
     if (code) {
         errorPrint("failed to get child table name: %s. reason: %s",
-                   cmd, taos_errstr(res));
+                cmd, taos_errstr(res));
         taos_free_result(res);
 
         return -1;
@@ -143,7 +143,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
     while ((row = taos_fetch_row(res)) != NULL) {
         if (0 == strlen((char *)(row[0]))) {
             errorPrint("No.%" PRId64 " table return empty name\n",
-                       count);
+                    count);
             return -1;
         }
         int32_t * lengths = taos_fetch_lengths(res);
@@ -153,7 +153,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         childTblNameOfSuperTbl[count][lengths[0] + 1] = '`';
         childTblNameOfSuperTbl[count][lengths[0] + 2] = '\0';
         debugPrint("childTblNameOfSuperTbl[%" PRId64 "]: %s\n", count,
-                   childTblNameOfSuperTbl[count]);
+                childTblNameOfSuperTbl[count]);
         count++;
     }
     taos_free_result(res);
@@ -161,12 +161,12 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 }
 
 int convertHostToServAddr(char *host, uint16_t port,
-                          struct sockaddr_in *serv_addr) {
+        struct sockaddr_in *serv_addr) {
     if (!host) {
         host = "localhost";
     }
     debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host,
-               port);
+            port);
     struct hostent *server = gethostbyname(host);
     if ((server == NULL) || (server->h_addr == NULL)) {
         errorPrint("%s", "no such host");
@@ -188,16 +188,16 @@ void prompt(bool nonStopMode) {
         g_arguments->in_prompt = true;
         if (nonStopMode) {
             printf(
-                "\n\n         Current is the Non-Stop insertion mode. "
-                "taosBenchmark will continuously insert data unless you press "
-                "Ctrl-C to end it.\n\n         press enter key to continue and "
-                "Ctrl-C to "
-                "stop\n\n");
+                    "\n\n         Current is the Non-Stop insertion mode. "
+                    "taosBenchmark will continuously insert data unless you press "
+                    "Ctrl-C to end it.\n\n         press enter key to continue and "
+                    "Ctrl-C to "
+                    "stop\n\n");
             (void)getchar();
         } else {
             printf(
-                "\n\n         Press enter key to continue or Ctrl-C to "
-                "stop\n\n");
+                    "\n\n         Press enter key to continue or Ctrl-C to "
+                    "stop\n\n");
             (void)getchar();
         }
         g_arguments->in_prompt = false;
@@ -208,8 +208,8 @@ static void appendResultBufToFile(char *resultBuf, char * filePath) {
     FILE* fp = fopen(filePath, "at");
     if (fp == NULL) {
         errorPrint(
-                   "failed to open result file: %s, result will not save "
-                   "to file\n", filePath);
+                "failed to open result file: %s, result will not save "
+                "to file\n", filePath);
         return;
     }
     fprintf(fp, "%s", resultBuf);
@@ -239,7 +239,7 @@ int64_t toolsGetTimestampMs() {
     struct timeval systemTime;
     toolsGetTimeOfDay(&systemTime);
     return (int64_t)systemTime.tv_sec * 1000L +
-           (int64_t)systemTime.tv_usec / 1000;
+        (int64_t)systemTime.tv_usec / 1000;
 }
 
 int64_t toolsGetTimestampUs() {
@@ -252,7 +252,7 @@ int64_t toolsGetTimestampNs() {
     struct timespec systemTime = {0};
     toolsClockGetTime(CLOCK_REALTIME, &systemTime);
     return (int64_t)systemTime.tv_sec * 1000000000L +
-           (int64_t)systemTime.tv_nsec;
+        (int64_t)systemTime.tv_nsec;
 }
 
 int64_t toolsGetTimestamp(int32_t precision) {
@@ -351,7 +351,7 @@ int queryDbExec(SBenchConn *conn, char *command) {
         code = taos_errno(res);
         if (code != 0) {
             errorPrint("Failed to execute <%s>, reason: %s\n", command,
-                       taos_errstr(res));
+                    taos_errstr(res));
             taos_free_result(res);
             return -1;
         }
@@ -371,7 +371,7 @@ void encode_base_64() {
         'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
     snprintf(userpass_buf, INPUT_BUF_LEN, "%s:%s", g_arguments->user,
-             g_arguments->password);
+            g_arguments->password);
 
     int mod_table[] = {0, 2, 1};
 
@@ -409,13 +409,13 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     if (iface == REST_IFACE) {
         sprintf(url, "/rest/sql/%s", dbName);
     } else if (iface == SML_REST_IFACE &&
-               protocol == TSDB_SML_LINE_PROTOCOL) {
+            protocol == TSDB_SML_LINE_PROTOCOL) {
         sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", dbName,
                 precision == TSDB_TIME_PRECISION_MILLI
-                    ? "ms"
-                    : precision == TSDB_TIME_PRECISION_NANO
-                          ? "ns"
-                          : "u");
+                ? "ms"
+                : precision == TSDB_TIME_PRECISION_NANO
+                ? "ns"
+                : "u");
     } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_TELNET_PROTOCOL) {
         sprintf(url, "/opentsdb/v1/put/telnet/%s", dbName);
     } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_JSON_PROTOCOL) {
@@ -442,8 +442,8 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         r = snprintf(request_buf, req_buf_len, "%s", sqlstr);
     } else {
         r = snprintf(request_buf, req_buf_len, req_fmt, url, g_arguments->host,
-                     rest_port, g_arguments->base64_buf, strlen(sqlstr),
-                     sqlstr);
+                rest_port, g_arguments->base64_buf, strlen(sqlstr),
+                sqlstr);
     }
     if (r >= req_buf_len) {
         free(request_buf);
@@ -456,7 +456,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     sent = 0;
     do {
         bytes = send(sockfd, request_buf + sent,
-                     req_str_len - sent, 0);
+                req_str_len - sent, 0);
         if (bytes < 0) {
             errorPrint("%s", "writing no message to socket\n");
             goto free_of_post;
@@ -483,7 +483,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
 
     do {
         bytes = recv(sockfd, response_buf + received,
-                     resp_len - received, 0);
+                resp_len - received, 0);
         debugPrint("response_buffer: %s\n", response_buf);
         if (NULL != strstr(response_buf, resEncodingChunk)) {
             chunked = true;
@@ -510,10 +510,10 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         if (g_arguments->test_mode == INSERT_TEST) {
             if (strlen(response_buf)) {
                 if (((NULL != strstr(response_buf, resEncodingChunk)) &&
-                     (NULL != strstr(response_buf, resHttp))) ||
-                    ((NULL != strstr(response_buf, resHttpOk)) ||
-                     (NULL != strstr(response_buf, influxHttpOk)) ||
-                     (NULL != strstr(response_buf, opentsdbHttpOk)))) {
+                            (NULL != strstr(response_buf, resHttp))) ||
+                        ((NULL != strstr(response_buf, resHttpOk)) ||
+                         (NULL != strstr(response_buf, influxHttpOk)) ||
+                         (NULL != strstr(response_buf, opentsdbHttpOk)))) {
                     break;
                 }
             }
@@ -526,9 +526,9 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     }
 
     if (NULL == strstr(response_buf, resHttpOk) &&
-        NULL == strstr(response_buf, influxHttpOk) &&
-        NULL == strstr(response_buf, succMessage) &&
-        NULL == strstr(response_buf, opentsdbHttpOk)) {
+            NULL == strstr(response_buf, influxHttpOk) &&
+            NULL == strstr(response_buf, succMessage) &&
+            NULL == strstr(response_buf, opentsdbHttpOk)) {
         errorPrint("Response:\n%s\n", response_buf);
         goto free_of_post;
     }
@@ -545,7 +545,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
 
 
     if (NULL != strstr(response_buf, influxHttpOk) &&
-        protocol == TSDB_SML_LINE_PROTOCOL && iface == SML_REST_IFACE) {
+            protocol == TSDB_SML_LINE_PROTOCOL && iface == SML_REST_IFACE) {
         code = 0;
         goto free_of_post;
     }
@@ -574,7 +574,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
             goto free_of_post;
         }
         if (codeObj->valueint != 0 &&
-            (iface == SML_REST_IFACE && protocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
+                (iface == SML_REST_IFACE && protocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
             tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
             if (!tools_cJSON_IsString(desc)) {
                 errorPrint("Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
@@ -929,208 +929,3 @@ void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
 }
 #endif
 
-static dstr * ds_header(char *s)
-{
-	dstr *ds = (dstr *)(s - DS_HEADER_SIZE);
-
-	if (ds->magic != MAGIC_NUMBER)
-		return NULL;
-	else
-		return ds;
-}
-
-char * new_ds(size_t cap)
-{
-	dstr *ds;
-
-	ds = malloc(DS_HEADER_SIZE + cap + 1);
-	if (ds == NULL)
-	{
-		perror("newds()->malloc()");
-		exit(1);
-	}
-
-	ds->magic   = MAGIC_NUMBER;
-	ds->custom  = 0;
-	ds->cap     = cap;
-	ds->len     = 0;
-	ds->data[0] = '\0';
-
-	return ds->data;
-}
-
-void free_ds(char **ps)
-{
-	dstr * ds = ds_header(*ps);
-
-	if (ds == NULL)
-	{
-		printf("freeds(): not a dynamic string");
-		exit(1);
-	}
-
-	free(ds);
-	*ps = NULL;
-}
-
-uint64_t ds_len(const char *s)
-{
-	return ((uint64_t *)s)[OFF_LEN];
-}
-
-static inline void ds_set_len(char *s, uint64_t len)
-{
-	((uint64_t *)s)[OFF_LEN] = len;
-	s[len] = '\0';
-}
-
-uint64_t ds_cap(const char *s)
-{
-	return ((uint64_t *)s)[OFF_CAP];
-}
-
-
-static inline void ds_set_cap(char *s, uint64_t cap)
-{
-	((uint64_t *)s)[OFF_CAP] = cap;
-	s[cap] = '\0';
-}
-
-int ds_last(char *s)
-{
-	uint64_t len = ds_len(s);
-
-	if (len == 0)
-		return '\0';
-	else
-		return s[len - 1];
-}
-
-char * ds_end(char *s)
-{
-	return s + ds_len(s);
-}
-
-float fast_sqrt(float x)
-{
-	float xhalf = 0.5f * x;
-	int i = *(int*)&x;
-	i = 0x5f375a86 - (i >> 1);
-	x = *(float*)&i;
-	x = x * (1.5f - xhalf * x * x);
-	return 1/x;
-}
-
-char * ds_grow(char **ps, size_t needsize)
-{
-	char *s = *ps;
-
-	uint64_t len = ds_len(s) + needsize;
-	uint64_t cap = ds_cap(s);
-
-	if (len <= cap)
-		return s;
-
-	if (len > 128*1024*1024)
-		cap = len + 32*1024*1024;
-	else if (len > 4*1024*1024)
-		cap = len + fast_sqrt(len * 8) * 1024;
-	else if (len < 16)
-		cap = 16;
-	else
-		cap = len * 2;
-
-	return ds_resize(ps, cap);
-}
-
-char * ds_resize(char **ps, size_t cap)
-{
-	char *s = *ps;
-
-	s = realloc(s - DS_HEADER_SIZE, DS_HEADER_SIZE + cap + 1);
-	if (s == NULL)
-	{
-		perror("resizeds()->realloc()");
-		exit(1);
-	}
-	s += DS_HEADER_SIZE;
-
-	if (ds_len(s) > cap)
-		ds_set_len(s, cap);
-
-	ds_set_cap(s, cap);
-
-	*ps = s;
-
-	return s;
-}
-
-
-char * ds_pack(char **ps)
-{
-	return ds_resize(ps, ds_len(*ps));
-}
-
-
-char * ds_add_char(char **ps, char c)
-{
-    ds_grow(ps, 1);
-
-    char *s = *ps;
-
-    ds_end(s)[0] = c;
-    ds_set_len(s, ds_len(s) + 1);
-
-    return s;
-}
-
-char * ds_add_str(char **ps, const char* sub)
-{
-	size_t len = strlen(sub);
-    ds_grow(ps, len);
-
-    char *s = *ps;
-
-    memcpy(ds_end(s), sub, len);
-    // 修正长度并补上 \0
-    ds_set_len(s, ds_len(s) + len);
-
-    return s;
-}
-
-
-char * ds_add_strs(char **ps, int count, ...)
-{
-    va_list valist;
-
-    va_start(valist, count);
-
-    for (int i=0; i<count; i++) {
-        const char *sub = va_arg(valist, char *);
-        ds_add_str(ps, sub);
-    }
-
-    va_end(valist);
-
-    return *ps;
-}
-
-char * ds_ins_str(char **ps, size_t pos, const char *sub, size_t len)
-{
-    char *s = *ps;
-
-    if (pos > ds_len(s))
-		pos = ds_len(s);
-
-    if (len == 0)
-		len = strlen(sub);
-
-    ds_grow(ps, len);
-    s = *ps;
-
-    memcpy(s + pos + len, s + pos, ds_len(s) - pos);
-    memcpy(s + pos, sub, len);
-    ds_set_len(s, ds_len(s) + len);
-
-    return s;
-}
