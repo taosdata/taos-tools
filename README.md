@@ -1,10 +1,16 @@
 # taosTools
 
-[![Ubuntu (3.0 taosdump native)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml)
-[![Windows (3.0 build)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml)
-[![taosBenchmark](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosBenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosBenchmark-release.yml)
-[![taosdump Release](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosdump-release.yml)
+[![CppCheck action](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml/badge.svg?branch=develop)](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml)
+
 [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
+
+[![Ubuntu (3.0 taosdump native)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml)
+
+[![Windows (3.0 build)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml)
+
+[![taosBenchmark](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosBenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosBenchmark-release.yml)
+
+[![taosdump Release](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/ci-taosdump-release.yml)
 
 taosTools are some useful tool collections for TDengine.
 
