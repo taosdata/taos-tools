@@ -298,6 +298,12 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                         sizeof(struct sockaddr));
                 if (retConn < 0) {
                     errorPrint("connect return %d\n", retConn);
+#ifdef WINDOWS
+                    closesocket(sockfd);
+                    WSACleanup();
+#else
+                    close(sockfd);
+#endif
                     goto OVER;
                 }
                 pThreadInfo->sockfd = sockfd;
@@ -397,6 +403,12 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                         errorPrint(
                                 "failed to connect with socket, reason: %s\n",
                                 strerror(errno));
+#ifdef WINDOWS
+                        closesocket(sockfd);
+                        WSACleanup();
+#else
+                        close(sockfd);
+#endif
                         tmfree((char *)pids);
                         tmfree((char *)infos);
                         return -1;
@@ -405,6 +417,14 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 } else {
                     pThreadInfo->conn = init_bench_conn();
                     if (pThreadInfo->conn == NULL) {
+#ifdef WINDOWS
+                        closesocket(pThreadInfo->sockfd);
+                        WSACleanup();
+#else
+                        close(pThreadInfo->sockfd);
+#endif
+                        tmfree((char *)pids);
+                        tmfree((char *)infos);
                         return -1;
                     }
                 }
@@ -518,6 +538,12 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
                     sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
                     sizeof(struct sockaddr));
             if (retConn < 0) {
+#ifdef WINDOWS
+                closesocket(sockfd);
+                WSACleanup();
+#else
+                close(sockfd);
+#endif
                 errorPrint("failed to connect with socket, reason: %s\n", strerror(errno));
                 goto OVER;
             }

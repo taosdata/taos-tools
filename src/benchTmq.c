@@ -101,6 +101,7 @@ static void* tmqConsume(void* arg) {
 }
 
 int subscribeTestProcess() {
+    int ret = 0;
     if (g_queryInfo.specifiedQueryInfo.sqls->size > 0) {
         if (create_topic(g_queryInfo.specifiedQueryInfo.sqls)) {
             return -1;
@@ -109,8 +110,12 @@ int subscribeTestProcess() {
 
     tmq_list_t * topic_list = build_topic_list(g_queryInfo.specifiedQueryInfo.sqls->size);
 
-    pthread_t * pids = benchCalloc(g_queryInfo.specifiedQueryInfo.concurrent, sizeof(pthread_t), true);
-    tmqThreadInfo *infos = benchCalloc(g_queryInfo.specifiedQueryInfo.concurrent, sizeof(tmqThreadInfo), true);
+    pthread_t * pids = benchCalloc(
+            g_queryInfo.specifiedQueryInfo.concurrent,
+            sizeof(pthread_t), true);
+    tmqThreadInfo *infos = benchCalloc(
+            g_queryInfo.specifiedQueryInfo.concurrent,
+            sizeof(tmqThreadInfo), true);
 
     if (!g_arguments->answer_yes) {
         printf("\n\n         Press enter key to continue\n\n");
@@ -132,18 +137,27 @@ int subscribeTestProcess() {
         tmq_conf_destroy(conf);
         if (pThreadInfo->tmq == NULL) {
             errorPrint("%s" ,"failed to execute tmq_consumer_new\n");
-            return -1;
+            ret = -1;
+            goto tmq_over;
         }
         infoPrint("thread[%d]: successfully create consumer\n", i);
         int32_t code = tmq_subscribe(pThreadInfo->tmq, topic_list);
         if (code) {
             errorPrint("failed to execute tmq_subscribe, reason: %s\n",
                     tmq_err2str(code));
-            return -1;
+            ret = -1;
+            goto tmq_over;
         }
         infoPrint("thread[%d]: successfully subscribe topics\n", i);
         pthread_create(pids + i, NULL, tmqConsume, pThreadInfo);
     }
 
-    return 0;
+    for (int i = 0; i < g_queryInfo.specifiedQueryInfo.concurrent; i++) {
+        pthread_join(pids[i], NULL);
+    }
+
+tmq_over:
+    free(pids);
+    free(infos);
+    return ret;
 }

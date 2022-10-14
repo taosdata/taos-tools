@@ -576,7 +576,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     TAOS_RES *   res = NULL;
-    int32_t      code;
+    int32_t      code = 0;
     uint16_t     iface = stbInfo->iface;
 
     debugPrint("iface: %d\n", iface);
@@ -683,7 +683,7 @@ static void *syncWriteInterlace(void *sarg) {
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     int64_t   startTs = toolsGetTimestampMs();
     int64_t   endTs = toolsGetTimestampMs();
-    int32_t    generated = 0;
+    uint32_t    generated = 0;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
     while (insertRows > 0) {
         tmp_total_insert_rows = 0;
@@ -967,7 +967,7 @@ void *syncWriteProgressive(void *sarg) {
             if (g_arguments->terminate) {
                 goto free_of_progressive;
             }
-            int32_t generated = 0;
+            uint32_t generated = 0;
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE: {
@@ -1556,10 +1556,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (retConn < 0) {
                     errorPrint("%s\n", "failed to connect");
 #ifdef WINDOWS
-                    closesocket(pThreadInfo->sockfd);
+                    closesocket(sockfd);
                     WSACleanup();
 #else
-                    close(pThreadInfo->sockfd);
+                    close(sockfd);
 #endif
                     return -1;
                 }
@@ -1630,10 +1630,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (retConn < 0) {
                     errorPrint("%s\n", "failed to connect");
 #ifdef WINDOWS
-                    closesocket(pThreadInfo->sockfd);
+                    closesocket(sockfd);
                     WSACleanup();
 #else
-                    close(pThreadInfo->sockfd);
+                    close(sockfd);
 #endif
                     free(pids);
                     free(infos);
@@ -1644,6 +1644,9 @@ static int startMultiThreadInsertData(SDataBase* database,
             case SML_IFACE: {
                 pThreadInfo->conn = init_bench_conn();
                 if (pThreadInfo->conn == NULL) {
+                    tmfree(pids);
+                    tmfree(infos);
+                    errorPrint("%s() init connection failed\n", __func__);
                     return -1;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
@@ -1668,10 +1671,12 @@ static int startMultiThreadInsertData(SDataBase* database,
                     }
 
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
-                        generateRandData(
-                            stbInfo, pThreadInfo->sml_tags[t],
-                            stbInfo->lenOfCols + stbInfo->lenOfTags,
-                            stbInfo->tags, 1, true);
+                        if (generateRandData(
+                                    stbInfo, pThreadInfo->sml_tags[t],
+                                    stbInfo->lenOfCols + stbInfo->lenOfTags,
+                                    stbInfo->tags, 1, true)) {
+                            return -1;
+                        }
                         debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }

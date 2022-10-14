@@ -281,6 +281,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
                 cfg->valueint = (int)cfg_object->valueint;
                 cfg->valuestring = NULL;
             } else {
+                free(cfg);
                 errorPrint("Invalid value format for %s\n", cfg->name);
                 return -1;
             }
@@ -314,9 +315,13 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
             return -1;
         }
         TSMA* tsma = benchCalloc(1, sizeof(TSMA), true);
+        if (NULL == tsma) {
+            errorPrint("%s() failed to allocate memory\n", __func__);
+        }
         tools_cJSON* tsma_name_obj = tools_cJSON_GetObjectItem(tsma_obj, "name");
         if(!tools_cJSON_IsString(tsma_name_obj)) {
             errorPrint("%s", "Invalid tsma name format in json\n");
+            free(tsma);
             return -1;
         }
         tsma->name = tsma_name_obj->valuestring;
@@ -324,6 +329,7 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         tools_cJSON* tsma_func_obj = tools_cJSON_GetObjectItem(tsma_obj, "function");
         if (!tools_cJSON_IsString(tsma_func_obj)) {
             errorPrint("%s", "Invalid tsma function format in json\n");
+            free(tsma);
             return -1;
         }
         tsma->func = tsma_func_obj->valuestring;
@@ -331,6 +337,7 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         tools_cJSON* tsma_interval_obj = tools_cJSON_GetObjectItem(tsma_obj, "interval");
         if(!tools_cJSON_IsString(tsma_interval_obj)) {
             errorPrint("%s", "Invalid tsma interval format in json\n");
+            free(tsma);
             return -1;
         }
         tsma->interval = tsma_interval_obj->valuestring;
@@ -338,6 +345,7 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         tools_cJSON* tsma_sliding_obj = tools_cJSON_GetObjectItem(tsma_obj, "sliding");
         if (!tools_cJSON_IsString(tsma_sliding_obj)) {
             errorPrint("%s", "Invalid tsma sliding format in json\n");
+            free(tsma);
             return -1;
         }
         tsma->sliding = tsma_sliding_obj->valuestring;
@@ -1003,6 +1011,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, BUFFER_SIZE);
             }
+            fclose(fp);
         }
         // sqls
         tools_cJSON *specifiedSqls = tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
