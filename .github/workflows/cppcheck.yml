@@ -14,16 +14,15 @@ jobs:
       - name: cppcheck
         uses: deep5050/cppcheck-action@main
         with:
-          check_library:
-          skip_preprocessor:
-          enable:
+          github_token: ${{ secrets.GITHUB_TOKEN}}
+          check_library: disable
+          skip_preprocessor: disable
+          enable: all
           exclude_check:
-          inconclusive:
-          inline_suppression:
-          force_language:
-          force:
-          max_ctu_depth:
-          platform:
-          std:
-          output_file:
+          inconclusive: enable
+          inline_suppression: enable
+          force_language: c
+          max_ctu_depth: 4
+          std: c11
+          output_file: ./cppcheck-report.txt
           other_options:
