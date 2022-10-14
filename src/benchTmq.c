@@ -112,8 +112,11 @@ int subscribeTestProcess() {
     pthread_t * pids = benchCalloc(g_queryInfo.specifiedQueryInfo.concurrent, sizeof(pthread_t), true);
     tmqThreadInfo *infos = benchCalloc(g_queryInfo.specifiedQueryInfo.concurrent, sizeof(tmqThreadInfo), true);
 
-    printf("\n\n         Press enter key to continue\n\n");
-    (void)getchar();
+    if (!g_arguments->answer_yes) {
+        printf("\n\n         Press enter key to continue\n\n");
+        (void)getchar();
+    }
+
     for (int i = 0; i < g_queryInfo.specifiedQueryInfo.concurrent; ++i) {
         tmqThreadInfo * pThreadInfo = infos + i;
         pThreadInfo->rows = 0;

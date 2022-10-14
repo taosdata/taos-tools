@@ -59,10 +59,9 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
-        tdSql.query("show db.tables")
-        tdSql.checkRows(10)
-        tdSql.query("select count(*) from db.stb")
-        tdSql.checkData(0, 0, 100)
+        cmd = "%s -f ./taosbenchmark/json/tmq.json" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
 
     def stop(self):
         tdSql.close()

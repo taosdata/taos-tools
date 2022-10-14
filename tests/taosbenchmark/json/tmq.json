@@ -5,14 +5,14 @@
     "port": 6030,
     "user": "root",
     "password": "taosdata",
-    "databases": "test",
+    "databases": "db",
     "confirm_parameter_prompt": "no",
     "specified_table_query": {
         "concurrent": 1,
         "interval": 1000,
         "sqls": [
             {
-                "sql": "select current from meters;"
+                "sql": "select c0 from stb;"
             }
         ]
     }
