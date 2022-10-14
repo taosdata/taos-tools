@@ -21,11 +21,11 @@
 /***** Declare functions *****/
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
                       int disorderRange);
-void    generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
+int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                          int lenOfOneRow, BArray * fields, int64_t loop,
                          bool tag);
 int     prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);
-int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
+uint32_t bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo);
 void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq);

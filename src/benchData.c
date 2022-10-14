@@ -36,41 +36,44 @@ const char* locations_sml[] = {"California.SanFrancisco", "California.LosAngles"
 #endif
 
 static int usc2utf8(char *p, int unic) {
+    int ret = 0;
     if (unic <= 0x0000007F) {
         *p = (unic & 0x7F);
-        return 1;
+        ret = 1;
     } else if (unic >= 0x00000080 && unic <= 0x000007FF) {
         *(p + 1) = (unic & 0x3F) | 0x80;
         *p = ((unic >> 6) & 0x1F) | 0xC0;
-        return 2;
+        ret = 2;
     } else if (unic >= 0x00000800 && unic <= 0x0000FFFF) {
         *(p + 2) = (unic & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 6) & 0x3F) | 0x80;
         *p = ((unic >> 12) & 0x0F) | 0xE0;
-        return 3;
+        ret = 3;
     } else if (unic >= 0x00010000 && unic <= 0x001FFFFF) {
         *(p + 3) = (unic & 0x3F) | 0x80;
         *(p + 2) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 12) & 0x3F) | 0x80;
         *p = ((unic >> 18) & 0x07) | 0xF0;
-        return 4;
+        ret = 4;
     } else if (unic >= 0x00200000 && unic <= 0x03FFFFFF) {
         *(p + 4) = (unic & 0x3F) | 0x80;
         *(p + 3) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 2) = ((unic >> 12) & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 18) & 0x3F) | 0x80;
         *p = ((unic >> 24) & 0x03) | 0xF8;
-        return 5;
-    } else if (unic >= 0x04000000) {
+        ret = 5;
+    // } else if (unic >= 0x04000000) {
+    } else {
         *(p + 5) = (unic & 0x3F) | 0x80;
         *(p + 4) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 3) = ((unic >> 12) & 0x3F) | 0x80;
         *(p + 2) = ((unic >> 18) & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 24) & 0x3F) | 0x80;
         *p = ((unic >> 30) & 0x01) | 0xFC;
-        return 6;
+        ret = 6;
     }
-    return 0;
+
+    return ret;
 }
 
 static void rand_string(char *str, int size, bool chinese) {
@@ -202,25 +205,29 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
 }
 
 static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
-    int32_t code = -1;
     FILE *  fp = fopen(stbInfo->sampleFile, "r");
-    int     line_count = 0;
-    char *  buf = NULL;
-    if (fp == NULL) {
+    if (NULL == fp) {
         errorPrint("Failed to open sample file: %s, reason:%s\n",
                    stbInfo->sampleFile, strerror(errno));
-        goto free_of_get_set_rows_from_csv;
+        return -1;
     }
+
+    int     line_count = 0;
+    char *  buf = NULL;
+
     buf = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
+    if (NULL == buf) {
+        errorPrint("%s() failed to allocate memory!\n", __func__);
+        return -1;
+    }
+
     while (fgets(buf, TSDB_MAX_SQL_LEN, fp)) {
         line_count++;
     }
     stbInfo->insertRows = line_count;
-    code = 0;
-free_of_get_set_rows_from_csv:
     fclose(fp);
     tmfree(buf);
-    return code;
+    return 0;
 }
 
 static uint32_t calcRowLen(BArray *fields, int iface) {
@@ -283,7 +290,7 @@ static uint32_t calcRowLen(BArray *fields, int iface) {
     return ret;
 }
 
-void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
+int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
     int     iface = stbInfo->iface;
@@ -644,11 +651,19 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                             sprintf(tmp, "%s", locations[tmpRand % 10]);
                         }
                     } else if (field->values) {
-                        tools_cJSON *buf = tools_cJSON_GetArrayItem(
-                                field->values,
-                            taosRandom() %
-                                tools_cJSON_GetArraySize(field->values));
-                        sprintf(tmp, "%s", buf->valuestring);
+                        int arraySize = tools_cJSON_GetArraySize(field->values);
+                        if (arraySize) {
+                            tools_cJSON *buf = tools_cJSON_GetArrayItem(
+                                    field->values,
+                                    taosRandom() %
+                                    tools_cJSON_GetArraySize(field->values));
+                            sprintf(tmp, "%s", buf->valuestring);
+                        } else {
+                            errorPrint("%s() cannot read correct value from json file. arrary size: %d\n",
+                                    __func__, arraySize);
+                            free(tmp);
+                            return -1;
+                        }
                     } else {
                         rand_string(tmp, field->length,
                                     g_arguments->chinese);
@@ -715,6 +730,8 @@ void generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     skip:
         *(sampleDataBuf + pos - 1) = 0;
     }
+
+    return 0;
 }
 
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
@@ -749,8 +766,10 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
               "prepared_rand<%" PRIu64 ">\n",
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
     if (stbInfo->random_data_source) {
-        generateRandData(stbInfo, stbInfo->sampleDataBuf, stbInfo->lenOfCols,
-                         stbInfo->cols, g_arguments->prepared_rand, false);
+        if (generateRandData(stbInfo, stbInfo->sampleDataBuf, stbInfo->lenOfCols,
+                         stbInfo->cols, g_arguments->prepared_rand, false)) {
+            return -1;
+        }
     } else {
         if (stbInfo->useSampleTs) {
             if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
@@ -779,8 +798,10 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                 return -1;
             }
         } else {
-            generateRandData(stbInfo, stbInfo->tagDataBuf, stbInfo->lenOfTags,
-                             stbInfo->tags, stbInfo->childTblCount, true);
+            if (generateRandData(stbInfo, stbInfo->tagDataBuf, stbInfo->lenOfTags,
+                             stbInfo->tags, stbInfo->childTblCount, true)) {
+                return -1;
+            }
         }
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
@@ -819,7 +840,7 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
     return randTail;
 }
 
-int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
+uint32_t bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     TAOS_STMT *  stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
@@ -875,7 +896,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
             stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
         errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
-        return -1;
+        return 0;
     }
 
     for (int c = 0; c < stbInfo->cols->size + 1; c++) {
@@ -889,7 +910,7 @@ int bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime) {
     if (taos_stmt_add_batch(stmt)) {
         errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
-        return -1;
+        return 0;
     }
     return batch;
 }
