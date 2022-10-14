@@ -952,10 +952,26 @@ static void *queryNtableAggrFunc(void *sarg) {
 void queryAggrFunc() {
     pthread_t   read_id;
     threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), false);
+    if (NULL == pThreadInfo) {
+        errorPrint("%s() failed to allocate memory\n", __func__);
+        return;
+    }
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    if (NULL == database) {
+        errorPrint("%s() failed to get database\n", __func__);
+        free(pThreadInfo);
+        return;
+    }
     SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    if (NULL == stbInfo) {
+        errorPrint("%s() failed to get super table\n", __func__);
+        free(pThreadInfo);
+        return;
+    }
     pThreadInfo->conn = init_bench_conn();
     if (pThreadInfo->conn == NULL) {
+        errorPrint("%s() failed to init connection\n", __func__);
+        free(pThreadInfo);
         return;
     }
     if (stbInfo->use_metric) {
