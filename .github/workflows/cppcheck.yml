@@ -1,4 +1,4 @@
-name: cppcheck-action
+name: CppCheck action
 on:
   push:
     branches: [ develop ]
@@ -61,5 +61,4 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          for f in `find src inc -type f --name "*.[c,h]" ! -path "src/benchUtil.c"`; do cppcheck $f | tee -a report.txt; done
-          grep error report.txt && exit 1
+          for f in `find src inc -type f -name "*.[c,h]" ! -path "src/benchUtilDs.c"`; do cppcheck $f || exit $?; done
