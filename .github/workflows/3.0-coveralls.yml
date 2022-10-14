@@ -284,7 +284,7 @@ jobs:
           ./build/bin/taosdump -D test -d unknown -gg > /dev/null
           taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
-          taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit 1
+          taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit $?
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: singal normal table with unknown codec"
@@ -349,7 +349,7 @@ jobs:
           ./build/bin/taosdump test d0 > /dev/null
           taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
-          taos -s "select count(tbname) from test.meters" | grep "1 row" || exit 1
+          taos -s "select count(tbname) from test.meters" | grep "1 row" || exit $?
           rm -rf *.sql *.avro* taosdump.*
 
       - name: taosdump escape char Test
@@ -415,6 +415,7 @@ jobs:
           taos -s "drop database test"
           tar xvJf ../example-data/example-data.tar.xz -C .
           ./build/bin/taosdump -i dump -gg
+          taos -s "select count(*) from test.meters" | grep 21 && echo "count 21 okay" || exit $?
           rm -rf *.sql *.avro* taosdump.*
 
       - name: taosdump WebSocket codec Test
@@ -451,7 +452,7 @@ jobs:
           ./build/bin/taosdump -R -D test -d unknown -gg > /dev/null
           taos -s "drop database test"
           ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null
-          taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit 1
+          taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit $?
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: singal normal table with unknown codec"
