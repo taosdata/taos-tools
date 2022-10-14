@@ -10,7 +10,8 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
-import os
+import os, signal
+from time import sleep
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -59,10 +60,20 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
-        tdSql.query("show db.tables")
-        tdSql.checkRows(10)
-        tdSql.query("select count(*) from db.stb")
-        tdSql.checkData(0, 0, 100)
+        cmd = "%s -f ./taosbenchmark/json/tmq.json &" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        time.sleep(5)
+        try:
+            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
+                fields = line.split()
+
+                pid = fields[0]
+
+                os.kill(int(pid), signal.SIGKILL)
+            print("taosBenchmark be killed on purpose")
+        except:
+            tdLog.exit("failed to kill taosBenchmark")
 
     def stop(self):
         tdSql.close()
