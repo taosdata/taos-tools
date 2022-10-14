@@ -218,6 +218,7 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
     buf = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
     if (NULL == buf) {
         errorPrint("%s() failed to allocate memory!\n", __func__);
+        fclose(fp);
         return -1;
     }
 
