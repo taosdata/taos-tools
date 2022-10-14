@@ -7397,7 +7397,7 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt)
                 "Thread[%d] takes care avro files total %"PRId64" files "
                 "from %"PRId64"\n",
                 t, pThreadInfo->count, pThreadInfo->from);
-        strcpy(pThreadInfo->dbPath, dbPath);
+        strncpy(pThreadInfo->dbPath, dbPath, min(MAX_DIR_LEN, strlen(dbPath)));
 
         if (pthread_create(pids + t, NULL,
                     dumpInAvroWorkThreadFp, (void*)pThreadInfo) != 0) {
@@ -12286,6 +12286,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
                 if (NULL== recordSchema->fields) {
                     errorPrint("%s() LN%d, memory allocation failed!\n",
                             __func__, __LINE__);
+                    free(recordSchema);
                     return NULL;
                 }
 
