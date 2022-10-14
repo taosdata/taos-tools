@@ -14,7 +14,6 @@ jobs:
       - name: cppcheck
         uses: deep5050/cppcheck-action@main
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN}}
           check_library:
           skip_preprocessor:
           enable:
