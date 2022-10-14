@@ -26,7 +26,6 @@ void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
     sem_post(&g_arguments->cancelSem);
 }
 
-
 void* benchCancelHandler(void* arg) {
     if (bsem_wait(&g_arguments->cancelSem) != 0) {
         toolsMsleep(10);
@@ -56,6 +55,7 @@ int main(int argc, char* argv[]) {
     }
     pthread_t spid = {0};
     pthread_create(&spid, NULL, benchCancelHandler, NULL);
+
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
 #endif
     if (bench_parse_args(argc, argv)) {
@@ -87,6 +87,7 @@ int main(int argc, char* argv[]) {
                    g_arguments->output_file);
     }
     infoPrint("taos client version: %s\n", taos_get_client_info());
+
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) exit(EXIT_FAILURE);
     } else if (g_arguments->test_mode == QUERY_TEST) {
@@ -100,5 +101,10 @@ int main(int argc, char* argv[]) {
         queryAggrFunc();
     }
     postFreeResource();
+
+#ifdef LINUX
+    pthread_cancel(spid);
+    pthread_join(spid, NULL);
+#endif
     return 0;
 }
