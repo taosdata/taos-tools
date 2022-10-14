@@ -2416,7 +2416,7 @@ static int getTableTagValueWSV3(
 
             if (NULL == value1) {
                 strcpy(tableDes->cols[index].value, "NULL");
-                strcpy(tableDes->cols[index].note , "NULL");
+                strcpy(tableDes->cols[index].note , "NUL");
             } else if (0 != processFieldsValueV3(
                         index,
                         tableDes,
@@ -2502,7 +2502,7 @@ static int getTableTagValueWSV2(
 
                 if (NULL == value) {
                     strcpy(tableDes->cols[j].value, "NULL");
-                    strcpy(tableDes->cols[j].note , "NULL");
+                    strcpy(tableDes->cols[j].note , "NUL");
                 } else if (0 != processFieldsValueV2(
                             j,
                             tableDes,
