@@ -7,22 +7,59 @@ on:
 
 jobs:
   build:
-    name: cppcheck
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v2
-      - name: cppcheck
-        uses: deep5050/cppcheck-action@main
+      - name: Step that prints name of pull request's base branch
+        run: |
+          echo "Pull request's base branch is: ${BASE_BRANCH}"
+          echo "Pull request's branch is: ${GITHUB_REF##*/}"
+          echo "Pull request's head ref is: ${GITHUB_HEAD_REF}"
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+        if: github.event_name == 'pull_request'
+
+      - uses: actions/checkout@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN}}
-          check_library: disable
-          skip_preprocessor: disable
-          enable: all
-          exclude_check:
-          inconclusive: enable
-          inline_suppression: enable
-          force_language: c
-          max_ctu_depth: 4
-          std: c11
-          output_file: ./cppcheck-report.txt
-          other_options:
+          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v23.2
+
+      - name: List all changed files
+        run: |
+          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            echo "$file was changed"
+          done
+
+      - name: Get specific changed files
+        id: changed-files-specific
+        uses: tj-actions/changed-files@v23.2
+        with:
+          files: |
+            src/*
+            inc/*
+
+      - name: Run step if any of the listed files above change
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          echo "One or more files listed above has changed."
+
+      - name: Install packages for build taos-tools
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          sudo apt update -y > /dev/null
+          sudo apt install -y cppcheck
+
+      - name: Run cppcheck
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          for f in `find src inc -type f --name "*.[c,h]" ! -path "src/benchUtil.c"`; do cppcheck $f | tee -a report.txt; done
+          grep error report.txt && exit 1
