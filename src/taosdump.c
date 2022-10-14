@@ -9760,6 +9760,7 @@ bool convertDbClauseForV3(char **cmd)
             sub_str = strsep(&running, " ");
         } else {
             pos += sprintf(*cmd + pos, "%s ", sub_str);
+            sub_str = strsep(&running, " ");
         }
     }
 
