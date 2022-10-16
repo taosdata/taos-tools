@@ -48,25 +48,44 @@ jobs:
         # If you wish to specify custom queries, you can do so here or in a config file.
         # By default, queries listed here will override any specified in a config file.
         # Prefix the list here with "+" to use these queries and those in the config file.
-        
         # Details on CodeQL's query packs refer to : https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
         # queries: security-extended,security-and-quality
 
-        
     # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
     # If this step fails, then you should remove it and run the build manually (see below)
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v2
+    - name: build
+      run: |
+        sudo apt update -y > /dev/null
+        sudo apt install -y cmake build-essential git \
+          libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config \
+          libssl-dev > /dev/null
 
-    # ℹ️ Command-line programs to run using the OS shell.
-    # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+        echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
+        git clone --branch 3.0 --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
 
-    #   If the Autobuild fails above, remove it and uncomment the following three lines. 
-    #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
+        echo "build TDengine 3.0"
+        cd TDengine || exit 1
+        mkdir debug || exit 1
+        cd debug || exit 1
+        cmake .. > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+        if [[ ! -f /usr/local/taos/bin/taosd ]]
+        then
+          echo "TDengine build failure"
+          exit 1
+        fi
 
-    # - run: |
-    #   echo "Run, Build Application using script"
-    #   ./location_of_script_within_repo/buildscript.sh
+        echo "Checkout taos-tools to PR number on ${{ steps.setup.outputs.uname }}"
+        git config --global --add safe.directory /home/runner/work/taos-tools/taos-tools
+        cd /home/runner/work/taos-tools/taos-tools
+
+        mkdir debug || exit 1
+        cd debug || exit 1
+        cmake .. > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+        if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
+        then
+          echo "taos-tools build failure"
+          exit 1
+        fi
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2
