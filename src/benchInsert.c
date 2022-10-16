@@ -152,7 +152,7 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     }
     len -= 1;
 skip:
-    len += snprintf(tags + len, tag_buffer_len - len, ")");
+    snprintf(tags + len, tag_buffer_len - len, ")");
 
     int length = snprintf(
         command, BUFFER_SIZE,
@@ -276,15 +276,15 @@ int createDatabase(SDataBase* database) {
 
     switch (database->precision) {
         case TSDB_TIME_PRECISION_MILLI:
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+            snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                                 " PRECISION \'ms\';");
             break;
         case TSDB_TIME_PRECISION_MICRO:
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+            snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                                 " PRECISION \'us\';");
             break;
         case TSDB_TIME_PRECISION_NANO:
-            dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+            snprintf(command + dataLen, BUFFER_SIZE - dataLen,
                                 " PRECISION \'ns\';");
             break;
     }
@@ -296,12 +296,14 @@ int createDatabase(SDataBase* database) {
         return -1;
     }
     infoPrint("create database: <%s>\n", command);
+#if 0
 #ifdef LINUX
     sleep(2);
 #elif defined(DARWIN)
     sleep(2);
 #else
     Sleep(2);
+#endif
 #endif
     close_bench_conn(conn);
     return 0;
@@ -678,17 +680,15 @@ static void *syncWriteInterlace(void *sarg) {
 
     int64_t insertRows = stbInfo->insertRows;
     int32_t interlaceRows = stbInfo->interlaceRows;
-    int64_t tmp_total_insert_rows = 0;
     int64_t pos = 0;
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     int64_t   startTs = toolsGetTimestampMs();
     int64_t   endTs = toolsGetTimestampMs();
-    uint32_t    generated = 0;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
     while (insertRows > 0) {
-        tmp_total_insert_rows = 0;
-        generated = 0;
+        int64_t tmp_total_insert_rows = 0;
+        uint32_t generated = 0;
         if (insertRows <= interlaceRows) {
             interlaceRows = insertRows;
         }
@@ -1007,7 +1007,7 @@ void *syncWriteProgressive(void *sarg) {
                     }
 
                     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
-                        if (stbInfo && stbInfo->useSampleTs &&
+                        if (stbInfo->useSampleTs &&
                                 !stbInfo->random_data_source) {
                             len +=
                                 snprintf(pstr + len,
@@ -1623,6 +1623,8 @@ static int startMultiThreadInsertData(SDataBase* database,
 #endif
 
                     errorPrint("%s\n", "failed to create socket");
+                    free(pids);
+                    free(infos);
                     return -1;
                 }
                 int retConn = connect(
@@ -1703,6 +1705,9 @@ static int startMultiThreadInsertData(SDataBase* database,
             case TAOSC_IFACE: {
                 pThreadInfo->conn = init_bench_conn();
                 if (pThreadInfo->conn == NULL) {
+                    tmfree(pids);
+                    tmfree(infos);
+                    errorPrint("%s() failed to connect\n", __func__);
                     return -1;
                 }
                 char command[SQL_BUFF_LEN];

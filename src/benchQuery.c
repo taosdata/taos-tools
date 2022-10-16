@@ -447,6 +447,8 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     close_bench_conn(pThreadInfo->conn);
                 }
                 if (g_fail) {
+                    tmfree((char *)pids);
+                    tmfree((char *)infos);
                     return -1;
                 }
             }
@@ -457,8 +459,10 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 uint64_t    seq = i * nConcurrent + j;
                 threadInfo *pThreadInfo = infos + seq;
                 avg_delay += pThreadInfo->avg_delay;
-                for (uint64_t k = 0; k < g_queryInfo.specifiedQueryInfo.queryTimes; k++) {
-                    sql->delay_list[j*query_times + k] = pThreadInfo->query_delay_list[k];
+                for (uint64_t k = 0;
+                        k < g_queryInfo.specifiedQueryInfo.queryTimes; k++) {
+                    sql->delay_list[j*query_times + k] =
+                        pThreadInfo->query_delay_list[k];
                 }
                 tmfree(pThreadInfo->query_delay_list);
             }
