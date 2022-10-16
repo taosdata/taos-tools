@@ -99,7 +99,7 @@ static void print_json_aux(json_t *element, int indent);
 #ifdef DARWIN
 #define SET_THREAD_NAME(name)
 #else
-#define SET_THREAD_NAME(name)  do {prctl(PR_SET_NAME, (name));} while(0)
+#define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
 #endif
 
 static int  convertStringToReadable(char *str, int size, char *buf, int bufsize);
@@ -112,39 +112,39 @@ typedef struct {
 
 #define debugPrint(fmt, ...) \
     do { if (g_args.debug_print || g_args.verbose_print) \
-      fprintf(stdout, "DEBG: "fmt, __VA_ARGS__); } while(0)
+      fprintf(stdout, "DEBG: "fmt, __VA_ARGS__); } while (0)
 
 #define debugPrint2(fmt, ...) \
     do { if (g_args.debug_print || g_args.verbose_print) \
-      fprintf(stdout, ""fmt, __VA_ARGS__); } while(0)
+      fprintf(stdout, ""fmt, __VA_ARGS__); } while (0)
 
 #define verbosePrint(fmt, ...) \
     do { if (g_args.verbose_print) \
-        fprintf(stdout, "VERB: "fmt, __VA_ARGS__); } while(0)
+        fprintf(stdout, "VERB: "fmt, __VA_ARGS__); } while (0)
 
 #define perfPrint(fmt, ...) \
     do { if (g_args.performance_print) \
-        fprintf(stdout, "PERF: "fmt, __VA_ARGS__); } while(0)
+        fprintf(stdout, "PERF: "fmt, __VA_ARGS__); } while (0)
 
 #define warnPrint(fmt, ...) \
     do { fprintf(stderr, "\033[33m"); \
         fprintf(stderr, "WARN: "fmt, __VA_ARGS__); \
-        fprintf(stderr, "\033[0m"); } while(0)
+        fprintf(stderr, "\033[0m"); } while (0)
 
 #define errorPrint(fmt, ...) \
     do { fprintf(stderr, "\033[31m"); \
         fprintf(stderr, "ERROR: "fmt, __VA_ARGS__); \
-        fprintf(stderr, "\033[0m"); } while(0)
+        fprintf(stderr, "\033[0m"); } while (0)
 
 #define okPrint(fmt, ...) \
     do { fprintf(stderr, "\033[32m"); \
         fprintf(stderr, "OK: "fmt, __VA_ARGS__); \
-        fprintf(stderr, "\033[0m"); } while(0)
+        fprintf(stderr, "\033[0m"); } while (0)
 
 #define infoPrint(fmt, ...) \
     do { \
         fprintf(stdout, "INFO: "fmt, __VA_ARGS__); \
-    } while(0)
+    } while (0)
 
 static bool isStringNumber(char *input)
 {
@@ -710,7 +710,7 @@ static void errorPrintReqArg3(char *program, char *wrong_arg)
 }
 
 static char *typeToStr(int type) {
-    switch(type) {
+    switch (type) {
         case TSDB_DATA_TYPE_BOOL:
             return "bool";
         case TSDB_DATA_TYPE_TINYINT:
@@ -1094,7 +1094,7 @@ static void parse_args(
                   || (strncmp(argv[i], "--password", 10) == 0)) {
                 printf("Enter password: ");
                 setConsoleEcho(false);
-                if(scanf("%20s", arguments->password) > 1) {
+                if (scanf("%20s", arguments->password) > 1) {
                     errorPrint("%s() LN%d, password read error!\n",
                             __func__, __LINE__);
                 }
@@ -1262,7 +1262,7 @@ static int getTableRecordInfoImplWS(
     char command[COMMAND_SIZE] = {0};
 
     sprintf(command, "USE %s", dbName);
-    ws_res = ws_query_timeout(ws_taos, command,g_args.ws_timeout);
+    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     code = ws_errno(ws_res);
     if (code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
@@ -1492,7 +1492,7 @@ static int getTableRecordInfoImplNative(
         if (tryStable) {
             pTableRecordInfo->isStb = true;
             tstrncpy(pTableRecordInfo->tableRecord.stable, table,
-                    min(TSDB_TABLE_NAME_LEN,strlen(table)+1));
+                    min(TSDB_TABLE_NAME_LEN, strlen(table)+1));
             isSet = true;
         } else {
             pTableRecordInfo->isStb = false;
@@ -1840,9 +1840,9 @@ static int dumpCreateMTableClause(
             if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                     || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
                 if (tableDes->cols[counter].var_value) {
-                    pstr += sprintf(pstr,"\'%s\'", tableDes->cols[counter].var_value);
+                    pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].var_value);
                 } else {
-                    pstr += sprintf(pstr,"\'%s\'", tableDes->cols[counter].value);
+                    pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].value);
                 }
             } else {
                 pstr += sprintf(pstr, "%s", tableDes->cols[counter].value);
@@ -1888,7 +1888,7 @@ static int64_t getNtbCountOfStbWS(const char *command)
         return -1;
     }
 
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -2131,7 +2131,7 @@ static int processFieldsValueV2(
     switch (tableDes->cols[index].type) {
         case TSDB_DATA_TYPE_BOOL:
             sprintf(tableDes->cols[index].value, "%d",
-                    ((((int32_t)(*((char *)value)))==1)?1:0));
+                    ((((int32_t)(*((char *)value))) == 1)?1:0));
             break;
 
         case TSDB_DATA_TYPE_TINYINT:
@@ -2384,7 +2384,7 @@ static int getTableTagValueWSV3(
         return -1;
     }
 
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -2470,7 +2470,7 @@ static int getTableTagValueWSV2(
         return -1;
     }
 
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -2583,7 +2583,7 @@ static int getTableDesWS(
     }
 
     tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -3056,7 +3056,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                             } else if (JSON_ARRAY == ele_type) {
                                 size_t ele_size = json_array_size(ele_value);
 
-                                for(size_t ele_i = 0; ele_i < ele_size;
+                                for (size_t ele_i = 0; ele_i < ele_size;
                                         ele_i ++) {
                                     json_t *arr_type_ele =
                                         json_array_get(ele_value, ele_i);
@@ -3065,8 +3065,8 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                                         const char *arr_type_ele_str =
                                             json_string_value(arr_type_ele);
 
-                                        if(0 == strcmp(arr_type_ele_str,
-                                                            "null")) {
+                                        if (0 == strcmp(arr_type_ele_str,
+                                                    "null")) {
                                             field->nullable = true;
                                         } else {
                                             field->type = typeStrToType(arr_type_ele_str);
@@ -3083,7 +3083,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element)
                                                     json_typeof(arr_type_ele_value)) {
                                                 const char *arr_type_ele_value_str =
                                                     json_string_value(arr_type_ele_value);
-                                                if(0 == strcmp(arr_type_ele_value_str,
+                                                if (0 == strcmp(arr_type_ele_value_str,
                                                             "null")) {
                                                     field->nullable = true;
                                                 } else {
@@ -3535,7 +3535,7 @@ static void freeFileList(AVROTYPE avroType, int64_t count)
 {
     char **fileList = NULL;
 
-    switch(avroType) {
+    switch (avroType) {
         case AVRO_DATA:
             fileList = g_tsDumpInAvroFiles;
             break;
@@ -3697,7 +3697,7 @@ static int convertTbDesToJsonImplMore(
         adjust = 1;
     }
 
-    switch(tableDes->cols[pos].type) {
+    switch (tableDes->cols[pos].type) {
         case TSDB_DATA_TYPE_BINARY:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
@@ -4218,7 +4218,7 @@ static void print_json_null(json_t *element, int indent) {
 
 static void print_json_aux(json_t *element, int indent)
 {
-    switch(json_typeof(element)) {
+    switch (json_typeof(element)) {
         case JSON_OBJECT:
             print_json_object(element, indent);
             break;
@@ -4292,7 +4292,7 @@ int64_t queryDbForDumpOutCountWS(
         return -1;
     }
 
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -4791,7 +4791,7 @@ static int64_t writeResultToAvroWS(
 
         int32_t countInBatch = 0;
 
-        while(true) {
+        while (true) {
             int rows = 0;
             const void *data = NULL;
             int32_t ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -4971,7 +4971,7 @@ static int64_t writeResultToAvroNative(
         int32_t countInBatch = 0;
         TAOS_ROW row;
 
-        while(NULL != (row = taos_fetch_row(res))) {
+        while (NULL != (row = taos_fetch_row(res))) {
             int32_t *lengths = taos_fetch_lengths(res);
 
             avro_value_t record;
@@ -5083,7 +5083,7 @@ static int64_t dumpInAvroTbTagsImpl(
 
     int tagAdjExt = g_dumpInLooseModeFlag?0:1;
 
-    while(!avro_file_reader_read_value(reader, &value)) {
+    while (!avro_file_reader_read_value(reader, &value)) {
         char *stbName = NULL;
         char *tbName = NULL;
 
@@ -5150,7 +5150,7 @@ static int64_t dumpInAvroTbTagsImpl(
                     (recordSchema->fields + sizeof(FieldStruct)*(i+tagAdjExt));
                 if (0 == avro_value_get_by_name(
                             &value, field->name, &field_value, NULL)) {
-                    switch(tableDes->cols[tableDes->columns -1 + i].type) {
+                    switch (tableDes->cols[tableDes->columns -1 + i].type) {
                         case TSDB_DATA_TYPE_BOOL:
                             {
                                 avro_value_t bool_branch;
@@ -5474,7 +5474,7 @@ static int64_t dumpInAvroTbTagsImpl(
                         case TSDB_DATA_TYPE_JSON:
                             {
                                 size_t bytessize;
-                                void *bytesbuf= NULL;
+                                void *bytesbuf = NULL;
 
                                 avro_value_t nchar_branch;
                                 avro_value_get_current_branch(
@@ -5658,7 +5658,7 @@ static int64_t dumpInAvroTbTagsImpl(
 
                                             debugPrint2("%u | ", (uint32_t)*array_u16);
                                             curr_sqlstr_len += sprintf(
-                                                    sqlstr+curr_sqlstr_len,"%u,",
+                                                    sqlstr+curr_sqlstr_len, "%u,",
                                                     (uint32_t)*array_u16);
                                             free(array_u16);
                                         } else {
@@ -5694,7 +5694,7 @@ static int64_t dumpInAvroTbTagsImpl(
                                         } else {
                                             debugPrint2("%u | ", (uint32_t)*array_u16);
                                             curr_sqlstr_len += sprintf(
-                                                    sqlstr+curr_sqlstr_len,"%u,",
+                                                    sqlstr+curr_sqlstr_len, "%u,",
                                                     (uint32_t)*array_u16);
                                         }
                                         free(array_u16);
@@ -5965,7 +5965,7 @@ static int64_t dumpInAvroNtbImpl(
     avro_value_t value;
     avro_generic_value_new(value_class, &value);
 
-    while(!avro_file_reader_read_value(reader, &value)) {
+    while (!avro_file_reader_read_value(reader, &value)) {
         for (int i = 0; i < recordSchema->num_fields
                 -(g_dumpInLooseModeFlag?0:1); i++) {
             avro_value_t field_value, field_branch;
@@ -5979,7 +5979,8 @@ static int64_t dumpInAvroNtbImpl(
             avro_value_get_string(&field_branch, (const char **)&buf, &size);
 
             if (NULL == buf) {
-                errorPrint("%s() LN%d, buf is NULL is impossible\n", __func__, __LINE__);
+                errorPrint("%s() LN%d, buf is NULL is impossible\n",
+                        __func__, __LINE__);
                 continue;
             }
 #ifdef WEBSOCKET
@@ -6160,10 +6161,10 @@ static int64_t dumpInAvroDataImpl(
 
     int stmt_count = 0;
     bool printDot = true;
-    while(!avro_file_reader_read_value(reader, &value)) {
+    while (!avro_file_reader_read_value(reader, &value)) {
         avro_value_t tbname_value, tbname_branch;
 
-        char *tbName= NULL;
+        char *tbName = NULL;
         int colAdj = 1;
         if (!g_dumpInLooseModeFlag) {
             avro_value_get_by_name(&value, "tbname", &tbname_value, NULL);
@@ -6326,7 +6327,7 @@ static int64_t dumpInAvroDataImpl(
                 }
             } else if (0 == avro_value_get_by_name(
                         &value, field->name, &field_value, NULL)) {
-                switch(tableDes->cols[i].type) {
+                switch (tableDes->cols[i].type) {
                     case TSDB_DATA_TYPE_INT:
                         {
                             if (field->nullable) {
@@ -7053,7 +7054,7 @@ static RecordSchema *getSchemaAndReaderFromFile(
         avro_schema_t *schema,
         avro_file_reader_t *reader)
 {
-    if(avro_file_reader(avroFile, reader)) {
+    if (avro_file_reader(avroFile, reader)) {
         errorPrint("%s() LN%d, Unable to open avro file %s: %s\n",
                 __func__, __LINE__,
                 avroFile, avro_strerror());
@@ -7251,7 +7252,7 @@ static void* dumpInAvroWorkThreadFp(void *arg)
                     pThreadInfo->from);
 
     char **fileList = NULL;
-    switch(pThreadInfo->avroType) {
+    switch (pThreadInfo->avroType) {
         case AVRO_DATA:
             fileList = g_tsDumpInAvroFiles;
             break;
@@ -7394,7 +7395,7 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt)
         pThreadInfo->avroType = avroType;
 
         pThreadInfo->from = from;
-        pThreadInfo->count = t<b?a+1:a;
+        pThreadInfo->count = (t < b)?a+1:a;
         from += pThreadInfo->count;
         verbosePrint(
                 "Thread[%d] takes care avro files total %"PRId64" files "
@@ -7475,7 +7476,7 @@ static int processResultValue(
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
             return sprintf(pstr + curr_sqlstr_len, "%d",
-                    ((((int32_t)(*((char *)value)))==1)?1:0));
+                    ((((int32_t)(*((char *)value))) == 1)?1:0));
 
         case TSDB_DATA_TYPE_TINYINT:
             return sprintf(pstr + curr_sqlstr_len, "%d",
@@ -7577,7 +7578,7 @@ static int64_t writeResultDebugWS(
 
     int32_t  total_sqlstr_len = 0;
 
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         int32_t ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -7907,7 +7908,7 @@ static int generateSubDirName(
         const AVROTYPE avroType,
         const SDbInfo *dbInfo, char *subDirName) {
 
-    switch(avroType) {
+    switch (avroType) {
         case AVRO_DATA:
             sprintf(subDirName, "data%"PRIu64"",
                     (g_countOfDataFile / g_maxFilesPerDir));
@@ -7959,7 +7960,7 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
 
     int ret = 0;
     if (g_args.loose_mode) {
-        switch(avroType) {
+        switch (avroType) {
             case AVRO_TBTAGS:
                 sprintf(fileName, "%staosdump.%s/%s.%s.%"PRId64".avro-tbtags",
                         g_args.outpath, dbInfo->name, dbInfo->name, tbName, index);
@@ -7996,7 +7997,7 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
                 break;
         }
     } else {
-        switch(avroType) {
+        switch (avroType) {
             case AVRO_TBTAGS:
                 sprintf(fileName, "%staosdump.%"PRIu64"/%s.%"PRIu64".avro-tbtags",
                         g_args.outpath, dbInfo->uniqueID, dbInfo->name,
@@ -8193,7 +8194,7 @@ static int64_t dumpNormalTable(
         char *dumpFilename,
         FILE *fp
         ) {
-    if(0 == strlen(tbName)) {
+    if (0 == strlen(tbName)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
     }
@@ -8355,7 +8356,7 @@ static int64_t dumpANormalTableNotBelong(
     FILE *fp = NULL;
 
     if (g_args.avro) {
-        if(0 == strlen(ntbName)) {
+        if (0 == strlen(ntbName)) {
             errorPrint("%s() LN%d, pass wrong tbname, length:0\n",
                     __func__, __LINE__);
             return -1;
@@ -8389,7 +8390,7 @@ static int64_t dumpANormalTableNotBelong(
             return -1;
         }
 
-        if(0 == strlen(ntbName)) {
+        if (0 == strlen(ntbName)) {
             errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
             fclose(fp);
             return -1;
@@ -8424,7 +8425,7 @@ static int createMTableAvroHeadImp(
         avro_file_writer_t db,
         avro_value_iface_t *wface)
 {
-    if(0 == strlen(tbName)) {
+    if (0 == strlen(tbName)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
     }
@@ -8820,7 +8821,7 @@ static int createMTableAvroHeadSpecified(
         const char *stable,
         const char *specifiedTb)
 {
-    if(0 == strlen(stable)) {
+    if (0 == strlen(stable)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
     }
@@ -8903,7 +8904,7 @@ static int64_t fillTbNameArrWS(
     int percentComplete = 0;
 
     int64_t ntbCount = 0;
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -8992,7 +8993,7 @@ static int64_t fillTbNameArrNative(
     int currentPercent = 0;
     int percentComplete = 0;
 
-    while((row = taos_fetch_row(res)) != NULL) {
+    while ((row = taos_fetch_row(res)) != NULL) {
         int32_t *lengths = taos_fetch_lengths(res);
         if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
             errorPrint("%s() LN%d, fetch_row() get %d length!\n",
@@ -9112,7 +9113,7 @@ static int createMTableAvroHead(
         TableDes **pTableDes,
         char **tbNameArr)
 {
-    if(0 == strlen(stable)) {
+    if (0 == strlen(stable)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
     }
@@ -9173,7 +9174,7 @@ static int createMTableAvroHead(
     int64_t tb = 0;
     infoPrint("connection %p is dumping out schema:%d%% of %s\n",
             taos, currentPercent, stable);
-    for (;tb < ntbCount; tb ++ ) {
+    for (; tb < ntbCount; tb ++ ) {
 
         createMTableAvroHeadImp(
                 taos,
@@ -9256,7 +9257,7 @@ static int64_t dumpANormalTableBelongStb(
         }
     }
 
-    if(0 == strlen(ntbName)) {
+    if (0 == strlen(ntbName)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         if (NULL != fp) {
             fclose(fp);
@@ -9505,7 +9506,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         ws_res = NULL;
         return;
     }
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -9750,7 +9751,7 @@ bool convertDbClauseForV3(char **cmd)
     char *sub_str = strsep(&running, " ");
 
     int pos = 0;
-    while(sub_str) {
+    while (sub_str) {
         if (0 == strcmp(sub_str, "QUORUM")) {
             sub_str = strsep(&running, " ");
         } else if (0 == strcmp(sub_str, "DAYS")) {
@@ -9799,7 +9800,7 @@ static int64_t dumpInOneDebugFile(
     while ((read_len = getline(&line, &line_len, fp)) != -1) {
         ++lineNo;
 
-        if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN){
+        if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN) {
             errorPrint("the No.%"PRId64" line is exceed "
                     "max allowed SQL length!\n", lineNo);
             debugPrint("%s() LN%d, line: %s", __func__, __LINE__, line);
@@ -9968,7 +9969,7 @@ static int dumpInDebugWorkThreads(const char *dbPath)
         strncpy(pThreadInfo->dbPath, dbPath,
                 min(MAX_DIR_LEN-1, strlen(dbPath)));
         pThreadInfo->from = from;
-        pThreadInfo->count = t<b?a+1:a;
+        pThreadInfo->count = (t < b)?a+1:a;
         from += pThreadInfo->count;
         verbosePrint(
                 "Thread[%d] takes care sql files total %"PRId64" files"
@@ -10128,7 +10129,7 @@ static int dumpInDbs(const char *dbPath)
     int64_t rows = dumpInOneDebugFile(
             taos_v, fp, g_dumpInCharset, dbsSql);
 
-    if(rows > 0) {
+    if (rows > 0) {
         okPrint("Total %"PRId64" line(s) SQL be successfully "
                 "dumped in file: %s!\n",
                 rows, dbsSql);
@@ -10523,8 +10524,8 @@ static int64_t dumpNtbOfStbByThreads(
 #endif
 
         pThreadInfo->threadIndex = i;
-        pThreadInfo->count = (i<b)?a+1:a;
-        pThreadInfo->from = (i==0)?0:
+        pThreadInfo->count = (i < b)?a+1:a;
+        pThreadInfo->from = (i == 0)?0:
             ((threadInfo *)(infos + i - 1))->from +
             ((threadInfo *)(infos + i - 1))->count;
         pThreadInfo->dbInfo = dbInfo;
@@ -10652,7 +10653,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
         return -1;
     }
 
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -10746,7 +10747,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
     }
 
     int64_t count = 0;
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_block(ws_res, &data, &rows);
@@ -10867,7 +10868,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo)
 
     TAOS_ROW row;
     int64_t count = 0;
-    while((row = taos_fetch_row(res))) {
+    while ((row = taos_fetch_row(res))) {
         int32_t *lengths = taos_fetch_lengths(res);
         if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
             errorPrint("%s() LN%d, fetch_row() get %d length!\n",
@@ -10950,7 +10951,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
 
     TAOS_ROW row = NULL;
 
-    while((row = taos_fetch_row(res))) {
+    while ((row = taos_fetch_row(res))) {
         int *lengths = taos_fetch_lengths(res);
         char stable[TSDB_TABLE_NAME_LEN] = {0};
         strncpy(stable, row[0], lengths[0]);
@@ -11073,7 +11074,7 @@ static bool checkFileExists(char *path, char *filename)
         sprintf(filePath, "%s/%s", ".", filename);
     }
 
-    if( access(filePath, F_OK ) == 0 ) {
+    if (access(filePath, F_OK ) == 0) {
         return true;
     }
 
@@ -11537,7 +11538,7 @@ static int fillDbExtraInfoV3WS(
                 __func__, __LINE__, command, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ret = -1;
-    } else{
+    } else {
         while (true) {
             int rows = 0;
             const void *data = NULL;
@@ -11604,7 +11605,7 @@ static int fillDbInfoWS(void *taos) {
         ws_fields = (void *)ws_fields_v2;
     }
 
-    while(true) {
+    while (true) {
         int rows = 0;
         const void *data = NULL;
         code = ws_fetch_block(ws_res, &data, &rows);
@@ -11992,7 +11993,7 @@ static int dumpOut() {
                     errorPrint("%s() LN%d, dump %s and its child table\n",
                             __func__, __LINE__, g_args.arg_list[i]);
                 }
-            } else if (tableRecordInfo.belongStb){
+            } else if (tableRecordInfo.belongStb) {
                 uint64_t sizeOfTableDes =
                     (uint64_t)(sizeof(TableDes)
                             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
@@ -12316,7 +12317,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
                             } else if (JSON_ARRAY == ele_type) {
                                 size_t ele_size = json_array_size(ele_value);
 
-                                for(size_t ele_i = 0; ele_i < ele_size;
+                                for (size_t ele_i = 0; ele_i < ele_size;
                                         ele_i ++) {
                                     json_t *arr_type_ele =
                                         json_array_get(ele_value, ele_i);
@@ -12325,7 +12326,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
                                         const char *arr_type_ele_str =
                                             json_string_value(arr_type_ele);
 
-                                        if(0 == strcmp(arr_type_ele_str,
+                                        if (0 == strcmp(arr_type_ele_str,
                                                             "null")) {
                                             field->nullable = true;
                                         } else {
@@ -12345,10 +12346,10 @@ static RecordSchema *parse_json_for_inspect(json_t *element)
                                                     json_typeof(arr_type_ele_value)) {
                                                 const char *arr_type_ele_value_str =
                                                     json_string_value(arr_type_ele_value);
-                                                if(0 == strcmp(arr_type_ele_value_str,
+                                                if (0 == strcmp(arr_type_ele_value_str,
                                                             "null")) {
                                                     field->nullable = true;
-                                                } else if(0 == strcmp(arr_type_ele_value_str,
+                                                } else if (0 == strcmp(arr_type_ele_value_str,
                                                             "array")) {
                                                     field->is_array = true;
                                                     tstrncpy(field->type,
@@ -12452,7 +12453,7 @@ int inspectAvroFile(char *filename) {
 
     avro_schema_t schema;
 
-    if(avro_file_reader(filename, &reader)) {
+    if (avro_file_reader(filename, &reader)) {
         errorPrint("Unable to open avro file %s: %s\n",
                 filename, avro_strerror());
         return -1;
@@ -12511,7 +12512,7 @@ int inspectAvroFile(char *filename) {
         avro_value_t value;
         avro_generic_value_new(value_class, &value);
 
-        while(!avro_file_reader_read_value(reader, &value)) {
+        while (!avro_file_reader_read_value(reader, &value)) {
             for (int i = 0; i < recordSchema->num_fields; i++) {
                 InspectStruct *field = (InspectStruct *)(recordSchema->fields
                         + sizeof(InspectStruct) * i);
@@ -12751,7 +12752,7 @@ int inspectAvroFile(char *filename) {
             }
             fprintf(stdout, "\n");
 
-            count ++;
+            count++;
         }
 
         avro_value_decref(&value);
@@ -12784,8 +12785,7 @@ static int inspectAvroFiles(int argc, char *argv[]) {
     return ret;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     static char verType[32] = {0};
     sprintf(verType, "version: %s\n", version);
     argp_program_version = verType;
