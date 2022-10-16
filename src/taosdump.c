@@ -6995,6 +6995,9 @@ static int64_t dumpInAvroDataImpl(
                         __func__, __LINE__, taos_stmt_errstr(stmt));
                 freeBindArray(bindArray, onlyCol);
                 failed++;
+                if (g_dumpInLooseModeFlag) {
+                    tfree(tbName);
+                }
                 continue;
             }
 
@@ -7397,7 +7400,8 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt)
                 "Thread[%d] takes care avro files total %"PRId64" files "
                 "from %"PRId64"\n",
                 t, pThreadInfo->count, pThreadInfo->from);
-        strncpy(pThreadInfo->dbPath, dbPath, min(MAX_DIR_LEN, strlen(dbPath)));
+        strncpy(pThreadInfo->dbPath, dbPath,
+                min(MAX_DIR_LEN-1, strlen(dbPath)));
 
         if (pthread_create(pids + t, NULL,
                     dumpInAvroWorkThreadFp, (void*)pThreadInfo) != 0) {
@@ -10213,7 +10217,6 @@ static void dumpNormalTablesOfStbWS(
         FILE *fp,
         char *dumpFilename) {
 
-    int64_t count = 0;
     for (int64_t i = pThreadInfo->from;
             i < (pThreadInfo->from + pThreadInfo->count); i ++ ) {
 
@@ -10226,6 +10229,7 @@ static void dumpNormalTablesOfStbWS(
                 pThreadInfo->threadIndex, i,
                 tbName);
 
+        int64_t count;
         if (g_args.avro) {
             count = dumpNormalTable(
                     i,
