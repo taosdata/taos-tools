@@ -31,7 +31,6 @@ static int create_topic(BArray* sqls) {
         close_bench_conn(conn);
         return -1;
     }
-    TAOS_RES * res;
     for (int i = 0; i < sqls->size; ++i) {
         SSQL * sql = benchArrayGet(sqls, i);
         char buffer[SQL_BUFF_LEN];
@@ -39,7 +38,7 @@ static int create_topic(BArray* sqls) {
         snprintf(buffer, SQL_BUFF_LEN, "create topic if not exists "
                 "topic_%d as %s",
                 i, sql->command);
-        res = taos_query(taos, buffer);
+        TAOS_RES *res = taos_query(taos, buffer);
         if (taos_errno(res) != 0) {
             errorPrint("failed to create topic_%d, reason: %s\n",
                     i, taos_errstr(res));
@@ -52,7 +51,7 @@ static int create_topic(BArray* sqls) {
     return 0;
 }
 
-static tmq_list_t * build_topic_list(int size) {
+static tmq_list_t * buildTopicList(int size) {
     tmq_list_t * topic_list = tmq_list_new();
     for (int i = 0; i < size; ++i) {
         char buf[INT_BUFF_LEN + 4];
@@ -108,7 +107,8 @@ int subscribeTestProcess() {
         }
     }
 
-    tmq_list_t * topic_list = build_topic_list(g_queryInfo.specifiedQueryInfo.sqls->size);
+    tmq_list_t * topic_list =
+        buildTopicList(g_queryInfo.specifiedQueryInfo.sqls->size);
 
     pthread_t * pids = benchCalloc(
             g_queryInfo.specifiedQueryInfo.concurrent,
@@ -159,5 +159,6 @@ int subscribeTestProcess() {
 tmq_over:
     free(pids);
     free(infos);
+    tmq_list_destroy(topic_list);
     return ret;
 }

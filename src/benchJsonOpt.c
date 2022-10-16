@@ -281,8 +281,8 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
                 cfg->valueint = (int)cfg_object->valueint;
                 cfg->valuestring = NULL;
             } else {
-                free(cfg);
                 errorPrint("Invalid value format for %s\n", cfg->name);
+                free(cfg);
                 return -1;
             }
             benchArrayPush(database->cfgs, cfg);

@@ -40,22 +40,22 @@ static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
         *p = (unic & 0x7F);
         ret = 1;
-    } else if (unic >= 0x00000080 && unic <= 0x000007FF) {
+    } else if (unic <= 0x000007FF) {
         *(p + 1) = (unic & 0x3F) | 0x80;
         *p = ((unic >> 6) & 0x1F) | 0xC0;
         ret = 2;
-    } else if (unic >= 0x00000800 && unic <= 0x0000FFFF) {
+    } else if (unic <= 0x0000FFFF) {
         *(p + 2) = (unic & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 6) & 0x3F) | 0x80;
         *p = ((unic >> 12) & 0x0F) | 0xE0;
         ret = 3;
-    } else if (unic >= 0x00010000 && unic <= 0x001FFFFF) {
+    } else if (unic <= 0x001FFFFF) {
         *(p + 3) = (unic & 0x3F) | 0x80;
         *(p + 2) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 12) & 0x3F) | 0x80;
         *p = ((unic >> 18) & 0x07) | 0xF0;
         ret = 4;
-    } else if (unic >= 0x00200000 && unic <= 0x03FFFFFF) {
+    } else if (unic <= 0x03FFFFFF) {
         *(p + 4) = (unic & 0x3F) | 0x80;
         *(p + 3) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 2) = ((unic >> 12) & 0x3F) | 0x80;
@@ -79,7 +79,6 @@ static int usc2utf8(char *p, int unic) {
 static void rand_string(char *str, int size, bool chinese) {
     if (chinese) {
         char *pstr = str;
-        int   move = 0;
         while (size > 0) {
             // Chinese Character need 3 bytes space
             if (size < 3) {
@@ -87,7 +86,7 @@ static void rand_string(char *str, int size, bool chinese) {
             }
             // Basic Chinese Character's Unicode is from 0x4e00 to 0x9fa5
             int unic = 0x4e00 + taosRandom() % (0x9fa5 - 0x4e00);
-            move = usc2utf8(pstr, unic);
+            int move = usc2utf8(pstr, unic);
             pstr += move;
             size -= move;
         }
@@ -148,7 +147,6 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
 static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
                                        int64_t size) {
     size_t  n = 0;
-    ssize_t readLen = 0;
     char *  line = NULL;
     int     getRows = 0;
 
@@ -159,6 +157,7 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         return -1;
     }
     while (1) {
+        ssize_t readLen = 0;
 #if defined(WIN32) || defined(WIN64)
         toolsGetLineFile(&line, &n, fp);
         readLen = n;
@@ -296,7 +295,6 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                       bool tag) {
     int     iface = stbInfo->iface;
     int     line_protocol = stbInfo->lineProtocol;
-    int64_t pos = 0;
     if (iface == STMT_IFACE) {
         for (int i = 0; i < fields->size; ++i) {
             Field * field = benchArrayGet(fields, i);
@@ -309,7 +307,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         }
     }
     for (int64_t k = 0; k < loop; ++k) {
-        pos = k * lenOfOneRow;
+        int64_t pos = k * lenOfOneRow;
         if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
             (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
             pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
@@ -656,8 +654,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         if (arraySize) {
                             tools_cJSON *buf = tools_cJSON_GetArrayItem(
                                     field->values,
-                                    taosRandom() %
-                                    tools_cJSON_GetArraySize(field->values));
+                                    taosRandom() % arraySize);
                             sprintf(tmp, "%s", buf->valuestring);
                         } else {
                             errorPrint("%s() cannot read correct value from json file. arrary size: %d\n",
@@ -728,7 +725,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
             }
         }
-    skip:
+skip:
         *(sampleDataBuf + pos - 1) = 0;
     }
 
