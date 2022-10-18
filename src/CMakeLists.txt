@@ -186,8 +186,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             "${CMAKE_BINARY_DIR}/build/lib/libjansson.a")
 
         ADD_LIBRARY(snappy STATIC IMPORTED)
-        IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+        IF(EXISTS "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
             SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib64/libsnappy.a")
         ELSE()
@@ -308,8 +307,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             MESSAGE(STATUS "src's cmake detected current OS is " ${OS_ID} "")
 
             ADD_LIBRARY(avro STATIC IMPORTED)
-            IF(${OS_ID} MATCHES "(CentOS)|(centos)" OR ${OS_ID} MATCHES "kylin"
-                    OR ${OS_ID} MATCHES "rhel" OR ${OS_ID} MATCHES "rocky")
+            IF(EXISTS "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
                 SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
                     "${CMAKE_BINARY_DIR}/build/lib64/libavro.a")
             ELSE()
