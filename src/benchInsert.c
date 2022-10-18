@@ -536,6 +536,11 @@ void postFreeResource() {
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         if (database->cfgs) {
+            for (int c = 0; c < database->cfgs->size; c++) {
+                SDbCfg *cfg = benchArrayGet(database->cfgs, c);
+                tmfree(cfg->name);
+            }
+
             benchArrayDestroy(database->cfgs);
         }
         if (database->superTbls) {
