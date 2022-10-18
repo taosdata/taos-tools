@@ -6964,6 +6964,9 @@ static int64_t dumpInAvroDataImpl(
                         __func__, __LINE__, taos_stmt_errstr(stmt));
                 freeBindArray(bindArray, onlyCol);
                 failed++;
+                if (g_dumpInLooseModeFlag) {
+                    tfree(tbName);
+                }
                 continue;
             }
             if (0 != taos_stmt_execute(stmt)) {
