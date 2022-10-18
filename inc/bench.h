@@ -430,8 +430,8 @@ typedef struct SSuperTable_S {
     int64_t  specifiedColumns;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
-    uint32_t partialColumnNum;
-    char *   partialColumnNameBuf;
+    uint32_t partialColNum;
+    char *   partialColNameBuf;
     BArray * cols;
     BArray * tags;
     BArray * tsmas;
@@ -578,7 +578,7 @@ typedef struct SArguments_S {
 #endif
     bool               supplementInsert;
     int64_t            startTimestamp;
-    int32_t            specifiedColumns;
+    int32_t            partialColNum;
 } SArguments;
 
 typedef struct SBenchConn{

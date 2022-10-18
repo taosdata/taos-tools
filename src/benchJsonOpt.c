@@ -403,7 +403,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->disorderRange = DEFAULT_DISORDER_RANGE;
         superTable->insert_interval = g_arguments->insert_interval;
         superTable->max_sql_len = BUFFER_SIZE;
-        superTable->partialColumnNum = 0;
+        superTable->partialColNum = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
         superTable->file_factor = -1;
@@ -539,6 +539,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(timestampStep)) {
             superTable->timestamp_step = timestampStep->valueint;
         }
+
         tools_cJSON *sampleFile = tools_cJSON_GetObjectItem(stbInfo, "sample_file");
         if (tools_cJSON_IsString(sampleFile)) {
             tstrncpy(
@@ -594,9 +595,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(insertInterval)) {
             superTable->insert_interval = insertInterval->valueint;
         }
-        tools_cJSON *pCoumnNum = tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
-        if (tools_cJSON_IsNumber(pCoumnNum)) {
-            superTable->partialColumnNum = pCoumnNum->valueint;
+        tools_cJSON *pPartialColNum = tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
+        if (tools_cJSON_IsNumber(pPartialColNum)) {
+            superTable->partialColNum = pPartialColNum->valueint;
         }
         if (g_arguments->taosc_version == 3) {
             tools_cJSON *delay = tools_cJSON_GetObjectItem(stbInfo, "delay");
