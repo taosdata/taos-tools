@@ -1548,6 +1548,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                     debugPrint("%s() LN%d, sockfd=%d\n", __func__,
                                __LINE__, sockfd);
                     errorPrint("%s\n", "failed to create socket");
+                    tmfree(pids);
+                    tmfree(infos);
                     return -1;
                 }
 
@@ -1562,6 +1564,8 @@ static int startMultiThreadInsertData(SDataBase* database,
 #else
                     close(sockfd);
 #endif
+                    tmfree(pids);
+                    tmfree(infos);
                     return -1;
                 }
                 pThreadInfo->sockfd = sockfd;
