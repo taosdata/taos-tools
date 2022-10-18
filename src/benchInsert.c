@@ -536,6 +536,11 @@ void postFreeResource() {
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         if (database->cfgs) {
+            for (int c = 0; c < database->cfgs->size; c++) {
+                SDbCfg *cfg = benchArrayGet(database->cfgs, c);
+                tmfree(cfg->name);
+            }
+
             benchArrayDestroy(database->cfgs);
         }
         if (database->superTbls) {
@@ -544,7 +549,7 @@ void postFreeResource() {
                 tmfree(stbInfo->colsOfCreateChildTable);
                 tmfree(stbInfo->sampleDataBuf);
                 tmfree(stbInfo->tagDataBuf);
-                tmfree(stbInfo->partialColumnNameBuf);
+                tmfree(stbInfo->partialColNameBuf);
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
                     tmfree(tag->data);
@@ -708,7 +713,7 @@ static void *syncWriteInterlace(void *sarg) {
                     if (i == 0) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
-                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
+                    if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
                                     tableName,
@@ -726,7 +731,7 @@ static void *syncWriteInterlace(void *sarg) {
                             ds_add_strs(&pThreadInfo->buffer, 10,
                                         tableName,
                                         " (",
-                                        stbInfo->partialColumnNameBuf,
+                                        stbInfo->partialColNameBuf,
                                         ") USING `",
                                         stbInfo->stbName,
                                         "` TAGS (",
@@ -736,7 +741,7 @@ static void *syncWriteInterlace(void *sarg) {
                             ds_add_strs(&pThreadInfo->buffer, 4,
                                         tableName,
                                         "(",
-                                        stbInfo->partialColumnNameBuf,
+                                        stbInfo->partialColNameBuf,
                                         ") VALUES ");
                         }
                     }
@@ -972,7 +977,7 @@ void *syncWriteProgressive(void *sarg) {
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE: {
-                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
+                    if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             len =
                                 snprintf(pstr, MAX_SQL_LEN,
@@ -993,7 +998,7 @@ void *syncWriteProgressive(void *sarg) {
                                     pstr, MAX_SQL_LEN,
                                     "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ",
                                     STR_INSERT_INTO, database->dbName, tableName,
-                                    stbInfo->partialColumnNameBuf,
+                                    stbInfo->partialColNameBuf,
                                     database->dbName, stbInfo->stbName,
                                     stbInfo->tagDataBuf +
                                     stbInfo->lenOfTags * tableSeq, ttl);
@@ -1002,7 +1007,7 @@ void *syncWriteProgressive(void *sarg) {
                                     "%s %s.%s (%s) VALUES ",
                                     STR_INSERT_INTO, database->dbName,
                                     tableName,
-                                    stbInfo->partialColumnNameBuf);
+                                    stbInfo->partialColNameBuf);
                         }
                     }
 
