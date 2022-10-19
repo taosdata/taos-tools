@@ -538,9 +538,10 @@ void postFreeResource() {
         if (database->cfgs) {
             for (int c = 0; c < database->cfgs->size; c++) {
                 SDbCfg *cfg = benchArrayGet(database->cfgs, c);
-                tmfree(cfg->name);
+                if ((NULL == root) && (0 == strcmp(cfg->name, "replica"))) {
+                    tmfree(cfg->name);
+                }
             }
-
             benchArrayDestroy(database->cfgs);
         }
         if (database->superTbls) {
