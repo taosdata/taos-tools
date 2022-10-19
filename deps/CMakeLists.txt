@@ -35,7 +35,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         GIT_SHALLOW     true
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
-        CONFIGURE_COMMAND cmake -DJANSSON_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
+        CONFIGURE_COMMAND cmake -DJANSSON_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/jansson
         )
 
     ExternalProject_Add(
@@ -46,7 +46,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         GIT_SUBMODULES  ""
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
-        CONFIGURE_COMMAND cmake -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/snappy
+        CONFIGURE_COMMAND cmake -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/snappy
         )
 
     IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
@@ -58,7 +58,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
             PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
-            CONFIGURE_COMMAND cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
+            CONFIGURE_COMMAND cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
             )
     ELSE ()
         ExternalProject_Add(
@@ -69,7 +69,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
             PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
-            CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
+            CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
             )
     ENDIF ()
     ADD_SUBDIRECTORY(CUnit)
