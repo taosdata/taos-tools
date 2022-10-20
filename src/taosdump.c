@@ -11789,7 +11789,7 @@ static int dumpOut() {
         errorPrint("%s() LN%d, failed to allocate memory\n",
                 __func__, __LINE__);
         ret = -1;
-        goto _exit_failure;
+        goto _exit_failure_2;
     }
 
     /* Connect to server and dump extra info*/
@@ -11978,6 +11978,7 @@ _exit_failure:
 #ifdef WEBSOCKET
     }
 #endif
+_exit_failure_2:
     freeDbInfos();
     if (fpDbs) {
         fclose(fpDbs);
