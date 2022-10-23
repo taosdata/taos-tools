@@ -48,11 +48,6 @@
 // use 256 as normal buffer length
 #define BUFFER_LEN              256
 
-// max file name length on Linux is 255
-#define MAX_FILE_NAME_LEN       256
-
-// max path length on Linux is 4095
-#define MAX_PATH_LEN            4096
 #define VALUE_BUF_LEN           4096
 #define COMMAND_SIZE            (1024*1024)
 #define MAX_RECORDS_PER_REQ     32766
@@ -83,12 +78,6 @@ static void print_json_aux(json_t *element, int indent);
 
 // for tstrncpy buffer overflow
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-
-#define tstrncpy(dst, src, size) \
-    do {                              \
-        strncpy((dst), (src), (size));  \
-        (dst)[(size)-1] = 0;            \
-    } while (0)
 
 #define tfree(x)         \
     do {                   \
@@ -530,12 +519,12 @@ typedef struct arguments {
 
 #ifdef WEBSOCKET
     bool     restful;
-    char    *dsn;
-    int      ws_timeout;
     bool     cloud;
-    char     cloudHost[255];
-    int      cloudPort;
+    int      ws_timeout;
+    char    *dsn;
     char    *cloudToken;
+    int      cloudPort;
+    char     cloudHost[MAX_HOSTNAME_LEN];
 #endif
 } SArguments;
 
@@ -596,12 +585,12 @@ struct arguments g_args = {
         0,      // dumpDbCount
 #ifdef WEBSOCKET
     false,      // restful
-    NULL,       // dsn
-    10,         // ws_timeout
     false,      // cloud
-    {0},        // cloudHost
-    0,          // cloudPort
+    10,         // ws_timeout
+    NULL,       // dsn
     NULL,       // cloudToken
+    0,          // cloudPort
+    {0},        // cloudHost
 #endif  // WEBSOCKET
 };
 
@@ -899,8 +888,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
 
             if (full_path.we_wordv[0]) {
-                tstrncpy(g_args.inpath, full_path.we_wordv[0],
-                        DUMP_DIR_LEN);
+                tstrncpy(g_args.inpath, full_path.we_wordv[0], DUMP_DIR_LEN);
                 wordfree(&full_path);
             } else {
                 errorPrintReqArg3("taosdump", "-i or --inpath");
@@ -9897,8 +9885,7 @@ static int dumpInDebugWorkThreads(const char *dbPath) {
         pThreadInfo->recSuccess = 0;
         pThreadInfo->recFailed = 0;
 
-        strncpy(pThreadInfo->dbPath, dbPath,
-                min(MAX_DIR_LEN-1, strlen(dbPath)));
+        strncpy(pThreadInfo->dbPath, dbPath, MAX_DIR_LEN-1);
         pThreadInfo->from = from;
         pThreadInfo->count = (t < b)?a+1:a;
         from += pThreadInfo->count;
@@ -10150,9 +10137,9 @@ static void dumpNormalTablesOfStbWS(
     for (int64_t i = pThreadInfo->from;
             i < (pThreadInfo->from + pThreadInfo->count); i++ ) {
         char tbName[TSDB_TABLE_NAME_LEN] = {0};
-        strncpy(tbName,
+        tstrncpy(tbName,
                 pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
-                strlen(pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN));
+                TSDB_TABLE_NAME_LEN);
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
                 pThreadInfo->threadIndex, i,
@@ -11789,7 +11776,7 @@ static int dumpOut() {
         errorPrint("%s() LN%d, failed to allocate memory\n",
                 __func__, __LINE__);
         ret = -1;
-        goto _exit_failure;
+        goto _exit_failure_2;
     }
 
     /* Connect to server and dump extra info*/
@@ -11978,6 +11965,7 @@ _exit_failure:
 #ifdef WEBSOCKET
     }
 #endif
+_exit_failure_2:
     freeDbInfos();
     if (fpDbs) {
         fclose(fpDbs);
@@ -12033,17 +12021,14 @@ bool splitCloudDsn() {
         if (NULL == http) {
             https = strstr(g_args.dsn, "https://");
             if (NULL == https) {
-                strncpy(g_args.cloudHost, https + strlen("https://"),
-                        strlen(g_args.dsn) - strlen("https://")
-                        - strlen(token));
+                tstrncpy(g_args.cloudHost, g_args.dsn, MAX_HOSTNAME_LEN);
             } else {
-                strncpy(g_args.cloudHost, g_args.dsn,
-                        strlen(g_args.dsn) - strlen(token));
+                tstrncpy(g_args.cloudHost, https + strlen("https://"),
+                        MAX_HOSTNAME_LEN);
             }
         } else {
-            strncpy(g_args.cloudHost, http + strlen("http://"),
-                    strlen(g_args.dsn) - strlen("http://")
-                    - strlen(token));
+            tstrncpy(g_args.cloudHost,
+                    http + strlen("http://"), MAX_HOSTNAME_LEN);
         }
 
         char *colon = strstr(g_args.cloudHost, ":");

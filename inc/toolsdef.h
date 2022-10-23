@@ -16,6 +16,15 @@
 #ifndef __TOOLSTYPES_H_
 #define __TOOLSTYPES_H_
 
+// max file name length on Linux is 255
+#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
+
+// max path length on Linux is 4095
+#define MAX_PATH_LEN      4096
+
+// max hostname length on Linux is 253
+#define MAX_HOSTNAME_LEN        254
+
 #define TSDB_CODE_SUCCESS                   0
 #define TSDB_CODE_FAILED                    -1   // unknown or needn't tell detail error
 
@@ -131,6 +140,12 @@ do {                                                               \
   (*(__pLine))[1023] = 0;                                          \
   *(__pN)=strlen(*(__pLine));                                      \
 } while(0)
+
+#define tstrncpy(dst, src, size)       \
+    do {                               \
+        strncpy((dst), (src), (size)); \
+        (dst)[(size)-1] = 0;           \
+    } while (0)
 
 #ifdef RELEASE
 #define ASSERT(x)   do { \
