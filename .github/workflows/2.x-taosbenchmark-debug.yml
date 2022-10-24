@@ -45,6 +45,7 @@ jobs:
           files: |
             src/bench*
             tests/taosbenchmark*
+            packaging/tools/*
             inc/*
             .github/workflows/*taosBenchmark*
 

@@ -49,9 +49,11 @@ jobs:
         with:
           files: |
             src/*
+            inc/*
+            deps/*
             tests/taosbenchmark/*
             tests/taosdump/*
-            inc/*
+            packaging/tools/*
             .github/workflows/3.0-coveralls.yml
 
       - name: Run step if any of the listed files above change

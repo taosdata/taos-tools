@@ -16,11 +16,11 @@ if command -v sudo > /dev/null; then
 fi
 
 [ ! -d ${installDir}/bin ] && mkdir -p ${installDir}/bin
-${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin || echo -e "failed to copy ${dumpName}"
-${csudo}cp ${source_dir}/build/bin/${benchmarkName} ${installDir}/bin || echo -e "failed to copy ${benchmarkName}"
-${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} || echo -e "failed to link ${dumpName}"
-${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${benchmarkName} || echo -e "failed to link ${benchmarkName}"
-${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${demoName} || echo -e "failed to link ${benchmarkName} as ${demoName}"
+[ -f ${source_dir}/build/bin/${dumpName} ] && ${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin ||:
+[ -f ${source_dir}/build/bin/${benchmarkName} ] && ${csudo}cp ${source_dir}/build/bin/${benchmarkName} ${installDir}/bin ||:
+[ -f ${installDir}/bin/${dumpName} ] && ${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} ||:
+[ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${benchmarkName} ||:
+[ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${demoName} ||:
 
 #if [ -f ${source_dir}/build/lib/libavro.so.23.0.0 ]; then
 #    ${csudo}cp -rf ${source_dir}/build/lib/libavro* /usr/local/lib > /dev/null || echo -e "failed to copy avro libraries"

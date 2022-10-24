@@ -44,8 +44,9 @@ jobs:
         with:
           files: |
             src/bench*
-            tests/taosbenchmark/ws/*
             inc/*
+            tests/taosbenchmark/ws/*
+            packaging/tools/*
             .github/workflows/3.0-taosBenchmark-release.yml
 
       - name: Run step if any of the listed files above change
