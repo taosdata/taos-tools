@@ -54,8 +54,8 @@ static int create_topic(BArray* sqls) {
 static tmq_list_t * buildTopicList(int size) {
     tmq_list_t * topic_list = tmq_list_new();
     for (int i = 0; i < size; ++i) {
-        char buf[INT_BUFF_LEN + 4];
-        sprintf(buf, "topic_%d", i);
+        char buf[INT_BUFF_LEN + 7];
+        snprintf(buf, INT_BUFF_LEN + 6, "topic_%d", i);
         tmq_list_append(topic_list, buf);
     }
     infoPrint("%s", "successfully build topic list\n");

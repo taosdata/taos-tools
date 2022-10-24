@@ -49,6 +49,8 @@ jobs:
             src/*
             inc/*
             deps/CMakeLists.txt
+            packaging/tools/*
+            packaging/rpm/*
             .github/workflows/centos-release.yml
 
       - name: Run step if any of the listed files above change

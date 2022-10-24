@@ -521,9 +521,9 @@ typedef struct arguments {
     bool     restful;
     bool     cloud;
     int      ws_timeout;
-    int      cloudPort;
     char    *dsn;
     char    *cloudToken;
+    int      cloudPort;
     char     cloudHost[MAX_HOSTNAME_LEN];
 #endif
 } SArguments;
@@ -585,12 +585,12 @@ struct arguments g_args = {
         0,      // dumpDbCount
 #ifdef WEBSOCKET
     false,      // restful
-    NULL,       // dsn
-    10,         // ws_timeout
     false,      // cloud
-    {0},        // cloudHost
-    0,          // cloudPort
+    10,         // ws_timeout
+    NULL,       // dsn
     NULL,       // cloudToken
+    0,          // cloudPort
+    {0},        // cloudHost
 #endif  // WEBSOCKET
 };
 

@@ -258,7 +258,7 @@ int createDatabase(SDataBase* database) {
     }
 
     int dataLen = 0;
-    dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+    dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 
     if (database->cfgs) {
