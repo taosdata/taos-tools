@@ -1335,15 +1335,12 @@ static int getTableRecordInfoImplWS(
                 if (tryStable) {
                     pTableRecordInfo->isStb = true;
                     tstrncpy(pTableRecordInfo->tableRecord.stable,
-                            buffer,
-                            min(TSDB_TABLE_NAME_LEN, length + 1));
+                            buffer, min(TSDB_TABLE_NAME_LEN, length + 1));
                     isSet = true;
                 } else {
                     pTableRecordInfo->isStb = false;
                     tstrncpy(pTableRecordInfo->tableRecord.name,
-                            buffer,
-                            min(TSDB_TABLE_NAME_LEN,
-                                length + 1));
+                            buffer, min(TSDB_TABLE_NAME_LEN, length + 1));
                     const void *value1 = NULL;
                     if (3 == g_majorVersionOfClient) {
                         ws_get_value_in_block(
@@ -1368,9 +1365,7 @@ static int getTableRecordInfoImplWS(
                         memset(buffer, 0, VALUE_BUF_LEN);
                         memcpy(buffer, value1, length);
                         tstrncpy(pTableRecordInfo->tableRecord.stable,
-                                buffer,
-                                min(TSDB_TABLE_NAME_LEN,
-                                    length + 1));
+                                buffer, min(TSDB_TABLE_NAME_LEN, length + 1));
                     } else {
                         pTableRecordInfo->belongStb = false;
                     }
@@ -2855,8 +2850,7 @@ static int getTableDesNative(
                         lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX],
                         COL_NOTE_LEN-1));
             tstrncpy(tableDes->cols[colCount].note,
-                    note,
-                    lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX]+1);
+                    note, lengths[TSDB_DESCRIBE_METRIC_NOTE_INDEX]+1);
         }
 
         if (strcmp(tableDes->cols[colCount].note, "TAG") != 0) {
@@ -7096,8 +7090,6 @@ static int64_t dumpInOneAvroFile(
     RecordSchema *recordSchema = getSchemaAndReaderFromFile(
             avroType, avroFile, &schema, &reader);
     if (NULL == recordSchema) {
-        if (schema)
-            avro_schema_decref(schema);
         if (reader)
             avro_file_reader_close(reader);
         return -1;
@@ -8850,7 +8842,6 @@ static int64_t fillTbNameArrWS(
 
         uint8_t type;
         uint32_t len;
-        char tmp[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row++) {
             const void *value0 = ws_get_value_in_block(
@@ -8866,13 +8857,8 @@ static int64_t fillTbNameArrWS(
                 debugPrint("%s() LN%d, ws_get_value_in_blocK() return %s. len: %d\n",
                         __func__, __LINE__, (char *)value0, len);
             }
-            memset(tmp, 0, VALUE_BUF_LEN);
-            memcpy(tmp, value0, len);
-
-            strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                    tmp,
-                    min(TSDB_TABLE_NAME_LEN,
-                        len));
+            tstrncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                    (char*)value0, min(TSDB_TABLE_NAME_LEN, len+1));
 
             debugPrint("%s() LN%d, sub table name: %s %"PRId64" of stable: %s\n",
                     __func__, __LINE__,
@@ -11131,14 +11117,10 @@ static bool fillDBInfoWithFieldsWS(
             return false;
         }
     } else if (0 == strcmp(name, "strict")) {
-        memset(tmp, 0, VALUE_BUF_LEN);
-        memcpy(tmp, value, len);
-        debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
-                __func__, __LINE__, f,
-                tmp, len);
-        strncpy(g_dbInfos[index]->strict,
-                tmp,
-                min(STRICT_LEN, len));
+        tstrncpy(g_dbInfos[index]->strict,
+                (char*)value, min(STRICT_LEN, len+1));
+        debugPrint("%s() LN%d: field: %d, strict: %s, length:%d\n",
+                __func__, __LINE__, f, g_dbInfos[index]->strict, len);
     } else if (0 == strcmp(name, "quorum")) {
         g_dbInfos[index]->quorum =
             *((int16_t *)value);
@@ -11146,20 +11128,13 @@ static bool fillDBInfoWithFieldsWS(
         g_dbInfos[index]->days = *((int16_t *)value);
     } else if ((0 == strcmp(name, "keep"))
             || (0 == strcmp(name, "keep0,keep1,keep2"))) {
-        memset(tmp, 0, VALUE_BUF_LEN);
-        memcpy(tmp, value, len);
+        tstrncpy(g_dbInfos[index]->keeplist, value, min(KEEPLIST_LEN, len+1));
         debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                 __func__, __LINE__, f,
-                tmp, len);
-        strncpy(g_dbInfos[index]->keeplist,
-                tmp,
-                min(KEEPLIST_LEN, len));
+                g_dbInfos[index]->keeplist, len);
     } else if (0 == strcmp(name, "duration")) {
-        memset(tmp, 0, VALUE_BUF_LEN);
-        memcpy(tmp, value, len);
-        strncpy(g_dbInfos[index]->duration,
-                tmp,
-                min(DURATION_LEN, len));
+        tstrncpy(g_dbInfos[index]->duration,
+                value, min(DURATION_LEN, len+1));
         debugPrint("%s() LN%d: field: %d, tmp: %s, duration: %s, length:%d\n",
                 __func__, __LINE__, f,
                 tmp, g_dbInfos[index]->duration, len);
@@ -11236,23 +11211,23 @@ static bool fillDBInfoWithFieldsWS(
             return false;
         }
     } else if (0 == strcmp(name, "precision")) {
-        tstrncpy(g_dbInfos[index]->precision, (char*)value, DB_PRECISION_LEN);
+        tstrncpy(g_dbInfos[index]->precision, (char*)value,
+                min(DB_PRECISION_LEN, len+1));
     } else if (0 == strcmp(name, "update")) {
         g_dbInfos[index]->update = *((int8_t *)value);
     }
 
     return true;
 }
-
 #endif  // WEBSOCKET
 
 static bool fillDBInfoWithFieldsNative(const int index,
         const TAOS_FIELD *fields, const TAOS_ROW row,
         const int *lengths, int fieldCount) {
-    char tmp[VALUE_BUF_LEN] = {0};
     for (int f = 0; f < fieldCount; f++) {
         if (0 == strcmp(fields[f].name, "name")) {
-            tstrncpy(g_dbInfos[index]->name, (char*)(row[f]), TSDB_DB_NAME_LEN);
+            tstrncpy(g_dbInfos[index]->name, (char*)(row[f]),
+                    min(TSDB_DB_NAME_LEN, lengths[f]+1));
             debugPrint("%s() LN%d, db name: %s, len: %d\n",
                     __func__, __LINE__,
                     g_dbInfos[index]->name, lengths[f]);
@@ -11287,11 +11262,8 @@ static bool fillDBInfoWithFieldsNative(const int index,
                 return false;
             }
         } else if (0 == strcmp(fields[f].name, "strict")) {
-            memset(tmp, 0, VALUE_BUF_LEN);
-            memcpy(tmp, (char*)row[f], lengths[f]);
-            strncpy(g_dbInfos[index]->strict,
-                    tmp,
-                    min(STRICT_LEN, lengths[f]));
+            tstrncpy(g_dbInfos[index]->strict,
+                    (char*)row[f], min(STRICT_LEN, lengths[f]+1));
             debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->strict,
@@ -11303,15 +11275,15 @@ static bool fillDBInfoWithFieldsNative(const int index,
             g_dbInfos[index]->days = *((int16_t *)row[f]);
         } else if ((0 == strcmp(fields[f].name, "keep"))
                 || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
-            memset(tmp, 0, VALUE_BUF_LEN);
-            memcpy(tmp, (char*)row[f], lengths[f]);
-            tstrncpy(g_dbInfos[index]->keeplist, tmp, KEEPLIST_LEN);
+            tstrncpy(g_dbInfos[index]->keeplist, (char*)row[f],
+                    min(KEEPLIST_LEN, lengths[f]+1));
             debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->keeplist,
                     lengths[f]);
         } else if (0 == strcmp(fields[f].name, "duration")) {
-            tstrncpy(g_dbInfos[index]->duration, (char*) row[f], DURATION_LEN);
+            tstrncpy(g_dbInfos[index]->duration, (char*) row[f],
+                    min(DURATION_LEN, lengths[f]+1));
             debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->duration,
@@ -11388,9 +11360,8 @@ static bool fillDBInfoWithFieldsNative(const int index,
                 return false;
             }
         } else if (0 == strcmp(fields[f].name, "precision")) {
-            memset(tmp, 0, VALUE_BUF_LEN);
-            memcpy(tmp, (char*)row[f], lengths[f]);
-            tstrncpy(g_dbInfos[index]->precision, tmp, DB_PRECISION_LEN);
+            tstrncpy(g_dbInfos[index]->precision, (char*)row[f],
+                    min(DB_PRECISION_LEN, lengths[f]+1));
             debugPrint("%s() LN%d, db precision: %s, len: %d\n",
                     __func__, __LINE__,
                     g_dbInfos[index]->precision, lengths[f]);
