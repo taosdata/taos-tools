@@ -735,27 +735,27 @@ skip:
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     stbInfo->lenOfCols = calcRowLen(stbInfo->cols, stbInfo->iface);
     stbInfo->lenOfTags = calcRowLen(stbInfo->tags, stbInfo->iface);
-    if (stbInfo->partialColumnNum != 0 &&
+    if (stbInfo->partialColNum != 0 &&
         (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
-        if (stbInfo->partialColumnNum > stbInfo->cols->size) {
-            stbInfo->partialColumnNum = stbInfo->cols->size;
+        if (stbInfo->partialColNum > stbInfo->cols->size) {
+            stbInfo->partialColNum = stbInfo->cols->size;
         } else {
-            stbInfo->partialColumnNameBuf = benchCalloc(1, BUFFER_SIZE, true);
+            stbInfo->partialColNameBuf = benchCalloc(1, BUFFER_SIZE, true);
             int pos = 0;
-            pos += sprintf(stbInfo->partialColumnNameBuf + pos, "ts");
-            for (int i = 0; i < stbInfo->partialColumnNum; ++i) {
+            pos += sprintf(stbInfo->partialColNameBuf + pos, "ts");
+            for (int i = 0; i < stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
-                pos += sprintf(stbInfo->partialColumnNameBuf + pos, ",%s", col->name);
+                pos += sprintf(stbInfo->partialColNameBuf + pos, ",%s", col->name);
             }
-            for (int i = stbInfo->partialColumnNum; i < stbInfo->cols->size; ++i) {
+            for (int i = stbInfo->partialColNum; i < stbInfo->cols->size; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 col->none = true;
             }
-            debugPrint("partialColumnNameBuf: %s\n",
-                       stbInfo->partialColumnNameBuf);
+            debugPrint("partialColNameBuf: %s\n",
+                       stbInfo->partialColNameBuf);
         }
     } else {
-        stbInfo->partialColumnNum = stbInfo->cols->size;
+        stbInfo->partialColNum = stbInfo->cols->size;
     }
     stbInfo->sampleDataBuf =
             benchCalloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand, true);

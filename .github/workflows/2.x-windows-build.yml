@@ -1,4 +1,4 @@
-name: macOS (2.x Release)
+name: Windows (2.x build)
 
 on:
   push:
@@ -7,12 +7,13 @@ on:
     branches: [ develop ]
 
 env:
-  TOOLS_BUILD_TYPE: Release
+  TOOLS_BUILD_TYPE: Debug
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
   build:
-    runs-on: macos-latest
+    name: build-2.x-on-windows
+    runs-on: windows-latest
 
     steps:
       - name: Step that prints name of pull request's base branch
@@ -30,23 +31,22 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v24.1
 
       - name: List all changed files
         run: |
-          for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            echo "$file was changed"
-          done
+          echo '${{ toJSON(steps.changed-files.outputs) }}'
 
       - name: Get specific changed files
         id: changed-files-specific
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v24.1
         with:
           files: |
             src/*
             inc/*
             deps/CMakeLists.txt
-            .github/workflows/macos-release.yml
+            packaging/tools/*
+            .github/workflows/windows.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -62,12 +62,6 @@ jobs:
           path: 'TDengine'
           ref: '2.6'
 
-      - name: Change time zone
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          #sudo timedatectl set-timezone Asia/Shanghai
-          #sudo date
-
       - name: Checkout TDengine's taos-tools to PR number
         if: |
           github.event_name == 'pull_request' &&
@@ -77,29 +71,18 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
-      - name: Set up homebrew
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
-          brew update
-          brew upgrade
-          brew install argp-standalone
-          brew info argp-standalone
-
-      - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.14
-
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_HTTP=false && make && sudo make install
+          choco install jom
+          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
 
           #      - name: Func Test
           #        run: |
           #          cd TDengine/tests/pytest
-          #          pip3 install taospy numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          #          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          #  pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
           #          sudo pkill -9 taosadapter || :
           #          sudo pkill -9 taosd || :
           #

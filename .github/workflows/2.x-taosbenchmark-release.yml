@@ -1,4 +1,4 @@
-name: Ubuntu (2.x taosdump WebSocket)
+name: Ubuntu (2.x taosBenchmark native release)
 
 on:
   push:
@@ -43,12 +43,11 @@ jobs:
         uses: tj-actions/changed-files@v23.2
         with:
           files: |
-            src/CMakeLists.txt
-            src/taosdump*
-            tests/taosdump/ws/*
+            src/bench*
+            tests/taosbenchmark*
+            packaging/tools/*
             inc/*
-            deps/CMakeLists.txt
-            .github/workflows/*taosdump*
+            .github/workflows/*taosBenchmark*
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -70,18 +69,10 @@ jobs:
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
 
-          #- name: Checkout TDengine with same branch of taos-tools
-          #run: |
-          #cd TDengine
-          #git pull
-          #git branch -a | grep -w ${{ github.head_ref }} && git checkout ${{ github.head_ref }} || echo "${{ github.head_ref }} not found in TDengine"
-          #git submodule update --init --recursive
-          #if: github.event_name == 'pull_request'
-
       - name: Checkout TDengine's taos-tools to PR number
         if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
+          steps.changed-files-specific.outputs.any_changed == 'true' &&
+          github.event_name == 'pull_request'
         run: |
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
@@ -93,27 +84,11 @@ jobs:
         with:
           go-version: 1.14
 
-      - name: Set up Rust
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - uses: actions/cache@v3
-        id: cache-rust
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-${{ steps.setup-rust.outputs.rustc_hash }}
-
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false -DWEBSOCKET=true && make -j8 && sudo make install
+          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && sudo make install
           if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
@@ -122,22 +97,22 @@ jobs:
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
-      - name: taosdump Develop Test
+      - name: taosBenchmark Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine/src/kit/taos-tools/tests
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          if find taosdump/ws -name "*.py"|grep -q .;
+          if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosbenchmark -name "*.py"|grep -v websocket`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
           fi
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
-            cat ~/taosdump-failed.txt;
+          if [ -f ~/taosbenchmark-release-failed.txt ];then
+            cat ~/taosbenchmark-release-failed.txt;
             exit 1;
           fi

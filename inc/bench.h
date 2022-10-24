@@ -116,8 +116,6 @@
 
 #define OPT_ABORT         1    /* –abort */
 #define MAX_RECORDS_PER_REQ 65536
-#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
-#define MAX_PATH_LEN      4096
 #define DEFAULT_START_TIME  1500000000000
 #define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
@@ -427,10 +425,11 @@ typedef struct SSuperTable_S {
     uint64_t insertRows;
     uint64_t timestamp_step;
     int64_t  startTimestamp;
+    int64_t  specifiedColumns;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
-    uint32_t partialColumnNum;
-    char *   partialColumnNameBuf;
+    uint32_t partialColNum;
+    char *   partialColNameBuf;
     BArray * cols;
     BArray * tags;
     BArray * tsmas;
@@ -577,6 +576,7 @@ typedef struct SArguments_S {
 #endif
     bool               supplementInsert;
     int64_t            startTimestamp;
+    int32_t            partialColNum;
 } SArguments;
 
 typedef struct SBenchConn{
@@ -654,11 +654,6 @@ extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-#define tstrncpy(dst, src, size)       \
-    do {                               \
-        strncpy((dst), (src), (size)); \
-        (dst)[(size)-1] = 0;           \
-    } while (0)
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */

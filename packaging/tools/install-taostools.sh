@@ -100,7 +100,7 @@ function install_bin() {
     ${csudo}rm -f ${bin_link_dir}/${dumpName}         || :
     ${csudo}rm -f ${bin_link_dir}/rm${toolsName}      || :
 
-    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/${dumpName} ${install_main_dir}/bin/${dumpName}
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/${dumpName} ${install_main_dir}/bin/${dumpName} || echo -e "taosdump not installed"
     ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/${benchmarkName} ${install_main_dir}/bin/${benchmarkName}
     ${csudo}/usr/bin/install -c -m 755 ${script_dir}/uninstall-${toolsName}.sh ${install_main_dir}/bin/uninstall-${toolsName}.sh
     ${csudo}ln -sf ${install_main_dir}/bin/${benchmarkName} ${install_main_dir}/bin/${demoName}

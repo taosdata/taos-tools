@@ -403,7 +403,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->disorderRange = DEFAULT_DISORDER_RANGE;
         superTable->insert_interval = g_arguments->insert_interval;
         superTable->max_sql_len = BUFFER_SIZE;
-        superTable->partialColumnNum = 0;
+        superTable->partialColNum = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
         superTable->file_factor = -1;
@@ -539,11 +539,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(timestampStep)) {
             superTable->timestamp_step = timestampStep->valueint;
         }
+
         tools_cJSON *sampleFile = tools_cJSON_GetObjectItem(stbInfo, "sample_file");
         if (tools_cJSON_IsString(sampleFile)) {
             tstrncpy(
                 superTable->sampleFile, sampleFile->valuestring,
-                min(MAX_FILE_NAME_LEN, strlen(sampleFile->valuestring) + 1));
+                MAX_FILE_NAME_LEN);
         } else {
             memset(superTable->sampleFile, 0, MAX_FILE_NAME_LEN);
         }
@@ -594,9 +595,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(insertInterval)) {
             superTable->insert_interval = insertInterval->valueint;
         }
-        tools_cJSON *pCoumnNum = tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
-        if (tools_cJSON_IsNumber(pCoumnNum)) {
-            superTable->partialColumnNum = pCoumnNum->valueint;
+        tools_cJSON *pPartialColNum = tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
+        if (tools_cJSON_IsNumber(pPartialColNum)) {
+            superTable->partialColNum = pPartialColNum->valueint;
         }
         if (g_arguments->taosc_version == 3) {
             tools_cJSON *delay = tools_cJSON_GetObjectItem(stbInfo, "delay");
@@ -1004,10 +1005,11 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
                 sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
                         g_queryInfo.specifiedQueryInfo.sqls->size - 1);
-                sql->command = benchCalloc(1, strlen(buf), true);
+                int bufLen = strlen(buf) + 1;
+                sql->command = benchCalloc(1, bufLen, true);
                 sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
                         g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
-                tstrncpy(sql->command, buf, strlen(buf));
+                tstrncpy(sql->command, buf, bufLen);
                 debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, BUFFER_SIZE);
             }
@@ -1029,8 +1031,9 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
                     tools_cJSON *sqlStr = tools_cJSON_GetObjectItem(sqlObj, "sql");
                     if (tools_cJSON_IsString(sqlStr)) {
-                        sql->command = benchCalloc(1, strlen(sqlStr->valuestring) + 1, true);
-                        tstrncpy(sql->command, sqlStr->valuestring, strlen(sqlStr->valuestring) + 1);
+                        int strLen = strlen(sqlStr->valuestring) + 1;
+                        sql->command = benchCalloc(1, strLen, true);
+                        tstrncpy(sql->command, sqlStr->valuestring, strLen);
                         // default value is -1, which mean infinite loop
                         g_queryInfo.specifiedQueryInfo.endAfterConsume[j] = -1;
                         tools_cJSON *endAfterConsume =
