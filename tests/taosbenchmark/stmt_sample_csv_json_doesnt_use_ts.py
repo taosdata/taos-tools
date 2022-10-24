@@ -68,8 +68,9 @@ class TDTestCase:
         tdSql.checkData(0, 1, 1)
         tdSql.checkData(1, 1, 2)
         tdSql.checkData(2, 1, 3)
+        tdSql.checkData(3, 1, None)
         tdSql.query("select distinct(t0) from db.stb")
-        tdSql.checkRows(1)
+        tdSql.checkRows(2)
         tdSql.checkData(0, 0, 17)
 
     def stop(self):
