@@ -79,16 +79,6 @@ static inline void ds_set_cap(char *s, uint64_t cap)
     s[cap] = '\0';
 }
 
-int ds_last(char *s)
-{
-    uint64_t len = ds_len(s);
-
-    if (len == 0)
-        return '\0';
-    else
-        return s[len - 1];
-}
-
 char * ds_end(char *s)
 {
     return s + ds_len(s);
@@ -97,9 +87,10 @@ char * ds_end(char *s)
 float fast_sqrt(float x)
 {
     float xhalf = 0.5f * x;
-    int i = *(int*)&x;
+    int i;
+    memcpy(&i, &x, sizeof(int));
     i = 0x5f375a86 - (i >> 1);
-    x = *(float*)&i;
+    memcpy(&x, &i, sizeof(float));
     x = x * (1.5f - xhalf * x * x);
     return 1/x;
 }
@@ -149,24 +140,6 @@ char * ds_resize(char **ps, size_t cap)
 }
 
 
-char * ds_pack(char **ps)
-{
-    return ds_resize(ps, ds_len(*ps));
-}
-
-
-char * ds_add_char(char **ps, char c)
-{
-    ds_grow(ps, 1);
-
-    char *s = *ps;
-
-    ds_end(s)[0] = c;
-    ds_set_len(s, ds_len(s) + 1);
-
-    return s;
-}
-
 char * ds_add_str(char **ps, const char* sub)
 {
     size_t len = strlen(sub);
@@ -195,25 +168,5 @@ char * ds_add_strs(char **ps, int count, ...)
     va_end(valist);
 
     return *ps;
-}
-
-char * ds_ins_str(char **ps, size_t pos, const char *sub, size_t len)
-{
-    char *s = *ps;
-
-    if (pos > ds_len(s))
-        pos = ds_len(s);
-
-    if (len == 0)
-        len = strlen(sub);
-
-    ds_grow(ps, len);
-    s = *ps;
-
-    memcpy(s + pos + len, s + pos, ds_len(s) - pos);
-    memcpy(s + pos, sub, len);
-    ds_set_len(s, ds_len(s) + len);
-
-    return s;
 }
 
