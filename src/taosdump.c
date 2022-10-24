@@ -1477,7 +1477,7 @@ static int getTableRecordInfoImplNative(
         if (tryStable) {
             pTableRecordInfo->isStb = true;
             tstrncpy(pTableRecordInfo->tableRecord.stable, table,
-                    min(TSDB_TABLE_NAME_LEN, strlen(table)+1));
+                    TSDB_TABLE_NAME_LEN);
             isSet = true;
         } else {
             pTableRecordInfo->isStb = false;
@@ -2329,7 +2329,7 @@ void constructTableDesFromStb(const TableDes *stbTableDes,
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
 
-    strncpy(tableDes->name, table, min(TSDB_TABLE_NAME_LEN-1, strlen(table)));
+    tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
     tableDes->columns = stbTableDes->columns;
     tableDes->tags = stbTableDes->tags;
     memcpy(tableDes->cols, stbTableDes->cols,
@@ -5063,7 +5063,7 @@ static int64_t dumpInAvroTbTagsImpl(
                     debugPrint("%s() LN%d stable : %s parsed from file:%s\n",
                             __func__, __LINE__, stb, fileName);
 
-                    strncpy(stbName, stb, min(TSDB_TABLE_NAME_LEN-1, strlen(stb)));
+                    tstrncpy(stbName, stb, TSDB_TABLE_NAME_LEN);
                     free(dupSeq);
                 }
 
@@ -7343,8 +7343,7 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt) {
                 "Thread[%d] takes care avro files total %"PRId64" files "
                 "from %"PRId64"\n",
                 t, pThreadInfo->count, pThreadInfo->from);
-        strncpy(pThreadInfo->dbPath, dbPath,
-                min(MAX_DIR_LEN-1, strlen(dbPath)));
+        tstrncpy(pThreadInfo->dbPath, dbPath, MAX_DIR_LEN);
 
         if (pthread_create(pids + t, NULL,
                     dumpInAvroWorkThreadFp, (void*)pThreadInfo) != 0) {
@@ -10190,10 +10189,9 @@ static void dumpNormalTablesOfStbNative(
     for (int64_t i = pThreadInfo->from;
             i < pThreadInfo->from + pThreadInfo->count; i++) {
         char tbName[TSDB_TABLE_NAME_LEN] = {0};
-        strncpy(tbName,
+        tstrncpy(tbName,
                 pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
-                min(TSDB_TABLE_NAME_LEN-1,
-                    strlen(pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN)));
+                TSDB_TABLE_NAME_LEN);
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
                 pThreadInfo->threadIndex, i, tbName);
@@ -11238,11 +11236,7 @@ static bool fillDBInfoWithFieldsWS(
             return false;
         }
     } else if (0 == strcmp(name, "precision")) {
-        memset(tmp, 0, VALUE_BUF_LEN);
-        memcpy(tmp, value, len);
-        strncpy(g_dbInfos[index]->precision,
-                tmp,
-                min(len, DB_PRECISION_LEN));
+        tstrncpy(g_dbInfos[index]->precision, (char*)value, DB_PRECISION_LEN);
     } else if (0 == strcmp(name, "update")) {
         g_dbInfos[index]->update = *((int8_t *)value);
     }
@@ -11258,16 +11252,10 @@ static bool fillDBInfoWithFieldsNative(const int index,
     char tmp[VALUE_BUF_LEN] = {0};
     for (int f = 0; f < fieldCount; f++) {
         if (0 == strcmp(fields[f].name, "name")) {
-            memset(tmp, 0, VALUE_BUF_LEN);
-            memcpy(tmp, (char*)row[f], lengths[f]);
-            strncpy(g_dbInfos[index]->name,
-                    tmp,
-                    min(TSDB_DB_NAME_LEN,
-                        lengths[f]));
+            tstrncpy(g_dbInfos[index]->name, (char*)(row[f]), TSDB_DB_NAME_LEN);
             debugPrint("%s() LN%d, db name: %s, len: %d\n",
                     __func__, __LINE__,
                     g_dbInfos[index]->name, lengths[f]);
-
         } else if (0 == strcmp(fields[f].name, "vgroups")) {
             if (TSDB_DATA_TYPE_INT == fields[f].type) {
                 g_dbInfos[index]->vgroups = *((int32_t *)row[f]);
@@ -11317,19 +11305,13 @@ static bool fillDBInfoWithFieldsNative(const int index,
                 || (0 == strcmp(fields[f].name, "keep0,keep1,keep2"))) {
             memset(tmp, 0, VALUE_BUF_LEN);
             memcpy(tmp, (char*)row[f], lengths[f]);
-            strncpy(g_dbInfos[index]->keeplist,
-                    tmp,
-                    min(KEEPLIST_LEN, lengths[f]));
+            tstrncpy(g_dbInfos[index]->keeplist, tmp, KEEPLIST_LEN);
             debugPrint("%s() LN%d: field: %d, keep: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->keeplist,
                     lengths[f]);
         } else if (0 == strcmp(fields[f].name, "duration")) {
-            memset(tmp, 0, VALUE_BUF_LEN);
-            memcpy(tmp, (char*)row[f], lengths[f]);
-            strncpy(g_dbInfos[index]->duration,
-                    tmp,
-                    min(DURATION_LEN, lengths[f]));
+            tstrncpy(g_dbInfos[index]->duration, (char*) row[f], DURATION_LEN);
             debugPrint("%s() LN%d: field: %d, duration: %s, length:%d\n",
                     __func__, __LINE__, f,
                     g_dbInfos[index]->duration,
@@ -11408,9 +11390,7 @@ static bool fillDBInfoWithFieldsNative(const int index,
         } else if (0 == strcmp(fields[f].name, "precision")) {
             memset(tmp, 0, VALUE_BUF_LEN);
             memcpy(tmp, (char*)row[f], lengths[f]);
-            strncpy(g_dbInfos[index]->precision,
-                    tmp,
-                    min(lengths[f], DB_PRECISION_LEN));
+            tstrncpy(g_dbInfos[index]->precision, tmp, DB_PRECISION_LEN);
             debugPrint("%s() LN%d, db precision: %s, len: %d\n",
                     __func__, __LINE__,
                     g_dbInfos[index]->precision, lengths[f]);
