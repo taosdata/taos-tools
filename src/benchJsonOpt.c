@@ -866,6 +866,14 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         g_queryInfo.query_times = 1;
     }
 
+    tools_cJSON *gKillSlowQueryThreshold =
+        tools_cJSON_GetObjectItem(json, "kill_slow_query_threshold");
+    if (tools_cJSON_IsNumber(gKillSlowQueryThreshold)) {
+        g_queryInfo.killQueryThreshold = gKillSlowQueryThreshold->valueint;
+    } else {
+        g_queryInfo.killQueryThreshold = 0;
+    }
+
     tools_cJSON *resetCache = tools_cJSON_GetObjectItem(json, "reset_query_cache");
     if (tools_cJSON_IsString(resetCache)) {
         if (0 == strcasecmp(resetCache->valuestring, "yes")) {
