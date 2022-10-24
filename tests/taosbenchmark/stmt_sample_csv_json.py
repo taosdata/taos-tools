@@ -71,7 +71,12 @@ class TDTestCase:
         tdSql.checkData(3, 1, None)
         tdSql.query("select distinct(t0) from db.stb")
         tdSql.checkRows(2)
-        tdSql.checkData(0, 0, 17)
+
+        dbresult = tdSql.queryResult
+        if dbresult[0][0] not in (17, None):
+            tdLog.exit("result[0][0]: {}".format(dbresult[0][0]))
+        else:
+            tdLog.info("result[0][0]: {}".format(dbresult[0][0]))
 
     def stop(self):
         tdSql.close()
