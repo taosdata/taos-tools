@@ -557,6 +557,8 @@ void postFreeResource() {
                 }
                 benchArrayDestroy(stbInfo->tags);
 
+                debugPrint("%s() LN%d, col size: %"PRIu64"\n",
+                        __func__, __LINE__, (uint64_t)stbInfo->cols->size);
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
                     tmfree(col->data);
@@ -1373,9 +1375,19 @@ static int parseBufferToStmtBatch(
                     case TSDB_DATA_TYPE_NCHAR:
                         {
                             size_t tmpLen = strlen(tmpStr);
+                            debugPrint("%s() LN%d, index: %d, "
+                                    "tmpStr len: %"PRIu64", col->length: %d\n",
+                                    __func__, __LINE__,
+                                    i, (uint64_t)tmpLen, col->length);
+                            if (tmpLen > col->length) {
+                                errorPrint("data length %"PRIu64" "
+                                        "is larger than column length %d\n",
+                                        (uint64_t)tmpLen, col->length);
+                            }
+
                             if (tmpLen > 2) {
                                 strncpy((char *)col->data + i * col->length,
-                                        tmpStr+1, tmpLen - 2);
+                                        tmpStr+1, min(col->length, tmpLen - 2));
                             } else {
                                 strcpy((char *)col->data + i * col->length, "");
                             }
