@@ -1379,7 +1379,7 @@ static int parseBufferToStmtBatch(
                                     "tmpStr len: %"PRIu64", col->length: %d\n",
                                     __func__, __LINE__,
                                     i, (uint64_t)tmpLen, col->length);
-                            if (tmpLen > col->length) {
+                            if (tmpLen-2 > col->length) {
                                 errorPrint("data length %"PRIu64" "
                                         "is larger than column length %d\n",
                                         (uint64_t)tmpLen, col->length);
