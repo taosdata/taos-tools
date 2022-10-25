@@ -49,7 +49,6 @@
 #define BUFFER_LEN              256
 
 #define VALUE_BUF_LEN           4096
-#define COMMAND_SIZE            (1024*1024)
 #define MAX_RECORDS_PER_REQ     32766
 
 #define NEED_CALC_COUNT         UINT64_MAX
@@ -1244,7 +1243,7 @@ static int getTableRecordInfoImplWS(
     }
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
 
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command, "USE %s", dbName);
     ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
@@ -1425,7 +1424,7 @@ static int getTableRecordInfoImplNative(
 
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
 
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command, "USE %s", dbName);
     res = taos_query(taos, command);
@@ -1696,7 +1695,7 @@ static int getDumpDbCount() {
     TAOS     *taos = NULL;
     TAOS_RES *res     = NULL;
 
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT name FROM information_schema.ins_databases");
     } else {
@@ -2341,7 +2340,7 @@ static int getTableTagValueWSV3(
         const char *table,
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command,
             "SELECT tag_name,tag_value FROM information_schema.ins_tags "
@@ -2417,7 +2416,7 @@ static int getTableTagValueWSV2(
         const char *table,
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     char *sqlstr = command;
 
     sqlstr += sprintf(sqlstr, "SELECT %s%s%s",
@@ -2535,7 +2534,7 @@ static int getTableDesWS(
         TableDes *tableDes,
         const bool colOnly) {
     int colCount = 0;
-    char sqlstr[COMMAND_SIZE];
+    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     sprintf(sqlstr, "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
@@ -2658,7 +2657,7 @@ static int getTableTagValueNativeV3(
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
 
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command,
             "SELECT tag_name,tag_value FROM information_schema.ins_tags "
@@ -2709,7 +2708,7 @@ static int getTableTagValueNativeV2(
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
 
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     char *sqlstr = command;
 
     sqlstr += sprintf(sqlstr, "SELECT %s%s%s",
@@ -2811,7 +2810,7 @@ static int getTableDesNative(
     TAOS_RES* res = NULL;
     int colCount = 0;
 
-    char sqlstr[COMMAND_SIZE] = {0};
+    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     sprintf(sqlstr, "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
@@ -4337,7 +4336,7 @@ int64_t queryDbForDumpOutCount(
         const char *tbName,
         const int precision) {
     int64_t count = -1;
-    char sqlstr[COMMAND_SIZE] = {0};
+    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     int64_t startTime = getStartTime(precision);
     int64_t endTime = getEndTime(precision);
@@ -4409,7 +4408,7 @@ void *queryDbForDumpOutOffset(
         const int64_t end_time,
         const int64_t limit,
         const int64_t offset) {
-    char sqlstr[COMMAND_SIZE] = {0};
+    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     if (-1 == limit) {
         sprintf(sqlstr,
@@ -5011,7 +5010,7 @@ static int64_t dumpInAvroTbTagsImpl(
     int64_t success = 0;
     int64_t failed = 0;
 
-    char sqlstr[COMMAND_SIZE] = {0};
+    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     TableDes *tableDes = (TableDes *)calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
@@ -7403,7 +7402,7 @@ static int processResultValue(
         return sprintf(pstr + curr_sqlstr_len, "NULL");
     }
 
-    char tbuf[COMMAND_SIZE] = {0};
+    char tbuf[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
             return sprintf(pstr + curr_sqlstr_len, "%d",
@@ -7453,13 +7452,13 @@ static int processResultValue(
 
         case TSDB_DATA_TYPE_BINARY:
             convertStringToReadable((char *)value, len,
-                    tbuf, COMMAND_SIZE);
+                    tbuf, TSDB_MAX_ALLOWED_SQL_LEN);
             return sprintf(pstr + curr_sqlstr_len,
                     "\'%s\'", tbuf);
 
         case TSDB_DATA_TYPE_NCHAR:
             convertNCharToReadable((char *)value, len,
-                    tbuf, COMMAND_SIZE);
+                    tbuf, TSDB_MAX_ALLOWED_SQL_LEN);
             return sprintf(pstr + curr_sqlstr_len,
                     "\'%s\'", tbuf);
 
@@ -7696,7 +7695,7 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
         const int precision,
         const int64_t start_time,
         const int64_t end_time) {
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command,
             "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
@@ -7725,7 +7724,7 @@ TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
         const int precision,
         const int64_t start_time,
         const int64_t end_time) {
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command,
             "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
@@ -8952,7 +8951,7 @@ static int64_t fillTbNameArr(
         void *taos, char **tbNameArr,
         const SDbInfo *dbInfo,
         const char *stable) {
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) FROM %s.%s%s%s)",
@@ -9387,7 +9386,7 @@ static int convertNCharToReadable(char *str, int size, char *buf, int bufsize) {
 #ifdef WEBSOCKET
 static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
     char buffer[BUFFER_LEN];
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     strcpy(command, "SHOW VARIABLES");
 
     int32_t ws_code;
@@ -9467,7 +9466,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 
 static void dumpExtraInfoVar(void *taos, FILE *fp) {
     char buffer[BUFFER_LEN];
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     strcpy(command, "SHOW VARIABLES");
 
     int32_t code;
@@ -10273,7 +10272,7 @@ static int64_t dumpNtbOfStbByThreads(
         SDbInfo *dbInfo,
         const char *stbName) {
     int64_t ntbCount;
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
@@ -10515,7 +10514,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
         WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) {
     int64_t ret = 0;
 
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command, "USE %s", dbInfo->name);
     WS_RES *ws_res;
@@ -10604,7 +10603,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
         return 0;
     }
 
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     WS_RES *ws_res;
     int32_t ws_code;
 
@@ -10726,7 +10725,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
         return 0;
     }
 
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     TAOS_RES *res;
     int32_t code;
@@ -10806,7 +10805,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
         TAOS *taos, SDbInfo *dbInfo, FILE *fpDbs) {
     int64_t ret = 0;
 
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
 
     sprintf(command, "USE %s", dbInfo->name);
     TAOS_RES *res;
@@ -11379,7 +11378,7 @@ static int fillDbExtraInfoV3WS(
         const char *dbName,
         const int dbIndex) {
     int ret = 0;
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     sprintf(command, "SELECT COUNT(table_name) FROM "
             "information_schema.ins_tables WHERE db_name='%s'", dbName);
 
@@ -11434,7 +11433,7 @@ static int fillDbInfoWS(void *taos) {
     int ret = 0;
     int dbIndex = 0;
 
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT * FROM information_schema.ins_databases");
     } else {
@@ -11571,7 +11570,7 @@ static int fillDbExtraInfoV3Native(
         const char *dbName,
         const int dbIndex) {
     int ret = 0;
-    char command[COMMAND_SIZE] = {0};
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     sprintf(command, "SELECT COUNT(table_name) FROM "
             "information_schema.ins_tables WHERE db_name='%s'",
             dbName);
@@ -11606,7 +11605,7 @@ static int fillDbInfoNative(void *taos) {
     int ret = 0;
     int dbIndex = 0;
 
-    char command[COMMAND_SIZE];
+    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT * FROM information_schema.ins_databases");
     } else {

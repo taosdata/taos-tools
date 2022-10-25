@@ -617,7 +617,61 @@ OVER:
     return code;
 }
 
+#define KILLID_LEN  20
+
 void *queryKiller(void *arg) {
+    while (true) {
+        toolsMsleep(1000);
+        TAOS *taos = taos_connect(g_arguments->host, g_arguments->user,
+                g_arguments->password, NULL, g_arguments->port);
+        if (NULL == taos) {
+            errorPrint("Slow query killer thread "
+                    "failed to connect to TDengine server %s\n",
+                    g_arguments->host);
+            return NULL;
+        }
+
+        char command[TSDB_MAX_ALLOWED_SQL_LEN] =
+            "SELECT kill_id,exec_usec FROM perf_queries";
+        TAOS_RES *res = taos_query(taos, command);
+        int32_t code = taos_errno(res);
+        if (code != 0) {
+            errorPrint("%s execution failed. Reason: %s\n",
+                    command, taos_errstr(res));
+            taos_free_result(res);
+        }
+
+        TAOS_ROW row = NULL;
+        while ((row = taos_fetch_row(res)) != NULL) {
+            int32_t *lengths = taos_fetch_lengths(res);
+            if (lengths[0] <= 0) {
+                infoPrint("No valid query found by %s\n", command);
+            } else {
+                int64_t execUSec = (int64_t)row[1];
+
+                if (execUSec > g_queryInfo.killQueryThreshold * 1000000) {
+                    char killId[KILLID_LEN] = {0};
+                    tstrncpy(killId, (char*)row[0], KILLID_LEN);
+                    char killCommand[KILLID_LEN + 15] = {0};
+                    snprintf(killCommand, KILLID_LEN + 15, "KILL QUERY '%s'", killId);
+                    TAOS_RES *resKill = taos_query(taos, killCommand);
+                    int32_t codeKill = taos_errno(resKill);
+                    if (code != 0) {
+                        errorPrint("%s execution failed. Reason: %s\n",
+                                killCommand, taos_errstr(resKill));
+                    } else {
+                        debugPrint("%s succeed\n", killCommand);
+                    }
+
+                    taos_free_result(resKill);
+                }
+            }
+        }
+
+        taos_free_result(res);
+        taos_close(taos);
+    }
+
     return NULL;
 }
 
@@ -626,7 +680,7 @@ int queryTestProcess() {
     prompt(0);
 
     pthread_t pidKiller = {0};
-    if (g_queryInfo.killQueryThreshold) {
+    if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
         pthread_create(&pidKiller, NULL, queryKiller, NULL);
     }
 
@@ -728,5 +782,10 @@ int queryTestProcess() {
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
             tInS, totalQueried, (double)totalQueried / tInS);
+
+    if (g_queryInfo.iface == TAOSC_IFACE) {
+        pthread_cancel(pidKiller);
+    }
+
     return 0;
 }
