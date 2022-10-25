@@ -874,6 +874,14 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         g_queryInfo.killQueryThreshold = 0;
     }
 
+    tools_cJSON *gKillSlowQueryInterval =
+        tools_cJSON_GetObjectItem(json, "kill_slow_query_interval");
+    if (tools_cJSON_IsNumber(gKillSlowQueryInterval)) {
+        g_queryInfo.killQueryInterval = gKillSlowQueryInterval ->valueint;
+    } else {
+        g_queryInfo.killQueryInterval = 1;  /* by default, interval 1s */
+    }
+
     tools_cJSON *resetCache = tools_cJSON_GetObjectItem(json, "reset_query_cache");
     if (tools_cJSON_IsString(resetCache)) {
         if (0 == strcasecmp(resetCache->valuestring, "yes")) {

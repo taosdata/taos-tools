@@ -673,7 +673,7 @@ void *queryKiller(void *arg) {
 
         taos_free_result(res);
         taos_close(taos);
-        toolsMsleep(1000);
+        toolsMsleep(g_queryInfo.killQueryInterval*1000);
     }
 
     return NULL;

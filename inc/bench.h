@@ -528,6 +528,7 @@ typedef struct SQueryMetaInfo_S {
     uint64_t           totalQueried;
     uint64_t           query_times;
     uint64_t           killQueryThreshold;
+    int32_t            killQueryInterval;
     uint64_t           response_buffer;
     bool               reset_query_cache;
     uint16_t           iface;
