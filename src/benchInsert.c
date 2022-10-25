@@ -557,8 +557,8 @@ void postFreeResource() {
                 }
                 benchArrayDestroy(stbInfo->tags);
 
-                debugPrint("%s() LN%d, col size: %"PRId64"\n",
-                        __func__, __LINE__, stbInfo->cols->size);
+                debugPrint("%s() LN%d, col size: %"PRIu64"\n",
+                        __func__, __LINE__, (uint64_t)stbInfo->cols->size);
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
                     tmfree(col->data);
@@ -1377,11 +1377,12 @@ static int parseBufferToStmtBatch(
                             size_t tmpLen = strlen(tmpStr);
                             debugPrint("%s() LN%d, index: %d, "
                                     "tmpStr len: %"PRIu64", col->length: %d\n",
-                                    __func__, __LINE__, i, tmpLen, col->length);
+                                    __func__, __LINE__,
+                                    i, (uint64_t)tmpLen, col->length);
                             if (tmpLen > col->length) {
                                 errorPrint("data length %"PRIu64" "
                                         "is larger than column length %d\n",
-                                        tmpLen, col->length);
+                                        (uint64_t)tmpLen, col->length);
                             }
 
                             if (tmpLen > 2) {
