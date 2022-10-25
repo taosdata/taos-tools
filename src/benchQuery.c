@@ -632,7 +632,7 @@ void *queryKiller(void *arg) {
         }
 
         char command[TSDB_MAX_ALLOWED_SQL_LEN] =
-            "SELECT kill_id,exec_usec FROM perf_queries";
+            "SELECT kill_id,exec_usec FROM performance_schema.perf_queries";
         TAOS_RES *res = taos_query(taos, command);
         int32_t code = taos_errno(res);
         if (code != 0) {
@@ -647,7 +647,7 @@ void *queryKiller(void *arg) {
             if (lengths[0] <= 0) {
                 infoPrint("No valid query found by %s\n", command);
             } else {
-                int64_t execUSec = (int64_t)row[1];
+                int64_t execUSec = *(int64_t*)row[1];
 
                 if (execUSec > g_queryInfo.killQueryThreshold * 1000000) {
                     char killId[KILLID_LEN] = {0};

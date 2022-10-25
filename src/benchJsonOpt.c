@@ -955,7 +955,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 (uint32_t)threads->valueint;
         }
 
-        tools_cJSON *specifiedAsyncMode = tools_cJSON_GetObjectItem(specifiedQuery, "mode");
+        tools_cJSON *specifiedAsyncMode =
+            tools_cJSON_GetObjectItem(specifiedQuery, "mode");
         if (tools_cJSON_IsString(specifiedAsyncMode)) {
             if (0 == strcmp("async", specifiedAsyncMode->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.asyncMode = ASYNC_MODE;
@@ -966,7 +967,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             g_queryInfo.specifiedQueryInfo.asyncMode = SYNC_MODE;
         }
 
-        tools_cJSON *interval = tools_cJSON_GetObjectItem(specifiedQuery, "interval");
+        tools_cJSON *interval =
+            tools_cJSON_GetObjectItem(specifiedQuery, "interval");
         if (tools_cJSON_IsNumber(interval)) {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
                 interval->valueint;
@@ -975,7 +977,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 DEFAULT_SUB_INTERVAL;
         }
 
-        tools_cJSON *restart = tools_cJSON_GetObjectItem(specifiedQuery, "restart");
+        tools_cJSON *restart =
+            tools_cJSON_GetObjectItem(specifiedQuery, "restart");
         if (tools_cJSON_IsString(restart)) {
             if (0 == strcmp("no", restart->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.subscribeRestart = false;
@@ -999,7 +1002,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         }
 
         // read sqls from file
-        tools_cJSON *sqlFileObj = tools_cJSON_GetObjectItem(specifiedQuery, "sql_file");
+        tools_cJSON *sqlFileObj =
+            tools_cJSON_GetObjectItem(specifiedQuery, "sql_file");
         if (tools_cJSON_IsString(sqlFileObj)) {
             FILE * fp = fopen(sqlFileObj->valuestring, "r");
             if (fp == NULL) {
@@ -1015,8 +1019,10 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                         g_queryInfo.specifiedQueryInfo.sqls->size - 1);
                 int bufLen = strlen(buf) + 1;
                 sql->command = benchCalloc(1, bufLen, true);
-                sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
+                sql->delay_list = benchCalloc(
+                        g_queryInfo.specifiedQueryInfo.queryTimes
+                        * g_queryInfo.specifiedQueryInfo.concurrent,
+                        sizeof(int64_t), true);
                 tstrncpy(sql->command, buf, bufLen);
                 debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, BUFFER_SIZE);
@@ -1024,18 +1030,22 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             fclose(fp);
         }
         // sqls
-        tools_cJSON *specifiedSqls = tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
+        tools_cJSON *specifiedSqls =
+            tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
         if (tools_cJSON_IsArray(specifiedSqls)) {
             int specifiedSqlSize = tools_cJSON_GetArraySize(specifiedSqls);
             for (int j = 0; j < specifiedSqlSize; ++j) {
-                tools_cJSON *sqlObj = tools_cJSON_GetArrayItem(specifiedSqls, j);
+                tools_cJSON *sqlObj =
+                    tools_cJSON_GetArrayItem(specifiedSqls, j);
                 if (tools_cJSON_IsObject(sqlObj)) {
                     SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
                     benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
                     sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
                             g_queryInfo.specifiedQueryInfo.sqls->size -1);
-                    sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
+                    sql->delay_list = benchCalloc(
+                            g_queryInfo.specifiedQueryInfo.queryTimes
+                            * g_queryInfo.specifiedQueryInfo.concurrent,
+                            sizeof(int64_t), true);
 
                     tools_cJSON *sqlStr = tools_cJSON_GetObjectItem(sqlObj, "sql");
                     if (tools_cJSON_IsString(sqlStr)) {
@@ -1055,7 +1065,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
                         g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
                         tools_cJSON *resubAfterConsume =
-                            tools_cJSON_GetObjectItem(specifiedQuery, "resubAfterConsume");
+                            tools_cJSON_GetObjectItem(
+                                    specifiedQuery, "resubAfterConsume");
                         if (tools_cJSON_IsNumber(resubAfterConsume)) {
                             g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] =
                                 (int)resubAfterConsume->valueint;
