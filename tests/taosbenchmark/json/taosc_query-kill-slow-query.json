@@ -9,11 +9,11 @@
     "databases": "test",
     "query_times": 2,
     "query_mode": "taosc",
-    "kill_slow_query_threshold": 120,
-    "kill_slow_query_interval": 10,
+    "kill_slow_query_threshold": 3,
+    "kill_slow_query_interval": 1,
     "specified_table_query": {
-        "query_interval": 1,
+        "query_interval": 3,
         "concurrent": 3,
-        "sql_file": "./query-sqls.txt"
+        "sql_file": "./taosbenchmark/json/query-sqls-slow-query.txt"
     }
 }
