@@ -135,20 +135,21 @@ static void *specifiedTableQuery(void *sarg) {
 
     while (index < queryTimes) {
         if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval) {
-            toolsMsleep((int32_t)(g_queryInfo.specifiedQueryInfo.queryInterval -
-                                 (et - st)));  // ms
+            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval*1000) {
+            toolsMsleep((int32_t)(
+                        g_queryInfo.specifiedQueryInfo.queryInterval*1000
+                        - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
             queryDbExec(pThreadInfo->conn, "reset query cache");
         }
 
-        st = toolsGetTimestampUs();
+        st = toolsGetTimestampMs();
         if (selectAndGetResult(pThreadInfo, sql->command)) {
             g_fail = true;
         }
 
-        et = toolsGetTimestampUs();
+        et = toolsGetTimestampMs();
         uint64_t delay = et - st;
         pThreadInfo->query_delay_list[index] = delay;
         index++;
@@ -186,7 +187,7 @@ static void *superTableQuery(void *sarg) {
 #endif
 
     uint64_t st = 0;
-    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval;
+    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000;
 
     uint64_t queryTimes = g_queryInfo.superQueryInfo.queryTimes;
     uint64_t startTs = toolsGetTimestampMs();
@@ -194,9 +195,9 @@ static void *superTableQuery(void *sarg) {
     uint64_t lastPrintTime = toolsGetTimestampMs();
     while (queryTimes--) {
         if (g_queryInfo.superQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval) {
-            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval -
-                                 (et - st)));
+            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000) {
+            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval*1000
+                        - (et - st)));
         }
 
         st = toolsGetTimestampMs();
@@ -621,7 +622,6 @@ OVER:
 
 void *queryKiller(void *arg) {
     while (true) {
-        toolsMsleep(1000);
         TAOS *taos = taos_connect(g_arguments->host, g_arguments->user,
                 g_arguments->password, NULL, g_arguments->port);
         if (NULL == taos) {
@@ -632,7 +632,7 @@ void *queryKiller(void *arg) {
         }
 
         char command[TSDB_MAX_ALLOWED_SQL_LEN] =
-            "SELECT kill_id,exec_usec FROM performance_schema.perf_queries";
+            "SELECT kill_id,exec_usec,sql FROM performance_schema.perf_queries";
         TAOS_RES *res = taos_query(taos, command);
         int32_t code = taos_errno(res);
         if (code != 0) {
@@ -650,17 +650,20 @@ void *queryKiller(void *arg) {
                 int64_t execUSec = *(int64_t*)row[1];
 
                 if (execUSec > g_queryInfo.killQueryThreshold * 1000000) {
+                    char sql[SQL_BUFF_LEN] = {0};
+                    tstrncpy(sql, (char*)row[2], SQL_BUFF_LEN);
+
                     char killId[KILLID_LEN] = {0};
                     tstrncpy(killId, (char*)row[0], KILLID_LEN);
                     char killCommand[KILLID_LEN + 15] = {0};
                     snprintf(killCommand, KILLID_LEN + 15, "KILL QUERY '%s'", killId);
                     TAOS_RES *resKill = taos_query(taos, killCommand);
                     int32_t codeKill = taos_errno(resKill);
-                    if (code != 0) {
+                    if (codeKill != 0) {
                         errorPrint("%s execution failed. Reason: %s\n",
                                 killCommand, taos_errstr(resKill));
                     } else {
-                        debugPrint("%s succeed\n", killCommand);
+                        infoPrint("%s succeed, sql: %s\n", killCommand, sql);
                     }
 
                     taos_free_result(resKill);
@@ -670,6 +673,7 @@ void *queryKiller(void *arg) {
 
         taos_free_result(res);
         taos_close(taos);
+        toolsMsleep(1000);
     }
 
     return NULL;
@@ -682,6 +686,7 @@ int queryTestProcess() {
     pthread_t pidKiller = {0};
     if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
         pthread_create(&pidKiller, NULL, queryKiller, NULL);
+        toolsMsleep(1000);
     }
 
     if (g_queryInfo.iface == REST_IFACE) {
