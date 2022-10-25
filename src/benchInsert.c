@@ -560,6 +560,7 @@ void postFreeResource() {
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
                     tmfree(col->data);
+                    tmfree(col->is_null);
                 }
                 benchArrayDestroy(stbInfo->cols);
                 if (g_arguments->test_mode == INSERT_TEST &&
@@ -1217,6 +1218,11 @@ static int parseBufferToStmtBatch(
         char dataType = col->type;
 
         char *tmpP = NULL;
+        char *is_null = NULL;
+
+        is_null = calloc(1, sizeof(char) *g_arguments->prepared_rand);
+        ASSERT(is_null);
+        col->is_null = is_null;
 
         switch(dataType) {
             case TSDB_DATA_TYPE_INT:
@@ -1323,58 +1329,62 @@ static int parseBufferToStmtBatch(
 
             strncpy(tmpStr, restStr, index);
 
-            switch(dataType) {
-                case TSDB_DATA_TYPE_INT:
-                case TSDB_DATA_TYPE_UINT:
-                    *((int32_t*)col->data + i) = atoi(tmpStr);
-                    break;
+            if (0 == strcmp(tmpStr, "NULL")) {
+                *(col->is_null + i) = true;
+            } else {
+                switch(dataType) {
+                    case TSDB_DATA_TYPE_INT:
+                    case TSDB_DATA_TYPE_UINT:
+                        *((int32_t*)col->data + i) = atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_FLOAT:
-                    *((float*)col->data +i) = (float)atof(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_FLOAT:
+                        *((float*)col->data +i) = (float)atof(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_DOUBLE:
-                    *((double*)col->data + i) = atof(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_DOUBLE:
+                        *((double*)col->data + i) = atof(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_TINYINT:
-                case TSDB_DATA_TYPE_UTINYINT:
-                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_TINYINT:
+                    case TSDB_DATA_TYPE_UTINYINT:
+                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_SMALLINT:
-                case TSDB_DATA_TYPE_USMALLINT:
-                    *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_SMALLINT:
+                    case TSDB_DATA_TYPE_USMALLINT:
+                        *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BIGINT:
-                case TSDB_DATA_TYPE_UBIGINT:
-                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_BIGINT:
+                    case TSDB_DATA_TYPE_UBIGINT:
+                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BOOL:
-                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_BOOL:
+                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_TIMESTAMP:
+                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR:
-                    {
-                        size_t tmpLen = strlen(tmpStr);
-                        if (tmpLen > 2) {
-                            strncpy((char *)col->data + i * col->length,
-                                    tmpStr+1, tmpLen - 2);
-                        } else {
-                            strcpy((char *)col->data + i * col->length, "");
+                    case TSDB_DATA_TYPE_BINARY:
+                    case TSDB_DATA_TYPE_NCHAR:
+                        {
+                            size_t tmpLen = strlen(tmpStr);
+                            if (tmpLen > 2) {
+                                strncpy((char *)col->data + i * col->length,
+                                        tmpStr+1, tmpLen - 2);
+                            } else {
+                                strcpy((char *)col->data + i * col->length, "");
+                            }
                         }
-                    }
-                    break;
+                        break;
 
-                default:
-                    break;
+                    default:
+                        break;
+                }
             }
 
             free(tmpStr);
