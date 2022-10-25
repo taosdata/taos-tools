@@ -1375,10 +1375,12 @@ static int parseBufferToStmtBatch(
                     case TSDB_DATA_TYPE_NCHAR:
                         {
                             size_t tmpLen = strlen(tmpStr);
-                            debugPrint("%s() LN%d, index: %d, tmpStr len: %"PRIu64", col->length: %d\n",
+                            debugPrint("%s() LN%d, index: %d, "
+                                    "tmpStr len: %"PRIu64", col->length: %d\n",
                                     __func__, __LINE__, i, tmpLen, col->length);
                             if (tmpLen > col->length) {
-                                errorPrint("data length %"PRIu64" is larger than column length %d\n",
+                                errorPrint("data length %"PRIu64" "
+                                        "is larger than column length %d\n",
                                         tmpLen, col->length);
                             }
 
