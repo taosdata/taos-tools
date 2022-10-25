@@ -13,6 +13,7 @@
 import ast
 import os
 import re
+import subprocess
 
 from util.log import *
 from util.cases import *
@@ -75,7 +76,10 @@ class TDTestCase:
 
         cmd = "%s -f ./taosbenchmark/json/taosc_query-kill-slow-query.json" % binPath
         tdLog.info("%s" % cmd)
-        os.system("%s" % cmd)
+        output = subprocess.check_output(cmd, shell=True).decode("utf-8")
+        if "KILL QUERY" not in output:
+            tdLog.info(output)
+            tdLog.exit("KILL QUERY failed")
 
     def stop(self):
         tdSql.close()
