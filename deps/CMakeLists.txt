@@ -53,7 +53,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
         ExternalProject_Add(
             apache-avro
             GIT_REPOSITORY https://github.com/apache/avro
-            GIT_TAG         release-1.11.1
+            GIT_TAG         release-1.11.0
             GIT_SHALLOW     true
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro

@@ -384,6 +384,7 @@ typedef struct SField {
     bool     none;
     bool     null;
     void *   data;
+    char *   is_null;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
