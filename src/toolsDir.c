@@ -70,6 +70,7 @@ void wordfree(wordexp_t *pwordexp) {}
 #include <sys/stat.h>
 #include <unistd.h>
 #include <wordexp.h>
+#include <string.h>
 
 typedef struct dirent dirent;
 typedef struct dirent TdDirEntry;
@@ -88,6 +89,7 @@ typedef struct TdDir {
 #include <sys/stat.h>
 #include <unistd.h>
 #include <wordexp.h>
+#include <string.h>
 
 typedef struct dirent dirent;
 typedef struct DIR    TdDir;

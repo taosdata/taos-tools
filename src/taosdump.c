@@ -633,7 +633,7 @@ static uint64_t getUniqueIDFromEpoch() {
         (uint64_t)(tv.tv_sec) * 1000 +
         (uint64_t)(tv.tv_usec) / 1000;
 
-    atomic_add_fetch_64(&g_uniqueID, 1);
+    atomic_add_fetch_64((volatile int64_t *)&g_uniqueID, 1);
     id += g_uniqueID;
 
     debugPrint("%s() LN%d unique ID: %"PRIu64"\n",
@@ -3469,7 +3469,7 @@ static FILE* openDumpInFile(char *fptr) {
     toolsExpandDir(fptr, fname, PATH_MAX);
 
     FILE *f = NULL;
-    if ((fname) && (strlen(fname) > 0)) {
+    if (strlen(fname) > 0) {
         f = fopen(fname, "r");
         if (f == NULL) {
             errorPrint("Failed to open file %s. Errno is %d. Reason is %s.\n",
@@ -3508,7 +3508,7 @@ static uint64_t getFilesNum(const char *dbPath, const char *ext) {
                 }
             }
         }
-        toolsCloseDir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     debugPrint("%"PRId64" .%s files found!\n", count, ext);
@@ -3662,7 +3662,7 @@ static AVROTYPE createDumpinList(const char *dbPath,
                 }
             }
         }
-        toolsCloseDir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
@@ -7409,7 +7409,7 @@ static int dumpInAvroWorkThreadsSub(const char *dbPath, const char *typeExt) {
                 ret = dumpInAvroWorkThreads(dataPath, typeExt);
             }
         }
-        toolsCloseDir(pDir);
+        toolsCloseDir(&pDir);
     } else {
         errorPrint("opendir(%s)\n", g_args.inpath);
         ret = -1;
@@ -7865,7 +7865,7 @@ static int generateSubDirName(
         case AVRO_DATA:
             sprintf(subDirName, "data%"PRIu64"",
                     (g_countOfDataFile / g_maxFilesPerDir));
-            atomic_add_fetch_64(&g_countOfDataFile, 1);
+            atomic_add_fetch_64((volatile int64_t *)&g_countOfDataFile, 1);
             break;
 
         default:
@@ -7886,7 +7886,7 @@ static int generateSubDirName(
     TdDirPtr dir = toolsOpenDir(dirToCreate);
     if (dir) {
         /* Directory exists. */
-        toolsCloseDir(dir);
+        toolsCloseDir(&dir);
     } else if (ENOENT == errno) {
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
@@ -9715,7 +9715,6 @@ static int64_t dumpInOneDebugFile(
     char *    cmd      = NULL;
     size_t    cmd_len  = 0;
     char *    line     = NULL;
-    size_t    line_len = 0;
 
     cmd  = (char *)malloc(TSDB_MAX_ALLOWED_SQL_LEN);
     if (cmd == NULL) {
@@ -10140,7 +10139,7 @@ static int dumpIn() {
                 ret = dumpInWithDbPath(dbPath);
             }
         }
-        toolsCloseDir(pDir);
+        toolsCloseDir(&pDir);
     } else {
         errorPrint("opendir(%s)\n", g_args.inpath);
     }
@@ -10967,7 +10966,7 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp) {
     fprintf(g_fpOfResult, "\n#### database:                       %s\n",
             dbInfo->name);
     atomic_add_fetch_64(
-            &g_resultStatistics.totalDatabasesOfDumpOut, 1);
+            (volatile int64_t *)&g_resultStatistics.totalDatabasesOfDumpOut, 1);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -11027,7 +11026,7 @@ static bool checkFileExistsDir(char *path, char *dirname) {
                 }
             }
         }
-        toolsCloseDir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     return bRet;
@@ -11054,7 +11053,7 @@ static bool checkFileExistsExt(char *path, char *ext) {
                 }
             }
         }
-        toolsCloseDir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     return bRet;
@@ -11091,7 +11090,7 @@ static bool checkOutDir(char *outpath) {
     }
 
     if (pDir) {
-        toolsCloseDir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     return ret;
