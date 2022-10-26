@@ -90,7 +90,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: stable
 
