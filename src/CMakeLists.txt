@@ -353,7 +353,7 @@ ELSE ()
 
     IF (${WEBSOCKET})
         INCLUDE_DIRECTORIES(/usr/local/include/)
-        SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
+        SET(WEBSOCKET_LINK_FLAGS "taosws.dll.lib")
         IF (${CMAKE_PROJECT_NAME} STREQUAL "taos-tools")
             MESSAGE("libtaosws.so need to be installed first")
         ELSE ()
