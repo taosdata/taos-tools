@@ -148,6 +148,7 @@ struct tm* toolsLocalTime(const time_t *timep, struct tm *result);
 int32_t toolsGetTimeOfDay(struct timeval *tv);
 int32_t toolsClockGetTime(int clock_id, struct timespec *pTS);
 
+#ifdef WINDOWS
 typedef struct {
   int   we_wordc;
   char *we_wordv[1];
@@ -156,6 +157,7 @@ typedef struct {
 } wordexp_t;
 int  wordexp(char *words, wordexp_t *pwordexp, int flags);
 void wordfree(wordexp_t *pwordexp);
+#endif
 
 typedef struct TdDir      *TdDirPtr;
 typedef struct TdDirEntry *TdDirEntryPtr;

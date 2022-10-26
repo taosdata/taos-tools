@@ -29,6 +29,7 @@
 #include <termios.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
+#include <wordexp.h>
 #else
 #include <unistd.h>
 #include <strings.h>
@@ -36,6 +37,7 @@
 #include <sys/time.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
+#include <wordexp.h>
 #endif
 #include <inttypes.h>
 

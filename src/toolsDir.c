@@ -16,6 +16,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#ifndef WINDOWS
+#include <sys/time.h>
+#endif
 #include "toolsdef.h"
 
 #define toolsMemoryFree free
