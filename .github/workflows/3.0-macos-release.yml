@@ -144,7 +144,7 @@ jobs:
           cd debug
           cmake .. -DTOOLS_BUILD_TYPE=Release -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           #if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
-          if [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
+          if [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
             exit 1

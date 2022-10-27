@@ -11,16 +11,20 @@ demoName="taosdemo"
 source_dir=$1
 
 if [ "$osType" != "Darwin" ]; then
-    installDir="/usr/local/taos"
+  installDir="/usr/local/taos"
 else
+  if [ -d $source_dir/build/lib ]; then
     verNumber=`ls $source_dir/build/lib | grep -E "libtaos\.[0-9]\.[0-9]" | sed "s/libtaos.//g" |  sed "s/.dylib//g" | head -n 1`
-    if [ -d "/usr/local/Cellar/" ];then
-        installDir="/usr/local/Cellar/tdengine/${verNumber}"
-    elif [ -d "/opt/homebrew/Cellar/" ];then
-        installDir="/opt/homebrew/Cellar/tdengine/${verNumber}"
-    else
-        installDir="/usr/local/taos"
-    fi
+  else
+    verNumber=`taos -V|awk '{print $2}'|sed -e 's/\r//'`
+  fi
+  if [ -d "/usr/local/Cellar/" ];then
+    installDir="/usr/local/Cellar/tdengine/${verNumber}"
+  elif [ -d "/opt/homebrew/Cellar/" ];then
+    installDir="/opt/homebrew/Cellar/tdengine/${verNumber}"
+  else
+    installDir="/usr/local/taos"
+  fi
 fi
 
 csudo=""
