@@ -89,7 +89,7 @@ jobs:
 
       - name: Set up Rust
         if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: stable
 

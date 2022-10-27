@@ -361,6 +361,7 @@ ELSE ()
     ADD_DEPENDENCIES(taosdump deps-libargp)
 
     IF (${WEBSOCKET})
+        INCLUDE_DIRECTORIES(/usr/local/include/)
         SET(WEBSOCKET_LINK_FLAGS "taosws.dll.lib")
         IF (${CMAKE_PROJECT_NAME} STREQUAL "taos-tools")
             MESSAGE("taosws.dll.lib need to be installed first")
