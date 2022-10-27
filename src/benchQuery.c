@@ -123,14 +123,17 @@ static void *specifiedTableQuery(void *sarg) {
     int32_t  index = 0;
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
-    pThreadInfo->query_delay_list = benchCalloc(queryTimes, sizeof(uint64_t), false);
+    pThreadInfo->query_delay_list = benchCalloc(queryTimes,
+            sizeof(uint64_t), false);
     uint64_t  lastPrintTime = toolsGetTimestampMs();
     uint64_t  startTs = toolsGetTimestampMs();
 
-    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, pThreadInfo->querySeq);
+    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
+            pThreadInfo->querySeq);
 
     if (sql->result[0] != '\0') {
-        sprintf(pThreadInfo->filePath, "%s-%d", sql->result, pThreadInfo->threadID);
+        sprintf(pThreadInfo->filePath, "%s-%d",
+                sql->result, pThreadInfo->threadID);
     }
 
     while (index < queryTimes) {
@@ -166,15 +169,16 @@ static void *specifiedTableQuery(void *sarg) {
         uint64_t endTs = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
             debugPrint(
-                      "thread[%d] has currently completed queries: %" PRIu64
-                      ", QPS: %10.6f\n",
-                      pThreadInfo->threadID, pThreadInfo->totalQueried,
-                      (double)(pThreadInfo->totalQueried /
-                               ((endTs - startTs) / 1000.0)));
+                    "thread[%d] has currently completed queries: %" PRIu64
+                    ", QPS: %10.6f\n",
+                    pThreadInfo->threadID, pThreadInfo->totalQueried,
+                    (double)(pThreadInfo->totalQueried /
+                        ((endTs - startTs) / 1000.0)));
             lastPrintTime = currentPrintTime;
         }
     }
-    qsort(pThreadInfo->query_delay_list, queryTimes, sizeof(uint64_t), compare);
+    qsort(pThreadInfo->query_delay_list, queryTimes,
+            sizeof(uint64_t), compare);
     pThreadInfo->avg_delay = (double)totalDelay / queryTimes;
     return NULL;
 }
@@ -448,10 +452,14 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     close_bench_conn(pThreadInfo->conn);
                 }
                 if (g_fail) {
-                    tmfree((char *)pids);
-                    tmfree((char *)infos);
-                    return -1;
+                    tmfree(pThreadInfo->query_delay_list);
                 }
+            }
+
+            if (g_fail) {
+                tmfree((char *)pids);
+                tmfree((char *)infos);
+                return -1;
             }
             uint64_t query_times = g_queryInfo.specifiedQueryInfo.queryTimes;
             uint64_t total_query_times = query_times * nConcurrent;
@@ -564,6 +572,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 
     int64_t start = toolsGetTimestampUs();
     for (int i = 0; i < thread; ++i) {
+        pthread_cancel(pids[i]);
         pthread_join(pids[i], NULL);
     }
     int64_t end = toolsGetTimestampUs();

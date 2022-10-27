@@ -57,6 +57,9 @@ int main(int argc, char* argv[]) {
     pthread_create(&spid, NULL, benchCancelHandler, NULL);
 
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
+
+    pthread_cancel(spid);
+    pthread_join(spid, NULL);
 #endif
     if (bench_parse_args(argc, argv)) {
         return -1;
@@ -102,9 +105,5 @@ int main(int argc, char* argv[]) {
     }
     postFreeResource();
 
-#ifdef LINUX
-    pthread_cancel(spid);
-    pthread_join(spid, NULL);
-#endif
     return 0;
 }
