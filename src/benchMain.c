@@ -105,6 +105,5 @@ int main(int argc, char* argv[]) {
     }
     postFreeResource();
 
-    pthread_exit(NULL);
     return 0;
 }
