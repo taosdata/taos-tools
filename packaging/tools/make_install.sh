@@ -30,10 +30,8 @@ if command -v sudo > /dev/null; then
 fi
 
 [ ! -d ${installDir}/bin ] && mkdir -p ${installDir}/bin
-if [ "$osType" != "Darwin" ]; then
-    [ -f ${source_dir}/build/bin/${dumpName} ] && ${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin ||:
-    [ -f ${installDir}/bin/${dumpName} ] && ${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} ||:
-fi
+[ -f ${source_dir}/build/bin/${dumpName} ] && ${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin ||:
+[ -f ${installDir}/bin/${dumpName} ] && ${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} ||:
 [ -f ${source_dir}/build/bin/${benchmarkName} ] && ${csudo}cp ${source_dir}/build/bin/${benchmarkName} ${installDir}/bin ||:
 [ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${benchmarkName} ||:
 [ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${demoName} ||:
