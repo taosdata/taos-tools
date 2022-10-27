@@ -224,6 +224,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ADD_DEPENDENCIES(taosBenchmark taosws-rs)
             IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
                 ADD_DEPENDENCIES(taosdump taosws-rs)
+            ELSE ()
+                MESSAGE("TODO: taosdump for macOS is WIP")
             ENDIF ()
         ENDIF ()
     ELSE ()
