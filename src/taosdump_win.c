@@ -13,26 +13,33 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <strings.h>
 #include <pthread.h>
 #include <iconv.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
-
 #include <argp.h>
-#ifdef DARWIN
+
+#ifdef WINDOWS
+#include <time.h>
+#include <WinSock2.h>
+#elif defined(DARWIN)
 #include <ctype.h>
-#else
-#include <sys/prctl.h>
-#endif
-#include <inttypes.h>
-#include <dirent.h>
-#include <wordexp.h>
+#include <unistd.h>
+#include <strings.h>
 #include <termios.h>
 #include <sys/time.h>
-#include <limits.h>
+#include <sys/syscall.h>
+#include <wordexp.h>
+#else
+#include <unistd.h>
+#include <strings.h>
+#include <termios.h>
+#include <sys/time.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <wordexp.h>
+#endif
+#include <inttypes.h>
 
 #include "taos.h"
 
@@ -60,8 +67,11 @@ static int       g_dumpInDataMajorVer;
 static char      g_dumpInEscapeChar[64] = {0};
 static char      g_dumpInLooseMode[64] = {0};
 static bool      g_dumpInLooseModeFlag = false;
+#ifdef WINDOWS
+static char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
+#else
 static char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
-
+#endif
 static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
@@ -86,10 +96,19 @@ static void print_json_aux(json_t *element, int indent);
         }                    \
     } while (0)
 
-#define atomic_add_fetch_64(ptr, val) \
-    __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST)
+int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val) {
+#ifdef WINDOWS
+  return InterlockedExchangeAdd64((int64_t volatile*)(ptr), (int64_t)(val)) + (int64_t)(val);
+#elif defined(_TD_NINGSI_60)
+  return __sync_add_and_fetch((ptr), (val));
+#else
+  return __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST);
+#endif
+}
 
-#ifdef DARWIN
+#ifdef WINDOWS
+#define SET_THREAD_NAME(name)
+#elif defined(DARWIN)
 #define SET_THREAD_NAME(name)
 #else
 #define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
@@ -219,8 +238,6 @@ typedef struct {
     int tags;
     ColDes cols[];
 } TableDes;
-
-extern char version[];
 
 #define DB_PRECISION_LEN   8
 #define DB_STATUS_LEN      16
@@ -382,7 +399,7 @@ static int64_t g_totalDumpInNtbFailed = 0;
 SDbInfo **g_dbInfos = NULL;
 TableInfo *g_tablesList = NULL;
 
-const char *argp_program_version = version;
+const char *argp_program_version;
 const char *argp_program_bug_address = "<support@taosdata.com>";
 
 /* Program documentation. */
@@ -616,7 +633,7 @@ static uint64_t getUniqueIDFromEpoch() {
         (uint64_t)(tv.tv_sec) * 1000 +
         (uint64_t)(tv.tv_usec) / 1000;
 
-    atomic_add_fetch_64(&g_uniqueID, 1);
+    atomic_add_fetch_64((volatile int64_t *)&g_uniqueID, 1);
     id += g_uniqueID;
 
     debugPrint("%s() LN%d unique ID: %"PRIu64"\n",
@@ -626,27 +643,41 @@ static uint64_t getUniqueIDFromEpoch() {
 }
 
 int setConsoleEcho(bool on) {
+#if defined(WINDOWS)
+  HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+  DWORD  mode = 0;
+  GetConsoleMode(hStdin, &mode);
+  if (on) {
+    mode |= ENABLE_ECHO_INPUT;
+  } else {
+    mode &= ~ENABLE_ECHO_INPUT;
+  }
+  SetConsoleMode(hStdin, mode);
+
+  return 0;
+#else
 #define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
-    int err;
-    struct termios term;
+  int            err;
+  struct termios term;
 
-    if (tcgetattr(STDIN_FILENO, &term) == -1) {
-        perror("Cannot get the attribution of the terminal");
-        return -1;
-    }
+  if (tcgetattr(STDIN_FILENO, &term) == -1) {
+    /*perror("Cannot get the attribution of the terminal");*/
+    return -1;
+  }
 
-    if (on)
-        term.c_lflag |= ECHOFLAGS;
-    else
-        term.c_lflag &= ~ECHOFLAGS;
+  if (on)
+    term.c_lflag |= ECHOFLAGS;
+  else
+    term.c_lflag &= ~ECHOFLAGS;
 
-    err = tcsetattr(STDIN_FILENO, TCSAFLUSH, &term);
-    if (err == -1 || err == EINTR) {
-        perror("Cannot set the attribution of the terminal");
-        return -1;
-    }
+  err = tcsetattr(STDIN_FILENO, TCSAFLUSH, &term);
+  if (err == -1 || err == EINTR) {
+    /*printf("Cannot set the attribution of the terminal");*/
+    return -1;
+  }
 
-    return 0;
+  return 0;
+#endif
 }
 
 static void printVersion(FILE *file) {
@@ -3434,25 +3465,17 @@ static void dumpCreateDbClause(
 }
 
 static FILE* openDumpInFile(char *fptr) {
-    wordexp_t full_path;
-
-    if (wordexp(fptr, &full_path, 0) != 0) {
-        errorPrint("illegal file name: %s\n", fptr);
-        return NULL;
-    }
-
-    char *fname = full_path.we_wordv[0];
+    char fname[PATH_MAX] = {0};
+    toolsExpandDir(fptr, fname, PATH_MAX);
 
     FILE *f = NULL;
-    if ((fname) && (strlen(fname) > 0)) {
+    if (strlen(fname) > 0) {
         f = fopen(fname, "r");
         if (f == NULL) {
             errorPrint("Failed to open file %s. Errno is %d. Reason is %s.\n",
                     fname, errno, strerror(errno));
         }
     }
-
-    wordfree(&full_path);
     return f;
 }
 
@@ -3460,31 +3483,32 @@ static uint64_t getFilesNum(const char *dbPath, const char *ext) {
     uint64_t count = 0;
 
     int namelen, extlen;
-    struct dirent *pDirent;
-    DIR *pDir;
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
 
     extlen = strlen(ext);
 
     bool isSql = (0 == strcmp(ext, "sql"));
 
-    pDir = opendir(dbPath);
+    pDir = toolsOpenDir(dbPath);
     if (pDir != NULL) {
-        while ((pDirent = readdir(pDir)) != NULL) {
-            namelen = strlen(pDirent->d_name);
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
 
             if (namelen > extlen) {
-                if (strcmp(ext, &(pDirent->d_name[namelen - extlen])) == 0) {
+                if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
                     if (isSql) {
-                        if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
+                        if (0 == strcmp(entryName, "dbs.sql")) {
                             continue;
                         }
                     }
-                    verbosePrint("%s found\n", pDirent->d_name);
+                    verbosePrint("%s found\n", entryName);
                     count++;
                 }
             }
         }
-        closedir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     debugPrint("%"PRId64" .%s files found!\n", count, ext);
@@ -3586,45 +3610,46 @@ static AVROTYPE createDumpinList(const char *dbPath,
     }
 
     int namelen, extlen;
-    struct dirent *pDirent;
-    DIR *pDir;
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
 
     extlen = strlen(ext);
 
     int64_t nCount = 0;
-    pDir = opendir(dbPath);
+    pDir = toolsOpenDir(dbPath);
     if (pDir != NULL) {
-        while ((pDirent = readdir(pDir)) != NULL) {
-            namelen = strlen(pDirent->d_name);
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
 
             if (namelen > extlen) {
-                if (strcmp(ext, &(pDirent->d_name[namelen - extlen])) == 0) {
-                    verbosePrint("%s found\n", pDirent->d_name);
+                if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
+                    verbosePrint("%s found\n", entryName);
                     switch (avroType) {
                         case AVRO_UNKNOWN:
-                            if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
+                            if (0 == strcmp(entryName, "dbs.sql")) {
                                 continue;
                             }
                             tstrncpy(g_tsDumpInDebugFiles[nCount],
-                                    pDirent->d_name,
+                                    entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
                         case AVRO_NTB:
                             tstrncpy(g_tsDumpInAvroNtbs[nCount],
-                                    pDirent->d_name,
+                                    entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
                         case AVRO_TBTAGS:
                             tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
-                                    pDirent->d_name,
+                                    entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
                         case AVRO_DATA:
                             tstrncpy(g_tsDumpInAvroFiles[nCount],
-                                    pDirent->d_name,
+                                    entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
                             break;
 
@@ -3637,7 +3662,7 @@ static AVROTYPE createDumpinList(const char *dbPath,
                 }
             }
         }
-        closedir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
@@ -7367,23 +7392,24 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt) {
 static int dumpInAvroWorkThreadsSub(const char *dbPath, const char *typeExt) {
     int ret = 0;
 
-    struct dirent *pDirent;
-    DIR *pDir;
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
 
-    pDir = opendir(dbPath);
+    pDir = toolsOpenDir(dbPath);
 
     if (pDir != NULL) {
-        while ((pDirent = readdir(pDir)) != NULL) {
-            if (strncmp ("data", pDirent->d_name, strlen("data"))
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            if (strncmp ("data", entryName, strlen("data"))
                     == 0) {
                 char dataPath[MAX_PATH_LEN] = {0};
-                sprintf(dataPath, "%s/%s", dbPath, pDirent->d_name);
+                sprintf(dataPath, "%s/%s", dbPath, entryName);
                 debugPrint("%s() LN%d, will dump from %s\n",
                         __func__, __LINE__, dataPath);
                 ret = dumpInAvroWorkThreads(dataPath, typeExt);
             }
         }
-        closedir(pDir);
+        toolsCloseDir(&pDir);
     } else {
         errorPrint("opendir(%s)\n", g_args.inpath);
         ret = -1;
@@ -7839,7 +7865,7 @@ static int generateSubDirName(
         case AVRO_DATA:
             sprintf(subDirName, "data%"PRIu64"",
                     (g_countOfDataFile / g_maxFilesPerDir));
-            atomic_add_fetch_64(&g_countOfDataFile, 1);
+            atomic_add_fetch_64((volatile int64_t *)&g_countOfDataFile, 1);
             break;
 
         default:
@@ -7857,10 +7883,10 @@ static int generateSubDirName(
 
     int ret = 0;
 
-    DIR* dir = opendir(dirToCreate);
+    TdDirPtr dir = toolsOpenDir(dirToCreate);
     if (dir) {
         /* Directory exists. */
-        closedir(dir);
+        toolsCloseDir(&dir);
     } else if (ENOENT == errno) {
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
@@ -9607,26 +9633,26 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
 }
 
 static void loadFileMark(FILE *fp, char *mark, char *fcharset) {
-    char *line = NULL;
     ssize_t size;
-    size_t line_size = 0;
     int markLen = strlen(mark);
+    char *line = malloc(markLen + 1);
 
     (void)fseek(fp, 0, SEEK_SET);
 
     do {
-        size = getline(&line, &line_size, fp);
+        fgets(line, markLen, fp);
+        size = strlen(line);
         if (size <= 2) {
             goto _exit_no_charset;
         }
 
         if (strncmp(line, mark, markLen) == 0) {
             strncpy(fcharset, line + markLen,
-                    (strlen(line) - (markLen+1)));  // remove '\n'
+                    (size - (markLen+1)));  // remove '\n'
             break;
         }
 
-        tfree(line);
+        line[0] = 0;
     } while (1);
 
     tfree(line);
@@ -9689,7 +9715,6 @@ static int64_t dumpInOneDebugFile(
     char *    cmd      = NULL;
     size_t    cmd_len  = 0;
     char *    line     = NULL;
-    size_t    line_len = 0;
 
     cmd  = (char *)malloc(TSDB_MAX_ALLOWED_SQL_LEN);
     if (cmd == NULL) {
@@ -9698,11 +9723,19 @@ static int64_t dumpInOneDebugFile(
         return -1;
     }
 
+    line  = (char *)malloc(TSDB_MAX_ALLOWED_SQL_LEN + 1);
+    if (line == NULL) {
+        errorPrint("%s() LN%d, failed to allocate line memory\n",
+                __func__, __LINE__);
+        return -1;
+    }
+
     int lastRowsPrint = 5000000;
     int64_t lineNo = 0;
     int64_t success = 0;
     int64_t failed = 0;
-    while ((read_len = getline(&line, &line_len, fp)) != -1) {
+    while (fgets(line, TSDB_MAX_ALLOWED_SQL_LEN, fp) != NULL) {
+        read_len = strlen(line);
         ++lineNo;
 
         if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN) {
@@ -10089,23 +10122,24 @@ static int dumpIn() {
     int ret = 0;
     ret = dumpInWithDbPath(g_args.inpath);
 
-    struct dirent *pDirent;
-    DIR *pDir;
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
 
-    pDir = opendir(g_args.inpath);
+    pDir = toolsOpenDir(g_args.inpath);
 
     if (pDir != NULL) {
-        while ((pDirent = readdir(pDir)) != NULL) {
-            if (strncmp ("taosdump.", pDirent->d_name, strlen("taosdump."))
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            if (strncmp ("taosdump.", entryName, strlen("taosdump."))
                     == 0) {
                 char dbPath[MAX_PATH_LEN] = {0};
-                sprintf(dbPath, "%s/%s", g_args.inpath, pDirent->d_name);
+                sprintf(dbPath, "%s/%s", g_args.inpath, entryName);
                 debugPrint("%s() LN%d, will dump from %s\n",
                         __func__, __LINE__, dbPath);
                 ret = dumpInWithDbPath(dbPath);
             }
         }
-        closedir(pDir);
+        toolsCloseDir(&pDir);
     } else {
         errorPrint("opendir(%s)\n", g_args.inpath);
     }
@@ -10932,7 +10966,7 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp) {
     fprintf(g_fpOfResult, "\n#### database:                       %s\n",
             dbInfo->name);
     atomic_add_fetch_64(
-            &g_resultStatistics.totalDatabasesOfDumpOut, 1);
+            (volatile int64_t *)&g_resultStatistics.totalDatabasesOfDumpOut, 1);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
@@ -10975,23 +11009,24 @@ static bool checkFileExistsDir(char *path, char *dirname) {
     bool bRet = false;
 
     int namelen, dirlen;
-    struct dirent *pDirent;
-    DIR *pDir;
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
 
     dirlen = strlen(dirname);
-    pDir = opendir(path);
+    pDir = toolsOpenDir(path);
 
     if (pDir != NULL) {
-        while ((pDirent = readdir(pDir)) != NULL) {
-            namelen = strlen(pDirent->d_name);
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
             if (namelen > dirlen) {
-                if (strncmp(dirname, pDirent->d_name, dirlen) == 0) {
+                if (strncmp(dirname, entryName, dirlen) == 0) {
                     bRet = true;
                     break;
                 }
             }
         }
-        closedir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     return bRet;
@@ -11001,23 +11036,24 @@ static bool checkFileExistsExt(char *path, char *ext) {
     bool bRet = false;
 
     int namelen, extlen;
-    struct dirent *pDirent;
-    DIR *pDir;
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
 
     extlen = strlen(ext);
-    pDir = opendir(path);
+    pDir = toolsOpenDir(path);
 
     if (pDir != NULL) {
-        while ((pDirent = readdir(pDir)) != NULL) {
-            namelen = strlen(pDirent->d_name);
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
             if (namelen > extlen) {
-                if (strcmp(ext, &(pDirent->d_name[namelen - extlen])) == 0) {
+                if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
                     bRet = true;
                     break;
                 }
             }
         }
-        closedir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     return bRet;
@@ -11025,10 +11061,10 @@ static bool checkFileExistsExt(char *path, char *ext) {
 
 static bool checkOutDir(char *outpath) {
     bool ret = true;
-    DIR *pDir = NULL;
+    TdDirPtr pDir = NULL;
 
     if (strlen(outpath)) {
-        if (NULL == (pDir= opendir(outpath))) {
+        if (NULL == (pDir= toolsOpenDir(outpath))) {
             errorPrint("%s is not exist!\n", outpath);
             return false;
         }
@@ -11054,7 +11090,7 @@ static bool checkOutDir(char *outpath) {
     }
 
     if (pDir) {
-        closedir(pDir);
+        toolsCloseDir(&pDir);
     }
 
     return ret;
@@ -12030,7 +12066,13 @@ static int dumpEntry() {
     }
     fprintf(g_fpOfResult, "debug_print: %d\n", g_args.debug_print);
 
+#ifdef WINDOWS
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    g_numOfCores = (int32_t)info.dwNumberOfProcessors;
+#else
     g_numOfCores = (int32_t)sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 
     time_t tTime = time(NULL);
     struct tm tm = *localtime(&tTime);
@@ -12636,7 +12678,7 @@ static int inspectAvroFiles(int argc, char *argv[]) {
 
 int main(int argc, char *argv[]) {
     static char verType[32] = {0};
-    sprintf(verType, "version: %s\n", version);
+    sprintf(verType, "version: %s\n", taos_get_client_info());
     argp_program_version = verType;
 
     g_uniqueID = getUniqueIDFromEpoch();
