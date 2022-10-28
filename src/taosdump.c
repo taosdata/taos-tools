@@ -13,26 +13,35 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <strings.h>
 #include <pthread.h>
 #include <iconv.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
 
 #include <argp.h>
-#ifdef DARWIN
+
+#ifdef WINDOWS
+#include <time.h>
+#include <WinSock2.h>
+#elif defined(DARWIN)
 #include <ctype.h>
-#else
-#include <sys/prctl.h>
-#endif
-#include <inttypes.h>
-#include <dirent.h>
-#include <wordexp.h>
+#include <unistd.h>
+#include <strings.h>
 #include <termios.h>
 #include <sys/time.h>
-#include <limits.h>
+#include <sys/syscall.h>
+#include <wordexp.h>
+#else
+#include <unistd.h>
+#include <strings.h>
+#include <termios.h>
+#include <sys/time.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <wordexp.h>
+#include <dirent.h>
+#endif
+#include <inttypes.h>
 
 #include "taos.h"
 
@@ -60,7 +69,13 @@ static int       g_dumpInDataMajorVer;
 static char      g_dumpInEscapeChar[64] = {0};
 static char      g_dumpInLooseMode[64] = {0};
 static bool      g_dumpInLooseModeFlag = false;
+
+
+#ifdef WINDOWS
+static char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
+#else
 static char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+#endif
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
