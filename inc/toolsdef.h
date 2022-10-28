@@ -122,6 +122,8 @@
   #define SET_DOUBLE_PTR(x, y)    { (*(double *)(x)) = (*(double *)(y)); }
 #endif
 
+#ifdef WINDOWS
+
 #ifndef PATH_MAX
 #define PATH_MAX 256
 #endif
@@ -132,7 +134,6 @@
 #define F_OK 0
 #endif
 
-#ifdef WINDOWS
 #define strcasecmp       _stricmp
 #define strncasecmp      _strnicmp
 #endif
