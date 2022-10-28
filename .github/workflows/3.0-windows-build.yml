@@ -70,7 +70,7 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          choco install jom
+          choco install jom -y
           cd TDengine
           mkdir debug
 
