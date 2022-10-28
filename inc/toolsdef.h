@@ -16,6 +16,8 @@
 #ifndef __TOOLSTYPES_H_
 #define __TOOLSTYPES_H_
 
+#include <stdbool.h>
+
 // max file name length on Linux is 255
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
 
@@ -192,5 +194,7 @@ do {                                                               \
 #include <assert.h>
 #define ASSERT(x)   do { assert(x); } while(0)
 #endif // RELEASE
+
+int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 
 #endif // __TOOLSTYPES_H_
