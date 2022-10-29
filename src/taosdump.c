@@ -17,6 +17,7 @@
 #include <pthread.h>
 #include <iconv.h>
 #include <sys/stat.h>
+
 #include <argp.h>
 
 #ifdef WINDOWS
@@ -38,6 +39,7 @@
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <wordexp.h>
+#include <dirent.h>
 #endif
 #include <inttypes.h>
 
@@ -67,11 +69,14 @@ static int       g_dumpInDataMajorVer;
 static char      g_dumpInEscapeChar[64] = {0};
 static char      g_dumpInLooseMode[64] = {0};
 static bool      g_dumpInLooseModeFlag = false;
+
+
 #ifdef WINDOWS
 static char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
 #else
 static char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
 #endif
+
 static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
 static char    **g_tsDumpInAvroFiles = NULL;
@@ -81,7 +86,7 @@ static char      g_client_info[32] = {0};
 static int       g_majorVersionOfClient = 0;
 
 static int      g_maxFilesPerDir = 100000;
-static uint64_t g_countOfDataFile = 0;
+volatile int64_t g_countOfDataFile = 0;
 
 static void print_json_aux(json_t *element, int indent);
 
@@ -95,16 +100,6 @@ static void print_json_aux(json_t *element, int indent);
             x = 0;             \
         }                    \
     } while (0)
-
-int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val) {
-#ifdef WINDOWS
-  return InterlockedExchangeAdd64((int64_t volatile*)(ptr), (int64_t)(val)) + (int64_t)(val);
-#elif defined(_TD_NINGSI_60)
-  return __sync_add_and_fetch((ptr), (val));
-#else
-  return __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST);
-#endif
-}
 
 #ifdef WINDOWS
 #define SET_THREAD_NAME(name)
@@ -332,10 +327,10 @@ typedef struct {
 } threadInfo;
 
 typedef struct {
-    int64_t   totalRowsOfDumpOut;
-    int64_t   totalChildTblsOfDumpOut;
-    int32_t   totalSuperTblsOfDumpOut;
-    int32_t   totalDatabasesOfDumpOut;
+    volatile int64_t   totalRowsOfDumpOut;
+    volatile int64_t   totalChildTblsOfDumpOut;
+    volatile int64_t   totalSuperTblsOfDumpOut;
+    volatile int64_t   totalDatabasesOfDumpOut;
 } resultStatistics;
 
 
@@ -387,7 +382,7 @@ typedef struct RecordSchema_S {
 
 /* avro section end */
 
-static uint64_t g_uniqueID = 0;
+volatile int64_t g_uniqueID = 0;
 static int64_t g_totalDumpOutRows = 0;
 static int64_t g_totalDumpInRecSuccess = 0;
 static int64_t g_totalDumpInRecFailed = 0;
@@ -12127,9 +12122,9 @@ static int dumpEntry() {
 
         fprintf(g_fpOfResult, "\n============================== "
                 "TOTAL STATISTICS ============================== \n");
-        fprintf(g_fpOfResult, "# total database count:     %d\n",
+        fprintf(g_fpOfResult, "# total database count:     %"PRId64"\n",
                 g_resultStatistics.totalDatabasesOfDumpOut);
-        fprintf(g_fpOfResult, "# total super table count:  %d\n",
+        fprintf(g_fpOfResult, "# total super table count:  %"PRId64"\n",
                 g_resultStatistics.totalSuperTblsOfDumpOut);
         fprintf(g_fpOfResult, "# total child table count:  %"PRId64"\n",
                 g_resultStatistics.totalChildTblsOfDumpOut);
