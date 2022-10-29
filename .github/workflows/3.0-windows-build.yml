@@ -53,7 +53,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine 3.0
+      - name: Checkout TDengine
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-16450-add-windows-taosdump'
+          ref: '3.0'
 
       - name: create debug directory
         if: |
@@ -70,7 +70,7 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          choco install jom -y
+          choco install jom
           cd TDengine
           mkdir debug
 
