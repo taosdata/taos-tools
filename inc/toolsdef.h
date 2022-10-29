@@ -16,6 +16,8 @@
 #ifndef __TOOLSTYPES_H_
 #define __TOOLSTYPES_H_
 
+#include <stdbool.h>
+
 // max file name length on Linux is 255
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
 
@@ -122,16 +124,53 @@
   #define SET_DOUBLE_PTR(x, y)    { (*(double *)(x)) = (*(double *)(y)); }
 #endif
 
-int64_t strnatoi(char *num, int32_t len);
-char *  strnchr(char *haystack, char needle, int32_t len, bool skipquote);
+#ifdef WINDOWS
+
+#ifndef PATH_MAX
+#define PATH_MAX 256
+#endif
+#ifndef ssize_t
+#define ssize_t int
+#endif
+#ifndef F_OK
+#define F_OK 0
+#endif
+
+#define strcasecmp       _stricmp
+#define strncasecmp      _strnicmp
+#endif
+
+int64_t tools_strnatoi(char *num, int32_t len);
+char *  tools_strnchr(char *haystack, char needle, int32_t len, bool skipquote);
 int64_t tools_user_mktime64(const unsigned int year0, const unsigned int mon0,
         const unsigned int day, const unsigned int hour,
         const unsigned int min, const unsigned int sec, int64_t time_zone);
-int32_t parseTimezone(char* str, int64_t* tzOffset);
+int32_t toolsParseTimezone(char* str, int64_t* tzOffset);
 int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePrec, int8_t day_light);
 struct tm* toolsLocalTime(const time_t *timep, struct tm *result);
 int32_t toolsGetTimeOfDay(struct timeval *tv);
 int32_t toolsClockGetTime(int clock_id, struct timespec *pTS);
+
+#ifdef WINDOWS
+typedef struct {
+  int   we_wordc;
+  char *we_wordv[1];
+  int   we_offs;
+  char  wordPos[1025];
+} wordexp_t;
+int  wordexp(char *words, wordexp_t *pwordexp, int flags);
+void wordfree(wordexp_t *pwordexp);
+#endif
+
+typedef struct TdDir      *TdDirPtr;
+typedef struct TdDirEntry *TdDirEntryPtr;
+
+int32_t toolsExpandDir(const char *dirname, char *outname, int32_t maxlen);
+
+TdDirPtr      toolsOpenDir(const char *dirname);
+TdDirEntryPtr toolsReadDir(TdDirPtr pDir);
+char         *toolsGetDirEntryName(TdDirEntryPtr pDirEntry);
+int32_t       toolsCloseDir(TdDirPtr *ppDir);
 
 #define toolsGetLineFile(__pLine,__pN, __pFp)                      \
 do {                                                               \
@@ -155,5 +194,7 @@ do {                                                               \
 #include <assert.h>
 #define ASSERT(x)   do { assert(x); } while(0)
 #endif // RELEASE
+
+int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 
 #endif // __TOOLSTYPES_H_
