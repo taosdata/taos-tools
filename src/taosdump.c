@@ -628,7 +628,7 @@ static uint64_t getUniqueIDFromEpoch() {
         (uint64_t)(tv.tv_sec) * 1000 +
         (uint64_t)(tv.tv_usec) / 1000;
 
-    atomic_add_fetch_64((volatile int64_t *)&g_uniqueID, 1);
+    atomic_add_fetch_64(&g_uniqueID, 1);
     id += g_uniqueID;
 
     debugPrint("%s() LN%d unique ID: %"PRIu64"\n",
@@ -7860,7 +7860,7 @@ static int generateSubDirName(
         case AVRO_DATA:
             sprintf(subDirName, "data%"PRIu64"",
                     (g_countOfDataFile / g_maxFilesPerDir));
-            atomic_add_fetch_64((volatile int64_t *)&g_countOfDataFile, 1);
+            atomic_add_fetch_64(&g_countOfDataFile, 1);
             break;
 
         default:
@@ -10961,7 +10961,7 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp) {
     fprintf(g_fpOfResult, "\n#### database:                       %s\n",
             dbInfo->name);
     atomic_add_fetch_64(
-            (volatile int64_t *)&g_resultStatistics.totalDatabasesOfDumpOut, 1);
+            &g_resultStatistics.totalDatabasesOfDumpOut, 1);
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
