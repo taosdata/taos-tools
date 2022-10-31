@@ -13,6 +13,11 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
+#ifdef WINDOWS
+#include <time.h>
+#include <WinSock2.h>
+#endif
+
 #include <toolsdef.h>
 
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val) {
