@@ -93,6 +93,12 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
+      - name: Set up Go
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.14
+
       - name: Set up Rust
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
@@ -107,7 +113,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true -DWEBSOCKET=true && jom -j 8
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && jom -j 8
 
           #      - name: Func Test
           #        run: |
