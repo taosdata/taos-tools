@@ -14,33 +14,40 @@
 extern int g_majorVersionOfClient;
 
 int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
+    int ret = 0;
+    uint32_t threadID = pThreadInfo->threadID;
+    char dbName[TSDB_DB_NAME_LEN] = {0};
+    tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN);
+
     if (g_queryInfo.iface == REST_IFACE) {
         int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE,
                 0, false, pThreadInfo->sockfd, pThreadInfo->filePath);
         if (0 != retCode) {
-            errorPrint("====restful return fail, threadID[%d]\n",
-                       pThreadInfo->threadID);
-            return -1;
+            errorPrint("====restful return fail, threadID[%u]\n",
+                       threadID);
+            ret = -1;
         }
     } else {
-        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
-            errorPrint("thread[%d]: failed to select database(%s)\n",
-                pThreadInfo->threadID, g_queryInfo.dbName);
-            return -1;
-        }
-        TAOS_RES *res = taos_query(pThreadInfo->conn->taos, command);
-        if (res == NULL || taos_errno(res) != 0) {
-            errorPrint("failed to execute sql:%s, reason:%s\n", command,
-                       taos_errstr(res));
+        TAOS *taos = pThreadInfo->conn->taos;
+        if (taos_select_db(taos, g_queryInfo.dbName)) {
+            errorPrint("thread[%u]: failed to select database(%s)\n",
+                threadID, dbName);
+            ret = -2;
+        } else {
+            TAOS_RES *res = taos_query(taos, command);
+            if (res == NULL || taos_errno(res) != 0) {
+                errorPrint("failed to execute sql:%s, reason:%s\n", command,
+                        taos_errstr(res));
+                ret = -1;
+            } else {
+                if (strlen(pThreadInfo->filePath) > 0) {
+                    fetchResult(res, pThreadInfo);
+                }
+            }
             taos_free_result(res);
-            return -1;
         }
-        if (strlen(pThreadInfo->filePath) > 0) {
-            fetchResult(res, pThreadInfo);
-        }
-        taos_free_result(res);
     }
-    return 0;
+    return ret;
 }
 
 static void *mixedQuery(void *sarg) {
@@ -148,13 +155,17 @@ static void *specifiedTableQuery(void *sarg) {
         }
 
         st = toolsGetTimestampMs();
-        if (selectAndGetResult(pThreadInfo, sql->command)) {
+        int ret = selectAndGetResult(pThreadInfo, sql->command);
+        if (ret) {
             g_fail = true;
         }
 
         et = toolsGetTimestampMs();
         uint64_t delay = et - st;
-        pThreadInfo->query_delay_list[index] = delay;
+        if (ret == 0) {
+            pThreadInfo->query_delay_list[index] = delay;
+            pThreadInfo->totalQueried++;
+        }
         index++;
         totalDelay += delay;
         if (delay > maxDelay) {
@@ -164,10 +175,10 @@ static void *specifiedTableQuery(void *sarg) {
             minDelay = delay;
         }
 
-        pThreadInfo->totalQueried++;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         uint64_t endTs = toolsGetTimestampMs();
-        if (currentPrintTime - lastPrintTime > 30 * 1000) {
+
+        if ((ret == 0) && (currentPrintTime - lastPrintTime > 30 * 1000)) {
             debugPrint(
                     "thread[%d] has currently completed queries: %" PRIu64
                     ", QPS: %10.6f\n",
@@ -175,6 +186,11 @@ static void *specifiedTableQuery(void *sarg) {
                     (double)(pThreadInfo->totalQueried /
                         ((endTs - startTs) / 1000.0)));
             lastPrintTime = currentPrintTime;
+        }
+
+        if (-2 == ret) {
+            toolsMsleep(1000);
+            return NULL;
         }
     }
     qsort(pThreadInfo->query_delay_list, queryTimes,
@@ -796,10 +812,6 @@ int queryTestProcess() {
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
             tInS, totalQueried, (double)totalQueried / tInS);
-
-    if (g_queryInfo.iface == TAOSC_IFACE) {
-        pthread_cancel(pidKiller);
-    }
 
     return 0;
 }
