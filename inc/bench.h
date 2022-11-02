@@ -116,8 +116,6 @@
 
 #define OPT_ABORT         1    /* –abort */
 #define MAX_RECORDS_PER_REQ 65536
-#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
-#define MAX_PATH_LEN      4096
 #define DEFAULT_START_TIME  1500000000000
 #define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
@@ -386,6 +384,7 @@ typedef struct SField {
     bool     none;
     bool     null;
     void *   data;
+    char *   is_null;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
@@ -528,6 +527,8 @@ typedef struct SQueryMetaInfo_S {
     SuperQueryInfo     superQueryInfo;
     uint64_t           totalQueried;
     uint64_t           query_times;
+    uint64_t           killQueryThreshold;
+    int32_t            killQueryInterval;
     uint64_t           response_buffer;
     bool               reset_query_cache;
     uint16_t           iface;
@@ -656,11 +657,6 @@ extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-#define tstrncpy(dst, src, size)       \
-    do {                               \
-        strncpy((dst), (src), (size)); \
-        (dst)[(size)-1] = 0;           \
-    } while (0)
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */

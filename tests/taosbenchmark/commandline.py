@@ -88,6 +88,22 @@ class TDTestCase:
         tdSql.checkRows(2)
         tdSql.execute("drop database if exists newtest")
 
+        cmd = "%s -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        tdSql.query("show test.tables")
+        tdSql.checkRows(2)
+        tdSql.query("select count(*) from test.meters")
+        tdSql.checkData(0, 0, 20)
+
+        cmd = "%s -I stmt -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        tdSql.query("show test.tables")
+        tdSql.checkRows(2)
+        tdSql.query("select count(*) from test.meters")
+        tdSql.checkData(0, 0, 20)
+
         cmd = "%s -F 7 -n 10 -t 2 -y -M -I stmt" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)

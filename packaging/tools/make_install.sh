@@ -2,12 +2,30 @@
 
 #set -x
 
-installDir="/usr/local/taos"
+osType=`uname`
+
 dumpName="taosdump"
 benchmarkName="taosBenchmark"
 demoName="taosdemo"
 
 source_dir=$1
+
+if [ "$osType" != "Darwin" ]; then
+  installDir="/usr/local/taos"
+else
+  if [ -d $source_dir/build/lib ]; then
+    verNumber=`ls $source_dir/build/lib | grep -E "libtaos\.[0-9]\.[0-9]" | sed "s/libtaos.//g" |  sed "s/.dylib//g" | head -n 1`
+  else
+    verNumber=`taos -V|awk '{print $2}'|sed -e 's/\r//'`
+  fi
+  if [ -d "/usr/local/Cellar/" ];then
+    installDir="/usr/local/Cellar/tdengine/${verNumber}"
+  elif [ -d "/opt/homebrew/Cellar/" ];then
+    installDir="/opt/homebrew/Cellar/tdengine/${verNumber}"
+  else
+    installDir="/usr/local/taos"
+  fi
+fi
 
 csudo=""
 
@@ -16,11 +34,11 @@ if command -v sudo > /dev/null; then
 fi
 
 [ ! -d ${installDir}/bin ] && mkdir -p ${installDir}/bin
-${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin || echo -e "failed to copy ${dumpName}"
-${csudo}cp ${source_dir}/build/bin/${benchmarkName} ${installDir}/bin || echo -e "failed to copy ${benchmarkName}"
-${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} || echo -e "failed to link ${dumpName}"
-${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${benchmarkName} || echo -e "failed to link ${benchmarkName}"
-${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${demoName} || echo -e "failed to link ${benchmarkName} as ${demoName}"
+[ -f ${source_dir}/build/bin/${dumpName} ] && ${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin ||:
+[ -f ${installDir}/bin/${dumpName} ] && ${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} ||:
+[ -f ${source_dir}/build/bin/${benchmarkName} ] && ${csudo}cp ${source_dir}/build/bin/${benchmarkName} ${installDir}/bin ||:
+[ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${benchmarkName} ||:
+[ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${demoName} ||:
 
 #if [ -f ${source_dir}/build/lib/libavro.so.23.0.0 ]; then
 #    ${csudo}cp -rf ${source_dir}/build/lib/libavro* /usr/local/lib > /dev/null || echo -e "failed to copy avro libraries"

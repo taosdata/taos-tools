@@ -10,7 +10,11 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
+import ast
 import os
+import re
+import subprocess
+
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -36,8 +40,11 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/tests/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            projPath = selfPath[: selfPath.find("tests")]
+            tdLog.info("Cannot find %s in path: %s" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dirs, files in os.walk(projPath):
@@ -55,28 +62,24 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/taosc_sample_use_ts.json" % binPath
+
+        cmd = (
+            "%s -b binary,nchar,binary,nchar,binary,nchar,binary,nchar,binary,nchar,binary,nchar -t 2 -n 50000 -I stmt -y > /dev/null"
+            % binPath
+        )
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        tdSql.execute("reset query cache")
-        tdSql.query("show db.tables")
-        tdSql.checkRows(8)
-        tdSql.query("select count(*) from db.stb")
-        tdSql.checkData(0, 0, 32)
-        tdSql.query("select * from db.stb_0")
-        tdSql.checkRows(4)
-        tdSql.checkData(0, 1, 1)
-        tdSql.checkData(1, 1, 2)
-        tdSql.checkData(2, 1, 3)
-        tdSql.checkData(3, 1, None)
-        tdSql.query("select distinct(t0) from db.stb")
-        tdSql.checkRows(2)
 
-        dbresult = tdSql.queryResult
-        if dbresult[0][0] not in (17, None):
-            tdLog.exit("result[0][0]: {}".format(dbresult[0][0]))
-        else:
-            tdLog.info("result[0][0]: {}".format(dbresult[0][0]))
+        cmd = 'taos -s "select * from test.meters limit 1000000 offset 0" > /dev/null &'
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+
+        cmd = "%s -f ./taosbenchmark/json/taosc_query-kill-slow-query.json" % binPath
+        tdLog.info("%s" % cmd)
+        output = subprocess.check_output(cmd, shell=True).decode("utf-8")
+        if "KILL QUERY" not in output:
+            tdLog.info(output)
+            tdLog.exit("KILL QUERY failed")
 
     def stop(self):
         tdSql.close()

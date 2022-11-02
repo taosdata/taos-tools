@@ -45,7 +45,9 @@ jobs:
           files: |
             src/*
             inc/*
+            deps/*
             deps/CMakeLists.txt
+            packaging/tools/*
             .github/workflows/macos-release.yml
 
       - name: Run step if any of the listed files above change
@@ -89,7 +91,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: stable
 
@@ -109,7 +111,7 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/bin/taosd ]] || [[ ! -f /usr/local/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -140,9 +142,9 @@ jobs:
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=Release > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=Release -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           #if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
-          if [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
+          if [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
             exit 1

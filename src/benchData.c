@@ -866,6 +866,7 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTi
             debugPrint("col[%d]: type: %s, len: %d\n", c,
                        convertDatatypeToString(data_type),
                        col->length);
+            param->is_null = col->is_null;
         }
         param->buffer_type = data_type;
         param->length = benchCalloc(batch, sizeof(int32_t), true);
@@ -873,7 +874,6 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTi
         for (int b = 0; b < batch; b++) {
             param->length[b] = (int32_t)param->buffer_length;
         }
-        param->is_null = pThreadInfo->is_null;
         param->num = batch;
     }
 
