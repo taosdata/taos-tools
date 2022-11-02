@@ -145,9 +145,9 @@ static void *specifiedTableQuery(void *sarg) {
 
     while (index < queryTimes) {
         if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval*1000) {
+            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval) {
             toolsMsleep((int32_t)(
-                        g_queryInfo.specifiedQueryInfo.queryInterval*1000
+                        g_queryInfo.specifiedQueryInfo.queryInterval
                         - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
@@ -207,7 +207,7 @@ static void *superTableQuery(void *sarg) {
 #endif
 
     uint64_t st = 0;
-    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000;
+    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval;
 
     uint64_t queryTimes = g_queryInfo.superQueryInfo.queryTimes;
     uint64_t startTs = toolsGetTimestampMs();
@@ -215,8 +215,8 @@ static void *superTableQuery(void *sarg) {
     uint64_t lastPrintTime = toolsGetTimestampMs();
     while (queryTimes--) {
         if (g_queryInfo.superQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000) {
-            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval*1000
+            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval) {
+            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval
                         - (et - st)));
         }
 
