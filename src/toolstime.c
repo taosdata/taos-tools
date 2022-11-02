@@ -93,8 +93,7 @@ static int32_t (*parseLocaltimeFp[]) (char* timestr, int64_t* time, int32_t time
   parseLocaltimeWithDst
 };
 
-#ifdef LINUX
-char *strnchr(char *haystack, char needle, int32_t len, bool skipquote) {
+char *tools_strnchr(char *haystack, char needle, int32_t len, bool skipquote) {
   for (int32_t i = 0; i < len; ++i) {
 
     // skip the needle in quote, jump to the end of quoted string
@@ -113,7 +112,6 @@ char *strnchr(char *haystack, char needle, int32_t len, bool skipquote) {
 
   return NULL;
 }
-#endif
 
 char* forwardToTimeStringEnd(char* str) {
   int32_t i = 0;
@@ -131,8 +129,7 @@ char* forwardToTimeStringEnd(char* str) {
 
   return &str[i];
 }
-#ifdef LINUX
-int64_t strnatoi(char *num, int32_t len) {
+int64_t tools_strnatoi(char *num, int32_t len) {
   int64_t ret = 0, i, dig, base = 1;
 
   if (len > (int32_t)strlen(num)) {
@@ -165,7 +162,6 @@ int64_t strnatoi(char *num, int32_t len) {
 
   return ret;
 }
-#endif
 
 int64_t parseFraction(char* str, char** end, int32_t timePrec) {
   int32_t i = 0;
@@ -208,7 +204,7 @@ int64_t parseFraction(char* str, char** end, int32_t timePrec) {
     times = NANO_SEC_FRACTION_LEN - i;
   }
 
-  fraction = strnatoi(str, i) * factor[times];
+  fraction = tools_strnatoi(str, i) * factor[times];
   *end = str + totalLen;
 
   return fraction;
@@ -237,8 +233,7 @@ int64_t tools_user_mktime64(const unsigned int year0, const unsigned int mon0,
 }
 
 
-#if defined(LINUX) || defined(DARWIN)
-int32_t parseTimezone(char* str, int64_t* tzOffset) {
+int32_t toolsParseTimezone(char* str, int64_t* tzOffset) {
   int64_t hour = 0;
 
   int32_t i = 0;
@@ -252,10 +247,10 @@ int32_t parseTimezone(char* str, int64_t* tzOffset) {
   if (sep != NULL) {
     int32_t len = (int32_t)(sep - &str[i]);
 
-    hour = strnatoi(&str[i], len);
+    hour = tools_strnatoi(&str[i], len);
     i += len + 1;
   } else {
-    hour = strnatoi(&str[i], 2);
+    hour = tools_strnatoi(&str[i], 2);
     i += 2;
   }
 
@@ -266,7 +261,7 @@ int32_t parseTimezone(char* str, int64_t* tzOffset) {
   }
 
 
-  int64_t minute = strnatoi(&str[i], 2);
+  int64_t minute = tools_strnatoi(&str[i], 2);
   if (minute > 59) {
     return -1;
   }
@@ -279,7 +274,6 @@ int32_t parseTimezone(char* str, int64_t* tzOffset) {
 
   return 0;
 }
-#endif
 
 int32_t toolsClockGetTime(int clock_id, struct timespec *pTS) {
 #if defined(WIN32) || defined(WIN64)
@@ -630,7 +624,7 @@ int32_t parseTimeWithTz(char* timestr, int64_t* time, int32_t timePrec, char del
       return -1;
     } else if (seg == '+' || seg == '-') {
       // parse the timezone
-      if (parseTimezone(str, &tzOffset) == -1) {
+      if (toolsParseTimezone(str, &tzOffset) == -1) {
         return -1;
       }
 
@@ -641,7 +635,7 @@ int32_t parseTimeWithTz(char* timestr, int64_t* time, int32_t timePrec, char del
     *time = seconds * factor + fraction;
 
     // parse the timezone
-    if (parseTimezone(str, &tzOffset) == -1) {
+    if (toolsParseTimezone(str, &tzOffset) == -1) {
       return -1;
     }
 
@@ -746,7 +740,7 @@ int32_t parseLocaltimeWithDst(char* timestr, int64_t* time, int32_t timePrec, ch
 
 int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePrec, int8_t day_light) {
   /* parse datatime string in with tz */
-  if (strnchr(timestr, 'T', len, false) != NULL) {
+  if (tools_strnchr(timestr, 'T', len, false) != NULL) {
     if (checkTzPresent(timestr, len)) {
       return parseTimeWithTz(timestr, time, timePrec, 'T');
     } else {

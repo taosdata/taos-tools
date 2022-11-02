@@ -191,7 +191,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
             "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
 
-        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c)
+        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c toolsSys.c)
         ADD_DEPENDENCIES(deps-snappy apache-avro)
         ADD_DEPENDENCIES(taosdump deps-jansson)
         ADD_DEPENDENCIES(taosdump deps-snappy)
@@ -222,7 +222,11 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             MESSAGE("libtaosws.so need to be installed first")
         ELSE ()
             ADD_DEPENDENCIES(taosBenchmark taosws-rs)
-            ADD_DEPENDENCIES(taosdump taosws-rs)
+            IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+                ADD_DEPENDENCIES(taosdump taosws-rs)
+            ELSE ()
+                MESSAGE("TODO: taosdump for macOS is WIP")
+            ENDIF ()
         ENDIF ()
     ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
@@ -351,18 +355,31 @@ ELSE ()
         ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
     ENDIF ()
 
+    #    ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)
+    #ADD_DEPENDENCIES(apache-avro deps-jansson)
+    #ADD_DEPENDENCIES(deps-snappy apache-avro)
+    #ADD_DEPENDENCIES(taosdump deps-jansson)
+    #ADD_DEPENDENCIES(taosdump deps-snappy)
+    #ADD_DEPENDENCIES(taosdump deps-libargp)
+
     IF (${WEBSOCKET})
         INCLUDE_DIRECTORIES(/usr/local/include/)
-        SET(WEBSOCKET_LINK_FLAGS "-ltaosws")
+        SET(WEBSOCKET_LINK_FLAGS "taosws.dll.lib")
         IF (${CMAKE_PROJECT_NAME} STREQUAL "taos-tools")
-            MESSAGE("libtaosws.so need to be installed first")
+            MESSAGE("taosws.dll.lib need to be installed first")
         ELSE ()
             ADD_DEPENDENCIES(taosBenchmark taosws-rs)
-            #ADD_DEPENDENCIES(taosdump taosws-rs)
+            #        ADD_DEPENDENCIES(taosdump taosws-rs)
         ENDIF ()
     ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()
 
+    #TARGET_INCLUDE_DIRECTORIES(
+    #    taosdump
+    #    PUBLIC "${TD_SOURCE_DIR}/contrib/pthread"
+    #    PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
+    #)
+    #TARGET_LINK_LIBRARIES(taosdump taos avro jansson pthread libargp.lib ${WEBSOCKET_LINK_FLAGS})
     TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
 ENDIF ()

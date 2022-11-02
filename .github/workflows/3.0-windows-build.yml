@@ -93,12 +93,21 @@ jobs:
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
+      - name: Set up Rust
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom -j 8
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true -DWEBSOCKET=true && jom -j 8
 
           #      - name: Func Test
           #        run: |
