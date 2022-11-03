@@ -76,7 +76,10 @@ jobs:
           #sudo date
 
       - name: Set up homebrew
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           brew update
           brew upgrade
@@ -84,7 +87,10 @@ jobs:
           brew info argp-standalone
 
       - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
           go-version: 1.14
@@ -99,6 +105,10 @@ jobs:
           toolchain: stable
 
       - uses: actions/cache@v3
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         id: cache-rust
         with:
           path: |
