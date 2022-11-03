@@ -144,10 +144,10 @@ static void *specifiedTableQuery(void *sarg) {
     }
 
     while (index < queryTimes) {
-        if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval) {
+        if (g_queryInfo.specifiedQueryInfo.queryInterval*1000 &&
+            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval*1000) {
             toolsMsleep((int32_t)(
-                        g_queryInfo.specifiedQueryInfo.queryInterval
+                        g_queryInfo.specifiedQueryInfo.queryInterval*1000
                         - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
@@ -207,16 +207,16 @@ static void *superTableQuery(void *sarg) {
 #endif
 
     uint64_t st = 0;
-    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval;
+    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000;
 
     uint64_t queryTimes = g_queryInfo.superQueryInfo.queryTimes;
     uint64_t startTs = toolsGetTimestampMs();
 
     uint64_t lastPrintTime = toolsGetTimestampMs();
     while (queryTimes--) {
-        if (g_queryInfo.superQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval) {
-            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval
+        if (g_queryInfo.superQueryInfo.queryInterval*1000 &&
+            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000) {
+            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval*1000
                         - (et - st)));
         }
 
@@ -646,6 +646,9 @@ OVER:
 #define KILLID_LEN  20
 
 void *queryKiller(void *arg) {
+    char host[MAX_HOSTNAME_LEN] = {0};
+    tstrncpy(host, g_arguments->host, MAX_HOSTNAME_LEN);
+
     while (true) {
         TAOS *taos = taos_connect(g_arguments->host, g_arguments->user,
                 g_arguments->password, NULL, g_arguments->port);
@@ -711,6 +714,7 @@ int queryTestProcess() {
     pthread_t pidKiller = {0};
     if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
         pthread_create(&pidKiller, NULL, queryKiller, NULL);
+        pthread_join(&pidKiller, NULL);
         toolsMsleep(1000);
     }
 
