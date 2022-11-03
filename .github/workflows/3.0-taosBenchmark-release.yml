@@ -170,6 +170,13 @@ jobs:
             for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
           fi
 
+      - name: 'Upload taosd logs'
+        uses: actions/upload-artifact@v3
+        with:
+          name: log-v3-taosd
+          path: /var/log/taos/
+          retention-days: 2
+
       - name: Check Test Result
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
