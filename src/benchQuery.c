@@ -144,7 +144,7 @@ static void *specifiedTableQuery(void *sarg) {
     }
 
     while (index < queryTimes) {
-        if (g_queryInfo.specifiedQueryInfo.queryInterval*1000 &&
+        if (g_queryInfo.specifiedQueryInfo.queryInterval &&
             (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval*1000) {
             toolsMsleep((int32_t)(
                         g_queryInfo.specifiedQueryInfo.queryInterval*1000
@@ -214,7 +214,7 @@ static void *superTableQuery(void *sarg) {
 
     uint64_t lastPrintTime = toolsGetTimestampMs();
     while (queryTimes--) {
-        if (g_queryInfo.superQueryInfo.queryInterval*1000 &&
+        if (g_queryInfo.superQueryInfo.queryInterval &&
             (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000) {
             toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval*1000
                         - (et - st)));
@@ -714,7 +714,7 @@ int queryTestProcess() {
     pthread_t pidKiller = {0};
     if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
         pthread_create(&pidKiller, NULL, queryKiller, NULL);
-        pthread_join(&pidKiller, NULL);
+        pthread_join(pidKiller, NULL);
         toolsMsleep(1000);
     }
 
