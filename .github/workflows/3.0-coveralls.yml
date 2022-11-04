@@ -438,32 +438,32 @@ jobs:
 
           cd debug
           echo "TEST: simple and log database"
-          ./build/bin/taosBenchmark -t 1 -n 1 -y
-          ./build/bin/taosdump -R -D test -a -gg ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosBenchmark -t 1 -n 1 -y
+          #./build/bin/taosdump -R -D test -a -gg ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex columns"
-          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          #./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
 
           echo "TEST: whole db with snappy codec"
-          ./build/bin/taosdump -R -D test -d snappy -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -d snappy -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosdump -R -D test -d snappy -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -d snappy -gg > /dev/null ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: whole db with unknown codec"
-          ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
-          ./build/bin/taosdump -R -D test -d unknown -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
-          taos -s "select count(*) from test.meters"|grep "4 |" && echo success ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
+          #./build/bin/taosdump -R -D test -d unknown -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
+          #taos -s "select count(*) from test.meters"|grep "4 |" && echo success ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: singal normal table with unknown codec"
-          ./build/bin/taosdump test d0 -R -d unknown -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosdump test d0 -R -d unknown -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
       - name: taosdump WebSocket normal table Test
         if:
@@ -483,13 +483,13 @@ jobs:
 
           cd debug
           echo "TEST: normal table"
-          ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
-          ./build/bin/taosdump -R -D test -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
+          #./build/bin/taosdump -R -D test -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -gg > /dev/null ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
-          #          echo "TEST: singla normal table"
+          echo "TEST: singla normal table"
           #./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
           #./build/bin/taosdump test d0 -R > /dev/null
           #taos -s "drop database test"
@@ -515,33 +515,33 @@ jobs:
 
           cd debug
           echo "TEST: -n escape_char"
-          ./build/bin/taosdump -R -n -D test -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -n -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
+          # ./build/bin/taosdump -R -n -D test -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -n -gg > /dev/null ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: escaped tag"
           taos -s "drop database test"
           taos -s "create database test"
           taos -s "create stable stb (ts timestamp, \`N\` int) tags(`T` int)"
           taos -s "insert into test.tb using test.stb tags(0) values(now, 0)"
-          ./build/bin/taosdump -R -D test -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -n -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosdump -R -D test -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -n -gg > /dev/null ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: -L loose_mode"
-          ./build/bin/taosdump -R -L -D test -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -L -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosdump -R -L -D test -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -L -gg > /dev/null ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex with larger binary"
-          ./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
-          ./build/bin/taosdump -R -D test -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
+          #./build/bin/taosBenchmark -t 2 -n 10 -w 40 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+          #./build/bin/taosdump -R -D test -gg > /dev/null ||:
+          #taos -s "drop database test"
+          #./build/bin/taosdump -R -i . -gg > /dev/null ||:
+          #rm -rf *.sql *.avro* taosdump.*
 
       - name: taosdump old format data Test
         if:
