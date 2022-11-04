@@ -434,6 +434,8 @@ jobs:
           nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
           sleep 10
 
+          export RUST_LOG=debug
+
           cd debug
           echo "TEST: simple and log database"
           ./build/bin/taosBenchmark -t 1 -n 1 -y
