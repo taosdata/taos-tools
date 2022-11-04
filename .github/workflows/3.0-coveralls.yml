@@ -434,10 +434,12 @@ jobs:
           nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
           sleep 10
 
+          export RUST_LOG=debug
+
           cd debug
           echo "TEST: simple and log database"
           ./build/bin/taosBenchmark -t 1 -n 1 -y
-          ./build/bin/taosdump -R -D test -a
+          ./build/bin/taosdump -R -D test -a -gg
           rm -rf *.sql *.avro* taosdump.*
 
           echo "TEST: complex columns"
@@ -590,7 +592,7 @@ jobs:
           echo "TEST: develop test cases"
           if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosdump/native -name "*.py"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
       - name: taosdump WebSocket Develop Test
@@ -648,12 +650,25 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
           if find taosbenchmark/ws -name "*.py"|grep -q .;
           then
             for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+          fi
+
+      - name: Test taosdemo query
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          cd tests
+
+          if find taosbenchmark -name "taosdemo*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark -name "taosdemo*.py"`; do printf $i && python3 ./test.py -f $i && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
           fi
 
       - name: Generate report
