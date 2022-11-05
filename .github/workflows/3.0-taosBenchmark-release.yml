@@ -162,12 +162,33 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
           fi
 
-          if find taosbenchmark/ws -name "*.py"|grep -q .;
+      - name: Test WebSocket
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          #cd tests
+
+          #if find taosbenchmark/ws -name "*.py"|grep -q .;
+          #then
+          #  for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
+          #fi
+
+      - name: Test taosdemo query
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          cd tests
+
+          if find taosbenchmark -name "taosdemo*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
+            for i in `find taosbenchmark -name "taosdemo*.py"`; do printf $i && python3 ./test.py -f $i && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
           fi
 
       - name: 'Upload taosd logs'
