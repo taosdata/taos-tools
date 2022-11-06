@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'test/sangshuduo/ci-test'
 
       - name: Change time zone
         if:
