@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'test/sangshuduo/ci-test-3.0.1.5'
+          ref: 'test/sangshuduo/ci-test-3.0.1.4'
 
       - name: Change time zone
         if:
@@ -170,6 +170,51 @@ jobs:
           fi
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
+
+      - name: taosdump WebSocket codec Test
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
+
+          nohup taosadapter > /dev/null &
+          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
+          sleep 10
+
+          export RUST_LOG=debug
+
+          cd debug
+          echo "TEST: simple and log database"
+          ./build/bin/taosBenchmark -t 1 -n 1 -y
+          ./build/bin/taosdump -R -D test -a -gg
+          rm -rf *.sql *.avro* taosdump.*
+
+          echo "TEST: complex columns"
+          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
+
+          echo "TEST: whole db with snappy codec"
+          ./build/bin/taosdump -R -D test -d snappy -gg > /dev/null ||:
+          taos -s "drop database test"
+          ./build/bin/taosdump -R -i . -d snappy -gg > /dev/null ||:
+          rm -rf *.sql *.avro* taosdump.*
+
+          echo "TEST: whole db with unknown codec"
+          ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
+          ./build/bin/taosdump -R -D test -d unknown -gg > /dev/null ||:
+          taos -s "drop database test"
+          ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
+          taos -s "select count(*) from test.meters"|grep "4 |" && echo success ||:
+          rm -rf *.sql *.avro* taosdump.*
+
+          echo "TEST: singal normal table with unknown codec"
+          ./build/bin/taosdump test d0 -R -d unknown -gg > /dev/null ||:
+          taos -s "drop database test"
+          ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
+          rm -rf *.sql *.avro* taosdump.*
 
       - name: exp Test
         if:
@@ -418,51 +463,6 @@ jobs:
           tar xvJf ../example-data/example-data.tar.xz -C .
           ./build/bin/taosdump -i dump -gg
           taos -s "select count(*) from test.meters" | grep 21 && echo "count 21 okay" || exit $?
-          rm -rf *.sql *.avro* taosdump.*
-
-      - name: taosdump WebSocket codec Test
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        run: |
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-          sleep 5
-
-          nohup taosadapter > /dev/null &
-          nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
-          sleep 10
-
-          export RUST_LOG=debug
-
-          cd debug
-          echo "TEST: simple and log database"
-          ./build/bin/taosBenchmark -t 1 -n 1 -y
-          ./build/bin/taosdump -R -D test -a -gg
-          rm -rf *.sql *.avro* taosdump.*
-
-          echo "TEST: complex columns"
-          ./build/bin/taosBenchmark -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y > /dev/null
-
-          echo "TEST: whole db with snappy codec"
-          ./build/bin/taosdump -R -D test -d snappy -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -d snappy -gg > /dev/null ||:
-          rm -rf *.sql *.avro* taosdump.*
-
-          echo "TEST: whole db with unknown codec"
-          ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
-          ./build/bin/taosdump -R -D test -d unknown -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
-          taos -s "select count(*) from test.meters"|grep "4 |" && echo success ||:
-          rm -rf *.sql *.avro* taosdump.*
-
-          echo "TEST: singal normal table with unknown codec"
-          ./build/bin/taosdump test d0 -R -d unknown -gg > /dev/null ||:
-          taos -s "drop database test"
-          ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
           rm -rf *.sql *.avro* taosdump.*
 
       - name: taosdump WebSocket normal table Test
