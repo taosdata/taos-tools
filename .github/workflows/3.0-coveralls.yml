@@ -70,7 +70,8 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'test/sangshuduo/ci-test-3.0.1.4'
+          ref: 'fix/websocket-timeout'
+            #          ref: 'test/sangshuduo/ci-test-3.0.1.4'
 
       - name: Change time zone
         if:
@@ -120,7 +121,7 @@ jobs:
           cd TDengine
           mkdir debug ||:
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
+          cmake .. -DBUILD_TEST=false -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
           make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
@@ -181,7 +182,7 @@ jobs:
           sudo pkill -9 taosd || :
           sleep 5
 
-          nohup taosadapter > /dev/null &
+          nohup taosadapter --logLevel=debug &
           nohup sudo TAOS_SUPPORT_VNODES=256 taosd > /dev/null &
           sleep 10
 
