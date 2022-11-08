@@ -859,6 +859,14 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         }
     }
 
+    tools_cJSON *continueIfFail =
+        tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
+    if (tools_cJSON_IsString(continueIfFail)) {
+        if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+            g_queryInfo.continue_if_fail = true;
+        }
+    }
+
     tools_cJSON *gQueryTimes = tools_cJSON_GetObjectItem(json, "query_times");
     if (tools_cJSON_IsNumber(gQueryTimes)) {
         g_queryInfo.query_times = gQueryTimes->valueint;

@@ -36,9 +36,14 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
         } else {
             TAOS_RES *res = taos_query(taos, command);
             if (res == NULL || taos_errno(res) != 0) {
-                errorPrint("failed to execute sql:%s, reason:%s\n", command,
-                        taos_errstr(res));
-                ret = -1;
+                if (g_queryInfo.continue_if_fail) {
+                    warnPrint("failed to execute sql:%s, reason:%s\n", command,
+                            taos_errstr(res));
+                } else {
+                    errorPrint("failed to execute sql:%s, reason:%s\n", command,
+                            taos_errstr(res));
+                    ret = -1;
+                }
             } else {
                 if (strlen(pThreadInfo->filePath) > 0) {
                     fetchResult(res, pThreadInfo);
@@ -87,14 +92,24 @@ static void *mixedQuery(void *sarg) {
                 }
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos, sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
-                    errorPrint(
-                            "thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",
-                            pThreadInfo->threadId,
-                            sql->command,
-                            taos_errno(res), taos_errstr(res));
-                    if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
-                            taos_errno(res)) {
-                        return NULL;
+                    if (g_queryInfo.continue_if_fail) {
+                        warnPrint(
+                                "thread[%d]: failed to execute sql :%s, "
+                                "code: 0x%x, reason: %s\n",
+                                pThreadInfo->threadId,
+                                sql->command,
+                                taos_errno(res), taos_errstr(res));
+                    } else {
+                        errorPrint(
+                                "thread[%d]: failed to execute sql :%s, "
+                                "code: 0x%x, reason: %s\n",
+                                pThreadInfo->threadId,
+                                sql->command,
+                                taos_errno(res), taos_errstr(res));
+                        if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
+                                taos_errno(res)) {
+                            return NULL;
+                        }
                     }
                     continue;
                 }
