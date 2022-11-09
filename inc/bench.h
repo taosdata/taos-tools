@@ -269,6 +269,34 @@
         }                                                                   \
     } while (0)
 
+#define warnPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stderr, "\033[33m");                                        \
+        fprintf(stderr, "WARN: ");                                          \
+        if (g_arguments->debug_print) {                                     \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                 \
+        }                                                                   \
+        fprintf(stderr, "" fmt, __VA_ARGS__);                               \
+        fprintf(stderr, "\033[0m");                                         \
+        if (g_arguments->fpOfInsertResult) {                                \
+            fprintf(g_arguments->fpOfInsertResult,                          \
+                    "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+            fprintf(g_arguments->fpOfInsertResult, "WARN: ");               \
+            fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
+        }                                                                   \
+    } while (0)
+
 #define succPrint(fmt, ...)                                                 \
     do {                                                                    \
         struct tm      Tm, *ptm;                                            \
@@ -523,16 +551,17 @@ typedef struct SuperQueryInfo_S {
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
-    SpecifiedQueryInfo specifiedQueryInfo;
-    SuperQueryInfo     superQueryInfo;
-    uint64_t           totalQueried;
-    uint64_t           query_times;
-    uint64_t           killQueryThreshold;
-    int32_t            killQueryInterval;
-    uint64_t           response_buffer;
-    bool               reset_query_cache;
-    uint16_t           iface;
-    char*              dbName;
+    SpecifiedQueryInfo  specifiedQueryInfo;
+    SuperQueryInfo      superQueryInfo;
+    uint64_t            totalQueried;
+    uint64_t            query_times;
+    uint64_t            killQueryThreshold;
+    int32_t             killQueryInterval;
+    uint64_t            response_buffer;
+    bool                reset_query_cache;
+    bool                continue_if_fail;
+    uint16_t            iface;
+    char*               dbName;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
