@@ -195,6 +195,14 @@ do {                                                               \
 #define ASSERT(x)   do { assert(x); } while(0)
 #endif // RELEASE
 
+#ifdef WINDOWS
+#define SET_THREAD_NAME(name)
+#elif defined(DARWIN)
+#define SET_THREAD_NAME(name)
+#else
+#define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
+#endif
+
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 
 #endif // __TOOLSTYPES_H_

@@ -11026,10 +11026,11 @@ static bool checkFileExistsExt(char *path, char *ext) {
     bool bRet = false;
 
     int namelen, extlen;
+    extlen = strlen(ext);
+
     TdDirEntryPtr pDirent;
     TdDirPtr pDir;
 
-    extlen = strlen(ext);
     pDir = toolsOpenDir(path);
 
     if (pDir != NULL) {

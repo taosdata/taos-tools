@@ -102,12 +102,6 @@ static void print_json_aux(json_t *element, int indent);
     } while (0)
 
 
-#ifdef DARWIN
-#define SET_THREAD_NAME(name)
-#else
-#define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
-#endif
-
 static int  convertStringToReadable(char *str, int size,
         char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size,
@@ -639,6 +633,18 @@ static uint64_t getUniqueIDFromEpoch() {
 }
 
 int setConsoleEcho(bool on) {
+#if defined(WINDOWS)
+  HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+  DWORD  mode = 0;
+  GetConsoleMode(hStdin, &mode);
+  if (on) {
+    mode |= ENABLE_ECHO_INPUT;
+  } else {
+    mode &= ~ENABLE_ECHO_INPUT;
+  }
+  SetConsoleMode(hStdin, mode);
+
+#else
 #define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
     int err;
     struct termios term;
@@ -659,6 +665,7 @@ int setConsoleEcho(bool on) {
         return -1;
     }
 
+#endif
     return 0;
 }
 
@@ -3473,31 +3480,60 @@ static uint64_t getFilesNum(const char *dbPath, const char *ext) {
     uint64_t count = 0;
 
     int namelen, extlen;
+#ifdef WINDOWS
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
+#else
     struct dirent *pDirent;
     DIR *pDir;
+#endif
 
     extlen = strlen(ext);
 
     bool isSql = (0 == strcmp(ext, "sql"));
 
+#ifdef WINDOWS
+    pDir = toolsOpenDir(dbPath);
+#else
     pDir = opendir(dbPath);
+#endif
     if (pDir != NULL) {
+#ifdef WINDOWS
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
+#else
         while ((pDirent = readdir(pDir)) != NULL) {
             namelen = strlen(pDirent->d_name);
+#endif
 
             if (namelen > extlen) {
+#ifdef WINDOWS
+                if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
+                    if (isSql) {
+                        if (0 == strcmp(entryName, "dbs.sql")) {
+#else
                 if (strcmp(ext, &(pDirent->d_name[namelen - extlen])) == 0) {
                     if (isSql) {
                         if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
+#endif
                             continue;
                         }
                     }
+#ifdef WINDOWS
+                    verbosePrint("%s found\n", entryName);
+#else
                     verbosePrint("%s found\n", pDirent->d_name);
+#endif
                     count++;
                 }
             }
         }
+#ifdef WINDOWS
+        toolsCloseDir(&pDir);
+#else
         closedir(pDir);
+#endif
     }
 
     debugPrint("%"PRId64" .%s files found!\n", count, ext);
@@ -3599,46 +3635,94 @@ static AVROTYPE createDumpinList(const char *dbPath,
     }
 
     int namelen, extlen;
+#ifdef WINDOWS
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
+#else
     struct dirent *pDirent;
     DIR *pDir;
+#endif
 
     extlen = strlen(ext);
 
     int64_t nCount = 0;
+#ifdef WINDOWS
+    pDir = toolsOpenDir(dbPath);
+#else
     pDir = opendir(dbPath);
+#endif
     if (pDir != NULL) {
+#ifdef WINDOWS
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
+#else
         while ((pDirent = readdir(pDir)) != NULL) {
             namelen = strlen(pDirent->d_name);
+#endif
 
             if (namelen > extlen) {
+#ifdef WINDOWS
+                if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
+                    verbosePrint("%s found\n", entryName);
+#else
                 if (strcmp(ext, &(pDirent->d_name[namelen - extlen])) == 0) {
                     verbosePrint("%s found\n", pDirent->d_name);
+#endif
                     switch (avroType) {
                         case AVRO_UNKNOWN:
+#ifdef WINDOWS
+                            if (0 == strcmp(entryName, "dbs.sql")) {
+#else
                             if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
+#endif
                                 continue;
                             }
+#ifdef WINDOWS
+                            tstrncpy(g_tsDumpInDebugFiles[nCount],
+                                    entryName,
+                                    min(namelen+1, MAX_FILE_NAME_LEN));
+#else
                             tstrncpy(g_tsDumpInDebugFiles[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
+#endif
                             break;
 
                         case AVRO_NTB:
+#ifdef WINDOWS
+                            tstrncpy(g_tsDumpInAvroNtbs[nCount],
+                                    entryName,
+                                    min(namelen+1, MAX_FILE_NAME_LEN));
+#else
                             tstrncpy(g_tsDumpInAvroNtbs[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
+#endif
                             break;
 
                         case AVRO_TBTAGS:
+#ifdef WINDOWS
+                            tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
+                                    entryName,
+                                    min(namelen+1, MAX_FILE_NAME_LEN));
+#else
                             tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
+#endif
                             break;
 
                         case AVRO_DATA:
+#ifdef WINDOWS
+                            tstrncpy(g_tsDumpInAvroFiles[nCount],
+                                    entryName,
+                                    min(namelen+1, MAX_FILE_NAME_LEN));
+#else
                             tstrncpy(g_tsDumpInAvroFiles[nCount],
                                     pDirent->d_name,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
+#endif
                             break;
 
                         default:
@@ -3650,7 +3734,11 @@ static AVROTYPE createDumpinList(const char *dbPath,
                 }
             }
         }
+#ifdef WINDOWS
+        toolsCloseDir(&pDir);
+#else
         closedir(pDir);
+#endif
     }
 
     debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
@@ -7380,6 +7468,26 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt) {
 static int dumpInAvroWorkThreadsSub(const char *dbPath, const char *typeExt) {
     int ret = 0;
 
+#ifdef WINDOWS
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
+
+    pDir = toolsOpenDir(dbPath);
+
+    if (pDir != NULL) {
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            if (strncmp ("data", entryName, strlen("data"))
+                    == 0) {
+                char dataPath[MAX_PATH_LEN] = {0};
+                sprintf(dataPath, "%s/%s", dbPath, entryName);
+                debugPrint("%s() LN%d, will dump from %s\n",
+                        __func__, __LINE__, dataPath);
+                ret = dumpInAvroWorkThreads(dataPath, typeExt);
+            }
+        }
+        toolsCloseDir(&pDir);
+#else
     struct dirent *pDirent;
     DIR *pDir;
 
@@ -7397,6 +7505,7 @@ static int dumpInAvroWorkThreadsSub(const char *dbPath, const char *typeExt) {
             }
         }
         closedir(pDir);
+#endif
     } else {
         errorPrint("opendir(%s)\n", g_args.inpath);
         ret = -1;
@@ -7870,10 +7979,17 @@ static int generateSubDirName(
 
     int ret = 0;
 
+#ifdef WINDOWS
+    TdDirPtr dir = toolsOpenDir(dirToCreate);
+    if (dir) {
+        /* Directory exists. */
+        toolsCloseDir(&dir);
+#else
     DIR* dir = opendir(dirToCreate);
     if (dir) {
         /* Directory exists. */
         closedir(dir);
+#endif
     } else if (ENOENT == errno) {
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
@@ -9629,7 +9745,12 @@ static void loadFileMark(FILE *fp, char *mark, char *fcharset) {
     (void)fseek(fp, 0, SEEK_SET);
 
     do {
+#ifdef WINDOWS
+        fgets(line, markLen, fp);
+        size = strlen(line);
+#else
         size = getline(&line, &line_size, fp);
+#endif
         if (size <= 2) {
             goto _exit_no_charset;
         }
@@ -9716,7 +9837,12 @@ static int64_t dumpInOneDebugFile(
     int64_t lineNo = 0;
     int64_t success = 0;
     int64_t failed = 0;
+#ifdef WINDOWS
+    while (fgets(line, TSDB_MAX_ALLOWED_SQL_LEN, fp) != NULL) {
+        read_len = strlen(line);
+#else
     while ((read_len = getline(&line, &line_len, fp)) != -1) {
+#endif
         ++lineNo;
 
         if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN) {
@@ -10103,6 +10229,20 @@ static int dumpIn() {
     int ret = 0;
     ret = dumpInWithDbPath(g_args.inpath);
 
+#ifdef WINDOWS
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
+
+    pDir = toolsOpenDir(g_args.inpath);
+
+    if (pDir != NULL) {
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            if (strncmp ("taosdump.", entryName, strlen("taosdump."))
+                    == 0) {
+                char dbPath[MAX_PATH_LEN] = {0};
+                sprintf(dbPath, "%s/%s", g_args.inpath, entryName);
+#else
     struct dirent *pDirent;
     DIR *pDir;
 
@@ -10114,12 +10254,17 @@ static int dumpIn() {
                     == 0) {
                 char dbPath[MAX_PATH_LEN] = {0};
                 sprintf(dbPath, "%s/%s", g_args.inpath, pDirent->d_name);
+#endif
                 debugPrint("%s() LN%d, will dump from %s\n",
                         __func__, __LINE__, dbPath);
                 ret = dumpInWithDbPath(dbPath);
             }
         }
+#ifdef WINDOWS
+        toolsCloseDir(&pDir);
+#else
         closedir(pDir);
+#endif
     } else {
         errorPrint("opendir(%s)\n", g_args.inpath);
     }
@@ -10989,6 +11134,28 @@ static bool checkFileExistsDir(char *path, char *dirname) {
     bool bRet = false;
 
     int namelen, dirlen;
+#ifdef WINDOWS
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
+
+    dirlen = strlen(dirname);
+    pDir = toolsOpenDir(path);
+
+    if (pDir != NULL) {
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
+            if (namelen > dirlen) {
+                if (strncmp(dirname, entryName, dirlen) == 0) {
+                    bRet = true;
+                    break;
+                }
+            }
+        }
+        toolsCloseDir(&pDir);
+    }
+#else
+
     struct dirent *pDirent;
     DIR *pDir;
 
@@ -11007,6 +11174,7 @@ static bool checkFileExistsDir(char *path, char *dirname) {
         }
         closedir(pDir);
     }
+#endif
 
     return bRet;
 }
@@ -11015,10 +11183,31 @@ static bool checkFileExistsExt(char *path, char *ext) {
     bool bRet = false;
 
     int namelen, extlen;
+    extlen = strlen(ext);
+
+#ifdef WINDOWS
+    TdDirEntryPtr pDirent;
+    TdDirPtr pDir;
+
+    pDir = toolsOpenDir(path);
+
+    if (pDir != NULL) {
+        while ((pDirent = toolsReadDir(pDir)) != NULL) {
+            char *entryName = toolsGetDirEntryName(pDirent);
+            namelen = strlen(entryName);
+            if (namelen > extlen) {
+                if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
+                    bRet = true;
+                    break;
+                }
+            }
+        }
+        toolsCloseDir(&pDir);
+    }
+#else
     struct dirent *pDirent;
     DIR *pDir;
 
-    extlen = strlen(ext);
     pDir = opendir(path);
 
     if (pDir != NULL) {
@@ -11033,16 +11222,25 @@ static bool checkFileExistsExt(char *path, char *ext) {
         }
         closedir(pDir);
     }
+#endif
 
     return bRet;
 }
 
 static bool checkOutDir(char *outpath) {
     bool ret = true;
+#ifdef WINDOWS
+    TdDirPtr pDir = NULL;
+#else
     DIR *pDir = NULL;
+#endif
 
     if (strlen(outpath)) {
+#ifdef WINDOWS
+        if (NULL == (pDir= toolsOpenDir(outpath))) {
+#else
         if (NULL == (pDir= opendir(outpath))) {
+#endif
             errorPrint("%s is not exist!\n", outpath);
             return false;
         }
@@ -11068,7 +11266,11 @@ static bool checkOutDir(char *outpath) {
     }
 
     if (pDir) {
+#ifdef WINDOWS
+        toolsCloseDir(&pDir);
+#else
         closedir(pDir);
+#endif
     }
 
     return ret;
@@ -12044,7 +12246,13 @@ static int dumpEntry() {
     }
     fprintf(g_fpOfResult, "debug_print: %d\n", g_args.debug_print);
 
+#ifdef WINDOWS
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    g_numOfCores = (int32_t)info.dwNumberOfProcessors;
+#else
     g_numOfCores = (int32_t)sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 
     time_t tTime = time(NULL);
     struct tm tm = *localtime(&tTime);
