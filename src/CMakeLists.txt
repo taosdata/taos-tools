@@ -31,41 +31,47 @@ ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "mips64")
 ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     SET(CURRENT_CPUTYPE "apple_m1")
     MESSAGE(STATUS "Set CPUTYPE to apple silicon m1")
+ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch64")
+    SET(CURRENT_CPUTYPE "loongarch64")
+    MESSAGE(STATUS "Set CPUTYPE to loongarch64")
 ENDIF ()
 
 FIND_PACKAGE(Git)
 IF(GIT_FOUND)
     EXECUTE_PROCESS(
-            COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
-            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-            RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
-    )
+        COMMAND sh -c "${GIT_EXECUTABLE} --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}/taosdump.c"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
+        )
     IF ("${TAOSDUMP_COMMIT_SHA1}" STREQUAL "")
         SET(TAOSDUMP_COMMIT_SHA1 "unknown")
     ELSE ()
         STRING(SUBSTRING "${TAOSDUMP_COMMIT_SHA1}" 0 7 TAOSDUMP_COMMIT_SHA1)
         STRING(STRIP "${TAOSDUMP_COMMIT_SHA1}" TAOSDUMP_COMMIT_SHA1)
     ENDIF ()
+
     EXECUTE_PROCESS(
-        COMMAND sh -c "${GIT_EXECUTABLE} tag |grep taosdump|sort|tail -1|awk -F \"-\" '{print $2}'"
+        COMMAND sh -c "${GIT_EXECUTABLE} tag |grep taosdump|sort|tail -1|gawk -F '-' '{print $2}'"
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         RESULT_VARIABLE TAG_RESULT
         OUTPUT_VARIABLE TAOSDUMP_TAG
         )
+
     IF ("${TAOSDUMP_TAG}" STREQUAL "")
         SET(TAOSDUMP_TAG "0.1.0")
     ELSE ()
         STRING(STRIP "${TAOSDUMP_TAG}" TAOSDUMP_TAG)
     ENDIF ()
+
     EXECUTE_PROCESS(
-            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c
+            COMMAND sh -c "${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c"
             RESULT_VARIABLE RESULT
             OUTPUT_VARIABLE TAOSDUMP_STATUS
     )
 
     EXECUTE_PROCESS(
-            COMMAND ${GIT_EXECUTABLE} log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}
+        COMMAND sh -c "${GIT_EXECUTABLE} --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}"
             WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
             RESULT_VARIABLE RESULT
             OUTPUT_VARIABLE TAOSBENCHMARK_COMMIT_SHA1
@@ -82,8 +88,9 @@ IF(GIT_FOUND)
         STRING(SUBSTRING "${TAOSBENCHMARK_COMMIT_SHA1}" 0 7 TAOSBENCHMARK_COMMIT_SHA1)
         STRING(STRIP "${TAOSBENCHMARK_COMMIT_SHA1}" taosbenchmark_COMMIT_SHA1)
     ENDIF ()
+
     EXECUTE_PROCESS(
-        COMMAND sh -c "${GIT_EXECUTABLE} tag |grep taosbenchmark|sort|tail -1|awk -F \"-\" '{print $2}'"
+        COMMAND sh -c "${GIT_EXECUTABLE} tag |grep taosbenchmark|sort|tail -1|gawk -F '-' '{print $2}'"
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         RESULT_VARIABLE TAG_RESULT
         OUTPUT_VARIABLE TAOSBENCHMARK_TAG
@@ -100,18 +107,16 @@ IF(GIT_FOUND)
             OUTPUT_VARIABLE TAOSBENCHMARK_STATUS
     )
 
-    IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-        EXECUTE_PROCESS(
-                COMMAND bash "-c" "echo '${TAOSDUMP_STATUS}' | awk '{print $1}'"
-                RESULT_VARIABLE RESULT
-                OUTPUT_VARIABLE TAOSDUMP_STATUS
+    EXECUTE_PROCESS(
+        COMMAND sh "-c" "echo '${TAOSDUMP_STATUS}' | awk '{print $1}'"
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSDUMP_STATUS
         )
-        EXECUTE_PROCESS(
-                COMMAND bash "-c" "echo '${taosbenchmark_STATUS}' | awk '{print $1}'"
-                RESULT_VARIABLE RESULT
-                OUTPUT_VARIABLE taosbenchmark_STATUS
+    EXECUTE_PROCESS(
+        COMMAND sh "-c" "echo '${taosbenchmark_STATUS}' | awk '{print $1}'"
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE taosbenchmark_STATUS
         )
-    ENDIF ()
 ELSE()
     MESSAGE("Git not found")
     SET(TAOSDUMP_COMMIT_SHA1 "unknown")

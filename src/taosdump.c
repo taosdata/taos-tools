@@ -227,7 +227,7 @@ typedef struct {
 } ColDes;
 
 typedef struct {
-    char name[TSDB_TABLE_NAME_LEN];
+    char name[TSDB_TABLE_NAME_LEN+1];
     int columns;
     int tags;
     ColDes cols[];
@@ -7913,7 +7913,8 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
 
             case AVRO_DATA:
                 {
-                    char subDirName[MAX_DIR_LEN] = {0};
+                    // to avoid buffer overflow
+                    char subDirName[MAX_FILE_NAME_LEN - 39] = {0};
                     if (0 != generateSubDirName(avroType, dbInfo, subDirName)) {
                         return -1;
                     }
@@ -7952,7 +7953,7 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
 
             case AVRO_DATA:
                 {
-                    char subDirName[MAX_DIR_LEN] = {0};
+                    char subDirName[MAX_FILE_NAME_LEN] = {0};
                     if (0 != generateSubDirName(avroType, dbInfo, subDirName)) {
                         return -1;
                     }
