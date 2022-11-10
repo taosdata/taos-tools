@@ -18,8 +18,6 @@
 #include <iconv.h>
 #include <sys/stat.h>
 
-#include <argp.h>
-
 #ifdef WINDOWS
 #include <time.h>
 #include <WinSock2.h>
@@ -32,6 +30,8 @@
 #include <sys/syscall.h>
 #include <wordexp.h>
 #else
+#include <argp.h>
+
 #include <unistd.h>
 #include <strings.h>
 #include <termios.h>
@@ -53,6 +53,20 @@
 
 #include <avro.h>
 #include <jansson.h>
+
+// get taosdump commit number version
+#ifndef TAOSDUMP_COMMIT_SHA1
+#define TAOSDUMP_COMMIT_SHA1 "unknown"
+#endif
+
+#ifndef TAOSDUMP_TAG
+#define TAOSDUMP_TAG "0.1.0"
+#endif
+
+#ifndef TAOSDUMP_STATUS
+#define TAOSDUMP_STATUS "unknown"
+#endif
+
 
 // use 256 as normal buffer length
 #define BUFFER_LEN              256
@@ -227,8 +241,6 @@ typedef struct {
     ColDes cols[];
 } TableDes;
 
-extern char version[];
-
 #define DB_PRECISION_LEN   8
 #define DB_STATUS_LEN      16
 
@@ -389,8 +401,7 @@ static int64_t g_totalDumpInNtbFailed = 0;
 SDbInfo **g_dbInfos = NULL;
 TableInfo *g_tablesList = NULL;
 
-const char *argp_program_version = version;
-const char *argp_program_bug_address = "<support@taosdata.com>";
+#ifdef LINUX
 
 /* Program documentation. */
 static char doc[] = "";
@@ -473,6 +484,8 @@ static struct argp_option options[] = {
     {0}
 };
 
+#endif  // LINUX
+
 #define HUMAN_TIME_LEN      28
 #define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
 
@@ -534,10 +547,6 @@ typedef struct arguments {
 #endif
 } SArguments;
 
-/* Our argp parser. */
-static error_t parse_opt(int key, char *arg, struct argp_state *state);
-
-static struct argp argp = {options, parse_opt, args_doc, doc};
 static resultStatistics g_resultStatistics = {0};
 static FILE *g_fpOfResult = NULL;
 static int g_numOfCores = 1;
@@ -600,18 +609,6 @@ struct arguments g_args = {
 #endif  // WEBSOCKET
 };
 
-// get taosdump commit number version
-#ifndef TAOSDUMP_COMMIT_SHA1
-#define TAOSDUMP_COMMIT_SHA1 "unknown"
-#endif
-
-#ifndef TAOSDUMP_TAG
-#define TAOSDUMP_TAG "0.1.0"
-#endif
-
-#ifndef TAOSDUMP_STATUS
-#define TAOSDUMP_STATUS "unknown"
-#endif
 
 
 static uint64_t getUniqueIDFromEpoch() {
@@ -841,6 +838,7 @@ int64_t getEndTime(int precision) {
     return end_time;
 }
 
+#ifdef LINUX
 /* Parse a single option. */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     /* Get the input argument from argp_parse, which we
@@ -1042,6 +1040,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     return 0;
 }
 
+/* Our argp parser. */
+static error_t parse_opt(int key, char *arg, struct argp_state *state);
+static struct argp argp = {options, parse_opt, args_doc, doc};
+#endif  // LINUX
+
 static void freeTbDes(TableDes *tableDes) {
     if (NULL == tableDes) return;
 
@@ -1093,7 +1096,8 @@ static int queryDbImplNative(TAOS *taos, char *command) {
     return ret;
 }
 
-static void parse_args(
+#ifdef LINUX
+static void parse_args_for_linux(
         int argc, char *argv[], SArguments *arguments) {
     for (int i = 1; i < argc; i++) {
         if ((strncmp(argv[i], "-p", 2) == 0)
@@ -1170,6 +1174,20 @@ static void parse_args(
             continue;
         }
     }
+}
+#else
+static void parse_args_for_non_linux(
+        int argc, char *argv[], SArguments *arguments) {
+}
+#endif  // LINUX
+
+static void parse_args(
+        int argc, char *argv[], SArguments *arguments) {
+#ifdef LINUX
+    parse_args_for_linux(argc, argv, arguments);
+#else
+    parse_args_for_non_linux(argc, argv, arguments);
+#endif
 }
 
 static void copyHumanTimeToArg(char *timeStr, bool isStartTime) {
@@ -12857,9 +12875,12 @@ static int inspectAvroFiles(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-    static char verType[32] = {0};
-    sprintf(verType, "version: %s\n", version);
-    argp_program_version = verType;
+#ifdef WINDOWS
+    if (!g_args.answer_yes) {
+        printf("Press any key to continue\n");
+        getchar();
+    }
+#endif
 
     g_uniqueID = getUniqueIDFromEpoch();
 
@@ -12871,7 +12892,9 @@ int main(int argc, char *argv[]) {
         parse_args(argc, argv, &g_args);
     }
 
+#ifdef LINUX
     argp_parse(&argp, argc, argv, 0, 0, &g_args);
+#endif
 
     if (g_args.abort) {
         abort();

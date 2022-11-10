@@ -360,7 +360,7 @@ ELSE ()
         ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
     ENDIF ()
 
-    ADD_EXECUTABLE(taosdump taosdump_win.c toolsSys.c toolstime.c toolsDir.c toolsString.c)
+    ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)
     ADD_DEPENDENCIES(apache-avro deps-jansson)
     ADD_DEPENDENCIES(deps-snappy apache-avro)
     ADD_DEPENDENCIES(taosdump deps-jansson)
