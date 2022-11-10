@@ -95,12 +95,7 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         ENDIF()
     ENDIF ()
 
-    SET(OS_ID "")
-    EXECUTE_PROCESS (
-        COMMAND sh -c "awk -F= '/^ID=/{print $2}' /etc/os-release |tr -d '\n' | tr -d '\"'"
-        OUTPUT_VARIABLE OS_ID
-        )
-    MESSAGE(STATUS "deps' cmake detected current OS is " ${OS_ID} "")
+    MESSAGE(STATUS "deps' cmake detected current OS is Windows")
     ExternalProject_Add(
         deps-jansson
         GIT_REPOSITORY https://github.com/akheron/jansson
