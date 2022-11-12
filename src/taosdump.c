@@ -112,6 +112,7 @@ static int  convertStringToReadable(char *str, int size,
         char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size,
         char *buf, int bufsize);
+static int dumpExtraInfo(void *taos, FILE *fp);
 
 typedef struct {
     int16_t bytes;
@@ -459,7 +460,6 @@ static struct argp_option options[] = {
             "'WAL size exceeds limit' error when restore, please adjust the value to a "
             "smaller one and try. The workable value is related to the length "
             "of the row and type of table schema.", 10},
-//    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,
 // DEFAULT_THREAD_NUM
         "Number of thread for dump in file. Default is 8.", 10},
@@ -3363,8 +3363,11 @@ static int dumpStableClasuse(
 }
 
 static void dumpCreateDbClause(
+        void *taos,
         SDbInfo *dbInfo, bool isDumpProperty, FILE *fp) {
     char sqlstr[TSDB_MAX_SQL_LEN] = {0};
+
+    dumpExtraInfo(taos, fp);
 
     char *pstr = sqlstr;
     pstr += sprintf(pstr, "CREATE DATABASE IF NOT EXISTS %s ", dbInfo->name);
@@ -7102,8 +7105,6 @@ static int64_t dumpInOneAvroFile(
     RecordSchema *recordSchema = getSchemaAndReaderFromFile(
             avroType, avroFile, &schema, &reader);
     if (NULL == recordSchema) {
-        if (reader)
-            avro_file_reader_close(reader);
         return -1;
     }
 
@@ -9429,6 +9430,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         ws_res = NULL;
         return;
     }
+
     while (true) {
         int rows = 0;
         const void *data = NULL;
@@ -9533,7 +9535,7 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
     taos_free_result(res);
 }
 
-static int dumpExtraInfo(void *taos, FILE *fp) {
+static int dumpExtraInfoHead(void *taos, FILE *fp) {
     char buffer[BUFFER_LEN];
 
     if (fseek(fp, 0, SEEK_SET) != 0) {
@@ -9605,6 +9607,18 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
                 errno, strerror(errno));
     }
 
+    return 0;
+}
+
+static int dumpExtraInfo(void *taos, FILE *fp) {
+    int ret = 0;
+
+    ret = dumpExtraInfoHead(taos, fp);
+
+    if (ret != 0) {
+        return ret;
+    }
+
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         dumpExtraInfoVarWS(taos, fp);
@@ -9615,7 +9629,7 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
     }
 #endif
 
-    int ret = ferror(fp);
+    ret = ferror(fp);
 
     return ret;
 }
@@ -10033,7 +10047,8 @@ static int dumpInDbs(const char *dbPath) {
 
     charSetMark = "#!loose_mode: ";
     loadFileMark(fp, charSetMark, g_dumpInLooseMode);
-    if (0 == strcasecmp(g_dumpInLooseMode, "true")) {
+    if ((g_args.loose_mode)
+            || (0 == strcasecmp(g_dumpInLooseMode, "true"))) {
         g_dumpInLooseModeFlag = true;
         strcpy(g_escapeChar, "");
     }
@@ -10941,7 +10956,7 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp) {
         }
     }
 
-    dumpCreateDbClause(dbInfo, g_args.with_property, fpDbs);
+    dumpCreateDbClause(taos_v, dbInfo, g_args.with_property, fpDbs);
 
     fprintf(g_fpOfResult, "\n#### database:                       %s\n",
             dbInfo->name);
@@ -11813,12 +11828,12 @@ static int dumpOut() {
             }
         } else {
             if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
-                dumpCreateDbClause(g_dbInfos[0],
+                dumpCreateDbClause(taos_v, g_dbInfos[0],
                         g_args.with_property, fp);
             } else {
                 fpDbs = createDbsSqlPerDb(g_dbInfos[0]);
                 if (fpDbs) {
-                    dumpCreateDbClause(g_dbInfos[0],
+                    dumpCreateDbClause(taos_v, g_dbInfos[0],
                             g_args.with_property, fpDbs);
                 } else {
                     fclose(fp);
