@@ -13,26 +13,35 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <strings.h>
 #include <pthread.h>
 #include <iconv.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
 
 #include <argp.h>
-#ifdef DARWIN
+
+#ifdef WINDOWS
+#include <time.h>
+#include <WinSock2.h>
+#elif defined(DARWIN)
 #include <ctype.h>
-#else
-#include <sys/prctl.h>
-#endif
-#include <inttypes.h>
-#include <dirent.h>
-#include <wordexp.h>
+#include <unistd.h>
+#include <strings.h>
 #include <termios.h>
 #include <sys/time.h>
-#include <limits.h>
+#include <sys/syscall.h>
+#include <wordexp.h>
+#else
+#include <unistd.h>
+#include <strings.h>
+#include <termios.h>
+#include <sys/time.h>
+#include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <wordexp.h>
+#include <dirent.h>
+#endif
+#include <inttypes.h>
 
 #include "taos.h"
 
@@ -60,7 +69,13 @@ static int       g_dumpInDataMajorVer;
 static char      g_dumpInEscapeChar[64] = {0};
 static char      g_dumpInLooseMode[64] = {0};
 static bool      g_dumpInLooseModeFlag = false;
+
+
+#ifdef WINDOWS
+static char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
+#else
 static char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+#endif
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
 static char    **g_tsDumpInAvroNtbs = NULL;
@@ -71,7 +86,7 @@ static char      g_client_info[32] = {0};
 static int       g_majorVersionOfClient = 0;
 
 static int      g_maxFilesPerDir = 100000;
-static uint64_t g_countOfDataFile = 0;
+volatile int64_t g_countOfDataFile = 0;
 
 static void print_json_aux(json_t *element, int indent);
 
@@ -86,8 +101,6 @@ static void print_json_aux(json_t *element, int indent);
         }                    \
     } while (0)
 
-#define atomic_add_fetch_64(ptr, val) \
-    __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST)
 
 #ifdef DARWIN
 #define SET_THREAD_NAME(name)
@@ -99,6 +112,7 @@ static int  convertStringToReadable(char *str, int size,
         char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size,
         char *buf, int bufsize);
+static int dumpExtraInfo(void *taos, FILE *fp);
 
 typedef struct {
     int16_t bytes;
@@ -214,7 +228,7 @@ typedef struct {
 } ColDes;
 
 typedef struct {
-    char name[TSDB_TABLE_NAME_LEN];
+    char name[TSDB_TABLE_NAME_LEN+1];
     int columns;
     int tags;
     ColDes cols[];
@@ -315,10 +329,10 @@ typedef struct {
 } threadInfo;
 
 typedef struct {
-    int64_t   totalRowsOfDumpOut;
-    int64_t   totalChildTblsOfDumpOut;
-    int32_t   totalSuperTblsOfDumpOut;
-    int32_t   totalDatabasesOfDumpOut;
+    volatile int64_t   totalRowsOfDumpOut;
+    volatile int64_t   totalChildTblsOfDumpOut;
+    volatile int64_t   totalSuperTblsOfDumpOut;
+    volatile int64_t   totalDatabasesOfDumpOut;
 } resultStatistics;
 
 
@@ -370,7 +384,7 @@ typedef struct RecordSchema_S {
 
 /* avro section end */
 
-static uint64_t g_uniqueID = 0;
+volatile int64_t g_uniqueID = 0;
 static int64_t g_totalDumpOutRows = 0;
 static int64_t g_totalDumpInRecSuccess = 0;
 static int64_t g_totalDumpInRecFailed = 0;
@@ -446,7 +460,6 @@ static struct argp_option options[] = {
             "'WAL size exceeds limit' error when restore, please adjust the value to a "
             "smaller one and try. The workable value is related to the length "
             "of the row and type of table schema.", 10},
-//    {"max-sql-len", 'L', "SQL_LEN",     0,  "Max length of one sql. Default is 65480.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,
 // DEFAULT_THREAD_NUM
         "Number of thread for dump in file. Default is 8.", 10},
@@ -3350,8 +3363,11 @@ static int dumpStableClasuse(
 }
 
 static void dumpCreateDbClause(
+        void *taos,
         SDbInfo *dbInfo, bool isDumpProperty, FILE *fp) {
     char sqlstr[TSDB_MAX_SQL_LEN] = {0};
+
+    dumpExtraInfo(taos, fp);
 
     char *pstr = sqlstr;
     pstr += sprintf(pstr, "CREATE DATABASE IF NOT EXISTS %s ", dbInfo->name);
@@ -7089,8 +7105,6 @@ static int64_t dumpInOneAvroFile(
     RecordSchema *recordSchema = getSchemaAndReaderFromFile(
             avroType, avroFile, &schema, &reader);
     if (NULL == recordSchema) {
-        if (reader)
-            avro_file_reader_close(reader);
         return -1;
     }
 
@@ -7900,7 +7914,8 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
 
             case AVRO_DATA:
                 {
-                    char subDirName[MAX_DIR_LEN] = {0};
+                    // to avoid buffer overflow
+                    char subDirName[MAX_FILE_NAME_LEN - 39] = {0};
                     if (0 != generateSubDirName(avroType, dbInfo, subDirName)) {
                         return -1;
                     }
@@ -7939,7 +7954,7 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
 
             case AVRO_DATA:
                 {
-                    char subDirName[MAX_DIR_LEN] = {0};
+                    char subDirName[MAX_FILE_NAME_LEN] = {0};
                     if (0 != generateSubDirName(avroType, dbInfo, subDirName)) {
                         return -1;
                     }
@@ -9415,6 +9430,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         ws_res = NULL;
         return;
     }
+
     while (true) {
         int rows = 0;
         const void *data = NULL;
@@ -9519,7 +9535,7 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
     taos_free_result(res);
 }
 
-static int dumpExtraInfo(void *taos, FILE *fp) {
+static int dumpExtraInfoHead(void *taos, FILE *fp) {
     char buffer[BUFFER_LEN];
 
     if (fseek(fp, 0, SEEK_SET) != 0) {
@@ -9591,6 +9607,18 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
                 errno, strerror(errno));
     }
 
+    return 0;
+}
+
+static int dumpExtraInfo(void *taos, FILE *fp) {
+    int ret = 0;
+
+    ret = dumpExtraInfoHead(taos, fp);
+
+    if (ret != 0) {
+        return ret;
+    }
+
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         dumpExtraInfoVarWS(taos, fp);
@@ -9601,7 +9629,7 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
     }
 #endif
 
-    int ret = ferror(fp);
+    ret = ferror(fp);
 
     return ret;
 }
@@ -10019,7 +10047,8 @@ static int dumpInDbs(const char *dbPath) {
 
     charSetMark = "#!loose_mode: ";
     loadFileMark(fp, charSetMark, g_dumpInLooseMode);
-    if (0 == strcasecmp(g_dumpInLooseMode, "true")) {
+    if ((g_args.loose_mode)
+            || (0 == strcasecmp(g_dumpInLooseMode, "true"))) {
         g_dumpInLooseModeFlag = true;
         strcpy(g_escapeChar, "");
     }
@@ -10927,7 +10956,7 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp) {
         }
     }
 
-    dumpCreateDbClause(dbInfo, g_args.with_property, fpDbs);
+    dumpCreateDbClause(taos_v, dbInfo, g_args.with_property, fpDbs);
 
     fprintf(g_fpOfResult, "\n#### database:                       %s\n",
             dbInfo->name);
@@ -11799,12 +11828,12 @@ static int dumpOut() {
             }
         } else {
             if (AVRO_CODEC_UNKNOWN == g_args.avro_codec) {
-                dumpCreateDbClause(g_dbInfos[0],
+                dumpCreateDbClause(taos_v, g_dbInfos[0],
                         g_args.with_property, fp);
             } else {
                 fpDbs = createDbsSqlPerDb(g_dbInfos[0]);
                 if (fpDbs) {
-                    dumpCreateDbClause(g_dbInfos[0],
+                    dumpCreateDbClause(taos_v, g_dbInfos[0],
                             g_args.with_property, fpDbs);
                 } else {
                     fclose(fp);
@@ -12085,9 +12114,9 @@ static int dumpEntry() {
 
         fprintf(g_fpOfResult, "\n============================== "
                 "TOTAL STATISTICS ============================== \n");
-        fprintf(g_fpOfResult, "# total database count:     %d\n",
+        fprintf(g_fpOfResult, "# total database count:     %"PRId64"\n",
                 g_resultStatistics.totalDatabasesOfDumpOut);
-        fprintf(g_fpOfResult, "# total super table count:  %d\n",
+        fprintf(g_fpOfResult, "# total super table count:  %"PRId64"\n",
                 g_resultStatistics.totalSuperTblsOfDumpOut);
         fprintf(g_fpOfResult, "# total child table count:  %"PRId64"\n",
                 g_resultStatistics.totalChildTblsOfDumpOut);

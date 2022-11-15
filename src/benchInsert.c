@@ -569,7 +569,9 @@ void postFreeResource() {
                         stbInfo->insertRows != 0) {
                     for (int64_t k = 0; k < stbInfo->childTblCount;
                         ++k) {
-                        tmfree(stbInfo->childTblName[k]);
+                        if (stbInfo->childTblName) {
+                            tmfree(stbInfo->childTblName[k]);
+                        }
                     }
                 }
                 tmfree(stbInfo->childTblName);
