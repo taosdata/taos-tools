@@ -160,6 +160,8 @@ typedef struct {
 } wordexp_t;
 int  wordexp(char *words, wordexp_t *pwordexp, int flags);
 void wordfree(wordexp_t *pwordexp);
+
+char *strsep(char **stringp, const char *delim);
 #endif
 
 typedef struct TdDir      *TdDirPtr;
@@ -194,6 +196,14 @@ do {                                                               \
 #include <assert.h>
 #define ASSERT(x)   do { assert(x); } while(0)
 #endif // RELEASE
+
+#ifdef WINDOWS
+#define SET_THREAD_NAME(name)
+#elif defined(DARWIN)
+#define SET_THREAD_NAME(name)
+#else
+#define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
+#endif
 
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 
