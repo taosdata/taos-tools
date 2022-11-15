@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/websocket-timeout'
+          ref: 'fix/taosws-unhandled-error'
             #          ref: 'test/sangshuduo/ci-test-3.0.1.4'
 
       - name: Change time zone
@@ -113,8 +113,7 @@ jobs:
 
       - name: first build TDengine 3.0
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
           whoami
