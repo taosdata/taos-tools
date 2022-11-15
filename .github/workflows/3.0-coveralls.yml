@@ -617,10 +617,10 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          if find taosdump/ws3 -name "*.py"|grep -q .;
-          then
-            for i in `find taosdump/ws3 -name "*.py"|sort`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
-          fi
+          #if find taosdump/ws3 -name "*.py"|grep -q .;
+          #then
+            #for i in `find taosdump/ws3 -name "*.py"|sort`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+          #fi
 
       - name: taosdump System Test cases
         if:
