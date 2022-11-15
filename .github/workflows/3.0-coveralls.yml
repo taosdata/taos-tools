@@ -54,6 +54,7 @@ jobs:
             tests/taosbenchmark/*
             tests/taosdump/*
             packaging/tools/*
+            cmake/*
             .github/workflows/3.0-coveralls.yml
 
       - name: Run step if any of the listed files above change
@@ -66,11 +67,11 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/taosws-unhandled-error'
+          ref: '3.0'
             #          ref: 'test/sangshuduo/ci-test-3.0.1.4'
 
       - name: Change time zone
@@ -104,16 +105,22 @@ jobs:
             ~/.cargo/git/db/
           key: ${{ runner.os }}-cargo-${{ steps.setup-rust.outputs.rustc_hash }}
 
+      - name: show TDengine's taosws commit
+        id: taosws-commit
+        run: |
+          commit=$(cat TDengine/cmake/taosws_CMakeLists.txt.in|grep GIT_TAG |sed -E 's/.*GIT_TAG\s*(\S+).*/\1/')
+          echo "hash::$commit" >> $GITHUB_OUTPUT
+
       - uses: actions/cache@v3
         id: cache-rust-target
         with:
           path: |
             TDengine/tools/taosws-rs/target/
-          key: ${{ runner.os }}-cargo-target-${{ steps.setup-rust.outputs.rustc_hash }}
+          key: ${{ runner.os }}-cargo-target-${{ steps.setup-rust.outputs.rustc_hash }}-${{ steps.taosws-commit.outputs.hash }}
 
       - name: first build TDengine 3.0
         if: |
-          github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
         run: |
           whoami
@@ -127,14 +134,6 @@ jobs:
             echo "TDengine build failure"
             exit 1
           fi
-
-      - name: show TDengine's taosws commit
-        if: |
-          steps.changed-files-specific.outputs.any_changed == 'true' &&
-          github.event_name == 'pull_request'
-        run: |
-          cd TDengine/tools/taosws-rs
-          git log --oneline | head -1
 
       - name: Install packages for build taos-tools
         if:
@@ -186,6 +185,7 @@ jobs:
           sleep 10
 
           export RUST_LOG=debug
+          export LD_LIBRARY_PATH=TDengine/tools/taosws-rs/target/release:$LD_LIBRARY_PATH
 
           cd debug
           echo "TEST: simple and log database"
