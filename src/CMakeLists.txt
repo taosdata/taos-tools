@@ -386,5 +386,5 @@ ELSE ()
     #    PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
     #)
     #TARGET_LINK_LIBRARIES(taosdump taos avro jansson pthread libargp.lib ${WEBSOCKET_LINK_FLAGS})
-    TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
+    TARGET_LINK_LIBRARIES(taosBenchmark taos msvcregex pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
 ENDIF ()
