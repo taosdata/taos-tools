@@ -160,6 +160,8 @@ typedef struct {
 } wordexp_t;
 int  wordexp(char *words, wordexp_t *pwordexp, int flags);
 void wordfree(wordexp_t *pwordexp);
+
+char *strsep(char **stringp, const char *delim);
 #endif
 
 typedef struct TdDir      *TdDirPtr;
