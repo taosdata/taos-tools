@@ -110,7 +110,7 @@ jobs:
         id: taosws-commit
         run: |
           commit=$(cat TDengine/cmake/taosws_CMakeLists.txt.in|grep GIT_TAG |sed -E 's/.*GIT_TAG\s*(\S+).*/\1/')
-          echo "hash::$commit" >> $GITHUB_OUTPUT
+          echo "hash=$commit" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v3
         id: cache-rust-target
