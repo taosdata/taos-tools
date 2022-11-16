@@ -189,18 +189,23 @@
         }                                                                    \
     } while (0)
 
-#define infoPrint(fmt, ...)                                          \
-    do {                                                                 \
-        struct tm      Tm, *ptm;                                         \
-        struct timeval timeSecs;                                         \
-        time_t         curTime;                                          \
-        toolsGetTimeOfDay(&timeSecs);                                    \
-        curTime = timeSecs.tv_sec;                                       \
+#define infoPrintNoTimestamp(fmt, ...)                                      \
+    do {                                                                    \
+        fprintf(stdout, "" fmt, __VA_ARGS__);                         \
+    } while (0)
+
+#define infoPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
-                (int32_t)timeSecs.tv_usec);                              \
-        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                          \
+        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                         \
     } while (0)
 
 #define infoPrintToFile(fp, fmt, ...)                                          \
