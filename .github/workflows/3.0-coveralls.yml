@@ -346,7 +346,7 @@ jobs:
           ./build/bin/taosdump -i . -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
-          echo "TEST: singla normal table"
+          echo "TEST: single normal table"
           ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
           ./build/bin/taosdump test d0 > /dev/null
           taos -s "drop database test"
@@ -489,7 +489,7 @@ jobs:
           ./build/bin/taosdump -R -i . -gg > /dev/null ||:
           rm -rf *.sql *.avro* taosdump.*
 
-          echo "TEST: singla normal table"
+          echo "TEST: single normal table"
           ./build/bin/taosBenchmark -t 2 -n 2 -y > /dev/null
           ./build/bin/taosdump test d0 -R > /dev/null
           taos -s "drop database test"

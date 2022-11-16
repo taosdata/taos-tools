@@ -1274,13 +1274,12 @@ static int getTableRecordInfoImplWS(
         if (tryStable) {
             sprintf(command,
                     "SELECT STABLE_NAME FROM information_schema.ins_stables "
-                    "WHERE db_name='%s' AND stable_name='%s'",
-                    dbName, table);
+                    "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
         } else {
             sprintf(command,
-                    "SELECT TABLE_NAME FROM information_schema.ins_tables "
-                    "WHERE db_name='%s' AND table_name='%s'",
-                    dbName, table);
+                    "SELECT TABLE_NAME,STABLE_NAME FROM "
+                    "information_schema.ins_tables "
+                    "WHERE db_name='%s' AND table_name='%s'", dbName, table);
         }
     } else {
         if (tryStable) {
@@ -1355,12 +1354,12 @@ static int getTableRecordInfoImplWS(
                             buffer, min(TSDB_TABLE_NAME_LEN, length + 1));
                     const void *value1 = NULL;
                     if (3 == g_majorVersionOfClient) {
-                        ws_get_value_in_block(
+                        value1 = ws_get_value_in_block(
                                 ws_res,
                                 row, 1,
                                 &type, &length);
                     } else {
-                        ws_get_value_in_block(
+                        value1 = ws_get_value_in_block(
                                 ws_res,
                                 row, TSDB_SHOW_TABLES_METRIC_INDEX,
                                 &type, &length);
