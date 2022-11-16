@@ -27,6 +27,12 @@ extern char version[];
 #define TAOSBENCHMARK_STATUS "unknown"
 #endif
 
+#ifdef WINDOWS
+char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
+#else
+char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+#endif
+
 
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
@@ -318,7 +324,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->user = arg;
             break;
         case 'c':
-            tstrncpy(configDir, arg, TSDB_FILENAME_LEN);
+            tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
             break;
         case 'o':
             g_arguments->output_file = arg;
@@ -737,10 +743,10 @@ void modify_argument() {
     if (!g_arguments->websocket) {
 #endif
 #ifdef LINUX
-        if (strlen(configDir)) {
+        if (strlen(g_configDir)) {
             wordexp_t full_path;
-            if (wordexp(configDir, &full_path, 0) != 0) {
-                errorPrint("Invalid path %s\n", configDir);
+            if (wordexp(g_configDir, &full_path, 0) != 0) {
+                errorPrint("Invalid path %s\n", g_configDir);
                 exit(EXIT_FAILURE);
             }
             taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);

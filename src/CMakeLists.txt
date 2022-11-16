@@ -355,13 +355,13 @@ ELSE ()
     set (CMAKE_C_STANDARD 11)
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
     IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsString.c)
     ELSE ()
         ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
     ENDIF ()
 
-    #    ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)
-    #ADD_DEPENDENCIES(apache-avro deps-jansson)
+    #ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)
+    ADD_DEPENDENCIES(apache-avro deps-jansson)
     #ADD_DEPENDENCIES(deps-snappy apache-avro)
     #ADD_DEPENDENCIES(taosdump deps-jansson)
     #ADD_DEPENDENCIES(taosdump deps-snappy)
@@ -380,11 +380,11 @@ ELSE ()
         SET(WEBSOCKET_LINK_FLAGS "")
     ENDIF ()
 
-    #TARGET_INCLUDE_DIRECTORIES(
-    #    taosdump
+    #    target_include_directories(
+    #        taosdump
     #    PUBLIC "${TD_SOURCE_DIR}/contrib/pthread"
     #    PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
     #)
     #TARGET_LINK_LIBRARIES(taosdump taos avro jansson pthread libargp.lib ${WEBSOCKET_LINK_FLAGS})
-    TARGET_LINK_LIBRARIES(taosBenchmark taos_static pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
+    TARGET_LINK_LIBRARIES(taosBenchmark taos msvcregex pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
 ENDIF ()
