@@ -71,7 +71,8 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'fix/taos-ws-hangout-on-windows'
+
             #          ref: 'test/sangshuduo/ci-test-3.0.1.4'
 
       - name: Change time zone
@@ -185,7 +186,6 @@ jobs:
           sleep 10
 
           export RUST_LOG=debug
-          export LD_LIBRARY_PATH=TDengine/tools/taosws-rs/target/release:$LD_LIBRARY_PATH
 
           cd debug
           echo "TEST: simple and log database"
