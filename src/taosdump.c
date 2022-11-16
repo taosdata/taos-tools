@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 
 #ifdef WINDOWS
+#include <argp.h>
 #include <time.h>
 #include <WinSock2.h>
 #elif defined(DARWIN)
@@ -402,7 +403,7 @@ static int64_t g_totalDumpInNtbFailed = 0;
 SDbInfo **g_dbInfos = NULL;
 TableInfo *g_tablesList = NULL;
 
-#ifdef LINUX
+//#ifdef LINUX
 
 /* Program documentation. */
 static char doc[] = "";
@@ -484,7 +485,7 @@ static struct argp_option options[] = {
     {0}
 };
 
-#endif  // LINUX
+//#endif  // LINUX
 
 #define HUMAN_TIME_LEN      28
 #define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
@@ -838,7 +839,7 @@ int64_t getEndTime(int precision) {
     return end_time;
 }
 
-#ifdef LINUX
+//#ifdef LINUX
 /* Parse a single option. */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     /* Get the input argument from argp_parse, which we
@@ -1043,7 +1044,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 /* Our argp parser. */
 static error_t parse_opt(int key, char *arg, struct argp_state *state);
 static struct argp argp = {options, parse_opt, args_doc, doc};
-#endif  // LINUX
+//#endif  // LINUX
 
 static void freeTbDes(TableDes *tableDes) {
     if (NULL == tableDes) return;
@@ -1096,7 +1097,7 @@ static int queryDbImplNative(TAOS *taos, char *command) {
     return ret;
 }
 
-#ifdef LINUX
+//#ifdef LINUX
 static void parse_args_for_linux(
         int argc, char *argv[], SArguments *arguments) {
     for (int i = 1; i < argc; i++) {
@@ -1175,19 +1176,21 @@ static void parse_args_for_linux(
         }
     }
 }
+/*
 #else
 static void parse_args_for_non_linux(
         int argc, char *argv[], SArguments *arguments) {
 }
 #endif  // LINUX
+*/
 
 static void parse_args(
         int argc, char *argv[], SArguments *arguments) {
-#ifdef LINUX
+//#ifdef LINUX
     parse_args_for_linux(argc, argv, arguments);
-#else
-    parse_args_for_non_linux(argc, argv, arguments);
-#endif
+//#else
+//    parse_args_for_non_linux(argc, argv, arguments);
+//#endif
 }
 
 static void copyHumanTimeToArg(char *timeStr, bool isStartTime) {
@@ -1281,7 +1284,11 @@ static int getTableRecordInfoImplWS(
     }
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     sprintf(command, "USE %s", dbName);
     ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
@@ -1291,6 +1298,7 @@ static int getTableRecordInfoImplWS(
                 dbName, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
+        free(command);
         return 0;
     }
     ws_free_result(ws_res);
@@ -1324,6 +1332,7 @@ static int getTableRecordInfoImplWS(
         ws_res = NULL;
         ws_close(ws_taos);
         ws_taos = NULL;
+        free(command);
         return -1;
     }
 
@@ -1341,6 +1350,7 @@ static int getTableRecordInfoImplWS(
             ws_res = NULL;
             ws_close(ws_taos);
             ws_taos = NULL;
+            free(command);
             return 0;
         }
 
@@ -1421,6 +1431,8 @@ static int getTableRecordInfoImplWS(
     ws_close(ws_taos);
     ws_taos = NULL;
 
+    free(command);
+
     if (isSet) {
         return 0;
     }
@@ -1461,7 +1473,11 @@ static int getTableRecordInfoImplNative(
 
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     sprintf(command, "USE %s", dbName);
     res = taos_query(taos, command);
@@ -1470,6 +1486,7 @@ static int getTableRecordInfoImplNative(
         errorPrint("Invalid database %s, reason: %s\n",
                 dbName, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return 0;
     }
 
@@ -1499,6 +1516,7 @@ static int getTableRecordInfoImplNative(
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return -1;
     }
 
@@ -1551,6 +1569,7 @@ static int getTableRecordInfoImplNative(
 
     taos_free_result(res);
     res = NULL;
+    free(command);
 
     if (isSet) {
         return 0;
@@ -1732,13 +1751,17 @@ static int getDumpDbCount() {
     TAOS     *taos = NULL;
     TAOS_RES *res     = NULL;
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed", __func__, __LINE__);
+        return -1;
+    }
+
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT name FROM information_schema.ins_databases");
     } else {
         sprintf(command, "SHOW DATABASES");
     }
-
 
     int32_t code;
 
@@ -1752,6 +1775,7 @@ static int getDumpDbCount() {
             code = ws_errno(ws_taos);
             errorPrint("Failed to connect to TDengine %s, code: %d, reason: %s!\n",
                     g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+            free(command);
             return 0;
         }
 
@@ -1767,6 +1791,7 @@ static int getDumpDbCount() {
             ws_res = NULL;
             ws_close(ws_taos);
             ws_taos = NULL;
+            free(command);
             return 0;
         }
 
@@ -1793,6 +1818,7 @@ static int getDumpDbCount() {
                     );
             taos_free_result(res);
             taos_close(taos);
+            free(command);
             return 0;
         }
 
@@ -1803,6 +1829,7 @@ static int getDumpDbCount() {
     }
 #endif
 
+    free(command);
     return count;
 }
 
@@ -2377,7 +2404,11 @@ static int getTableTagValueWSV3(
         const char *table,
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     sprintf(command,
             "SELECT tag_name,tag_value FROM information_schema.ins_tags "
@@ -2392,6 +2423,7 @@ static int getTableTagValueWSV3(
                 __func__, __LINE__, command, ws_code, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
+        free(command);
         return -1;
     }
 
@@ -2436,6 +2468,7 @@ static int getTableTagValueWSV3(
                 errorPrint("%s() LN%d, processFieldsValueV3 tag_value: %p\n",
                         __func__, __LINE__, value1);
                 ws_free_result(ws_res);
+                free(command);
                 return -1;
             }
             index++;
@@ -2443,6 +2476,7 @@ static int getTableTagValueWSV3(
     }
 
     ws_free_result(ws_res);
+    free(command);
 
     return (tableDes->columns + tableDes->tags);
 }
@@ -2453,7 +2487,11 @@ static int getTableTagValueWSV2(
         const char *table,
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
     char *sqlstr = command;
 
     sqlstr += sprintf(sqlstr, "SELECT %s%s%s",
@@ -2476,6 +2514,7 @@ static int getTableTagValueWSV2(
                 __func__, __LINE__, sqlstr, ws_code, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
+        free(command);
         return -1;
     }
 
@@ -2520,6 +2559,7 @@ static int getTableTagValueWSV2(
                     errorPrint("%s() LN%d, processFieldsValueV2 value0: %p\n",
                             __func__, __LINE__, value);
                     ws_free_result(ws_res);
+                    free(command);
                     return -1;
                 }
             }
@@ -2527,6 +2567,7 @@ static int getTableTagValueWSV2(
     }
 
     ws_free_result(ws_res);
+    free(command);
 
     return (tableDes->columns + tableDes->tags);
 }
@@ -2571,7 +2612,12 @@ static int getTableDesWS(
         TableDes *tableDes,
         const bool colOnly) {
     int colCount = 0;
-    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *sqlstr = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == sqlstr) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
+
     sprintf(sqlstr, "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
@@ -2584,6 +2630,7 @@ static int getTableDesWS(
                 ws_taos, ws_code, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
+        free(sqlstr);
         return -1;
     } else {
         debugPrint("%s() LN%d, run command <%s> success, ws_taos: %p\n",
@@ -2679,6 +2726,8 @@ static int getTableDesWS(
 
     ws_free_result(ws_res);
     ws_res = NULL;
+    free(sqlstr);
+
     if (colOnly) {
         return colCount;
     }
@@ -2694,7 +2743,11 @@ static int getTableTagValueNativeV3(
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     sprintf(command,
             "SELECT tag_name,tag_value FROM information_schema.ins_tags "
@@ -2708,6 +2761,7 @@ static int getTableTagValueNativeV3(
                 "code: 0x%08x, reason: %s\n",
                 __func__, __LINE__, command, taos, code, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return -1;
     }
 
@@ -2727,6 +2781,7 @@ static int getTableTagValueNativeV3(
             errorPrint("%s() LN%d, processFieldsValueV3 tag_value: %p\n",
                     __func__, __LINE__, row[1]);
             taos_free_result(res);
+            free(command);
             return -1;
         }
 
@@ -2734,6 +2789,7 @@ static int getTableTagValueNativeV3(
     };
 
     taos_free_result(res);
+    free(command);
 
     return (tableDes->columns + tableDes->tags);
 }
@@ -2745,7 +2801,11 @@ static int getTableTagValueNativeV2(
         TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
     char *sqlstr = command;
 
     sqlstr += sprintf(sqlstr, "SELECT %s%s%s",
@@ -2767,6 +2827,7 @@ static int getTableTagValueNativeV2(
                 "code: 0x%08x, reason: %s\n",
                 __func__, __LINE__, command, taos, code, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return -1;
     }
 
@@ -2778,6 +2839,7 @@ static int getTableTagValueNativeV2(
                 __func__, __LINE__,
                 command, taos, taos_errno(res), taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return -1;
     }
 
@@ -2796,10 +2858,12 @@ static int getTableTagValueNativeV2(
                     row[j- tableDes->columns],
                     length[j- tableDes->columns])) {
             taos_free_result(res);
+            free(command);
             return -1;
         }
     }
     taos_free_result(res);
+    free(command);
 
     return (tableDes->columns + tableDes->tags);
 }
@@ -2847,7 +2911,12 @@ static int getTableDesNative(
     TAOS_RES* res = NULL;
     int colCount = 0;
 
-    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *sqlstr = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == sqlstr) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
+
     sprintf(sqlstr, "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
@@ -2859,6 +2928,7 @@ static int getTableDesNative(
                 __func__, __LINE__, sqlstr, taos,
                 taos_errno(res), taos_errstr(res));
         taos_free_result(res);
+        free(sqlstr);
         return -1;
     } else {
         debugPrint("%s() LN%d, run command <%s> success, taos: %p\n",
@@ -2901,6 +2971,7 @@ static int getTableDesNative(
     tableDes->tags = tags;
 
     taos_free_result(res);
+    free(sqlstr);
 
     if (colOnly) {
         return colCount;
@@ -4457,7 +4528,11 @@ int64_t queryDbForDumpOutCount(
         const char *tbName,
         const int precision) {
     int64_t count = -1;
-    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *sqlstr = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == sqlstr) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     int64_t startTime = getStartTime(precision);
     int64_t endTime = getEndTime(precision);
@@ -4483,6 +4558,7 @@ int64_t queryDbForDumpOutCount(
 #ifdef WEBSOCKET
     }
 #endif
+    free(sqlstr);
     return count;
 }
 
@@ -4529,7 +4605,11 @@ void *queryDbForDumpOutOffset(
         const int64_t end_time,
         const int64_t limit,
         const int64_t offset) {
-    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *sqlstr = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == sqlstr) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return NULL;
+    }
 
     if (-1 == limit) {
         sprintf(sqlstr,
@@ -4556,6 +4636,7 @@ void *queryDbForDumpOutOffset(
 #ifdef WEBSOCKET
     }
 #endif
+    free(sqlstr);
     return res;
 }
 
@@ -5131,13 +5212,18 @@ static int64_t dumpInAvroTbTagsImpl(
     int64_t success = 0;
     int64_t failed = 0;
 
-    char sqlstr[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *sqlstr = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == sqlstr) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     TableDes *tableDes = (TableDes *)calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * TSDB_MAX_COLUMNS);
     if (NULL == tableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n",
                 __func__, __LINE__);
+        free(sqlstr);
         return -1;
     }
 
@@ -6006,6 +6092,7 @@ static int64_t dumpInAvroTbTagsImpl(
     avro_value_iface_decref(value_class);
 
     freeTbDes(tableDes);
+    free(sqlstr);
 
     if (failed)
         return failed;
@@ -7542,7 +7629,11 @@ static int processResultValue(
         return sprintf(pstr + curr_sqlstr_len, "NULL");
     }
 
-    char tbuf[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *tbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == tbuf) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
             return sprintf(pstr + curr_sqlstr_len, "%d",
@@ -7611,6 +7702,7 @@ static int processResultValue(
             break;
     }
 
+    free(tbuf);
     return 0;
 }
 
@@ -7835,7 +7927,11 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
         const int precision,
         const int64_t start_time,
         const int64_t end_time) {
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return NULL;
+    }
 
     sprintf(command,
             "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
@@ -7851,9 +7947,11 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
                 command, ws_errno(ws_res), ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
+        free(command);
         return NULL;
     }
 
+    free(command);
     return ws_res;
 }
 #endif
@@ -7864,7 +7962,11 @@ TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
         const int precision,
         const int64_t start_time,
         const int64_t end_time) {
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return NULL;
+    }
 
     sprintf(command,
             "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
@@ -7879,9 +7981,11 @@ TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
                 __func__, __LINE__,
                 command, code, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return NULL;
     }
 
+    free(command);
     return res;
 }
 
@@ -9099,7 +9203,11 @@ static int64_t fillTbNameArr(
         void *taos, char **tbNameArr,
         const SDbInfo *dbInfo,
         const char *stable) {
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) FROM %s.%s%s%s)",
@@ -9133,6 +9241,7 @@ static int64_t fillTbNameArr(
     if (NULL == *tbNameArr) {
         errorPrint("%s() LN%d, memory allocation failed!\n",
                 __func__, __LINE__);
+        free(command);
         return -1;
     }
 
@@ -9165,6 +9274,7 @@ static int64_t fillTbNameArr(
     infoPrint("The number of tables of %s be filled is %"PRId64"!\n",
             stable, ntbCount);
 
+    free(command);
     return ntbCount;
 }
 
@@ -9534,7 +9644,11 @@ static int convertNCharToReadable(char *str, int size, char *buf, int bufsize) {
 #ifdef WEBSOCKET
 static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
     char buffer[BUFFER_LEN];
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return;
+    }
     strcpy(command, "SHOW VARIABLES");
 
     int32_t ws_code;
@@ -9561,6 +9675,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         }
         ws_free_result(ws_res);
         ws_res = NULL;
+        free(command);
         return;
     }
 
@@ -9610,12 +9725,17 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
 
     ws_free_result(ws_res);
     ws_res = NULL;
+    free(command);
 }
 #endif  // WEBSOCKET
 
 static void dumpExtraInfoVar(void *taos, FILE *fp) {
     char buffer[BUFFER_LEN];
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return;
+    }
     strcpy(command, "SHOW VARIABLES");
 
     int32_t code;
@@ -9641,6 +9761,7 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
         }
 
         taos_free_result(res);
+        free(command);
         return;
     }
 
@@ -9666,6 +9787,7 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
         }
     }
     taos_free_result(res);
+    free(command);
 }
 
 static int dumpExtraInfoHead(void *taos, FILE *fp) {
@@ -10463,7 +10585,11 @@ static int64_t dumpNtbOfStbByThreads(
         SDbInfo *dbInfo,
         const char *stbName) {
     int64_t ntbCount;
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
@@ -10489,6 +10615,7 @@ static int64_t dumpNtbOfStbByThreads(
     infoPrint("%s() LN%d, %s's %s's total normal table count: %"PRId64"\n",
             __func__, __LINE__, dbInfo->name, stbName, ntbCount);
     if (ntbCount <= 0) {
+        free(command);
         return 0;
     }
 
@@ -10499,6 +10626,7 @@ static int64_t dumpNtbOfStbByThreads(
     if (NULL == stbTableDes) {
         errorPrint("%s() LN%d, memory allocation failed!\n",
                 __func__, __LINE__);
+        free(command);
         return -1;
     }
 
@@ -10521,6 +10649,7 @@ static int64_t dumpNtbOfStbByThreads(
         if (stbTableDes) {
             freeTbDes(stbTableDes);
         }
+        free(command);
         exit(-1);
     }
 
@@ -10538,6 +10667,7 @@ static int64_t dumpNtbOfStbByThreads(
                 free(tbNameArr);
             }
             freeTbDes(stbTableDes);
+            free(command);
             return -1;
         }
     } else {
@@ -10579,6 +10709,7 @@ static int64_t dumpNtbOfStbByThreads(
                 freeTbDes(stbTableDes);
                 free(pids);
                 free(infos);
+                free(command);
 
                 return -1;
             }
@@ -10603,6 +10734,7 @@ static int64_t dumpNtbOfStbByThreads(
                 freeTbDes(stbTableDes);
                 free(pids);
                 free(infos);
+                free(command);
 
                 return -1;
             }
@@ -10658,6 +10790,7 @@ static int64_t dumpNtbOfStbByThreads(
 
     free(pids);
     free(infos);
+    free(command);
 
     return 0;
 }
@@ -10705,7 +10838,11 @@ static int64_t dumpStbAndChildTbOfDbWS(
         WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) {
     int64_t ret = 0;
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     sprintf(command, "USE %s", dbInfo->name);
     WS_RES *ws_res;
@@ -10717,6 +10854,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
         errorPrint("Invalid database %s, reason: %s\n",
                 dbInfo->name, ws_errstr(ws_res));
         ws_free_result(ws_res);
+        free(command);
         return -1;
     }
 
@@ -10736,6 +10874,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, ws_errstr(ws_res));
         ws_free_result(ws_res);
+        free(command);
         return -1;
     }
 
@@ -10783,6 +10922,8 @@ static int64_t dumpStbAndChildTbOfDbWS(
         }
     }
 
+    free(command);
+
     return ret;
 }
 
@@ -10794,7 +10935,12 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
         return 0;
     }
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
+
     WS_RES *ws_res;
     int32_t ws_code;
 
@@ -10813,6 +10959,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
             ws_res = NULL;
             ws_close(ws_taos);
             ws_taos = NULL;
+            free(command);
             return 0;
         }
         ws_free_result(ws_res);
@@ -10828,6 +10975,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
         ws_res = NULL;
         ws_close(ws_taos);
         ws_taos = NULL;
+        free(command);
         return 0;
     }
 
@@ -10902,6 +11050,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
     }
 
     ws_free_result(ws_res);
+    free(command);
 
     return ret;
 }
@@ -10916,7 +11065,11 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
         return 0;
     }
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     TAOS_RES *res;
     int32_t code;
@@ -10933,6 +11086,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
             errorPrint("invalid database %s, reason: %s\n",
                     dbInfo->name, taos_errstr(res));
             taos_free_result(res);
+            free(command);
             return 0;
         }
         taos_free_result(res);
@@ -10946,6 +11100,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
         errorPrint("Failed to show %s\'s tables, reason: %s\n",
                 dbInfo->name, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return 0;
     }
 
@@ -10988,6 +11143,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
     }
 
     taos_free_result(res);
+    free(command);
 
     return ret;
 }
@@ -10996,7 +11152,11 @@ static int64_t dumpStbAndChildTbOfDbNative(
         TAOS *taos, SDbInfo *dbInfo, FILE *fpDbs) {
     int64_t ret = 0;
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
 
     sprintf(command, "USE %s", dbInfo->name);
     TAOS_RES *res;
@@ -11008,6 +11168,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
         errorPrint("Invalid database %s, reason: %s\n",
                 dbInfo->name, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return -1;
     }
 
@@ -11029,6 +11190,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
         errorPrint("%s() LN%d, failed to run command <%s>. reason: %s\n",
                 __func__, __LINE__, command, taos_errstr(res));
         taos_free_result(res);
+        free(command);
         return -1;
     }
 
@@ -11054,6 +11216,8 @@ static int64_t dumpStbAndChildTbOfDbNative(
     }
 
     taos_free_result(res);
+    free(command);
+
     return ret;
 }
 
@@ -11626,7 +11790,11 @@ static int fillDbExtraInfoV3WS(
         const char *dbName,
         const int dbIndex) {
     int ret = 0;
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
     sprintf(command, "SELECT COUNT(table_name) FROM "
             "information_schema.ins_tables WHERE db_name='%s'", dbName);
 
@@ -11638,6 +11806,7 @@ static int fillDbExtraInfoV3WS(
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                 __func__, __LINE__, command, ws_errstr(ws_res));
         ws_free_result(ws_res);
+        free(command);
         ret = -1;
     } else {
         while (true) {
@@ -11675,13 +11844,19 @@ static int fillDbExtraInfoV3WS(
         }
     }
 
+    free(command);
     return ret;
 }
 static int fillDbInfoWS(void *taos) {
     int ret = 0;
     int dbIndex = 0;
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
+
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT * FROM information_schema.ins_databases");
     } else {
@@ -11693,6 +11868,7 @@ static int fillDbInfoWS(void *taos) {
     if (code != 0) {
         errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                 __func__, __LINE__, command, ws_errstr(ws_res));
+        free(command);
         return -1;
     }
 
@@ -11805,6 +11981,8 @@ static int fillDbInfoWS(void *taos) {
 
     ws_free_result(ws_res);
     ws_res = NULL;
+    free(command);
+
     if (0 != ret) {
         return ret;
     }
@@ -11818,7 +11996,11 @@ static int fillDbExtraInfoV3Native(
         const char *dbName,
         const int dbIndex) {
     int ret = 0;
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
     sprintf(command, "SELECT COUNT(table_name) FROM "
             "information_schema.ins_tables WHERE db_name='%s'",
             dbName);
@@ -11846,6 +12028,7 @@ static int fillDbExtraInfoV3Native(
     }
 
     taos_free_result(res);
+    free(command);
     return ret;
 }
 
@@ -11853,7 +12036,11 @@ static int fillDbInfoNative(void *taos) {
     int ret = 0;
     int dbIndex = 0;
 
-    char command[TSDB_MAX_ALLOWED_SQL_LEN] = {0};
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
     if (3 == g_majorVersionOfClient) {
         sprintf(command, "SELECT * FROM information_schema.ins_databases");
     } else {
@@ -11929,6 +12116,8 @@ static int fillDbInfoNative(void *taos) {
     }
 
     taos_free_result(res);
+    free(command);
+
     if (0 != ret) {
         return ret;
     }
@@ -12906,9 +13095,7 @@ int main(int argc, char *argv[]) {
         parse_args(argc, argv, &g_args);
     }
 
-#ifdef LINUX
     argp_parse(&argp, argc, argv, 0, 0, &g_args);
-#endif
 
     if (g_args.abort) {
         abort();
