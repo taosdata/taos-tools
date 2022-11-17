@@ -97,6 +97,12 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
     MESSAGE(STATUS "deps' cmake detected current OS is Windows")
     ExternalProject_Add(
+        zlib
+        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/zlib
+        SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/zlib-1.2.13
+        CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" -DCMAKE_MAKE_PROGRAM=jom -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/zlib-1.2.13
+        )
+    ExternalProject_Add(
         deps-jansson
         GIT_REPOSITORY https://github.com/akheron/jansson
         GIT_TAG         v2.14
