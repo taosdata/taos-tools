@@ -32,13 +32,13 @@ for details on how to use it.
 #### For Ubuntu/Debian system
 
 ```
-sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev
+sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev gawk
 ```
 
 #### For CentOS 7/RHEL
 
 ```
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
+sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel gawk
 ```
 
 #### For CentOS 8/Rocky Linux
@@ -47,7 +47,7 @@ sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgco
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
+sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel gawk
 ```
 
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)),
@@ -56,7 +56,7 @@ it lead a cmake prompt libsnappy not found. But snappy will works well.
 #### For macOS (only taosBenchmark for now)
 
 ```
-brew install argp-standalone
+brew install argp-standalone gawk
 ```
 
 ### Install TDengine client
@@ -65,15 +65,22 @@ Please download TDengine client package from [tdengine.com](https://www.tdengine
 or compile TDengine source from [GitHub](github.com/taosdata/TDengine)
 and install to your system.
 
-### Clone source code and compile
+### Clone source code and build
 
 ```
 git clone https://github.com/taosdata/taos-tools
 cd taos-tools
-git submodule update --init --recursive
 mkdir build
 cd build
 cmake ..
+make
+```
+
+#### build taos-tools for TDengine 2.x
+
+```
+...
+cmake .. -DTD_VER_COMPATIBLE=2.0.0.0
 make
 ```
 
