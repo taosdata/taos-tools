@@ -361,6 +361,7 @@ ELSE ()
     ENDIF ()
 
     ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)
+    ADD_DEPENDENCIES(apache-avro tools-zlib)
     ADD_DEPENDENCIES(apache-avro deps-jansson)
     ADD_DEPENDENCIES(deps-snappy apache-avro)
     ADD_DEPENDENCIES(taosdump deps-jansson)
@@ -385,6 +386,6 @@ ELSE ()
         PUBLIC "${TD_SOURCE_DIR}/contrib/pthread"
         PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
     )
-    TARGET_LINK_LIBRARIES(taosdump taos avro jansson pthread libargp.lib ${WEBSOCKET_LINK_FLAGS})
+    TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlib.lib ${WEBSOCKET_LINK_FLAGS})
     TARGET_LINK_LIBRARIES(taosBenchmark taos msvcregex pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
 ENDIF ()
