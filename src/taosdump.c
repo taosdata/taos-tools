@@ -3520,23 +3520,36 @@ static void dumpCreateDbClause(
                     dbInfo->single_stable_model?1:0);
         }
 
+        if (dbInfo->replica) {
+            pstr += sprintf(pstr, "REPLICA %d ", dbInfo->replica);
+        }
+
         pstr += sprintf(pstr,
-                "REPLICA %d %s %s %s KEEP %s %s %s MINROWS %d "
-                "MAXROWS %d %s %s COMP %d PRECISION '%s' %s %s",
-                dbInfo->replica,
+                "%s %s %s KEEP %s %s %s "
+                "%s %s PRECISION '%s' %s %s",
                 (g_majorVersionOfClient < 3)?"":strict,
                 (g_majorVersionOfClient < 3)?quorum:"",
                 (g_majorVersionOfClient < 3)?days:duration,
                 dbInfo->keeplist,
                 (g_majorVersionOfClient < 3)?cache:"",
                 (g_majorVersionOfClient < 3)?blocks:"",
-                dbInfo->minrows, dbInfo->maxrows,
                 (g_majorVersionOfClient < 3)?fsync:"",
                 (g_majorVersionOfClient < 3)?cachelast:"",
-                dbInfo->comp,
                 dbInfo->precision,
                 single_stable_model,
                 (g_majorVersionOfClient < 3)?update:"");
+        if (dbInfo->minrows) {
+            pstr += sprintf(pstr, "MINROWS %d ", dbInfo->minrows);
+        }
+
+        if (dbInfo->maxrows) {
+            pstr += sprintf(pstr, "MAXROWS %d ", dbInfo->maxrows);
+        }
+
+        if (dbInfo->comp) {
+            pstr += sprintf(pstr, "COMP %d ", dbInfo->comp);
+        }
+
     }
 
     pstr += sprintf(pstr, ";");
