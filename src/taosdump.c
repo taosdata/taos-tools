@@ -403,8 +403,6 @@ static int64_t g_totalDumpInNtbFailed = 0;
 SDbInfo **g_dbInfos = NULL;
 TableInfo *g_tablesList = NULL;
 
-//#ifdef LINUX
-
 /* Program documentation. */
 static char doc[] = "";
 /* "Argp example #4 -- a program with somewhat more complicated\ */
@@ -484,8 +482,6 @@ static struct argp_option options[] = {
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
 };
-
-//#endif  // LINUX
 
 #define HUMAN_TIME_LEN      28
 #define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
@@ -839,7 +835,6 @@ int64_t getEndTime(int precision) {
     return end_time;
 }
 
-//#ifdef LINUX
 /* Parse a single option. */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     /* Get the input argument from argp_parse, which we
@@ -1044,7 +1039,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 /* Our argp parser. */
 static error_t parse_opt(int key, char *arg, struct argp_state *state);
 static struct argp argp = {options, parse_opt, args_doc, doc};
-//#endif  // LINUX
 
 static void freeTbDes(TableDes *tableDes) {
     if (NULL == tableDes) return;
@@ -1097,8 +1091,7 @@ static int queryDbImplNative(TAOS *taos, char *command) {
     return ret;
 }
 
-//#ifdef LINUX
-static void parse_args_for_linux(
+static void parse_args(
         int argc, char *argv[], SArguments *arguments) {
     for (int i = 1; i < argc; i++) {
         if ((strncmp(argv[i], "-p", 2) == 0)
@@ -1175,22 +1168,6 @@ static void parse_args_for_linux(
             continue;
         }
     }
-}
-/*
-#else
-static void parse_args_for_non_linux(
-        int argc, char *argv[], SArguments *arguments) {
-}
-#endif  // LINUX
-*/
-
-static void parse_args(
-        int argc, char *argv[], SArguments *arguments) {
-//#ifdef LINUX
-    parse_args_for_linux(argc, argv, arguments);
-//#else
-//    parse_args_for_non_linux(argc, argv, arguments);
-//#endif
 }
 
 static void copyHumanTimeToArg(char *timeStr, bool isStartTime) {
@@ -8119,13 +8096,14 @@ static int generateSubDirName(
     if (dir) {
         /* Directory exists. */
         toolsCloseDir(&dir);
+    } else if (NULL == dir) {
 #else
     DIR* dir = opendir(dirToCreate);
     if (dir) {
         /* Directory exists. */
         closedir(dir);
-#endif
     } else if (ENOENT == errno) {
+#endif
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
         if (ret) {
@@ -13091,13 +13069,6 @@ static int inspectAvroFiles(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-#ifdef WINDOWS
-    if (!g_args.answer_yes) {
-        printf("Press any key to continue\n");
-        getchar();
-    }
-#endif
-
     g_uniqueID = getUniqueIDFromEpoch();
 
     int ret = 0;
