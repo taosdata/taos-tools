@@ -173,6 +173,7 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         COMMAND sed -i "s/add_subdirectory(tests)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         COMMAND sed -i "s/add_subdirectory(docs)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         COMMAND sed -i "s/ include_directories/ # include_directories/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
+        COMMAND sed -i "s/SNAPPY_FOUND/TRUE/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         COMMAND sed -i "s/JANSSON_FOUND/TRUE/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/codec.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
