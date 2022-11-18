@@ -175,7 +175,7 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         COMMAND sed -i "s/ include_directories/ # include_directories/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/codec.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
-        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/avro-lang-c-CMakeLists.txt ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt
+        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/avro-lang-c-CMakeLists.txt ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" ${BUILD_TYPE} -DCMAKE_MAKE_PROGRAM=jom -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
         )
     ADD_SUBDIRECTORY(CUnit)
