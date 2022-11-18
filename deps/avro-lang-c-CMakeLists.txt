@@ -164,7 +164,6 @@ else (TRUE AND ZLIB_FOUND)
 endif (TRUE AND ZLIB_FOUND)
 
 find_package(PkgConfig)
-pkg_check_modules(LZMA liblzma)
 if (LZMA_FOUND)
     set(LZMA_PKG liblzma)
     add_definitions(-DLZMA_CODEC)
@@ -181,7 +180,6 @@ set(CODEC_LIBRARIES ${ZLIB_LIBRARIES} ${LZMA_LIBRARIES} ${SNAPPY_LIBRARIES})
 set(CODEC_PKG "@ZLIB_PKG@ @LZMA_PKG@ @SNAPPY_PKG@")
 
 # Jansson JSON library
-pkg_check_modules(JANSSON jansson>=2.3)
 if (TRUE)
     set(JANSSON_PKG libjansson)
     # # include_directories(${JANSSON_INCLUDE_DIRS})
