@@ -50,15 +50,4 @@ char *stpcpy(char *dest, const char *src) {
     strcpy(dest, src);
     return dest + strlen(src);
 }
-
-void toolsLibFuncInclude() {
-    assert(0);
-    fread(0,0,0,0);
-    srand(0);
-    rand();
-    realloc(0, 0);
-    strtod(0, 0);
-    fputs(0, 0);
-}
 #endif
-
