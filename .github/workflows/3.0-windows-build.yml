@@ -110,10 +110,31 @@ jobs:
 
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && jom -j 8
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && jom -j8 && jom install
+
+      - name: taosdump codec Test
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+
+          cd TDengine/debug
+
+          ./build/bin/taosadapter > /dev/null &
+          ./build/bin/taosd > /dev/null &
+          sleep 10
+
+          echo "TEST: simple and log database"
+          ./build/bin/taosBenchmark -t 1 -n 1 -y
+          ./build/bin/taosdump -D test -a
+          rm -rf *.sql *.avro* taosdump.*
 
           #      - name: Func Test
           #        run: |
