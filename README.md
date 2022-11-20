@@ -31,19 +31,19 @@ for details on how to use it.
 
 #### For Ubuntu/Debian system
 
-```
+```shell
 sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev gawk
 ```
 
 #### For CentOS 7/RHEL
 
-```
+```shell
 sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel gawk
 ```
 
 #### For CentOS 8/Rocky Linux
 
-```
+```shell
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
@@ -55,7 +55,7 @@ it lead a cmake prompt libsnappy not found. But snappy will works well.
 
 #### For macOS (only taosBenchmark for now)
 
-```
+```shell
 brew install argp-standalone gawk
 ```
 
@@ -67,7 +67,7 @@ and install to your system.
 
 ### Clone source code and build
 
-```
+```shell
 git clone https://github.com/taosdata/taos-tools
 cd taos-tools
 mkdir build
@@ -78,7 +78,7 @@ make
 
 #### build taos-tools for TDengine 2.x
 
-```
+```shell
 ...
 cmake .. -DTD_VER_COMPATIBLE=2.0.0.0
 make
@@ -86,6 +86,6 @@ make
 
 ### Install
 
-```
+```shell
 sudo make install
 ```
