@@ -12,7 +12,6 @@
 # -*- coding: utf-8 -*-
 
 from logging.config import dictConfig
-import sys
 import os
 from util.log import *
 from util.cases import *
