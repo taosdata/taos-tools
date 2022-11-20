@@ -3,6 +3,7 @@
 <div align="center">
 <p>
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/7fb6f1cb61ab453580b69e48050dc9be)](https://app.codacy.com/gh/taosdata/taos-tools?utm_source=github.com&utm_medium=referral&utm_content=taosdata/taos-tools&utm_campaign=Badge_Grade_Settings)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/fe218d3468cb4c70af8320458d6c72a6)](https://www.codacy.com/gh/taosdata/taos-tools/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=taosdata/taos-tools&amp;utm_campaign=Badge_Grade)
 [![CppCheck action](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml/badge.svg?branch=develop)](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml) [![CodeQL](https://github.com/taosdata/taos-tools/actions/workflows/codeql.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/codeql.yml) [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
 <br />
