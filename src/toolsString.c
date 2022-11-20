@@ -15,13 +15,12 @@
 #ifdef WINDOWS
 char *strsep(char **stringp, const char *delim) {
     char       *s;
-    const char *spanp;
-    int32_t     c, sc;
+    int32_t     sc;
     char       *tok;
     if ((s = *stringp) == NULL) return (NULL);
     for (tok = s;;) {
-        c = *s++;
-        spanp = delim;
+        int32_t c = *s++;
+        const char *spanp = delim;
         do {
             if ((sc = *spanp++) == c) {
                 if (c == 0)

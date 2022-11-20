@@ -3,6 +3,7 @@
 <div align="center">
 <p>
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/fe218d3468cb4c70af8320458d6c72a6)](https://www.codacy.com/gh/taosdata/taos-tools/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=taosdata/taos-tools&amp;utm_campaign=Badge_Grade)
 [![CppCheck action](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml/badge.svg?branch=develop)](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml) [![CodeQL](https://github.com/taosdata/taos-tools/actions/workflows/codeql.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/codeql.yml) [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
 <br />
 [![Ubuntu (3.0 taosbenchmark release)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosBenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosBenchmark-release.yml) [![Ubuntu (3.0 taosdump native)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml) [![Windows (3.0 build)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml)
@@ -31,19 +32,19 @@ for details on how to use it.
 
 #### For Ubuntu/Debian system
 
-```
+```shell
 sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev gawk
 ```
 
 #### For CentOS 7/RHEL
 
-```
+```shell
 sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel gawk
 ```
 
 #### For CentOS 8/Rocky Linux
 
-```
+```shell
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
@@ -55,7 +56,7 @@ it lead a cmake prompt libsnappy not found. But snappy will works well.
 
 #### For macOS (only taosBenchmark for now)
 
-```
+```shell
 brew install argp-standalone gawk
 ```
 
@@ -67,7 +68,7 @@ and install to your system.
 
 ### Clone source code and build
 
-```
+```shell
 git clone https://github.com/taosdata/taos-tools
 cd taos-tools
 mkdir build
@@ -78,7 +79,7 @@ make
 
 #### build taos-tools for TDengine 2.x
 
-```
+```shell
 ...
 cmake .. -DTD_VER_COMPATIBLE=2.0.0.0
 make
@@ -86,6 +87,6 @@ make
 
 ### Install
 
-```
+```shell
 sudo make install
 ```
