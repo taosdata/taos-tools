@@ -13,7 +13,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <pthread.h>
 #include <iconv.h>
 #include <sys/stat.h>
@@ -628,15 +627,15 @@ static uint64_t getUniqueIDFromEpoch() {
 
 int setConsoleEcho(bool on) {
 #if defined(WINDOWS)
-  HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-  DWORD  mode = 0;
-  GetConsoleMode(hStdin, &mode);
-  if (on) {
-    mode |= ENABLE_ECHO_INPUT;
-  } else {
-    mode &= ~ENABLE_ECHO_INPUT;
-  }
-  SetConsoleMode(hStdin, mode);
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD  mode = 0;
+    GetConsoleMode(hStdin, &mode);
+    if (on) {
+        mode |= ENABLE_ECHO_INPUT;
+    } else {
+        mode &= ~ENABLE_ECHO_INPUT;
+    }
+    SetConsoleMode(hStdin, mode);
 
 #else
 #define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
@@ -3561,60 +3560,32 @@ static uint64_t getFilesNum(const char *dbPath, const char *ext) {
     uint64_t count = 0;
 
     int namelen, extlen;
-#ifdef WINDOWS
     TdDirEntryPtr pDirent;
     TdDirPtr pDir;
-#else
-    struct dirent *pDirent;
-    DIR *pDir;
-#endif
 
     extlen = strlen(ext);
 
     bool isSql = (0 == strcmp(ext, "sql"));
 
-#ifdef WINDOWS
     pDir = toolsOpenDir(dbPath);
-#else
-    pDir = opendir(dbPath);
-#endif
     if (pDir != NULL) {
-#ifdef WINDOWS
         while ((pDirent = toolsReadDir(pDir)) != NULL) {
             char *entryName = toolsGetDirEntryName(pDirent);
             namelen = strlen(entryName);
-#else
-        while ((pDirent = readdir(pDir)) != NULL) {
-            namelen = strlen(pDirent->d_name);
-#endif
 
             if (namelen > extlen) {
-#ifdef WINDOWS
                 if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
                     if (isSql) {
                         if (0 == strcmp(entryName, "dbs.sql")) {
-#else
-                if (strcmp(ext, &(pDirent->d_name[namelen - extlen])) == 0) {
-                    if (isSql) {
-                        if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
-#endif
                             continue;
                         }
                     }
-#ifdef WINDOWS
                     verbosePrint("%s found\n", entryName);
-#else
-                    verbosePrint("%s found\n", pDirent->d_name);
-#endif
                     count++;
                 }
             }
         }
-#ifdef WINDOWS
         toolsCloseDir(&pDir);
-#else
-        closedir(pDir);
-#endif
     }
 
     debugPrint("%"PRId64" .%s files found!\n", count, ext);
@@ -3716,94 +3687,47 @@ static AVROTYPE createDumpinList(const char *dbPath,
     }
 
     int namelen, extlen;
-#ifdef WINDOWS
     TdDirEntryPtr pDirent;
     TdDirPtr pDir;
-#else
-    struct dirent *pDirent;
-    DIR *pDir;
-#endif
 
     extlen = strlen(ext);
 
     int64_t nCount = 0;
-#ifdef WINDOWS
     pDir = toolsOpenDir(dbPath);
-#else
-    pDir = opendir(dbPath);
-#endif
     if (pDir != NULL) {
-#ifdef WINDOWS
         while ((pDirent = toolsReadDir(pDir)) != NULL) {
             char *entryName = toolsGetDirEntryName(pDirent);
             namelen = strlen(entryName);
-#else
-        while ((pDirent = readdir(pDir)) != NULL) {
-            namelen = strlen(pDirent->d_name);
-#endif
 
             if (namelen > extlen) {
-#ifdef WINDOWS
                 if (strcmp(ext, &(entryName[namelen - extlen])) == 0) {
                     verbosePrint("%s found\n", entryName);
-#else
-                if (strcmp(ext, &(pDirent->d_name[namelen - extlen])) == 0) {
-                    verbosePrint("%s found\n", pDirent->d_name);
-#endif
                     switch (avroType) {
                         case AVRO_UNKNOWN:
-#ifdef WINDOWS
                             if (0 == strcmp(entryName, "dbs.sql")) {
-#else
-                            if (0 == strcmp(pDirent->d_name, "dbs.sql")) {
-#endif
                                 continue;
                             }
-#ifdef WINDOWS
                             tstrncpy(g_tsDumpInDebugFiles[nCount],
                                     entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
-#else
-                            tstrncpy(g_tsDumpInDebugFiles[nCount],
-                                    pDirent->d_name,
-                                    min(namelen+1, MAX_FILE_NAME_LEN));
-#endif
                             break;
 
                         case AVRO_NTB:
-#ifdef WINDOWS
                             tstrncpy(g_tsDumpInAvroNtbs[nCount],
                                     entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
-#else
-                            tstrncpy(g_tsDumpInAvroNtbs[nCount],
-                                    pDirent->d_name,
-                                    min(namelen+1, MAX_FILE_NAME_LEN));
-#endif
                             break;
 
                         case AVRO_TBTAGS:
-#ifdef WINDOWS
                             tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
                                     entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
-#else
-                            tstrncpy(g_tsDumpInAvroTagsTbs[nCount],
-                                    pDirent->d_name,
-                                    min(namelen+1, MAX_FILE_NAME_LEN));
-#endif
                             break;
 
                         case AVRO_DATA:
-#ifdef WINDOWS
                             tstrncpy(g_tsDumpInAvroFiles[nCount],
                                     entryName,
                                     min(namelen+1, MAX_FILE_NAME_LEN));
-#else
-                            tstrncpy(g_tsDumpInAvroFiles[nCount],
-                                    pDirent->d_name,
-                                    min(namelen+1, MAX_FILE_NAME_LEN));
-#endif
                             break;
 
                         default:
@@ -3815,11 +3739,7 @@ static AVROTYPE createDumpinList(const char *dbPath,
                 }
             }
         }
-#ifdef WINDOWS
         toolsCloseDir(&pDir);
-#else
-        closedir(pDir);
-#endif
     }
 
     debugPrint("%"PRId64" .%s files filled to list!\n", nCount, ext);
@@ -8091,19 +8011,11 @@ static int generateSubDirName(
 
     int ret = 0;
 
-#ifdef WINDOWS
     TdDirPtr dir = toolsOpenDir(dirToCreate);
     if (dir) {
         /* Directory exists. */
         toolsCloseDir(&dir);
     } else if (NULL == dir) {
-#else
-    DIR* dir = opendir(dirToCreate);
-    if (dir) {
-        /* Directory exists. */
-        closedir(dir);
-    } else if (ENOENT == errno) {
-#endif
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
         if (ret) {
@@ -9883,16 +9795,18 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
 static void loadFileMark(FILE *fp, char *mark, char *fcharset) {
     char *line = NULL;
     ssize_t size;
-    size_t line_size = 0;
     int markLen = strlen(mark);
 
     (void)fseek(fp, 0, SEEK_SET);
 
     do {
 #ifdef WINDOWS
-        fgets(line, markLen, fp);
-        size = strlen(line);
+        if (NULL == fgets(line, markLen, fp)) {
+            goto _exit_no_charset;
+        }
+        size = strlen(line?line:"");
 #else
+        size_t line_size;
         size = getline(&line, &line_size, fp);
 #endif
         if (size <= 2) {
@@ -9968,7 +9882,6 @@ static int64_t dumpInOneDebugFile(
     char *    cmd      = NULL;
     size_t    cmd_len  = 0;
     char *    line     = NULL;
-    size_t    line_len = 0;
 
     cmd  = (char *)malloc(TSDB_MAX_ALLOWED_SQL_LEN);
     if (cmd == NULL) {
@@ -9983,10 +9896,11 @@ static int64_t dumpInOneDebugFile(
     int64_t failed = 0;
 #ifdef WINDOWS
     while (fgets(line, TSDB_MAX_ALLOWED_SQL_LEN, fp) != NULL) {
-        read_len = strlen(line);
+        read_len = strlen(line?line:"");
 #else
+    size_t line_len;
     while ((read_len = getline(&line, &line_len, fp)) != -1) {
-#endif
+#endif  // WINDOWS
         ++lineNo;
 
         if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN) {
@@ -10270,12 +10184,12 @@ static int dumpInDbs(const char *dbPath) {
     }
     debugPrint("Success Open input file: %s\n", dbsSql);
 
-    char *charSetMark = "#!server_ver: ";
-    loadFileMark(fp, charSetMark, g_dumpInServerVer);
+    char *mark = "#!server_ver: ";
+    loadFileMark(fp, mark, g_dumpInServerVer);
 
-    charSetMark = "#!taosdump_ver: ";
+    mark = "#!taosdump_ver: ";
     char dumpInTaosdumpVer[64] = {0};
-    loadFileMark(fp, charSetMark, dumpInTaosdumpVer);
+    loadFileMark(fp, mark, dumpInTaosdumpVer);
 
     g_dumpInDataMajorVer = atoi(dumpInTaosdumpVer);
 
@@ -10298,19 +10212,19 @@ static int dumpInDbs(const char *dbPath) {
         return -1;
     }
 
-    charSetMark = "#!escape_char: ";
-    loadFileMark(fp, charSetMark, g_dumpInEscapeChar);
+    mark = "#!escape_char: ";
+    loadFileMark(fp, mark, g_dumpInEscapeChar);
 
-    charSetMark = "#!loose_mode: ";
-    loadFileMark(fp, charSetMark, g_dumpInLooseMode);
+    mark = "#!loose_mode: ";
+    loadFileMark(fp, mark, g_dumpInLooseMode);
     if ((g_args.loose_mode)
             || (0 == strcasecmp(g_dumpInLooseMode, "true"))) {
         g_dumpInLooseModeFlag = true;
         strcpy(g_escapeChar, "");
     }
 
-    charSetMark = "#!charset: ";
-    loadFileMark(fp, charSetMark, g_dumpInCharset);
+    mark = "#!charset: ";
+    loadFileMark(fp, mark, g_dumpInCharset);
 
     int64_t rows = dumpInOneDebugFile(
             taos_v, fp, g_dumpInCharset, dbsSql);
@@ -11416,18 +11330,10 @@ static bool checkFileExistsExt(char *path, char *ext) {
 
 static bool checkOutDir(char *outpath) {
     bool ret = true;
-#ifdef WINDOWS
     TdDirPtr pDir = NULL;
-#else
-    DIR *pDir = NULL;
-#endif
 
     if (strlen(outpath)) {
-#ifdef WINDOWS
         if (NULL == (pDir= toolsOpenDir(outpath))) {
-#else
-        if (NULL == (pDir= opendir(outpath))) {
-#endif
             errorPrint("%s is not exist!\n", outpath);
             return false;
         }
@@ -11453,11 +11359,7 @@ static bool checkOutDir(char *outpath) {
     }
 
     if (pDir) {
-#ifdef WINDOWS
         toolsCloseDir(&pDir);
-#else
-        closedir(pDir);
-#endif
     }
 
     return ret;
