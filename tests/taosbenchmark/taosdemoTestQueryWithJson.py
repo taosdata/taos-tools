@@ -17,7 +17,6 @@ from util.log import *
 from util.cases import *
 from util.sql import *
 from util.dnodes import *
-import time
 import ast
 import re
 

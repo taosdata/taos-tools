@@ -559,7 +559,7 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
         if (key[1] == 'f' || key[1] == 'c' || key[1] == 'h' || key[1] == 'P'
                 || key[1] == 'I' || key[1] == 'u' || key[1] == 'p' || key[1] == 'o'
                 || key[1] == 'T' || key[1] == 'i' || key[1] == 'S' || key[1] == 'B'
-                || key[1] == 'r' || key[1] == 't' || key[1] == 'n' || key[1] == 'd'
+                || key[1] == 'r' || key[1] == 't' || key[1] == 'n'
                 || key[1] == 'd' || key[1] == 'l' || key[1] == 'L'
                 || key[1] == 'A' || key[1] == 'b'
                 || key[1] == 'w' || key[1] == 'm'
