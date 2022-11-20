@@ -10,7 +10,6 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
-import ast
 import os
 import re
 
@@ -43,7 +42,7 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:

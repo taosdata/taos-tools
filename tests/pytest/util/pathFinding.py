@@ -43,7 +43,7 @@ class TDFindPath:
         else:
             projPath = selfPath[: selfPath.find("tests")]
 
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if "taosd" in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:

@@ -51,7 +51,7 @@ class TDTestCase:
             projPath = "/usr/local/taos/bin/"
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:
