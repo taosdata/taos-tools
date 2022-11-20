@@ -3,6 +3,7 @@
 <div align="center">
 <p>
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/fe218d3468cb4c70af8320458d6c72a6)](https://www.codacy.com/gh/taosdata/taos-tools/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=taosdata/taos-tools&amp;utm_campaign=Badge_Grade)
 [![CppCheck action](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml/badge.svg?branch=develop)](https://github.com/taosdata/taos-tools/actions/workflows/cppcheck.yml) [![CodeQL](https://github.com/taosdata/taos-tools/actions/workflows/codeql.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/codeql.yml) [![Coverage Status](https://coveralls.io/repos/github/taosdata/taos-tools/badge.svg?branch=develop)](https://coveralls.io/github/taosdata/taos-tools?branch=develop)
 <br />
 [![Ubuntu (3.0 taosbenchmark release)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosBenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosBenchmark-release.yml) [![Ubuntu (3.0 taosdump native)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml) [![Windows (3.0 build)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for3.0.yml)
