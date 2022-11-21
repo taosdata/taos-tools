@@ -97,6 +97,12 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
     MESSAGE(STATUS "deps' cmake detected current OS is Windows")
     ExternalProject_Add(
+        tools-zlib
+        PREFIX ${CMAKE_CURRENT_BINARY_DIR}/tools-zlib
+        SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/zlib-1.2.13
+        CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" -DCMAKE_MAKE_PROGRAM=jom -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/zlib-1.2.13
+        )
+    ExternalProject_Add(
         deps-jansson
         GIT_REPOSITORY https://github.com/akheron/jansson
         GIT_TAG         v2.14
@@ -114,7 +120,13 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         GIT_SUBMODULES  ""
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libargp/
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/libargp
-        PATCH_COMMAND sed -i "s/strcasecmp/_stricmp/g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-help.c && sed -i "s/#include <unistd.h>/#define ssize_t int/g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-fmtstream.h && sed -i "s/#include <unistd.h>//g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-parse.c && sed -i "s/#ifdef __MINGW32__/#ifndef __MINGW32__/g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-parse.c && sed -i "s/#include <unistd.h>//g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/getopt_init.c && sed -i "s/add_executable(libargp-mingw \${SRC_LIST} argp-test.c)/ADD_LIBRARY(libargp \${SRC_LIST})\\ninstall(TARGETS libargp ARCHIVE DESTINATION lib)\\ninstall(FILES \${CMAKE_CURRENT_SOURCE_DIR}\\/src\\/argp.h DESTINATION include)/g" ${PROJECT_SOURCE_DIR}/deps/libargp/CMakeLists.txt
+        PATCH_COMMAND
+        COMMAND sed -i "s/strcasecmp/_stricmp/g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-help.c
+        COMMAND sed -i "s/#include <unistd.h>/#define ssize_t int/g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-fmtstream.h
+        COMMAND sed -i "s/#include <unistd.h>//g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-parse.c
+        COMMAND sed -i "s/#ifdef __MINGW32__/#ifndef __MINGW32__/g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/argp-parse.c
+        COMMAND sed -i "s/#include <unistd.h>//g" ${PROJECT_SOURCE_DIR}/deps/libargp/src/getopt_init.c
+        COMMAND sed -i "s/add_executable(libargp-mingw \${SRC_LIST} argp-test.c)/ADD_LIBRARY(libargp \${SRC_LIST})\\ninstall(TARGETS libargp ARCHIVE DESTINATION lib)\\ninstall(FILES \${CMAKE_CURRENT_SOURCE_DIR}\\/src\\/argp.h DESTINATION include)/g" ${PROJECT_SOURCE_DIR}/deps/libargp/CMakeLists.txt
         CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/"
         )
 
@@ -141,7 +153,24 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         GIT_SHALLOW     true
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
-        PATCH_COMMAND sed -i "s/^install(TARGETS avro[^-]/# install(TARGETS avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt && sed -i "s/^target_link_libraries(avro[^-]/# target_link_libraries(avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt && sed -i "s/^add_executable(avro/# add_executable(avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt && sed -ri "s/([^_])namespace/\\1taos_namespace/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/schema.c && sed -i "s/strrchr(fullname/strrchr((char *)fullname/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/schema.c && sed -i "s/^#include <stdlib.h>/#define ssize_t int\\n #include <stdlib.h>/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/generic.c && sed -i "s/, codec->block_data,/, (uint8_t *)(codec->block_data),/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c && sed -i "s/filters, NULL, data/filters, NULL, (const uint8_t *)data/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c && sed -i "s/__cdecl//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h && sed -i "s/imaxdiv_t/imaxdiv1_t/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h && sed -i "s/imaxdiv(/imax_div(/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h && sed -i "s/typedef uint16_t  uint_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h && sed -i "s/typedef int16_t   int_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h && sed -i "s/#define snprintf _snprintf//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro_private.h && sed -i "s/^include_directories(\${AvroC_SOURCE_DIR}\\/src)/include_directories(\${AvroC_SOURCE_DIR}\\/src)\\ninclude_directories(\${CMAKE_INSTALL_PREFIX}\\/include)/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/add_subdirectory(examples)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/add_subdirectory(tests)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/add_subdirectory(docs)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/add_definitions(-DDEFLATE_CODEC)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/add_definitions(-DSNAPPY_CODEC)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/ include_directories/ # include_directories/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/add_definitions(-DLZMA_CODEC)//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && sed -i "s/JANSSON_FOUND/TRUE/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt && cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
+        PATCH_COMMAND
+        COMMAND sed -i "s/^install(TARGETS avro[^-]/# install(TARGETS avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt
+        COMMAND sed -i "s/^target_link_libraries(avro[^-]/# target_link_libraries(avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt
+        COMMAND sed -i "s/^add_executable(avro/# add_executable(avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt
+        COMMAND sed -ri "s/([^_])namespace/\\1taos_namespace/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/schema.c
+        COMMAND sed -i "s/strrchr(fullname/strrchr((char *)fullname/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/schema.c
+        COMMAND sed -i "s/^#include <stdlib.h>/#define ssize_t int\\n #include <stdlib.h>/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/generic.c
+        COMMAND sed -i "s/, codec->block_data,/, (uint8_t *)(codec->block_data),/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
+        COMMAND sed -i "s/filters, NULL, data/filters, NULL, (const uint8_t *)data/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
+        COMMAND sed -i "s/__cdecl//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h
+        COMMAND sed -i "s/imaxdiv_t/imaxdiv1_t/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h
+        COMMAND sed -i "s/imaxdiv(/imax_div(/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h
+        COMMAND sed -i "s/typedef uint16_t  uint_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h
+        COMMAND sed -i "s/typedef int16_t   int_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h
+        COMMAND sed -i "s/#define snprintf _snprintf//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro_private.h
+        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
+        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/codec.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
+        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/avro-lang-c-CMakeLists.txt ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" ${BUILD_TYPE} -DCMAKE_MAKE_PROGRAM=jom -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
         )
     ADD_SUBDIRECTORY(CUnit)

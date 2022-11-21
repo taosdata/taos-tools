@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'feat/sangshuduo/TD-16450-taosdump-for-windows'
 
       - name: Change time zone
         if:
@@ -704,6 +704,7 @@ jobs:
           mkdir ${topdir}/coverage || :
           lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info
           lcov -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info
+          lcov -r ${topdir}/coverage/lcov-with-deps.info "*/src/tools*" -o ${topdir}/coverage/lcov.info
 
       - name: Publish to coveralls.io
         if:
