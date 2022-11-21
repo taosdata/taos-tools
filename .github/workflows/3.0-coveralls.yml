@@ -704,6 +704,7 @@ jobs:
           mkdir ${topdir}/coverage || :
           lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info
           lcov -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info
+          lcov -r ${topdir}/coverage/lcov-with-deps.info "*/src/tools*" -o ${topdir}/coverage/lcov.info
 
       - name: Publish to coveralls.io
         if:
