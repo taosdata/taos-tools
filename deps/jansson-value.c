@@ -28,8 +28,16 @@
 #include "utf.h"
 
 /* Work around nonstandard isnan() and isinf() implementations */
+#if 0
+#ifndef isnan
+#ifndef __sun
 static JSON_INLINE int isnan(double x) { return x != x; }
+#endif
+#endif
+#ifndef isinf
 static JSON_INLINE int isinf(double x) { return !isnan(x) && isnan(x - x); }
+#endif
+#endif  // 0
 
 json_t *do_deep_copy(const json_t *json, hashtable_t *parents);
 
@@ -917,7 +925,8 @@ static json_t *json_integer_copy(const json_t *integer) {
 json_t *json_real(double value) {
     json_real_t *real;
 
-/*     if (isnan(value) || isinf(value))
+    /*
+    if (isnan(value) || isinf(value))
         return NULL;
         */
 
@@ -938,7 +947,8 @@ double json_real_value(const json_t *json) {
 }
 
 int json_real_set(json_t *json, double value) {
-    if (!json_is_real(json) || isnan(value) || isinf(value))
+//    if (!json_is_real(json) || isnan(value) || isinf(value))
+    if (!json_is_real(json))
         return -1;
 
     json_to_real(json)->value = value;
