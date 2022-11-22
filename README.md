@@ -7,8 +7,7 @@
 <br />
 [![3.0 taosbenchmark release](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosBenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosBenchmark-release.yml) [![3.0 taosdump](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-taosdump-release.yml) [![Windows (3.0 build)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-windows-build.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/3.0-windows-build.yml)
 <br />
-[![2.x taosBenchmark native release](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosbenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosbenchmark-release.yml) [![2.x taosdump Release](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosdump-release.yml) [![Windows (2.x build)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for2.0.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/windows-build-for2.0.yml)
-
+[![2.x taosBenchmark native release](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosbenchmark-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosbenchmark-release.yml) [![2.x taosdump Release](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosdump-release.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/2.x-taosdump-release.yml) [![Windows (2.x build)](https://github.com/taosdata/taos-tools/actions/workflows/2.x-windows-build.yml/badge.svg)](https://github.com/taosdata/taos-tools/actions/workflows/2.x-windows-build.yml)
 </p>
 </div>
 
