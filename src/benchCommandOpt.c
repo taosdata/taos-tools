@@ -263,7 +263,7 @@ static void printVersion() {
     char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
     char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
     char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
-    if (0 == strlen(taosBenchmark_status?taosBenchmark_status:"Unknown")) {
+    if (0 == strlen(taosBenchmark_status)) {
         printf("taosBenchmark version: %s\ngitinfo: %s\n",
                 taosBenchmark_ver, taosBenchmark_commit);
     } else {
