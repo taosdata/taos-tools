@@ -110,6 +110,8 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
         CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" -DCMAKE_MAKE_PROGRAM=jom -DJANSSON_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
+        PATCH_COMMAND
+        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/jansson-value.c ${PROJECT_SOURCE_DIR}/jansson/src/value.c
         )
 
     ExternalProject_Add(
