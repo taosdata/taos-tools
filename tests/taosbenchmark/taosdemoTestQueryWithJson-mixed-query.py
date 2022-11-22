@@ -11,7 +11,6 @@
 
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 from util.log import *
 from util.cases import *
@@ -25,10 +24,12 @@ import subprocess
 
 
 class TDTestCase:
+    # pylint: disable=R0201
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
         tdSql.init(conn.cursor(), logSql)
 
+    # pylint: disable=R0201
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
@@ -206,6 +207,7 @@ class TDTestCase:
         os.system("rm -rf ./query_res*")
         os.system("rm -rf ./all_query*")
 
+    # pylint: disable=R0201
     def stop(self):
         tdSql.close()
         tdLog.success("%s successfully executed" % __file__)
