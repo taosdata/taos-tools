@@ -866,17 +866,12 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         startTs = toolsGetTimestampNs();
-
         if(execInsert(pThreadInfo, generated)) {
             g_fail = true;
             goto free_of_interlace;
         }
-
         endTs = toolsGetTimestampNs();
-        if (endTs < startTs) {
-            errorPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
-                       pThreadInfo->threadID, startTs, endTs);
-        }
+
         pThreadInfo->totalInsertRows += tmp_total_insert_rows;
         switch (stbInfo->iface) {
             case TAOSC_IFACE:
@@ -910,13 +905,18 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         int64_t delay = endTs - startTs;
-        perfPrint("insert execution time is %10.2f ms\n",
-                delay / 1E9);
+        if (delay < 0) {
+            warnPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+                       pThreadInfo->threadID, startTs, endTs);
+        } else {
+            perfPrint("insert execution time is %10.2f ms\n",
+                      delay / 1E9);
 
-        int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
-        *pdelay = delay;
-        benchArrayPush(pThreadInfo->delayList, pdelay);
-        pThreadInfo->totalDelay += delay;
+            int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
+            *pdelay = delay;
+            benchArrayPush(pThreadInfo->delayList, pdelay);
+            pThreadInfo->totalDelay += delay;
+        }
 
         int64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -1147,11 +1147,6 @@ void *syncWriteProgressive(void *sarg) {
             }
             endTs = toolsGetTimestampNs();
 
-            if (endTs < startTs) {
-                errorPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
-                        pThreadInfo->threadID, startTs, endTs);
-            }
-
             pThreadInfo->totalInsertRows += generated;
             switch (stbInfo->iface) {
                 case REST_IFACE:
@@ -1181,13 +1176,18 @@ void *syncWriteProgressive(void *sarg) {
             }
 
             int64_t delay = endTs - startTs;
-            perfPrint("insert execution time is %.6f s\n",
-                    delay / 1E9);
+            if (delay < 0) {
+                warnPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+                        pThreadInfo->threadID, startTs, endTs);
+            } else {
+                perfPrint("insert execution time is %.6f s\n",
+                              delay / 1E9);
 
-            int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
-            *pDelay = delay;
-            benchArrayPush(pThreadInfo->delayList, pDelay);
-            pThreadInfo->totalDelay += delay;
+                int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
+                *pDelay = delay;
+                benchArrayPush(pThreadInfo->delayList, pDelay);
+                pThreadInfo->totalDelay += delay;
+            }
 
             int64_t currentPrintTime = toolsGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
