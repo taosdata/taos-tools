@@ -7207,6 +7207,7 @@ static int64_t dumpInOneAvroFile(
     RecordSchema *recordSchema = getSchemaAndReaderFromFile(
             avroType, avroFile, &schema, &reader);
     if (NULL == recordSchema) {
+        errorPrint("%s() LN%d, failed to get schema\n", __func__, __LINE__);
         return -1;
     }
 
@@ -7324,6 +7325,7 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
 
     int currentPercent = 0;
     int percentComplete = 0;
+
     for (int64_t i = 0; i < pThreadInfo->count; i++) {
         if (0 == currentPercent) {
             infoPrint("[%d]: Restoring from %s ...\n",
@@ -7336,57 +7338,62 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
                 pThreadInfo->avroType,
                 g_dumpInCharset,
                 fileList[pThreadInfo->from + i]);
-        switch (pThreadInfo->avroType) {
-            case AVRO_DATA:
-                if (rows >= 0) {
-                    atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
-                    okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                } else {
-                    atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
-                    errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                }
-                break;
+        if (rows < 0) {
+            errorPrint("%s() LN%d, failed to dump file: %s\n", __func__, __LINE__,
+                       fileList[pThreadInfo->from +i]);
+            } else {
+                switch (pThreadInfo->avroType) {
+                    case AVRO_DATA:
+                        if (rows >= 0) {
+                            atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
+                            okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
+                                     pThreadInfo->threadIndex, rows,
+                                     fileList[pThreadInfo->from + i]);
+                        } else {
+                            atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
+                            errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
+                                        pThreadInfo->threadIndex, rows,
+                                        fileList[pThreadInfo->from + i]);
+                        }
+                        break;
 
-            case AVRO_TBTAGS:
-                if (rows >= 0) {
-                    atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
-                    okPrint("[%d] %"PRId64""
-                            "table(s) belong stb from the file(%s) be successfully dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                } else {
-                    atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
-                    errorPrint("[%d] %"PRId64""
-                            "table(s) belong stb from the file(%s) failed to dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                }
-                break;
+                    case AVRO_TBTAGS:
+                        if (rows >= 0) {
+                            atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
+                            okPrint("[%d] %"PRId64""
+                                     "table(s) belong stb from the file(%s) be successfully dumped in!\n",
+                                     pThreadInfo->threadIndex, rows,
+                                     fileList[pThreadInfo->from + i]);
+                        } else {
+                            atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
+                            errorPrint("[%d] %"PRId64""
+                                        "table(s) belong stb from the file(%s) failed to dumped in!\n",
+                                        pThreadInfo->threadIndex, rows,
+                                        fileList[pThreadInfo->from + i]);
+                        }
+                        break;
 
-            case AVRO_NTB:
-                if (rows >= 0) {
-                    atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
-                    okPrint("[%d] %"PRId64" "
-                            "normal table(s) from (%s) be successfully dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                } else {
-                    atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
-                    errorPrint("[%d] %"PRId64" "
-                            "normal tables from (%s) failed to dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                }
-                break;
+                    case AVRO_NTB:
+                        if (rows >= 0) {
+                            atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
+                            okPrint("[%d] %"PRId64" "
+                                     "normal table(s) from (%s) be successfully dumped in!\n",
+                                     pThreadInfo->threadIndex, rows,
+                                     fileList[pThreadInfo->from + i]);
+                        } else {
+                            atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
+                            errorPrint("[%d] %"PRId64" "
+                                        "normal tables from (%s) failed to dumped in!\n",
+                                        pThreadInfo->threadIndex, rows,
+                                        fileList[pThreadInfo->from + i]);
+                        }
+                        break;
 
-            default:
-                errorPrint("%s() LN%d input mistake list: %d\n",
-                        __func__, __LINE__, pThreadInfo->avroType);
-                return NULL;
+                    default:
+                        errorPrint("%s() LN%d input mistake list: %d\n",
+                                    __func__, __LINE__, pThreadInfo->avroType);
+                        return NULL;
+            }
         }
 
         currentPercent = ((i+1) * 100 / pThreadInfo->count);
