@@ -865,14 +865,14 @@ static void *syncWriteInterlace(void *sarg) {
             }
         }
 
-        startTs = toolsGetTimestampUs();
+        startTs = toolsGetTimestampNs();
 
         if(execInsert(pThreadInfo, generated)) {
             g_fail = true;
             goto free_of_interlace;
         }
 
-        endTs = toolsGetTimestampUs();
+        endTs = toolsGetTimestampNs();
         if (endTs < startTs) {
             errorPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
                        pThreadInfo->threadID, startTs, endTs);
@@ -911,7 +911,7 @@ static void *syncWriteInterlace(void *sarg) {
 
         int64_t delay = endTs - startTs;
         perfPrint("insert execution time is %10.2f ms\n",
-                delay / 1000.0);
+                delay / 1E9);
 
         int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
         *pdelay = delay;
@@ -935,7 +935,7 @@ free_of_interlace:
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
             (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1000000.0)));
+                ((double)pThreadInfo->totalDelay / 1E9)));
     return NULL;
 }
 
@@ -1140,12 +1140,12 @@ void *syncWriteProgressive(void *sarg) {
                 i += generated;
             }
             // only measure insert
-            startTs = toolsGetTimestampUs();
+            startTs = toolsGetTimestampNs();
             if(execInsert(pThreadInfo, generated)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
-            endTs = toolsGetTimestampUs();
+            endTs = toolsGetTimestampNs();
 
             if (endTs < startTs) {
                 errorPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
@@ -1182,7 +1182,7 @@ void *syncWriteProgressive(void *sarg) {
 
             int64_t delay = endTs - startTs;
             perfPrint("insert execution time is %.6f s\n",
-                    delay / 1E6);
+                    delay / 1E9);
 
             int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
             *pDelay = delay;
@@ -1209,7 +1209,7 @@ free_of_progressive:
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
             (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1000000.0)));
+                ((double)pThreadInfo->totalDelay / 1E9)));
     return NULL;
 }
 
@@ -1884,16 +1884,16 @@ static int startMultiThreadInsertData(SDataBase* database,
             "p95: %.2fms, "
             "p99: %.2fms, "
             "max: %.2fms\n",
-            *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
-            (double)totalDelay/total_delay_list->size/1E3,
+            *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E6,
+            (double)totalDelay/total_delay_list->size/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.9)))/1E3,
+                    (int32_t)(total_delay_list->size * 0.9)))/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.95)))/1E3,
+                    (int32_t)(total_delay_list->size * 0.95)))/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.99)))/1E3,
+                    (int32_t)(total_delay_list->size * 0.99)))/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size - 1)))/1E3);
+                    (int32_t)(total_delay_list->size - 1)))/1E6);
 
     benchArrayDestroy(total_delay_list);
     if (g_fail) {
