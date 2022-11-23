@@ -1146,6 +1146,12 @@ void *syncWriteProgressive(void *sarg) {
                 goto free_of_progressive;
             }
             endTs = toolsGetTimestampUs();
+
+            if (endTs < startTs) {
+                errorPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+                        pThreadInfo->threadID, startTs, endTs);
+            }
+
             pThreadInfo->totalInsertRows += generated;
             switch (stbInfo->iface) {
                 case REST_IFACE:
