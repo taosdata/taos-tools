@@ -235,26 +235,6 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("3: %s\n", outSql);
 }
 
-int64_t toolsGetTimestampMs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000L +
-        (int64_t)systemTime.tv_usec / 1000;
-}
-
-int64_t toolsGetTimestampUs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
-}
-
-int64_t toolsGetTimestampNs() {
-    struct timespec systemTime = {0};
-    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000000L +
-        (int64_t)systemTime.tv_nsec;
-}
-
 int64_t toolsGetTimestamp(int32_t precision) {
     if (precision == TSDB_TIME_PRECISION_MICRO) {
         return toolsGetTimestampUs();
