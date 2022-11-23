@@ -873,6 +873,10 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         endTs = toolsGetTimestampUs();
+        if (endTs < startTs) {
+            errorPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+                       pThreadInfo->threadID, startTs, endTs);
+        }
         pThreadInfo->totalInsertRows += tmp_total_insert_rows;
         switch (stbInfo->iface) {
             case TAOSC_IFACE:
