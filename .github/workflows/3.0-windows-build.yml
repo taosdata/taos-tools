@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'chore/sangshuduo/TD-20676-use-localfile-asdeps'
 
       - name: create debug directory
         if: |
