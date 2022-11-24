@@ -607,7 +607,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 
     int64_t start = toolsGetTimestampUs();
     for (int i = 0; i < thread; ++i) {
-        pthread_cancel(pids[i]);
+// temporary disabled       pthread_cancel(pids[i]);
         pthread_join(pids[i], NULL);
     }
     int64_t end = toolsGetTimestampUs();
