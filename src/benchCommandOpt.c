@@ -27,6 +27,12 @@ extern char version[];
 #define TAOSBENCHMARK_STATUS "unknown"
 #endif
 
+#ifdef WINDOWS
+char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
+#else
+char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+#endif
+
 
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
@@ -47,6 +53,7 @@ extern char version[];
 #define BENCH_ROWS  "Number of records for each table, default is 10000."
 #define BENCH_DATABASE  "Name of database, default is test."
 #define BENCH_COLS_NUM  "Number of INT data type columns in table, default is 0."
+#define BENCH_PARTIAL_COL_NUM "Specify first numbers of columns has data. Rest of columns' data are NULL. Default is all columns have data"
 #define BENCH_TAGS  "Data type of tables' tags, default is INT,BINARY(16)."
 #define BENCH_COLS  "Data type of tables' cols, default is FLOAT,INT,FLOAT."
 #define BENCH_WIDTH "The default length of nchar and binary if not specified, default is 64."
@@ -105,6 +112,7 @@ void bench_print_help() {
     printf("%s%s%s%s\r\n", indent, "-n,", indent, BENCH_ROWS);
     printf("%s%s%s%s\r\n", indent, "-d,", indent, BENCH_DATABASE);
     printf("%s%s%s%s\r\n", indent, "-l,", indent, BENCH_COLS_NUM);
+    printf("%s%s%s%s\r\n", indent, "-L,", indent, BENCH_PARTIAL_COL_NUM);
     printf("%s%s%s%s\r\n", indent, "-A,", indent, BENCH_TAGS);
     printf("%s%s%s%s\r\n", indent, "-b,", indent, BENCH_COLS);
     printf("%s%s%s%s\r\n", indent, "-w,", indent, BENCH_WIDTH);
@@ -156,6 +164,7 @@ static struct argp_option bench_options[] = {
     {"records", 'n', "NUMBER", 0, BENCH_ROWS},
     {"database", 'd', "DATABASE", 0, BENCH_DATABASE},
     {"columns", 'l', "NUMBER", 0, BENCH_COLS_NUM},
+    {"partial-col-num", 'L', "NUMBER", 0, BENCH_PARTIAL_COL_NUM},
     {"tag-type", 'A', "TAG_TYPE", 0, BENCH_TAGS},
     {"data-type", 'b', "COL_TYPE", 0, BENCH_COLS},
     {"binwidth", 'w', "NUMBER", 0, BENCH_WIDTH},
@@ -197,7 +206,7 @@ void bench_parse_args_in_argp(int argc, char *argv[]) {
   #define ARGP_ERR_UNKNOWN E2BIG
 #endif
 
-void parse_field_datatype(char *dataType, BArray *fields, bool isTag) {
+void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
     char *dup_str;
     benchArrayClear(fields);
     if (strstr(dataType, ",") == NULL) {
@@ -315,7 +324,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->user = arg;
             break;
         case 'c':
-            tstrncpy(configDir, arg, TSDB_FILENAME_LEN);
+            tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
             break;
         case 'o':
             g_arguments->output_file = arg;
@@ -388,6 +397,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             }
             g_arguments->g_totalChildTables = stbInfo->childTblCount;
             break;
+
         case 'n':
             stbInfo->insertRows = atol(arg);
             if (stbInfo->insertRows <= 0) {
@@ -397,9 +407,11 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->insertRows = DEFAULT_INSERT_ROWS;
             }
             break;
+
         case 'd':
             database->dbName = arg;
             break;
+
         case 'l':
             g_arguments->demo_mode = false;
             g_arguments->intColumnCount = atoi(arg);
@@ -410,13 +422,19 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->intColumnCount = 0;
             }
             break;
+
+        case 'L':
+            g_arguments->demo_mode = false;
+            g_arguments->partialColNum = atoi(arg);
+            break;
+
         case 'A':
             g_arguments->demo_mode = false;
-            parse_field_datatype(arg, stbInfo->tags, true);
+            parseFieldDatatype(arg, stbInfo->tags, true);
             break;
         case 'b':
             g_arguments->demo_mode = false;
-            parse_field_datatype(arg, stbInfo->cols, false);
+            parseFieldDatatype(arg, stbInfo->cols, false);
             break;
         case 'w':
             g_arguments->binwidth = atoi(arg);
@@ -518,7 +536,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
 int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-            infoPrint("taos client version: %s\n", taos_get_client_info());
+            printVersion();
             exit(EXIT_SUCCESS);
         }
 
@@ -538,17 +556,19 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             return -1;
         }
 
-        if (key[1] == 'f' || key[1] == 'c' || key[1] == 'h' || key[1] == 'P' ||
-            key[1] == 'I' || key[1] == 'u' || key[1] == 'p' || key[1] == 'o' ||
-            key[1] == 'T' || key[1] == 'i' || key[1] == 'S' || key[1] == 'B' ||
-            key[1] == 'r' || key[1] == 't' || key[1] == 'n' || key[1] == 'd' ||
-            key[1] == 'd' || key[1] == 'l' || key[1] == 'A' || key[1] == 'b' ||
-            key[1] == 'w' || key[1] == 'm' || key[1] == 'R' || key[1] == 'O' ||
-            key[1] == 'a' || key[1] == 'F'
+        if (key[1] == 'f' || key[1] == 'c' || key[1] == 'h' || key[1] == 'P'
+                || key[1] == 'I' || key[1] == 'u' || key[1] == 'p' || key[1] == 'o'
+                || key[1] == 'T' || key[1] == 'i' || key[1] == 'S' || key[1] == 'B'
+                || key[1] == 'r' || key[1] == 't' || key[1] == 'n'
+                || key[1] == 'd' || key[1] == 'l' || key[1] == 'L'
+                || key[1] == 'A' || key[1] == 'b'
+                || key[1] == 'w' || key[1] == 'm'
+                || key[1] == 'R' || key[1] == 'O'
+                || key[1] == 'a' || key[1] == 'F'
 #ifdef WEBSOCKET
-            || key[1] == 'D' || key[1] == 'W'
+                || key[1] == 'D' || key[1] == 'W'
 #endif
-            ) {
+           ) {
             if (i + 1 >= argc) {
                 errorPrint("option %s requires an argument\r\n", key);
                 return -1;
@@ -653,7 +673,7 @@ static void init_stable() {
     stbInfo->childTblExists = false;
     stbInfo->random_data_source = true;
     stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
-    stbInfo->startTimestamp = g_arguments->startTimestamp;
+
     stbInfo->insertRows = DEFAULT_INSERT_ROWS;
     stbInfo->disorderRange = DEFAULT_DISORDER_RANGE;
     stbInfo->disorderRatio = 0;
@@ -709,6 +729,7 @@ void init_argument() {
 
     g_arguments->supplementInsert = false;
     g_arguments->startTimestamp = DEFAULT_START_TIME;
+    g_arguments->partialColNum = 0;
 
     init_database();
     init_stable();
@@ -722,10 +743,10 @@ void modify_argument() {
     if (!g_arguments->websocket) {
 #endif
 #ifdef LINUX
-        if (strlen(configDir)) {
+        if (strlen(g_configDir)) {
             wordexp_t full_path;
-            if (wordexp(configDir, &full_path, 0) != 0) {
-                errorPrint("Invalid path %s\n", configDir);
+            if (wordexp(g_configDir, &full_path, 0) != 0) {
+                errorPrint("Invalid path %s\n", g_configDir);
                 exit(EXIT_FAILURE);
             }
             taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
@@ -737,6 +758,10 @@ void modify_argument() {
 #endif
 
     superTable->startTimestamp = g_arguments->startTimestamp;
+
+    if (0 != g_arguments->partialColNum) {
+        superTable->partialColNum = g_arguments->partialColNum;
+    }
 
     if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {

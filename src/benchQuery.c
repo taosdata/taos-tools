@@ -14,33 +14,45 @@
 extern int g_majorVersionOfClient;
 
 int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
+    int ret = 0;
+    uint32_t threadID = pThreadInfo->threadID;
+    char dbName[TSDB_DB_NAME_LEN] = {0};
+    tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN);
+
     if (g_queryInfo.iface == REST_IFACE) {
         int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE,
                 0, false, pThreadInfo->sockfd, pThreadInfo->filePath);
         if (0 != retCode) {
-            errorPrint("====restful return fail, threadID[%d]\n",
-                       pThreadInfo->threadID);
-            return -1;
+            errorPrint("====restful return fail, threadID[%u]\n",
+                       threadID);
+            ret = -1;
         }
     } else {
-        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
-            errorPrint("thread[%d]: failed to select database(%s)\n",
-                pThreadInfo->threadID, g_queryInfo.dbName);
-            return -1;
-        }
-        TAOS_RES *res = taos_query(pThreadInfo->conn->taos, command);
-        if (res == NULL || taos_errno(res) != 0) {
-            errorPrint("failed to execute sql:%s, reason:%s\n", command,
-                       taos_errstr(res));
+        TAOS *taos = pThreadInfo->conn->taos;
+        if (taos_select_db(taos, g_queryInfo.dbName)) {
+            errorPrint("thread[%u]: failed to select database(%s)\n",
+                threadID, dbName);
+            ret = -2;
+        } else {
+            TAOS_RES *res = taos_query(taos, command);
+            if (res == NULL || taos_errno(res) != 0) {
+                if (g_queryInfo.continue_if_fail) {
+                    warnPrint("failed to execute sql:%s, reason:%s\n", command,
+                            taos_errstr(res));
+                } else {
+                    errorPrint("failed to execute sql:%s, reason:%s\n", command,
+                            taos_errstr(res));
+                    ret = -1;
+                }
+            } else {
+                if (strlen(pThreadInfo->filePath) > 0) {
+                    fetchResult(res, pThreadInfo);
+                }
+            }
             taos_free_result(res);
-            return -1;
         }
-        if (strlen(pThreadInfo->filePath) > 0) {
-            fetchResult(res, pThreadInfo);
-        }
-        taos_free_result(res);
     }
-    return 0;
+    return ret;
 }
 
 static void *mixedQuery(void *sarg) {
@@ -80,14 +92,24 @@ static void *mixedQuery(void *sarg) {
                 }
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos, sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
-                    errorPrint(
-                            "thread[%d]: failed to execute sql :%s, code: 0x%x, reason: %s\n",
-                            pThreadInfo->threadId,
-                            sql->command,
-                            taos_errno(res), taos_errstr(res));
-                    if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
-                            taos_errno(res)) {
-                        return NULL;
+                    if (g_queryInfo.continue_if_fail) {
+                        warnPrint(
+                                "thread[%d]: failed to execute sql :%s, "
+                                "code: 0x%x, reason: %s\n",
+                                pThreadInfo->threadId,
+                                sql->command,
+                                taos_errno(res), taos_errstr(res));
+                    } else {
+                        errorPrint(
+                                "thread[%d]: failed to execute sql :%s, "
+                                "code: 0x%x, reason: %s\n",
+                                pThreadInfo->threadId,
+                                sql->command,
+                                taos_errno(res), taos_errstr(res));
+                        if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
+                                taos_errno(res)) {
+                            return NULL;
+                        }
                     }
                     continue;
                 }
@@ -123,34 +145,42 @@ static void *specifiedTableQuery(void *sarg) {
     int32_t  index = 0;
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
-    pThreadInfo->query_delay_list = benchCalloc(queryTimes, sizeof(uint64_t), false);
+    pThreadInfo->query_delay_list = benchCalloc(queryTimes,
+            sizeof(uint64_t), false);
     uint64_t  lastPrintTime = toolsGetTimestampMs();
     uint64_t  startTs = toolsGetTimestampMs();
 
-    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, pThreadInfo->querySeq);
+    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
+            pThreadInfo->querySeq);
 
     if (sql->result[0] != '\0') {
-        sprintf(pThreadInfo->filePath, "%s-%d", sql->result, pThreadInfo->threadID);
+        sprintf(pThreadInfo->filePath, "%s-%d",
+                sql->result, pThreadInfo->threadID);
     }
 
     while (index < queryTimes) {
         if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval) {
-            toolsMsleep((int32_t)(g_queryInfo.specifiedQueryInfo.queryInterval -
-                                 (et - st)));  // ms
+            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval*1000) {
+            toolsMsleep((int32_t)(
+                        g_queryInfo.specifiedQueryInfo.queryInterval*1000
+                        - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
             queryDbExec(pThreadInfo->conn, "reset query cache");
         }
 
-        st = toolsGetTimestampUs();
-        if (selectAndGetResult(pThreadInfo, sql->command)) {
+        st = toolsGetTimestampMs();
+        int ret = selectAndGetResult(pThreadInfo, sql->command);
+        if (ret) {
             g_fail = true;
         }
 
-        et = toolsGetTimestampUs();
+        et = toolsGetTimestampMs();
         uint64_t delay = et - st;
-        pThreadInfo->query_delay_list[index] = delay;
+        if (ret == 0) {
+            pThreadInfo->query_delay_list[index] = delay;
+            pThreadInfo->totalQueried++;
+        }
         index++;
         totalDelay += delay;
         if (delay > maxDelay) {
@@ -160,20 +190,26 @@ static void *specifiedTableQuery(void *sarg) {
             minDelay = delay;
         }
 
-        pThreadInfo->totalQueried++;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         uint64_t endTs = toolsGetTimestampMs();
-        if (currentPrintTime - lastPrintTime > 30 * 1000) {
+
+        if ((ret == 0) && (currentPrintTime - lastPrintTime > 30 * 1000)) {
             debugPrint(
-                      "thread[%d] has currently completed queries: %" PRIu64
-                      ", QPS: %10.6f\n",
-                      pThreadInfo->threadID, pThreadInfo->totalQueried,
-                      (double)(pThreadInfo->totalQueried /
-                               ((endTs - startTs) / 1000.0)));
+                    "thread[%d] has currently completed queries: %" PRIu64
+                    ", QPS: %10.6f\n",
+                    pThreadInfo->threadID, pThreadInfo->totalQueried,
+                    (double)(pThreadInfo->totalQueried /
+                        ((endTs - startTs) / 1000.0)));
             lastPrintTime = currentPrintTime;
         }
+
+        if (-2 == ret) {
+            toolsMsleep(1000);
+            return NULL;
+        }
     }
-    qsort(pThreadInfo->query_delay_list, queryTimes, sizeof(uint64_t), compare);
+    qsort(pThreadInfo->query_delay_list, queryTimes,
+            sizeof(uint64_t), compare);
     pThreadInfo->avg_delay = (double)totalDelay / queryTimes;
     return NULL;
 }
@@ -186,7 +222,7 @@ static void *superTableQuery(void *sarg) {
 #endif
 
     uint64_t st = 0;
-    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval;
+    uint64_t et = (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000;
 
     uint64_t queryTimes = g_queryInfo.superQueryInfo.queryTimes;
     uint64_t startTs = toolsGetTimestampMs();
@@ -194,9 +230,9 @@ static void *superTableQuery(void *sarg) {
     uint64_t lastPrintTime = toolsGetTimestampMs();
     while (queryTimes--) {
         if (g_queryInfo.superQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval) {
-            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval -
-                                 (et - st)));
+            (et - st) < (int64_t)g_queryInfo.superQueryInfo.queryInterval*1000) {
+            toolsMsleep((int32_t)(g_queryInfo.superQueryInfo.queryInterval*1000
+                        - (et - st)));
         }
 
         st = toolsGetTimestampMs();
@@ -231,11 +267,6 @@ static void *superTableQuery(void *sarg) {
             }
         }
         et = toolsGetTimestampMs();
-        infoPrint(
-            "thread[%d] complete all sqls to allocate all sub-tables[%" PRIu64
-            " - %" PRIu64 "] once queries duration:%.4fs\n",
-            pThreadInfo->threadID, pThreadInfo->start_table_from,
-            pThreadInfo->end_table_to, (double)(et - st) / 1000.0);
     }
     tmfree(sqlstr);
     return NULL;
@@ -447,10 +478,14 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     close_bench_conn(pThreadInfo->conn);
                 }
                 if (g_fail) {
-                    tmfree((char *)pids);
-                    tmfree((char *)infos);
-                    return -1;
+                    tmfree(pThreadInfo->query_delay_list);
                 }
+            }
+
+            if (g_fail) {
+                tmfree((char *)pids);
+                tmfree((char *)infos);
+                return -1;
             }
             uint64_t query_times = g_queryInfo.specifiedQueryInfo.queryTimes;
             uint64_t total_query_times = query_times * nConcurrent;
@@ -468,16 +503,25 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
             }
             avg_delay /= nConcurrent;
             qsort(sql->delay_list, total_query_times, sizeof(uint64_t), compare);
-            infoPrint("complete query <%s> with %d threads and %"PRIu64
-                    " times for each, query delay min: %.6fs,"
-                    "avg: %.6fs, p90: %.6fs, p95: %.6fs, p99: %.6fs, max: %.6fs\n",
-                      sql->command, nConcurrent, query_times,
-                      sql->delay_list[0]/1E6,
-                      avg_delay/1E6,
-                      sql->delay_list[(int32_t)(total_query_times * 0.90)]/1E6,
-                      sql->delay_list[(int32_t)(total_query_times * 0.95)]/1E6,
-                      sql->delay_list[(int32_t)(total_query_times * 0.99)]/1E6,
-                      sql->delay_list[(int32_t)total_query_times - 1]/1E6);
+            infoPrintNoTimestamp("complete query with %d threads and %"PRIu64
+                    " query delay "
+                    "avg: \t%.6fs "
+                    "min: \t%.6fs "
+                    "max: \t%.6fs "
+                    "p90: \t%.6fs "
+                    "p95: \t%.6fs "
+                    "p99: \t%.6fs "
+                    "SQL command: %s"
+                    "\n",
+                      nConcurrent, query_times,
+                      avg_delay/1E6,  /* avg */
+                      sql->delay_list[0]/1E6, /* min */
+                      sql->delay_list[(int32_t)total_query_times - 1]/1E6,  /*  max */
+                      sql->delay_list[(int32_t)(total_query_times * 0.90)]/1E6, /*  p90 */
+                      sql->delay_list[(int32_t)(total_query_times * 0.95)]/1E6, /*  p95 */
+                      sql->delay_list[(int32_t)(total_query_times * 0.99)]/1E6,  /* p88 */
+                      sql->command
+                      );
         }
     } else {
         return 0;
@@ -563,6 +607,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 
     int64_t start = toolsGetTimestampUs();
     for (int i = 0; i < thread; ++i) {
+        pthread_cancel(pids[i]);
         pthread_join(pids[i], NULL);
     }
     int64_t end = toolsGetTimestampUs();
@@ -601,10 +646,14 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
               thread, (int)delay_list->size,
               *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
               (double)total_delay/delay_list->size/1E6,
-              *(int64_t *)(benchArrayGet(delay_list, (int32_t)(delay_list->size * 0.9)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list, (int32_t)(delay_list->size * 0.95)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list, (int32_t)(delay_list->size * 0.99)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list, (int32_t)(delay_list->size - 1)))/1E6);
+              *(int64_t *)(benchArrayGet(delay_list,
+                      (int32_t)(delay_list->size * 0.9)))/1E6,
+              *(int64_t *)(benchArrayGet(delay_list,
+                      (int32_t)(delay_list->size * 0.95)))/1E6,
+              *(int64_t *)(benchArrayGet(delay_list,
+                      (int32_t)(delay_list->size * 0.99)))/1E6,
+              *(int64_t *)(benchArrayGet(delay_list,
+                      (int32_t)(delay_list->size - 1)))/1E6);
     benchArrayDestroy(delay_list);
     code = 0;
 OVER:
@@ -613,27 +662,100 @@ OVER:
     return code;
 }
 
+#define KILLID_LEN  20
+
+void *queryKiller(void *arg) {
+    char host[MAX_HOSTNAME_LEN] = {0};
+    tstrncpy(host, g_arguments->host, MAX_HOSTNAME_LEN);
+
+    while (true) {
+        TAOS *taos = taos_connect(g_arguments->host, g_arguments->user,
+                g_arguments->password, NULL, g_arguments->port);
+        if (NULL == taos) {
+            errorPrint("Slow query killer thread "
+                    "failed to connect to TDengine server %s\n",
+                    g_arguments->host);
+            return NULL;
+        }
+
+        char command[TSDB_MAX_ALLOWED_SQL_LEN] =
+            "SELECT kill_id,exec_usec,sql FROM performance_schema.perf_queries";
+        TAOS_RES *res = taos_query(taos, command);
+        int32_t code = taos_errno(res);
+        if (code != 0) {
+            errorPrint("%s execution failed. Reason: %s\n",
+                    command, taos_errstr(res));
+            taos_free_result(res);
+        }
+
+        TAOS_ROW row = NULL;
+        while ((row = taos_fetch_row(res)) != NULL) {
+            int32_t *lengths = taos_fetch_lengths(res);
+            if (lengths[0] <= 0) {
+                infoPrint("No valid query found by %s\n", command);
+            } else {
+                int64_t execUSec = *(int64_t*)row[1];
+
+                if (execUSec > g_queryInfo.killQueryThreshold * 1000000) {
+                    char sql[SQL_BUFF_LEN] = {0};
+                    tstrncpy(sql, (char*)row[2], SQL_BUFF_LEN);
+
+                    char killId[KILLID_LEN] = {0};
+                    tstrncpy(killId, (char*)row[0], KILLID_LEN);
+                    char killCommand[KILLID_LEN + 15] = {0};
+                    snprintf(killCommand, KILLID_LEN + 15, "KILL QUERY '%s'", killId);
+                    TAOS_RES *resKill = taos_query(taos, killCommand);
+                    int32_t codeKill = taos_errno(resKill);
+                    if (codeKill != 0) {
+                        errorPrint("%s execution failed. Reason: %s\n",
+                                killCommand, taos_errstr(resKill));
+                    } else {
+                        infoPrint("%s succeed, sql: %s\n", killCommand, sql);
+                    }
+
+                    taos_free_result(resKill);
+                }
+            }
+        }
+
+        taos_free_result(res);
+        taos_close(taos);
+        toolsMsleep(g_queryInfo.killQueryInterval*1000);
+    }
+
+    return NULL;
+}
+
 int queryTestProcess() {
     encode_base_64();
     prompt(0);
+
+    pthread_t pidKiller = {0};
+    if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
+        pthread_create(&pidKiller, NULL, queryKiller, NULL);
+        pthread_join(pidKiller, NULL);
+        toolsMsleep(1000);
+    }
+
     if (g_queryInfo.iface == REST_IFACE) {
         if (convertHostToServAddr(g_arguments->host,
-                                  g_arguments->port + TSDB_PORT_HTTP,
-                                  &(g_arguments->serv_addr)) != 0) {
+                    g_arguments->port + TSDB_PORT_HTTP,
+                    &(g_arguments->serv_addr)) != 0) {
             errorPrint("%s", "convert host to server address\n");
             return -1;
         }
     }
 
     if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
-        (g_queryInfo.superQueryInfo.threadCnt > 0)) {
+            (g_queryInfo.superQueryInfo.threadCnt > 0)) {
         SBenchConn* conn = init_bench_conn();
         if (conn == NULL) {
             return -1;
         }
         char  cmd[SQL_BUFF_LEN] = "\0";
         if (3 == g_majorVersionOfClient) {
-            snprintf(cmd, SQL_BUFF_LEN, "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
+            snprintf(cmd, SQL_BUFF_LEN,
+                    "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
                     g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
         } else {
             snprintf(cmd, SQL_BUFF_LEN, "SELECT COUNT(TBNAME) FROM %s.%s",
@@ -643,8 +765,8 @@ int queryTestProcess() {
         int32_t   code = taos_errno(res);
         if (code) {
             errorPrint(
-                       "failed to count child table name: %s. reason: %s\n",
-                       cmd, taos_errstr(res));
+                    "failed to count child table name: %s. reason: %s\n",
+                    cmd, taos_errstr(res));
             taos_free_result(res);
 
             return -1;
@@ -655,7 +777,7 @@ int queryTestProcess() {
         while ((row = taos_fetch_row(res)) != NULL) {
             if (0 == strlen((char *)(row[0]))) {
                 errorPrint("stable %s have no child table\n",
-                           g_queryInfo.superQueryInfo.stbName);
+                        g_queryInfo.superQueryInfo.stbName);
                 return -1;
             }
             char temp[256] = {0};
@@ -663,16 +785,17 @@ int queryTestProcess() {
             g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
         }
         infoPrint("%s's childTblCount: %" PRId64 "\n",
-                  g_queryInfo.superQueryInfo.stbName,
-                  g_queryInfo.superQueryInfo.childTblCount);
+                g_queryInfo.superQueryInfo.stbName,
+                g_queryInfo.superQueryInfo.childTblCount);
         taos_free_result(res);
         g_queryInfo.superQueryInfo.childTblName =
-                benchCalloc(g_queryInfo.superQueryInfo.childTblCount, sizeof(char *), false);
+            benchCalloc(g_queryInfo.superQueryInfo.childTblCount,
+                    sizeof(char *), false);
         if (getAllChildNameOfSuperTable(
-                conn->taos, g_queryInfo.dbName,
-                g_queryInfo.superQueryInfo.stbName,
-                g_queryInfo.superQueryInfo.childTblName,
-                g_queryInfo.superQueryInfo.childTblCount)) {
+                    conn->taos, g_queryInfo.dbName,
+                    g_queryInfo.superQueryInfo.stbName,
+                    g_queryInfo.superQueryInfo.childTblName,
+                    g_queryInfo.superQueryInfo.childTblCount)) {
             tmfree(g_queryInfo.superQueryInfo.childTblName);
             close_bench_conn(conn);
             return -1;
@@ -683,31 +806,35 @@ int queryTestProcess() {
     uint64_t startTs = toolsGetTimestampMs();
 
     if (g_queryInfo.specifiedQueryInfo.mixed_query) {
-        if (multi_thread_specified_mixed_query(g_queryInfo.iface, g_queryInfo.dbName)) {
+        if (multi_thread_specified_mixed_query(g_queryInfo.iface,
+                    g_queryInfo.dbName)) {
             return -1;
         }
     } else {
-        if (multi_thread_specified_table_query(g_queryInfo.iface, g_queryInfo.dbName)) {
+        if (multi_thread_specified_table_query(g_queryInfo.iface,
+                    g_queryInfo.dbName)) {
             return -1;
         }
     }
 
-    if (multi_thread_super_table_query(g_queryInfo.iface, g_queryInfo.dbName)) {
+    if (multi_thread_super_table_query(g_queryInfo.iface,
+                g_queryInfo.dbName)) {
         return -1;
     }
 
     //  // workaround to use separate taos connection;
     uint64_t endTs = toolsGetTimestampMs();
 
-    uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried +
-                            g_queryInfo.superQueryInfo.totalQueried;
+    uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried
+        + g_queryInfo.superQueryInfo.totalQueried;
 
     int64_t t = endTs - startTs;
     double  tInS = (double)t / 1000.0;
 
     debugPrint(
-              "Spend %.4f second completed total queries: %" PRIu64
-              ", the QPS of all threads: %10.3f\n\n",
-              tInS, totalQueried, (double)totalQueried / tInS);
+            "Spend %.4f second completed total queries: %" PRIu64
+            ", the QPS of all threads: %10.3f\n\n",
+            tInS, totalQueried, (double)totalQueried / tInS);
+
     return 0;
 }

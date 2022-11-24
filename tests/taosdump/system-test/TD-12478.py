@@ -11,12 +11,7 @@
 
 # -*- coding: utf-8 -*-
 
-import random
-import string
 import os
-import sys
-import time
-import taos
 from util.log import tdLog
 from util.cases import tdCases
 from util.sql import tdSql
@@ -207,7 +202,7 @@ class TDTestCase:
     def run(self):
         tdSql.prepare()
 
-        dcDB = self.dropandcreateDB_random(1)
+        self.dropandcreateDB_random(1)
 
         assert os.system("taosdump -D db") == 0
 

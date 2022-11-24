@@ -258,7 +258,7 @@ int createDatabase(SDataBase* database) {
     }
 
     int dataLen = 0;
-    dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+    dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 
     if (database->cfgs) {
@@ -536,6 +536,12 @@ void postFreeResource() {
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         if (database->cfgs) {
+            for (int c = 0; c < database->cfgs->size; c++) {
+                SDbCfg *cfg = benchArrayGet(database->cfgs, c);
+                if ((NULL == root) && (0 == strcmp(cfg->name, "replica"))) {
+                    tmfree(cfg->name);
+                }
+            }
             benchArrayDestroy(database->cfgs);
         }
         if (database->superTbls) {
@@ -544,23 +550,28 @@ void postFreeResource() {
                 tmfree(stbInfo->colsOfCreateChildTable);
                 tmfree(stbInfo->sampleDataBuf);
                 tmfree(stbInfo->tagDataBuf);
-                tmfree(stbInfo->partialColumnNameBuf);
+                tmfree(stbInfo->partialColNameBuf);
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
                     tmfree(tag->data);
                 }
                 benchArrayDestroy(stbInfo->tags);
 
+                debugPrint("%s() LN%d, col size: %"PRIu64"\n",
+                        __func__, __LINE__, (uint64_t)stbInfo->cols->size);
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
                     tmfree(col->data);
+                    tmfree(col->is_null);
                 }
                 benchArrayDestroy(stbInfo->cols);
                 if (g_arguments->test_mode == INSERT_TEST &&
                         stbInfo->insertRows != 0) {
                     for (int64_t k = 0; k < stbInfo->childTblCount;
                         ++k) {
-                        tmfree(stbInfo->childTblName[k]);
+                        if (stbInfo->childTblName) {
+                            tmfree(stbInfo->childTblName[k]);
+                        }
                     }
                 }
                 tmfree(stbInfo->childTblName);
@@ -708,7 +719,7 @@ static void *syncWriteInterlace(void *sarg) {
                     if (i == 0) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
-                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
+                    if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
                                     tableName,
@@ -726,7 +737,7 @@ static void *syncWriteInterlace(void *sarg) {
                             ds_add_strs(&pThreadInfo->buffer, 10,
                                         tableName,
                                         " (",
-                                        stbInfo->partialColumnNameBuf,
+                                        stbInfo->partialColNameBuf,
                                         ") USING `",
                                         stbInfo->stbName,
                                         "` TAGS (",
@@ -736,7 +747,7 @@ static void *syncWriteInterlace(void *sarg) {
                             ds_add_strs(&pThreadInfo->buffer, 4,
                                         tableName,
                                         "(",
-                                        stbInfo->partialColumnNameBuf,
+                                        stbInfo->partialColNameBuf,
                                         ") VALUES ");
                         }
                     }
@@ -972,7 +983,7 @@ void *syncWriteProgressive(void *sarg) {
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE: {
-                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
+                    if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             len =
                                 snprintf(pstr, MAX_SQL_LEN,
@@ -993,7 +1004,7 @@ void *syncWriteProgressive(void *sarg) {
                                     pstr, MAX_SQL_LEN,
                                     "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ",
                                     STR_INSERT_INTO, database->dbName, tableName,
-                                    stbInfo->partialColumnNameBuf,
+                                    stbInfo->partialColNameBuf,
                                     database->dbName, stbInfo->stbName,
                                     stbInfo->tagDataBuf +
                                     stbInfo->lenOfTags * tableSeq, ttl);
@@ -1002,7 +1013,7 @@ void *syncWriteProgressive(void *sarg) {
                                     "%s %s.%s (%s) VALUES ",
                                     STR_INSERT_INTO, database->dbName,
                                     tableName,
-                                    stbInfo->partialColumnNameBuf);
+                                    stbInfo->partialColNameBuf);
                         }
                     }
 
@@ -1211,6 +1222,11 @@ static int parseBufferToStmtBatch(
         char dataType = col->type;
 
         char *tmpP = NULL;
+        char *is_null = NULL;
+
+        is_null = calloc(1, sizeof(char) *g_arguments->prepared_rand);
+        ASSERT(is_null);
+        col->is_null = is_null;
 
         switch(dataType) {
             case TSDB_DATA_TYPE_INT:
@@ -1317,58 +1333,72 @@ static int parseBufferToStmtBatch(
 
             strncpy(tmpStr, restStr, index);
 
-            switch(dataType) {
-                case TSDB_DATA_TYPE_INT:
-                case TSDB_DATA_TYPE_UINT:
-                    *((int32_t*)col->data + i) = atoi(tmpStr);
-                    break;
+            if (0 == strcmp(tmpStr, "NULL")) {
+                *(col->is_null + i) = true;
+            } else {
+                switch(dataType) {
+                    case TSDB_DATA_TYPE_INT:
+                    case TSDB_DATA_TYPE_UINT:
+                        *((int32_t*)col->data + i) = atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_FLOAT:
-                    *((float*)col->data +i) = (float)atof(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_FLOAT:
+                        *((float*)col->data +i) = (float)atof(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_DOUBLE:
-                    *((double*)col->data + i) = atof(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_DOUBLE:
+                        *((double*)col->data + i) = atof(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_TINYINT:
-                case TSDB_DATA_TYPE_UTINYINT:
-                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_TINYINT:
+                    case TSDB_DATA_TYPE_UTINYINT:
+                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_SMALLINT:
-                case TSDB_DATA_TYPE_USMALLINT:
-                    *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_SMALLINT:
+                    case TSDB_DATA_TYPE_USMALLINT:
+                        *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BIGINT:
-                case TSDB_DATA_TYPE_UBIGINT:
-                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_BIGINT:
+                    case TSDB_DATA_TYPE_UBIGINT:
+                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BOOL:
-                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_BOOL:
+                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_TIMESTAMP:
+                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR:
-                    {
-                        size_t tmpLen = strlen(tmpStr);
-                        if (tmpLen > 2) {
-                            strncpy((char *)col->data + i * col->length,
-                                    tmpStr+1, tmpLen - 2);
-                        } else {
-                            strcpy((char *)col->data + i * col->length, "");
+                    case TSDB_DATA_TYPE_BINARY:
+                    case TSDB_DATA_TYPE_NCHAR:
+                        {
+                            size_t tmpLen = strlen(tmpStr);
+                            debugPrint("%s() LN%d, index: %d, "
+                                    "tmpStr len: %"PRIu64", col->length: %d\n",
+                                    __func__, __LINE__,
+                                    i, (uint64_t)tmpLen, col->length);
+                            if (tmpLen-2 > col->length) {
+                                errorPrint("data length %"PRIu64" "
+                                        "is larger than column length %d\n",
+                                        (uint64_t)tmpLen, col->length);
+                            }
+
+                            if (tmpLen > 2) {
+                                strncpy((char *)col->data + i * col->length,
+                                        tmpStr+1, min(col->length, tmpLen - 2));
+                            } else {
+                                strcpy((char *)col->data + i * col->length, "");
+                            }
                         }
-                    }
-                    break;
+                        break;
 
-                default:
-                    break;
+                    default:
+                        break;
+                }
             }
 
             free(tmpStr);
@@ -1548,6 +1578,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                     debugPrint("%s() LN%d, sockfd=%d\n", __func__,
                                __LINE__, sockfd);
                     errorPrint("%s\n", "failed to create socket");
+                    tmfree(pids);
+                    tmfree(infos);
                     return -1;
                 }
 
@@ -1562,6 +1594,8 @@ static int startMultiThreadInsertData(SDataBase* database,
 #else
                     close(sockfd);
 #endif
+                    tmfree(pids);
+                    tmfree(infos);
                     return -1;
                 }
                 pThreadInfo->sockfd = sockfd;

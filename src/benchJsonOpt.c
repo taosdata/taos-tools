@@ -12,6 +12,8 @@
 
 #include "bench.h"
 
+extern char      g_configDir[MAX_PATH_LEN];
+
 static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSuperTable *stbInfo) {
     int32_t code = -1;
 
@@ -403,7 +405,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->disorderRange = DEFAULT_DISORDER_RANGE;
         superTable->insert_interval = g_arguments->insert_interval;
         superTable->max_sql_len = BUFFER_SIZE;
-        superTable->partialColumnNum = 0;
+        superTable->partialColNum = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
         superTable->file_factor = -1;
@@ -539,11 +541,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(timestampStep)) {
             superTable->timestamp_step = timestampStep->valueint;
         }
+
         tools_cJSON *sampleFile = tools_cJSON_GetObjectItem(stbInfo, "sample_file");
         if (tools_cJSON_IsString(sampleFile)) {
             tstrncpy(
                 superTable->sampleFile, sampleFile->valuestring,
-                min(MAX_FILE_NAME_LEN, strlen(sampleFile->valuestring) + 1));
+                MAX_FILE_NAME_LEN);
         } else {
             memset(superTable->sampleFile, 0, MAX_FILE_NAME_LEN);
         }
@@ -594,9 +597,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(insertInterval)) {
             superTable->insert_interval = insertInterval->valueint;
         }
-        tools_cJSON *pCoumnNum = tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
-        if (tools_cJSON_IsNumber(pCoumnNum)) {
-            superTable->partialColumnNum = pCoumnNum->valueint;
+        tools_cJSON *pPartialColNum = tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
+        if (tools_cJSON_IsNumber(pPartialColNum)) {
+            superTable->partialColNum = pPartialColNum->valueint;
         }
         if (g_arguments->taosc_version == 3) {
             tools_cJSON *delay = tools_cJSON_GetObjectItem(stbInfo, "delay");
@@ -689,7 +692,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (cfgdir && cfgdir->type == tools_cJSON_String && cfgdir->valuestring != NULL) {
-        tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
@@ -741,10 +744,10 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (!g_arguments->websocket) {
 #endif
 #ifdef LINUX
-    if (strlen(configDir)) {
+    if (strlen(g_configDir)) {
         wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
+        if (wordexp(g_configDir, &full_path, 0) != 0) {
+            errorPrint("Invalid path %s\n", g_configDir);
             exit(EXIT_FAILURE);
         }
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
@@ -822,7 +825,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (tools_cJSON_IsString(cfgdir)) {
-        tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
@@ -858,11 +861,35 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         }
     }
 
+    tools_cJSON *continueIfFail =
+        tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
+    if (tools_cJSON_IsString(continueIfFail)) {
+        if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+            g_queryInfo.continue_if_fail = true;
+        }
+    }
+
     tools_cJSON *gQueryTimes = tools_cJSON_GetObjectItem(json, "query_times");
     if (tools_cJSON_IsNumber(gQueryTimes)) {
         g_queryInfo.query_times = gQueryTimes->valueint;
     } else {
         g_queryInfo.query_times = 1;
+    }
+
+    tools_cJSON *gKillSlowQueryThreshold =
+        tools_cJSON_GetObjectItem(json, "kill_slow_query_threshold");
+    if (tools_cJSON_IsNumber(gKillSlowQueryThreshold)) {
+        g_queryInfo.killQueryThreshold = gKillSlowQueryThreshold->valueint;
+    } else {
+        g_queryInfo.killQueryThreshold = 0;
+    }
+
+    tools_cJSON *gKillSlowQueryInterval =
+        tools_cJSON_GetObjectItem(json, "kill_slow_query_interval");
+    if (tools_cJSON_IsNumber(gKillSlowQueryInterval)) {
+        g_queryInfo.killQueryInterval = gKillSlowQueryInterval ->valueint;
+    } else {
+        g_queryInfo.killQueryInterval = 1;  /* by default, interval 1s */
     }
 
     tools_cJSON *resetCache = tools_cJSON_GetObjectItem(json, "reset_query_cache");
@@ -946,7 +973,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 (uint32_t)threads->valueint;
         }
 
-        tools_cJSON *specifiedAsyncMode = tools_cJSON_GetObjectItem(specifiedQuery, "mode");
+        tools_cJSON *specifiedAsyncMode =
+            tools_cJSON_GetObjectItem(specifiedQuery, "mode");
         if (tools_cJSON_IsString(specifiedAsyncMode)) {
             if (0 == strcmp("async", specifiedAsyncMode->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.asyncMode = ASYNC_MODE;
@@ -957,7 +985,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             g_queryInfo.specifiedQueryInfo.asyncMode = SYNC_MODE;
         }
 
-        tools_cJSON *interval = tools_cJSON_GetObjectItem(specifiedQuery, "interval");
+        tools_cJSON *interval =
+            tools_cJSON_GetObjectItem(specifiedQuery, "interval");
         if (tools_cJSON_IsNumber(interval)) {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
                 interval->valueint;
@@ -966,7 +995,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 DEFAULT_SUB_INTERVAL;
         }
 
-        tools_cJSON *restart = tools_cJSON_GetObjectItem(specifiedQuery, "restart");
+        tools_cJSON *restart =
+            tools_cJSON_GetObjectItem(specifiedQuery, "restart");
         if (tools_cJSON_IsString(restart)) {
             if (0 == strcmp("no", restart->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.subscribeRestart = false;
@@ -990,7 +1020,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         }
 
         // read sqls from file
-        tools_cJSON *sqlFileObj = tools_cJSON_GetObjectItem(specifiedQuery, "sql_file");
+        tools_cJSON *sqlFileObj =
+            tools_cJSON_GetObjectItem(specifiedQuery, "sql_file");
         if (tools_cJSON_IsString(sqlFileObj)) {
             FILE * fp = fopen(sqlFileObj->valuestring, "r");
             if (fp == NULL) {
@@ -1004,33 +1035,41 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
                 sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
                         g_queryInfo.specifiedQueryInfo.sqls->size - 1);
-                sql->command = benchCalloc(1, strlen(buf), true);
-                sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
-                tstrncpy(sql->command, buf, strlen(buf));
+                int bufLen = strlen(buf) + 1;
+                sql->command = benchCalloc(1, bufLen, true);
+                sql->delay_list = benchCalloc(
+                        g_queryInfo.specifiedQueryInfo.queryTimes
+                        * g_queryInfo.specifiedQueryInfo.concurrent,
+                        sizeof(int64_t), true);
+                tstrncpy(sql->command, buf, bufLen);
                 debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, BUFFER_SIZE);
             }
             fclose(fp);
         }
         // sqls
-        tools_cJSON *specifiedSqls = tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
+        tools_cJSON *specifiedSqls =
+            tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
         if (tools_cJSON_IsArray(specifiedSqls)) {
             int specifiedSqlSize = tools_cJSON_GetArraySize(specifiedSqls);
             for (int j = 0; j < specifiedSqlSize; ++j) {
-                tools_cJSON *sqlObj = tools_cJSON_GetArrayItem(specifiedSqls, j);
+                tools_cJSON *sqlObj =
+                    tools_cJSON_GetArrayItem(specifiedSqls, j);
                 if (tools_cJSON_IsObject(sqlObj)) {
                     SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
                     benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
                     sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
                             g_queryInfo.specifiedQueryInfo.sqls->size -1);
-                    sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
+                    sql->delay_list = benchCalloc(
+                            g_queryInfo.specifiedQueryInfo.queryTimes
+                            * g_queryInfo.specifiedQueryInfo.concurrent,
+                            sizeof(int64_t), true);
 
                     tools_cJSON *sqlStr = tools_cJSON_GetObjectItem(sqlObj, "sql");
                     if (tools_cJSON_IsString(sqlStr)) {
-                        sql->command = benchCalloc(1, strlen(sqlStr->valuestring) + 1, true);
-                        tstrncpy(sql->command, sqlStr->valuestring, strlen(sqlStr->valuestring) + 1);
+                        int strLen = strlen(sqlStr->valuestring) + 1;
+                        sql->command = benchCalloc(1, strLen, true);
+                        tstrncpy(sql->command, sqlStr->valuestring, strLen);
                         // default value is -1, which mean infinite loop
                         g_queryInfo.specifiedQueryInfo.endAfterConsume[j] = -1;
                         tools_cJSON *endAfterConsume =
@@ -1044,7 +1083,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
                         g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
                         tools_cJSON *resubAfterConsume =
-                            tools_cJSON_GetObjectItem(specifiedQuery, "resubAfterConsume");
+                            tools_cJSON_GetObjectItem(
+                                    specifiedQuery, "resubAfterConsume");
                         if (tools_cJSON_IsNumber(resubAfterConsume)) {
                             g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] =
                                 (int)resubAfterConsume->valueint;

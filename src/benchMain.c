@@ -40,6 +40,8 @@ void* benchCancelHandler(void* arg) {
 #endif
 
 int main(int argc, char* argv[]) {
+    int ret = 0;
+
     init_argument();
 
     sprintf(g_client_info, "%s", taos_get_client_info());
@@ -57,11 +59,16 @@ int main(int argc, char* argv[]) {
     pthread_create(&spid, NULL, benchCancelHandler, NULL);
 
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
+
 #endif
     if (bench_parse_args(argc, argv)) {
         return -1;
     }
 #ifdef WEBSOCKET
+    if (g_arguments->debug_print) {
+        ws_enable_log();
+    }
+
     if (g_arguments->dsn != NULL) {
         g_arguments->websocket = true;
     } else {
@@ -89,15 +96,23 @@ int main(int argc, char* argv[]) {
     infoPrint("taos client version: %s\n", taos_get_client_info());
 
     if (g_arguments->test_mode == INSERT_TEST) {
-        if (insertTestProcess()) exit(EXIT_FAILURE);
+        if (insertTestProcess()) {
+            errorPrint("%s", "insert test process failed\n");
+            ret = -1;
+        }
     } else if (g_arguments->test_mode == QUERY_TEST) {
         if (queryTestProcess(g_arguments)) {
-            exit(EXIT_FAILURE);
+            errorPrint("%s", "query test process failed\n");
+            ret = -1;
         }
     } else if (g_arguments->test_mode == SUBSCRIBE_TEST) {
-        if (subscribeTestProcess(g_arguments)) exit(EXIT_FAILURE);
+        if (subscribeTestProcess(g_arguments)) {
+            errorPrint("%s", "sub test process failed\n");
+            ret = -1;
+        }
     }
-    if (g_arguments->aggr_func) {
+
+    if ((ret == 0) && g_arguments->aggr_func) {
         queryAggrFunc();
     }
     postFreeResource();
@@ -106,5 +121,6 @@ int main(int argc, char* argv[]) {
     pthread_cancel(spid);
     pthread_join(spid, NULL);
 #endif
-    return 0;
+
+    return ret;
 }
