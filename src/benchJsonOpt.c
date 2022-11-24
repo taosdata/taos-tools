@@ -12,6 +12,8 @@
 
 #include "bench.h"
 
+extern char      g_configDir[MAX_PATH_LEN];
+
 static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSuperTable *stbInfo) {
     int32_t code = -1;
 
@@ -690,7 +692,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (cfgdir && cfgdir->type == tools_cJSON_String && cfgdir->valuestring != NULL) {
-        tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
@@ -742,10 +744,10 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (!g_arguments->websocket) {
 #endif
 #ifdef LINUX
-    if (strlen(configDir)) {
+    if (strlen(g_configDir)) {
         wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
+        if (wordexp(g_configDir, &full_path, 0) != 0) {
+            errorPrint("Invalid path %s\n", g_configDir);
             exit(EXIT_FAILURE);
         }
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
@@ -823,7 +825,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (tools_cJSON_IsString(cfgdir)) {
-        tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
@@ -856,6 +858,14 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     if (tools_cJSON_IsString(answerPrompt)) {
         if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
             g_arguments->answer_yes = true;
+        }
+    }
+
+    tools_cJSON *continueIfFail =
+        tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
+    if (tools_cJSON_IsString(continueIfFail)) {
+        if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+            g_queryInfo.continue_if_fail = true;
         }
     }
 

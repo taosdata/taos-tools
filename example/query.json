@@ -6,6 +6,7 @@
 	"user": "root",
 	"password": "taosdata",
 	"confirm_parameter_prompt": "no",
+    "continue_if_fail": "yes",
 	"databases": "test",
 	"query_times": 2,
 	"query_mode": "taosc",

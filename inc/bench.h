@@ -189,18 +189,23 @@
         }                                                                    \
     } while (0)
 
-#define infoPrint(fmt, ...)                                          \
-    do {                                                                 \
-        struct tm      Tm, *ptm;                                         \
-        struct timeval timeSecs;                                         \
-        time_t         curTime;                                          \
-        toolsGetTimeOfDay(&timeSecs);                                    \
-        curTime = timeSecs.tv_sec;                                       \
+#define infoPrintNoTimestamp(fmt, ...)                                      \
+    do {                                                                    \
+        fprintf(stdout, "" fmt, __VA_ARGS__);                         \
+    } while (0)
+
+#define infoPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
-                (int32_t)timeSecs.tv_usec);                              \
-        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                          \
+        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                         \
     } while (0)
 
 #define infoPrintToFile(fp, fmt, ...)                                          \
@@ -265,6 +270,34 @@
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
                 (int32_t)timeSecs.tv_usec);                                 \
             fprintf(g_arguments->fpOfInsertResult, "ERROR: ");              \
+            fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
+        }                                                                   \
+    } while (0)
+
+#define warnPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stderr, "\033[33m");                                        \
+        fprintf(stderr, "WARN: ");                                          \
+        if (g_arguments->debug_print) {                                     \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                 \
+        }                                                                   \
+        fprintf(stderr, "" fmt, __VA_ARGS__);                               \
+        fprintf(stderr, "\033[0m");                                         \
+        if (g_arguments->fpOfInsertResult) {                                \
+            fprintf(g_arguments->fpOfInsertResult,                          \
+                    "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+            fprintf(g_arguments->fpOfInsertResult, "WARN: ");               \
             fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
         }                                                                   \
     } while (0)
@@ -523,16 +556,17 @@ typedef struct SuperQueryInfo_S {
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
-    SpecifiedQueryInfo specifiedQueryInfo;
-    SuperQueryInfo     superQueryInfo;
-    uint64_t           totalQueried;
-    uint64_t           query_times;
-    uint64_t           killQueryThreshold;
-    int32_t            killQueryInterval;
-    uint64_t           response_buffer;
-    bool               reset_query_cache;
-    uint16_t           iface;
-    char*              dbName;
+    SpecifiedQueryInfo  specifiedQueryInfo;
+    SuperQueryInfo      superQueryInfo;
+    uint64_t            totalQueried;
+    uint64_t            query_times;
+    uint64_t            killQueryThreshold;
+    int32_t             killQueryInterval;
+    uint64_t            response_buffer;
+    bool                reset_query_cache;
+    bool                continue_if_fail;
+    uint16_t            iface;
+    char*               dbName;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
@@ -670,9 +704,26 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int64_t toolsGetTimestampMs();
-int64_t toolsGetTimestampUs();
-int64_t toolsGetTimestampNs();
+static FORCE_INLINE int64_t toolsGetTimestampMs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000L +
+        (int64_t)systemTime.tv_usec / 1000;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampUs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampNs() {
+    struct timespec systemTime = {0};
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000000L +
+        (int64_t)systemTime.tv_nsec;
+}
+
 int64_t toolsGetTimestamp(int32_t precision);
 void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
