@@ -1336,7 +1336,7 @@ static int getTableRecordInfoImplWS(
 
         uint8_t type;
         uint32_t length;
-        char buffer[VALUE_BUF_LEN] = {0};
+        char buffer[TSDB_TABLE_NAME_LEN] = {0};
 
         for (int row = 0; row < rows; row++) {
             const void *value0 = ws_get_value_in_block(ws_res, row,
@@ -1350,7 +1350,7 @@ static int getTableRecordInfoImplWS(
                 continue;
             }
 
-            memset(buffer, 0, VALUE_BUF_LEN);
+            memset(buffer, 0, TSDB_TABLE_NAME_LEN);
             memcpy(buffer, value0, length);
 
             if (0 == strcmp(buffer, table)) {
@@ -1384,7 +1384,7 @@ static int getTableRecordInfoImplWS(
                         }
 
                         pTableRecordInfo->belongStb = true;
-                        memset(buffer, 0, VALUE_BUF_LEN);
+                        memset(buffer, 0, TSDB_TABLE_NAME_LEN);
                         memcpy(buffer, value1, length);
                         tstrncpy(pTableRecordInfo->tableRecord.stable,
                                 buffer, min(TSDB_TABLE_NAME_LEN, length + 1));
