@@ -335,9 +335,11 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'c':
             tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
             break;
+
         case 'o':
             g_arguments->output_file = arg;
             break;
+
         case 'T':
             g_arguments->nthreads = atoi(arg);
             if (g_arguments->nthreads <= 0) {
@@ -347,8 +349,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->nthreads = DEFAULT_NTHREADS;
             }
             break;
+
         case 'H':
             break;
+
         case 'i':
             stbInfo->insert_interval = atoi(arg);
             if (stbInfo->insert_interval <= 0) {
@@ -358,6 +362,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->insert_interval = 0;
             }
             break;
+
         case 'S':
             stbInfo->timestamp_step = atol(arg);
             if (stbInfo->timestamp_step <= 0) {
@@ -367,6 +372,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->timestamp_step = 1;
             }
             break;
+
         case 'B':
             stbInfo->interlaceRows = atoi(arg);
             if (stbInfo->interlaceRows <= 0) {
@@ -580,7 +586,8 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             exit(EXIT_SUCCESS);
         }
 
-        if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0 || strcmp(argv[i], "-?") == 0) {
+        if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0
+            || strcmp(argv[i], "-?") == 0) {
             bench_print_help();
             exit(EXIT_SUCCESS);
         }
@@ -596,20 +603,24 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             return -1;
         }
 
-        if (key[1] == 'f' || key[1] == 'c' || key[1] == 'h' || key[1] == 'P'
-                || key[1] == 'I' || key[1] == 'u' || key[1] == 'p' || key[1] == 'o'
-                || key[1] == 'T' || key[1] == 'i' || key[1] == 'S' || key[1] == 'B'
-                || key[1] == 'r' || key[1] == 't' || key[1] == 'n'
-                || key[1] == 'd' || key[1] == 'l' || key[1] == 'L'
-                || key[1] == 'A' || key[1] == 'b'
-                || key[1] == 'w' || key[1] == 'm'
-                || key[1] == 'R' || key[1] == 'O'
-                || key[1] == 'a' || key[1] == 'F'
-                || key[1] == 'k' || key[1] == 'z'
+        if (key[1] == 'f' || key[1] == 'c'
+            || key[1] == 'h' || key[1] == 'P'
+            || key[1] == 'I' || key[1] == 'u'
+            || key[1] == 'p' || key[1] == 'o'
+            || key[1] == 'T' || key[1] == 'i'
+            || key[1] == 'S' || key[1] == 'B'
+            || key[1] == 'r' || key[1] == 't'
+            || key[1] == 'n' || key[1] == 'L'
+            || key[1] == 'd' || key[1] == 'l'
+            || key[1] == 'A' || key[1] == 'b'
+            || key[1] == 'w' || key[1] == 'm'
+            || key[1] == 'R' || key[1] == 'O'
+            || key[1] == 'a' || key[1] == 'F'
+            || key[1] == 'k' || key[1] == 'z'
 #ifdef WEBSOCKET
-                || key[1] == 'D' || key[1] == 'W'
+            || key[1] == 'D' || key[1] == 'W'
 #endif
-           ) {
+        ) {
             if (i + 1 >= argc) {
                 errorPrint("option %s requires an argument\r\n", key);
                 return -1;
@@ -720,6 +731,8 @@ static void init_stable() {
     stbInfo->disorderRatio = 0;
     stbInfo->file_factor = -1;
     stbInfo->delay = -1;
+    stbInfo->keep_trying = 0;
+    stbInfo->trying_interval = 0;
 }
 
 static void init_database() {
@@ -850,6 +863,11 @@ void modify_argument() {
             col->min = convertDatatypeToDefaultMin(col->type);
             col->max = convertDatatypeToDefaultMax(col->type);
         }
+    }
+
+    if (g_arguments->keep_trying) {
+        superTable->keep_trying = g_arguments->keep_trying;
+        superTable->trying_interval = g_arguments->trying_interval;
     }
 }
 

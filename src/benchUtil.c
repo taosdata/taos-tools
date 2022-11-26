@@ -314,16 +314,15 @@ void close_bench_conn(SBenchConn* conn) {
 }
 
 int queryDbExec(SBenchConn *conn, char *command) {
-    int32_t code;
+    int32_t code = 0;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        WS_RES* res = ws_query_timeout(conn->taos_ws, command, g_arguments->timeout);
+        WS_RES* res = ws_query_timeout(conn->taos_ws,
+                                       command, g_arguments->timeout);
         code = ws_errno(res);
         if (code != 0) {
-            errorPrint("Failed to execute <%s>, reason: %s\n", command,
-                    ws_errstr(res));
-            ws_free_result(res);
-            return -1;
+            errorPrint("Failed to execute <%s>, code: %d, reason: %s\n",
+                       command, code, ws_errstr(res));
         }
         ws_free_result(res);
     } else {
@@ -331,16 +330,14 @@ int queryDbExec(SBenchConn *conn, char *command) {
         TAOS_RES *res = taos_query(conn->taos, command);
         code = taos_errno(res);
         if (code != 0) {
-            errorPrint("Failed to execute <%s>, reason: %s\n", command,
-                    taos_errstr(res));
-            taos_free_result(res);
-            return -1;
+            errorPrint("Failed to execute <%s>, code: 0x%08x, reason: %s\n",
+                       command, code, taos_errstr(res));
         }
         taos_free_result(res);
 #ifdef WEBSOCKET
     }
 #endif
-    return 0;
+    return code;
 }
 
 void encode_base_64() {

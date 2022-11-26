@@ -484,6 +484,8 @@ typedef struct SSuperTable_S {
     char* max_delay;
     char* watermark;
     int   ttl;
+    int32_t keep_trying;
+    uint32_t trying_interval;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
