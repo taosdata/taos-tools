@@ -47,7 +47,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             apache-avro
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
-            PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
             CONFIGURE_COMMAND cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
             )
     ELSE ()
@@ -55,7 +54,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
             apache-avro
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
-            PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
             CONFIGURE_COMMAND cmake -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
             )
     ENDIF ()
@@ -143,7 +141,6 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         COMMAND sed -i "s/typedef uint16_t  uint_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h
         COMMAND sed -i "s/typedef int16_t   int_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h
         COMMAND sed -i "s/#define snprintf _snprintf//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro_private.h
-        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/codec.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/avro-lang-c-CMakeLists.txt ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
         CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" ${BUILD_TYPE} -DCMAKE_MAKE_PROGRAM=jom -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c

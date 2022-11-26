@@ -619,16 +619,31 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                code =  postProceSql(pThreadInfo->buffer,
+                                  database->dbName,
+                                  database->precision,
+                                  stbInfo->iface,
+                                  stbInfo->lineProtocol,
+                                  stbInfo->tcpTransfer,
+                                  pThreadInfo->sockfd,
+                                  pThreadInfo->filePath);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
             break;
 
         case STMT_IFACE:
-            if (taos_stmt_execute(pThreadInfo->conn->stmt)) {
+            code = taos_stmt_execute(pThreadInfo->conn->stmt);
+            if (code) {
                 errorPrint(
                            "failed to execute insert statement. reason: %s\n",
                            taos_stmt_errstr(pThreadInfo->conn->stmt));
                 code = -1;
-            } else {
-                code = 0;
             }
             break;
 
@@ -645,11 +660,29 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     ? database->sml_precision
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                taos_free_result(res);
+                res = taos_schemaless_insert(
+                        pThreadInfo->conn->taos, pThreadInfo->lines,
+                        stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
+                        stbInfo->lineProtocol,
+                        stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL
+                        ? database->sml_precision
+                        : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
+                code = taos_errno(res);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
+
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
                     "failed to execute schemaless insert. "
-                        "content: %s, reason: %s\n",
-                    pThreadInfo->lines[0], taos_errstr(res));
+                        "content: %s, code: 0x%08x reason: %s\n",
+                    pThreadInfo->lines[0], code, taos_errstr(res));
             }
             taos_free_result(res);
             break;
