@@ -1336,7 +1336,7 @@ static int getTableRecordInfoImplWS(
 
         uint8_t type;
         uint32_t length;
-        char buffer[VALUE_BUF_LEN] = {0};
+        char buffer[TSDB_TABLE_NAME_LEN] = {0};
 
         for (int row = 0; row < rows; row++) {
             const void *value0 = ws_get_value_in_block(ws_res, row,
@@ -1350,7 +1350,7 @@ static int getTableRecordInfoImplWS(
                 continue;
             }
 
-            memset(buffer, 0, VALUE_BUF_LEN);
+            memset(buffer, 0, TSDB_TABLE_NAME_LEN);
             memcpy(buffer, value0, length);
 
             if (0 == strcmp(buffer, table)) {
@@ -1384,7 +1384,7 @@ static int getTableRecordInfoImplWS(
                         }
 
                         pTableRecordInfo->belongStb = true;
-                        memset(buffer, 0, VALUE_BUF_LEN);
+                        memset(buffer, 0, TSDB_TABLE_NAME_LEN);
                         memcpy(buffer, value1, length);
                         tstrncpy(pTableRecordInfo->tableRecord.stable,
                                 buffer, min(TSDB_TABLE_NAME_LEN, length + 1));
@@ -1782,6 +1782,7 @@ static int getDumpDbCount() {
                 NULL, g_args.port);
         if (NULL == taos) {
             errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+            free(command);
             return 0;
         }
         res = taos_query(taos, command);
@@ -7340,59 +7341,65 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
                 fileList[pThreadInfo->from + i]);
         if (rows < 0) {
             errorPrint("%s() LN%d, failed to dump file: %s\n", __func__, __LINE__,
-                       fileList[pThreadInfo->from +i]);
-            } else {
-                switch (pThreadInfo->avroType) {
-                    case AVRO_DATA:
-                        if (rows >= 0) {
-                            atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
-                            okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
-                                     pThreadInfo->threadIndex, rows,
-                                     fileList[pThreadInfo->from + i]);
-                        } else {
-                            atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
-                            errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
+                                fileList[pThreadInfo->from +i]);
+            switch (pThreadInfo->avroType) {
+                case AVRO_DATA:
+                    atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
+                    errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
                                         pThreadInfo->threadIndex, rows,
                                         fileList[pThreadInfo->from + i]);
-                        }
-                        break;
+                    break;
 
-                    case AVRO_TBTAGS:
-                        if (rows >= 0) {
-                            atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
-                            okPrint("[%d] %"PRId64""
-                                     "table(s) belong stb from the file(%s) be successfully dumped in!\n",
-                                     pThreadInfo->threadIndex, rows,
-                                     fileList[pThreadInfo->from + i]);
-                        } else {
-                            atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
-                            errorPrint("[%d] %"PRId64""
+                case AVRO_TBTAGS:
+                    atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
+                    errorPrint("[%d] %"PRId64""
                                         "table(s) belong stb from the file(%s) failed to dumped in!\n",
                                         pThreadInfo->threadIndex, rows,
                                         fileList[pThreadInfo->from + i]);
-                        }
-                        break;
+                    break;
 
-                    case AVRO_NTB:
-                        if (rows >= 0) {
-                            atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
-                            okPrint("[%d] %"PRId64" "
-                                     "normal table(s) from (%s) be successfully dumped in!\n",
-                                     pThreadInfo->threadIndex, rows,
-                                     fileList[pThreadInfo->from + i]);
-                        } else {
-                            atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
-                            errorPrint("[%d] %"PRId64" "
+                case AVRO_NTB:
+                    atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
+                    errorPrint("[%d] %"PRId64" "
                                         "normal tables from (%s) failed to dumped in!\n",
                                         pThreadInfo->threadIndex, rows,
                                         fileList[pThreadInfo->from + i]);
-                        }
-                        break;
+                    break;
 
-                    default:
-                        errorPrint("%s() LN%d input mistake list: %d\n",
-                                    __func__, __LINE__, pThreadInfo->avroType);
-                        return NULL;
+                default:
+                    errorPrint("%s() LN%d input mistake list: %d\n",
+                                        __func__, __LINE__, pThreadInfo->avroType);
+                    return NULL;
+            }
+        } else {
+            switch (pThreadInfo->avroType) {
+                case AVRO_DATA:
+                    atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
+                    okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
+                                         pThreadInfo->threadIndex, rows,
+                                         fileList[pThreadInfo->from + i]);
+                    break;
+
+                case AVRO_TBTAGS:
+                    atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
+                    okPrint("[%d] %"PRId64""
+                                         "table(s) belong stb from the file(%s) be successfully dumped in!\n",
+                                         pThreadInfo->threadIndex, rows,
+                                         fileList[pThreadInfo->from + i]);
+                    break;
+
+                case AVRO_NTB:
+                    atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
+                    okPrint("[%d] %"PRId64" "
+                                         "normal table(s) from (%s) be successfully dumped in!\n",
+                                         pThreadInfo->threadIndex, rows,
+                                         fileList[pThreadInfo->from + i]);
+                    break;
+
+                default:
+                    errorPrint("%s() LN%d input mistake list: %d\n",
+                                        __func__, __LINE__, pThreadInfo->avroType);
+                    return NULL;
             }
         }
 
@@ -7546,11 +7553,6 @@ static int processResultValue(
         return sprintf(pstr + curr_sqlstr_len, "NULL");
     }
 
-    char *tbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
-    if (NULL == tbuf) {
-        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
-        return -1;
-    }
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
             return sprintf(pstr + curr_sqlstr_len, "%d",
@@ -7599,16 +7601,30 @@ static int processResultValue(
                     GET_DOUBLE_VAL(value));
 
         case TSDB_DATA_TYPE_BINARY:
-            convertStringToReadable((char *)value, len,
-                    tbuf, TSDB_MAX_ALLOWED_SQL_LEN);
-            return sprintf(pstr + curr_sqlstr_len,
-                    "\'%s\'", tbuf);
+            {
+                char *bbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+                if (NULL == bbuf) {
+                    errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+                    return -1;
+                }
+                convertStringToReadable((char *)value, len,
+                    bbuf, TSDB_MAX_ALLOWED_SQL_LEN);
+                return sprintf(pstr + curr_sqlstr_len,
+                    "\'%s\'", bbuf);
+            }
 
         case TSDB_DATA_TYPE_NCHAR:
-            convertNCharToReadable((char *)value, len,
-                    tbuf, TSDB_MAX_ALLOWED_SQL_LEN);
-            return sprintf(pstr + curr_sqlstr_len,
-                    "\'%s\'", tbuf);
+            {
+                char *nbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+                if (NULL == nbuf) {
+                    errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+                    return -1;
+                }
+                convertNCharToReadable((char *)value, len,
+                    nbuf, TSDB_MAX_ALLOWED_SQL_LEN);
+                return sprintf(pstr + curr_sqlstr_len,
+                    "\'%s\'", nbuf);
+            }
 
         case TSDB_DATA_TYPE_TIMESTAMP:
             return sprintf(pstr + curr_sqlstr_len,
@@ -7619,7 +7635,6 @@ static int processResultValue(
             break;
     }
 
-    free(tbuf);
     return 0;
 }
 
@@ -8022,22 +8037,21 @@ static int generateSubDirName(
     if (dir) {
         /* Directory exists. */
         toolsCloseDir(&dir);
-    } else if (NULL == dir) {
+    } else {
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
         if (ret) {
             if (EEXIST == errno) {
+                warnPrint("%s() LN%d, %s exists.\n",
+                        __func__, __LINE__, dirToCreate);
                 ret = 0;
             } else {
+                /* mkdir() failed for some other reason. */
                 errorPrint("%s() LN%d, mkdir(%s) failed. Errno: %d\n",
                         __func__, __LINE__, dirToCreate, errno);
+                ret = errno;
             }
         }
-    } else {
-        /* opendir() failed for some other reason. */
-        ret = errno;
-        errorPrint("%s() LN%d, opendir(%s) no: %d, reason: %s\n",
-                __func__, __LINE__, dirToCreate, ret, strerror(ret));
     }
 
     return ret;
@@ -12052,7 +12066,7 @@ static int dumpOut() {
     debugPrint("%s() LN%d, dump db count: %d\n",
             __func__, __LINE__, g_args.dumpDbCount);
 
-    if (0 == g_args.dumpDbCount) {
+    if (g_args.dumpDbCount <= 0) {
         errorPrint("%d databases valid to dump\n", g_args.dumpDbCount);
         fclose(fp);
         return -1;

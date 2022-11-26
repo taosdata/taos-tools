@@ -706,9 +706,26 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int64_t toolsGetTimestampMs();
-int64_t toolsGetTimestampUs();
-int64_t toolsGetTimestampNs();
+static FORCE_INLINE int64_t toolsGetTimestampMs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000L +
+        (int64_t)systemTime.tv_usec / 1000;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampUs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampNs() {
+    struct timespec systemTime = {0};
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000000L +
+        (int64_t)systemTime.tv_nsec;
+}
+
 int64_t toolsGetTimestamp(int32_t precision);
 void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
