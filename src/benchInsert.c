@@ -598,6 +598,15 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
             break;
 
         case REST_IFACE:
@@ -610,22 +619,38 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                code =  postProceSql(pThreadInfo->buffer,
+                                  database->dbName,
+                                  database->precision,
+                                  stbInfo->iface,
+                                  stbInfo->lineProtocol,
+                                  stbInfo->tcpTransfer,
+                                  pThreadInfo->sockfd,
+                                  pThreadInfo->filePath);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
             break;
 
         case STMT_IFACE:
-            if (taos_stmt_execute(pThreadInfo->conn->stmt)) {
+            code = taos_stmt_execute(pThreadInfo->conn->stmt);
+            if (code) {
                 errorPrint(
                            "failed to execute insert statement. reason: %s\n",
                            taos_stmt_errstr(pThreadInfo->conn->stmt));
                 code = -1;
-            } else {
-                code = 0;
             }
             break;
 
         case SML_IFACE:
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
+                pThreadInfo->lines[0] =
+                    tools_cJSON_Print(pThreadInfo->json_array);
             }
             res = taos_schemaless_insert(
                 pThreadInfo->conn->taos, pThreadInfo->lines,
@@ -635,11 +660,29 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     ? database->sml_precision
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                taos_free_result(res);
+                res = taos_schemaless_insert(
+                        pThreadInfo->conn->taos, pThreadInfo->lines,
+                        stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
+                        stbInfo->lineProtocol,
+                        stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL
+                        ? database->sml_precision
+                        : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
+                code = taos_errno(res);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
+
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
-                    "failed to execute schemaless insert. content: %s, reason: "
-                    "%s\n",
-                    pThreadInfo->lines[0], taos_errstr(res));
+                    "failed to execute schemaless insert. "
+                        "content: %s, code: 0x%08x reason: %s\n",
+                    pThreadInfo->lines[0], code, taos_errstr(res));
             }
             taos_free_result(res);
             break;
@@ -655,8 +698,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 int len = 0;
                 for (int i = 0; i < k; ++i) {
                     if (strlen(pThreadInfo->lines[i]) != 0) {
-                        if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-                            stbInfo->tcpTransfer) {
+                        if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL
+                            && stbInfo->tcpTransfer) {
                             len += sprintf(pThreadInfo->buffer + len,
                                            "put %s\n", pThreadInfo->lines[i]);
                         } else {
@@ -857,6 +900,8 @@ static void *syncWriteInterlace(void *sarg) {
                     insertRows -= interlaceRows;
                 }
                 if (stbInfo->insert_interval > 0) {
+                    debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
+                          __func__, __LINE__, stbInfo->insert_interval);
                     perfPrint("sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval);
                     toolsMsleep((int32_t)stbInfo->insert_interval);
@@ -1147,7 +1192,16 @@ void *syncWriteProgressive(void *sarg) {
             }
             endTs = toolsGetTimestampNs();
 
+            if (stbInfo->insert_interval > 0) {
+                debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
+                          __func__, __LINE__, stbInfo->insert_interval);
+                perfPrint("sleep %" PRIu64 " ms\n",
+                              stbInfo->insert_interval);
+                toolsMsleep((int32_t)stbInfo->insert_interval);
+            }
+
             pThreadInfo->totalInsertRows += generated;
+
             switch (stbInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE:
@@ -1927,8 +1981,10 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
 static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     char command[SQL_BUFF_LEN];
     int len = snprintf(command, SQL_BUFF_LEN,
-                       "create sma index %s on %s function(%s) interval (%s) sliding (%s)",
-                       tsma->name, stbName, tsma->func, tsma->interval, tsma->sliding);
+                       "create sma index %s on %s function(%s) "
+                       "interval (%s) sliding (%s)",
+                       tsma->name, stbName, tsma->func,
+                       tsma->interval, tsma->sliding);
     if (tsma->custom) {
         snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
     }
@@ -1973,7 +2029,8 @@ static void* create_tsmas(void* args) {
 static int createStream(SSTREAM* stream) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
-    snprintf(command, BUFFER_SIZE, "drop stream if exists %s", stream->stream_name);
+    snprintf(command, BUFFER_SIZE, "drop stream if exists %s",
+             stream->stream_name);
     infoPrint("%s\n", command);
     SBenchConn* conn = init_bench_conn();
     if (NULL == conn) {

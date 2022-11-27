@@ -73,6 +73,9 @@ char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
 #define BENCH_POOL  "The connection pool size(deprecated)."
 #define BENCH_EMAIL   "<support@taosdata.com>"
 #define BENCH_VERSION "Print program version."
+#define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
+#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a postive number. Only valid when keep trying be enabled."
+
 #ifdef WEBSOCKET
 #define BENCH_DSN "The dsn to connect TDengine cloud service."
 #define BENCH_TIMEOUT "The timeout wait on websocket query in seconds, default is 10."
@@ -95,40 +98,44 @@ void bench_print_help() {
     char indent[] = "  ";
     printf("Usage: taosBenchmark [OPTION ...] \r\n\r\n");
     printf("%s%s%s%s\r\n", indent, "-f,", indent, BENCH_FILE);
-    printf("%s%s%s%s\r\n", indent, "-c,", indent, BENCH_CFG_DIR);
-    printf("%s%s%s%s\r\n", indent, "-h,", indent, BENCH_HOST);
-    printf("%s%s%s%s\r\n", indent, "-P,", indent, BENCH_PORT);
-    printf("%s%s%s%s\r\n", indent, "-I,", indent, BENCH_MODE);
-    printf("%s%s%s%s\r\n", indent, "-u,", indent, BENCH_USER);
-    printf("%s%s%s%s\r\n", indent, "-p,", indent, BENCH_PASS);
-    printf("%s%s%s%s\r\n", indent, "-o,", indent, BENCH_OUTPUT);
-    printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
-    printf("%s%s%s%s\r\n", indent, "-i,", indent, BENCH_INTERVAL);
-    printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
-    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
-    printf("%s%s%s%s\r\n", indent, "-B,", indent, BENCH_INTERLACE);
-    printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
-    printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
-    printf("%s%s%s%s\r\n", indent, "-n,", indent, BENCH_ROWS);
-    printf("%s%s%s%s\r\n", indent, "-d,", indent, BENCH_DATABASE);
-    printf("%s%s%s%s\r\n", indent, "-l,", indent, BENCH_COLS_NUM);
-    printf("%s%s%s%s\r\n", indent, "-L,", indent, BENCH_PARTIAL_COL_NUM);
+    printf("%s%s%s%s\r\n", indent, "-a,", indent, BENCH_REPLICA);
     printf("%s%s%s%s\r\n", indent, "-A,", indent, BENCH_TAGS);
     printf("%s%s%s%s\r\n", indent, "-b,", indent, BENCH_COLS);
-    printf("%s%s%s%s\r\n", indent, "-w,", indent, BENCH_WIDTH);
-    printf("%s%s%s%s\r\n", indent, "-m,", indent, BENCH_PREFIX);
-    printf("%s%s%s%s\r\n", indent, "-E,", indent, BENCH_ESCAPE);
+    printf("%s%s%s%s\r\n", indent, "-B,", indent, BENCH_INTERLACE);
+    printf("%s%s%s%s\r\n", indent, "-c,", indent, BENCH_CFG_DIR);
     printf("%s%s%s%s\r\n", indent, "-C,", indent, BENCH_CHINESE);
-    printf("%s%s%s%s\r\n", indent, "-N,", indent, BENCH_NORMAL);
-    printf("%s%s%s%s\r\n", indent, "-M,", indent, BENCH_RANDOM);
-    printf("%s%s%s%s\r\n", indent, "-x,", indent, BENCH_AGGR);
-    printf("%s%s%s%s\r\n", indent, "-y,", indent, BENCH_YES);
-    printf("%s%s%s%s\r\n", indent, "-R,", indent, BENCH_RANGE);
-    printf("%s%s%s%s\r\n", indent, "-O,", indent, BENCH_DISORDER);
-    printf("%s%s%s%s\r\n", indent, "-a,", indent, BENCH_REPLICA);
+    printf("%s%s%s%s\r\n", indent, "-d,", indent, BENCH_DATABASE);
+    printf("%s%s%s%s\r\n", indent, "-E,", indent, BENCH_ESCAPE);
+    printf("%s%s%s%s\r\n", indent, "-F,", indent, BENCH_PREPARE);
     printf("%s%s%s%s\r\n", indent, "-g,", indent, BENCH_DEBUG);
     printf("%s%s%s%s\r\n", indent, "-G,", indent, BENCH_PERFORMANCE);
-    printf("%s%s%s%s\r\n", indent, "-F,", indent, BENCH_PREPARE);
+    printf("%s%s%s%s\r\n", indent, "-h,", indent, BENCH_HOST);
+    printf("%s%s%s%s\r\n", indent, "-H,", indent, BENCH_POOL);
+    printf("%s%s%s%s\r\n", indent, "-i,", indent, BENCH_INTERVAL);
+    printf("%s%s%s%s\r\n", indent, "-I,", indent, BENCH_MODE);
+    printf("%s%s%s%s\r\n", indent, "-l,", indent, BENCH_COLS_NUM);
+    printf("%s%s%s%s\r\n", indent, "-L,", indent, BENCH_PARTIAL_COL_NUM);
+    printf("%s%s%s%s\r\n", indent, "-m,", indent, BENCH_PREFIX);
+    printf("%s%s%s%s\r\n", indent, "-M,", indent, BENCH_RANDOM);
+    printf("%s%s%s%s\r\n", indent, "-n,", indent, BENCH_ROWS);
+    printf("%s%s%s%s\r\n", indent, "-N,", indent, BENCH_NORMAL);
+    printf("%s%s%s%s\r\n", indent, "-k,", indent, BENCH_KEEPTRYING);
+    printf("%s%s%s%s\r\n", indent, "-o,", indent, BENCH_OUTPUT);
+    printf("%s%s%s%s\r\n", indent, "-O,", indent, BENCH_DISORDER);
+    printf("%s%s%s%s\r\n", indent, "-p,", indent, BENCH_PASS);
+    printf("%s%s%s%s\r\n", indent, "-P,", indent, BENCH_PORT);
+    printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
+    printf("%s%s%s%s\r\n", indent, "-R,", indent, BENCH_RANGE);
+    printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
+    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
+    printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
+    printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
+    printf("%s%s%s%s\r\n", indent, "-u,", indent, BENCH_USER);
+    printf("%s%s%s%s\r\n", indent, "-U,", indent, BENCH_SUPPLEMENT);
+    printf("%s%s%s%s\r\n", indent, "-w,", indent, BENCH_WIDTH);
+    printf("%s%s%s%s\r\n", indent, "-x,", indent, BENCH_AGGR);
+    printf("%s%s%s%s\r\n", indent, "-y,", indent, BENCH_YES);
+    printf("%s%s%s%s\r\n", indent, "-z,", indent, BENCH_TRYING_INTERVAL);
 #ifdef WEBSOCKET
     printf("%s%s%s%s\r\n", indent, "-W,", indent, BENCH_DSN);
     printf("%s%s%s%s\r\n", indent, "-D,", indent, BENCH_TIMEOUT);
@@ -186,6 +193,8 @@ static struct argp_option bench_options[] = {
     {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
     {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
 #endif
+    {"keep-trying", 'k', "NUMBER", 0, BENCH_KEEPTRYING},
+    {"trying-interval", 'z', "NUMBER", 0, BENCH_TRYING_INTERVAL},
     {"version", 'V', 0, 0, BENCH_VERSION},
     {0}
 };
@@ -326,9 +335,11 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'c':
             tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
             break;
+
         case 'o':
             g_arguments->output_file = arg;
             break;
+
         case 'T':
             g_arguments->nthreads = atoi(arg);
             if (g_arguments->nthreads <= 0) {
@@ -338,8 +349,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->nthreads = DEFAULT_NTHREADS;
             }
             break;
+
         case 'H':
             break;
+
         case 'i':
             stbInfo->insert_interval = atoi(arg);
             if (stbInfo->insert_interval <= 0) {
@@ -349,6 +362,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->insert_interval = 0;
             }
             break;
+
         case 'S':
             stbInfo->timestamp_step = atol(arg);
             if (stbInfo->timestamp_step <= 0) {
@@ -358,6 +372,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->timestamp_step = 1;
             }
             break;
+
         case 'B':
             stbInfo->interlaceRows = atoi(arg);
             if (stbInfo->interlaceRows <= 0) {
@@ -432,10 +447,28 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->demo_mode = false;
             parseFieldDatatype(arg, stbInfo->tags, true);
             break;
+
         case 'b':
             g_arguments->demo_mode = false;
             parseFieldDatatype(arg, stbInfo->cols, false);
             break;
+
+        case 'k':
+            g_arguments->keep_trying = atoi(arg);
+            debugPrint("keep_trying: %d\n", g_arguments->keep_trying);
+            break;
+
+        case 'z':
+            g_arguments->trying_interval = atoi(arg);
+            if (g_arguments->trying_interval < 0) {
+                errorPrint(
+                        "Invalid value for z: %s, will auto set to default(0)\n",
+                        arg);
+                g_arguments->trying_interval = 0;
+            }
+            debugPrint("trying_interval: %d\n", g_arguments->trying_interval);
+            break;
+
         case 'w':
             g_arguments->binwidth = atoi(arg);
             if (g_arguments->binwidth <= 0) {
@@ -451,29 +484,37 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
             }
             break;
+
         case 'm':
             stbInfo->childTblPrefix = arg;
             break;
+
         case 'E':
             stbInfo->escape_character = true;
             break;
+
         case 'C':
             g_arguments->chinese = true;
             break;
+
         case 'N':
             g_arguments->demo_mode = false;
             stbInfo->use_metric = false;
             benchArrayClear(stbInfo->tags);
             break;
+
         case 'M':
             g_arguments->demo_mode = false;
             break;
+
         case 'x':
             g_arguments->aggr_func = true;
             break;
+
         case 'y':
             g_arguments->answer_yes = true;
             break;
+
         case 'R':
             stbInfo->disorderRange = atoi(arg);
             if (stbInfo->disorderRange <= 0) {
@@ -485,6 +526,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                         DEFAULT_DISORDER_RANGE;
             }
             break;
+
         case 'O':
             stbInfo->disorderRatio = atoi(arg);
             if (stbInfo->disorderRatio <= 0) {
@@ -494,6 +536,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->disorderRatio = 0;
             }
             break;
+
         case 'a':{
             int replica = atoi(arg);
             if (replica <= 0) {
@@ -516,6 +559,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'G':
             g_arguments->performance_print = true;
             break;
+
 #ifdef WEBSOCKET
         case 'W':
             g_arguments->dsn = arg;
@@ -524,9 +568,11 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->timeout = atoi(arg);
             break;
 #endif
+
         case 'V':
             printVersion();
             exit(0);
+
         default:
             return ARGP_ERR_UNKNOWN;
     }
@@ -540,7 +586,8 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             exit(EXIT_SUCCESS);
         }
 
-        if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0 || strcmp(argv[i], "-?") == 0) {
+        if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0
+            || strcmp(argv[i], "-?") == 0) {
             bench_print_help();
             exit(EXIT_SUCCESS);
         }
@@ -556,19 +603,24 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
             return -1;
         }
 
-        if (key[1] == 'f' || key[1] == 'c' || key[1] == 'h' || key[1] == 'P'
-                || key[1] == 'I' || key[1] == 'u' || key[1] == 'p' || key[1] == 'o'
-                || key[1] == 'T' || key[1] == 'i' || key[1] == 'S' || key[1] == 'B'
-                || key[1] == 'r' || key[1] == 't' || key[1] == 'n'
-                || key[1] == 'd' || key[1] == 'l' || key[1] == 'L'
-                || key[1] == 'A' || key[1] == 'b'
-                || key[1] == 'w' || key[1] == 'm'
-                || key[1] == 'R' || key[1] == 'O'
-                || key[1] == 'a' || key[1] == 'F'
+        if (key[1] == 'f' || key[1] == 'c'
+            || key[1] == 'h' || key[1] == 'P'
+            || key[1] == 'I' || key[1] == 'u'
+            || key[1] == 'p' || key[1] == 'o'
+            || key[1] == 'T' || key[1] == 'i'
+            || key[1] == 'S' || key[1] == 'B'
+            || key[1] == 'r' || key[1] == 't'
+            || key[1] == 'n' || key[1] == 'L'
+            || key[1] == 'd' || key[1] == 'l'
+            || key[1] == 'A' || key[1] == 'b'
+            || key[1] == 'w' || key[1] == 'm'
+            || key[1] == 'R' || key[1] == 'O'
+            || key[1] == 'a' || key[1] == 'F'
+            || key[1] == 'k' || key[1] == 'z'
 #ifdef WEBSOCKET
-                || key[1] == 'D' || key[1] == 'W'
+            || key[1] == 'D' || key[1] == 'W'
 #endif
-           ) {
+        ) {
             if (i + 1 >= argc) {
                 errorPrint("option %s requires an argument\r\n", key);
                 return -1;
@@ -679,6 +731,8 @@ static void init_stable() {
     stbInfo->disorderRatio = 0;
     stbInfo->file_factor = -1;
     stbInfo->delay = -1;
+    stbInfo->keep_trying = 0;
+    stbInfo->trying_interval = 0;
 }
 
 static void init_database() {
@@ -720,7 +774,7 @@ void init_argument() {
     g_arguments->g_actualChildTables = 0;
     g_arguments->g_autoCreatedChildTables = 0;
     g_arguments->g_existedChildTables = 0;
-    g_arguments->chinese = 0;
+    g_arguments->chinese = false;
     g_arguments->aggr_func = 0;
     g_arguments->terminate = false;
 #ifdef WEBSOCKET
@@ -730,6 +784,9 @@ void init_argument() {
     g_arguments->supplementInsert = false;
     g_arguments->startTimestamp = DEFAULT_START_TIME;
     g_arguments->partialColNum = 0;
+
+    g_arguments->keep_trying = 0;
+    g_arguments->trying_interval = 0;
 
     init_database();
     init_stable();
@@ -806,6 +863,11 @@ void modify_argument() {
             col->min = convertDatatypeToDefaultMin(col->type);
             col->max = convertDatatypeToDefaultMax(col->type);
         }
+    }
+
+    if (g_arguments->keep_trying) {
+        superTable->keep_trying = g_arguments->keep_trying;
+        superTable->trying_interval = g_arguments->trying_interval;
     }
 }
 
