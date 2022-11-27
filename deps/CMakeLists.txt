@@ -30,9 +30,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     MESSAGE(STATUS "deps' cmake detected current OS is " ${OS_ID} "")
     ExternalProject_Add(
         deps-jansson
-        GIT_REPOSITORY https://github.com/akheron/jansson
-        GIT_TAG         v2.14
-        GIT_SHALLOW     true
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
         CONFIGURE_COMMAND cmake -DJANSSON_BUILD_DOCS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/jansson
@@ -40,10 +37,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
     ExternalProject_Add(
         deps-snappy
-        GIT_REPOSITORY https://github.com/google/snappy
-        GIT_TAG         1.1.8
-        GIT_SHALLOW     true
-        GIT_SUBMODULES  ""
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
         CONFIGURE_COMMAND cmake -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_INSTALL_LIBDIR=lib -S ${PROJECT_SOURCE_DIR}/deps/snappy
@@ -52,9 +45,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
         ExternalProject_Add(
             apache-avro
-            GIT_REPOSITORY https://github.com/apache/avro
-            GIT_TAG         release-1.11.0
-            GIT_SHALLOW     true
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
             PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
@@ -63,9 +53,6 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     ELSE ()
         ExternalProject_Add(
             apache-avro
-            GIT_REPOSITORY https://github.com/apache/avro
-            GIT_TAG         release-1.11.0
-            GIT_SHALLOW     true
             PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
             SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
             PATCH_COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/datafile.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/datafile.c
@@ -104,9 +91,6 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         )
     ExternalProject_Add(
         deps-jansson
-        GIT_REPOSITORY https://github.com/akheron/jansson
-        GIT_TAG         v2.14
-        GIT_SHALLOW     true
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/jansson
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/jansson
         CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" -DCMAKE_MAKE_PROGRAM=jom -DJANSSON_BUILD_DOCS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/jansson
@@ -116,10 +100,6 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
     ExternalProject_Add(
         deps-libargp
-        GIT_REPOSITORY  https://github.com/divisionind/libargp-mingw.git
-        GIT_TAG         master
-        GIT_SHALLOW     true
-        GIT_SUBMODULES  ""
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libargp/
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/libargp
         PATCH_COMMAND
@@ -134,10 +114,6 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
     ExternalProject_Add(
         deps-snappy
-        GIT_REPOSITORY https://github.com/google/snappy
-        GIT_TAG         1.1.8
-        GIT_SHALLOW     true
-        GIT_SUBMODULES  ""
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
         CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" -DCMAKE_MAKE_PROGRAM=jom -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/snappy
@@ -150,9 +126,6 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     ENDIF ()
     ExternalProject_Add(
         apache-avro
-        GIT_REPOSITORY https://github.com/apache/avro
-        GIT_TAG         release-1.11.0
-        GIT_SHALLOW     true
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/avro
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/avro
         PATCH_COMMAND
