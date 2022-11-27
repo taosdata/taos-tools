@@ -60,13 +60,15 @@ int main(int argc, char* argv[]) {
 
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
 
-    pthread_cancel(spid);
-    pthread_join(spid, NULL);
 #endif
     if (bench_parse_args(argc, argv)) {
         return -1;
     }
 #ifdef WEBSOCKET
+    if (g_arguments->debug_print) {
+        ws_enable_log();
+    }
+
     if (g_arguments->dsn != NULL) {
         g_arguments->websocket = true;
     } else {
@@ -114,6 +116,11 @@ int main(int argc, char* argv[]) {
         queryAggrFunc();
     }
     postFreeResource();
+
+#ifdef LINUX
+    pthread_cancel(spid);
+    pthread_join(spid, NULL);
+#endif
 
     return ret;
 }

@@ -267,11 +267,6 @@ static void *superTableQuery(void *sarg) {
             }
         }
         et = toolsGetTimestampMs();
-        infoPrint(
-            "thread[%d] complete all sqls to allocate all sub-tables[%" PRIu64
-            " - %" PRIu64 "] once queries duration:%.4fs\n",
-            pThreadInfo->threadID, pThreadInfo->start_table_from,
-            pThreadInfo->end_table_to, (double)(et - st) / 1000.0);
     }
     tmfree(sqlstr);
     return NULL;
@@ -508,16 +503,25 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
             }
             avg_delay /= nConcurrent;
             qsort(sql->delay_list, total_query_times, sizeof(uint64_t), compare);
-            infoPrint("complete query <%s> with %d threads and %"PRIu64
-                    " times for each, query delay min: %.6fs,"
-                    "avg: %.6fs, p90: %.6fs, p95: %.6fs, p99: %.6fs, max: %.6fs\n",
-                      sql->command, nConcurrent, query_times,
-                      sql->delay_list[0]/1E6,
-                      avg_delay/1E6,
-                      sql->delay_list[(int32_t)(total_query_times * 0.90)]/1E6,
-                      sql->delay_list[(int32_t)(total_query_times * 0.95)]/1E6,
-                      sql->delay_list[(int32_t)(total_query_times * 0.99)]/1E6,
-                      sql->delay_list[(int32_t)total_query_times - 1]/1E6);
+            infoPrintNoTimestamp("complete query with %d threads and %"PRIu64
+                    " query delay "
+                    "avg: \t%.6fs "
+                    "min: \t%.6fs "
+                    "max: \t%.6fs "
+                    "p90: \t%.6fs "
+                    "p95: \t%.6fs "
+                    "p99: \t%.6fs "
+                    "SQL command: %s"
+                    "\n",
+                      nConcurrent, query_times,
+                      avg_delay/1E6,  /* avg */
+                      sql->delay_list[0]/1E6, /* min */
+                      sql->delay_list[(int32_t)total_query_times - 1]/1E6,  /*  max */
+                      sql->delay_list[(int32_t)(total_query_times * 0.90)]/1E6, /*  p90 */
+                      sql->delay_list[(int32_t)(total_query_times * 0.95)]/1E6, /*  p95 */
+                      sql->delay_list[(int32_t)(total_query_times * 0.99)]/1E6,  /* p88 */
+                      sql->command
+                      );
         }
     } else {
         return 0;
@@ -603,7 +607,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 
     int64_t start = toolsGetTimestampUs();
     for (int i = 0; i < thread; ++i) {
-        pthread_cancel(pids[i]);
+// temporary disabled       pthread_cancel(pids[i]);
         pthread_join(pids[i], NULL);
     }
     int64_t end = toolsGetTimestampUs();
@@ -629,27 +633,32 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
         }
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
-    infoPrint(
-              "spend %.6fs using "
-              "%d threads complete query %d times,cd  "
-              "min delay: %.6fs, "
-              "avg delay: %.6fs, "
-              "p90: %.6fs, "
-              "p95: %.6fs, "
-              "p99: %.6fs, "
-              "max: %.6fs\n",
-              (end - start)/1E6,
-              thread, (int)delay_list->size,
-              *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
-              (double)total_delay/delay_list->size/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size * 0.9)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size * 0.95)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size * 0.99)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size - 1)))/1E6);
+    if (delay_list->size) {
+        infoPrint(
+                "spend %.6fs using "
+                "%d threads complete query %d times,cd  "
+                "min delay: %.6fs, "
+                "avg delay: %.6fs, "
+                "p90: %.6fs, "
+                "p95: %.6fs, "
+                "p99: %.6fs, "
+                "max: %.6fs\n",
+                (end - start)/1E6,
+                thread, (int)delay_list->size,
+                *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
+                (double)total_delay/delay_list->size/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size * 0.9)))/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size * 0.95)))/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size * 0.99)))/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size - 1)))/1E6);
+    } else {
+        errorPrint("%s() LN%d, delay_list size: %"PRId64"\n",
+                   __func__, __LINE__, (int64_t)delay_list->size);
+    }
     benchArrayDestroy(delay_list);
     code = 0;
 OVER:
