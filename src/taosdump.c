@@ -1336,7 +1336,7 @@ static int getTableRecordInfoImplWS(
 
         uint8_t type;
         uint32_t length;
-        char buffer[VALUE_BUF_LEN] = {0};
+        char buffer[TSDB_TABLE_NAME_LEN] = {0};
 
         for (int row = 0; row < rows; row++) {
             const void *value0 = ws_get_value_in_block(ws_res, row,
@@ -1350,7 +1350,7 @@ static int getTableRecordInfoImplWS(
                 continue;
             }
 
-            memset(buffer, 0, VALUE_BUF_LEN);
+            memset(buffer, 0, TSDB_TABLE_NAME_LEN);
             memcpy(buffer, value0, length);
 
             if (0 == strcmp(buffer, table)) {
@@ -1384,7 +1384,7 @@ static int getTableRecordInfoImplWS(
                         }
 
                         pTableRecordInfo->belongStb = true;
-                        memset(buffer, 0, VALUE_BUF_LEN);
+                        memset(buffer, 0, TSDB_TABLE_NAME_LEN);
                         memcpy(buffer, value1, length);
                         tstrncpy(pTableRecordInfo->tableRecord.stable,
                                 buffer, min(TSDB_TABLE_NAME_LEN, length + 1));
@@ -1782,6 +1782,7 @@ static int getDumpDbCount() {
                 NULL, g_args.port);
         if (NULL == taos) {
             errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+            free(command);
             return 0;
         }
         res = taos_query(taos, command);
@@ -3074,9 +3075,9 @@ static RecordSchema *parse_json_to_recordschema(json_t *element) {
                 size_t i;
                 size_t size = json_array_size(value);
 
-                verbosePrint("%s() LN%d, JSON Array of %"PRId64" element%s:\n",
+                verbosePrint("%s() LN%d, JSON Array of %zu element: %s\n",
                         __func__, __LINE__,
-                        (int64_t)size, json_plural(size));
+                        size, json_plural(size));
 
                 recordSchema->num_fields = size;
                 recordSchema->fields = calloc(1, sizeof(FieldStruct) * size);
@@ -4215,8 +4216,8 @@ static void print_json_object(json_t *element, int indent) {
     print_json_indent(indent);
     size = json_object_size(element);
 
-    printf("JSON Object of %"PRId64" pair%s:\n",
-            (int64_t)size, json_plural(size));
+    printf("JSON Object of %zu pair: %s\n",
+            size, json_plural(size));
     json_object_foreach(element, key, value) {
         print_json_indent(indent + 2);
         printf("JSON Key: \"%s\"\n", key);
@@ -4229,7 +4230,7 @@ static void print_json_array(json_t *element, int indent) {
     size_t size = json_array_size(element);
     print_json_indent(indent);
 
-    printf("JSON Array of %"PRId64" element%s:\n", (int64_t)size,
+    printf("JSON Array of %zu element: %s\n", size,
             json_plural(size));
     for (i = 0; i < size; i++) {
         print_json_aux(json_array_get(element, i), indent + 2);
@@ -5622,8 +5623,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                             int32_t n32tmp;
                                             avro_value_get_size(&utinyint_branch, &array_size);
 
-                                            debugPrint("%s() LN%d, array_size: %d\n",
-                                                    __func__, __LINE__, (int)array_size);
+                                            debugPrint("%s() LN%d, array_size: %zu\n",
+                                                    __func__, __LINE__, array_size);
                                             for (size_t item = 0; item < array_size; item++) {
                                                 avro_value_t item_value;
                                                 avro_value_get_by_index(&utinyint_branch, item,
@@ -5653,8 +5654,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                         int32_t n32tmp;
                                         avro_value_get_size(&field_value, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&field_value, item,
@@ -5704,8 +5705,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                             int32_t n32tmp;
                                             avro_value_get_size(&usmint_branch, &array_size);
 
-                                            debugPrint("%s() LN%d, array_size: %d\n",
-                                                    __func__, __LINE__, (int)array_size);
+                                            debugPrint("%s() LN%d, array_size: %zu\n",
+                                                    __func__, __LINE__, array_size);
                                             for (size_t item = 0; item < array_size; item++) {
                                                 avro_value_t item_value;
                                                 avro_value_get_by_index(&usmint_branch, item,
@@ -5735,8 +5736,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                         int32_t n32tmp;
                                         avro_value_get_size(&field_value, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&field_value, item,
@@ -5785,8 +5786,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                             int32_t n32tmp;
                                             avro_value_get_size(&uint_branch, &array_size);
 
-                                            debugPrint("%s() LN%d, array_size: %d\n",
-                                                    __func__, __LINE__, (int)array_size);
+                                            debugPrint("%s() LN%d, array_size: %zu\n",
+                                                    __func__, __LINE__, array_size);
                                             for (size_t item = 0; item < array_size; item++) {
                                                 avro_value_t item_value;
                                                 avro_value_get_by_index(&uint_branch, item,
@@ -5820,8 +5821,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                         int32_t n32tmp;
                                         avro_value_get_size(&field_value, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&field_value, item,
@@ -5874,8 +5875,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                             int64_t n64tmp;
                                             avro_value_get_size(&ubigint_branch, &array_size);
 
-                                            debugPrint("%s() LN%d, array_size: %d\n",
-                                                    __func__, __LINE__, (int)array_size);
+                                            debugPrint("%s() LN%d, array_size: %zu\n",
+                                                    __func__, __LINE__, array_size);
                                             for (size_t item = 0; item < array_size; item++) {
                                                 avro_value_t item_value;
                                                 avro_value_get_by_index(&ubigint_branch, item,
@@ -5911,8 +5912,8 @@ static int64_t dumpInAvroTbTagsImpl(
                                         int64_t n64tmp;
                                         avro_value_get_size(&field_value, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&field_value, item,
@@ -6735,8 +6736,8 @@ static int64_t dumpInAvroDataImpl(
                                         int32_t n32tmp;
                                         avro_value_get_size(&uint_branch, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&uint_branch, item,
@@ -6767,8 +6768,8 @@ static int64_t dumpInAvroDataImpl(
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
-                                    debugPrint("%s() LN%d, array_size: %d\n",
-                                            __func__, __LINE__, (int)array_size);
+                                    debugPrint("%s() LN%d, array_size: %zu\n",
+                                            __func__, __LINE__, array_size);
                                     for (size_t item = 0; item < array_size; item++) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&field_value, item,
@@ -6812,8 +6813,8 @@ static int64_t dumpInAvroDataImpl(
                                         int32_t n32tmp;
                                         avro_value_get_size(&utinyint_branch, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&utinyint_branch, item,
@@ -6840,8 +6841,8 @@ static int64_t dumpInAvroDataImpl(
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
-                                    debugPrint("%s() LN%d, array_size: %d\n",
-                                            __func__, __LINE__, (int)array_size);
+                                    debugPrint("%s() LN%d, array_size: %zu\n",
+                                            __func__, __LINE__, array_size);
                                     for (size_t item = 0; item < array_size; item++) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&field_value, item,
@@ -6881,8 +6882,8 @@ static int64_t dumpInAvroDataImpl(
                                         int32_t n32tmp;
                                         avro_value_get_size(&usmint_branch, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&usmint_branch, item,
@@ -6909,8 +6910,8 @@ static int64_t dumpInAvroDataImpl(
                                     int32_t n32tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
-                                    debugPrint("%s() LN%d, array_size: %d\n",
-                                            __func__, __LINE__, (int)array_size);
+                                    debugPrint("%s() LN%d, array_size: %zu\n",
+                                            __func__, __LINE__, array_size);
                                     for (size_t item = 0; item < array_size; item++) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&field_value, item,
@@ -6950,8 +6951,8 @@ static int64_t dumpInAvroDataImpl(
                                         int64_t n64tmp;
                                         avro_value_get_size(&ubigint_branch, &array_size);
 
-                                        debugPrint("%s() LN%d, array_size: %d\n",
-                                                __func__, __LINE__, (int)array_size);
+                                        debugPrint("%s() LN%d, array_size: %zu\n",
+                                                __func__, __LINE__, array_size);
                                         for (size_t item = 0; item < array_size; item++) {
                                             avro_value_t item_value;
                                             avro_value_get_by_index(&ubigint_branch, item,
@@ -6978,8 +6979,8 @@ static int64_t dumpInAvroDataImpl(
                                     int64_t n64tmp;
                                     avro_value_get_size(&field_value, &array_size);
 
-                                    debugPrint("%s() LN%d, array_size: %d\n",
-                                            __func__, __LINE__, (int)array_size);
+                                    debugPrint("%s() LN%d, array_size: %zu\n",
+                                            __func__, __LINE__, array_size);
                                     for (size_t item = 0; item < array_size; item++) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&field_value, item,
@@ -7207,6 +7208,7 @@ static int64_t dumpInOneAvroFile(
     RecordSchema *recordSchema = getSchemaAndReaderFromFile(
             avroType, avroFile, &schema, &reader);
     if (NULL == recordSchema) {
+        errorPrint("%s() LN%d, failed to get schema\n", __func__, __LINE__);
         return -1;
     }
 
@@ -7324,6 +7326,7 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
 
     int currentPercent = 0;
     int percentComplete = 0;
+
     for (int64_t i = 0; i < pThreadInfo->count; i++) {
         if (0 == currentPercent) {
             infoPrint("[%d]: Restoring from %s ...\n",
@@ -7336,57 +7339,68 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
                 pThreadInfo->avroType,
                 g_dumpInCharset,
                 fileList[pThreadInfo->from + i]);
-        switch (pThreadInfo->avroType) {
-            case AVRO_DATA:
-                if (rows >= 0) {
-                    atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
-                    okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                } else {
+        if (rows < 0) {
+            errorPrint("%s() LN%d, failed to dump file: %s\n", __func__, __LINE__,
+                                fileList[pThreadInfo->from +i]);
+            switch (pThreadInfo->avroType) {
+                case AVRO_DATA:
                     atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
                     errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                }
-                break;
+                                        pThreadInfo->threadIndex, rows,
+                                        fileList[pThreadInfo->from + i]);
+                    break;
 
-            case AVRO_TBTAGS:
-                if (rows >= 0) {
-                    atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
-                    okPrint("[%d] %"PRId64""
-                            "table(s) belong stb from the file(%s) be successfully dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                } else {
+                case AVRO_TBTAGS:
                     atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
                     errorPrint("[%d] %"PRId64""
-                            "table(s) belong stb from the file(%s) failed to dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                }
-                break;
+                                        "table(s) belong stb from the file(%s) failed to dumped in!\n",
+                                        pThreadInfo->threadIndex, rows,
+                                        fileList[pThreadInfo->from + i]);
+                    break;
 
-            case AVRO_NTB:
-                if (rows >= 0) {
-                    atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
-                    okPrint("[%d] %"PRId64" "
-                            "normal table(s) from (%s) be successfully dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                } else {
+                case AVRO_NTB:
                     atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
                     errorPrint("[%d] %"PRId64" "
-                            "normal tables from (%s) failed to dumped in!\n",
-                            pThreadInfo->threadIndex, rows,
-                            fileList[pThreadInfo->from + i]);
-                }
-                break;
+                                        "normal tables from (%s) failed to dumped in!\n",
+                                        pThreadInfo->threadIndex, rows,
+                                        fileList[pThreadInfo->from + i]);
+                    break;
 
-            default:
-                errorPrint("%s() LN%d input mistake list: %d\n",
-                        __func__, __LINE__, pThreadInfo->avroType);
-                return NULL;
+                default:
+                    errorPrint("%s() LN%d input mistake list: %d\n",
+                                        __func__, __LINE__, pThreadInfo->avroType);
+                    return NULL;
+            }
+        } else {
+            switch (pThreadInfo->avroType) {
+                case AVRO_DATA:
+                    atomic_add_fetch_64(&g_totalDumpInRecSuccess, rows);
+                    okPrint("[%d] %"PRId64" row(s) of file(%s) be successfully dumped in!\n",
+                                         pThreadInfo->threadIndex, rows,
+                                         fileList[pThreadInfo->from + i]);
+                    break;
+
+                case AVRO_TBTAGS:
+                    atomic_add_fetch_64(&g_totalDumpInStbSuccess, rows);
+                    okPrint("[%d] %"PRId64""
+                                         "table(s) belong stb from the file(%s) be successfully dumped in!\n",
+                                         pThreadInfo->threadIndex, rows,
+                                         fileList[pThreadInfo->from + i]);
+                    break;
+
+                case AVRO_NTB:
+                    atomic_add_fetch_64(&g_totalDumpInNtbSuccess, rows);
+                    okPrint("[%d] %"PRId64" "
+                                         "normal table(s) from (%s) be successfully dumped in!\n",
+                                         pThreadInfo->threadIndex, rows,
+                                         fileList[pThreadInfo->from + i]);
+                    break;
+
+                default:
+                    errorPrint("%s() LN%d input mistake list: %d\n",
+                                        __func__, __LINE__, pThreadInfo->avroType);
+                    return NULL;
+            }
         }
 
         currentPercent = ((i+1) * 100 / pThreadInfo->count);
@@ -7539,11 +7553,6 @@ static int processResultValue(
         return sprintf(pstr + curr_sqlstr_len, "NULL");
     }
 
-    char *tbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
-    if (NULL == tbuf) {
-        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
-        return -1;
-    }
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
             return sprintf(pstr + curr_sqlstr_len, "%d",
@@ -7592,16 +7601,34 @@ static int processResultValue(
                     GET_DOUBLE_VAL(value));
 
         case TSDB_DATA_TYPE_BINARY:
-            convertStringToReadable((char *)value, len,
-                    tbuf, TSDB_MAX_ALLOWED_SQL_LEN);
-            return sprintf(pstr + curr_sqlstr_len,
-                    "\'%s\'", tbuf);
+            {
+                char *bbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+                if (NULL == bbuf) {
+                    errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+                    return -1;
+                }
+                convertStringToReadable((char *)value, len,
+                    bbuf, TSDB_MAX_ALLOWED_SQL_LEN);
+                int ret = sprintf(pstr + curr_sqlstr_len,
+                    "\'%s\'", bbuf);
+                free(bbuf);
+                return ret;
+            }
 
         case TSDB_DATA_TYPE_NCHAR:
-            convertNCharToReadable((char *)value, len,
-                    tbuf, TSDB_MAX_ALLOWED_SQL_LEN);
-            return sprintf(pstr + curr_sqlstr_len,
-                    "\'%s\'", tbuf);
+            {
+                char *nbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+                if (NULL == nbuf) {
+                    errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+                    return -1;
+                }
+                convertNCharToReadable((char *)value, len,
+                    nbuf, TSDB_MAX_ALLOWED_SQL_LEN);
+                int ret = sprintf(pstr + curr_sqlstr_len,
+                    "\'%s\'", nbuf);
+                free(nbuf);
+                return ret;
+            }
 
         case TSDB_DATA_TYPE_TIMESTAMP:
             return sprintf(pstr + curr_sqlstr_len,
@@ -7612,7 +7639,6 @@ static int processResultValue(
             break;
     }
 
-    free(tbuf);
     return 0;
 }
 
@@ -8015,22 +8041,21 @@ static int generateSubDirName(
     if (dir) {
         /* Directory exists. */
         toolsCloseDir(&dir);
-    } else if (NULL == dir) {
+    } else {
         /* Directory does not exist. */
         ret = mkdir(dirToCreate, 0755);
         if (ret) {
             if (EEXIST == errno) {
+                warnPrint("%s() LN%d, %s exists.\n",
+                        __func__, __LINE__, dirToCreate);
                 ret = 0;
             } else {
+                /* mkdir() failed for some other reason. */
                 errorPrint("%s() LN%d, mkdir(%s) failed. Errno: %d\n",
                         __func__, __LINE__, dirToCreate, errno);
+                ret = errno;
             }
         }
-    } else {
-        /* opendir() failed for some other reason. */
-        ret = errno;
-        errorPrint("%s() LN%d, opendir(%s) no: %d, reason: %s\n",
-                __func__, __LINE__, dirToCreate, ret, strerror(ret));
     }
 
     return ret;
@@ -9571,9 +9596,10 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
         size_t len = fwrite(buffer, 1, strlen(buffer), fp);
         if (len != strlen(buffer)) {
             errorPrint("%s() LN%d, write to file. "
-                    "try to write %zd, actual len %zd, "
+                    "try to write %zu, actual len %zu, "
                     "Errno is %d. Reason is %s.\n",
-                    __func__, __LINE__, strlen(buffer), len,
+                    __func__, __LINE__,
+                       strlen(buffer), len,
                     errno, strerror(errno));
         }
         ws_free_result(ws_res);
@@ -9617,7 +9643,7 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
                 size_t w_len = fwrite(buffer, 1, strlen(buffer), fp);
                 if (w_len != strlen(buffer)) {
                     errorPrint("%s() LN%d, write to file. "
-                            "try to write %zd, actual len %zd, "
+                            "try to write %zu, actual len %zu, "
                             "Errno is %d. Reason is %s.\n",
                             __func__, __LINE__, strlen(buffer), w_len,
                             errno, strerror(errno));
@@ -9657,7 +9683,7 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
         size_t len = fwrite(buffer, 1, strlen(buffer), fp);
         if (len != strlen(buffer)) {
             errorPrint("%s() LN%d, write to file. "
-                    "try to write %zd, actual len %zd, "
+                    "try to write %zu, actual len %zu, "
                     "Errno is %d. Reason is %s.\n",
                     __func__, __LINE__, strlen(buffer), len,
                     errno, strerror(errno));
@@ -9682,7 +9708,7 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
             size_t len = fwrite(buffer, 1, strlen(buffer), fp);
             if (len != strlen(buffer)) {
                 errorPrint("%s() LN%d, write to file. "
-                        "try to write %zd, actual len %zd, "
+                        "try to write %zu, actual len %zu, "
                         "Errno is %d. Reason is %s.\n",
                         __func__, __LINE__, strlen(buffer), len,
                         errno, strerror(errno));
@@ -9723,7 +9749,7 @@ static int dumpExtraInfoHead(void *taos, FILE *fp) {
     len = fwrite(buffer, 1, firstreturn+1, fp);
     if (len != firstreturn+1) {
         errorPrint("%s() LN%d, write to file. "
-                "try to write %d, actual len %zd, "
+                "try to write %d, actual len %zu, "
                 "Errno is %d. Reason is %s.\n",
                 __func__, __LINE__, firstreturn +1, len,
                 errno, strerror(errno));
@@ -12045,7 +12071,7 @@ static int dumpOut() {
     debugPrint("%s() LN%d, dump db count: %d\n",
             __func__, __LINE__, g_args.dumpDbCount);
 
-    if (0 == g_args.dumpDbCount) {
+    if (g_args.dumpDbCount <= 0) {
         errorPrint("%d databases valid to dump\n", g_args.dumpDbCount);
         fclose(fp);
         return -1;
@@ -12467,9 +12493,9 @@ static RecordSchema *parse_json_for_inspect(json_t *element) {
                 size_t i;
                 size_t size = json_array_size(value);
 
-                debugPrint("%s() LN%d, JSON Array of %"PRId64" element%s:\n",
+                debugPrint("%s() LN%d, JSON Array of %zu element%s:\n",
                         __func__, __LINE__,
-                        (int64_t)size, json_plural(size));
+                        size, json_plural(size));
 
                 recordSchema->num_fields = size;
                 recordSchema->fields = calloc(1, sizeof(InspectStruct) * size);
@@ -12849,7 +12875,7 @@ int inspectAvroFile(char *filename) {
                                     size_t array_size;
                                     avro_value_get_size(&branch, &array_size);
 
-                                    debugPrint("array_size is %d\n", (int) array_size);
+                                    debugPrint("array_size is %zu\n", array_size);
 
                                     uint32_t array_u32 = 0;
                                     for (size_t item = 0; item < array_size; item++) {
@@ -12865,7 +12891,7 @@ int inspectAvroFile(char *filename) {
                                 size_t array_size;
                                 avro_value_get_size(&field_value, &array_size);
 
-                                debugPrint("array_size is %d\n", (int) array_size);
+                                debugPrint("array_size is %zu\n", array_size);
                                 uint32_t array_u32 = 0;
                                 for (size_t item = 0; item < array_size; item++) {
                                     avro_value_t item_value;
@@ -12897,7 +12923,7 @@ int inspectAvroFile(char *filename) {
                                     size_t array_size;
                                     avro_value_get_size(&branch, &array_size);
 
-                                    debugPrint("array_size is %d\n", (int) array_size);
+                                    debugPrint("array_size is %zu\n", array_size);
                                     uint64_t array_u64 = 0;
                                     for (size_t item = 0; item < array_size; item++) {
                                         avro_value_t item_value;
@@ -12912,7 +12938,7 @@ int inspectAvroFile(char *filename) {
                                 size_t array_size;
                                 avro_value_get_size(&field_value, &array_size);
 
-                                debugPrint("array_size is %d\n", (int) array_size);
+                                debugPrint("array_size is %zu\n", array_size);
                                 uint64_t array_u64 = 0;
                                 for (size_t item = 0; item < array_size; item++) {
                                     avro_value_t item_value;

@@ -607,7 +607,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 
     int64_t start = toolsGetTimestampUs();
     for (int i = 0; i < thread; ++i) {
-        pthread_cancel(pids[i]);
+// temporary disabled       pthread_cancel(pids[i]);
         pthread_join(pids[i], NULL);
     }
     int64_t end = toolsGetTimestampUs();
@@ -633,27 +633,32 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
         }
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
-    infoPrint(
-              "spend %.6fs using "
-              "%d threads complete query %d times,cd  "
-              "min delay: %.6fs, "
-              "avg delay: %.6fs, "
-              "p90: %.6fs, "
-              "p95: %.6fs, "
-              "p99: %.6fs, "
-              "max: %.6fs\n",
-              (end - start)/1E6,
-              thread, (int)delay_list->size,
-              *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
-              (double)total_delay/delay_list->size/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size * 0.9)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size * 0.95)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size * 0.99)))/1E6,
-              *(int64_t *)(benchArrayGet(delay_list,
-                      (int32_t)(delay_list->size - 1)))/1E6);
+    if (delay_list->size) {
+        infoPrint(
+                "spend %.6fs using "
+                "%d threads complete query %d times,cd  "
+                "min delay: %.6fs, "
+                "avg delay: %.6fs, "
+                "p90: %.6fs, "
+                "p95: %.6fs, "
+                "p99: %.6fs, "
+                "max: %.6fs\n",
+                (end - start)/1E6,
+                thread, (int)delay_list->size,
+                *(int64_t *)(benchArrayGet(delay_list, 0))/1E6,
+                (double)total_delay/delay_list->size/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size * 0.9)))/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size * 0.95)))/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size * 0.99)))/1E6,
+                *(int64_t *)(benchArrayGet(delay_list,
+                                           (int32_t)(delay_list->size - 1)))/1E6);
+    } else {
+        errorPrint("%s() LN%d, delay_list size: %"PRId64"\n",
+                   __func__, __LINE__, (int64_t)delay_list->size);
+    }
     benchArrayDestroy(delay_list);
     code = 0;
 OVER:

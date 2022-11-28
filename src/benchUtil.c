@@ -235,26 +235,6 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("3: %s\n", outSql);
 }
 
-int64_t toolsGetTimestampMs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000L +
-        (int64_t)systemTime.tv_usec / 1000;
-}
-
-int64_t toolsGetTimestampUs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
-}
-
-int64_t toolsGetTimestampNs() {
-    struct timespec systemTime = {0};
-    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000000L +
-        (int64_t)systemTime.tv_nsec;
-}
-
 int64_t toolsGetTimestamp(int32_t precision) {
     if (precision == TSDB_TIME_PRECISION_MICRO) {
         return toolsGetTimestampUs();
@@ -334,16 +314,15 @@ void close_bench_conn(SBenchConn* conn) {
 }
 
 int queryDbExec(SBenchConn *conn, char *command) {
-    int32_t code;
+    int32_t code = 0;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        WS_RES* res = ws_query_timeout(conn->taos_ws, command, g_arguments->timeout);
+        WS_RES* res = ws_query_timeout(conn->taos_ws,
+                                       command, g_arguments->timeout);
         code = ws_errno(res);
         if (code != 0) {
-            errorPrint("Failed to execute <%s>, reason: %s\n", command,
-                    ws_errstr(res));
-            ws_free_result(res);
-            return -1;
+            errorPrint("Failed to execute <%s>, code: %d, reason: %s\n",
+                       command, code, ws_errstr(res));
         }
         ws_free_result(res);
     } else {
@@ -351,16 +330,14 @@ int queryDbExec(SBenchConn *conn, char *command) {
         TAOS_RES *res = taos_query(conn->taos, command);
         code = taos_errno(res);
         if (code != 0) {
-            errorPrint("Failed to execute <%s>, reason: %s\n", command,
-                    taos_errstr(res));
-            taos_free_result(res);
-            return -1;
+            errorPrint("Failed to execute <%s>, code: 0x%08x, reason: %s\n",
+                       command, code, taos_errstr(res));
         }
         taos_free_result(res);
 #ifdef WEBSOCKET
     }
 #endif
-    return 0;
+    return code;
 }
 
 void encode_base_64() {
@@ -400,7 +377,8 @@ void encode_base_64() {
         g_arguments->base64_buf[encoded_len - 1 - l] = '=';
 }
 
-int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath) {
+int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
+                 int protocol, bool tcp, int sockfd, char* filePath) {
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
@@ -551,8 +529,10 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         goto free_of_post;
     }
 
-    if (NULL != strstr(response_buf, opentsdbHttpOk) &&
-            (protocol == TSDB_SML_TELNET_PROTOCOL || protocol == TSDB_SML_JSON_PROTOCOL) && iface == SML_REST_IFACE) {
+    if (NULL != strstr(response_buf, opentsdbHttpOk)
+            && (protocol == TSDB_SML_TELNET_PROTOCOL
+            || protocol == TSDB_SML_JSON_PROTOCOL)
+            && iface == SML_REST_IFACE) {
         code = 0;
         goto free_of_post;
     }
@@ -570,18 +550,23 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         }
         tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
         if (!tools_cJSON_IsNumber(codeObj)) {
-            errorPrint("Invalid or miss 'code' key in json: %s\n", tools_cJSON_Print(resObj));
+            errorPrint("Invalid or miss 'code' key in json: %s\n",
+                       tools_cJSON_Print(resObj));
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
-        if (codeObj->valueint != 0 &&
-                (iface == SML_REST_IFACE && protocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
+        if (codeObj->valueint != 0
+                && (iface == SML_REST_IFACE
+                && protocol == TSDB_SML_LINE_PROTOCOL
+                && codeObj->valueint != 200)) {
             tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
             if (!tools_cJSON_IsString(desc)) {
-                errorPrint("Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
+                errorPrint("Invalid or miss 'desc' key in json: %s\n",
+                           tools_cJSON_Print(resObj));
                 goto free_of_post;
             }
-            errorPrint("insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
+            errorPrint("insert mode response, code: %d, reason: %s\n",
+                       (int)codeObj->valueint, desc->valuestring);
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
@@ -906,7 +891,8 @@ void benchArrayClear(BArray* pArray) {
 
 void* benchArrayGet(const BArray* pArray, size_t index) {
     if (index >= pArray->size) {
-        errorPrint("index(%zu) greater than BArray size(%zu)\n", index, pArray->size);
+        errorPrint("index(%zu) greater than BArray size(%zu)\n",
+                   index, pArray->size);
         exit(EXIT_FAILURE);
     }
     return BARRAY_GET_ELEM(pArray, index);
