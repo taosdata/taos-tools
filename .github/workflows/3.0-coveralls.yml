@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'chore/sangshuduo/TD-20676-use-localfile-asdeps'
+          ref: 'feat/sangshuduo/TD-16450-taosdump-for-windows'
 
       - name: Change time zone
         if:
