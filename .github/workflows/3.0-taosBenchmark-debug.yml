@@ -1,4 +1,4 @@
-name: Ubuntu (3.0 taosbenchmark release)
+name: Ubuntu (3.0 taosbenchmark debug)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ develop ]
 
 env:
-  TOOLS_BUILD_TYPE: Release
+  TOOLS_BUILD_TYPE: Debug
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
@@ -49,7 +49,7 @@ jobs:
             tests/taosbenchmark/*
             tests/taosbenchmark/ws/*
             packaging/tools/*
-            .github/workflows/3.0-taosBenchmark-release.yml
+            .github/workflows/3.0-taosBenchmark-debug.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -138,7 +138,7 @@ jobs:
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=Release -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
