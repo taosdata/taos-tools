@@ -45,9 +45,10 @@ jobs:
           files: |
             src/CMakeLists.txt
             src/taosdump*
-            tests/taosdump/ws3/*
             inc/*
+            tests/taosdump/ws3/*
             deps/CMakeLists.txt
+            packaging/tools/*
             .github/workflows/*taosdump*
 
       - name: Run step if any of the listed files above change
@@ -89,7 +90,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: actions-rs/toolchain@v1
+        uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: stable
 
@@ -187,10 +188,8 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|Double"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m develop-test:$i success! \033[0m"|| echo -e " \033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
-
-          for i in `find taosdump/ws3 -name "*.py" | grep "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
 
       - name: taosdump Cmd line Test
         if:

@@ -20,10 +20,7 @@ bin_link_dir="/usr/bin"
 install_main_dir="/usr/local/taos"
 
 # Color setting
-RED='\033[0;31m'
 GREEN='\033[1;32m'
-GREEN_DARK='\033[0;32m'
-GREEN_UNDERLINE='\033[4;32m'
 NC='\033[0m'
 
 csudo=""
@@ -72,7 +69,7 @@ function uninstall_taostools() {
     uninstall_libtaosws
 
     echo
-    echo -e "\033[44;32;1m${taosName} tools is uninstalled successfully!${NC}"
+    echo -e "${GREEN}${taosName} tools is uninstalled successfully!${NC}"
 }
 
 ## ==============================Main program starts from here============================

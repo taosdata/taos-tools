@@ -44,15 +44,17 @@ jobs:
         with:
           files: |
             src/bench*
-            tests/taosbenchmark/ws/*
             inc/*
+            tests/taosbenchmark/ws/*
+            packaging/tools/*
             .github/workflows/3.0-taosBenchmark-release.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           echo "One or more files listed above has changed."
-      - name: Checkout tdengine
+
+      - name: Checkout TDengine 3.0
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -160,13 +162,41 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
           fi
 
-          if find taosbenchmark/ws -name "*.py"|grep -q .;
+      - name: Test WebSocket
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          #cd tests
+
+          #if find taosbenchmark/ws -name "*.py"|grep -q .;
+          #then
+          #  for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
+          #fi
+
+      - name: Test taosdemo query
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        run: |
+          cd tests
+
+          if find taosbenchmark -name "taosdemo*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/ws -name "*.py"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e "\033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt ;done
+            for i in `find taosbenchmark -name "taosdemo*.py"`; do printf $i && python3 ./test.py -f $i && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
           fi
+
+      - name: 'Upload taosd logs'
+        uses: actions/upload-artifact@v3
+        with:
+          name: log-v3-taosd
+          path: /var/log/taos/
+          retention-days: 2
 
       - name: Check Test Result
         if:

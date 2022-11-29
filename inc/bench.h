@@ -116,8 +116,6 @@
 
 #define OPT_ABORT         1    /* –abort */
 #define MAX_RECORDS_PER_REQ 65536
-#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
-#define MAX_PATH_LEN      4096
 #define DEFAULT_START_TIME  1500000000000
 #define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
@@ -191,18 +189,23 @@
         }                                                                    \
     } while (0)
 
-#define infoPrint(fmt, ...)                                          \
-    do {                                                                 \
-        struct tm      Tm, *ptm;                                         \
-        struct timeval timeSecs;                                         \
-        time_t         curTime;                                          \
-        toolsGetTimeOfDay(&timeSecs);                                    \
-        curTime = timeSecs.tv_sec;                                       \
+#define infoPrintNoTimestamp(fmt, ...)                                      \
+    do {                                                                    \
+        fprintf(stdout, "" fmt, __VA_ARGS__);                         \
+    } while (0)
+
+#define infoPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
-                (int32_t)timeSecs.tv_usec);                              \
-        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                          \
+        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                         \
     } while (0)
 
 #define infoPrintToFile(fp, fmt, ...)                                          \
@@ -267,6 +270,34 @@
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
                 (int32_t)timeSecs.tv_usec);                                 \
             fprintf(g_arguments->fpOfInsertResult, "ERROR: ");              \
+            fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
+        }                                                                   \
+    } while (0)
+
+#define warnPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stderr, "\033[33m");                                        \
+        fprintf(stderr, "WARN: ");                                          \
+        if (g_arguments->debug_print) {                                     \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                 \
+        }                                                                   \
+        fprintf(stderr, "" fmt, __VA_ARGS__);                               \
+        fprintf(stderr, "\033[0m");                                         \
+        if (g_arguments->fpOfInsertResult) {                                \
+            fprintf(g_arguments->fpOfInsertResult,                          \
+                    "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+            fprintf(g_arguments->fpOfInsertResult, "WARN: ");               \
             fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
         }                                                                   \
     } while (0)
@@ -386,6 +417,7 @@ typedef struct SField {
     bool     none;
     bool     null;
     void *   data;
+    char *   is_null;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
@@ -427,10 +459,11 @@ typedef struct SSuperTable_S {
     uint64_t insertRows;
     uint64_t timestamp_step;
     int64_t  startTimestamp;
+    int64_t  specifiedColumns;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
-    uint32_t partialColumnNum;
-    char *   partialColumnNameBuf;
+    uint32_t partialColNum;
+    char *   partialColNameBuf;
     BArray * cols;
     BArray * tags;
     BArray * tsmas;
@@ -451,6 +484,8 @@ typedef struct SSuperTable_S {
     char* max_delay;
     char* watermark;
     int   ttl;
+    int32_t keep_trying;
+    uint32_t trying_interval;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -523,14 +558,17 @@ typedef struct SuperQueryInfo_S {
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
-    SpecifiedQueryInfo specifiedQueryInfo;
-    SuperQueryInfo     superQueryInfo;
-    uint64_t           totalQueried;
-    uint64_t           query_times;
-    uint64_t           response_buffer;
-    bool               reset_query_cache;
-    uint16_t           iface;
-    char*              dbName;
+    SpecifiedQueryInfo  specifiedQueryInfo;
+    SuperQueryInfo      superQueryInfo;
+    uint64_t            totalQueried;
+    uint64_t            query_times;
+    uint64_t            killQueryThreshold;
+    int32_t             killQueryInterval;
+    uint64_t            response_buffer;
+    bool                reset_query_cache;
+    bool                continue_if_fail;
+    uint16_t            iface;
+    char*               dbName;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
@@ -577,6 +615,9 @@ typedef struct SArguments_S {
 #endif
     bool               supplementInsert;
     int64_t            startTimestamp;
+    int32_t            partialColNum;
+    int32_t            keep_trying;
+    uint32_t           trying_interval;
 } SArguments;
 
 typedef struct SBenchConn{
@@ -654,11 +695,6 @@ extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-#define tstrncpy(dst, src, size)       \
-    do {                               \
-        strncpy((dst), (src), (size)); \
-        (dst)[(size)-1] = 0;           \
-    } while (0)
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
@@ -672,9 +708,26 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int64_t toolsGetTimestampMs();
-int64_t toolsGetTimestampUs();
-int64_t toolsGetTimestampNs();
+static FORCE_INLINE int64_t toolsGetTimestampMs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000L +
+        (int64_t)systemTime.tv_usec / 1000;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampUs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampNs() {
+    struct timespec systemTime = {0};
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000000L +
+        (int64_t)systemTime.tv_nsec;
+}
+
 int64_t toolsGetTimestamp(int32_t precision);
 void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);

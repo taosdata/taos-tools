@@ -258,7 +258,7 @@ int createDatabase(SDataBase* database) {
     }
 
     int dataLen = 0;
-    dataLen += snprintf(command + dataLen, BUFFER_SIZE - dataLen,
+    dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 
     if (database->cfgs) {
@@ -536,6 +536,12 @@ void postFreeResource() {
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         if (database->cfgs) {
+            for (int c = 0; c < database->cfgs->size; c++) {
+                SDbCfg *cfg = benchArrayGet(database->cfgs, c);
+                if ((NULL == root) && (0 == strcmp(cfg->name, "replica"))) {
+                    tmfree(cfg->name);
+                }
+            }
             benchArrayDestroy(database->cfgs);
         }
         if (database->superTbls) {
@@ -544,23 +550,28 @@ void postFreeResource() {
                 tmfree(stbInfo->colsOfCreateChildTable);
                 tmfree(stbInfo->sampleDataBuf);
                 tmfree(stbInfo->tagDataBuf);
-                tmfree(stbInfo->partialColumnNameBuf);
+                tmfree(stbInfo->partialColNameBuf);
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
                     tmfree(tag->data);
                 }
                 benchArrayDestroy(stbInfo->tags);
 
+                debugPrint("%s() LN%d, col size: %"PRIu64"\n",
+                        __func__, __LINE__, (uint64_t)stbInfo->cols->size);
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
                     tmfree(col->data);
+                    tmfree(col->is_null);
                 }
                 benchArrayDestroy(stbInfo->cols);
                 if (g_arguments->test_mode == INSERT_TEST &&
                         stbInfo->insertRows != 0) {
                     for (int64_t k = 0; k < stbInfo->childTblCount;
                         ++k) {
-                        tmfree(stbInfo->childTblName[k]);
+                        if (stbInfo->childTblName) {
+                            tmfree(stbInfo->childTblName[k]);
+                        }
                     }
                 }
                 tmfree(stbInfo->childTblName);
@@ -587,6 +598,15 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
             break;
 
         case REST_IFACE:
@@ -599,22 +619,38 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                code =  postProceSql(pThreadInfo->buffer,
+                                  database->dbName,
+                                  database->precision,
+                                  stbInfo->iface,
+                                  stbInfo->lineProtocol,
+                                  stbInfo->tcpTransfer,
+                                  pThreadInfo->sockfd,
+                                  pThreadInfo->filePath);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
             break;
 
         case STMT_IFACE:
-            if (taos_stmt_execute(pThreadInfo->conn->stmt)) {
+            code = taos_stmt_execute(pThreadInfo->conn->stmt);
+            if (code) {
                 errorPrint(
                            "failed to execute insert statement. reason: %s\n",
                            taos_stmt_errstr(pThreadInfo->conn->stmt));
                 code = -1;
-            } else {
-                code = 0;
             }
             break;
 
         case SML_IFACE:
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
+                pThreadInfo->lines[0] =
+                    tools_cJSON_Print(pThreadInfo->json_array);
             }
             res = taos_schemaless_insert(
                 pThreadInfo->conn->taos, pThreadInfo->lines,
@@ -624,11 +660,29 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     ? database->sml_precision
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
+            while (code && stbInfo->keep_trying) {
+                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                          stbInfo->trying_interval);
+                toolsMsleep(stbInfo->trying_interval);
+                taos_free_result(res);
+                res = taos_schemaless_insert(
+                        pThreadInfo->conn->taos, pThreadInfo->lines,
+                        stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
+                        stbInfo->lineProtocol,
+                        stbInfo->lineProtocol == TSDB_SML_LINE_PROTOCOL
+                        ? database->sml_precision
+                        : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
+                code = taos_errno(res);
+                if (stbInfo->keep_trying != -1) {
+                    stbInfo->keep_trying --;
+                }
+            }
+
             if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
-                    "failed to execute schemaless insert. content: %s, reason: "
-                    "%s\n",
-                    pThreadInfo->lines[0], taos_errstr(res));
+                    "failed to execute schemaless insert. "
+                        "content: %s, code: 0x%08x reason: %s\n",
+                    pThreadInfo->lines[0], code, taos_errstr(res));
             }
             taos_free_result(res);
             break;
@@ -644,8 +698,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 int len = 0;
                 for (int i = 0; i < k; ++i) {
                     if (strlen(pThreadInfo->lines[i]) != 0) {
-                        if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL &&
-                            stbInfo->tcpTransfer) {
+                        if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL
+                            && stbInfo->tcpTransfer) {
                             len += sprintf(pThreadInfo->buffer + len,
                                            "put %s\n", pThreadInfo->lines[i]);
                         } else {
@@ -708,7 +762,7 @@ static void *syncWriteInterlace(void *sarg) {
                     if (i == 0) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
-                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
+                    if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
                                     tableName,
@@ -726,7 +780,7 @@ static void *syncWriteInterlace(void *sarg) {
                             ds_add_strs(&pThreadInfo->buffer, 10,
                                         tableName,
                                         " (",
-                                        stbInfo->partialColumnNameBuf,
+                                        stbInfo->partialColNameBuf,
                                         ") USING `",
                                         stbInfo->stbName,
                                         "` TAGS (",
@@ -736,7 +790,7 @@ static void *syncWriteInterlace(void *sarg) {
                             ds_add_strs(&pThreadInfo->buffer, 4,
                                         tableName,
                                         "(",
-                                        stbInfo->partialColumnNameBuf,
+                                        stbInfo->partialColNameBuf,
                                         ") VALUES ");
                         }
                     }
@@ -846,6 +900,8 @@ static void *syncWriteInterlace(void *sarg) {
                     insertRows -= interlaceRows;
                 }
                 if (stbInfo->insert_interval > 0) {
+                    debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
+                          __func__, __LINE__, stbInfo->insert_interval);
                     perfPrint("sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval);
                     toolsMsleep((int32_t)stbInfo->insert_interval);
@@ -854,14 +910,13 @@ static void *syncWriteInterlace(void *sarg) {
             }
         }
 
-        startTs = toolsGetTimestampUs();
-
+        startTs = toolsGetTimestampNs();
         if(execInsert(pThreadInfo, generated)) {
             g_fail = true;
             goto free_of_interlace;
         }
+        endTs = toolsGetTimestampNs();
 
-        endTs = toolsGetTimestampUs();
         pThreadInfo->totalInsertRows += tmp_total_insert_rows;
         switch (stbInfo->iface) {
             case TAOSC_IFACE:
@@ -895,13 +950,18 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         int64_t delay = endTs - startTs;
-        perfPrint("insert execution time is %10.2f ms\n",
-                delay / 1000.0);
+        if (delay < 0) {
+            warnPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+                       pThreadInfo->threadID, startTs, endTs);
+        } else {
+            perfPrint("insert execution time is %10.2f ms\n",
+                      delay / 1E9);
 
-        int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
-        *pdelay = delay;
-        benchArrayPush(pThreadInfo->delayList, pdelay);
-        pThreadInfo->totalDelay += delay;
+            int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
+            *pdelay = delay;
+            benchArrayPush(pThreadInfo->delayList, pdelay);
+            pThreadInfo->totalDelay += delay;
+        }
 
         int64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -920,7 +980,7 @@ free_of_interlace:
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
             (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1000000.0)));
+                ((double)pThreadInfo->totalDelay / 1E9)));
     return NULL;
 }
 
@@ -972,7 +1032,7 @@ void *syncWriteProgressive(void *sarg) {
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE: {
-                    if (stbInfo->partialColumnNum == stbInfo->cols->size) {
+                    if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoCreateTable) {
                             len =
                                 snprintf(pstr, MAX_SQL_LEN,
@@ -993,7 +1053,7 @@ void *syncWriteProgressive(void *sarg) {
                                     pstr, MAX_SQL_LEN,
                                     "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ",
                                     STR_INSERT_INTO, database->dbName, tableName,
-                                    stbInfo->partialColumnNameBuf,
+                                    stbInfo->partialColNameBuf,
                                     database->dbName, stbInfo->stbName,
                                     stbInfo->tagDataBuf +
                                     stbInfo->lenOfTags * tableSeq, ttl);
@@ -1002,7 +1062,7 @@ void *syncWriteProgressive(void *sarg) {
                                     "%s %s.%s (%s) VALUES ",
                                     STR_INSERT_INTO, database->dbName,
                                     tableName,
-                                    stbInfo->partialColumnNameBuf);
+                                    stbInfo->partialColNameBuf);
                         }
                     }
 
@@ -1125,13 +1185,23 @@ void *syncWriteProgressive(void *sarg) {
                 i += generated;
             }
             // only measure insert
-            startTs = toolsGetTimestampUs();
+            startTs = toolsGetTimestampNs();
             if(execInsert(pThreadInfo, generated)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
-            endTs = toolsGetTimestampUs();
+            endTs = toolsGetTimestampNs();
+
+            if (stbInfo->insert_interval > 0) {
+                debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
+                          __func__, __LINE__, stbInfo->insert_interval);
+                perfPrint("sleep %" PRIu64 " ms\n",
+                              stbInfo->insert_interval);
+                toolsMsleep((int32_t)stbInfo->insert_interval);
+            }
+
             pThreadInfo->totalInsertRows += generated;
+
             switch (stbInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE:
@@ -1160,13 +1230,18 @@ void *syncWriteProgressive(void *sarg) {
             }
 
             int64_t delay = endTs - startTs;
-            perfPrint("insert execution time is %.6f s\n",
-                    delay / 1E6);
+            if (delay < 0) {
+                warnPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+                        pThreadInfo->threadID, startTs, endTs);
+            } else {
+                perfPrint("insert execution time is %.6f s\n",
+                              delay / 1E9);
 
-            int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
-            *pDelay = delay;
-            benchArrayPush(pThreadInfo->delayList, pDelay);
-            pThreadInfo->totalDelay += delay;
+                int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
+                *pDelay = delay;
+                benchArrayPush(pThreadInfo->delayList, pDelay);
+                pThreadInfo->totalDelay += delay;
+            }
 
             int64_t currentPrintTime = toolsGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -1188,7 +1263,7 @@ free_of_progressive:
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
             (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1000000.0)));
+                ((double)pThreadInfo->totalDelay / 1E9)));
     return NULL;
 }
 
@@ -1211,6 +1286,11 @@ static int parseBufferToStmtBatch(
         char dataType = col->type;
 
         char *tmpP = NULL;
+        char *is_null = NULL;
+
+        is_null = calloc(1, sizeof(char) *g_arguments->prepared_rand);
+        ASSERT(is_null);
+        col->is_null = is_null;
 
         switch(dataType) {
             case TSDB_DATA_TYPE_INT:
@@ -1317,58 +1397,72 @@ static int parseBufferToStmtBatch(
 
             strncpy(tmpStr, restStr, index);
 
-            switch(dataType) {
-                case TSDB_DATA_TYPE_INT:
-                case TSDB_DATA_TYPE_UINT:
-                    *((int32_t*)col->data + i) = atoi(tmpStr);
-                    break;
+            if (0 == strcmp(tmpStr, "NULL")) {
+                *(col->is_null + i) = true;
+            } else {
+                switch(dataType) {
+                    case TSDB_DATA_TYPE_INT:
+                    case TSDB_DATA_TYPE_UINT:
+                        *((int32_t*)col->data + i) = atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_FLOAT:
-                    *((float*)col->data +i) = (float)atof(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_FLOAT:
+                        *((float*)col->data +i) = (float)atof(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_DOUBLE:
-                    *((double*)col->data + i) = atof(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_DOUBLE:
+                        *((double*)col->data + i) = atof(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_TINYINT:
-                case TSDB_DATA_TYPE_UTINYINT:
-                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_TINYINT:
+                    case TSDB_DATA_TYPE_UTINYINT:
+                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_SMALLINT:
-                case TSDB_DATA_TYPE_USMALLINT:
-                    *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_SMALLINT:
+                    case TSDB_DATA_TYPE_USMALLINT:
+                        *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BIGINT:
-                case TSDB_DATA_TYPE_UBIGINT:
-                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_BIGINT:
+                    case TSDB_DATA_TYPE_UBIGINT:
+                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BOOL:
-                    *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_BOOL:
+                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_TIMESTAMP:
-                    *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
-                    break;
+                    case TSDB_DATA_TYPE_TIMESTAMP:
+                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        break;
 
-                case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR:
-                    {
-                        size_t tmpLen = strlen(tmpStr);
-                        if (tmpLen > 2) {
-                            strncpy((char *)col->data + i * col->length,
-                                    tmpStr+1, tmpLen - 2);
-                        } else {
-                            strcpy((char *)col->data + i * col->length, "");
+                    case TSDB_DATA_TYPE_BINARY:
+                    case TSDB_DATA_TYPE_NCHAR:
+                        {
+                            size_t tmpLen = strlen(tmpStr);
+                            debugPrint("%s() LN%d, index: %d, "
+                                    "tmpStr len: %"PRIu64", col->length: %d\n",
+                                    __func__, __LINE__,
+                                    i, (uint64_t)tmpLen, col->length);
+                            if (tmpLen-2 > col->length) {
+                                errorPrint("data length %"PRIu64" "
+                                        "is larger than column length %d\n",
+                                        (uint64_t)tmpLen, col->length);
+                            }
+
+                            if (tmpLen > 2) {
+                                strncpy((char *)col->data + i * col->length,
+                                        tmpStr+1, min(col->length, tmpLen - 2));
+                            } else {
+                                strcpy((char *)col->data + i * col->length, "");
+                            }
                         }
-                    }
-                    break;
+                        break;
 
-                default:
-                    break;
+                    default:
+                        break;
+                }
             }
 
             free(tmpStr);
@@ -1548,6 +1642,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                     debugPrint("%s() LN%d, sockfd=%d\n", __func__,
                                __LINE__, sockfd);
                     errorPrint("%s\n", "failed to create socket");
+                    tmfree(pids);
+                    tmfree(infos);
                     return -1;
                 }
 
@@ -1562,6 +1658,8 @@ static int startMultiThreadInsertData(SDataBase* database,
 #else
                     close(sockfd);
 #endif
+                    tmfree(pids);
+                    tmfree(infos);
                     return -1;
                 }
                 pThreadInfo->sockfd = sockfd;
@@ -1840,16 +1938,16 @@ static int startMultiThreadInsertData(SDataBase* database,
             "p95: %.2fms, "
             "p99: %.2fms, "
             "max: %.2fms\n",
-            *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
-            (double)totalDelay/total_delay_list->size/1E3,
+            *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E6,
+            (double)totalDelay/total_delay_list->size/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.9)))/1E3,
+                    (int32_t)(total_delay_list->size * 0.9)))/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.95)))/1E3,
+                    (int32_t)(total_delay_list->size * 0.95)))/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.99)))/1E3,
+                    (int32_t)(total_delay_list->size * 0.99)))/1E6,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size - 1)))/1E3);
+                    (int32_t)(total_delay_list->size - 1)))/1E6);
 
     benchArrayDestroy(total_delay_list);
     if (g_fail) {
@@ -1883,8 +1981,10 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
 static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     char command[SQL_BUFF_LEN];
     int len = snprintf(command, SQL_BUFF_LEN,
-                       "create sma index %s on %s function(%s) interval (%s) sliding (%s)",
-                       tsma->name, stbName, tsma->func, tsma->interval, tsma->sliding);
+                       "create sma index %s on %s function(%s) "
+                       "interval (%s) sliding (%s)",
+                       tsma->name, stbName, tsma->func,
+                       tsma->interval, tsma->sliding);
     if (tsma->custom) {
         snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
     }
@@ -1929,7 +2029,8 @@ static void* create_tsmas(void* args) {
 static int createStream(SSTREAM* stream) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
-    snprintf(command, BUFFER_SIZE, "drop stream if exists %s", stream->stream_name);
+    snprintf(command, BUFFER_SIZE, "drop stream if exists %s",
+             stream->stream_name);
     infoPrint("%s\n", command);
     SBenchConn* conn = init_bench_conn();
     if (NULL == conn) {
