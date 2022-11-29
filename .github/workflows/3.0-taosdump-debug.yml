@@ -1,4 +1,4 @@
-name: Ubuntu (3.0 taosbenchmark release)
+name: Ubuntu (3.0 taosdump native debug)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ develop ]
 
 env:
-  TOOLS_BUILD_TYPE: Release
+  TOOLS_BUILD_TYPE: Debug
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
@@ -43,20 +43,24 @@ jobs:
         uses: tj-actions/changed-files@v23.2
         with:
           files: |
-            src/bench*
             src/CMakeLists.txt
+            src/taosdump*
+            tests/taosdump/native/*
             inc/*
-            tests/taosbenchmark/*
-            tests/taosbenchmark/ws/*
+            deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/3.0-taosBenchmark-release.yml
+            .github/workflows/3.0-taosdump-debug.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine 3.0
+      - name: Checkout tdengine
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -64,7 +68,7 @@ jobs:
           ref: '3.0'
 
       - name: Change time zone
-        if: |
+        if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
@@ -73,7 +77,7 @@ jobs:
           sudo date
 
       - name: Set up Go
-        if: |
+        if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
@@ -81,32 +85,16 @@ jobs:
         with:
           go-version: 1.14
 
-      - name: Set up Rust
-        if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      - uses: actions/cache@v3
-        id: cache-rust
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-${{ steps.setup-rust.outputs.rustc_hash }}
-
-      - name: Build & Install TDengine
+      - name: first build TDengine
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          cd TDengine
+          mkdir debug && cd debug
+          cmake .. -DBUILD_HTTP=false > /dev/null
+          make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -114,16 +102,14 @@ jobs:
           fi
 
       - name: Install packages for build taos-tools
-        if:
+        if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        run: |
-          sudo apt update > /dev/null
-          sudo apt install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config expect -y > /dev/null
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
-        if:
+        if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
         run: |
@@ -138,7 +124,8 @@ jobs:
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=Release -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true > /dev/null
+          make -j8 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
@@ -151,54 +138,43 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
+          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
-      - name: Test
+      - name: taosdump old Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
           cd tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
 
-          if find taosbenchmark -name "*.py"|grep -q .;
-          then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
-          fi
+          echo "TEST: old cases"
+          python3 ./test.py -f taosdump/old/taosdumpTest.py > /dev/null && echo -e "\033[32m taosdumpTest.py success! \033[0m"|| echo -e "\033[31m taosdumpTest.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f taosdump/old/taosdumpTest2.py > /dev/null && echo -e "\033[32m taosdumpTest2.py success! \033[0m"|| echo -e "\033[31m taosdumpTest2.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f taosdump/old/taosdumpTestNanoSupport.py > /dev/null && echo -e "\033[32m taosdumpTestNanoSupport.py success! \033[0m"|| echo -e "\033[31m taosdumpTestNanoSupport.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
-      - name: Test WebSocket
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        run: |
-          #cd tests
 
-          #if find taosbenchmark/ws -name "*.py"|grep -q .;
-          #then
-          #  for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
-          #fi
-
-      - name: Test taosdemo query
+      - name: taosdump Develop Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
           cd tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+          sleep 5
 
-          if find taosbenchmark -name "taosdemo*.py"|grep -q .;
+          echo "TEST: develop test cases"
+          if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "taosdemo*.py"`; do printf $i && python3 ./test.py -f $i && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
+            for i in `find taosdump/native -name "*.py" | grep -Ev "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
-      - name: 'Upload taosd logs'
-        uses: actions/upload-artifact@v3
-        with:
-          name: log-v3-taosd
-          path: /var/log/taos/
-          retention-days: 2
+          for i in `find taosdump/native -name "*.py" | grep "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
 
       - name: Check Test Result
         if:
@@ -206,12 +182,7 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          if [ -f ~/taosbenchmark-release-failed.txt ];then
-            cat ~/taosbenchmark-release-failed.txt
-            exit 1
-          fi
-
-          if [ -f ~/benchmark-ws-failed.txt ];then
-            cat ~/benchmark-ws-failed.txt
-            exit 1
+          if [ -f ~/taosdump-failed.txt ];then
+            cat ~/taosdump-failed.txt;
+            exit 1;
           fi
