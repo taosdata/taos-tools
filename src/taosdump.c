@@ -9827,6 +9827,8 @@ static void loadFileMark(FILE *fp, char *mark, char *fcharset) {
 
     do {
 #ifdef WINDOWS
+        line = calloc(1, markLen);
+        ASSERT(line);
         if (NULL == fgets(line, markLen, fp)) {
             goto _exit_no_charset;
         }
@@ -9921,6 +9923,8 @@ static int64_t dumpInOneDebugFile(
     int64_t success = 0;
     int64_t failed = 0;
 #ifdef WINDOWS
+    line = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    ASSERT(line);
     while (fgets(line, TSDB_MAX_ALLOWED_SQL_LEN, fp) != NULL) {
         read_len = strlen(line?line:"");
 #else
