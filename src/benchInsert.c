@@ -599,7 +599,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
             while (code && stbInfo->keep_trying) {
-                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           stbInfo->trying_interval);
                 toolsMsleep(stbInfo->trying_interval);
                 code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
@@ -620,7 +620,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
             while (code && stbInfo->keep_trying) {
-                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           stbInfo->trying_interval);
                 toolsMsleep(stbInfo->trying_interval);
                 code =  postProceSql(pThreadInfo->buffer,
@@ -661,7 +661,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
             while (code && stbInfo->keep_trying) {
-                infoPrint("will sleep %ud milliseconds then re-insert\n",
+                infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           stbInfo->trying_interval);
                 toolsMsleep(stbInfo->trying_interval);
                 taos_free_result(res);
