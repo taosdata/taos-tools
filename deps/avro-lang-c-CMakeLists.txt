@@ -111,6 +111,7 @@ if (WIN32)
    # Compile win32 in C++ to allow declarations after statements
    add_definitions(/TP)
 endif(WIN32)
+add_definitions(/MTd)
 
 # Uncomment to allow missing fields in the resolved-writer
 # add_definitions(-DAVRO_ALLOW_MISSING_FIELDS_IN_RESOLVED_WRITER)
