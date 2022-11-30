@@ -240,7 +240,7 @@ int createDatabase(SDataBase* database) {
         for (int i = 0; i < g_arguments->streams->size; i++) {
             SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
             if (stream->drop) {
-                sprintf(command, "drop stream if exists %s;", stream->stream_name);
+                sprintf(command, "DROP STREAM IF EXISTS %s;", stream->stream_name);
                 if (queryDbExec(conn, command)) {
                     close_bench_conn(conn);
                     return -1;
@@ -251,7 +251,7 @@ int createDatabase(SDataBase* database) {
         }
     }
 
-    sprintf(command, "drop database if exists %s;", database->dbName);
+    sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
     if (0 != queryDbExec(conn, command)) {
         close_bench_conn(conn);
         return -1;
@@ -296,6 +296,21 @@ int createDatabase(SDataBase* database) {
         return -1;
     }
     infoPrint("create database: <%s>\n", command);
+
+    if (database->superTbls) {
+        if ((g_arguments->taosc_version == 3)
+                && (g_arguments->nthreads_auto)) {
+            int32_t vgroups = getVgroupsOfDb(conn, database);
+            if (vgroups <=0) {
+                close_bench_conn(conn);
+                errorPrint("Database %s's vgroups is %d\n",
+                           database->dbName, vgroups);
+                return -1;
+            }
+            g_arguments->table_threads = vgroups;
+            g_arguments->nthreads = vgroups;
+        }
+    }
 #if 0
 #ifdef LINUX
     sleep(2);
@@ -465,7 +480,7 @@ static int startMultiThreadCreateChildTable(
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-        g_arguments->g_actualChildTables += pThreadInfo->tables_created;
+        g_arguments->actualChildTables += pThreadInfo->tables_created;
         close_bench_conn(pThreadInfo->conn);
     }
 
@@ -482,11 +497,11 @@ over:
 static int createChildTables() {
     int32_t    code;
     infoPrint("start creating %" PRId64 " table(s) with %d thread(s)\n",
-              g_arguments->g_totalChildTables, g_arguments->table_threads);
+              g_arguments->totalChildTables, g_arguments->table_threads);
     if (g_arguments->fpOfInsertResult) {
         infoPrintToFile(g_arguments->fpOfInsertResult,
                   "start creating %" PRId64 " table(s) with %d thread(s)\n",
-                  g_arguments->g_totalChildTables, g_arguments->table_threads);
+                  g_arguments->totalChildTables, g_arguments->table_threads);
     }
     double start = (double)toolsGetTimestampMs();
 
@@ -497,12 +512,12 @@ static int createChildTables() {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
                 if (stbInfo->autoCreateTable || stbInfo->iface == SML_IFACE ||
                         stbInfo->iface == SML_REST_IFACE) {
-                    g_arguments->g_autoCreatedChildTables +=
+                    g_arguments->autoCreatedChildTables +=
                             stbInfo->childTblCount;
                     continue;
                 }
                 if (stbInfo->childTblExists) {
-                    g_arguments->g_existedChildTables +=
+                    g_arguments->existedChildTables +=
                             stbInfo->childTblCount;
                     continue;
                 }
@@ -523,10 +538,10 @@ static int createChildTables() {
             " table(s) with %d thread(s), already exist %" PRId64
             " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
             " table(s) will be auto created\n",
-            (end - start) / 1000.0, g_arguments->g_totalChildTables,
-            g_arguments->table_threads, g_arguments->g_existedChildTables,
-            g_arguments->g_actualChildTables,
-            g_arguments->g_autoCreatedChildTables);
+            (end - start) / 1000.0, g_arguments->totalChildTables,
+            g_arguments->table_threads, g_arguments->existedChildTables,
+            g_arguments->actualChildTables,
+            g_arguments->autoCreatedChildTables);
     return 0;
 }
 
@@ -2029,7 +2044,7 @@ static void* create_tsmas(void* args) {
 static int createStream(SSTREAM* stream) {
     int code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
-    snprintf(command, BUFFER_SIZE, "drop stream if exists %s",
+    snprintf(command, BUFFER_SIZE, "DROP STREAM IF EXISTS %s",
              stream->stream_name);
     infoPrint("%s\n", command);
     SBenchConn* conn = init_bench_conn();
@@ -2063,6 +2078,11 @@ static int createStream(SSTREAM* stream) {
 END:
     tmfree(command);
     return code;
+}
+
+int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
+    int vgroups = 0;
+    return vgroups;
 }
 
 int insertTestProcess() {
@@ -2134,7 +2154,6 @@ int insertTestProcess() {
     // create sub threads for inserting data
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        if (database->superTbls) {
             for (uint64_t j = 0; j < database->superTbls->size; j++) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
                 if (stbInfo->insertRows == 0) {

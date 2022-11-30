@@ -568,52 +568,53 @@ typedef struct SQueryMetaInfo_S {
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
-    uint8_t            taosc_version;
-    char *             metaFile;
-    int32_t            test_mode;
-    char *             host;
-    uint16_t           port;
-    uint16_t           telnet_tcp_port;
-    char *             user;
-    char *             password;
-    bool               answer_yes;
-    bool               debug_print;
-    bool               performance_print;
-    bool               chinese;
-    char *             output_file;
-    uint32_t           binwidth;
-    uint32_t           intColumnCount;
-    uint32_t           nthreads;
-    uint32_t           table_threads;
-    uint64_t           prepared_rand;
-    uint32_t           reqPerReq;
-    uint64_t           insert_interval;
-    bool               demo_mode;
-    bool               aggr_func;
-    struct sockaddr_in serv_addr;
-    uint64_t           g_totalChildTables;
-    uint64_t           g_actualChildTables;
-    uint64_t           g_autoCreatedChildTables;
-    uint64_t           g_existedChildTables;
-    FILE *             fpOfInsertResult;
-    BArray *           databases;
-    BArray*            streams;
-    char *             base64_buf;
+    uint8_t             taosc_version;
+    char *              metaFile;
+    int32_t             test_mode;
+    char *              host;
+    uint16_t            port;
+    uint16_t            telnet_tcp_port;
+    char *              user;
+    char *              password;
+    bool                answer_yes;
+    bool                debug_print;
+    bool                performance_print;
+    bool                chinese;
+    char *              output_file;
+    uint32_t            binwidth;
+    uint32_t            intColumnCount;
+    uint32_t            nthreads;
+    bool                nthreads_auto;
+    uint32_t            table_threads;
+    uint64_t            prepared_rand;
+    uint32_t            reqPerReq;
+    uint64_t            insert_interval;
+    bool                demo_mode;
+    bool                aggr_func;
+    struct sockaddr_in  serv_addr;
+    uint64_t            totalChildTables;
+    uint64_t            actualChildTables;
+    uint64_t            autoCreatedChildTables;
+    uint64_t            existedChildTables;
+    FILE *              fpOfInsertResult;
+    BArray *            databases;
+    BArray*             streams;
+    char *              base64_buf;
 #ifdef LINUX
-    sem_t              cancelSem;
+    sem_t               cancelSem;
 #endif
-    bool               terminate;
-    bool               in_prompt;
+    bool                terminate;
+    bool                in_prompt;
 #ifdef WEBSOCKET
-    int32_t            timeout;
-    char*              dsn;
-    bool               websocket;
+    int32_t             timeout;
+    char*               dsn;
+    bool                websocket;
 #endif
-    bool               supplementInsert;
-    int64_t            startTimestamp;
-    int32_t            partialColNum;
-    int32_t            keep_trying;
-    uint32_t           trying_interval;
+    bool                supplementInsert;
+    int64_t             startTimestamp;
+    int32_t             partialColNum;
+    int32_t             keep_trying;
+    uint32_t            trying_interval;
 } SArguments;
 
 typedef struct SBenchConn{

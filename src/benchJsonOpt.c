@@ -464,10 +464,10 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
         if (tools_cJSON_IsNumber(childTableCount)) {
             superTable->childTblCount = childTableCount->valueint;
-            g_arguments->g_totalChildTables += superTable->childTblCount;
+            g_arguments->totalChildTables += superTable->childTblCount;
         } else {
             superTable->childTblCount = 0;
-            g_arguments->g_totalChildTables += superTable->childTblCount;
+            g_arguments->totalChildTables += superTable->childTblCount;
         }
 
         tools_cJSON *dataSource =
