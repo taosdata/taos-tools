@@ -141,11 +141,7 @@
 #define SML_MAX_BATCH          65536 * 32
 #define DEFAULT_NTHREADS       8
 
-#ifdef WINDOWS
-#define DEFAULT_CHILDTABLES    1000
-#else
 #define DEFAULT_CHILDTABLES    10000
-#endif
 #define DEFAULT_PORT           6030
 #define DEFAULT_DATABASE       "test"
 #define DEFAULT_TB_PREFIX      "d"
