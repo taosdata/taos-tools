@@ -61,6 +61,17 @@ class TDTestCase:
         tdSql.execute("reset query cache")
         tdSql.query("show db.tables")
         tdSql.checkRows(8)
+
+        tdSql.query("select * from db.stb")
+        dbresult = tdSql.queryResult
+        print(dbresult)
+        if dbresult != []:
+            for i in range(len(dbresult[0])):
+                if i in (1, 2) and dbresult[0][i] == None:
+                    tdLog.exit("result[0][%d] is NULL, which should not be" % i)
+            else:
+                tdLog.info("result[0][{0}] is {1}".format(i, dbresult[0][i]))
+
         tdSql.query("select count(*) from db.stb")
         tdSql.checkRows(0)
         tdSql.query("describe db.stb")
