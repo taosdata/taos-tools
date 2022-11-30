@@ -30,7 +30,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
 
       - name: List all changed files
         run: |
@@ -40,7 +40,7 @@ jobs:
 
       - name: Get specific changed files
         id: changed-files-specific
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
         with:
           files: |
             src/bench*
@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-19985-taosbenchmark-retry'
+          ref: 'fix/sangshuduo/TD-20852-benchmark-query-result-precision'
 
       - name: Change time zone
         if: |
