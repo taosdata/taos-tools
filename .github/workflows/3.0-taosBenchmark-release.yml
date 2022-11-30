@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-20852-benchmark-query-result-precision'
+          ref: 'feat/TS-1883-3.0-taostools-test'
 
       - name: Change time zone
         if: |

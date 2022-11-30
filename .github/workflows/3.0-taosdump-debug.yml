@@ -65,7 +65,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'feat/TS-1883-3.0-taostools-test'
 
       - name: Change time zone
         if:
