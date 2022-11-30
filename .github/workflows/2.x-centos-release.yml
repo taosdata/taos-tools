@@ -102,7 +102,7 @@ jobs:
           submodules: recursive
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '2.6'
+          ref: 'feat/TS-1883-2.6'
 
       - name: Change time zone
         if: |
