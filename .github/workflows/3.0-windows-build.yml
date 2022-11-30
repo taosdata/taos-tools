@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'feat/sangshuduo/TD-16450-taosdump-for-windows'
 
       - name: create debug directory
         if: |
