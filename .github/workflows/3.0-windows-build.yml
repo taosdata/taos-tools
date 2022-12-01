@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2157-wingettime-sync'
+          ref: 'fix/sangshuduo/TD-20874-taosbenchmark-set-config'
 
       - name: create debug directory
         if: |

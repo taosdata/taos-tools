@@ -18,8 +18,8 @@ bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 tools_cJSON*   root;
 
-static char      g_client_info[32] = {0};
-int       g_majorVersionOfClient = 0;
+static char     g_client_info[32] = {0};
+int             g_majorVersionOfClient = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
