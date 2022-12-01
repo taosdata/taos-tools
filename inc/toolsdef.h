@@ -13,8 +13,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __TOOLSTYPES_H_
-#define __TOOLSTYPES_H_
+#ifndef __TOOLSDEF_H_
+#define __TOOLSDEF_H_
 
 #include <stdbool.h>
 
@@ -96,48 +96,58 @@
 #define TSKEY int64_t
 #endif
 
-#define TSDB_KEYSIZE            sizeof(TSKEY)
-#define TSDB_MAX_FIELD_LEN              65519
-#define TSDB_MAX_BINARY_LEN             TSDB_MAX_FIELD_LEN
+#define TSDB_KEYSIZE              sizeof(TSKEY)
+#define TSDB_MAX_FIELD_LEN        65519
+#define TSDB_MAX_BINARY_LEN       TSDB_MAX_FIELD_LEN
 #define TSDB_FILENAME_LEN         128
 
-#define TSDB_PORT_HTTP                         11
+#define TSDB_PORT_HTTP            11
+
+#if _MSC_VER <= 1900
+    #define __func__ __FUNCTION__
+#endif
+
+#if defined(__GNUC__)
+    #define FORCE_INLINE inline __attribute__((always_inline))
+#else
+    #define FORCE_INLINE
+#endif
 
 #ifdef _TD_ARM_32
-  float  taos_align_get_float(const char* pBuf);
-  double taos_align_get_double(const char* pBuf);
+    float  taos_align_get_float(const char* pBuf);
+    double taos_align_get_double(const char* pBuf);
 
-  #define GET_FLOAT_VAL(x)        taos_align_get_float(x)
-  #define GET_DOUBLE_VAL(x)       taos_align_get_double(x)
-  #define SET_FLOAT_VAL(x, y)     { float z = (float)(y);   (*(int32_t*) x = *(int32_t*)(&z)); }
-  #define SET_DOUBLE_VAL(x, y)    { double z = (double)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
-  #define SET_TIMESTAMP_VAL(x, y) { int64_t z = (int64_t)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
-  #define SET_FLOAT_PTR(x, y)     { (*(int32_t*) x = *(int32_t*)y); }
-  #define SET_DOUBLE_PTR(x, y)    { (*(int64_t*) x = *(int64_t*)y); }
+    #define GET_FLOAT_VAL(x)        taos_align_get_float(x)
+    #define GET_DOUBLE_VAL(x)       taos_align_get_double(x)
+    #define SET_FLOAT_VAL(x, y)     { float z = (float)(y);   (*(int32_t*) x = *(int32_t*)(&z)); }
+    #define SET_DOUBLE_VAL(x, y)    { double z = (double)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
+    #define SET_TIMESTAMP_VAL(x, y) { int64_t z = (int64_t)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
+    #define SET_FLOAT_PTR(x, y)     { (*(int32_t*) x = *(int32_t*)y); }
+    #define SET_DOUBLE_PTR(x, y)    { (*(int64_t*) x = *(int64_t*)y); }
 #else
-  #define GET_FLOAT_VAL(x)        (*(float *)(x))
-  #define GET_DOUBLE_VAL(x)       (*(double *)(x))
-  #define SET_FLOAT_VAL(x, y)     { (*(float *)(x))  = (float)(y);       }
-  #define SET_DOUBLE_VAL(x, y)    { (*(double *)(x)) = (double)(y);      }
-  #define SET_TIMESTAMP_VAL(x, y) { (*(int64_t *)(x)) = (int64_t)(y);    }
-  #define SET_FLOAT_PTR(x, y)     { (*(float *)(x))  = (*(float *)(y));  }
-  #define SET_DOUBLE_PTR(x, y)    { (*(double *)(x)) = (*(double *)(y)); }
+    #define GET_FLOAT_VAL(x)        (*(float *)(x))
+    #define GET_DOUBLE_VAL(x)       (*(double *)(x))
+    #define SET_FLOAT_VAL(x, y)     { (*(float *)(x))  = (float)(y);       }
+    #define SET_DOUBLE_VAL(x, y)    { (*(double *)(x)) = (double)(y);      }
+    #define SET_TIMESTAMP_VAL(x, y) { (*(int64_t *)(x)) = (int64_t)(y);    }
+    #define SET_FLOAT_PTR(x, y)     { (*(float *)(x))  = (*(float *)(y));  }
+    #define SET_DOUBLE_PTR(x, y)    { (*(double *)(x)) = (*(double *)(y)); }
 #endif
 
 #ifdef WINDOWS
 
 #ifndef PATH_MAX
-#define PATH_MAX 256
+    #define PATH_MAX 256
 #endif
 #ifndef ssize_t
-#define ssize_t int
+    #define ssize_t int
 #endif
 #ifndef F_OK
-#define F_OK 0
+    #define F_OK 0
 #endif
 
-#define strcasecmp       _stricmp
-#define strncasecmp      _strnicmp
+    #define strcasecmp       _stricmp
+    #define strncasecmp      _strnicmp
 #endif
 
 int64_t tools_strnatoi(char *num, int32_t len);
@@ -153,10 +163,10 @@ int32_t toolsClockGetTime(int clock_id, struct timespec *pTS);
 
 #ifdef WINDOWS
 typedef struct {
-  int   we_wordc;
-  char *we_wordv[1];
-  int   we_offs;
-  char  wordPos[1025];
+    int   we_wordc;
+    char *we_wordv[1];
+    int   we_offs;
+    char  wordPos[1025];
 } wordexp_t;
 int  wordexp(char *words, wordexp_t *pwordexp, int flags);
 void wordfree(wordexp_t *pwordexp);
@@ -174,13 +184,13 @@ TdDirEntryPtr toolsReadDir(TdDirPtr pDir);
 char         *toolsGetDirEntryName(TdDirEntryPtr pDirEntry);
 int32_t       toolsCloseDir(TdDirPtr *ppDir);
 
-#define toolsGetLineFile(__pLine,__pN, __pFp)                      \
-do {                                                               \
-  *(__pLine) = malloc(1024);                                       \
-  fgets(*(__pLine), 1023, (__pFp));                                \
-  (*(__pLine))[1023] = 0;                                          \
-  *(__pN)=strlen(*(__pLine));                                      \
-} while(0)
+#define toolsGetLineFile(__pLine,__pN, __pFp)                           \
+    do {                                                                \
+        *(__pLine) = malloc(1024);                                      \
+        fgets(*(__pLine), 1023, (__pFp));                               \
+        (*(__pLine))[1023] = 0;                                         \
+        *(__pN)=strlen(*(__pLine));                                     \
+    } while(0)
 
 #define tstrncpy(dst, src, size)       \
     do {                               \
@@ -189,22 +199,52 @@ do {                                                               \
     } while (0)
 
 #ifdef RELEASE
-#define ASSERT(x)   do { \
-    if (!(x)) errorPrint("%s() LN%d, %s\n", \
+    #define ASSERT(x)   do { \
+        if (!(x)) errorPrint("%s() LN%d, %s\n", \
             __func__, __LINE__, "assertion");} while(0)
 #else
-#include <assert.h>
-#define ASSERT(x)   do { assert(x); } while(0)
+    #include <assert.h>
+    #define ASSERT(x)   do { assert(x); } while(0)
 #endif // RELEASE
 
 #ifdef WINDOWS
-#define SET_THREAD_NAME(name)
+    #define SET_THREAD_NAME(name)
 #elif defined(DARWIN)
-#define SET_THREAD_NAME(name)
+    #define SET_THREAD_NAME(name)
 #else
-#define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
+    #define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
 #endif
 
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 
-#endif // __TOOLSTYPES_H_
+#if defined(WINDOWS)
+    #include <winsock2.h>
+    #define CLOCK_REALTIME 0
+#else
+#include <time.h>
+#endif
+
+static FORCE_INLINE int64_t toolsGetTimestampMs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000L +
+        (int64_t)systemTime.tv_usec / 1000;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampUs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+}
+
+static FORCE_INLINE int64_t toolsGetTimestampNs() {
+    struct timespec systemTime = {0};
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000000L +
+        (int64_t)systemTime.tv_nsec;
+}
+
+int64_t toolsGetTimestamp(int32_t precision);
+void    toolsMsleep(int32_t mseconds);
+
+#endif // __TOOLSDEF_H_
