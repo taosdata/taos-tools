@@ -28,9 +28,9 @@ extern char version[];
 #endif
 
 #ifdef WINDOWS
-char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
+char      g_configDir[MAX_PATH_LEN] = {0};  // "C:\\TDengine\\cfg"};
 #else
-char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
 #endif
 
 
@@ -294,13 +294,17 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
             }
             break;
+
         case 'f':
             g_arguments->demo_mode = false;
             g_arguments->metaFile = arg;
             break;
+
         case 'h':
             g_arguments->host = arg;
+            g_arguments->host_auto = false;
             break;
+
         case 'P':
             g_arguments->port = atoi(arg);
             if (g_arguments->port <= 0) {
@@ -308,8 +312,11 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                            "Invalid -P: %s, will auto set to default(6030)\n",
                            arg);
                 g_arguments->port = DEFAULT_PORT;
+            } else {
+                g_arguments->port_auto = false;
             }
             break;
+
         case 'I':
             if (0 == strcasecmp(arg, "taosc")) {
                 stbInfo->iface = TAOSC_IFACE;
@@ -326,14 +333,18 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->iface = TAOSC_IFACE;
             }
             break;
+
         case 'p':
             g_arguments->password = arg;
             break;
+
         case 'u':
             g_arguments->user = arg;
             break;
+
         case 'c':
             tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
+            g_arguments->cfg_inputed = true;
             break;
 
         case 'o':
@@ -757,7 +768,9 @@ void init_argument() {
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
     g_arguments->host = NULL;
+    g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
+    g_arguments->port_auto = true;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;
     g_arguments->password = TSDB_DEFAULT_PASS;
@@ -799,8 +812,10 @@ void modify_argument() {
 #ifdef WEBSOCKET
     if (!g_arguments->websocket) {
 #endif
+        if (strlen(g_configDir)
+                && g_arguments->host_auto
+                && g_arguments->port_auto) {
 #ifdef LINUX
-        if (strlen(g_configDir)) {
             wordexp_t full_path;
             if (wordexp(g_configDir, &full_path, 0) != 0) {
                 errorPrint("Invalid path %s\n", g_configDir);
@@ -808,8 +823,12 @@ void modify_argument() {
             }
             taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
             wordfree(&full_path);
-        }
+#else
+            taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 #endif
+            g_arguments->host = NULL;
+            g_arguments->port = 0;
+        }
 #ifdef WEBSOCKET
     }
 #endif

@@ -559,6 +559,9 @@ typedef struct SArguments_S {
     int32_t            test_mode;
     char *             host;
     uint16_t           port;
+    bool                host_auto;
+    bool                port_auto;
+    bool                cfg_inputed;
     uint16_t           telnet_tcp_port;
     char *             user;
     char *             password;
