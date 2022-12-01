@@ -13,6 +13,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __BENCH_H_
+#define __BENCH_H_
+
 #ifndef __DEMO__
 #define __DEMO__
 
@@ -72,13 +75,6 @@
 
 #ifdef WEBSOCKET
 #include "taosws.h"
-#endif
-
-#if defined(WINDOWS)
-#include <winsock2.h>
-#define CLOCK_REALTIME 0
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
 #endif
 
 #ifndef TSDB_DATA_TYPE_VARCHAR
@@ -156,16 +152,6 @@
 #define DEFAULT_QUERY_INTERVAL 10000
 #define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
-
-#if _MSC_VER <= 1900
-#define __func__ __FUNCTION__
-#endif
-
-#if defined(__GNUC__)
-#define FORCE_INLINE inline __attribute__((always_inline))
-#else
-#define FORCE_INLINE
-#endif
 
 #define debugPrint(fmt, ...)                                             \
     do {                                                                     \
@@ -707,28 +693,6 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-static FORCE_INLINE int64_t toolsGetTimestampMs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000L +
-        (int64_t)systemTime.tv_usec / 1000;
-}
-
-static FORCE_INLINE int64_t toolsGetTimestampUs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
-}
-
-static FORCE_INLINE int64_t toolsGetTimestampNs() {
-    struct timespec systemTime = {0};
-    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000000L +
-        (int64_t)systemTime.tv_nsec;
-}
-
-int64_t toolsGetTimestamp(int32_t precision);
-void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
@@ -791,3 +755,5 @@ int queryTestProcess();
 /* demoSubscribe.c */
 int subscribeTestProcess();
 #endif
+
+#endif   // __BENCH_H_
