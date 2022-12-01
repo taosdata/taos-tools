@@ -230,6 +230,46 @@ skip:
     return 0;
 }
 
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
+    int     vgroups = 0;
+    char    cmd[SQL_BUFF_LEN] = "\0";
+
+    sprintf(cmd, "USE %s", database->dbName);
+
+    int32_t   code;
+    TAOS_RES *res = NULL;
+
+    res = taos_query(conn->taos, cmd);
+    code = taos_errno(res);
+    if (code) {
+        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
+                    cmd, code, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    sprintf(cmd, "SHOW vgroups");
+    res = taos_query(conn->taos, cmd);
+    code = taos_errno(res);
+    if (code) {
+        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
+                    cmd, code, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    TAOS_ROW row = NULL;
+    while ((row = taos_fetch_row(res)) != NULL) {
+        vgroups ++;
+    }
+    debugPrint("%s() LN%d, vgroups: %d\n", __func__, __LINE__, vgroups);
+    taos_free_result(res);
+
+    return vgroups;
+}
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
+
 int createDatabase(SDataBase* database) {
     char       command[SQL_BUFF_LEN] = "\0";
     SBenchConn* conn = init_bench_conn();
@@ -297,9 +337,9 @@ int createDatabase(SDataBase* database) {
     }
     infoPrint("create database: <%s>\n", command);
 
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
     if (database->superTbls) {
-        if ((g_arguments->taosc_version == 3)
-                && (g_arguments->nthreads_auto)) {
+        if (g_arguments->nthreads_auto) {
             int32_t vgroups = getVgroupsOfDb(conn, database);
             if (vgroups <=0) {
                 close_bench_conn(conn);
@@ -307,10 +347,11 @@ int createDatabase(SDataBase* database) {
                            database->dbName, vgroups);
                 return -1;
             }
-            g_arguments->table_threads = vgroups;
-            g_arguments->nthreads = vgroups;
+            database->vgroups = vgroups;
         }
     }
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
+
 #if 0
 #ifdef LINUX
     sleep(2);
@@ -1547,14 +1588,14 @@ static int startMultiThreadInsertData(SDataBase* database,
         char cmd[SQL_BUFF_LEN] = "\0";
         if (g_arguments->taosc_version == 3) {
             snprintf(cmd, SQL_BUFF_LEN,
-                    "select distinct(tbname) from %s.`%s` limit %" PRId64
-                    " offset %" PRIu64 "",
+                    "SELECT DISTINCT(TBNAME) FROM %s.`%s` LIMIT %" PRId64
+                    " OFFSET %" PRIu64 "",
                     database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                     stbInfo->childTblOffset);
         } else {
             snprintf(cmd, SQL_BUFF_LEN,
-                    "select tbname from %s.`%s` limit %" PRId64
-                    " offset %" PRIu64 "",
+                    "SELECT TBNAME FROM %s.`%s` LIMIT %" PRId64
+                    " OFFSET %" PRIu64 "",
                     database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
                     stbInfo->childTblOffset);
         }
@@ -1607,7 +1648,19 @@ static int startMultiThreadInsertData(SDataBase* database,
     if (ntables == 0) {
         return 0;
     }
-    int     threads = g_arguments->nthreads;
+
+    int threads;
+
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    if (g_arguments->nthreads_auto) {
+        threads = database->vgroups;
+    } else {
+        threads = g_arguments->nthreads;
+    }
+#else
+    threads = g_arguments->nthreads;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
+
     int64_t a = ntables / threads;
     if (a < 1) {
         threads = (int)ntables;
@@ -1824,7 +1877,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                     return -1;
                 }
                 char command[SQL_BUFF_LEN];
-                sprintf(command, "use %s", database->dbName);
+                sprintf(command, "USE %s", database->dbName);
                 if (queryDbExec(pThreadInfo->conn, command)) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2080,11 +2133,6 @@ END:
     return code;
 }
 
-int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
-    int vgroups = 0;
-    return vgroups;
-}
-
 int insertTestProcess() {
 
     prompt(0);
@@ -2154,15 +2202,14 @@ int insertTestProcess() {
     // create sub threads for inserting data
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-            for (uint64_t j = 0; j < database->superTbls->size; j++) {
-                SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-                if (stbInfo->insertRows == 0) {
-                    continue;
-                }
-                prompt(stbInfo->non_stop);
-                if (startMultiThreadInsertData(database, stbInfo)) {
-                    return -1;
-                }
+        for (uint64_t j = 0; j < database->superTbls->size; j++) {
+            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+            if (stbInfo->insertRows == 0) {
+                continue;
+            }
+            prompt(stbInfo->non_stop);
+            if (startMultiThreadInsertData(database, stbInfo)) {
+                return -1;
             }
         }
     }

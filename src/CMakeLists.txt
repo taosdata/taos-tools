@@ -171,7 +171,7 @@ ENDIF()
 IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
     INCLUDE_DIRECTORIES(${TD_SOURCE_DIR}/contrib/pthread)
     INCLUDE_DIRECTORIES(${TD_SOURCE_DIR}/contrib/msvcregex)
-
+    ADD_DEFINITIONS(-DTD_VER_COMPATIBLE_3_0_0_0)
 ENDIF ()
 
 MESSAGE("Current system is: ${CMAKE_SYSTEM_NAME}")
@@ -399,14 +399,14 @@ ELSE ()
         PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
     )
 
-    IF (${TOOLS_BUILD_TYPE} MATCHES "Release")
+    IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlib ${WEBSOCKET_LINK_FLAGS})
+    ELSE ()
         #SET(CMAKE_C_FLAGS "/w /D_WIN32 /DWIN32 /Zi /D NDEBUG /MTd")
         #       SET(CMAKE_C_FLAGS "/permissive- /GS /GL /Gy /Zc:wchar_t /Zi /Gm- /O2 /Zc:inline /fp:precise /D \"RELEASE\" /D \"NDEBUG\" /D \"_CONSOLE\" /D \"_UNICODE\" /D \"UNICODE\" /errorReport:prompt /Zc:forScope /Gd /Oi /MTd /FC /EHsc /nologo /diagnostics:column")
         #       SET(CMAKE_CXX_FLAGS "/permissive- /GS /GL /Gy /Zc:wchar_t /Zi /Gm- /O2 /sdl /Zc:inline /fp:precise /D \"NDEBUG\" /D \"_CONSOLE\" /D \"_UNICODE\" /D \"UNICODE\" /errorReport:prompt /Zc:forScope /Gd /Oi /MTd /FC /EHsc /nologo /diagnostics:column")
         #TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlibstatic ${WEBSOCKET_LINK_FLAGS} msvcrt.lib ucrtd.lib)
         TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlibstatic ${WEBSOCKET_LINK_FLAGS})
-    ELSE ()
-        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlib ${WEBSOCKET_LINK_FLAGS})
     ENDIF ()
 
     TARGET_LINK_LIBRARIES(taosBenchmark taos msvcregex pthread toolscJson ${WEBSOCKET_LINK_FLAGS})
