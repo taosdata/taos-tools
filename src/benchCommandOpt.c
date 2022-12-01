@@ -815,9 +815,7 @@ void modify_argument() {
         if (strlen(g_configDir)
                 && g_arguments->host_auto
                 && g_arguments->port_auto) {
-#ifdef WINDOWS
-            taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
-#else
+#ifdef LINUX
             wordexp_t full_path;
             if (wordexp(g_configDir, &full_path, 0) != 0) {
                 errorPrint("Invalid path %s\n", g_configDir);
@@ -825,6 +823,8 @@ void modify_argument() {
             }
             taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
             wordfree(&full_path);
+#else
+            taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 #endif
             g_arguments->host = NULL;
             g_arguments->port = 0;
