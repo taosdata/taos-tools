@@ -220,9 +220,9 @@ int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 #if defined(WINDOWS)
     #include <winsock2.h>
     #define CLOCK_REALTIME 0
-#else
-#include <time.h>
 #endif
+
+#include <time.h>
 
 static FORCE_INLINE int64_t toolsGetTimestampMs() {
     struct timeval systemTime;

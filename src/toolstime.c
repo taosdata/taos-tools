@@ -285,7 +285,7 @@ int32_t toolsClockGetTime(int clock_id, struct timespec *pTS) {
 
     static int8_t        offsetInit = 0;
     static volatile bool offsetInitFinished = false;
-    int8_t               old = atomic_val_compare_exchange_8(&offsetInit, 0, 1);
+    int8_t               old = _InterlockedCompareExchange8(&offsetInit, 0, 1);
     if (0 == old) {
         ss.wYear = 1970;
         ss.wMonth = 1;
