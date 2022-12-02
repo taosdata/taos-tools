@@ -298,6 +298,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'f':
             g_arguments->demo_mode = false;
             g_arguments->metaFile = arg;
+            g_arguments->nthreads_auto = false;
             break;
 
         case 'h':

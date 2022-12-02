@@ -17,6 +17,14 @@
 #define __TOOLSDEF_H_
 
 #include <stdbool.h>
+#include <unistd.h>
+
+#ifdef WINDOWS
+#include <sysinfoapi.h>
+#include <winsock2.h>
+#endif
+
+#include <time.h>
 
 // max file name length on Linux is 255
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
@@ -218,11 +226,8 @@ int32_t       toolsCloseDir(TdDirPtr *ppDir);
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 
 #if defined(WINDOWS)
-    #include <winsock2.h>
     #define CLOCK_REALTIME 0
 #endif
-
-#include <time.h>
 
 static FORCE_INLINE int64_t toolsGetTimestampMs() {
     struct timeval systemTime;
@@ -242,6 +247,16 @@ static FORCE_INLINE int64_t toolsGetTimestampNs() {
     toolsClockGetTime(CLOCK_REALTIME, &systemTime);
     return (int64_t)systemTime.tv_sec * 1000000000L +
         (int64_t)systemTime.tv_nsec;
+}
+
+static FORCE_INLINE int32_t toolsGetNumberOfCores() {
+#ifdef WINDOWS
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return (int32_t)info.dwNumberOfProcessors;
+#else
+    return (int32_t)sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 }
 
 int64_t toolsGetTimestamp(int32_t precision);

@@ -322,8 +322,18 @@ int createDatabase(SDataBase* database) {
     }
 
     int dataLen = 0;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    if (g_arguments->nthreads_auto) {
+        dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
+                            "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d", database->dbName, toolsGetNumberOfCores());
+    } else {
+        dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
+                            "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
+    }
+#else
     dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
 
     if (database->cfgs) {
         for (int i = 0; i < database->cfgs->size; i++) {
@@ -660,6 +670,9 @@ void postFreeResource() {
                         && (g_arguments->nthreads_auto)) {
                     for (int32_t v = 0; v < database->vgroups; v++) {
                         SVGroup *vg = benchArrayGet(database->vgArray, v);
+                        for (int64_t t = 0; t < vg->tbCountPerVgId; t ++) {
+                            tmfree(vg->childTblName[t]);
+                        }
                         tmfree(vg->childTblName);
                     }
                     benchArrayDestroy(database->vgArray);
