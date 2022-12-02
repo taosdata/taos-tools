@@ -12390,13 +12390,7 @@ static int dumpEntry() {
     }
     fprintf(g_fpOfResult, "debug_print: %d\n", g_args.debug_print);
 
-#ifdef WINDOWS
-    SYSTEM_INFO info;
-    GetSystemInfo(&info);
-    g_numOfCores = (int32_t)info.dwNumberOfProcessors;
-#else
-    g_numOfCores = (int32_t)sysconf(_SC_NPROCESSORS_ONLN);
-#endif
+    g_numOfCores = toolsGetNumberOfCores();
 
     time_t tTime = time(NULL);
     struct tm tm = *localtime(&tTime);

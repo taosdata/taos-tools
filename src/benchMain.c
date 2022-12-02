@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
     }
 #endif
     if (g_arguments->metaFile) {
-        g_arguments->g_totalChildTables = 0;
+        g_arguments->totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
     } else {
         modify_argument();

@@ -298,6 +298,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'f':
             g_arguments->demo_mode = false;
             g_arguments->metaFile = arg;
+            g_arguments->nthreads_auto = false;
             break;
 
         case 'h':
@@ -358,6 +359,8 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                            "Invalid -T: %s, will auto set to default(8)\n",
                            arg);
                 g_arguments->nthreads = DEFAULT_NTHREADS;
+            } else {
+                g_arguments->nthreads_auto = false;
             }
             break;
 
@@ -411,6 +414,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
 
         case 'U':
             g_arguments->supplementInsert = true;
+            g_arguments->nthreads_auto = false;
             break;
 
         case 't':
@@ -421,7 +425,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                            arg);
                 stbInfo->childTblCount = DEFAULT_CHILDTABLES;
             }
-            g_arguments->g_totalChildTables = stbInfo->childTblCount;
+            g_arguments->totalChildTables = stbInfo->childTblCount;
             break;
 
         case 'n':
@@ -780,13 +784,14 @@ void init_argument() {
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
+    g_arguments->nthreads_auto = true;
     g_arguments->table_threads = DEFAULT_NTHREADS;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
-    g_arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
-    g_arguments->g_actualChildTables = 0;
-    g_arguments->g_autoCreatedChildTables = 0;
-    g_arguments->g_existedChildTables = 0;
+    g_arguments->totalChildTables = DEFAULT_CHILDTABLES;
+    g_arguments->actualChildTables = 0;
+    g_arguments->autoCreatedChildTables = 0;
+    g_arguments->existedChildTables = 0;
     g_arguments->chinese = false;
     g_arguments->aggr_func = 0;
     g_arguments->terminate = false;
