@@ -1705,8 +1705,8 @@ static int startMultiThreadInsertData(SDataBase* database,
         return 0;
     }
 
-    int threads;
-    int64_t a, b;
+    int32_t threads = g_arguments->nthreads;
+    int64_t a = 0, b = 0;
 
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if ((0 == stbInfo->interlaceRows)
@@ -1735,10 +1735,14 @@ static int startMultiThreadInsertData(SDataBase* database,
             }
         }
 
+        threads = 0;
         for (int v = 0; v < database->vgroups; v++) {
             SVGroup *vg = benchArrayGet(database->vgArray, v);
             infoPrint("Total %"PRId64" tables on bb %s's vgroup %d (id: %d)\n",
                       vg->tbCountPerVgId, database->dbName, v, vg->vgId);
+            if (vg->tbCountPerVgId) {
+                threads ++;
+            }
             vg->childTblName = benchCalloc(vg->tbCountPerVgId,
                                            sizeof(char *), true);
             for (int64_t n = 0; n < vg->tbCountPerVgId; n++) {
@@ -1765,16 +1769,11 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
             }
         }
-
         close_bench_conn(conn);
-
-        threads = database->vgroups;
     } else {
-        threads = g_arguments->nthreads;
-
         a = ntables / threads;
         if (a < 1) {
-            threads = (int)ntables;
+            threads = (int32_t)ntables;
             a = 1;
         }
         b = 0;
@@ -1782,13 +1781,10 @@ static int startMultiThreadInsertData(SDataBase* database,
             b = ntables % threads;
         }
     }
-
 #else
-    threads = g_arguments->nthreads;
-
     a = ntables / threads;
     if (a < 1) {
-        threads = (int)ntables;
+        threads = (int32_t)ntables;
         a = 1;
     }
     b = 0;
@@ -1813,6 +1809,9 @@ static int startMultiThreadInsertData(SDataBase* database,
         if ((0 == stbInfo->interlaceRows)
                 && (g_arguments->nthreads_auto)) {
             SVGroup *vg = benchArrayGet(database->vgArray, i);
+            if (0 == vg->tbCountPerVgId) {
+                continue;
+            }
             pThreadInfo->vg = vg;
             pThreadInfo->start_table_from = 0;
             pThreadInfo->ntables = vg->tbCountPerVgId;

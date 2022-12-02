@@ -414,6 +414,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
 
         case 'U':
             g_arguments->supplementInsert = true;
+            g_arguments->nthreads_auto = false;
             break;
 
         case 't':
