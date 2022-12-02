@@ -485,14 +485,26 @@ typedef struct SSTREAM_S {
     bool drop;
 } SSTREAM;
 
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+typedef struct SVGroup_S {
+    int32_t   vgId;
+    uint64_t  tbCountPerVgId;
+    char    **childTblName;  // table name pointer array
+    uint64_t  tbOffset;  // internal use
+} SVGroup;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
+        //
 typedef struct SDataBase_S {
-    char *       dbName;
-    bool         drop;  // 0: use exists, 1: if exists, drop then new create
-    int          precision;
-    int          sml_precision;
-    BArray*      cfgs;
-    BArray*      superTbls;
+    char *      dbName;
+    bool        drop;  // 0: use exists, 1: if exists, drop then new create
+    int         precision;
+    int         sml_precision;
+    BArray     *cfgs;
+    BArray     *superTbls;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
     int32_t     vgroups;
+    BArray      *vgArray;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
 } SDataBase;
 
 typedef struct SSQL_S {
@@ -651,6 +663,9 @@ typedef struct SThreadInfo_S {
     BArray*    delayList;
     uint64_t*  query_delay_list;
     double     avg_delay;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    SVGroup   *vg;
+#endif
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {

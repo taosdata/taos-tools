@@ -266,6 +266,30 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     debugPrint("%s() LN%d, vgroups: %d\n", __func__, __LINE__, vgroups);
     taos_free_result(res);
 
+    database->vgroups = vgroups;
+    database->vgArray = benchArrayInit(vgroups, sizeof(SVGroup));
+    for (int32_t v = 0; v < vgroups; v ++) {
+        SVGroup *vg = benchCalloc(1, sizeof(SVGroup), true);
+        benchArrayPush(database->vgArray, vg);
+    }
+
+    res = taos_query(conn->taos, cmd);
+    code = taos_errno(res);
+    if (code) {
+        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
+                    cmd, code, taos_errstr(res));
+        taos_free_result(res);
+        return -1;
+    }
+
+    int32_t vgItem = 0;
+    while ((row = taos_fetch_row(res)) != NULL) {
+        SVGroup *vg = benchArrayGet(database->vgArray, vgItem);
+        vg->vgId = *(int32_t*)row[0];
+        vgItem ++;
+    }
+    taos_free_result(res);
+
     return vgroups;
 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
@@ -347,7 +371,6 @@ int createDatabase(SDataBase* database) {
                            database->dbName, vgroups);
                 return -1;
             }
-            database->vgroups = vgroups;
         }
     }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
@@ -632,6 +655,16 @@ void postFreeResource() {
                 }
                 tmfree(stbInfo->childTblName);
                 benchArrayDestroy(stbInfo->tsmas);
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+                if ((0 == stbInfo->interlaceRows)
+                        && (g_arguments->nthreads_auto)) {
+                    for (int32_t v = 0; v < database->vgroups; v++) {
+                        SVGroup *vg = benchArrayGet(database->vgArray, v);
+                        tmfree(vg->childTblName);
+                    }
+                    benchArrayDestroy(database->vgArray);
+                }
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
             }
             benchArrayDestroy(database->superTbls);
         }
@@ -1048,7 +1081,7 @@ void *syncWriteProgressive(void *sarg) {
             "thread[%d] start progressive inserting into table from "
             "%" PRIu64 " to %" PRIu64 "\n",
             pThreadInfo->threadID, pThreadInfo->start_table_from,
-            pThreadInfo->end_table_to);
+            pThreadInfo->end_table_to + 1);
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     int64_t   startTs = toolsGetTimestampMs();
     int64_t   endTs;
@@ -1056,7 +1089,18 @@ void *syncWriteProgressive(void *sarg) {
     char *  pstr = pThreadInfo->buffer;
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
          tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
-        char *   tableName = stbInfo->childTblName[tableSeq];
+
+        char *   tableName = NULL;
+
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+        if (g_arguments->nthreads_auto) {
+            tableName = pThreadInfo->vg->childTblName[tableSeq];
+        } else {
+            tableName = stbInfo->childTblName[tableSeq];
+        }
+#else
+        tableName = stbInfo->childTblName[tableSeq];
+#endif
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
         int32_t pos = 0;
@@ -1563,8 +1607,8 @@ static int startMultiThreadInsertData(SDataBase* database,
         g_arguments->reqPerReq = stbInfo->insertRows;
     }
 
-    if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE &&
-        stbInfo->autoCreateTable) {
+    if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE
+            && stbInfo->autoCreateTable) {
         infoPrint("%s",
                 "not support autocreate table with interlace row in stmt "
                 "insertion, will change to progressive mode\n");
@@ -1579,8 +1623,8 @@ static int startMultiThreadInsertData(SDataBase* database,
         stbInfo->childTblName[i] = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
     }
 
-    if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) &&
-        stbInfo->childTblExists) {
+    if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE)
+            && stbInfo->childTblExists) {
         SBenchConn* conn = init_bench_conn();
         if (NULL == conn) {
             return -1;
@@ -1624,8 +1668,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         ntables = count;
         taos_free_result(res);
         close_bench_conn(conn);
-    }
-    else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
+    } else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         if (stbInfo->escape_character) {
             snprintf(stbInfo->childTblName[0], TSDB_TABLE_NAME_LEN,
                     "`%s`", stbInfo->stbName);
@@ -1650,26 +1693,97 @@ static int startMultiThreadInsertData(SDataBase* database,
     }
 
     int threads;
+    int64_t a, b;
 
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto) {
+    if ((0 == stbInfo->interlaceRows)
+            && (g_arguments->nthreads_auto)) {
+        SBenchConn* conn = init_bench_conn();
+        if (NULL == conn) {
+            return -1;
+        }
+
+        for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+            int vgId;
+            int ret = taos_get_table_vgId(conn->taos, database->dbName,
+                                          stbInfo->childTblName[i], &vgId);
+            if (ret < 0) {
+                errorPrint("Failed to get %s db's %s table's vgId\n",
+                           database->dbName, stbInfo->childTblName[i]);
+                return -1;
+            }
+            debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
+                       database->dbName, stbInfo->childTblName[i], vgId);
+            for (int32_t v = 0; v < database->vgroups; v ++) {
+                SVGroup *vg = benchArrayGet(database->vgArray, v);
+                if (vgId == vg->vgId) {
+                    vg->tbCountPerVgId ++;
+                }
+            }
+        }
+
+        for (int v = 0; v < database->vgroups; v++) {
+            SVGroup *vg = benchArrayGet(database->vgArray, v);
+            infoPrint("Total %"PRId64" tables on bb %s's vgroup %d (id: %d)\n",
+                      vg->tbCountPerVgId, database->dbName, v, vg->vgId);
+            vg->childTblName = benchCalloc(vg->tbCountPerVgId,
+                                           sizeof(char *), true);
+            for (int64_t n = 0; n < vg->tbCountPerVgId; n++) {
+                vg->childTblName[n] = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
+                vg->tbOffset = 0;
+            }
+        }
+        for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+            int vgId;
+            int ret = taos_get_table_vgId(conn->taos, database->dbName,
+                                          stbInfo->childTblName[i], &vgId);
+            if (ret < 0) {
+                errorPrint("Failed to get %s db's %s table's vgId\n",
+                           database->dbName, stbInfo->childTblName[i]);
+                return -1;
+            }
+            debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
+                       database->dbName, stbInfo->childTblName[i], vgId);
+            for (int32_t v = 0; v < database->vgroups; v ++) {
+                SVGroup *vg = benchArrayGet(database->vgArray, v);
+                if (vgId == vg->vgId) {
+                    strcpy(vg->childTblName[vg->tbOffset], stbInfo->childTblName[i]);
+                    vg->tbOffset ++;
+                }
+            }
+        }
+
+        close_bench_conn(conn);
+
         threads = database->vgroups;
     } else {
         threads = g_arguments->nthreads;
+
+        a = ntables / threads;
+        if (a < 1) {
+            threads = (int)ntables;
+            a = 1;
+        }
+        b = 0;
+        if (threads != 0) {
+            b = ntables % threads;
+        }
     }
+
 #else
     threads = g_arguments->nthreads;
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
 
-    int64_t a = ntables / threads;
+    a = ntables / threads;
     if (a < 1) {
         threads = (int)ntables;
         a = 1;
     }
-    int64_t b = 0;
+    b = 0;
     if (threads != 0) {
         b = ntables % threads;
     }
+#endif   // TD_VER_COMPATIBLE_3_0_0_0
+
 
     pthread_t * pids = benchCalloc(1, threads * sizeof(pthread_t), true);
     threadInfo *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
@@ -1682,10 +1796,26 @@ static int startMultiThreadInsertData(SDataBase* database,
         pThreadInfo->start_time = stbInfo->startTimestamp;
         pThreadInfo->totalInsertRows = 0;
         pThreadInfo->samplePos = 0;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+        if ((0 == stbInfo->interlaceRows)
+                && (g_arguments->nthreads_auto)) {
+            SVGroup *vg = benchArrayGet(database->vgArray, i);
+            pThreadInfo->vg = vg;
+            pThreadInfo->start_table_from = 0;
+            pThreadInfo->ntables = vg->tbCountPerVgId;
+            pThreadInfo->end_table_to = vg->tbCountPerVgId-1;
+        } else {
+            pThreadInfo->start_table_from = tableFrom;
+            pThreadInfo->ntables = i < b ? a + 1 : a;
+            pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
+            tableFrom = pThreadInfo->end_table_to + 1;
+        }
+#else
         pThreadInfo->start_table_from = tableFrom;
         pThreadInfo->ntables = i < b ? a + 1 : a;
         pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
         tableFrom = pThreadInfo->end_table_to + 1;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
         pThreadInfo->delayList = benchArrayInit(1, sizeof(int64_t));
         switch (stbInfo->iface) {
             case REST_IFACE: {
