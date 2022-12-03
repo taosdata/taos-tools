@@ -16,6 +16,9 @@
 #ifdef WINDOWS
 #include <time.h>
 #include <WinSock2.h>
+#include <sysinfoapi.h>
+#else
+#include <unistd.h>
 #endif
 
 #include <toolsdef.h>
@@ -27,6 +30,16 @@ int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val) {
     return __sync_add_and_fetch((ptr), (val));
 #else
     return __atomic_add_fetch((ptr), (val), __ATOMIC_SEQ_CST);
+#endif
+}
+
+FORCE_INLINE int32_t toolsGetNumberOfCores() {
+#ifdef WINDOWS
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    return (int32_t)info.dwNumberOfProcessors;
+#else
+    return (int32_t)sysconf(_SC_NPROCESSORS_ONLN);
 #endif
 }
 

@@ -97,20 +97,6 @@ unsigned int taosRandom() {
 
     return number;
 }
-
-void usleep(__int64 usec)
-{
-    HANDLE timer;
-    LARGE_INTEGER ft;
-
-    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
-
-    timer = CreateWaitableTimer(NULL, TRUE, NULL);
-    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
-    WaitForSingleObject(timer, INFINITE);
-    CloseHandle(timer);
-}
-
 #else  // Not windows
 void setupForAnsiEscape(void) {}
 
@@ -119,8 +105,7 @@ void resetAfterAnsiEscape(void) {
     printf("\x1b[0m");
 }
 
-unsigned int taosRandom() { return (unsigned int)rand(); }
-
+FORCE_INLINE unsigned int taosRandom() { return (unsigned int)rand(); }
 #endif
 
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
@@ -244,8 +229,6 @@ int64_t toolsGetTimestamp(int32_t precision) {
         return toolsGetTimestampMs();
     }
 }
-
-void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;

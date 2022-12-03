@@ -11,6 +11,7 @@
  */
 
 #include "bench.h"
+#include "toolsdef.h"
 
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
