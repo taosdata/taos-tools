@@ -17,14 +17,6 @@
 #define __TOOLSDEF_H_
 
 #include <stdbool.h>
-#include <unistd.h>
-
-#ifdef WINDOWS
-#include <sysinfoapi.h>
-#include <winsock2.h>
-#endif
-
-#include <time.h>
 
 // max file name length on Linux is 255
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
@@ -168,6 +160,9 @@ int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePr
 struct tm* toolsLocalTime(const time_t *timep, struct tm *result);
 int32_t toolsGetTimeOfDay(struct timeval *tv);
 int32_t toolsClockGetTime(int clock_id, struct timespec *pTS);
+int64_t toolsGetTimestampMs();
+int64_t toolsGetTimestampUs();
+int64_t toolsGetTimestampNs();
 
 #ifdef WINDOWS
 typedef struct {
@@ -224,40 +219,7 @@ int32_t       toolsCloseDir(TdDirPtr *ppDir);
 #endif
 
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
-
-#if defined(WINDOWS)
-    #define CLOCK_REALTIME 0
-#endif
-
-static FORCE_INLINE int64_t toolsGetTimestampMs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000L +
-        (int64_t)systemTime.tv_usec / 1000;
-}
-
-static FORCE_INLINE int64_t toolsGetTimestampUs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
-}
-
-static FORCE_INLINE int64_t toolsGetTimestampNs() {
-    struct timespec systemTime = {0};
-    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000000L +
-        (int64_t)systemTime.tv_nsec;
-}
-
-static FORCE_INLINE int32_t toolsGetNumberOfCores() {
-#ifdef WINDOWS
-    SYSTEM_INFO info;
-    GetSystemInfo(&info);
-    return (int32_t)info.dwNumberOfProcessors;
-#else
-    return (int32_t)sysconf(_SC_NPROCESSORS_ONLN);
-#endif
-}
+int32_t toolsGetNumberOfCores();
 
 int64_t toolsGetTimestamp(int32_t precision);
 void    toolsMsleep(int32_t mseconds);

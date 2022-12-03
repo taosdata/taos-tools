@@ -50,6 +50,8 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <netdb.h>
+#else
+#include <winsock2.h>
 #endif
 
 #include <regex.h>

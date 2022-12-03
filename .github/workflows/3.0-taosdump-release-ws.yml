@@ -83,7 +83,7 @@ jobs:
           || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Set up Rust
         if:

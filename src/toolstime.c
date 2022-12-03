@@ -36,11 +36,12 @@
 #include "bench.h"
 #include "toolsdef.h"
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(WINDOWS)
 
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <winsock2.h>
 //#define TM_YEAR_BASE 1970 //origin
 #define TM_YEAR_BASE 1900  // slguan
 /*
@@ -772,7 +773,8 @@ struct tm* toolsLocalTime(const time_t *timep, struct tm *result) {
 #endif
     return result;
 }
-int32_t toolsGetTimestampSec() { return (int32_t)time(NULL); }
+
+FORCE_INLINE int32_t toolsGetTimestampSec() { return (int32_t)time(NULL); }
 
 FORCE_INLINE int32_t toolsGetTimeOfDay(struct timeval *tv) {
 #if defined(WIN32) || defined(WIN64)
@@ -788,3 +790,42 @@ FORCE_INLINE int32_t toolsGetTimeOfDay(struct timeval *tv) {
     return gettimeofday(tv, NULL);
 #endif
 }
+
+FORCE_INLINE int64_t toolsGetTimestampMs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000L +
+        (int64_t)systemTime.tv_usec / 1000;
+}
+
+FORCE_INLINE int64_t toolsGetTimestampUs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+}
+
+#if defined(WINDOWS)
+    #define CLOCK_REALTIME 0
+
+void usleep(__int64 usec)
+{
+    HANDLE timer;
+    LARGE_INTEGER ft;
+
+    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
+}
+#endif
+
+FORCE_INLINE int64_t toolsGetTimestampNs() {
+    struct timespec systemTime = {0};
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000000L +
+        (int64_t)systemTime.tv_nsec;
+}
+
+FORCE_INLINE void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
