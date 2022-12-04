@@ -77,7 +77,7 @@ class TDTestCase:
             "insert into t1 USING st tags(1, 'Beijing') values(1640000000000, 1.0, 1, 1.0, '%s')" % c4
         )
 
-        #        sys.exit(1)
+        #sys.exit(1)
 
         binPath = self.getPath()
         if binPath == "":
@@ -109,8 +109,6 @@ class TDTestCase:
                 found = True
                 break
 
-        assert found == True
-
         tdSql.execute("use db")
         tdSql.query("show stables")
         tdSql.checkRows(1)
@@ -118,6 +116,15 @@ class TDTestCase:
 
         tdSql.query("show tables")
         tdSql.checkRows(1)
+
+        tdSql.query("select count(c4) from db.st")
+        tdSql.checkData(0, 0, 1)
+
+        # need python connector upgrade to support 64k row
+        #tdSql.query("select c4 from db.st")
+        #dbresult = tdSql.queryResult
+        #tdSql.checkData(0, 0, c4)
+
 
     def stop(self):
         tdSql.close()
