@@ -46,8 +46,8 @@ FORCE_INLINE int32_t toolsGetNumberOfCores() {
 void errorWrongValue(char *program, char *wrong_arg, char *wrong_value) {
     fprintf(stderr, "%s %s: %s is an invalid value\n",
             program, wrong_arg, wrong_value);
-    fprintf(stderr, "Try `taosdump --help' or `taosdump --usage' for more "
-            "information.\n");
+    fprintf(stderr, "Try `%s --help' or `%s --usage' for more "
+            "information.\n", program, program);
 }
 
 void errorPrintReqArg(char *program, char *wrong_arg) {
@@ -55,8 +55,8 @@ void errorPrintReqArg(char *program, char *wrong_arg) {
             "%s: option requires an argument -- '%s'\n",
             program, wrong_arg);
     fprintf(stderr,
-            "Try `taosdump --help' or `taosdump --usage' for more "
-            "information.\n");
+            "Try `%s --help' or `%s --usage' for more "
+            "information.\n", program, program);
 }
 
 void errorPrintReqArg2(char *program, char *wrong_arg) {
@@ -64,7 +64,8 @@ void errorPrintReqArg2(char *program, char *wrong_arg) {
             "%s: option requires a number argument '-%s'\n",
             program, wrong_arg);
     fprintf(stderr,
-            "Try `taosdump --help' or `taosdump --usage' for more information.\n");
+            "Try `%s --help' or `%s --usage' for more information.\n",
+            program, program);
 }
 
 void errorPrintReqArg3(char *program, char *wrong_arg) {
