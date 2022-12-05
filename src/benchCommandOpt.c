@@ -424,7 +424,6 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'r':
             if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2("taosBenchmark", "r");
-                exit(EXIT_FAILURE);
             }
 
             g_arguments->reqPerReq = atoi(arg);
@@ -520,7 +519,6 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'k':
             if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2("taosBenchmark", "k");
-                exit(EXIT_FAILURE);
             }
 
             g_arguments->keep_trying = atoi(arg);
