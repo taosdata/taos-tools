@@ -24,7 +24,7 @@ sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config li
 #### 对于 CentOS 7/RHEL 系统
 
 ```shell
-sudo yum install -y xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
+sudo yum install -y xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel
 ```
 
 #### 对于 CentOS 8/Rocky Linux 系统
@@ -33,7 +33,7 @@ sudo yum install -y xz-devel snappy-devel jansson jansson-devel pkgconfig libato
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
+sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel
 ```
 
 注意：由于 snappy 缺乏 pkg-config 支持
