@@ -31,7 +31,7 @@ for details on how to use it.
 #### For Ubuntu/Debian system
 
 ```shell
-sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev libz1g pkg-config libssl-dev gawk
+sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev gawk
 ```
 
 #### For CentOS 7/RHEL
