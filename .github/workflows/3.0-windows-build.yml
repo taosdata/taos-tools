@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21047-taosbenchmark-db-no-stb'
+          ref: 'fix/sangshuduo/TD-20370-taosbenchmark-cmdline-f'
 
       - name: create debug directory
         if: |

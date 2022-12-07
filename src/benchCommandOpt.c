@@ -286,6 +286,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
     SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
     switch (key) {
         case 'F':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "F");
+            }
+
             g_arguments->prepared_rand = atol(arg);
             if (g_arguments->prepared_rand <= 0) {
                 errorPrint(
@@ -307,6 +311,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'P':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "P");
+            }
+
             g_arguments->port = atoi(arg);
             if (g_arguments->port <= 0) {
                 errorPrint(
@@ -353,6 +361,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'T':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "T");
+            }
+
             g_arguments->nthreads = atoi(arg);
             if (g_arguments->nthreads <= 0) {
                 errorPrint(
@@ -368,6 +380,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'i':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "i");
+            }
+
             stbInfo->insert_interval = atoi(arg);
             if (stbInfo->insert_interval <= 0) {
                 errorPrint(
@@ -378,6 +394,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'S':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "S");
+            }
+
             stbInfo->timestamp_step = atol(arg);
             if (stbInfo->timestamp_step <= 0) {
                 errorPrint(
@@ -388,6 +408,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'B':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "B");
+            }
+
             stbInfo->interlaceRows = atoi(arg);
             if (stbInfo->interlaceRows <= 0) {
                 errorPrint(
@@ -398,6 +422,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'r':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "r");
+            }
+
             g_arguments->reqPerReq = atoi(arg);
             if (g_arguments->reqPerReq <= 0 ||
                 g_arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
@@ -409,6 +437,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 's':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "s");
+            }
+
             g_arguments->startTimestamp = atol(arg);
             break;
 
@@ -418,6 +450,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 't':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "t");
+            }
+
             stbInfo->childTblCount = atoi(arg);
             if (stbInfo->childTblCount <= 0) {
                 errorPrint(
@@ -429,6 +465,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'n':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "n");
+            }
+
             stbInfo->insertRows = atol(arg);
             if (stbInfo->insertRows <= 0) {
                 errorPrint(
@@ -443,6 +483,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'l':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "l");
+            }
+
             g_arguments->demo_mode = false;
             g_arguments->intColumnCount = atoi(arg);
             if (g_arguments->intColumnCount <= 0) {
@@ -454,6 +498,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'L':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "L");
+            }
+
             g_arguments->demo_mode = false;
             g_arguments->partialColNum = atoi(arg);
             break;
@@ -469,11 +517,19 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'k':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "k");
+            }
+
             g_arguments->keep_trying = atoi(arg);
             debugPrint("keep_trying: %d\n", g_arguments->keep_trying);
             break;
 
         case 'z':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "z");
+            }
+
             g_arguments->trying_interval = atoi(arg);
             if (g_arguments->trying_interval < 0) {
                 errorPrint(
@@ -485,6 +541,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'w':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "w");
+            }
+
             g_arguments->binwidth = atoi(arg);
             if (g_arguments->binwidth <= 0) {
                 errorPrint(
@@ -531,6 +591,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'R':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "R");
+            }
+
             stbInfo->disorderRange = atoi(arg);
             if (stbInfo->disorderRange <= 0) {
                 errorPrint(
@@ -543,6 +607,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'O':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "O");
+            }
+
             stbInfo->disorderRatio = atoi(arg);
             if (stbInfo->disorderRatio <= 0) {
                 errorPrint(
@@ -553,6 +621,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'a':{
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "a");
+            }
+
             int replica = atoi(arg);
             if (replica <= 0) {
                 errorPrint(
@@ -580,6 +652,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->dsn = arg;
             break;
         case 'D':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "D");
+            }
+
             g_arguments->timeout = atoi(arg);
             break;
 #endif
