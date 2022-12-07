@@ -344,12 +344,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                     OUTPUT_VARIABLE LIBATOMIC_PATH
             )
             STRING(STRIP "${LIBATOMIC_PATH}" LIBATOMIC_PATH)
-
-            IF(LIBATOMIC_PATH)
-                MESSAGE(STATUS "libatomic.a path: ${LIBATOMIC_PATH}")
-            ELSE()
-                MESSAGE(STATUS "libatomic not found")
-            ENDIF()
+            MESSAGE(STATUS "libatomic.a path: ${LIBATOMIC_PATH}")
             ADD_LIBRARY(atomic STATIC IMPORTED)
             SET_PROPERTY(TARGET atomic PROPERTY IMPORTED_LOCATION "${LIBATOMIC_PATH}")
 
@@ -361,13 +356,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                     COMMAND gcc -print-file-name=libstdc++.a
                     OUTPUT_VARIABLE LIBSTDCXX_PATH
             )
-
             STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
-            IF(LIBSTDCXX_PATH)
-                MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
-            ELSE()
-                MESSAGE("libstdc++.a not found")
-            ENDIF()
+            MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
             ADD_LIBRARY(stdc++ STATIC IMPORTED)
             SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
 
