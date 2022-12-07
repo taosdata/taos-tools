@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2209-taosdump-atomic'
+          ref: 'fix/sangshuduo/TD-21063-taosbenchmark-vgid-ntb'
 
       - name: create debug directory
         if: |
