@@ -64,7 +64,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-20799-taosbenchmark-vgid'
+          ref: 'fix/sangshuduo/TD-21047-taosbenchmark-db-no-stb'
 
       - name: Change time zone
         if: |

@@ -2344,14 +2344,16 @@ int insertTestProcess() {
     // create sub threads for inserting data
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
-        for (uint64_t j = 0; j < database->superTbls->size; j++) {
-            SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-            if (stbInfo->insertRows == 0) {
-                continue;
-            }
-            prompt(stbInfo->non_stop);
-            if (startMultiThreadInsertData(database, stbInfo)) {
-                return -1;
+        if (database->superTbls) {
+            for (uint64_t j = 0; j < database->superTbls->size; j++) {
+                SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
+                if (stbInfo->insertRows == 0) {
+                    continue;
+                }
+                prompt(stbInfo->non_stop);
+                if (startMultiThreadInsertData(database, stbInfo)) {
+                    return -1;
+                }
             }
         }
     }
