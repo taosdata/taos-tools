@@ -104,7 +104,7 @@
     {
       "dbinfo": {
         "name": "stream_db1",
-        "vgroups": 5
+        "drop": "yes"
       }
     }
   ],
