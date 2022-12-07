@@ -361,6 +361,15 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             ADD_LIBRARY(stdc++ STATIC IMPORTED)
             SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
 
+            EXECUTE_PROCESS (
+                    COMMAND gcc -print-file-name=libz.a
+                    OUTPUT_VARIABLE LIBZ_PATH
+            )
+            STRING(STRIP "${LIBZ_PATH}" LIBZ_PATH)
+            MESSAGE("libza path:" ${LIBZ_PATH})
+            ADD_LIBRARY(z STATIC IMPORTED)
+            SET_PROPERTY(TARGET z PROPERTY IMPORTED_LOCATION "${LIBZ_PATH}")
+
             IF (${OS_ID} MATCHES "alpine")
                 TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
             ELSE()

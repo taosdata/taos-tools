@@ -31,13 +31,13 @@ for details on how to use it.
 #### For Ubuntu/Debian system
 
 ```shell
-sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev gawk
+sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev libz1g pkg-config libssl-dev gawk
 ```
 
 #### For CentOS 7/RHEL
 
 ```shell
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel gawk
+sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel gawk
 ```
 
 #### For CentOS 8/Rocky Linux
@@ -46,7 +46,7 @@ sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgco
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel gawk
+sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel gawk
 ```
 
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)),
