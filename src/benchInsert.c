@@ -1797,6 +1797,8 @@ static int startMultiThreadInsertData(SDataBase* database,
             b = ntables % threads;
         }
     }
+
+    int32_t vgFrom = 0;
 #else
     a = ntables / threads;
     if (a < 1) {
@@ -1813,7 +1815,6 @@ static int startMultiThreadInsertData(SDataBase* database,
     pthread_t * pids = benchCalloc(1, threads * sizeof(pthread_t), true);
     threadInfo *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
 
-    int32_t vgStart = 0;
     for (int32_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
         pThreadInfo->threadID = i;
@@ -1826,7 +1827,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         if ((0 == stbInfo->interlaceRows)
                 && (g_arguments->nthreads_auto)) {
             int32_t j;
-            for (j = vgStart; i < database->vgroups; j++) {
+            for (j = vgFrom; i < database->vgroups; j++) {
                 SVGroup *vg = benchArrayGet(database->vgArray, j);
                 if (0 == vg->tbCountPerVgId) {
                     continue;
@@ -1837,7 +1838,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->end_table_to = vg->tbCountPerVgId-1;
                 break;
             }
-            vgStart = j + 1;
+            vgFrom = j + 1;
         } else {
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
