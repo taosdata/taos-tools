@@ -120,7 +120,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           sudo apt update > /dev/null
-          sudo apt install lzma-dev liblzma-dev libjansson-dev libz-dev libz1g libsnappy-dev pkg-config expect -y > /dev/null
+          sudo apt install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if:
