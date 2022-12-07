@@ -223,5 +223,10 @@ int32_t toolsGetNumberOfCores();
 
 int64_t toolsGetTimestamp(int32_t precision);
 void    toolsMsleep(int32_t mseconds);
+bool    toolsIsStringNumber(char *input);
 
+void errorWrongValue(char *program, char *wrong_arg, char *wrong_value);
+void errorPrintReqArg(char *program, char *wrong_arg);
+void errorPrintReqArg2(char *program, char *wrong_arg);
+void errorPrintReqArg3(char *program, char *wrong_arg);
 #endif // __TOOLSDEF_H_
