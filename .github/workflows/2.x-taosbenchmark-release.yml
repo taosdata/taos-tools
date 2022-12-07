@@ -87,7 +87,7 @@ jobs:
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev libz1g pkg-config -y
           cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && sudo make install
           if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
           then

@@ -106,7 +106,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libz1g libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if: |
