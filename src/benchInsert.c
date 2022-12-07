@@ -1090,11 +1090,25 @@ void *syncWriteProgressive(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    if (g_arguments->nthreads_auto) {
+        if (0 == pThreadInfo->vg->tbCountPerVgId) {
+            return NULL;
+        }
+    } else {
+        infoPrint(
+            "thread[%d] start progressive inserting into table from "
+            "%" PRIu64 " to %" PRIu64 "\n",
+            pThreadInfo->threadID, pThreadInfo->start_table_from,
+            pThreadInfo->end_table_to + 1);
+    }
+#else
     infoPrint(
             "thread[%d] start progressive inserting into table from "
             "%" PRIu64 " to %" PRIu64 "\n",
             pThreadInfo->threadID, pThreadInfo->start_table_from,
             pThreadInfo->end_table_to + 1);
+#endif
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     int64_t   startTs = toolsGetTimestampMs();
     int64_t   endTs;
@@ -1742,6 +1756,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                       vg->tbCountPerVgId, database->dbName, v, vg->vgId);
             if (vg->tbCountPerVgId) {
                 threads ++;
+            } else {
+                continue;
             }
             vg->childTblName = benchCalloc(vg->tbCountPerVgId,
                                            sizeof(char *), true);
@@ -1797,7 +1813,8 @@ static int startMultiThreadInsertData(SDataBase* database,
     pthread_t * pids = benchCalloc(1, threads * sizeof(pthread_t), true);
     threadInfo *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
 
-    for (int i = 0; i < threads; i++) {
+    int32_t vgStart = 0;
+    for (int32_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
         pThreadInfo->threadID = i;
         pThreadInfo->dbInfo = database;
@@ -1808,14 +1825,19 @@ static int startMultiThreadInsertData(SDataBase* database,
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
         if ((0 == stbInfo->interlaceRows)
                 && (g_arguments->nthreads_auto)) {
-            SVGroup *vg = benchArrayGet(database->vgArray, i);
-            if (0 == vg->tbCountPerVgId) {
-                continue;
+            int32_t j;
+            for (j = vgStart; i < database->vgroups; j++) {
+                SVGroup *vg = benchArrayGet(database->vgArray, j);
+                if (0 == vg->tbCountPerVgId) {
+                    continue;
+                }
+                pThreadInfo->vg = vg;
+                pThreadInfo->start_table_from = 0;
+                pThreadInfo->ntables = vg->tbCountPerVgId;
+                pThreadInfo->end_table_to = vg->tbCountPerVgId-1;
+                break;
             }
-            pThreadInfo->vg = vg;
-            pThreadInfo->start_table_from = 0;
-            pThreadInfo->ntables = vg->tbCountPerVgId;
-            pThreadInfo->end_table_to = vg->tbCountPerVgId-1;
+            vgStart = j + 1;
         } else {
             pThreadInfo->start_table_from = tableFrom;
             pThreadInfo->ntables = i < b ? a + 1 : a;
