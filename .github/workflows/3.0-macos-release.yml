@@ -64,7 +64,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-20370-taosbenchmark-cmdline-f'
+          ref: 'fix/sangshuduo/TS-2209-taosdump-atomic'
 
       - name: Change time zone
         if: |

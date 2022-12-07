@@ -339,6 +339,15 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             )
             MESSAGE(STATUS "src's cmake detected current OS is " ${OS_ID} "")
 
+            EXECUTE_PROCESS (
+                    COMMAND gcc -print-file-name=libatomic.a
+                    OUTPUT_VARIABLE LIBATOMIC_PATH
+            )
+            STRING(STRIP "${LIBATOMIC_PATH}" LIBATOMIC_PATH)
+            MESSAGE(STATUS "libatomic.a path: ${LIBATOMIC_PATH}")
+            ADD_LIBRARY(atomic STATIC IMPORTED)
+            SET_PROPERTY(TARGET atomic PROPERTY IMPORTED_LOCATION "${LIBATOMIC_PATH}")
+
             ADD_LIBRARY(avro STATIC IMPORTED)
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
@@ -347,16 +356,24 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                     COMMAND gcc -print-file-name=libstdc++.a
                     OUTPUT_VARIABLE LIBSTDCXX_PATH
             )
-
             STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
             MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
             ADD_LIBRARY(stdc++ STATIC IMPORTED)
             SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
 
+            EXECUTE_PROCESS (
+                    COMMAND gcc -print-file-name=libz.a
+                    OUTPUT_VARIABLE LIBZ_PATH
+            )
+            STRING(STRIP "${LIBZ_PATH}" LIBZ_PATH)
+            MESSAGE("libza path:" ${LIBZ_PATH})
+            ADD_LIBRARY(libz-static STATIC IMPORTED)
+            SET_PROPERTY(TARGET libz-static PROPERTY IMPORTED_LOCATION "${LIBZ_PATH}")
+
             IF (${OS_ID} MATCHES "alpine")
-                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma libz-static atomic pthread argp ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
             ELSE()
-                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma libz-static atomic pthread ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
             ENDIF()
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
         ENDIF ()
