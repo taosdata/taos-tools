@@ -333,6 +333,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->iface = STMT_IFACE;
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
+                g_arguments->nthreads_auto = false;
             } else if (0 == strcasecmp(arg, "sml")) {
                 stbInfo->iface = SML_IFACE;
             } else {

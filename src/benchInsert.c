@@ -2258,7 +2258,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         pthread_join(pids[i], NULL);
     }
 
-    int64_t end = toolsGetTimestampUs();
+    int64_t end = toolsGetTimestampUs()+1;
 
     BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t   totalDelay = 0;
@@ -2485,11 +2485,13 @@ int insertTestProcess() {
 
         if (database->drop && !(g_arguments->supplementInsert)) {
             if (database->superTbls) {
-            SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-                if (0 != convertServAddr(stbInfo->iface,
-                                         stbInfo->tcpTransfer,
-                                         stbInfo->lineProtocol)) {
-                    return -1;
+                SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+                if (stbInfo && (REST_IFACE == stbInfo->iface)) {
+                    if (0 != convertServAddr(stbInfo->iface,
+                                             stbInfo->tcpTransfer,
+                                             stbInfo->lineProtocol)) {
+                        return -1;
+                    }
                 }
             }
             if (createDatabase(database)) {
