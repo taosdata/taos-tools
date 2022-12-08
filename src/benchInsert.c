@@ -564,17 +564,12 @@ int createDatabaseTaosc(SDataBase* database) {
 }
 
 int createDatabase(SDataBase* database) {
-    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-    if (NULL == stbInfo) {
-        return -1;
-    }
     int ret = 0;
-    if (REST_IFACE == stbInfo->iface) {
+    if (REST_IFACE == g_arguments->iface) {
         ret = createDatabaseRest(database);
     } else {
         ret = createDatabaseTaosc(database);
     }
-
     return ret;
 }
 
@@ -2477,11 +2472,13 @@ int insertTestProcess() {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
 
         if (database->drop && !(g_arguments->supplementInsert)) {
+            if (database->superTbls) {
             SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-            if (0 != convertServAddr(stbInfo->iface,
-                                       stbInfo->tcpTransfer,
-                                       stbInfo->lineProtocol)) {
-                return -1;
+                if (0 != convertServAddr(stbInfo->iface,
+                                         stbInfo->tcpTransfer,
+                                         stbInfo->lineProtocol)) {
+                    return -1;
+                }
             }
             if (createDatabase(database)) {
                 return -1;

@@ -619,6 +619,7 @@ typedef struct SArguments_S {
     int32_t             partialColNum;
     int32_t             keep_trying;
     uint32_t            trying_interval;
+    int                 iface;
 } SArguments;
 
 typedef struct SBenchConn{

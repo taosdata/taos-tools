@@ -341,6 +341,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                            arg);
                 stbInfo->iface = TAOSC_IFACE;
             }
+            g_arguments->iface = stbInfo->iface;
             break;
 
         case 'p':
@@ -881,6 +882,7 @@ void init_argument() {
 
     g_arguments->keep_trying = 0;
     g_arguments->trying_interval = 0;
+    g_arguments->iface = TAOSC_IFACE;
 
     init_database();
     init_stable();
