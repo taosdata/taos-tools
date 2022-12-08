@@ -804,24 +804,9 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
-    if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
-        if (stbInfo->tcpTransfer
-                && stbInfo->iface == SML_REST_IFACE
-                && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->telnet_tcp_port,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        } else {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->port + TSDB_PORT_HTTP,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        }
+    if (0 != convertServAddr(stbInfo->iface,
+                       stbInfo->tcpTransfer, stbInfo->lineProtocol)) {
+        return -1;
     }
     return 0;
 }
