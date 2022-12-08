@@ -333,6 +333,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->iface = STMT_IFACE;
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
+                g_arguments->nthreads_auto = false;
             } else if (0 == strcasecmp(arg, "sml")) {
                 stbInfo->iface = SML_IFACE;
             } else {
@@ -341,6 +342,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                            arg);
                 stbInfo->iface = TAOSC_IFACE;
             }
+            g_arguments->iface = stbInfo->iface;
             break;
 
         case 'p':
@@ -881,6 +883,7 @@ void init_argument() {
 
     g_arguments->keep_trying = 0;
     g_arguments->trying_interval = 0;
+    g_arguments->iface = TAOSC_IFACE;
 
     init_database();
     init_stable();

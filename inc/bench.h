@@ -619,6 +619,7 @@ typedef struct SArguments_S {
     int32_t             partialColNum;
     int32_t             keep_trying;
     uint32_t            trying_interval;
+    int                 iface;
 } SArguments;
 
 typedef struct SBenchConn{
@@ -723,8 +724,11 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
-int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
+int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
+                    int protocol, bool tcp, int sockfd, char* filePath);
 int     queryDbExec(SBenchConn *conn, char *command);
+int queryDbExecRest(char *command, char* dbName, int precision,
+                    int iface, int protocol, bool tcp, int sockfd);
 SBenchConn* init_bench_conn();
 void    close_bench_conn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
@@ -773,6 +777,9 @@ void postFreeResource();
 int queryTestProcess();
 /* demoSubscribe.c */
 int subscribeTestProcess();
+int convertServAddr(int iface, bool tcp, int protocol);
+int createSockFd();
+void destroySockFd(int sockfd);
 #endif
 
 #endif   // __BENCH_H_

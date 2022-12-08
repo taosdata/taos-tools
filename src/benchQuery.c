@@ -437,8 +437,8 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                             sizeof(struct sockaddr));
                     if (retConn < 0) {
                         errorPrint(
-                                "failed to connect with socket, reason: %s\n",
-                                strerror(errno));
+                                "%s() failed to connect with socket, reason: %s\n",
+                                __func__, strerror(errno));
 #ifdef WINDOWS
                         closesocket(sockfd);
                         WSACleanup();
@@ -597,7 +597,8 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 #else
                 close(sockfd);
 #endif
-                errorPrint("failed to connect with socket, reason: %s\n", strerror(errno));
+                errorPrint("%s() failed to connect with socket, reason: %s\n",
+                           __func__, strerror(errno));
                 goto OVER;
             }
             pQueryThreadInfo->sockfd = sockfd;

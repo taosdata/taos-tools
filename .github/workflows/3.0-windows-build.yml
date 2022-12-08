@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21063-taosbenchmark-vgid-ntb'
+          ref: 'fix/sangshuduo/TS-2238-taosbenchmark-rest-taosc'
 
       - name: create debug directory
         if: |

@@ -296,6 +296,20 @@ void close_bench_conn(SBenchConn* conn) {
     tmfree(conn);
 }
 
+int queryDbExecRest(char *command, char* dbName, int precision,
+                    int iface, int protocol, bool tcp, int sockfd) {
+    // TODO
+    int code =  postProceSql(command,
+                         dbName,
+                         precision,
+                         iface,
+                         protocol,
+                         tcp,
+                         sockfd,
+                         NULL);
+    return code;
+}
+
 int queryDbExec(SBenchConn *conn, char *command) {
     int32_t code = 0;
 #ifdef WEBSOCKET
@@ -557,7 +571,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
     }
     code = 0;
 free_of_post:
-    if (strlen(filePath) > 0) {
+    if (filePath && strlen(filePath) > 0) {
         appendResultBufToFile(response_buf, filePath);
     }
     tmfree(request_buf);
@@ -899,3 +913,89 @@ void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
 }
 #endif
 
+int convertServAddr(int iface, bool tcp, int protocol) {
+    if (iface == REST_IFACE || iface == SML_REST_IFACE) {
+        if (tcp
+                && iface == SML_REST_IFACE
+                && protocol == TSDB_SML_TELNET_PROTOCOL) {
+            if (convertHostToServAddr(g_arguments->host,
+                        g_arguments->telnet_tcp_port,
+                        &(g_arguments->serv_addr))) {
+                errorPrint("%s\n", "convert host to server address");
+                return -1;
+            }
+        } else {
+            if (convertHostToServAddr(g_arguments->host,
+                        g_arguments->port + TSDB_PORT_HTTP,
+                        &(g_arguments->serv_addr))) {
+                errorPrint("%s\n", "convert host to server address");
+                return -1;
+            }
+        }
+    }
+    if (iface == REST_IFACE || iface == SML_REST_IFACE) {
+        if (tcp
+                && iface == SML_REST_IFACE
+                && protocol == TSDB_SML_TELNET_PROTOCOL) {
+            if (convertHostToServAddr(g_arguments->host,
+                        g_arguments->telnet_tcp_port,
+                        &(g_arguments->serv_addr))) {
+                errorPrint("%s\n", "convert host to server address");
+                return -1;
+            }
+        } else {
+            if (convertHostToServAddr(g_arguments->host,
+                        g_arguments->port + TSDB_PORT_HTTP,
+                        &(g_arguments->serv_addr))) {
+                errorPrint("%s\n", "convert host to server address");
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int createSockFd() {
+#ifdef WINDOWS
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+    SOCKET sockfd;
+#else
+    int sockfd;
+#endif
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+#ifdef WINDOWS
+        errorPrint("Could not create socket : %d",
+                   WSAGetLastError());
+#endif
+        debugPrint("%s() LN%d, sockfd=%d\n", __func__,
+                   __LINE__, sockfd);
+        errorPrint("%s\n", "failed to create socket");
+        return -1;
+    }
+
+    int retConn = connect(
+            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
+            sizeof(struct sockaddr));
+    if (retConn < 0) {
+        errorPrint("%s\n", "failed to connect");
+#ifdef WINDOWS
+        closesocket(sockfd);
+        WSACleanup();
+#else
+        close(sockfd);
+#endif
+        return -1;
+    }
+    return sockfd;
+}
+
+void destroySockFd(int sockfd) {
+#ifdef WINDOWS
+    closesocket(sockfd);
+    WSACleanup();
+#else
+    close(sockfd);
+#endif
+}
