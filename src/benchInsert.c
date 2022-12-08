@@ -675,7 +675,19 @@ static void *createTable(void *sarg) {
     }
 
     if (0 != len) {
-        if (0 != queryDbExec(pThreadInfo->conn, pThreadInfo->buffer)) {
+        int ret = 0;
+        if (REST_IFACE == stbInfo->iface) {
+            ret = queryDbExecRest(pThreadInfo->buffer,
+                                  database->dbName,
+                                  database->precision,
+                                  stbInfo->iface,
+                                  stbInfo->lineProtocol,
+                                  stbInfo->tcpTransfer,
+                                  pThreadInfo->sockfd);
+        } else {
+            ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+        }
+        if (0 != ret) {
             g_fail = true;
             goto create_table_end;
         }
