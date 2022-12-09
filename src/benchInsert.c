@@ -307,14 +307,15 @@ skip:
             ret = -1;
         } else {
             ret = queryDbExec(conn, command);
-            while (ret && g_arguments->keep_trying) {
+            int32_t trying = g_arguments->keep_trying;
+            while (ret && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-create "
                           "supertable %s\n",
                           g_arguments->trying_interval, stbInfo->stbName);
                 toolsMsleep(g_arguments->trying_interval);
                 ret = queryDbExec(conn, command);
-                if (g_arguments->keep_trying != -1) {
-                    g_arguments->keep_trying --;
+                if (trying != -1) {
+                    trying --;
                 }
             }
             if (0 != ret) {
@@ -538,13 +539,14 @@ int createDatabaseTaosc(SDataBase* database) {
     geneDbCreateCmd(database, command);
 
     int32_t code = queryDbExec(conn, command);
-    while (code && g_arguments->keep_trying) {
+    int32_t trying = g_arguments->keep_trying;
+    while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds then re-create database %s\n",
                           g_arguments->trying_interval, database->dbName);
         toolsMsleep(g_arguments->trying_interval);
         code = queryDbExec(conn, command);
-        if (g_arguments->keep_trying != -1) {
-            g_arguments->keep_trying --;
+        if (trying != -1) {
+            trying --;
         }
     }
 
@@ -678,14 +680,15 @@ static void *createTable(void *sarg) {
                                   pThreadInfo->sockfd);
         } else {
             ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
-            while (ret && g_arguments->keep_trying) {
+            int32_t trying = g_arguments->keep_trying;
+            while (ret && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-create "
                           "table %s\n",
                           g_arguments->trying_interval, pThreadInfo->buffer);
                 toolsMsleep(g_arguments->trying_interval);
                 ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
-                if (g_arguments->keep_trying != -1) {
-                    g_arguments->keep_trying --;
+                if (trying != -1) {
+                    trying --;
                 }
             }
         }
@@ -941,13 +944,14 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
-            while (code && stbInfo->keep_trying) {
+            int32_t trying = stbInfo->keep_trying;
+            while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           stbInfo->trying_interval);
                 toolsMsleep(stbInfo->trying_interval);
                 code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
-                if (stbInfo->keep_trying != -1) {
-                    stbInfo->keep_trying --;
+                if (trying != -1) {
+                    trying --;
                 }
             }
             break;
@@ -962,7 +966,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
-            while (code && stbInfo->keep_trying) {
+            trying = stbInfo->keep_trying;
+            while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           stbInfo->trying_interval);
                 toolsMsleep(stbInfo->trying_interval);
@@ -974,8 +979,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
-                if (stbInfo->keep_trying != -1) {
-                    stbInfo->keep_trying --;
+                if (trying != -1) {
+                    trying --;
                 }
             }
             break;
@@ -1003,7 +1008,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     ? database->sml_precision
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
-            while (code && stbInfo->keep_trying) {
+            trying = stbInfo->keep_trying;
+            while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           stbInfo->trying_interval);
                 toolsMsleep(stbInfo->trying_interval);
@@ -1016,8 +1022,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                         ? database->sml_precision
                         : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
                 code = taos_errno(res);
-                if (stbInfo->keep_trying != -1) {
-                    stbInfo->keep_trying --;
+                if (trying != -1) {
+                    trying --;
                 }
             }
 
@@ -2466,6 +2472,7 @@ static void* create_tsmas(void* args) {
 }
 
 static int32_t createStream(SSTREAM* stream) {
+    int32_t code = -1;
     char * command = benchCalloc(1, BUFFER_SIZE, false);
     snprintf(command, BUFFER_SIZE, "DROP STREAM IF EXISTS %s",
              stream->stream_name);
@@ -2474,10 +2481,24 @@ static int32_t createStream(SSTREAM* stream) {
     if (NULL == conn) {
         goto END;
     }
-    if (queryDbExec(conn, command)){
+
+    code = queryDbExec(conn, command);
+    int32_t trying = g_arguments->keep_trying;
+    while (code && trying) {
+        infoPrint("will sleep %"PRIu32" milliseconds then re-drop stream %s\n",
+                          g_arguments->trying_interval, stream->stream_name);
+        toolsMsleep(g_arguments->trying_interval);
+        code = queryDbExec(conn, command);
+        if (trying != -1) {
+            trying --;
+        }
+    }
+
+    if (code) {
         close_bench_conn(conn);
         goto END;
     }
+
     memset(command, 0, BUFFER_SIZE);
     int pos = snprintf(command, BUFFER_SIZE,
             "CREATE STREAM IF NOT EXISTS %s ", stream->stream_name);
@@ -2493,14 +2514,16 @@ static int32_t createStream(SSTREAM* stream) {
             "INTO %s as %s", stream->stream_stb, stream->source_sql);
     infoPrint("%s\n", command);
 
-    int32_t code = queryDbExec(conn, command);
-    while (code && g_arguments->keep_trying) {
-        infoPrint("will sleep %"PRIu32" milliseconds then re-create stream %s\n",
-                          g_arguments->trying_interval, stream->stream_name);
+    code = queryDbExec(conn, command);
+    trying = g_arguments->keep_trying;
+    while (code && trying) {
+        infoPrint("will sleep %"PRIu32" milliseconds "
+                  "then re-create stream %s\n",
+                  g_arguments->trying_interval, stream->stream_name);
         toolsMsleep(g_arguments->trying_interval);
         code = queryDbExec(conn, command);
-        if (g_arguments->keep_trying != -1) {
-            g_arguments->keep_trying --;
+        if (trying != -1) {
+            trying --;
         }
     }
 
