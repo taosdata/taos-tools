@@ -307,6 +307,16 @@ skip:
             ret = -1;
         } else {
             ret = queryDbExec(conn, command);
+            while (ret && g_arguments->keep_trying) {
+                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
+                          "supertable %s\n",
+                          g_arguments->trying_interval, stbInfo->stbName);
+                toolsMsleep(g_arguments->trying_interval);
+                ret = queryDbExec(conn, command);
+                if (g_arguments->keep_trying != -1) {
+                    g_arguments->keep_trying --;
+                }
+            }
             if (0 != ret) {
                 errorPrint("create supertable %s failed!\n\n",
                        stbInfo->stbName);
@@ -382,7 +392,6 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     return vgroups;
 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
-
 
 int geneDbCreateCmd(SDataBase *database, char *command) {
     int dataLen = 0;
@@ -528,7 +537,18 @@ int createDatabaseTaosc(SDataBase* database) {
 
     geneDbCreateCmd(database, command);
 
-    if (0 != queryDbExec(conn, command)) {
+    int32_t code = queryDbExec(conn, command);
+    while (code && g_arguments->keep_trying) {
+        infoPrint("will sleep %"PRIu32" milliseconds then re-create database %s\n",
+                          g_arguments->trying_interval, database->dbName);
+        toolsMsleep(g_arguments->trying_interval);
+        code = queryDbExec(conn, command);
+        if (g_arguments->keep_trying != -1) {
+            g_arguments->keep_trying --;
+        }
+    }
+
+    if (code) {
         close_bench_conn(conn);
         errorPrint("\ncreate database %s failed!\n\n",
                    database->dbName);
@@ -658,6 +678,16 @@ static void *createTable(void *sarg) {
                                   pThreadInfo->sockfd);
         } else {
             ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            while (ret && g_arguments->keep_trying) {
+                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
+                          "table %s\n",
+                          g_arguments->trying_interval, pThreadInfo->buffer);
+                toolsMsleep(g_arguments->trying_interval);
+                ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+                if (g_arguments->keep_trying != -1) {
+                    g_arguments->keep_trying --;
+                }
+            }
         }
         if (0 != ret) {
             g_fail = true;
@@ -2435,8 +2465,7 @@ static void* create_tsmas(void* args) {
     return NULL;
 }
 
-static int createStream(SSTREAM* stream) {
-    int code = -1;
+static int32_t createStream(SSTREAM* stream) {
     char * command = benchCalloc(1, BUFFER_SIZE, false);
     snprintf(command, BUFFER_SIZE, "DROP STREAM IF EXISTS %s",
              stream->stream_name);
@@ -2451,23 +2480,34 @@ static int createStream(SSTREAM* stream) {
     }
     memset(command, 0, BUFFER_SIZE);
     int pos = snprintf(command, BUFFER_SIZE,
-            "create stream if not exists %s ", stream->stream_name);
+            "CREATE STREAM IF NOT EXISTS %s ", stream->stream_name);
     if (stream->trigger_mode[0] != '\0') {
         pos += snprintf(command + pos, BUFFER_SIZE - pos,
-                "trigger %s ", stream->trigger_mode);
+                "TRIGGER %s ", stream->trigger_mode);
     }
     if (stream->watermark[0] != '\0') {
         pos += snprintf(command + pos, BUFFER_SIZE - pos,
-                "watermark %s ", stream->watermark);
+                "WATERMARK %s ", stream->watermark);
     }
     snprintf(command + pos, BUFFER_SIZE - pos,
-            "into %s as %s", stream->stream_stb, stream->source_sql);
+            "INTO %s as %s", stream->stream_stb, stream->source_sql);
     infoPrint("%s\n", command);
-    if (queryDbExec(conn, command)) {
+
+    int32_t code = queryDbExec(conn, command);
+    while (code && g_arguments->keep_trying) {
+        infoPrint("will sleep %"PRIu32" milliseconds then re-create stream %s\n",
+                          g_arguments->trying_interval, stream->stream_name);
+        toolsMsleep(g_arguments->trying_interval);
+        code = queryDbExec(conn, command);
+        if (g_arguments->keep_trying != -1) {
+            g_arguments->keep_trying --;
+        }
+    }
+
+    if (code) {
         close_bench_conn(conn);
         goto END;
     }
-    code = 0;
     close_bench_conn(conn);
 END:
     tmfree(command);
