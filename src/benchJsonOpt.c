@@ -880,6 +880,14 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         g_arguments->insert_interval = top_insertInterval->valueint;
     }
 
+    tools_cJSON *insert_mode = tools_cJSON_GetObjectItem(json, "insert_mode");
+    if (insert_mode && insert_mode->type == tools_cJSON_String
+            && insert_mode->valuestring != NULL) {
+        if (0 == strcasecmp(insert_mode->valuestring, "rest")) {
+            g_arguments->iface = REST_IFACE;
+        }
+    }
+
     tools_cJSON *answerPrompt =
         tools_cJSON_GetObjectItem(json, "confirm_parameter_prompt");  // yes, no,
     if (answerPrompt && answerPrompt->type == tools_cJSON_String

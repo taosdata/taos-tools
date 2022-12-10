@@ -926,26 +926,7 @@ int convertServAddr(int iface, bool tcp, int protocol) {
             }
         } else {
             if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->port + TSDB_PORT_HTTP,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        }
-    }
-    if (iface == REST_IFACE || iface == SML_REST_IFACE) {
-        if (tcp
-                && iface == SML_REST_IFACE
-                && protocol == TSDB_SML_TELNET_PROTOCOL) {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->telnet_tcp_port,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        } else {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->port + TSDB_PORT_HTTP,
+                        g_arguments->port,
                         &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
                 return -1;
