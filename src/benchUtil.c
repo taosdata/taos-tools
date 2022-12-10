@@ -926,7 +926,9 @@ int convertServAddr(int iface, bool tcp, int protocol) {
             }
         } else {
             if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->port,
+                        (g_arguments->port_inputed)?
+                                      g_arguments->port:
+                                      DEFAULT_REST_PORT,
                         &(g_arguments->serv_addr))) {
                 errorPrint("%s\n", "convert host to server address");
                 return -1;
