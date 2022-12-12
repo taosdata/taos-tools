@@ -171,7 +171,7 @@ ENDIF()
 IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
     INCLUDE_DIRECTORIES(${TD_SOURCE_DIR}/contrib/pthread)
     INCLUDE_DIRECTORIES(${TD_SOURCE_DIR}/contrib/msvcregex)
-
+    ADD_DEFINITIONS(-DTD_VER_COMPATIBLE_3_0_0_0)
 ENDIF ()
 
 MESSAGE("Current system is: ${CMAKE_SYSTEM_NAME}")
@@ -196,14 +196,14 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET_PROPERTY(TARGET snappy PROPERTY IMPORTED_LOCATION
             "${CMAKE_BINARY_DIR}/build/lib/libsnappy.a")
 
-        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c toolsSys.c toolsDir.c)
+        ADD_EXECUTABLE(taosdump taosdump.c toolstime.c toolsSys.c toolsDir.c toolsString.c)
         ADD_DEPENDENCIES(deps-snappy apache-avro)
         ADD_DEPENDENCIES(taosdump deps-jansson)
         ADD_DEPENDENCIES(taosdump deps-snappy)
         IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
         ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
         ENDIF()
     ELSE ()
         INCLUDE_DIRECTORIES(/usr/local/include)
@@ -212,9 +212,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET(OS_ID "Darwin")
 
         IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
         ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
         ENDIF()
     ENDIF ()
 
@@ -339,6 +339,15 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             )
             MESSAGE(STATUS "src's cmake detected current OS is " ${OS_ID} "")
 
+            EXECUTE_PROCESS (
+                    COMMAND gcc -print-file-name=libatomic.a
+                    OUTPUT_VARIABLE LIBATOMIC_PATH
+            )
+            STRING(STRIP "${LIBATOMIC_PATH}" LIBATOMIC_PATH)
+            MESSAGE(STATUS "libatomic.a path: ${LIBATOMIC_PATH}")
+            ADD_LIBRARY(atomic STATIC IMPORTED)
+            SET_PROPERTY(TARGET atomic PROPERTY IMPORTED_LOCATION "${LIBATOMIC_PATH}")
+
             ADD_LIBRARY(avro STATIC IMPORTED)
             SET_PROPERTY(TARGET avro PROPERTY IMPORTED_LOCATION
                 "${CMAKE_BINARY_DIR}/build/lib/libavro.a")
@@ -347,16 +356,24 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                     COMMAND gcc -print-file-name=libstdc++.a
                     OUTPUT_VARIABLE LIBSTDCXX_PATH
             )
-
             STRING(STRIP "${LIBSTDCXX_PATH}" LIBSTDCXX_PATH)
             MESSAGE("libstdc++.a path:" ${LIBSTDCXX_PATH})
             ADD_LIBRARY(stdc++ STATIC IMPORTED)
             SET_PROPERTY(TARGET stdc++ PROPERTY IMPORTED_LOCATION "${LIBSTDCXX_PATH}")
 
+            EXECUTE_PROCESS (
+                    COMMAND gcc -print-file-name=libz.a
+                    OUTPUT_VARIABLE LIBZ_PATH
+            )
+            STRING(STRIP "${LIBZ_PATH}" LIBZ_PATH)
+            MESSAGE("libza path:" ${LIBZ_PATH})
+            ADD_LIBRARY(libz-static STATIC IMPORTED)
+            SET_PROPERTY(TARGET libz-static PROPERTY IMPORTED_LOCATION "${LIBZ_PATH}")
+
             IF (${OS_ID} MATCHES "alpine")
-                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread argp ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma libz-static atomic pthread argp ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
             ELSE()
-                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma z atomic pthread ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
+                TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma libz-static atomic pthread ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
             ENDIF()
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
         ENDIF ()
@@ -366,9 +383,9 @@ ELSE ()
     set (CMAKE_C_STANDARD 11)
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
     IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsString.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsString.c toolsSys.c toolsString.c)
     ELSE ()
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
     ENDIF ()
 
     ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)
@@ -399,14 +416,14 @@ ELSE ()
         PUBLIC "${TD_SOURCE_DIR}/contrib/iconv"
     )
 
-    IF (${TOOLS_BUILD_TYPE} MATCHES "Release")
+    IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
+        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlib ${WEBSOCKET_LINK_FLAGS})
+    ELSE ()
         #SET(CMAKE_C_FLAGS "/w /D_WIN32 /DWIN32 /Zi /D NDEBUG /MTd")
         #       SET(CMAKE_C_FLAGS "/permissive- /GS /GL /Gy /Zc:wchar_t /Zi /Gm- /O2 /Zc:inline /fp:precise /D \"RELEASE\" /D \"NDEBUG\" /D \"_CONSOLE\" /D \"_UNICODE\" /D \"UNICODE\" /errorReport:prompt /Zc:forScope /Gd /Oi /MTd /FC /EHsc /nologo /diagnostics:column")
         #       SET(CMAKE_CXX_FLAGS "/permissive- /GS /GL /Gy /Zc:wchar_t /Zi /Gm- /O2 /sdl /Zc:inline /fp:precise /D \"NDEBUG\" /D \"_CONSOLE\" /D \"_UNICODE\" /D \"UNICODE\" /errorReport:prompt /Zc:forScope /Gd /Oi /MTd /FC /EHsc /nologo /diagnostics:column")
         #TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlibstatic ${WEBSOCKET_LINK_FLAGS} msvcrt.lib ucrtd.lib)
         TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlibstatic ${WEBSOCKET_LINK_FLAGS})
-    ELSE ()
-        TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy pthread libargp.lib zlib ${WEBSOCKET_LINK_FLAGS})
     ENDIF ()
 
     TARGET_LINK_LIBRARIES(taosBenchmark taos msvcregex pthread toolscJson ${WEBSOCKET_LINK_FLAGS})

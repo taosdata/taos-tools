@@ -118,6 +118,8 @@ static void *mixedQuery(void *sarg) {
             et = toolsGetTimestampUs();
             int64_t* delay = benchCalloc(1, sizeof(int64_t), false);
             *delay = et - st;
+            debugPrint("%s() LN%d, delay: %"PRId64"\n", __func__, __LINE__, *delay);
+
             pThreadInfo->total_delay += (et - st);
             benchArrayPush(pThreadInfo->query_delay_list, delay);
             int64_t currentPrintTs = toolsGetTimestampMs();
@@ -159,8 +161,9 @@ static void *specifiedTableQuery(void *sarg) {
     }
 
     while (index < queryTimes) {
-        if (g_queryInfo.specifiedQueryInfo.queryInterval &&
-            (et - st) < (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval*1000) {
+        if (g_queryInfo.specifiedQueryInfo.queryInterval
+            && (et - st) <
+                (int64_t)g_queryInfo.specifiedQueryInfo.queryInterval*1000) {
             toolsMsleep((int32_t)(
                         g_queryInfo.specifiedQueryInfo.queryInterval*1000
                         - (et - st)));  // ms
@@ -169,14 +172,16 @@ static void *specifiedTableQuery(void *sarg) {
             queryDbExec(pThreadInfo->conn, "reset query cache");
         }
 
-        st = toolsGetTimestampMs();
+        st = toolsGetTimestampUs();
         int ret = selectAndGetResult(pThreadInfo, sql->command);
         if (ret) {
             g_fail = true;
         }
 
-        et = toolsGetTimestampMs();
-        uint64_t delay = et - st;
+        et = toolsGetTimestampUs();
+        int64_t delay = et - st;
+        debugPrint("%s() LN%d, delay: %"PRId64"\n", __func__, __LINE__, delay);
+
         if (ret == 0) {
             pThreadInfo->query_delay_list[index] = delay;
             pThreadInfo->totalQueried++;
@@ -432,8 +437,8 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                             sizeof(struct sockaddr));
                     if (retConn < 0) {
                         errorPrint(
-                                "failed to connect with socket, reason: %s\n",
-                                strerror(errno));
+                                "%s() failed to connect with socket, reason: %s\n",
+                                __func__, strerror(errno));
 #ifdef WINDOWS
                         closesocket(sockfd);
                         WSACleanup();
@@ -592,7 +597,8 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
 #else
                 close(sockfd);
 #endif
-                errorPrint("failed to connect with socket, reason: %s\n", strerror(errno));
+                errorPrint("%s() failed to connect with socket, reason: %s\n",
+                           __func__, strerror(errno));
                 goto OVER;
             }
             pQueryThreadInfo->sockfd = sockfd;
@@ -703,7 +709,8 @@ void *queryKiller(void *arg) {
 
                 if (execUSec > g_queryInfo.killQueryThreshold * 1000000) {
                     char sql[SQL_BUFF_LEN] = {0};
-                    tstrncpy(sql, (char*)row[2], SQL_BUFF_LEN);
+                    tstrncpy(sql, (char*)row[2],
+                             min(strlen((char*)row[2]), SQL_BUFF_LEN));
 
                     char killId[KILLID_LEN] = {0};
                     tstrncpy(killId, (char*)row[0], KILLID_LEN);

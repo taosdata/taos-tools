@@ -30,7 +30,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
 
       - name: List all changed files
         run: |
@@ -40,7 +40,7 @@ jobs:
 
       - name: Get specific changed files
         id: changed-files-specific
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
         with:
           files: |
             src/bench*
@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-19985-taosbenchmark-retry'
+          ref: 'fix/sangshuduo/TS-2253-taosbenchmark-rest-mode-in-json'
 
       - name: Change time zone
         if: |
@@ -79,7 +79,7 @@ jobs:
           || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Set up Rust
         if: |
@@ -120,7 +120,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           sudo apt update > /dev/null
-          sudo apt install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config expect -y > /dev/null
+          sudo apt install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if:

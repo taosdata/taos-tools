@@ -13,6 +13,9 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __BENCH_H_
+#define __BENCH_H_
+
 #ifndef __DEMO__
 #define __DEMO__
 
@@ -47,6 +50,8 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 #include <netdb.h>
+#else
+#include <winsock2.h>
 #endif
 
 #include <regex.h>
@@ -72,13 +77,6 @@
 
 #ifdef WEBSOCKET
 #include "taosws.h"
-#endif
-
-#if defined(WINDOWS)
-#include <winsock2.h>
-#define CLOCK_REALTIME 0
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
 #endif
 
 #ifndef TSDB_DATA_TYPE_VARCHAR
@@ -143,6 +141,7 @@
 
 #define DEFAULT_CHILDTABLES    10000
 #define DEFAULT_PORT           6030
+#define DEFAULT_REST_PORT      6041
 #define DEFAULT_DATABASE       "test"
 #define DEFAULT_TB_PREFIX      "d"
 #define DEFAULT_OUTPUT         "./output.txt"
@@ -156,16 +155,6 @@
 #define DEFAULT_QUERY_INTERVAL 10000
 #define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
-
-#if _MSC_VER <= 1900
-#define __func__ __FUNCTION__
-#endif
-
-#if defined(__GNUC__)
-#define FORCE_INLINE inline __attribute__((always_inline))
-#else
-#define FORCE_INLINE
-#endif
 
 #define debugPrint(fmt, ...)                                             \
     do {                                                                     \
@@ -499,13 +488,26 @@ typedef struct SSTREAM_S {
     bool drop;
 } SSTREAM;
 
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+typedef struct SVGroup_S {
+    int32_t   vgId;
+    uint64_t  tbCountPerVgId;
+    char    **childTblName;  // table name pointer array
+    uint64_t  tbOffset;  // internal use
+} SVGroup;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
+        //
 typedef struct SDataBase_S {
-    char *       dbName;
-    bool         drop;  // 0: use exists, 1: if exists, drop then new create
-    int          precision;
-    int          sml_precision;
-    BArray*      cfgs;
-    BArray*      superTbls;
+    char *      dbName;
+    bool        drop;  // 0: use exists, 1: if exists, drop then new create
+    int         precision;
+    int         sml_precision;
+    BArray     *cfgs;
+    BArray     *superTbls;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    int32_t     vgroups;
+    BArray      *vgArray;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
 } SDataBase;
 
 typedef struct SSQL_S {
@@ -568,52 +570,58 @@ typedef struct SQueryMetaInfo_S {
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
-    uint8_t            taosc_version;
-    char *             metaFile;
-    int32_t            test_mode;
-    char *             host;
-    uint16_t           port;
-    uint16_t           telnet_tcp_port;
-    char *             user;
-    char *             password;
-    bool               answer_yes;
-    bool               debug_print;
-    bool               performance_print;
-    bool               chinese;
-    char *             output_file;
-    uint32_t           binwidth;
-    uint32_t           intColumnCount;
-    uint32_t           nthreads;
-    uint32_t           table_threads;
-    uint64_t           prepared_rand;
-    uint32_t           reqPerReq;
-    uint64_t           insert_interval;
-    bool               demo_mode;
-    bool               aggr_func;
-    struct sockaddr_in serv_addr;
-    uint64_t           g_totalChildTables;
-    uint64_t           g_actualChildTables;
-    uint64_t           g_autoCreatedChildTables;
-    uint64_t           g_existedChildTables;
-    FILE *             fpOfInsertResult;
-    BArray *           databases;
-    BArray*            streams;
-    char *             base64_buf;
+    uint8_t             taosc_version;
+    char *              metaFile;
+    int32_t             test_mode;
+    char *              host;
+    uint16_t            port;
+    bool                host_auto;
+    bool                port_auto;
+    bool                port_inputed;
+    bool                cfg_inputed;
+    uint16_t            telnet_tcp_port;
+    char *              user;
+    char *              password;
+    bool                answer_yes;
+    bool                debug_print;
+    bool                performance_print;
+    bool                chinese;
+    char *              output_file;
+    uint32_t            binwidth;
+    uint32_t            intColumnCount;
+    uint32_t            nthreads;
+    bool                nthreads_auto;
+    uint32_t            table_threads;
+    uint64_t            prepared_rand;
+    uint32_t            reqPerReq;
+    uint64_t            insert_interval;
+    bool                demo_mode;
+    bool                aggr_func;
+    struct sockaddr_in  serv_addr;
+    uint64_t            totalChildTables;
+    uint64_t            actualChildTables;
+    uint64_t            autoCreatedChildTables;
+    uint64_t            existedChildTables;
+    FILE *              fpOfInsertResult;
+    BArray *            databases;
+    BArray*             streams;
+    char *              base64_buf;
 #ifdef LINUX
-    sem_t              cancelSem;
+    sem_t               cancelSem;
 #endif
-    bool               terminate;
-    bool               in_prompt;
+    bool                terminate;
+    bool                in_prompt;
 #ifdef WEBSOCKET
-    int32_t            timeout;
-    char*              dsn;
-    bool               websocket;
+    int32_t             timeout;
+    char*               dsn;
+    bool                websocket;
 #endif
-    bool               supplementInsert;
-    int64_t            startTimestamp;
-    int32_t            partialColNum;
-    int32_t            keep_trying;
-    uint32_t           trying_interval;
+    bool                supplementInsert;
+    int64_t             startTimestamp;
+    int32_t             partialColNum;
+    int32_t             keep_trying;
+    uint32_t            trying_interval;
+    int                 iface;
 } SArguments;
 
 typedef struct SBenchConn{
@@ -660,6 +668,9 @@ typedef struct SThreadInfo_S {
     BArray*    delayList;
     uint64_t*  query_delay_list;
     double     avg_delay;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    SVGroup   *vg;
+#endif
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -704,28 +715,6 @@ int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-static FORCE_INLINE int64_t toolsGetTimestampMs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000L +
-        (int64_t)systemTime.tv_usec / 1000;
-}
-
-static FORCE_INLINE int64_t toolsGetTimestampUs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
-}
-
-static FORCE_INLINE int64_t toolsGetTimestampNs() {
-    struct timespec systemTime = {0};
-    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000000L +
-        (int64_t)systemTime.tv_nsec;
-}
-
-int64_t toolsGetTimestamp(int32_t precision);
-void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
@@ -737,8 +726,11 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
-int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
+int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
+                    int protocol, bool tcp, int sockfd, char* filePath);
 int     queryDbExec(SBenchConn *conn, char *command);
+int queryDbExecRest(char *command, char* dbName, int precision,
+                    int iface, int protocol, bool tcp, int sockfd);
 SBenchConn* init_bench_conn();
 void    close_bench_conn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
@@ -787,4 +779,9 @@ void postFreeResource();
 int queryTestProcess();
 /* demoSubscribe.c */
 int subscribeTestProcess();
+int convertServAddr(int iface, bool tcp, int protocol);
+int createSockFd();
+void destroySockFd(int sockfd);
 #endif
+
+#endif   // __BENCH_H_

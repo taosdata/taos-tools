@@ -28,9 +28,9 @@ extern char version[];
 #endif
 
 #ifdef WINDOWS
-char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
+char      g_configDir[MAX_PATH_LEN] = {0};  // "C:\\TDengine\\cfg"};
 #else
-char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
 #endif
 
 
@@ -286,6 +286,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
     SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
     switch (key) {
         case 'F':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "F");
+            }
+
             g_arguments->prepared_rand = atol(arg);
             if (g_arguments->prepared_rand <= 0) {
                 errorPrint(
@@ -294,22 +298,38 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
             }
             break;
+
         case 'f':
             g_arguments->demo_mode = false;
             g_arguments->metaFile = arg;
+            g_arguments->nthreads_auto = false;
             break;
+
         case 'h':
             g_arguments->host = arg;
+            g_arguments->host_auto = false;
             break;
+
         case 'P':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "P");
+            }
             g_arguments->port = atoi(arg);
             if (g_arguments->port <= 0) {
                 errorPrint(
                            "Invalid -P: %s, will auto set to default(6030)\n",
                            arg);
-                g_arguments->port = DEFAULT_PORT;
+                if (REST_IFACE == g_arguments->iface) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                } else {
+                    g_arguments->port = DEFAULT_PORT;
+                }
+            } else {
+                g_arguments->port_auto = false;
             }
+            g_arguments->port_inputed = true;
             break;
+
         case 'I':
             if (0 == strcasecmp(arg, "taosc")) {
                 stbInfo->iface = TAOSC_IFACE;
@@ -317,6 +337,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                 stbInfo->iface = STMT_IFACE;
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
+                g_arguments->nthreads_auto = false;
+                if (false == g_arguments->port_inputed) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                }
             } else if (0 == strcasecmp(arg, "sml")) {
                 stbInfo->iface = SML_IFACE;
             } else {
@@ -325,15 +349,20 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                            arg);
                 stbInfo->iface = TAOSC_IFACE;
             }
+            g_arguments->iface = stbInfo->iface;
             break;
+
         case 'p':
             g_arguments->password = arg;
             break;
+
         case 'u':
             g_arguments->user = arg;
             break;
+
         case 'c':
             tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
+            g_arguments->cfg_inputed = true;
             break;
 
         case 'o':
@@ -341,12 +370,18 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'T':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "T");
+            }
+
             g_arguments->nthreads = atoi(arg);
             if (g_arguments->nthreads <= 0) {
                 errorPrint(
                            "Invalid -T: %s, will auto set to default(8)\n",
                            arg);
                 g_arguments->nthreads = DEFAULT_NTHREADS;
+            } else {
+                g_arguments->nthreads_auto = false;
             }
             break;
 
@@ -354,6 +389,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'i':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "i");
+            }
+
             stbInfo->insert_interval = atoi(arg);
             if (stbInfo->insert_interval <= 0) {
                 errorPrint(
@@ -364,6 +403,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'S':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "S");
+            }
+
             stbInfo->timestamp_step = atol(arg);
             if (stbInfo->timestamp_step <= 0) {
                 errorPrint(
@@ -374,6 +417,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'B':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "B");
+            }
+
             stbInfo->interlaceRows = atoi(arg);
             if (stbInfo->interlaceRows <= 0) {
                 errorPrint(
@@ -384,6 +431,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'r':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "r");
+            }
+
             g_arguments->reqPerReq = atoi(arg);
             if (g_arguments->reqPerReq <= 0 ||
                 g_arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
@@ -395,14 +446,23 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 's':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "s");
+            }
+
             g_arguments->startTimestamp = atol(arg);
             break;
 
         case 'U':
             g_arguments->supplementInsert = true;
+            g_arguments->nthreads_auto = false;
             break;
 
         case 't':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "t");
+            }
+
             stbInfo->childTblCount = atoi(arg);
             if (stbInfo->childTblCount <= 0) {
                 errorPrint(
@@ -410,10 +470,14 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
                            arg);
                 stbInfo->childTblCount = DEFAULT_CHILDTABLES;
             }
-            g_arguments->g_totalChildTables = stbInfo->childTblCount;
+            g_arguments->totalChildTables = stbInfo->childTblCount;
             break;
 
         case 'n':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "n");
+            }
+
             stbInfo->insertRows = atol(arg);
             if (stbInfo->insertRows <= 0) {
                 errorPrint(
@@ -428,6 +492,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'l':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "l");
+            }
+
             g_arguments->demo_mode = false;
             g_arguments->intColumnCount = atoi(arg);
             if (g_arguments->intColumnCount <= 0) {
@@ -439,6 +507,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'L':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "L");
+            }
+
             g_arguments->demo_mode = false;
             g_arguments->partialColNum = atoi(arg);
             break;
@@ -454,11 +526,19 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'k':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "k");
+            }
+
             g_arguments->keep_trying = atoi(arg);
             debugPrint("keep_trying: %d\n", g_arguments->keep_trying);
             break;
 
         case 'z':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "z");
+            }
+
             g_arguments->trying_interval = atoi(arg);
             if (g_arguments->trying_interval < 0) {
                 errorPrint(
@@ -470,6 +550,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'w':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "w");
+            }
+
             g_arguments->binwidth = atoi(arg);
             if (g_arguments->binwidth <= 0) {
                 errorPrint(
@@ -516,6 +600,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'R':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "R");
+            }
+
             stbInfo->disorderRange = atoi(arg);
             if (stbInfo->disorderRange <= 0) {
                 errorPrint(
@@ -528,6 +616,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'O':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "O");
+            }
+
             stbInfo->disorderRatio = atoi(arg);
             if (stbInfo->disorderRatio <= 0) {
                 errorPrint(
@@ -538,6 +630,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             break;
 
         case 'a':{
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "a");
+            }
+
             int replica = atoi(arg);
             if (replica <= 0) {
                 errorPrint(
@@ -565,6 +661,10 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             g_arguments->dsn = arg;
             break;
         case 'D':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "D");
+            }
+
             g_arguments->timeout = atoi(arg);
             break;
 #endif
@@ -757,7 +857,10 @@ void init_argument() {
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
     g_arguments->host = NULL;
+    g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
+    g_arguments->port_inputed = false;
+    g_arguments->port_auto = true;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;
     g_arguments->password = TSDB_DEFAULT_PASS;
@@ -767,13 +870,14 @@ void init_argument() {
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
+    g_arguments->nthreads_auto = true;
     g_arguments->table_threads = DEFAULT_NTHREADS;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
-    g_arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
-    g_arguments->g_actualChildTables = 0;
-    g_arguments->g_autoCreatedChildTables = 0;
-    g_arguments->g_existedChildTables = 0;
+    g_arguments->totalChildTables = DEFAULT_CHILDTABLES;
+    g_arguments->actualChildTables = 0;
+    g_arguments->autoCreatedChildTables = 0;
+    g_arguments->existedChildTables = 0;
     g_arguments->chinese = false;
     g_arguments->aggr_func = 0;
     g_arguments->terminate = false;
@@ -787,6 +891,7 @@ void init_argument() {
 
     g_arguments->keep_trying = 0;
     g_arguments->trying_interval = 0;
+    g_arguments->iface = TAOSC_IFACE;
 
     init_database();
     init_stable();
@@ -799,8 +904,10 @@ void modify_argument() {
 #ifdef WEBSOCKET
     if (!g_arguments->websocket) {
 #endif
+        if (strlen(g_configDir)
+                && g_arguments->host_auto
+                && g_arguments->port_auto) {
 #ifdef LINUX
-        if (strlen(g_configDir)) {
             wordexp_t full_path;
             if (wordexp(g_configDir, &full_path, 0) != 0) {
                 errorPrint("Invalid path %s\n", g_configDir);
@@ -808,8 +915,12 @@ void modify_argument() {
             }
             taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
             wordfree(&full_path);
-        }
+#else
+            taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 #endif
+            g_arguments->host = NULL;
+            g_arguments->port = 0;
+        }
 #ifdef WEBSOCKET
     }
 #endif

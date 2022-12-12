@@ -464,10 +464,10 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
         if (tools_cJSON_IsNumber(childTableCount)) {
             superTable->childTblCount = childTableCount->valueint;
-            g_arguments->g_totalChildTables += superTable->childTblCount;
+            g_arguments->totalChildTables += superTable->childTblCount;
         } else {
             superTable->childTblCount = 0;
-            g_arguments->g_totalChildTables += superTable->childTblCount;
+            g_arguments->totalChildTables += superTable->childTblCount;
         }
 
         tools_cJSON *dataSource =
@@ -878,6 +878,14 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         tools_cJSON_GetObjectItem(json, "insert_interval");
     if (top_insertInterval && top_insertInterval->type == tools_cJSON_Number) {
         g_arguments->insert_interval = top_insertInterval->valueint;
+    }
+
+    tools_cJSON *insert_mode = tools_cJSON_GetObjectItem(json, "insert_mode");
+    if (insert_mode && insert_mode->type == tools_cJSON_String
+            && insert_mode->valuestring != NULL) {
+        if (0 == strcasecmp(insert_mode->valuestring, "rest")) {
+            g_arguments->iface = REST_IFACE;
+        }
     }
 
     tools_cJSON *answerPrompt =

@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: 'fix/sangshuduo/TS-2253-taosbenchmark-rest-mode-in-json'
 
       - name: Change time zone
         if:
@@ -85,7 +85,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Set up Rust
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -143,7 +143,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           sudo apt update > /dev/null
-          sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
+          sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if: |

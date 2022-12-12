@@ -163,20 +163,6 @@ typedef struct {
         fprintf(stdout, "INFO: "fmt, __VA_ARGS__); \
     } while (0)
 
-static bool isStringNumber(char *input) {
-    int len = strlen(input);
-    if (0 == len) {
-        return false;
-    }
-
-    for (int i = 0; i < len; i++) {
-        if (!isdigit(input[i]))
-            return false;
-    }
-
-    return true;
-}
-
 // -------------------------- SHOW DATABASE INTERFACE-----------------------
 enum _show_db_index {
     TSDB_SHOW_DB_NAME_INDEX,
@@ -682,39 +668,6 @@ static void printVersion(FILE *file) {
     free(dupSeq);
 }
 
-void errorWrongValue(char *program, char *wrong_arg, char *wrong_value) {
-    fprintf(stderr, "%s %s: %s is an invalid value\n",
-            program, wrong_arg, wrong_value);
-    fprintf(stderr, "Try `taosdump --help' or `taosdump --usage' for more "
-            "information.\n");
-}
-
-static void errorPrintReqArg(char *program, char *wrong_arg) {
-    fprintf(stderr,
-            "%s: option requires an argument -- '%s'\n",
-            program, wrong_arg);
-    fprintf(stderr,
-            "Try `taosdump --help' or `taosdump --usage' for more "
-            "information.\n");
-}
-
-static void errorPrintReqArg2(char *program, char *wrong_arg) {
-    fprintf(stderr,
-            "%s: option requires a number argument '-%s'\n",
-            program, wrong_arg);
-    fprintf(stderr,
-            "Try `taosdump --help' or `taosdump --usage' for more information.\n");
-}
-
-static void errorPrintReqArg3(char *program, char *wrong_arg) {
-    fprintf(stderr,
-            "%s: option '%s' requires an argument\n",
-            program, wrong_arg);
-    fprintf(stderr,
-            "Try `taosdump --help' or `taosdump --usage' for more "
-            "information.\n");
-}
-
 static char *typeToStr(int type) {
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
@@ -859,7 +812,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
 
         case 'P':
-            if (!isStringNumber(arg)) {
+            if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2("taosdump", "P");
                 exit(EXIT_FAILURE);
             }
@@ -987,7 +940,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
 
         case 'T':
-            if (!isStringNumber(arg)) {
+            if (!toolsIsStringNumber(arg)) {
                 errorPrint("%s", "\n\t-T need a number following!\n");
                 exit(EXIT_FAILURE);
             }
@@ -3269,7 +3222,7 @@ static avro_value_iface_t* prepareAvroWface(
     }
 
     int rval = avro_file_writer_create_with_codec
-        (avroFilename, *schema, db, g_avro_codec[g_args.avro_codec], 50*1024);
+        (avroFilename, *schema, db, g_avro_codec[g_args.avro_codec], 70*1024);
     if (rval) {
         errorPrint("There was an error creating %s. reason: %s\n",
                 avroFilename, avro_strerror());
@@ -12390,13 +12343,7 @@ static int dumpEntry() {
     }
     fprintf(g_fpOfResult, "debug_print: %d\n", g_args.debug_print);
 
-#ifdef WINDOWS
-    SYSTEM_INFO info;
-    GetSystemInfo(&info);
-    g_numOfCores = (int32_t)info.dwNumberOfProcessors;
-#else
-    g_numOfCores = (int32_t)sysconf(_SC_NPROCESSORS_ONLN);
-#endif
+    g_numOfCores = toolsGetNumberOfCores();
 
     time_t tTime = time(NULL);
     struct tm tm = *localtime(&tTime);

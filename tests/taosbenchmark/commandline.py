@@ -171,6 +171,7 @@ class TDTestCase:
         cmd = "%s -S 17 -n 3 -t 1 -y -x" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
+        time.sleep(2)  # to avoid invalid vgroup id
         tdSql.query("select last(ts) from test.meters")
         tdSql.checkData(0, 0, "2017-07-14 10:40:00.034")
 
