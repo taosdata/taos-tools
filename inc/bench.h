@@ -141,6 +141,7 @@
 
 #define DEFAULT_CHILDTABLES    10000
 #define DEFAULT_PORT           6030
+#define DEFAULT_REST_PORT      6041
 #define DEFAULT_DATABASE       "test"
 #define DEFAULT_TB_PREFIX      "d"
 #define DEFAULT_OUTPUT         "./output.txt"
@@ -576,6 +577,7 @@ typedef struct SArguments_S {
     uint16_t            port;
     bool                host_auto;
     bool                port_auto;
+    bool                port_inputed;
     bool                cfg_inputed;
     uint16_t            telnet_tcp_port;
     char *              user;

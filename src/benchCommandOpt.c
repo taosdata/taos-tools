@@ -314,16 +314,20 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2("taosBenchmark", "P");
             }
-
             g_arguments->port = atoi(arg);
             if (g_arguments->port <= 0) {
                 errorPrint(
                            "Invalid -P: %s, will auto set to default(6030)\n",
                            arg);
-                g_arguments->port = DEFAULT_PORT;
+                if (REST_IFACE == g_arguments->iface) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                } else {
+                    g_arguments->port = DEFAULT_PORT;
+                }
             } else {
                 g_arguments->port_auto = false;
             }
+            g_arguments->port_inputed = true;
             break;
 
         case 'I':
@@ -334,6 +338,9 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
                 g_arguments->nthreads_auto = false;
+                if (false == g_arguments->port_inputed) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                }
             } else if (0 == strcasecmp(arg, "sml")) {
                 stbInfo->iface = SML_IFACE;
             } else {
@@ -852,6 +859,7 @@ void init_argument() {
     g_arguments->host = NULL;
     g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
+    g_arguments->port_inputed = false;
     g_arguments->port_auto = true;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;

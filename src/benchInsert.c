@@ -670,6 +670,7 @@ static void *createTable(void *sarg) {
         len = 0;
 
         int ret = 0;
+        debugPrint("creating table: %s\n", pThreadInfo->buffer);
         if (REST_IFACE == stbInfo->iface) {
             ret = queryDbExecRest(pThreadInfo->buffer,
                                   database->dbName,
@@ -2544,6 +2545,13 @@ int insertTestProcess() {
     encode_base_64();
 
     for (int i = 0; i < g_arguments->databases->size; ++i) {
+        if (REST_IFACE == g_arguments->iface) {
+            if (0 != convertServAddr(g_arguments->iface,
+                                     false,
+                                     1)) {
+                return -1;
+            }
+        }
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
 
         if (database->drop && !(g_arguments->supplementInsert)) {
