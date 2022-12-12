@@ -296,10 +296,9 @@ void close_bench_conn(SBenchConn* conn) {
     tmfree(conn);
 }
 
-int queryDbExecRest(char *command, char* dbName, int precision,
+int32_t queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd) {
-    // TODO
-    int code =  postProceSql(command,
+    int32_t code =  postProceSql(command,
                          dbName,
                          precision,
                          iface,
@@ -310,7 +309,7 @@ int queryDbExecRest(char *command, char* dbName, int precision,
     return code;
 }
 
-int queryDbExec(SBenchConn *conn, char *command) {
+int32_t queryDbExec(SBenchConn *conn, char *command) {
     int32_t code = 0;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
