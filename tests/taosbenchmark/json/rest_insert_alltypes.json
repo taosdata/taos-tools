@@ -10,6 +10,7 @@
   "result_file": "./insert_res.txt",
   "confirm_parameter_prompt": "no",
   "prepared_rand": 10,
+  "insert_mode": "rest",
   "chinese": "no",
   "insert_interval": 0,
   "num_of_records_per_req": 10,
