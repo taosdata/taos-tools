@@ -941,15 +941,19 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
     debugPrint("iface: %d\n", iface);
 
+    int32_t trying = (stbInfo->keep_trying)?
+        stbInfo->keep_trying:g_arguments->keep_trying;
+    int32_t trying_interval = stbInfo->trying_interval?
+        stbInfo->trying_interval:g_arguments->trying_interval;
+
     switch (iface) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
-            int32_t trying = stbInfo->keep_trying;
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
-                          stbInfo->trying_interval);
-                toolsMsleep(stbInfo->trying_interval);
+                          trying_interval);
+                toolsMsleep(trying_interval);
                 code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
@@ -967,11 +971,10 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
-            trying = stbInfo->keep_trying;
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
-                          stbInfo->trying_interval);
-                toolsMsleep(stbInfo->trying_interval);
+                          trying_interval);
+                toolsMsleep(trying_interval);
                 code =  postProceSql(pThreadInfo->buffer,
                                   database->dbName,
                                   database->precision,
@@ -1012,8 +1015,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             trying = stbInfo->keep_trying;
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
-                          stbInfo->trying_interval);
-                toolsMsleep(stbInfo->trying_interval);
+                          trying_interval);
+                toolsMsleep(trying_interval);
                 taos_free_result(res);
                 res = taos_schemaless_insert(
                         pThreadInfo->conn->taos, pThreadInfo->lines,
