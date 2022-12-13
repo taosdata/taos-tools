@@ -1288,13 +1288,12 @@ static void *syncWriteInterlace(void *sarg) {
     }
 free_of_interlace:
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
-
+    pThreadInfo->speed = (double)(pThreadInfo->totalInsertRows /
+                                  ((double)pThreadInfo->totalDelay / 1E9));
     succPrint(
-            "thread[%d] completed total inserted rows: %" PRIu64
-            ", %.2f records/second\n",
-            pThreadInfo->threadID, pThreadInfo->totalInsertRows,
-            (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1E9)));
+        "thread[%d] completed total inserted rows: %" PRIu64
+        ", %.2f records/second\n",
+        pThreadInfo->threadID, pThreadInfo->totalInsertRows, pThreadInfo->speed);
     return NULL;
 }
 
@@ -1597,12 +1596,13 @@ void *syncWriteProgressive(void *sarg) {
     }      // tableSeq
 free_of_progressive:
     if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
+
+    pThreadInfo->speed = (double)(pThreadInfo->totalInsertRows /
+                                  ((double)pThreadInfo->totalDelay / 1E9));
     succPrint(
-            "thread[%d] completed total inserted rows: %" PRIu64
-            ", %.2f records/second\n",
-            pThreadInfo->threadID, pThreadInfo->totalInsertRows,
-            (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1E9)));
+        "thread[%d] completed total inserted rows: %" PRIu64
+        ", %.2f records/second\n",
+        pThreadInfo->threadID, pThreadInfo->totalInsertRows, pThreadInfo->speed);
     return NULL;
 }
 
@@ -2264,6 +2264,7 @@ static int startMultiThreadInsertData(SDataBase* database,
     BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t   totalDelay = 0;
     uint64_t  totalInsertRows = 0;
+    double    speed = 0;
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
@@ -2321,6 +2322,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         }
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
+        speed += pThreadInfo->speed;
         benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData,
                 pThreadInfo->delayList->size);
         tmfree(pThreadInfo->delayList);
@@ -2332,10 +2334,12 @@ static int startMultiThreadInsertData(SDataBase* database,
     free(infos);
 
     succPrint("Spent %.6f seconds to insert rows: %" PRIu64
-                          " with %d thread(s) into %s %.2f records/second\n",
+                          " with %d thread(s) into %s %.2f records/second, "
+                          "insert speed: %.2f records/second\n",
                   (end - start)/1E6, totalInsertRows, threads,
                   database->dbName,
-                  (double)(totalInsertRows / ((end - start)/1E6)));
+                  (double)(totalInsertRows / ((end - start)/1E6)),
+                  speed);
     if (!total_delay_list->size) {
         benchArrayDestroy(total_delay_list);
         return -1;

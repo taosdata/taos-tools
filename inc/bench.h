@@ -650,6 +650,7 @@ typedef struct SThreadInfo_S {
     uint64_t   totalInsertRows;
     uint64_t   totalQueried;
     int64_t   totalDelay;
+    double    speed;
     uint64_t   querySeq;
     TAOS_SUB * tsub;
     char **    lines;
