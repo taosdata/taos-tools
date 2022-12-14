@@ -961,10 +961,6 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
 
         case SML_IFACE:
-            if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                pThreadInfo->lines[0] =
-                    tools_cJSON_PrintUnformatted(pThreadInfo->json_array);
-            }
 //            printf("json:%s\n", pThreadInfo->lines[0]);
             res = taos_schemaless_insert(
                 pThreadInfo->conn->taos, pThreadInfo->lines,
@@ -998,6 +994,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                         "content: %s, code: 0x%08x reason: %s\n",
                     pThreadInfo->lines[0], code, taos_errstr(res));
             }
+
             taos_free_result(res);
             break;
 
@@ -1200,6 +1197,11 @@ static void *syncWriteInterlace(void *sarg) {
                                     (taosRandom() % stbInfo->disorderRange);
                             }
                         }
+                    }
+
+                    if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+                      pThreadInfo->lines[0] =
+                          tools_cJSON_PrintUnformatted(pThreadInfo->json_array);
                     }
                     break;
                 }
