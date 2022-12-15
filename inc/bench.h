@@ -374,8 +374,8 @@ enum _describe_table_index {
 
 typedef struct BArray {
     size_t   size;
-    uint32_t capacity;
-    uint32_t elemSize;
+    uint64_t capacity;
+    uint64_t elemSize;
     void*    pData;
 } BArray;
 
