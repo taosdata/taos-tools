@@ -133,7 +133,7 @@ jobs:
             apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
 
             echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
-            git clone --branch feat/sangshuduo/TD-19985-taosbenchmark-retry --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
+            git clone --branch fix/sangshuduo/TD-21113-taosdump-no-keep --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
 
             echo "build TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
             cd TDengine || exit 1

@@ -3454,13 +3454,18 @@ static void dumpCreateDbClause(
             pstr += sprintf(pstr, "REPLICA %d ", dbInfo->replica);
         }
 
+        char keep[64] = "";
+        if (dbInfo->keeplist && strlen(dbInfo->keeplist)) {
+            sprintf(keep, "KEEP %s", dbInfo->keeplist);
+        }
+
         pstr += sprintf(pstr,
-                "%s %s %s KEEP %s %s %s "
+                "%s %s %s %s %s %s "
                 "%s %s PRECISION '%s' %s %s",
                 (g_majorVersionOfClient < 3)?"":strict,
                 (g_majorVersionOfClient < 3)?quorum:"",
                 (g_majorVersionOfClient < 3)?days:duration,
-                dbInfo->keeplist,
+                keep,
                 (g_majorVersionOfClient < 3)?cache:"",
                 (g_majorVersionOfClient < 3)?blocks:"",
                 (g_majorVersionOfClient < 3)?fsync:"",

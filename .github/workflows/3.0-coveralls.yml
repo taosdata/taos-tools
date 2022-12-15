@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-19985-taosbenchmark-retry'
+          ref: 'fix/sangshuduo/TD-21113-taosdump-no-keep'
 
       - name: Change time zone
         if:
@@ -699,7 +699,7 @@ jobs:
           gcov -abcfu ${topdir}/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosBenchmark.dir/benchOutput.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosBenchmark.dir/benchQuery.c.gcno
-          gcov -abcfu ${topdir}/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosBenchmark.dir/benchSubscribe.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchTmq.c -o src/CMakeFiles/taosBenchmark.dir/benchTmq.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
           mkdir ${topdir}/coverage || :
           lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info
