@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21081-taosbenchmark-min-max-delay'
+          ref: 'fix/sangshuduo/TD-21295-taosbenchmark-disorder'
 
       - name: create debug directory
         if: |
