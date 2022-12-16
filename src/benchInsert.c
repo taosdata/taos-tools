@@ -1093,6 +1093,9 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t   startTs = toolsGetTimestampMs();
     int64_t   endTs = toolsGetTimestampMs();
     uint64_t   tableSeq = pThreadInfo->start_table_from;
+    int disorderRange = stbInfo->disorderRange;
+    int64_t startTimestamp = stbInfo->startTimestamp;
+
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
         uint32_t generated = 0;
@@ -1173,9 +1176,14 @@ static void *syncWriteInterlace(void *sarg) {
                         timestamp += stbInfo->timestamp_step;
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
+                            debugPrint("rand_num: %d, disorderRatio: %d\n",
+                                       rand_num, stbInfo->disorderRatio);
+                            disorderRange --;
+                            if (0 == disorderRange) {
+                                disorderRange = stbInfo->disorderRange;
+                            }
                             if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
+                                timestamp = startTimestamp - disorderRange;
                             }
                         }
                     }
@@ -1234,9 +1242,14 @@ static void *syncWriteInterlace(void *sarg) {
                         timestamp += stbInfo->timestamp_step;
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
+                            debugPrint("rand_num: %d, disorderRatio: %d\n",
+                                       rand_num, stbInfo->disorderRatio);
+                            disorderRange --;
+                            if (0 == disorderRange) {
+                                disorderRange = stbInfo->disorderRange;
+                            }
                             if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
+                                timestamp = startTimestamp - disorderRange;
                             }
                         }
                     }
@@ -1364,6 +1377,8 @@ void *syncWriteProgressive(void *sarg) {
     int64_t   startTs = toolsGetTimestampMs();
     int64_t   endTs;
 
+    int disorderRange = stbInfo->disorderRange;
+    int64_t startTimestamp = stbInfo->startTimestamp;
     char *  pstr = pThreadInfo->buffer;
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
          tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
@@ -1466,9 +1481,14 @@ void *syncWriteProgressive(void *sarg) {
                         timestamp += stbInfo->timestamp_step;
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
+                            debugPrint("rand_num: %d, disorderRatio: %d, disorderRange: %d\n",
+                                       rand_num, stbInfo->disorderRatio, disorderRange);
+                            disorderRange --;
+                            if (0 == disorderRange) {
+                                disorderRange = stbInfo->disorderRange;
+                            }
                             if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
+                                timestamp = startTimestamp - disorderRange;
                             }
                         }
                         generated++;
@@ -1544,9 +1564,14 @@ void *syncWriteProgressive(void *sarg) {
                         timestamp += stbInfo->timestamp_step;
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
+                            debugPrint("rand_num: %d, disorderRatio: %d\n",
+                                       rand_num, stbInfo->disorderRatio);
+                            disorderRange --;
+                            if (0 == disorderRange) {
+                                disorderRange = stbInfo->disorderRange;
+                            }
                             if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
+                                timestamp = startTimestamp - disorderRange;
                             }
                         }
                         generated++;
