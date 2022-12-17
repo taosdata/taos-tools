@@ -16,9 +16,6 @@
 #ifndef __BENCH_H_
 #define __BENCH_H_
 
-#ifndef __DEMO__
-#define __DEMO__
-
 #define _GNU_SOURCE
 #define CURL_STATICLIB
 #define ALLOW_FORBID_FUNC
@@ -748,10 +745,12 @@ void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
+
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp);
 #endif
+
 int convertTypeToLength(uint8_t type);
 int64_t convertDatatypeToDefaultMax(uint8_t type);
 int64_t convertDatatypeToDefaultMin(uint8_t type);
@@ -774,16 +773,16 @@ char * ds_add_str(char **ps, const char* sub);
 char * ds_add_strs(char **ps, int count, ...);
 char * ds_ins_str(char **ps, size_t pos, const char *sub, size_t len);
 
-/* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
-/* demoQuery.c */
 int queryTestProcess();
-/* demoSubscribe.c */
 int subscribeTestProcess();
 int convertServAddr(int iface, bool tcp, int protocol);
 int createSockFd();
 void destroySockFd(int sockfd);
+
+#ifndef LINUX
+int32_t bench_parse_args_no_argp(int argc, char* argv[]);
 #endif
 
 #endif   // __BENCH_H_
