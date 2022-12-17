@@ -91,8 +91,6 @@ char *g_aggreFuncDemo[] = {"*",
 char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
                        "max(C0)", "min(C0)",  "first(C0)", "last(C0)"};
 
-static int32_t bench_parse_single_opt(int32_t key, char* arg);
-
 void bench_print_help() {
     char indent[] = "  ";
     printf("Usage: taosBenchmark [OPTION ...] \r\n\r\n");
@@ -196,21 +194,18 @@ static struct argp_option bench_options[] = {
     {0}
 };
 
-static error_t bench_parse_opt(int key, char *arg, struct argp_state *state) {
-    return bench_parse_single_opt(key, arg);
+static void printVersion() {
+    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
+    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
+    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
+    if (0 == strlen(taosBenchmark_status)) {
+        printf("taosBenchmark version: %s\ngitinfo: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit);
+    } else {
+        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
+    }
 }
-
-static struct argp bench_argp = {bench_options, bench_parse_opt, "", ""};
-
-void bench_parse_args_in_argp(int argc, char *argv[]) {
-    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
-}
-
-#endif
-
-#ifndef ARGP_ERR_UNKNOWN
-  #define ARGP_ERR_UNKNOWN E2BIG
-#endif
 
 void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
     char *dup_str;
@@ -262,19 +257,6 @@ void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
             token = strsep(&running, ",");
         }
         tmfree(dup_str);
-    }
-}
-
-static void printVersion() {
-    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
-    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
-    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
-    if (0 == strlen(taosBenchmark_status)) {
-        printf("taosBenchmark version: %s\ngitinfo: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit);
-    } else {
-        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
     }
 }
 
@@ -672,6 +654,22 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
     }
     return 0;
 }
+
+static error_t bench_parse_opt(int key, char *arg, struct argp_state *state) {
+    return bench_parse_single_opt(key, arg);
+}
+
+static struct argp bench_argp = {bench_options, bench_parse_opt, "", ""};
+
+void bench_parse_args_in_argp(int argc, char *argv[]) {
+    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
+}
+
+#endif
+
+#ifndef ARGP_ERR_UNKNOWN
+  #define ARGP_ERR_UNKNOWN E2BIG
+#endif
 
 int32_t bench_parse_args(int32_t argc, char* argv[]) {
 #ifdef LINUX
