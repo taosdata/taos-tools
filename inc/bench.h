@@ -781,8 +781,11 @@ int convertServAddr(int iface, bool tcp, int protocol);
 int createSockFd();
 void destroySockFd(int sockfd);
 
+void printVersion();
+int32_t benchParseSingleOpt(int32_t key, char* arg);
+
 #ifndef LINUX
-int32_t bench_parse_args_no_argp(int argc, char* argv[]);
+int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
 
 #endif   // __BENCH_H_

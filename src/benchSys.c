@@ -19,7 +19,56 @@
 #include <bench.h>
 
 #ifndef LINUX
-int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
+void benchPrintHelp() {
+    char indent[] = "  ";
+    printf("Usage: taosBenchmark [OPTION ...] \r\n\r\n");
+    printf("%s%s%s%s\r\n", indent, "-f,", indent, BENCH_FILE);
+    printf("%s%s%s%s\r\n", indent, "-a,", indent, BENCH_REPLICA);
+    printf("%s%s%s%s\r\n", indent, "-A,", indent, BENCH_TAGS);
+    printf("%s%s%s%s\r\n", indent, "-b,", indent, BENCH_COLS);
+    printf("%s%s%s%s\r\n", indent, "-B,", indent, BENCH_INTERLACE);
+    printf("%s%s%s%s\r\n", indent, "-c,", indent, BENCH_CFG_DIR);
+    printf("%s%s%s%s\r\n", indent, "-C,", indent, BENCH_CHINESE);
+    printf("%s%s%s%s\r\n", indent, "-d,", indent, BENCH_DATABASE);
+    printf("%s%s%s%s\r\n", indent, "-E,", indent, BENCH_ESCAPE);
+    printf("%s%s%s%s\r\n", indent, "-F,", indent, BENCH_PREPARE);
+    printf("%s%s%s%s\r\n", indent, "-g,", indent, BENCH_DEBUG);
+    printf("%s%s%s%s\r\n", indent, "-G,", indent, BENCH_PERFORMANCE);
+    printf("%s%s%s%s\r\n", indent, "-h,", indent, BENCH_HOST);
+    printf("%s%s%s%s\r\n", indent, "-i,", indent, BENCH_INTERVAL);
+    printf("%s%s%s%s\r\n", indent, "-I,", indent, BENCH_MODE);
+    printf("%s%s%s%s\r\n", indent, "-l,", indent, BENCH_COLS_NUM);
+    printf("%s%s%s%s\r\n", indent, "-L,", indent, BENCH_PARTIAL_COL_NUM);
+    printf("%s%s%s%s\r\n", indent, "-m,", indent, BENCH_PREFIX);
+    printf("%s%s%s%s\r\n", indent, "-M,", indent, BENCH_RANDOM);
+    printf("%s%s%s%s\r\n", indent, "-n,", indent, BENCH_ROWS);
+    printf("%s%s%s%s\r\n", indent, "-N,", indent, BENCH_NORMAL);
+    printf("%s%s%s%s\r\n", indent, "-k,", indent, BENCH_KEEPTRYING);
+    printf("%s%s%s%s\r\n", indent, "-o,", indent, BENCH_OUTPUT);
+    printf("%s%s%s%s\r\n", indent, "-O,", indent, BENCH_DISORDER);
+    printf("%s%s%s%s\r\n", indent, "-p,", indent, BENCH_PASS);
+    printf("%s%s%s%s\r\n", indent, "-P,", indent, BENCH_PORT);
+    printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
+    printf("%s%s%s%s\r\n", indent, "-R,", indent, BENCH_RANGE);
+    printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
+    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
+    printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
+    printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
+    printf("%s%s%s%s\r\n", indent, "-u,", indent, BENCH_USER);
+    printf("%s%s%s%s\r\n", indent, "-U,", indent, BENCH_SUPPLEMENT);
+    printf("%s%s%s%s\r\n", indent, "-w,", indent, BENCH_WIDTH);
+    printf("%s%s%s%s\r\n", indent, "-x,", indent, BENCH_AGGR);
+    printf("%s%s%s%s\r\n", indent, "-y,", indent, BENCH_YES);
+    printf("%s%s%s%s\r\n", indent, "-z,", indent, BENCH_TRYING_INTERVAL);
+#ifdef WEBSOCKET
+    printf("%s%s%s%s\r\n", indent, "-W,", indent, BENCH_DSN);
+    printf("%s%s%s%s\r\n", indent, "-D,", indent, BENCH_TIMEOUT);
+#endif
+    printf("%s%s%s%s\r\n", indent, "-V,", indent, BENCH_VERSION);
+    printf("\r\n\r\nReport bugs to %s.\r\n", BENCH_EMAIL);
+}
+
+int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
             printVersion();
@@ -28,7 +77,7 @@ int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
 
         if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0
             || strcmp(argv[i], "-?") == 0) {
-            bench_print_help();
+            benchPrintHelp();
             exit(EXIT_SUCCESS);
         }
 
