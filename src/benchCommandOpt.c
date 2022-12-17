@@ -70,7 +70,6 @@ char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
 #define BENCH_DEBUG "Debug mode, optional."
 #define BENCH_PERFORMANCE "Performance mode, optional."
 #define BENCH_PREPARE "Random data source size, default is 10000."
-#define BENCH_POOL  "The connection pool size(deprecated)."
 #define BENCH_EMAIL   "<support@taosdata.com>"
 #define BENCH_VERSION "Print program version."
 #define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
@@ -110,7 +109,6 @@ void bench_print_help() {
     printf("%s%s%s%s\r\n", indent, "-g,", indent, BENCH_DEBUG);
     printf("%s%s%s%s\r\n", indent, "-G,", indent, BENCH_PERFORMANCE);
     printf("%s%s%s%s\r\n", indent, "-h,", indent, BENCH_HOST);
-    printf("%s%s%s%s\r\n", indent, "-H,", indent, BENCH_POOL);
     printf("%s%s%s%s\r\n", indent, "-i,", indent, BENCH_INTERVAL);
     printf("%s%s%s%s\r\n", indent, "-I,", indent, BENCH_MODE);
     printf("%s%s%s%s\r\n", indent, "-l,", indent, BENCH_COLS_NUM);
@@ -188,7 +186,6 @@ static struct argp_option bench_options[] = {
     {"debug", 'g', 0, 0, BENCH_DEBUG},
     {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
     {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},
-    {"connection_pool_size", 'H', "NUMBER", 0, BENCH_POOL},
 #ifdef WEBSOCKET
     {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
     {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
@@ -383,9 +380,6 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             } else {
                 g_arguments->nthreads_auto = false;
             }
-            break;
-
-        case 'H':
             break;
 
         case 'i':
