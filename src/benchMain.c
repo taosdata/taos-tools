@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
 
 #endif
-    if (bench_parse_args(argc, argv)) {
+    if (benchParseArgs(argc, argv)) {
         return -1;
     }
 #ifdef WEBSOCKET

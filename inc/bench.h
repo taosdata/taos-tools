@@ -752,11 +752,11 @@ extern uint64_t       g_memoryUsage;
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
-int32_t bench_parse_args(int32_t argc, char* argv[]);
+int32_t benchParseArgs(int32_t argc, char* argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
-void parse_field_datatype(char *dataType, BArray *fields, bool isTag);
+void parseFieldDatatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
