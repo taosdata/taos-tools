@@ -12,6 +12,14 @@
 
 #include "bench.h"
 
+#ifdef LINUX
+#include <argp.h>
+#else
+#ifndef ARGP_ERR_UNKNOWN
+    #define ARGP_ERR_UNKNOWN E2BIG
+#endif
+#endif
+
 extern char version[];
 
 // get taosBenchmark commit number version
@@ -32,8 +40,6 @@ char      g_configDir[MAX_PATH_LEN] = {0};  // "C:\\TDengine\\cfg"};
 #else
 char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
 #endif
-
-
 
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
@@ -509,8 +515,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
 #ifdef LINUX
 
-#include <argp.h>
-
 const char *              argp_program_version = version;
 const char *              argp_program_bug_address = BENCH_EMAIL;
 
@@ -571,10 +575,6 @@ void benchParseArgsByArgp(int argc, char *argv[]) {
     argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
 }
 
-#endif
-
-#ifndef ARGP_ERR_UNKNOWN
-  #define ARGP_ERR_UNKNOWN E2BIG
 #endif
 
 int32_t benchParseArgs(int32_t argc, char* argv[]) {
