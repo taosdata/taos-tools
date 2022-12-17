@@ -518,10 +518,11 @@ typedef struct SSQL_S {
 
 typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
+    uint64_t  queryTimes;
     uint32_t  concurrent;
     uint32_t  asyncMode;          // 0: sync, 1: async
     uint64_t  subscribeInterval;  // ms
-    uint64_t  queryTimes;
+    uint64_t  subscribeTimes;  // ms
     bool      subscribeRestart;
     int       subscribeKeepProgress;
     BArray*   sqls;
@@ -538,12 +539,13 @@ typedef struct SpecifiedQueryInfo_S {
 typedef struct SuperQueryInfo_S {
     char      stbName[TSDB_TABLE_NAME_LEN];
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
+    uint64_t  queryTimes;
     uint32_t  threadCnt;
     uint32_t  asyncMode;          // 0: sync, 1: async
     uint64_t  subscribeInterval;  // ms
+    uint64_t  subscribeTimes;  // ms
     bool      subscribeRestart;
     int       subscribeKeepProgress;
-    uint64_t  queryTimes;
     uint64_t  childTblCount;
     int       sqlCount;
     char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
