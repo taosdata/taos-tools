@@ -65,7 +65,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21295-taosbenchmark-disorder'
+          ref: 'feat/sangshuduo/TD-12436-code-coverage'
 
       - name: Change time zone
         if:

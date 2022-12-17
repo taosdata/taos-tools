@@ -106,7 +106,7 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|slow-query|mixed-query"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|slow-query|mixed-query|tmq"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
           fi
 
       - name: Check Test Result
