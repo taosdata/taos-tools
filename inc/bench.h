@@ -16,9 +16,6 @@
 #ifndef __BENCH_H_
 #define __BENCH_H_
 
-#ifndef __DEMO__
-#define __DEMO__
-
 #define _GNU_SOURCE
 #define CURL_STATICLIB
 #define ALLOW_FORBID_FUNC
@@ -155,6 +152,54 @@
 #define DEFAULT_QUERY_INTERVAL 10000
 #define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
+
+
+#define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
+#define BENCH_CFG_DIR "Configuration directory."
+#define BENCH_HOST  "TDengine server FQDN to connect, default is localhost."
+#define BENCH_PORT  "The TCP/IP port number to use for the connection, default is 6030."
+#define BENCH_MODE  "insert mode, default is taosc, options: taosc|rest|stmt|sml"
+#define BENCH_USER  "The user name to use when connecting to the server, default is root."
+#define BENCH_PASS  "The password to use when connecting to the server, default is taosdata."
+#define BENCH_OUTPUT  "The path of result output file, default is ./output.txt."
+#define BENCH_THREAD  "The number of thread when insert data, default is 8."
+#define BENCH_INTERVAL  "Insert interval for interlace mode in milliseconds, default is 0."
+#define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
+#define BENCH_SUPPLEMENT "Supplementally insert data without create database and table, optional, default is off."
+#define BENCH_START_TIMESTAMP "Specify timestamp to insert data. Optional, default is 1500000000000 (2017-07-14 10:40:00.000)."
+#define BENCH_INTERLACE "The number of interlace rows insert into tables, default is 0."
+#define BENCH_BATCH "Number of records in each insert request, default is 30000."
+#define BENCH_TABLE "Number of child tables, default is 10000."
+#define BENCH_ROWS  "Number of records for each table, default is 10000."
+#define BENCH_DATABASE  "Name of database, default is test."
+#define BENCH_COLS_NUM  "Number of INT data type columns in table, default is 0."
+#define BENCH_PARTIAL_COL_NUM "Specify first numbers of columns has data. Rest of columns' data are NULL. Default is all columns have data"
+#define BENCH_TAGS  "Data type of tables' tags, default is INT,BINARY(16)."
+#define BENCH_COLS  "Data type of tables' cols, default is FLOAT,INT,FLOAT."
+#define BENCH_WIDTH "The default length of nchar and binary if not specified, default is 64."
+#define BENCH_PREFIX  "Prefix of child table name, default is d."
+#define BENCH_ESCAPE "Use escape character in stable and child table name, optional."
+#define BENCH_CHINESE "Nchar and binary are basic unicode chinese characters, optional."
+#define BENCH_NORMAL  "Only create normal table without super table, optional."
+#define BENCH_RANDOM  "Data source is randomly generated, optional."
+#define BENCH_AGGR  "Query aggregation function after insertion, optional."
+#define BENCH_YES "Pass confirmation prompt to continue, optional."
+#define BENCH_RANGE "Range of disordered timestamp, default is 1000."
+#define BENCH_DISORDER "Ratio of inserting data with disorder timestamp, default is 0."
+#define BENCH_REPLICA "The number of replica when create database, default is 1."
+#define BENCH_DEBUG "Debug mode, optional."
+#define BENCH_PERFORMANCE "Performance mode, optional."
+#define BENCH_PREPARE "Random data source size, default is 10000."
+#define BENCH_EMAIL   "<support@taosdata.com>"
+#define BENCH_VERSION "Print program version."
+#define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
+#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a postive number. Only valid when keep trying be enabled."
+
+#ifdef WEBSOCKET
+#define BENCH_DSN "The dsn to connect TDengine cloud service."
+#define BENCH_TIMEOUT "The timeout wait on websocket query in seconds, default is 10."
+#endif
+
 
 #define debugPrint(fmt, ...)                                             \
     do {                                                                     \
@@ -707,11 +752,11 @@ extern uint64_t       g_memoryUsage;
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
-int32_t bench_parse_args(int32_t argc, char* argv[]);
+int32_t benchParseArgs(int32_t argc, char* argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
-void parse_field_datatype(char *dataType, BArray *fields, bool isTag);
+void parseFieldDatatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
@@ -748,10 +793,12 @@ void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
+
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp);
 #endif
+
 int convertTypeToLength(uint8_t type);
 int64_t convertDatatypeToDefaultMax(uint8_t type);
 int64_t convertDatatypeToDefaultMin(uint8_t type);
@@ -774,16 +821,19 @@ char * ds_add_str(char **ps, const char* sub);
 char * ds_add_strs(char **ps, int count, ...);
 char * ds_ins_str(char **ps, size_t pos, const char *sub, size_t len);
 
-/* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
-/* demoQuery.c */
 int queryTestProcess();
-/* demoSubscribe.c */
 int subscribeTestProcess();
 int convertServAddr(int iface, bool tcp, int protocol);
 int createSockFd();
 void destroySockFd(int sockfd);
+
+void printVersion();
+int32_t benchParseSingleOpt(int32_t key, char* arg);
+
+#ifndef LINUX
+int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
 
 #endif   // __BENCH_H_
