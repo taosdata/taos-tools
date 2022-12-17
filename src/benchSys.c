@@ -119,13 +119,13 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
                 errorPrint("option %s requires an argument\r\n", key);
                 return -1;
             }
-            bench_parse_single_opt(key[1], val);
+            benchParseSingleOpt(key[1], val);
             i++;
         } else if (key[1] == 'E' || key[1] == 'C'
                 || key[1] == 'N' || key[1] == 'M'
                 || key[1] == 'x' || key[1] == 'y'
                 || key[1] == 'g' || key[1] == 'G' || key[1] == 'V') {
-            bench_parse_single_opt(key[1], NULL);
+            benchParseSingleOpt(key[1], NULL);
         } else {
             errorPrint("Invalid option %s\r\n", key);
             return -1;
