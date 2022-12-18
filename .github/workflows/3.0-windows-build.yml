@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-12436-code-coverage'
+          ref: 'fix/sangshuduo/TS-2296-windows-delay'
 
       - name: create debug directory
         if: |
