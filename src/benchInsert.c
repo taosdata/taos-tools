@@ -1152,8 +1152,22 @@ static void *syncWriteInterlace(void *sarg) {
                     }
 
                     for (int64_t j = 0; j < interlaceRows; ++j) {
+                        int64_t disorderTs = 0;
+                        if (stbInfo->disorderRatio > 0) {
+                            int rand_num = taosRandom() % 100;
+                            if (rand_num < stbInfo->disorderRatio) {
+                                disorderRange --;
+                                if (0 == disorderRange) {
+                                    disorderRange = stbInfo->disorderRange;
+                                }
+                                disorderTs = startTimestamp - disorderRange;
+                                debugPrint("rand_num: %d, < disorderRatio: %d, "
+                                           "disorderTs: %"PRId64"\n",
+                                       rand_num, stbInfo->disorderRatio, disorderTs);
+                            }
+                        }
                         char time_string[BIGINT_BUFF_LEN];
-                        sprintf(time_string, "%"PRId64"", timestamp);
+                        sprintf(time_string, "%"PRId64"", disorderTs?disorderTs:timestamp);
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
@@ -1174,18 +1188,6 @@ static void *syncWriteInterlace(void *sarg) {
                             pos = 0;
                         }
                         timestamp += stbInfo->timestamp_step;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            debugPrint("rand_num: %d, disorderRatio: %d\n",
-                                       rand_num, stbInfo->disorderRatio);
-                            disorderRange --;
-                            if (0 == disorderRange) {
-                                disorderRange = stbInfo->disorderRange;
-                            }
-                            if (rand_num < stbInfo->disorderRatio) {
-                                timestamp = startTimestamp - disorderRange;
-                            }
-                        }
                     }
                     break;
                 }
@@ -1204,6 +1206,22 @@ static void *syncWriteInterlace(void *sarg) {
                 case SML_REST_IFACE:
                 case SML_IFACE: {
                     for (int64_t j = 0; j < interlaceRows; ++j) {
+                        int64_t disorderTs = 0;
+                        if (stbInfo->disorderRatio > 0) {
+                            int rand_num = taosRandom() % 100;
+                            if (rand_num < stbInfo->disorderRatio) {
+                                disorderRange --;
+                                if (0 == disorderRange) {
+                                    disorderRange = stbInfo->disorderRange;
+                                }
+                                disorderTs = startTimestamp - disorderRange;
+                                debugPrint("rand_num: %d, < disorderRatio: %d, "
+                                            "disorderTs: %"PRId64"\n",
+                                            rand_num, stbInfo->disorderRatio,
+                                            disorderTs);
+                            }
+                        }
+
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                             tools_cJSON *tag = tools_cJSON_Duplicate(
                                 tools_cJSON_GetArrayItem(
@@ -1213,7 +1231,7 @@ static void *syncWriteInterlace(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->sml_precision, timestamp);
+                                database->sml_precision, disorderTs?disorderTs:timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1225,13 +1243,13 @@ static void *syncWriteInterlace(void *sarg) {
                                                pThreadInfo->start_table_from],
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
-                                timestamp);
+                                disorderTs?disorderTs:timestamp);
                         } else {
                             snprintf(
                                 pThreadInfo->lines[generated],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                                 "%s %" PRId64 " %s %s", stbInfo->stbName,
-                                timestamp,
+                                disorderTs?disorderTs:timestamp,
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
                                 pThreadInfo
@@ -1240,18 +1258,6 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                         generated++;
                         timestamp += stbInfo->timestamp_step;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            debugPrint("rand_num: %d, disorderRatio: %d\n",
-                                       rand_num, stbInfo->disorderRatio);
-                            disorderRange --;
-                            if (0 == disorderRange) {
-                                disorderRange = stbInfo->disorderRange;
-                            }
-                            if (rand_num < stbInfo->disorderRatio) {
-                                timestamp = startTimestamp - disorderRange;
-                            }
-                        }
                     }
                     break;
                 }
@@ -1468,29 +1474,31 @@ void *syncWriteProgressive(void *sarg) {
                                         stbInfo->sampleDataBuf +
                                         pos * stbInfo->lenOfCols);
                         } else {
+                            int64_t disorderTs = 0;
+                            if (stbInfo->disorderRatio > 0) {
+                                int rand_num = taosRandom() % 100;
+                                if (rand_num < stbInfo->disorderRatio) {
+                                    disorderRange --;
+                                    if (0 == disorderRange) {
+                                        disorderRange = stbInfo->disorderRange;
+                                    }
+                                    disorderTs = startTimestamp - disorderRange;
+                                    debugPrint("rand_num: %d, < disorderRatio: %d, disorderTs: %"PRId64"\n",
+                                        rand_num, stbInfo->disorderRatio, disorderTs);
+                                }
+                            }
                             len += snprintf(pstr + len,
-                                    MAX_SQL_LEN - len,
-                                    "(%" PRId64 ",%s)", timestamp,
-                                    stbInfo->sampleDataBuf +
-                                    pos * stbInfo->lenOfCols);
+                                MAX_SQL_LEN - len,
+                                "(%" PRId64 ",%s)",
+                                            disorderTs?disorderTs:timestamp,
+                                stbInfo->sampleDataBuf +
+                                            pos * stbInfo->lenOfCols);
                         }
                         pos++;
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
                         timestamp += stbInfo->timestamp_step;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            debugPrint("rand_num: %d, disorderRatio: %d, disorderRange: %d\n",
-                                       rand_num, stbInfo->disorderRatio, disorderRange);
-                            disorderRange --;
-                            if (0 == disorderRange) {
-                                disorderRange = stbInfo->disorderRange;
-                            }
-                            if (rand_num < stbInfo->disorderRatio) {
-                                timestamp = startTimestamp - disorderRange;
-                            }
-                        }
                         generated++;
                         if (len > (MAX_SQL_LEN - stbInfo->lenOfCols)) {
                             break;
@@ -1564,14 +1572,14 @@ void *syncWriteProgressive(void *sarg) {
                         timestamp += stbInfo->timestamp_step;
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
-                            debugPrint("rand_num: %d, disorderRatio: %d\n",
-                                       rand_num, stbInfo->disorderRatio);
-                            disorderRange --;
-                            if (0 == disorderRange) {
-                                disorderRange = stbInfo->disorderRange;
-                            }
                             if (rand_num < stbInfo->disorderRatio) {
+                                disorderRange --;
+                                if (0 == disorderRange) {
+                                    disorderRange = stbInfo->disorderRange;
+                                }
                                 timestamp = startTimestamp - disorderRange;
+                                debugPrint("rand_num: %d, < disorderRatio: %d, ts: %"PRId64"\n",
+                                       rand_num, stbInfo->disorderRatio, timestamp);
                             }
                         }
                         generated++;
