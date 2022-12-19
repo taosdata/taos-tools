@@ -340,7 +340,7 @@ jobs:
 
           cd debug
           echo "TEST: normal table"
-          ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
+          ./build/bin/taosBenchmark -N -t 2 -n 10 -x -g -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
           taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null

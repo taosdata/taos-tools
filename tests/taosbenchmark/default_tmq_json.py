@@ -55,6 +55,7 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
+        tdSql.execute("drop topic if exists topic_0")
         binPath = self.getPath()
         cmd = "%s -f ./taosbenchmark/json/default.json" % binPath
         tdLog.info("%s" % cmd)
@@ -63,17 +64,18 @@ class TDTestCase:
         cmd = "%s -f ./taosbenchmark/json/tmq.json &" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        time.sleep(5)
-        try:
-            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
-                fields = line.split()
+        time.sleep(15)
+#        try:
+#            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
+#                fields = line.split()
 
-                pid = fields[0]
+#                pid = fields[0]
 
-                os.kill(int(pid), signal.SIGKILL)
-            print("taosBenchmark be killed on purpose")
-        except:
-            tdLog.exit("failed to kill taosBenchmark")
+#                os.kill(int(pid), signal.SIGINT)
+#                time.sleep(3)
+#            print("taosBenchmark be killed on purpose")
+#        except:
+#            tdLog.exit("failed to kill taosBenchmark")
 
     def stop(self):
         tdSql.close()

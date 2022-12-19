@@ -9,7 +9,9 @@
     "confirm_parameter_prompt": "no",
     "specified_table_query": {
         "concurrent": 1,
-        "interval": 1000,
+        "subscribe_interval": 1000,
+        "subscribe_times": 10,
+
         "sqls": [
             {
                 "sql": "select c0 from stb;"

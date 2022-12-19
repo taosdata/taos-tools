@@ -1096,14 +1096,23 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             g_queryInfo.specifiedQueryInfo.asyncMode = SYNC_MODE;
         }
 
-        tools_cJSON *interval =
-            tools_cJSON_GetObjectItem(specifiedQuery, "interval");
-        if (tools_cJSON_IsNumber(interval)) {
+        tools_cJSON *subscribe_interval =
+            tools_cJSON_GetObjectItem(specifiedQuery, "subscribe_interval");
+        if (tools_cJSON_IsNumber(subscribe_interval)) {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
-                interval->valueint;
+                subscribe_interval->valueint;
         } else {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
                 DEFAULT_SUB_INTERVAL;
+        }
+
+        tools_cJSON *specifiedSubscribeTimes =
+            tools_cJSON_GetObjectItem(specifiedQuery, "subscribe_times");
+        if (tools_cJSON_IsNumber(specifiedSubscribeTimes)) {
+            g_queryInfo.specifiedQueryInfo.subscribeTimes =
+                specifiedSubscribeTimes->valueint;
+        } else {
+            g_queryInfo.specifiedQueryInfo.subscribeTimes = g_queryInfo.query_times;
         }
 
         tools_cJSON *restart =
