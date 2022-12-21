@@ -33,6 +33,8 @@
 #include <netdb.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/time.h>
 #include <syscall.h>
 #include <unistd.h>
