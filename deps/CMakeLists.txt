@@ -131,16 +131,14 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         COMMAND sed -i "s/^target_link_libraries(avro[^-]/# target_link_libraries(avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt
         COMMAND sed -i "s/^add_executable(avro/# add_executable(avro/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/CMakeLists.txt
         COMMAND sed -i "s/^#include <stdlib.h>/#define ssize_t int\\n #include <stdlib.h>/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/generic.c
-        COMMAND sed -i "s/, codec->block_data,/, (uint8_t *)(codec->block_data),/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
-        COMMAND sed -i "s/filters, NULL, data/filters, NULL, (const uint8_t *)data/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
         COMMAND sed -i "s/__cdecl//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h
         COMMAND sed -i "s/imaxdiv_t/imaxdiv1_t/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h
         COMMAND sed -i "s/imaxdiv(/imax_div(/g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msinttypes.h
         COMMAND sed -i "s/typedef uint16_t  uint_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h
         COMMAND sed -i "s/typedef int16_t   int_fast16_t//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro/msstdint.h
         COMMAND sed -i "s/#define snprintf _snprintf//g" ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/avro_private.h
-        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/codec.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/avro-lang-c-CMakeLists.txt ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/CMakeLists.txt
+        COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/avro-lang-c-src-codec.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/codec.c
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/avro-lang-c-src-schema.c ${PROJECT_SOURCE_DIR}/deps/avro/lang/c/src/schema.c
         CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" ${BUILD_TYPE} -DCMAKE_MAKE_PROGRAM=jom -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/avro/lang/c
         )
