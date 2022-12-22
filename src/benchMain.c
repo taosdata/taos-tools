@@ -11,6 +11,7 @@
  */
 
 #include "bench.h"
+#include "toolsdef.h"
 
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
@@ -18,8 +19,8 @@ bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 tools_cJSON*   root;
 
-static char      g_client_info[32] = {0};
-int       g_majorVersionOfClient = 0;
+static char     g_client_info[32] = {0};
+int             g_majorVersionOfClient = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
@@ -61,7 +62,7 @@ int main(int argc, char* argv[]) {
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
 
 #endif
-    if (bench_parse_args(argc, argv)) {
+    if (benchParseArgs(argc, argv)) {
         return -1;
     }
 #ifdef WEBSOCKET
@@ -82,7 +83,7 @@ int main(int argc, char* argv[]) {
     }
 #endif
     if (g_arguments->metaFile) {
-        g_arguments->g_totalChildTables = 0;
+        g_arguments->totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
     } else {
         modify_argument();

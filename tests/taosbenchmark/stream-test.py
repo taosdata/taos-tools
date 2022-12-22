@@ -20,7 +20,7 @@ from util.dnodes import *
 class TDTestCase:
     def caseDescription(self):
         """
-        [TD-11510] taosBenchmark test cases
+        [TD-21047] taosBenchmark stream test cases
         """
 
     def init(self, conn, logSql):
@@ -55,34 +55,14 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = (
-            "%s -F abc -P abc -I abc -T abc -i abc -S abc -B abc -r abc -t abc -n abc -l abc -w abc -w 16385 -R abc -O abc -a abc -n 2 -t 2 -r 1 -y"
-            % binPath
-        )
+        cmd = "%s -f ./taosbenchmark/json/stream-test.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 4)
-
-        cmd = "%s non_exist_opt" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -f non_exist_file -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -h non_exist_host -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -p non_exist_pass -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -u non_exist_user -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
+        tdSql.execute("reset query cache")
+        tdSql.query("show db.tables")
+        tdSql.checkRows(10)
+        tdSql.query("select count(*) from db.stb")
+        tdSql.checkData(0, 0, 100)
 
     def stop(self):
         tdSql.close()

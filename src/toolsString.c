@@ -11,6 +11,9 @@
 
 #include <stdint.h>
 #include <assert.h>
+#include <stdbool.h>
+#include <string.h>
+#include <ctype.h>
 
 #ifdef WINDOWS
 char *strsep(char **stringp, const char *delim) {
@@ -60,3 +63,19 @@ void toolsLibFuncInclude() {
     fputs(0, 0);
 }
 #endif
+
+bool toolsIsStringNumber(char *input) {
+    int len = strlen(input);
+    if (0 == len) {
+        return false;
+    }
+
+    for (int i = 0; i < len; i++) {
+        if (!isdigit(input[i]))
+            return false;
+    }
+
+    return true;
+}
+
+
