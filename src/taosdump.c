@@ -80,6 +80,7 @@ static char    **g_tsDumpInDebugFiles     = NULL;
 static char      g_dumpInCharset[64] = {0};
 static char      g_dumpInServerVer[64] = {0};
 static int       g_dumpInDataMajorVer;
+static int       g_dumpInDataMinorVer;
 static char      g_dumpInEscapeChar[64] = {0};
 static char      g_dumpInLooseMode[64] = {0};
 static bool      g_dumpInLooseModeFlag = false;
@@ -7150,6 +7151,18 @@ static RecordSchema *getSchemaAndReaderFromFile(
     return recordSchema;
 }
 
+static void closeTaosConnWrapper(void *taos_v) {
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ws_close(taos_v);
+    } else {
+#endif
+        taos_close(taos_v);
+#ifdef WEBSOCKET
+    }
+#endif
+}
+
 static int64_t dumpInOneAvroFile(
         const char *dbPath,
         const AVROTYPE avroType,
@@ -7237,16 +7250,7 @@ static int64_t dumpInOneAvroFile(
             retExec = -1;
     }
 
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        ws_close(ws_taos);
-        ws_taos = NULL;
-    } else {
-#endif
-        taos_close(taos);
-#ifdef WEBSOCKET
-    }
-#endif
+    closeTaosConnWrapper(taos_v);
 
     freeRecordSchema(recordSchema);
     avro_schema_decref(schema);
@@ -9726,6 +9730,23 @@ static int dumpExtraInfoHead(void *taos, FILE *fp) {
                 __func__, __LINE__, strlen(buffer), len,
                     errno, strerror(errno));
     }
+#ifdef WINDOWS
+    snprintf(buffer, BUFFER_LEN, "#!os_id: Windows\n");
+#elif defined(LINUX)
+    snprintf(buffer, BUFFER_LEN, "#!os_id: LINUX\n");
+#elif defined(DARWIN)
+    snprintf(buffer, BUFFER_LEN, "#!os_id: macOS\n");
+#else
+    snprintf(buffer, BUFFER_LEN, "#!os_id: unknown\n");
+#endif
+    len = fwrite(buffer, 1, strlen(buffer), fp);
+    if (len != strlen(buffer)) {
+        errorPrint("%s() LN%d, write to file. "
+                "try to write %zd, actual len %zd, "
+                "Errno is %d. Reason is %s.\n",
+                __func__, __LINE__, strlen(buffer), len,
+                    errno, strerror(errno));
+    }
 
     snprintf(buffer, BUFFER_LEN, "#!escape_char: %s\n",
                 g_args.escape_char?"true":"false");
@@ -10180,6 +10201,18 @@ static int dumpInDbs(const char *dbPath) {
     loadFileMark(fp, mark, dumpInTaosdumpVer);
 
     g_dumpInDataMajorVer = atoi(dumpInTaosdumpVer);
+    g_dumpInDataMinorVer = atoi(dumpInTaosdumpVer+2);
+    debugPrint("%s() LN%d, dump in data minor version is: %d\n",
+               __func__, __LINE__, g_dumpInDataMinorVer);
+#ifdef WINDOWS
+    if (g_dumpInDataMajorVer == 2) && (g_dumpInDataMinorVer < 4) {
+        errorPrint("The data file dumped by taosdump < 2.4 on Windows "
+                   "might be corrupted. "
+                   "Please use version 2.4 or up to dump again\n");
+        closeTaosConnWrapper(taos_v);
+        return -1;
+    }
+#endif
 
     int taosToolsMajorVer = atoi(TAOSDUMP_TAG);
     if ((g_dumpInDataMajorVer > 1) && (1 == taosToolsMajorVer)) {
@@ -10188,15 +10221,7 @@ static int dumpInDbs(const char *dbPath) {
                    "\tPlease use a correct version taosdump "
                    "to restore them.\n\n",
                 g_dumpInDataMajorVer, taosToolsMajorVer);
-#ifdef WEBSOCKET
-        if (g_args.cloud || g_args.restful) {
-            ws_close(taos_v);
-        } else {
-#endif
-            taos_close(taos_v);
-#ifdef WEBSOCKET
-        }
-#endif
+        closeTaosConnWrapper(taos_v);
         return -1;
     }
 
@@ -10228,16 +10253,7 @@ static int dumpInDbs(const char *dbPath) {
     }
 
     fclose(fp);
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        ws_close(taos_v);
-        ws_taos = NULL;
-    } else {
-#endif
-        taos_close(taos_v);
-#ifdef WEBSOCKET
-    }
-#endif
+    closeTaosConnWrapper(taos_v);
 
     return (rows < 0)?rows:0;
 }
@@ -12223,16 +12239,7 @@ static int dumpOut() {
     ret = 0;
 
 _exit_failure:
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        ws_close(ws_taos);
-        ws_taos = NULL;
-    } else {
-#endif
-        taos_close(taos);
-#ifdef WEBSOCKET
-    }
-#endif
+    closeTaosConnWrapper(taos_v);
 _exit_failure_2:
     freeDbInfos();
     if (fpDbs) {
