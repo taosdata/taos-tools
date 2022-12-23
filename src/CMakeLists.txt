@@ -415,7 +415,8 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
     ENDIF ()
 ELSE ()
-    set (CMAKE_C_STANDARD 11)
+    ADD_DEFINITIONS(-DWINDOWS)
+    SET(CMAKE_C_STANDARD 11)
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
     IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
         ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsString.c toolsSys.c toolsString.c)
