@@ -9911,32 +9911,34 @@ static int64_t dumpInOneDebugFile(
     while ((read_len = getline(&line, &line_len, fp)) != -1) {
 #endif  // WINDOWS
         ++lineNo;
-
+        //if (read_len == 0 || isCommentLine(line)) {  // line starts with #
+        if (read_len == 0 ) {
+            continue;
+        }
+        if (line[0] == '#') {
+            continue;
+        }
+        for (ssize_t n = 0; n < read_len; n++) {
+             if (('\r' == line[n]) || ('\n' == line[n])) {
+                 line[n] = '\0';
+             }
+        }
+        read_len = strlen(line);
+        if (0 == read_len) {
+            continue;
+        }
         if (read_len >= TSDB_MAX_ALLOWED_SQL_LEN) {
             errorPrint("the No.%"PRId64" line is exceed "
                     "max allowed SQL length!\n", lineNo);
             debugPrint("%s() LN%d, line: %s", __func__, __LINE__, line);
             continue;
         }
-
-        line[--read_len] = '\0';
-
-        //if (read_len == 0 || isCommentLine(line)) {  // line starts with #
-        if (read_len == 0 ) {
-            continue;
-        }
-
-        if (line[0] == '#') {
-            continue;
-        }
-
-        if (line[read_len - 1] == '\\') {
-            line[read_len - 1] = ' ';
+        if (line[read_len] == '\\') {
+            line[read_len] = ' ';
             memcpy(cmd + cmd_len, line, read_len);
             cmd_len += read_len;
             continue;
         }
-
         memcpy(cmd + cmd_len, line, read_len);
         cmd[read_len + cmd_len]= '\0';
         bool isInsert = (0 == strncmp(cmd, "INSERT ", strlen("INSERT ")));
