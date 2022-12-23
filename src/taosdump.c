@@ -10207,7 +10207,7 @@ static int dumpInDbs(const char *dbPath) {
     debugPrint("%s() LN%d, dump in data minor version is: %d\n",
                __func__, __LINE__, g_dumpInDataMinorVer);
 #ifdef WINDOWS
-    if (g_dumpInDataMajorVer == 2) && (g_dumpInDataMinorVer < 4) {
+    if ((g_dumpInDataMajorVer == 2) && (g_dumpInDataMinorVer < 4)) {
         errorPrint("The data file dumped by taosdump < 2.4 on Windows "
                    "might be corrupted. "
                    "Please use version 2.4 or up to dump again\n");
