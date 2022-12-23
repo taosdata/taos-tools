@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21295-taosbenchmark-disorder'
+          ref: 'feat/sangshuduo/TD-16450-taosdump-for-windows'
 
       - name: Change time zone
         if:
