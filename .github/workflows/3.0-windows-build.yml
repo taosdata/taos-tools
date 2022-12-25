@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-16450-taosdump-for-windows'
+          ref: 'fix/sangshuduo/TD-21131-taosbenchmark-bigint-random'
 
       - name: create debug directory
         if: |
