@@ -145,6 +145,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
         case 'h':
             g_arguments->host = arg;
             g_arguments->host_auto = false;
+            g_arguments->nthreads_auto = false;
             break;
 
         case 'P':
