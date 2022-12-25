@@ -12066,7 +12066,7 @@ static int dumpOut() {
     }
 
     /* Connect to server and dump extra info*/
-    void *taos_v;
+    void *taos_v = NULL;
 #ifdef WEBSOCKET
     WS_TAOS  *ws_taos    = NULL;
 
