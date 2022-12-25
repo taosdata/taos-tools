@@ -76,7 +76,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           choco install jom -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
+          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom && jom install
 
           #      - name: Func Test
           #        run: |
