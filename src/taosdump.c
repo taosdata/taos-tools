@@ -10208,7 +10208,7 @@ static int dumpInDbs(const char *dbPath) {
                __func__, __LINE__, g_dumpInDataMinorVer);
 #ifdef WINDOWS
     if ((g_dumpInDataMajorVer == 2) && (g_dumpInDataMinorVer < 4)) {
-        errorPrint("The data file dumped by taosdump < 2.4 on Windows "
+        errorPrint("%s", "The data file dumped by taosdump < 2.4 on Windows "
                    "might be corrupted. "
                    "Please use version 2.4 or up to dump again\n");
         closeTaosConnWrapper(taos_v);
@@ -12066,7 +12066,7 @@ static int dumpOut() {
     }
 
     /* Connect to server and dump extra info*/
-    void *taos_v;
+    void *taos_v = NULL;
 #ifdef WEBSOCKET
     WS_TAOS  *ws_taos    = NULL;
 
