@@ -6999,17 +6999,22 @@ static int64_t dumpInAvroDataImpl(
             int32_t affected_rows;
             if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
                 errorPrint("%s() LN%d ws_stmt_execute() failed!"
-                        " ws_taos: %p, code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
-                        __func__, __LINE__, taos, code, ws_errstr(ws_stmt), ts_debug);
+                            " ws_taos: %p, code: 0x%08x, reason: %s, "
+                            "timestamp: %"PRId64"\n",
+                            __func__, __LINE__, taos, code,
+                            ws_errstr(ws_stmt), ts_debug);
                 failed -= stmt_count;
+                break;
             } else {
                 success++;
             }
         } else {
 #endif
-            if (0 != taos_stmt_bind_param_batch(stmt, (TAOS_MULTI_BIND *)bindArray)) {
-                errorPrint("%s() LN%d stmt_bind_param_batch() failed! reason: %s\n",
-                        __func__, __LINE__, taos_stmt_errstr(stmt));
+            if (0 != taos_stmt_bind_param_batch(stmt,
+                    (TAOS_MULTI_BIND *)bindArray)) {
+                errorPrint("%s() LN%d stmt_bind_param_batch() failed! "
+                            "reason: %s\n",
+                            __func__, __LINE__, taos_stmt_errstr(stmt));
                 freeBindArray(bindArray, onlyCol);
                 failed++;
                 if (g_dumpInLooseModeFlag) {
@@ -7029,9 +7034,11 @@ static int64_t dumpInAvroDataImpl(
                 continue;
             }
             if (0 != taos_stmt_execute(stmt)) {
-                errorPrint("%s() LN%d taos_stmt_execute() failed! reason: %s, timestamp: %"PRId64"\n",
+                errorPrint("%s() LN%d taos_stmt_execute() failed! "
+                           "reason: %s, timestamp: %"PRId64"\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
                 failed -= stmt_count;
+                break;
             } else {
                 success++;
             }
