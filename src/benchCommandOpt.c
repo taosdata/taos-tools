@@ -725,6 +725,7 @@ void init_argument() {
     g_arguments->keep_trying = 0;
     g_arguments->trying_interval = 0;
     g_arguments->iface = TAOSC_IFACE;
+    g_arguments->rest_server_ver_major = -1;
 
     init_database();
     init_stable();
@@ -812,6 +813,17 @@ void modify_argument() {
     if (g_arguments->keep_trying) {
         superTable->keep_trying = g_arguments->keep_trying;
         superTable->trying_interval = g_arguments->trying_interval;
+    }
+
+    if (REST_IFACE == g_arguments->iface) {
+        if (0 != convertServAddr(g_arguments->iface,
+                                 false,
+                                 1)) {
+            errorPrint("%s", "Failed to convert server address\n");
+            return;
+        }
+        encodeAuthBase64();
+        g_arguments->rest_server_ver_major = getServerVersionRest();
     }
 }
 

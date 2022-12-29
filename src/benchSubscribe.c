@@ -276,8 +276,6 @@ free_of_super_subscribe:
 int subscribeTestProcess() {
     prompt(0);
 
-    encode_base_64();
-
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
         SBenchConn* conn = init_bench_conn();
         if (conn == NULL) {

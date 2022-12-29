@@ -672,6 +672,7 @@ typedef struct SArguments_S {
     int32_t             keep_trying;
     uint32_t            trying_interval;
     int                 iface;
+    int                 rest_server_ver_major;
 } SArguments;
 
 typedef struct SBenchConn{
@@ -764,7 +765,7 @@ void parseFieldDatatype(char *dataType, BArray *fields, bool isTag);
 int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
-void    encode_base_64();
+void    encodeAuthBase64();
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
@@ -776,10 +777,11 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
+int     getServerVersionRest();
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                     int protocol, bool tcp, int sockfd, char* filePath);
 int     queryDbExec(SBenchConn *conn, char *command);
-int queryDbExecRest(char *command, char* dbName, int precision,
+int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);
 SBenchConn* init_bench_conn();
 void    close_bench_conn(SBenchConn* conn);

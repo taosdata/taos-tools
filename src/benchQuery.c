@@ -739,7 +739,6 @@ void *queryKiller(void *arg) {
 }
 
 int queryTestProcess() {
-    encode_base_64();
     prompt(0);
 
     pthread_t pidKiller = {0};

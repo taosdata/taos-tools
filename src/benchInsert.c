@@ -52,7 +52,7 @@ static int getSuperTableFromServerRest(
         return -1;
     }
 
-    int code =  postProceSql(command,
+    int code = postProceSql(command,
                          database->dbName,
                          database->precision,
                          REST_IFACE,
@@ -478,7 +478,7 @@ int createDatabaseRest(SDataBase* database) {
     }
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
-    code =  postProceSql(command,
+    code = postProceSql(command,
                          database->dbName,
                          database->precision,
                          REST_IFACE,
@@ -491,7 +491,7 @@ int createDatabaseRest(SDataBase* database) {
         errorPrint("Failed to drop database %s\n", database->dbName);
     } else {
         geneDbCreateCmd(database, command);
-        code =  postProceSql(command,
+        code = postProceSql(command,
                              database->dbName,
                              database->precision,
                              REST_IFACE,
@@ -963,7 +963,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case REST_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
-            code =  postProceSql(pThreadInfo->buffer,
+            code = postProceSql(pThreadInfo->buffer,
                                   database->dbName,
                                   database->precision,
                                   stbInfo->iface,
@@ -975,7 +975,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
-                code =  postProceSql(pThreadInfo->buffer,
+                code = postProceSql(pThreadInfo->buffer,
                                   database->dbName,
                                   database->precision,
                                   stbInfo->iface,
@@ -2577,8 +2577,6 @@ END:
 int insertTestProcess() {
 
     prompt(0);
-
-    encode_base_64();
 
     for (int i = 0; i < g_arguments->databases->size; ++i) {
         if (REST_IFACE == g_arguments->iface) {
