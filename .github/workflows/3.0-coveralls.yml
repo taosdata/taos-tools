@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2253-taosbenchmark-rest-mode-in-json'
+          ref: 'fix/sangshuduo/TD-21131-taosbenchmark-bigint-random'
 
       - name: Change time zone
         if:
@@ -340,7 +340,7 @@ jobs:
 
           cd debug
           echo "TEST: normal table"
-          ./build/bin/taosBenchmark -N -t 2 -n 10 -y > /dev/null
+          ./build/bin/taosBenchmark -N -t 2 -n 10 -x -g -y > /dev/null
           ./build/bin/taosdump -D test -gg > /dev/null
           taos -s "drop database test"
           ./build/bin/taosdump -i . -gg > /dev/null
@@ -699,7 +699,7 @@ jobs:
           gcov -abcfu ${topdir}/taos-tools/src/benchJsonOpt.c -o src/CMakeFiles/taosBenchmark.dir/benchJsonOpt.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchOutput.c -o src/CMakeFiles/taosBenchmark.dir/benchOutput.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchQuery.c -o src/CMakeFiles/taosBenchmark.dir/benchQuery.c.gcno
-          gcov -abcfu ${topdir}/taos-tools/src/benchSubscribe.c -o src/CMakeFiles/taosBenchmark.dir/benchSubscribe.c.gcno
+          gcov -abcfu ${topdir}/taos-tools/src/benchTmq.c -o src/CMakeFiles/taosBenchmark.dir/benchTmq.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
           mkdir ${topdir}/coverage || :
           lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info

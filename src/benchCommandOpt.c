@@ -12,6 +12,14 @@
 
 #include "bench.h"
 
+#ifdef LINUX
+#include <argp.h>
+#else
+#ifndef ARGP_ERR_UNKNOWN
+    #define ARGP_ERR_UNKNOWN E2BIG
+#endif
+#endif
+
 extern char version[];
 
 // get taosBenchmark commit number version
@@ -33,54 +41,6 @@ char      g_configDir[MAX_PATH_LEN] = {0};  // "C:\\TDengine\\cfg"};
 char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
 #endif
 
-
-#define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
-#define BENCH_CFG_DIR "Configuration directory."
-#define BENCH_HOST  "TDengine server FQDN to connect, default is localhost."
-#define BENCH_PORT  "The TCP/IP port number to use for the connection, default is 6030."
-#define BENCH_MODE  "insert mode, default is taosc, options: taosc|rest|stmt|sml"
-#define BENCH_USER  "The user name to use when connecting to the server, default is root."
-#define BENCH_PASS  "The password to use when connecting to the server, default is taosdata."
-#define BENCH_OUTPUT  "The path of result output file, default is ./output.txt."
-#define BENCH_THREAD  "The number of thread when insert data, default is 8."
-#define BENCH_INTERVAL  "Insert interval for interlace mode in milliseconds, default is 0."
-#define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
-#define BENCH_SUPPLEMENT "Supplementally insert data without create database and table, optional, default is off."
-#define BENCH_START_TIMESTAMP "Specify timestamp to insert data. Optional, default is 1500000000000 (2017-07-14 10:40:00.000)."
-#define BENCH_INTERLACE "The number of interlace rows insert into tables, default is 0."
-#define BENCH_BATCH "Number of records in each insert request, default is 30000."
-#define BENCH_TABLE "Number of child tables, default is 10000."
-#define BENCH_ROWS  "Number of records for each table, default is 10000."
-#define BENCH_DATABASE  "Name of database, default is test."
-#define BENCH_COLS_NUM  "Number of INT data type columns in table, default is 0."
-#define BENCH_PARTIAL_COL_NUM "Specify first numbers of columns has data. Rest of columns' data are NULL. Default is all columns have data"
-#define BENCH_TAGS  "Data type of tables' tags, default is INT,BINARY(16)."
-#define BENCH_COLS  "Data type of tables' cols, default is FLOAT,INT,FLOAT."
-#define BENCH_WIDTH "The default length of nchar and binary if not specified, default is 64."
-#define BENCH_PREFIX  "Prefix of child table name, default is d."
-#define BENCH_ESCAPE "Use escape character in stable and child table name, optional."
-#define BENCH_CHINESE "Nchar and binary are basic unicode chinese characters, optional."
-#define BENCH_NORMAL  "Only create normal table without super table, optional."
-#define BENCH_RANDOM  "Data source is randomly generated, optional."
-#define BENCH_AGGR  "Query aggregation function after insertion, optional."
-#define BENCH_YES "Pass confirmation prompt to continue, optional."
-#define BENCH_RANGE "Range of disordered timestamp, default is 1000."
-#define BENCH_DISORDER "Ratio of inserting data with disorder timestamp, default is 0."
-#define BENCH_REPLICA "The number of replica when create database, default is 1."
-#define BENCH_DEBUG "Debug mode, optional."
-#define BENCH_PERFORMANCE "Performance mode, optional."
-#define BENCH_PREPARE "Random data source size, default is 10000."
-#define BENCH_POOL  "The connection pool size(deprecated)."
-#define BENCH_EMAIL   "<support@taosdata.com>"
-#define BENCH_VERSION "Print program version."
-#define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
-#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a postive number. Only valid when keep trying be enabled."
-
-#ifdef WEBSOCKET
-#define BENCH_DSN "The dsn to connect TDengine cloud service."
-#define BENCH_TIMEOUT "The timeout wait on websocket query in seconds, default is 10."
-#endif
-
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
                            "avg(current)",
@@ -92,128 +52,18 @@ char *g_aggreFuncDemo[] = {"*",
 char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
                        "max(C0)", "min(C0)",  "first(C0)", "last(C0)"};
 
-static int32_t bench_parse_single_opt(int32_t key, char* arg);
-
-void bench_print_help() {
-    char indent[] = "  ";
-    printf("Usage: taosBenchmark [OPTION ...] \r\n\r\n");
-    printf("%s%s%s%s\r\n", indent, "-f,", indent, BENCH_FILE);
-    printf("%s%s%s%s\r\n", indent, "-a,", indent, BENCH_REPLICA);
-    printf("%s%s%s%s\r\n", indent, "-A,", indent, BENCH_TAGS);
-    printf("%s%s%s%s\r\n", indent, "-b,", indent, BENCH_COLS);
-    printf("%s%s%s%s\r\n", indent, "-B,", indent, BENCH_INTERLACE);
-    printf("%s%s%s%s\r\n", indent, "-c,", indent, BENCH_CFG_DIR);
-    printf("%s%s%s%s\r\n", indent, "-C,", indent, BENCH_CHINESE);
-    printf("%s%s%s%s\r\n", indent, "-d,", indent, BENCH_DATABASE);
-    printf("%s%s%s%s\r\n", indent, "-E,", indent, BENCH_ESCAPE);
-    printf("%s%s%s%s\r\n", indent, "-F,", indent, BENCH_PREPARE);
-    printf("%s%s%s%s\r\n", indent, "-g,", indent, BENCH_DEBUG);
-    printf("%s%s%s%s\r\n", indent, "-G,", indent, BENCH_PERFORMANCE);
-    printf("%s%s%s%s\r\n", indent, "-h,", indent, BENCH_HOST);
-    printf("%s%s%s%s\r\n", indent, "-H,", indent, BENCH_POOL);
-    printf("%s%s%s%s\r\n", indent, "-i,", indent, BENCH_INTERVAL);
-    printf("%s%s%s%s\r\n", indent, "-I,", indent, BENCH_MODE);
-    printf("%s%s%s%s\r\n", indent, "-l,", indent, BENCH_COLS_NUM);
-    printf("%s%s%s%s\r\n", indent, "-L,", indent, BENCH_PARTIAL_COL_NUM);
-    printf("%s%s%s%s\r\n", indent, "-m,", indent, BENCH_PREFIX);
-    printf("%s%s%s%s\r\n", indent, "-M,", indent, BENCH_RANDOM);
-    printf("%s%s%s%s\r\n", indent, "-n,", indent, BENCH_ROWS);
-    printf("%s%s%s%s\r\n", indent, "-N,", indent, BENCH_NORMAL);
-    printf("%s%s%s%s\r\n", indent, "-k,", indent, BENCH_KEEPTRYING);
-    printf("%s%s%s%s\r\n", indent, "-o,", indent, BENCH_OUTPUT);
-    printf("%s%s%s%s\r\n", indent, "-O,", indent, BENCH_DISORDER);
-    printf("%s%s%s%s\r\n", indent, "-p,", indent, BENCH_PASS);
-    printf("%s%s%s%s\r\n", indent, "-P,", indent, BENCH_PORT);
-    printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
-    printf("%s%s%s%s\r\n", indent, "-R,", indent, BENCH_RANGE);
-    printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
-    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
-    printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
-    printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
-    printf("%s%s%s%s\r\n", indent, "-u,", indent, BENCH_USER);
-    printf("%s%s%s%s\r\n", indent, "-U,", indent, BENCH_SUPPLEMENT);
-    printf("%s%s%s%s\r\n", indent, "-w,", indent, BENCH_WIDTH);
-    printf("%s%s%s%s\r\n", indent, "-x,", indent, BENCH_AGGR);
-    printf("%s%s%s%s\r\n", indent, "-y,", indent, BENCH_YES);
-    printf("%s%s%s%s\r\n", indent, "-z,", indent, BENCH_TRYING_INTERVAL);
-#ifdef WEBSOCKET
-    printf("%s%s%s%s\r\n", indent, "-W,", indent, BENCH_DSN);
-    printf("%s%s%s%s\r\n", indent, "-D,", indent, BENCH_TIMEOUT);
-#endif
-    printf("%s%s%s%s\r\n", indent, "-V,", indent, BENCH_VERSION);
-    printf("\r\n\r\nReport bugs to %s.\r\n", BENCH_EMAIL);
+void printVersion() {
+    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
+    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
+    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
+    if (0 == strlen(taosBenchmark_status)) {
+        printf("taosBenchmark version: %s\ngitinfo: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit);
+    } else {
+        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
+    }
 }
-
-#ifdef LINUX
-
-#include <argp.h>
-
-const char *              argp_program_version = version;
-const char *              argp_program_bug_address = BENCH_EMAIL;
-
-static struct argp_option bench_options[] = {
-    {"file", 'f', "FILE", 0, BENCH_FILE, 0},
-    {"config-dir", 'c', "CONFIG_DIR", 0, BENCH_CFG_DIR, 1},
-    {"host", 'h', "HOST", 0, BENCH_HOST},
-    {"port", 'P', "PORT", 0, BENCH_PORT},
-    {"interface", 'I', "IFACE", 0, BENCH_MODE},
-    {"user", 'u', "USER", 0, BENCH_USER},
-    {"password", 'p', "PASSWORD", 0, BENCH_PASS},
-    {"output", 'o', "FILE", 0, BENCH_OUTPUT},
-    {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
-    {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
-    {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
-    {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
-    {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
-    {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},
-    {"rec-per-req", 'r', "NUMBER", 0, BENCH_BATCH},
-    {"tables", 't', "NUMBER", 0, BENCH_TABLE},
-    {"records", 'n', "NUMBER", 0, BENCH_ROWS},
-    {"database", 'd', "DATABASE", 0, BENCH_DATABASE},
-    {"columns", 'l', "NUMBER", 0, BENCH_COLS_NUM},
-    {"partial-col-num", 'L', "NUMBER", 0, BENCH_PARTIAL_COL_NUM},
-    {"tag-type", 'A', "TAG_TYPE", 0, BENCH_TAGS},
-    {"data-type", 'b', "COL_TYPE", 0, BENCH_COLS},
-    {"binwidth", 'w', "NUMBER", 0, BENCH_WIDTH},
-    {"table-prefix", 'm', "TABLE_PREFIX", 0, BENCH_PREFIX},
-    {"escape-character", 'E', 0, 0, BENCH_ESCAPE},
-    {"chinese", 'C', 0, 0, BENCH_CHINESE},
-    {"normal-table", 'N', 0, 0, BENCH_NORMAL},
-    {"random", 'M', 0, 0, BENCH_RANDOM},
-    {"aggr-func", 'x', 0, 0, BENCH_AGGR},
-    {"answer-yes", 'y', 0, 0, BENCH_YES},
-    {"disorder-range", 'R', "NUMBER", 0, BENCH_RANGE},
-    {"disorder", 'O', "NUMBER", 0, BENCH_DISORDER},
-    {"replia", 'a', "NUMBER", 0, BENCH_REPLICA},
-    {"debug", 'g', 0, 0, BENCH_DEBUG},
-    {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
-    {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},
-    {"connection_pool_size", 'H', "NUMBER", 0, BENCH_POOL},
-#ifdef WEBSOCKET
-    {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
-    {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
-#endif
-    {"keep-trying", 'k', "NUMBER", 0, BENCH_KEEPTRYING},
-    {"trying-interval", 'z', "NUMBER", 0, BENCH_TRYING_INTERVAL},
-    {"version", 'V', 0, 0, BENCH_VERSION},
-    {0}
-};
-
-static error_t bench_parse_opt(int key, char *arg, struct argp_state *state) {
-    return bench_parse_single_opt(key, arg);
-}
-
-static struct argp bench_argp = {bench_options, bench_parse_opt, "", ""};
-
-void bench_parse_args_in_argp(int argc, char *argv[]) {
-    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
-}
-
-#endif
-
-#ifndef ARGP_ERR_UNKNOWN
-  #define ARGP_ERR_UNKNOWN E2BIG
-#endif
 
 void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
     char *dup_str;
@@ -268,20 +118,7 @@ void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
     }
 }
 
-static void printVersion() {
-    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
-    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
-    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
-    if (0 == strlen(taosBenchmark_status)) {
-        printf("taosBenchmark version: %s\ngitinfo: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit);
-    } else {
-        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
-    }
-}
-
-static int32_t bench_parse_single_opt(int32_t key, char* arg) {
+int32_t benchParseSingleOpt(int32_t key, char* arg) {
     SDataBase *database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
     switch (key) {
@@ -308,6 +145,7 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
         case 'h':
             g_arguments->host = arg;
             g_arguments->host_auto = false;
+            g_arguments->nthreads_auto = false;
             break;
 
         case 'P':
@@ -383,9 +221,6 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
             } else {
                 g_arguments->nthreads_auto = false;
             }
-            break;
-
-        case 'H':
             break;
 
         case 'i':
@@ -679,78 +514,76 @@ static int32_t bench_parse_single_opt(int32_t key, char* arg) {
     return 0;
 }
 
-int32_t bench_parse_args_no_argp(int argc, char* argv[]) {
-    for (int i = 1; i < argc; ++i) {
-        if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--version") == 0) {
-            printVersion();
-            exit(EXIT_SUCCESS);
-        }
+#ifdef LINUX
 
-        if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0
-            || strcmp(argv[i], "-?") == 0) {
-            bench_print_help();
-            exit(EXIT_SUCCESS);
-        }
+const char *              argp_program_version = version;
+const char *              argp_program_bug_address = BENCH_EMAIL;
 
-        char* key = argv[i];
-        int32_t key_len = strlen(key);
-        if (key_len != 2) {
-            errorPrint("Invalid option %s\r\n", key);
-            return -1;
-        }
-        if (key[0] != '-') {
-            errorPrint("Invalid option %s\r\n", key);
-            return -1;
-        }
-
-        if (key[1] == 'f' || key[1] == 'c'
-            || key[1] == 'h' || key[1] == 'P'
-            || key[1] == 'I' || key[1] == 'u'
-            || key[1] == 'p' || key[1] == 'o'
-            || key[1] == 'T' || key[1] == 'i'
-            || key[1] == 'S' || key[1] == 'B'
-            || key[1] == 'r' || key[1] == 't'
-            || key[1] == 'n' || key[1] == 'L'
-            || key[1] == 'd' || key[1] == 'l'
-            || key[1] == 'A' || key[1] == 'b'
-            || key[1] == 'w' || key[1] == 'm'
-            || key[1] == 'R' || key[1] == 'O'
-            || key[1] == 'a' || key[1] == 'F'
-            || key[1] == 'k' || key[1] == 'z'
+static struct argp_option bench_options[] = {
+    {"file", 'f', "FILE", 0, BENCH_FILE, 0},
+    {"config-dir", 'c', "CONFIG_DIR", 0, BENCH_CFG_DIR, 1},
+    {"host", 'h', "HOST", 0, BENCH_HOST},
+    {"port", 'P', "PORT", 0, BENCH_PORT},
+    {"interface", 'I', "IFACE", 0, BENCH_MODE},
+    {"user", 'u', "USER", 0, BENCH_USER},
+    {"password", 'p', "PASSWORD", 0, BENCH_PASS},
+    {"output", 'o', "FILE", 0, BENCH_OUTPUT},
+    {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
+    {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
+    {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
+    {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
+    {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
+    {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},
+    {"rec-per-req", 'r', "NUMBER", 0, BENCH_BATCH},
+    {"tables", 't', "NUMBER", 0, BENCH_TABLE},
+    {"records", 'n', "NUMBER", 0, BENCH_ROWS},
+    {"database", 'd', "DATABASE", 0, BENCH_DATABASE},
+    {"columns", 'l', "NUMBER", 0, BENCH_COLS_NUM},
+    {"partial-col-num", 'L', "NUMBER", 0, BENCH_PARTIAL_COL_NUM},
+    {"tag-type", 'A', "TAG_TYPE", 0, BENCH_TAGS},
+    {"data-type", 'b', "COL_TYPE", 0, BENCH_COLS},
+    {"binwidth", 'w', "NUMBER", 0, BENCH_WIDTH},
+    {"table-prefix", 'm', "TABLE_PREFIX", 0, BENCH_PREFIX},
+    {"escape-character", 'E', 0, 0, BENCH_ESCAPE},
+    {"chinese", 'C', 0, 0, BENCH_CHINESE},
+    {"normal-table", 'N', 0, 0, BENCH_NORMAL},
+    {"random", 'M', 0, 0, BENCH_RANDOM},
+    {"aggr-func", 'x', 0, 0, BENCH_AGGR},
+    {"answer-yes", 'y', 0, 0, BENCH_YES},
+    {"disorder-range", 'R', "NUMBER", 0, BENCH_RANGE},
+    {"disorder", 'O', "NUMBER", 0, BENCH_DISORDER},
+    {"replia", 'a', "NUMBER", 0, BENCH_REPLICA},
+    {"debug", 'g', 0, 0, BENCH_DEBUG},
+    {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
+    {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},
 #ifdef WEBSOCKET
-            || key[1] == 'D' || key[1] == 'W'
+    {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
+    {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
 #endif
-        ) {
-            if (i + 1 >= argc) {
-                errorPrint("option %s requires an argument\r\n", key);
-                return -1;
-            }
-            char* val = argv[i+1];
-            if (val[0] == '-') {
-                errorPrint("option %s requires an argument\r\n", key);
-                return -1;
-            }
-            bench_parse_single_opt(key[1], val);
-            i++;
-        } else if (key[1] == 'E' || key[1] == 'C'
-                || key[1] == 'N' || key[1] == 'M'
-                || key[1] == 'x' || key[1] == 'y'
-                || key[1] == 'g' || key[1] == 'G' || key[1] == 'V') {
-            bench_parse_single_opt(key[1], NULL);
-        } else {
-            errorPrint("Invalid option %s\r\n", key);
-            return -1;
-        }
-    }
-    return 0;
+    {"keep-trying", 'k', "NUMBER", 0, BENCH_KEEPTRYING},
+    {"trying-interval", 'z', "NUMBER", 0, BENCH_TRYING_INTERVAL},
+    {"version", 'V', 0, 0, BENCH_VERSION},
+    {0}
+};
+
+static error_t benchParseOpt(int key, char *arg, struct argp_state *state) {
+    return benchParseSingleOpt(key, arg);
 }
 
-int32_t bench_parse_args(int32_t argc, char* argv[]) {
+static struct argp bench_argp = {bench_options, benchParseOpt, "", ""};
+
+void benchParseArgsByArgp(int argc, char *argv[]) {
+    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
+}
+
+#endif
+
+int32_t benchParseArgs(int32_t argc, char* argv[]) {
 #ifdef LINUX
-    bench_parse_args_in_argp(argc, argv);
+    benchParseArgsByArgp(argc, argv);
     return 0;
 #else
-    return bench_parse_args_no_argp(argc, argv);
+    return benchParseArgsNoArgp(argc, argv);
 #endif
 }
 

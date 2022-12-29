@@ -39,10 +39,50 @@ ENDIF ()
 FIND_PACKAGE(Git)
 IF(GIT_FOUND)
     EXECUTE_PROCESS(
-        COMMAND sh -c "${GIT_EXECUTABLE} --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}/taosdump.c"
+        COMMAND sh -c "git for-each-ref --sort=taggerdate --format '%(tag)' refs/tags|grep taosdump|tail -1"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        RESULT_VARIABLE TAG_RESULT
+        OUTPUT_VARIABLE TAOSDUMP_FULLTAG
+        )
+    EXECUTE_PROCESS(
+        COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${TAOSDUMP_FULLTAG}"
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         RESULT_VARIABLE RESULT
         OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
+        )
+    EXECUTE_PROCESS(
+        COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c"
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSDUMP_STATUS
+        ERROR_QUIET
+        )
+    EXECUTE_PROCESS(
+        COMMAND sh "-c" "echo '${TAOSDUMP_FULLTAG}' | awk -F '-' '{print $2}'"
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSDUMP_TAG
+        )
+    EXECUTE_PROCESS(
+        COMMAND sh -c "git for-each-ref --sort=taggerdate --format '%(tag)' refs/tags|grep taosbenchmark|tail -1"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        RESULT_VARIABLE TAG_RESULT
+        OUTPUT_VARIABLE TAOSBENCHMARK_FULLTAG
+        )
+    EXECUTE_PROCESS(
+        COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${TAOSBENCHMARK_FULLTAG}"
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSBENCHMARK_COMMIT_SHA1
+        )
+    EXECUTE_PROCESS(
+        COMMAND sh "-c" "echo '${TAOSBENCHMARK_FULLTAG}' | awk -F '-' '{print $2}'"
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSBENCHMARK_TAG
+        )
+    EXECUTE_PROCESS(
+        COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. status -z -s ${CMAKE_CURRENT_LIST_DIR}/bench*.c"
+        RESULT_VARIABLE RESULT
+        OUTPUT_VARIABLE TAOSBENCHMARK_STATUS
+        ERROR_QUIET
         )
     IF ("${TAOSDUMP_COMMIT_SHA1}" STREQUAL "")
         SET(TAOSDUMP_COMMIT_SHA1 "unknown")
@@ -50,73 +90,23 @@ IF(GIT_FOUND)
         STRING(SUBSTRING "${TAOSDUMP_COMMIT_SHA1}" 0 7 TAOSDUMP_COMMIT_SHA1)
         STRING(STRIP "${TAOSDUMP_COMMIT_SHA1}" TAOSDUMP_COMMIT_SHA1)
     ENDIF ()
-
-    EXECUTE_PROCESS(
-        COMMAND sh -c "${GIT_EXECUTABLE} tag |grep taosdump|sort|tail -1|gawk -F '-' '{print $2}'"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        RESULT_VARIABLE TAG_RESULT
-        OUTPUT_VARIABLE TAOSDUMP_TAG
-        )
-
     IF ("${TAOSDUMP_TAG}" STREQUAL "")
         SET(TAOSDUMP_TAG "0.1.0")
     ELSE ()
         STRING(STRIP "${TAOSDUMP_TAG}" TAOSDUMP_TAG)
     ENDIF ()
 
-    EXECUTE_PROCESS(
-            COMMAND sh -c "${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c"
-            RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSDUMP_STATUS
-    )
-
-    EXECUTE_PROCESS(
-        COMMAND sh -c "${GIT_EXECUTABLE} --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${CMAKE_CURRENT_LIST_DIR}"
-            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-            RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSBENCHMARK_COMMIT_SHA1
-    )
     IF ("${TAOSBENCHMARK_COMMIT_SHA1}" STREQUAL "")
         SET(TAOSBENCHMARK_COMMIT_SHA1 "unknown")
     ELSE ()
         STRING(SUBSTRING "${TAOSBENCHMARK_COMMIT_SHA1}" 0 7 TAOSBENCHMARK_COMMIT_SHA1)
         STRING(STRIP "${TAOSBENCHMARK_COMMIT_SHA1}" TAOSBENCHMARK_COMMIT_SHA1)
     ENDIF ()
-    IF ("${TAOSBENCHMARK_COMMIT_SHA1}" STREQUAL "")
-        SET(TAOSBENCHMARK_COMMIT_SHA1 "unknown")
-    ELSE ()
-        STRING(SUBSTRING "${TAOSBENCHMARK_COMMIT_SHA1}" 0 7 TAOSBENCHMARK_COMMIT_SHA1)
-        STRING(STRIP "${TAOSBENCHMARK_COMMIT_SHA1}" taosbenchmark_COMMIT_SHA1)
-    ENDIF ()
-
-    EXECUTE_PROCESS(
-        COMMAND sh -c "${GIT_EXECUTABLE} tag |grep taosbenchmark|sort|tail -1|gawk -F '-' '{print $2}'"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        RESULT_VARIABLE TAG_RESULT
-        OUTPUT_VARIABLE TAOSBENCHMARK_TAG
-        )
     IF ("${TAOSBENCHMARK_TAG}" STREQUAL "")
         SET(TAOSBENCHMARK_TAG "0.1.0")
     ELSE ()
         STRING(STRIP "${TAOSBENCHMARK_TAG}" TAOSBENCHMARK_TAG)
     ENDIF ()
-
-    EXECUTE_PROCESS(
-            COMMAND ${GIT_EXECUTABLE} status -z -s ${CMAKE_CURRENT_LIST_DIR}/bench*.c
-            RESULT_VARIABLE RESULT
-            OUTPUT_VARIABLE TAOSBENCHMARK_STATUS
-    )
-
-    EXECUTE_PROCESS(
-        COMMAND sh "-c" "echo '${TAOSDUMP_STATUS}' | awk '{print $1}'"
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSDUMP_STATUS
-        )
-    EXECUTE_PROCESS(
-        COMMAND sh "-c" "echo '${taosbenchmark_STATUS}' | awk '{print $1}'"
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE taosbenchmark_STATUS
-        )
 ELSE()
     MESSAGE("Git not found")
     SET(TAOSDUMP_COMMIT_SHA1 "unknown")
@@ -201,9 +191,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         ADD_DEPENDENCIES(taosdump deps-jansson)
         ADD_DEPENDENCIES(taosdump deps-snappy)
         IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ENDIF()
     ELSE ()
         INCLUDE_DIRECTORIES(/usr/local/include)
@@ -212,9 +202,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET(OS_ID "Darwin")
 
         IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ENDIF()
     ENDIF ()
 
@@ -380,12 +370,13 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
     ENDIF ()
 ELSE ()
-    set (CMAKE_C_STANDARD 11)
+    ADD_DEFINITIONS(-DWINDOWS)
+    SET(CMAKE_C_STANDARD 11)
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
     IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsString.c toolsSys.c toolsString.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsString.c toolsSys.c toolsString.c)
     ELSE ()
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c toolstime.c toolsSys.c toolsString.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
     ENDIF ()
 
     ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)

@@ -11,6 +11,8 @@
 
 # -*- coding: utf-8 -*-
 import os
+import subprocess
+
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -20,7 +22,7 @@ from util.dnodes import *
 class TDTestCase:
     def caseDescription(self):
         """
-        [TD-11510] taosBenchmark test cases
+        [TD-19985] taosBenchmark retry test cases
         """
 
     def init(self, conn, logSql):
@@ -36,8 +38,11 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/tests/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            projPath = selfPath[: selfPath.find("tests")]
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dummy, files in os.walk(projPath):
@@ -47,42 +52,33 @@ class TDTestCase:
                     paths.append(os.path.join(root, tool))
                     break
         if len(paths) == 0:
-            tdLog.exit("taosBenchmark not found!")
-            return
-        else:
-            tdLog.info("taosBenchmark found in %s" % paths[0])
-            return paths[0]
+            return ""
+        return paths[0]
 
     def run(self):
         binPath = self.getPath()
         cmd = (
-            "%s -F abc -P abc -I abc -T abc -i abc -S abc -B abc -r abc -t abc -n abc -l abc -w abc -w 16385 -R abc -O abc -a abc -n 2 -t 2 -r 1 -y"
+            "%s -f ./taosbenchmark/json/taosc_insert_retry-stb.json"
+                #            "%s -t 1 -n 10 -i 5000 -r 1 -y &"
             % binPath
         )
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
+        time.sleep(2)
+        tdDnodes.stopAll()
+        time.sleep(2)
+        tdDnodes.start(1)
+        time.sleep(2)
+
+        psCmd = "ps -ef|grep -w taosBenchmark| grep -v grep | awk '{print $2}'"
+        processID = subprocess.check_output(psCmd, shell=True)
+
+        while processID:
+            time.sleep(1)
+            processID = subprocess.check_output(psCmd, shell=True)
+
         tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 4)
-
-        cmd = "%s non_exist_opt" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -f non_exist_file -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -h non_exist_host -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -p non_exist_pass -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -u non_exist_user -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
+        tdSql.checkData(0, 0, 10)
 
     def stop(self):
         tdSql.close()

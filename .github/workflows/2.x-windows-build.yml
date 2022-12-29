@@ -73,10 +73,14 @@ jobs:
 
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
-          choco install jom -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
+          choco install jom gawk grep -y
+          #cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom && jom install
+          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" && jom && jom install
 
           #      - name: Func Test
           #        run: |

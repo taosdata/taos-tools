@@ -941,15 +941,19 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
     debugPrint("iface: %d\n", iface);
 
+    int32_t trying = (stbInfo->keep_trying)?
+        stbInfo->keep_trying:g_arguments->keep_trying;
+    int32_t trying_interval = stbInfo->trying_interval?
+        stbInfo->trying_interval:g_arguments->trying_interval;
+
     switch (iface) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
-            int32_t trying = stbInfo->keep_trying;
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
-                          stbInfo->trying_interval);
-                toolsMsleep(stbInfo->trying_interval);
+                          trying_interval);
+                toolsMsleep(trying_interval);
                 code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
@@ -967,11 +971,10 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd,
                                   pThreadInfo->filePath);
-            trying = stbInfo->keep_trying;
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
-                          stbInfo->trying_interval);
-                toolsMsleep(stbInfo->trying_interval);
+                          trying_interval);
+                toolsMsleep(trying_interval);
                 code =  postProceSql(pThreadInfo->buffer,
                                   database->dbName,
                                   database->precision,
@@ -1012,8 +1015,8 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             trying = stbInfo->keep_trying;
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
-                          stbInfo->trying_interval);
-                toolsMsleep(stbInfo->trying_interval);
+                          trying_interval);
+                toolsMsleep(trying_interval);
                 taos_free_result(res);
                 res = taos_schemaless_insert(
                         pThreadInfo->conn->taos, pThreadInfo->lines,
@@ -1087,9 +1090,12 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t pos = 0;
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
-    int64_t   startTs = toolsGetTimestampMs();
-    int64_t   endTs = toolsGetTimestampMs();
+    int64_t   startTs = toolsGetTimestampUs();
+    int64_t   endTs;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
+    int disorderRange = stbInfo->disorderRange;
+    int64_t startTimestamp = stbInfo->startTimestamp;
+
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
         uint32_t generated = 0;
@@ -1146,8 +1152,22 @@ static void *syncWriteInterlace(void *sarg) {
                     }
 
                     for (int64_t j = 0; j < interlaceRows; ++j) {
+                        int64_t disorderTs = 0;
+                        if (stbInfo->disorderRatio > 0) {
+                            int rand_num = taosRandom() % 100;
+                            if (rand_num < stbInfo->disorderRatio) {
+                                disorderRange --;
+                                if (0 == disorderRange) {
+                                    disorderRange = stbInfo->disorderRange;
+                                }
+                                disorderTs = startTimestamp - disorderRange;
+                                debugPrint("rand_num: %d, < disorderRatio: %d, "
+                                           "disorderTs: %"PRId64"\n",
+                                       rand_num, stbInfo->disorderRatio, disorderTs);
+                            }
+                        }
                         char time_string[BIGINT_BUFF_LEN];
-                        sprintf(time_string, "%"PRId64"", timestamp);
+                        sprintf(time_string, "%"PRId64"", disorderTs?disorderTs:timestamp);
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
@@ -1168,13 +1188,6 @@ static void *syncWriteInterlace(void *sarg) {
                             pos = 0;
                         }
                         timestamp += stbInfo->timestamp_step;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
-                            }
-                        }
                     }
                     break;
                 }
@@ -1193,6 +1206,22 @@ static void *syncWriteInterlace(void *sarg) {
                 case SML_REST_IFACE:
                 case SML_IFACE: {
                     for (int64_t j = 0; j < interlaceRows; ++j) {
+                        int64_t disorderTs = 0;
+                        if (stbInfo->disorderRatio > 0) {
+                            int rand_num = taosRandom() % 100;
+                            if (rand_num < stbInfo->disorderRatio) {
+                                disorderRange --;
+                                if (0 == disorderRange) {
+                                    disorderRange = stbInfo->disorderRange;
+                                }
+                                disorderTs = startTimestamp - disorderRange;
+                                debugPrint("rand_num: %d, < disorderRatio: %d, "
+                                            "disorderTs: %"PRId64"\n",
+                                            rand_num, stbInfo->disorderRatio,
+                                            disorderTs);
+                            }
+                        }
+
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                             tools_cJSON *tag = tools_cJSON_Duplicate(
                                 tools_cJSON_GetArrayItem(
@@ -1202,7 +1231,7 @@ static void *syncWriteInterlace(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->sml_precision, timestamp);
+                                database->sml_precision, disorderTs?disorderTs:timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1214,13 +1243,13 @@ static void *syncWriteInterlace(void *sarg) {
                                                pThreadInfo->start_table_from],
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
-                                timestamp);
+                                disorderTs?disorderTs:timestamp);
                         } else {
                             snprintf(
                                 pThreadInfo->lines[generated],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                                 "%s %" PRId64 " %s %s", stbInfo->stbName,
-                                timestamp,
+                                disorderTs?disorderTs:timestamp,
                                 stbInfo->sampleDataBuf +
                                     pos * stbInfo->lenOfCols,
                                 pThreadInfo
@@ -1229,13 +1258,6 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                         generated++;
                         timestamp += stbInfo->timestamp_step;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
-                            }
-                        }
                     }
                     break;
                 }
@@ -1260,12 +1282,12 @@ static void *syncWriteInterlace(void *sarg) {
             }
         }
 
-        startTs = toolsGetTimestampNs();
+        startTs = toolsGetTimestampUs();
         if(execInsert(pThreadInfo, generated)) {
             g_fail = true;
             goto free_of_interlace;
         }
-        endTs = toolsGetTimestampNs();
+        endTs = toolsGetTimestampUs();
 
         pThreadInfo->totalInsertRows += tmp_total_insert_rows;
         switch (stbInfo->iface) {
@@ -1300,12 +1322,12 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         int64_t delay = endTs - startTs;
-        if (delay < 0) {
-            warnPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+        if (delay <=0) {
+            debugPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
                        pThreadInfo->threadID, startTs, endTs);
         } else {
             perfPrint("insert execution time is %10.2f ms\n",
-                      delay / 1E9);
+                      delay / 1E6);
 
             int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
             *pdelay = delay;
@@ -1330,7 +1352,7 @@ free_of_interlace:
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
             (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1E9)));
+                ((double)pThreadInfo->totalDelay / 1E6)));
     return NULL;
 }
 
@@ -1358,9 +1380,11 @@ void *syncWriteProgressive(void *sarg) {
             pThreadInfo->end_table_to + 1);
 #endif
     uint64_t   lastPrintTime = toolsGetTimestampMs();
-    int64_t   startTs = toolsGetTimestampMs();
+    int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
 
+    int disorderRange = stbInfo->disorderRange;
+    int64_t startTimestamp = stbInfo->startTimestamp;
     char *  pstr = pThreadInfo->buffer;
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
          tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
@@ -1450,24 +1474,31 @@ void *syncWriteProgressive(void *sarg) {
                                         stbInfo->sampleDataBuf +
                                         pos * stbInfo->lenOfCols);
                         } else {
+                            int64_t disorderTs = 0;
+                            if (stbInfo->disorderRatio > 0) {
+                                int rand_num = taosRandom() % 100;
+                                if (rand_num < stbInfo->disorderRatio) {
+                                    disorderRange --;
+                                    if (0 == disorderRange) {
+                                        disorderRange = stbInfo->disorderRange;
+                                    }
+                                    disorderTs = startTimestamp - disorderRange;
+                                    debugPrint("rand_num: %d, < disorderRatio: %d, disorderTs: %"PRId64"\n",
+                                        rand_num, stbInfo->disorderRatio, disorderTs);
+                                }
+                            }
                             len += snprintf(pstr + len,
-                                    MAX_SQL_LEN - len,
-                                    "(%" PRId64 ",%s)", timestamp,
-                                    stbInfo->sampleDataBuf +
-                                    pos * stbInfo->lenOfCols);
+                                MAX_SQL_LEN - len,
+                                "(%" PRId64 ",%s)",
+                                            disorderTs?disorderTs:timestamp,
+                                stbInfo->sampleDataBuf +
+                                            pos * stbInfo->lenOfCols);
                         }
                         pos++;
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
                         timestamp += stbInfo->timestamp_step;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
-                            }
-                        }
                         generated++;
                         if (len > (MAX_SQL_LEN - stbInfo->lenOfCols)) {
                             break;
@@ -1542,8 +1573,13 @@ void *syncWriteProgressive(void *sarg) {
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
                             if (rand_num < stbInfo->disorderRatio) {
-                                timestamp -=
-                                    (taosRandom() % stbInfo->disorderRange);
+                                disorderRange --;
+                                if (0 == disorderRange) {
+                                    disorderRange = stbInfo->disorderRange;
+                                }
+                                timestamp = startTimestamp - disorderRange;
+                                debugPrint("rand_num: %d, < disorderRatio: %d, ts: %"PRId64"\n",
+                                       rand_num, stbInfo->disorderRatio, timestamp);
                             }
                         }
                         generated++;
@@ -1560,12 +1596,12 @@ void *syncWriteProgressive(void *sarg) {
                 i += generated;
             }
             // only measure insert
-            startTs = toolsGetTimestampNs();
+            startTs = toolsGetTimestampUs();
             if(execInsert(pThreadInfo, generated)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
-            endTs = toolsGetTimestampNs();
+            endTs = toolsGetTimestampUs();
 
             if (stbInfo->insert_interval > 0) {
                 debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
@@ -1605,12 +1641,12 @@ void *syncWriteProgressive(void *sarg) {
             }
 
             int64_t delay = endTs - startTs;
-            if (delay < 0) {
-                warnPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
+            if (delay <= 0) {
+                debugPrint("thread[%d]: startTs: %"PRId64", endTs: %"PRId64"\n",
                         pThreadInfo->threadID, startTs, endTs);
             } else {
                 perfPrint("insert execution time is %.6f s\n",
-                              delay / 1E9);
+                              delay / 1E6);
 
                 int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
                 *pDelay = delay;
@@ -1638,7 +1674,7 @@ free_of_progressive:
             ", %.2f records/second\n",
             pThreadInfo->threadID, pThreadInfo->totalInsertRows,
             (double)(pThreadInfo->totalInsertRows /
-                ((double)pThreadInfo->totalDelay / 1E9)));
+                ((double)pThreadInfo->totalDelay / 1E6)));
     return NULL;
 }
 
@@ -2378,22 +2414,22 @@ static int startMultiThreadInsertData(SDataBase* database,
     }
 
     succPrint("insert delay, "
-            "min: %.2fms, "
-            "avg: %.2fms, "
-            "p90: %.2fms, "
-            "p95: %.2fms, "
-            "p99: %.2fms, "
-            "max: %.2fms\n",
-            *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E6,
-            (double)totalDelay/total_delay_list->size/1E6,
+            "min: %.4fms, "
+            "avg: %.4fms, "
+            "p90: %.4fms, "
+            "p95: %.4fms, "
+            "p99: %.4fms, "
+            "max: %.4fms\n",
+            *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
+            (double)totalDelay/total_delay_list->size/1E3,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.9)))/1E6,
+                    (int32_t)(total_delay_list->size * 0.9)))/1E3,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.95)))/1E6,
+                    (int32_t)(total_delay_list->size * 0.95)))/1E3,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size * 0.99)))/1E6,
+                    (int32_t)(total_delay_list->size * 0.99)))/1E3,
             *(int64_t *)(benchArrayGet(total_delay_list,
-                    (int32_t)(total_delay_list->size - 1)))/1E6);
+                    (int32_t)(total_delay_list->size - 1)))/1E3);
 
     benchArrayDestroy(total_delay_list);
     if (g_fail) {

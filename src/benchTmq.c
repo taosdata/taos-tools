@@ -67,7 +67,9 @@ static void* tmqConsume(void* arg) {
     bool first_time = true;
     int64_t st = toolsGetTimestampUs();
     int64_t et = toolsGetTimestampUs();
-    while(!g_arguments->terminate) {
+    uint64_t subscribeTimes = g_queryInfo.specifiedQueryInfo.subscribeTimes;
+    while(!g_arguments->terminate
+        && subscribeTimes > 0) {
         debugPrint("%s", "tmq_consumer_poll()");
         TAOS_RES * tmqMessage = tmq_consumer_poll(
                 pThreadInfo->tmq, g_queryInfo.specifiedQueryInfo.queryInterval);
@@ -89,6 +91,7 @@ static void* tmqConsume(void* arg) {
             }
             pThreadInfo->rows += numOfRows;
         }
+        subscribeTimes --;
     }
     int code = tmq_consumer_close(pThreadInfo->tmq);
     if (code) {
