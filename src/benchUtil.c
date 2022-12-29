@@ -698,10 +698,12 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
             goto free_of_post;
         }
 
-        code = codeObj->valueint;
-        if ((2 == g_arguments->rest_server_ver_major) && (code == 200)) {
+        if ((SML_REST_IFACE == iface) && (200 == codeObj->valueint)) {
             code = 0;
+            tools_cJSON_Delete(resObj);
+            goto free_of_post;
         }
+
         if (codeObj->valueint != 0
                 && (iface == SML_REST_IFACE
                 && protocol == TSDB_SML_LINE_PROTOCOL
@@ -714,6 +716,8 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                 errorPrint("insert mode response, code: %d, reason: %s\n",
                        (int)codeObj->valueint, desc->valuestring);
             }
+        } else {
+            code = 0;
         }
         tools_cJSON_Delete(resObj);
     }
