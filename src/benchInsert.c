@@ -2578,6 +2578,7 @@ int insertTestProcess() {
 
     prompt(0);
 
+    encodeAuthBase64();
     for (int i = 0; i < g_arguments->databases->size; ++i) {
         if (REST_IFACE == g_arguments->iface) {
             if (0 != convertServAddr(g_arguments->iface,
