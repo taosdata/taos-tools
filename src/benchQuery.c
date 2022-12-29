@@ -21,7 +21,8 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
 
     if (g_queryInfo.iface == REST_IFACE) {
         int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE,
-                0, false, pThreadInfo->sockfd, pThreadInfo->filePath);
+                                   0, g_arguments->port, false,
+                                   pThreadInfo->sockfd, pThreadInfo->filePath);
         if (0 != retCode) {
             errorPrint("====restful return fail, threadID[%u]\n",
                        threadID);
@@ -76,7 +77,8 @@ static void *mixedQuery(void *sarg) {
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
                 int retCode = postProceSql(sql->command, g_queryInfo.dbName,
-                        0, g_queryInfo.iface, 0, false, pThreadInfo->sockfd, "");
+                                           0, g_queryInfo.iface, 0, g_arguments->port,
+                                           false, pThreadInfo->sockfd, "");
                 if (retCode) {
                     errorPrint("thread[%d]: restful query <%s> failed\n",
                             pThreadInfo->threadId, sql->command);

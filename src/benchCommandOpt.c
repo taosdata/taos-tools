@@ -823,7 +823,8 @@ void modify_argument() {
             return;
         }
         encodeAuthBase64();
-        g_arguments->rest_server_ver_major = getServerVersionRest();
+        g_arguments->rest_server_ver_major =
+            getServerVersionRest(g_arguments->port);
     }
 }
 

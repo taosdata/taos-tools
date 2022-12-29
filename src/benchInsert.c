@@ -29,6 +29,7 @@ static int getSuperTableFromServerRest(
                          database->precision,
                          REST_IFACE,
                          0,
+                         g_arguments->port,
                          false,
                          sockfd,
                          NULL);
@@ -417,26 +418,27 @@ int createDatabaseRest(SDataBase* database) {
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
     code = postProceSql(command,
-                         database->dbName,
-                         database->precision,
-                         REST_IFACE,
-                         0,
-                         false,
-                         sockfd,
-                         NULL);
-
+                        database->dbName,
+                        database->precision,
+                        REST_IFACE,
+                        0,
+                        g_arguments->port,
+                        false,
+                        sockfd,
+                        NULL);
     if (code != 0) {
         errorPrint("Failed to drop database %s\n", database->dbName);
     } else {
         geneDbCreateCmd(database, command);
         code = postProceSql(command,
-                             database->dbName,
-                             database->precision,
-                             REST_IFACE,
-                             0,
-                             false,
-                             sockfd,
-                             NULL);
+                            database->dbName,
+                            database->precision,
+                            REST_IFACE,
+                            0,
+                            g_arguments->port,
+                            false,
+                            sockfd,
+                            NULL);
     }
     destroySockFd(sockfd);
     return code;
@@ -897,25 +899,27 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case REST_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = postProceSql(pThreadInfo->buffer,
-                                  database->dbName,
-                                  database->precision,
-                                  stbInfo->iface,
-                                  stbInfo->lineProtocol,
-                                  stbInfo->tcpTransfer,
-                                  pThreadInfo->sockfd,
-                                  pThreadInfo->filePath);
+                                database->dbName,
+                                database->precision,
+                                stbInfo->iface,
+                                stbInfo->lineProtocol,
+                                g_arguments->port,
+                                stbInfo->tcpTransfer,
+                                pThreadInfo->sockfd,
+                                pThreadInfo->filePath);
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
                 code = postProceSql(pThreadInfo->buffer,
-                                  database->dbName,
-                                  database->precision,
-                                  stbInfo->iface,
-                                  stbInfo->lineProtocol,
-                                  stbInfo->tcpTransfer,
-                                  pThreadInfo->sockfd,
-                                  pThreadInfo->filePath);
+                                    database->dbName,
+                                    database->precision,
+                                    stbInfo->iface,
+                                    stbInfo->lineProtocol,
+                                    g_arguments->port,
+                                    stbInfo->tcpTransfer,
+                                    pThreadInfo->sockfd,
+                                    pThreadInfo->filePath);
                 if (trying != -1) {
                     trying --;
                 }
@@ -977,9 +981,10 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
                 code = postProceSql(pThreadInfo->lines[0], database->dbName,
-                                      database->precision, stbInfo->iface,
-                                      stbInfo->lineProtocol, stbInfo->tcpTransfer,
-                                      pThreadInfo->sockfd, pThreadInfo->filePath);
+                                    database->precision, stbInfo->iface,
+                                    stbInfo->lineProtocol, g_arguments->port,
+                                    stbInfo->tcpTransfer,
+                                    pThreadInfo->sockfd, pThreadInfo->filePath);
             } else {
                 int len = 0;
                 for (int i = 0; i < k; ++i) {
@@ -999,6 +1004,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 code = postProceSql(pThreadInfo->buffer, database->dbName,
                         database->precision,
                         stbInfo->iface, stbInfo->lineProtocol,
+                        g_arguments->port,
                         stbInfo->tcpTransfer,
                         pThreadInfo->sockfd, pThreadInfo->filePath);
             }
@@ -1534,7 +1540,7 @@ void *syncWriteProgressive(void *sarg) {
                 g_fail = true;
                 goto free_of_progressive;
             }
-            endTs = toolsGetTimestampUs();
+            endTs = toolsGetTimestampUs()+1;
 
             if (stbInfo->insert_interval > 0) {
                 debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
@@ -2250,12 +2256,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         threadInfo *pThreadInfo = infos + i;
         switch (stbInfo->iface) {
             case REST_IFACE:
-#ifdef WINDOWS
-                closesocket(pThreadInfo->sockfd);
-                WSACleanup();
-#else
-                close(pThreadInfo->sockfd);
-#endif
+                destroySockFd(pThreadInfo->sockfd);
                 if (stbInfo->interlaceRows > 0) {
                     free_ds(&pThreadInfo->buffer);
                 } else {

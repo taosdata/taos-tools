@@ -777,9 +777,10 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
-int     getServerVersionRest();
+int     getServerVersionRest(int16_t rest_port);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
-                    int protocol, bool tcp, int sockfd, char* filePath);
+                    int protocol, uint16_t rest_port, bool tcp,
+                    int sockfd, char* filePath);
 int     queryDbExec(SBenchConn *conn, char *command);
 int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);

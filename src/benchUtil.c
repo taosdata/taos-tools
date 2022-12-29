@@ -330,6 +330,7 @@ int32_t queryDbExecRest(char *command, char* dbName, int precision,
                          precision,
                          iface,
                          protocol,
+                         g_arguments->port,
                          tcp,
                          sockfd,
                          NULL);
@@ -401,7 +402,7 @@ void encodeAuthBase64() {
 }
 
 int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
-                     int protocol, bool tcp, int sockfd, char* filePath,
+                     int protocol, uint16_t rest_port, bool tcp, int sockfd, char* filePath,
                      char *responseBuf, int64_t response_length) {
     int32_t      code = -1;
     char *       req_fmt =
@@ -419,15 +420,16 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
                 : precision == TSDB_TIME_PRECISION_NANO
                 ? "ns"
                 : "u");
-    } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_TELNET_PROTOCOL) {
+    } else if (iface == SML_REST_IFACE
+            && protocol == TSDB_SML_TELNET_PROTOCOL) {
         sprintf(url, "/opentsdb/v1/put/telnet/%s", dbName);
-    } else if (iface == SML_REST_IFACE && protocol == TSDB_SML_JSON_PROTOCOL) {
+    } else if (iface == SML_REST_IFACE
+            && protocol == TSDB_SML_JSON_PROTOCOL) {
         sprintf(url, "/opentsdb/v1/put/json/%s", dbName);
     }
 
     int      bytes, sent, received, req_str_len, resp_len;
     char *   request_buf = NULL;
-    uint16_t rest_port = g_arguments->port;
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
     request_buf = benchCalloc(1, req_buf_len, false);
@@ -482,9 +484,11 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
         }
         debugPrint("index: %" PRId64 "\n", index);
         if (chunked && responseBuf[index] == '0') {
+            code = 0;
             break;
         }
         if (!chunked && responseBuf[index] == '}') {
+            code = 0;
             break;
         }
 
@@ -530,19 +534,20 @@ free_of_postImpl:
     return code;
 }
 
-static int getServerVersionRestImpl(int sockfd) {
+static int getServerVersionRestImpl(int16_t rest_port, int sockfd) {
     int server_ver = -1;
     char       command[SQL_BUFF_LEN] = "\0";
     sprintf(command, "SELECT SERVER_VERSION()");
     char *responseBuf = benchCalloc(1, RESP_BUF_LEN, false);
-    int code =  postProceSqlImpl(command,
-                         NULL,
-                         0,
-                         REST_IFACE,
-                         0,
-                         false,
-                         sockfd,
-                         NULL, responseBuf, RESP_BUF_LEN);
+    int code = postProceSqlImpl(command,
+                                NULL,
+                                0,
+                                REST_IFACE,
+                                0,
+                                rest_port,
+                                false,
+                                sockfd,
+                                NULL, responseBuf, RESP_BUF_LEN);
     if (code != 0) {
         errorPrint("Failed to execute command: %s\n", command);
         goto free_of_getversion;
@@ -578,13 +583,13 @@ free_of_getversion:
     return server_ver;
 }
 
-int getServerVersionRest() {
+int getServerVersionRest(int16_t rest_port) {
     int sockfd = createSockFd();
     if (sockfd < 0) {
         return -1;
     }
 
-    int server_version = getServerVersionRestImpl(sockfd);
+    int server_version = getServerVersionRestImpl(rest_port, sockfd);
 
     destroySockFd(sockfd);
     return server_version;
@@ -628,7 +633,8 @@ static int getCodeFromResp(char *responseBuf) {
 }
 
 int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
-                 int protocol, bool tcp, int sockfd, char* filePath) {
+                 int protocol, uint16_t rest_port,
+                 bool tcp, int sockfd, char* filePath) {
     uint64_t response_length;
     if (g_arguments->test_mode == INSERT_TEST) {
         response_length = RESP_BUF_LEN;
@@ -638,6 +644,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
 
     char *responseBuf = benchCalloc(1, response_length, false);
     int code = postProceSqlImpl(sqlstr, dbName, precision, iface, protocol,
+                                rest_port,
                                 tcp, sockfd, filePath, responseBuf,
                                 response_length);
     if (NULL != strstr(responseBuf, resHttpOk) && iface == REST_IFACE) {
@@ -690,7 +697,11 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
+
         code = codeObj->valueint;
+        if ((2 == g_arguments->rest_server_ver_major) && (code == 200)) {
+            code = 0;
+        }
         if (codeObj->valueint != 0
                 && (iface == SML_REST_IFACE
                 && protocol == TSDB_SML_LINE_PROTOCOL
@@ -699,12 +710,10 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
             if (!tools_cJSON_IsString(desc)) {
                 errorPrint("Invalid or miss 'desc' key in json: %s\n",
                            tools_cJSON_Print(resObj));
-                goto free_of_post;
-            }
-            errorPrint("insert mode response, code: %d, reason: %s\n",
+            } else {
+                errorPrint("insert mode response, code: %d, reason: %s\n",
                        (int)codeObj->valueint, desc->valuestring);
-            tools_cJSON_Delete(resObj);
-            goto free_of_post;
+            }
         }
         tools_cJSON_Delete(resObj);
     }
