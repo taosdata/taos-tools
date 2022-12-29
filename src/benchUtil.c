@@ -609,8 +609,10 @@ static int getCodeFromResp(char *responseBuf) {
         tools_cJSON_Delete(resObj);
         return -1;
     }
+
+    code = codeObj->valueint;
+
     if (codeObj->valueint != 0) {
-        code = codeObj->valueint;
         tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
         if (!tools_cJSON_IsString(desc)) {
             errorPrint("Invalid or miss 'desc' key in json: %s\n",
@@ -688,6 +690,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
+        code = codeObj->valueint;
         if (codeObj->valueint != 0
                 && (iface == SML_REST_IFACE
                 && protocol == TSDB_SML_LINE_PROTOCOL
