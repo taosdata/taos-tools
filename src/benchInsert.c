@@ -19,36 +19,8 @@ static int getSuperTableFromServerRest(
     return -1;
     // TODO: finish full implementation
 #if 0
-#ifdef WINDOWS
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-    SOCKET sockfd;
-#else
-    int sockfd;
-#endif
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    debugPrint("sockfd=%d\n", sockfd);
+    int sockfd = createSockFd();
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        errorPrint("failed to create socket, reason: %s\n", strerror(errno));
-        return -1;
-    }
-
-    int retConn = connect(
-            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-            sizeof(struct sockaddr));
-    if (retConn < 0) {
-#ifdef WINDOWS
-        closesocket(sockfd);
-        WSACleanup();
-#else
-        close(sockfd);
-#endif
-        errorPrint("%s() failed to connect with socket, reason: %s\n",
-                   __func__, strerror(errno));
         return -1;
     }
 
@@ -61,13 +33,7 @@ static int getSuperTableFromServerRest(
                          sockfd,
                          NULL);
 
-#ifdef  WINDOWS
-    closesocket(sockfd);
-    WSACleanup();
-#else
-    close(sockfd);
-#endif
-    return code;
+    destroySockFd(sockfd);
 #endif   // 0
 }
 
@@ -290,7 +256,7 @@ skip:
     if (REST_IFACE == stbInfo->iface) {
         int sockfd = createSockFd();
         if (sockfd < 0) {
-            ret = sockfd;
+            ret = -1;
         } else {
             ret = queryDbExecRest(command,
                               database->dbName,
@@ -444,36 +410,8 @@ int createDatabaseRest(SDataBase* database) {
     int32_t code = 0;
     char       command[SQL_BUFF_LEN] = "\0";
 
-#ifdef WINDOWS
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-    SOCKET sockfd;
-#else
-    int sockfd;
-#endif
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    debugPrint("sockfd=%d\n", sockfd);
+    int sockfd = createSockFd();
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        errorPrint("failed to create socket, reason: %s\n", strerror(errno));
-        return -1;
-    }
-
-    int retConn = connect(
-            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-            sizeof(struct sockaddr));
-    if (retConn < 0) {
-#ifdef WINDOWS
-        closesocket(sockfd);
-        WSACleanup();
-#else
-        close(sockfd);
-#endif
-        errorPrint("%s() failed to connect with socket, reason: %s\n",
-                   __func__, strerror(errno));
         return -1;
     }
 
@@ -500,12 +438,7 @@ int createDatabaseRest(SDataBase* database) {
                              sockfd,
                              NULL);
     }
-#ifdef  WINDOWS
-    closesocket(sockfd);
-    WSACleanup();
-#else
-    close(sockfd);
-#endif
+    destroySockFd(sockfd);
     return code;
 }
 
@@ -2192,32 +2125,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
             }
             case SML_REST_IFACE: {
-#ifdef WINDOWS
-                WSADATA wsaData;
-                WSAStartup(MAKEWORD(2, 2), &wsaData);
-                SOCKET sockfd;
-#else
-                int sockfd;
-#endif
-                sockfd = socket(AF_INET, SOCK_STREAM, 0);
-                debugPrint("sockfd=%d\n", sockfd);
+                int sockfd = createSockFd();
                 if (sockfd < 0) {
-#ifdef WINDOWS
-                    errorPrint("Could not create socket : %d",
-                               WSAGetLastError());
-#endif
-
-                    errorPrint("%s\n", "failed to create socket");
-                    free(pids);
-                    free(infos);
-                    return -1;
-                }
-                int retConn = connect(
-                    sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-                    sizeof(struct sockaddr));
-                if (retConn < 0) {
-                    errorPrint("%s\n", "failed to connect");
-                    destroySockFd(sockfd);
                     free(pids);
                     free(infos);
                     return -1;

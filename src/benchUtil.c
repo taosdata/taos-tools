@@ -579,47 +579,14 @@ free_of_getversion:
 }
 
 int getServerVersionRest() {
-#ifdef WINDOWS
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-    SOCKET sockfd;
-#else
-    int sockfd;
-#endif
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    debugPrint("sockfd=%d\n", sockfd);
+    int sockfd = createSockFd();
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        errorPrint("failed to create socket, reason: %s\n", strerror(errno));
-        return -1;
-    }
-
-    int retConn = connect(
-            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-            sizeof(struct sockaddr));
-    if (retConn < 0) {
-#ifdef WINDOWS
-        closesocket(sockfd);
-        WSACleanup();
-#else
-        close(sockfd);
-#endif
-        errorPrint("%s() failed to connect with socket, reason: %s\n",
-                   __func__, strerror(errno));
         return -1;
     }
 
     int server_version = getServerVersionRestImpl(sockfd);
 
-#ifdef  WINDOWS
-    closesocket(sockfd);
-    WSACleanup();
-#else
-    close(sockfd);
-#endif
+    destroySockFd(sockfd);
     return server_version;
 }
 
