@@ -529,6 +529,36 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
     }
 
     if (NULL != strstr(response_buf, resHttpOk) && iface == REST_IFACE) {
+        char* start = strstr(response_buf, "{");
+        if (start == NULL) {
+            errorPrint("Invalid response format: %s\n", response_buf);
+            goto free_of_post;
+        }
+        tools_cJSON* resObj = tools_cJSON_Parse(start);
+        if (resObj == NULL) {
+            errorPrint("Cannot parse response into json: %s\n", start);
+        }
+        tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
+        if (!tools_cJSON_IsNumber(codeObj)) {
+            errorPrint("Invalid or miss 'code' key in json: %s\n",
+                       tools_cJSON_Print(resObj));
+            tools_cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        if (codeObj->valueint != 0) {
+            code = codeObj->valueint;
+            tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
+            if (!tools_cJSON_IsString(desc)) {
+                errorPrint("Invalid or miss 'desc' key in json: %s\n",
+                           tools_cJSON_Print(resObj));
+                goto free_of_post;
+            }
+            errorPrint("insert mode response, code: %d, reason: %s\n",
+                       (int)codeObj->valueint, desc->valuestring);
+            tools_cJSON_Delete(resObj);
+            goto free_of_post;
+        }
+        tools_cJSON_Delete(resObj);
         code = 0;
         goto free_of_post;
     }
