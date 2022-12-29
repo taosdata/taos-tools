@@ -741,6 +741,10 @@ void *queryKiller(void *arg) {
 int queryTestProcess() {
     prompt(0);
 
+    if (REST_IFACE == g_queryInfo.iface) {
+        encodeAuthBase64();
+    }
+
     pthread_t pidKiller = {0};
     if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
         pthread_create(&pidKiller, NULL, queryKiller, NULL);

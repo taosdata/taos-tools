@@ -530,7 +530,7 @@ free_of_postImpl:
     return code;
 }
 
-int getServerVersionRestImpl(int sockfd) {
+static int getServerVersionRestImpl(int sockfd) {
     int server_ver = -1;
     char       command[SQL_BUFF_LEN] = "\0";
     sprintf(command, "SELECT SERVER_VERSION()");
