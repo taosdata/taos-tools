@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'refact/submit_req'
+          ref: 'chore/refact/submit_req'
 
       - name: Change time zone
         if: |
