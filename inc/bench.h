@@ -13,8 +13,8 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __DEMO__
-#define __DEMO__
+#ifndef __BENCH_H_
+#define __BENCH_H_
 
 #define _GNU_SOURCE
 #define CURL_STATICLIB
@@ -33,6 +33,8 @@
 #include <netdb.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/time.h>
 #include <syscall.h>
 #include <unistd.h>
@@ -45,8 +47,11 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/time.h>
 #include <netdb.h>
+#else
+#include <winsock2.h>
 #endif
 
 #include <regex.h>
@@ -72,13 +77,6 @@
 
 #ifdef WEBSOCKET
 #include "taosws.h"
-#endif
-
-#if defined(WINDOWS)
-#include <winsock2.h>
-#define CLOCK_REALTIME 0
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
 #endif
 
 #ifndef TSDB_DATA_TYPE_VARCHAR
@@ -116,8 +114,6 @@
 
 #define OPT_ABORT         1    /* –abort */
 #define MAX_RECORDS_PER_REQ 65536
-#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
-#define MAX_PATH_LEN      4096
 #define DEFAULT_START_TIME  1500000000000
 #define MAX_SQL_LEN         1048576
 #define TELNET_TCP_PORT     6046
@@ -143,12 +139,9 @@
 #define SML_MAX_BATCH          65536 * 32
 #define DEFAULT_NTHREADS       8
 
-#ifdef WINDOWS
-#define DEFAULT_CHILDTABLES    1000
-#else
 #define DEFAULT_CHILDTABLES    10000
-#endif
 #define DEFAULT_PORT           6030
+#define DEFAULT_REST_PORT      6041
 #define DEFAULT_DATABASE       "test"
 #define DEFAULT_TB_PREFIX      "d"
 #define DEFAULT_OUTPUT         "./output.txt"
@@ -163,15 +156,53 @@
 #define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
-#if _MSC_VER <= 1900
-#define __func__ __FUNCTION__
+
+#define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
+#define BENCH_CFG_DIR "Configuration directory."
+#define BENCH_HOST  "TDengine server FQDN to connect, default is localhost."
+#define BENCH_PORT  "The TCP/IP port number to use for the connection, default is 6030."
+#define BENCH_MODE  "insert mode, default is taosc, options: taosc|rest|stmt|sml"
+#define BENCH_USER  "The user name to use when connecting to the server, default is root."
+#define BENCH_PASS  "The password to use when connecting to the server, default is taosdata."
+#define BENCH_OUTPUT  "The path of result output file, default is ./output.txt."
+#define BENCH_THREAD  "The number of thread when insert data, default is 8."
+#define BENCH_INTERVAL  "Insert interval for interlace mode in milliseconds, default is 0."
+#define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
+#define BENCH_SUPPLEMENT "Supplementally insert data without create database and table, optional, default is off."
+#define BENCH_START_TIMESTAMP "Specify timestamp to insert data. Optional, default is 1500000000000 (2017-07-14 10:40:00.000)."
+#define BENCH_INTERLACE "The number of interlace rows insert into tables, default is 0."
+#define BENCH_BATCH "Number of records in each insert request, default is 30000."
+#define BENCH_TABLE "Number of child tables, default is 10000."
+#define BENCH_ROWS  "Number of records for each table, default is 10000."
+#define BENCH_DATABASE  "Name of database, default is test."
+#define BENCH_COLS_NUM  "Number of INT data type columns in table, default is 0."
+#define BENCH_PARTIAL_COL_NUM "Specify first numbers of columns has data. Rest of columns' data are NULL. Default is all columns have data"
+#define BENCH_TAGS  "Data type of tables' tags, default is INT,BINARY(16)."
+#define BENCH_COLS  "Data type of tables' cols, default is FLOAT,INT,FLOAT."
+#define BENCH_WIDTH "The default length of nchar and binary if not specified, default is 64."
+#define BENCH_PREFIX  "Prefix of child table name, default is d."
+#define BENCH_ESCAPE "Use escape character in stable and child table name, optional."
+#define BENCH_CHINESE "Nchar and binary are basic unicode chinese characters, optional."
+#define BENCH_NORMAL  "Only create normal table without super table, optional."
+#define BENCH_RANDOM  "Data source is randomly generated, optional."
+#define BENCH_AGGR  "Query aggregation function after insertion, optional."
+#define BENCH_YES "Pass confirmation prompt to continue, optional."
+#define BENCH_RANGE "Range of disordered timestamp, default is 1000."
+#define BENCH_DISORDER "Ratio of inserting data with disorder timestamp, default is 0."
+#define BENCH_REPLICA "The number of replica when create database, default is 1."
+#define BENCH_DEBUG "Debug mode, optional."
+#define BENCH_PERFORMANCE "Performance mode, optional."
+#define BENCH_PREPARE "Random data source size, default is 10000."
+#define BENCH_EMAIL   "<support@taosdata.com>"
+#define BENCH_VERSION "Print program version."
+#define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
+#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a postive number. Only valid when keep trying be enabled."
+
+#ifdef WEBSOCKET
+#define BENCH_DSN "The dsn to connect TDengine cloud service."
+#define BENCH_TIMEOUT "The timeout wait on websocket query in seconds, default is 10."
 #endif
 
-#if defined(__GNUC__)
-#define FORCE_INLINE inline __attribute__((always_inline))
-#else
-#define FORCE_INLINE
-#endif
 
 #define debugPrint(fmt, ...)                                             \
     do {                                                                     \
@@ -191,18 +222,23 @@
         }                                                                    \
     } while (0)
 
-#define infoPrint(fmt, ...)                                          \
-    do {                                                                 \
-        struct tm      Tm, *ptm;                                         \
-        struct timeval timeSecs;                                         \
-        time_t         curTime;                                          \
-        toolsGetTimeOfDay(&timeSecs);                                    \
-        curTime = timeSecs.tv_sec;                                       \
+#define infoPrintNoTimestamp(fmt, ...)                                      \
+    do {                                                                    \
+        fprintf(stdout, "" fmt, __VA_ARGS__);                         \
+    } while (0)
+
+#define infoPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
-                (int32_t)timeSecs.tv_usec);                              \
-        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                          \
+        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                         \
     } while (0)
 
 #define infoPrintToFile(fp, fmt, ...)                                          \
@@ -267,6 +303,34 @@
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
                 (int32_t)timeSecs.tv_usec);                                 \
             fprintf(g_arguments->fpOfInsertResult, "ERROR: ");              \
+            fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
+        }                                                                   \
+    } while (0)
+
+#define warnPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
+        ptm = toolsLocalTime(&curTime, &Tm);                                \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+        fprintf(stderr, "\033[33m");                                        \
+        fprintf(stderr, "WARN: ");                                          \
+        if (g_arguments->debug_print) {                                     \
+            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                 \
+        }                                                                   \
+        fprintf(stderr, "" fmt, __VA_ARGS__);                               \
+        fprintf(stderr, "\033[0m");                                         \
+        if (g_arguments->fpOfInsertResult) {                                \
+            fprintf(g_arguments->fpOfInsertResult,                          \
+                    "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
+                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                (int32_t)timeSecs.tv_usec);                                 \
+            fprintf(g_arguments->fpOfInsertResult, "WARN: ");               \
             fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
         }                                                                   \
     } while (0)
@@ -358,8 +422,8 @@ enum _describe_table_index {
 
 typedef struct BArray {
     size_t   size;
-    uint32_t capacity;
-    uint32_t elemSize;
+    uint64_t capacity;
+    uint64_t elemSize;
     void*    pData;
 } BArray;
 
@@ -386,6 +450,7 @@ typedef struct SField {
     bool     none;
     bool     null;
     void *   data;
+    char *   is_null;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
@@ -427,10 +492,11 @@ typedef struct SSuperTable_S {
     uint64_t insertRows;
     uint64_t timestamp_step;
     int64_t  startTimestamp;
+    int64_t  specifiedColumns;
     char     sampleFile[MAX_FILE_NAME_LEN];
     char     tagsFile[MAX_FILE_NAME_LEN];
-    uint32_t partialColumnNum;
-    char *   partialColumnNameBuf;
+    uint32_t partialColNum;
+    char *   partialColNameBuf;
     BArray * cols;
     BArray * tags;
     BArray * tsmas;
@@ -451,6 +517,8 @@ typedef struct SSuperTable_S {
     char* max_delay;
     char* watermark;
     int   ttl;
+    int32_t keep_trying;
+    uint32_t trying_interval;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -468,13 +536,26 @@ typedef struct SSTREAM_S {
     bool drop;
 } SSTREAM;
 
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+typedef struct SVGroup_S {
+    int32_t   vgId;
+    uint64_t  tbCountPerVgId;
+    char    **childTblName;  // table name pointer array
+    uint64_t  tbOffset;  // internal use
+} SVGroup;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
+        //
 typedef struct SDataBase_S {
-    char *       dbName;
-    bool         drop;  // 0: use exists, 1: if exists, drop then new create
-    int          precision;
-    int          sml_precision;
-    BArray*      cfgs;
-    BArray*      superTbls;
+    char *      dbName;
+    bool        drop;  // 0: use exists, 1: if exists, drop then new create
+    int         precision;
+    int         sml_precision;
+    BArray     *cfgs;
+    BArray     *superTbls;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    int32_t     vgroups;
+    BArray      *vgArray;
+#endif  // TD_VER_COMPATIBLE_3_0_0_0
 } SDataBase;
 
 typedef struct SSQL_S {
@@ -485,10 +566,11 @@ typedef struct SSQL_S {
 
 typedef struct SpecifiedQueryInfo_S {
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
+    uint64_t  queryTimes;
     uint32_t  concurrent;
     uint32_t  asyncMode;          // 0: sync, 1: async
     uint64_t  subscribeInterval;  // ms
-    uint64_t  queryTimes;
+    uint64_t  subscribeTimes;  // ms
     bool      subscribeRestart;
     int       subscribeKeepProgress;
     BArray*   sqls;
@@ -505,12 +587,13 @@ typedef struct SpecifiedQueryInfo_S {
 typedef struct SuperQueryInfo_S {
     char      stbName[TSDB_TABLE_NAME_LEN];
     uint64_t  queryInterval;  // 0: unlimited  > 0   loop/s
+    uint64_t  queryTimes;
     uint32_t  threadCnt;
     uint32_t  asyncMode;          // 0: sync, 1: async
     uint64_t  subscribeInterval;  // ms
+    uint64_t  subscribeTimes;  // ms
     bool      subscribeRestart;
     int       subscribeKeepProgress;
-    uint64_t  queryTimes;
     uint64_t  childTblCount;
     int       sqlCount;
     char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
@@ -523,60 +606,72 @@ typedef struct SuperQueryInfo_S {
 } SuperQueryInfo;
 
 typedef struct SQueryMetaInfo_S {
-    SpecifiedQueryInfo specifiedQueryInfo;
-    SuperQueryInfo     superQueryInfo;
-    uint64_t           totalQueried;
-    uint64_t           query_times;
-    uint64_t           response_buffer;
-    bool               reset_query_cache;
-    uint16_t           iface;
-    char*              dbName;
+    SpecifiedQueryInfo  specifiedQueryInfo;
+    SuperQueryInfo      superQueryInfo;
+    uint64_t            totalQueried;
+    uint64_t            query_times;
+    uint64_t            killQueryThreshold;
+    int32_t             killQueryInterval;
+    uint64_t            response_buffer;
+    bool                reset_query_cache;
+    bool                continue_if_fail;
+    uint16_t            iface;
+    char*               dbName;
 } SQueryMetaInfo;
 
 typedef struct SArguments_S {
-    uint8_t            taosc_version;
-    char *             metaFile;
-    int32_t            test_mode;
-    char *             host;
-    uint16_t           port;
-    uint16_t           telnet_tcp_port;
-    char *             user;
-    char *             password;
-    bool               answer_yes;
-    bool               debug_print;
-    bool               performance_print;
-    bool               chinese;
-    char *             output_file;
-    uint32_t           binwidth;
-    uint32_t           intColumnCount;
-    uint32_t           nthreads;
-    uint32_t           table_threads;
-    uint64_t           prepared_rand;
-    uint32_t           reqPerReq;
-    uint64_t           insert_interval;
-    bool               demo_mode;
-    bool               aggr_func;
-    struct sockaddr_in serv_addr;
-    uint64_t           g_totalChildTables;
-    uint64_t           g_actualChildTables;
-    uint64_t           g_autoCreatedChildTables;
-    uint64_t           g_existedChildTables;
-    FILE *             fpOfInsertResult;
-    BArray *           databases;
-    BArray*            streams;
-    char *             base64_buf;
+    uint8_t             taosc_version;
+    char *              metaFile;
+    int32_t             test_mode;
+    char *              host;
+    uint16_t            port;
+    bool                host_auto;
+    bool                port_auto;
+    bool                port_inputed;
+    bool                cfg_inputed;
+    uint16_t            telnet_tcp_port;
+    char *              user;
+    char *              password;
+    bool                answer_yes;
+    bool                debug_print;
+    bool                performance_print;
+    bool                chinese;
+    char *              output_file;
+    uint32_t            binwidth;
+    uint32_t            intColumnCount;
+    uint32_t            nthreads;
+    bool                nthreads_auto;
+    uint32_t            table_threads;
+    uint64_t            prepared_rand;
+    uint32_t            reqPerReq;
+    uint64_t            insert_interval;
+    bool                demo_mode;
+    bool                aggr_func;
+    struct sockaddr_in  serv_addr;
+    uint64_t            totalChildTables;
+    uint64_t            actualChildTables;
+    uint64_t            autoCreatedChildTables;
+    uint64_t            existedChildTables;
+    FILE *              fpOfInsertResult;
+    BArray *            databases;
+    BArray*             streams;
+    char *              base64_buf;
 #ifdef LINUX
-    sem_t              cancelSem;
+    sem_t               cancelSem;
 #endif
-    bool               terminate;
-    bool               in_prompt;
+    bool                terminate;
+    bool                in_prompt;
 #ifdef WEBSOCKET
-    int32_t            timeout;
-    char*              dsn;
-    bool               websocket;
+    int32_t             timeout;
+    char*               dsn;
+    bool                websocket;
 #endif
-    bool               supplementInsert;
-    int64_t            startTimestamp;
+    bool                supplementInsert;
+    int64_t             startTimestamp;
+    int32_t             partialColNum;
+    int32_t             keep_trying;
+    uint32_t            trying_interval;
+    int                 iface;
 } SArguments;
 
 typedef struct SBenchConn{
@@ -623,6 +718,9 @@ typedef struct SThreadInfo_S {
     BArray*    delayList;
     uint64_t*  query_delay_list;
     double     avg_delay;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    SVGroup   *vg;
+#endif
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -654,29 +752,19 @@ extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-#define tstrncpy(dst, src, size)       \
-    do {                               \
-        strncpy((dst), (src), (size)); \
-        (dst)[(size)-1] = 0;           \
-    } while (0)
 #define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
-int32_t bench_parse_args(int32_t argc, char* argv[]);
+int32_t benchParseArgs(int32_t argc, char* argv[]);
 void modify_argument();
 void init_argument();
 void queryAggrFunc();
-void parse_field_datatype(char *dataType, BArray *fields, bool isTag);
+void parseFieldDatatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */
 int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
 void    encode_base_64();
-int64_t toolsGetTimestampMs();
-int64_t toolsGetTimestampUs();
-int64_t toolsGetTimestampNs();
-int64_t toolsGetTimestamp(int32_t precision);
-void    toolsMsleep(int32_t mseconds);
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
@@ -688,8 +776,11 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
-int     postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath);
+int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
+                    int protocol, bool tcp, int sockfd, char* filePath);
 int     queryDbExec(SBenchConn *conn, char *command);
+int queryDbExecRest(char *command, char* dbName, int precision,
+                    int iface, int protocol, bool tcp, int sockfd);
 SBenchConn* init_bench_conn();
 void    close_bench_conn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
@@ -705,10 +796,12 @@ void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
+
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp);
 #endif
+
 int convertTypeToLength(uint8_t type);
 int64_t convertDatatypeToDefaultMax(uint8_t type);
 int64_t convertDatatypeToDefaultMin(uint8_t type);
@@ -731,11 +824,19 @@ char * ds_add_str(char **ps, const char* sub);
 char * ds_add_strs(char **ps, int count, ...);
 char * ds_ins_str(char **ps, size_t pos, const char *sub, size_t len);
 
-/* demoInsert.c */
 int  insertTestProcess();
 void postFreeResource();
-/* demoQuery.c */
 int queryTestProcess();
-/* demoSubscribe.c */
 int subscribeTestProcess();
+int convertServAddr(int iface, bool tcp, int protocol);
+int createSockFd();
+void destroySockFd(int sockfd);
+
+void printVersion();
+int32_t benchParseSingleOpt(int32_t key, char* arg);
+
+#ifndef LINUX
+int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
+
+#endif   // __BENCH_H_

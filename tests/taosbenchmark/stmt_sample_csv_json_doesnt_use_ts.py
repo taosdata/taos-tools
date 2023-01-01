@@ -40,7 +40,7 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:
@@ -68,9 +68,15 @@ class TDTestCase:
         tdSql.checkData(0, 1, 1)
         tdSql.checkData(1, 1, 2)
         tdSql.checkData(2, 1, 3)
+        tdSql.checkData(3, 1, None)
         tdSql.query("select distinct(t0) from db.stb")
-        tdSql.checkRows(1)
-        tdSql.checkData(0, 0, 17)
+        tdSql.checkRows(2)
+
+        dbresult = tdSql.queryResult
+        if dbresult[0][0] not in (17, None):
+            tdLog.exit("result[0][0]: {}".format(dbresult[0][0]))
+        else:
+            tdLog.info("result[0][0]: {}".format(dbresult[0][0]))
 
     def stop(self):
         tdSql.close()

@@ -12,11 +12,15 @@
 
 #include "bench.h"
 
-static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSuperTable *stbInfo) {
+extern char      g_configDir[MAX_PATH_LEN];
+
+static int getColumnAndTagTypeFromInsertJsonFile(
+    tools_cJSON * superTblObj, SSuperTable *stbInfo) {
     int32_t code = -1;
 
     // columns
-    tools_cJSON *columnsObj = tools_cJSON_GetObjectItem(superTblObj, "columns");
+    tools_cJSON *columnsObj =
+        tools_cJSON_GetObjectItem(superTblObj, "columns");
     if (!tools_cJSON_IsArray(columnsObj)) {
         goto PARSE_OVER;
     }
@@ -86,7 +90,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
         if (tools_cJSON_IsNumber(dataLen)) {
             length = (int32_t)dataLen->valueint;
         } else {
-            if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
+            if (type == TSDB_DATA_TYPE_BINARY
+                || type == TSDB_DATA_TYPE_JSON
+                || type == TSDB_DATA_TYPE_NCHAR) {
                 length = g_arguments->binwidth;
             } else {
                 length = convertTypeToLength(type);
@@ -195,7 +201,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(tools_cJSON * superTblObj, SSup
         if (tools_cJSON_IsNumber(dataLen)) {
             length = (int32_t)dataLen->valueint;
         } else {
-            if (type == TSDB_DATA_TYPE_BINARY || type == TSDB_DATA_TYPE_JSON || type == TSDB_DATA_TYPE_NCHAR) {
+            if (type == TSDB_DATA_TYPE_BINARY
+                || type == TSDB_DATA_TYPE_JSON
+                || type == TSDB_DATA_TYPE_NCHAR) {
                 length = g_arguments->binwidth;
             } else {
                 length = convertTypeToLength(type);
@@ -259,7 +267,8 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
                 database->dbName = cfg_object->valuestring;
             }
         } else if (0 == strcasecmp(cfg_object->string, "drop")) {
-            if (tools_cJSON_IsString(cfg_object) && (0 == strcasecmp(cfg_object->valuestring, "no"))) {
+            if (tools_cJSON_IsString(cfg_object)
+                && (0 == strcasecmp(cfg_object->valuestring, "no"))) {
                 database->drop = false;
             }
         } else if (0 == strcasecmp(cfg_object->string, "precision")) {
@@ -281,8 +290,8 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
                 cfg->valueint = (int)cfg_object->valueint;
                 cfg->valuestring = NULL;
             } else {
-                free(cfg);
                 errorPrint("Invalid value format for %s\n", cfg->name);
+                free(cfg);
                 return -1;
             }
             benchArrayPush(database->cfgs, cfg);
@@ -326,7 +335,8 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         }
         tsma->name = tsma_name_obj->valuestring;
 
-        tools_cJSON* tsma_func_obj = tools_cJSON_GetObjectItem(tsma_obj, "function");
+        tools_cJSON* tsma_func_obj =
+            tools_cJSON_GetObjectItem(tsma_obj, "function");
         if (!tools_cJSON_IsString(tsma_func_obj)) {
             errorPrint("%s", "Invalid tsma function format in json\n");
             free(tsma);
@@ -334,7 +344,8 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         }
         tsma->func = tsma_func_obj->valuestring;
 
-        tools_cJSON* tsma_interval_obj = tools_cJSON_GetObjectItem(tsma_obj, "interval");
+        tools_cJSON* tsma_interval_obj =
+            tools_cJSON_GetObjectItem(tsma_obj, "interval");
         if(!tools_cJSON_IsString(tsma_interval_obj)) {
             errorPrint("%s", "Invalid tsma interval format in json\n");
             free(tsma);
@@ -342,7 +353,8 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         }
         tsma->interval = tsma_interval_obj->valuestring;
 
-        tools_cJSON* tsma_sliding_obj = tools_cJSON_GetObjectItem(tsma_obj, "sliding");
+        tools_cJSON* tsma_sliding_obj =
+            tools_cJSON_GetObjectItem(tsma_obj, "sliding");
         if (!tools_cJSON_IsString(tsma_sliding_obj)) {
             errorPrint("%s", "Invalid tsma sliding format in json\n");
             free(tsma);
@@ -350,10 +362,12 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         }
         tsma->sliding = tsma_sliding_obj->valuestring;
 
-        tools_cJSON* tsma_custom_obj = tools_cJSON_GetObjectItem(tsma_obj, "custom");
+        tools_cJSON* tsma_custom_obj =
+            tools_cJSON_GetObjectItem(tsma_obj, "custom");
         tsma->custom = tsma_custom_obj->valuestring;
 
-        tools_cJSON* tsma_start_obj = tools_cJSON_GetObjectItem(tsma_obj, "start_when_inserted");
+        tools_cJSON* tsma_start_obj =
+            tools_cJSON_GetObjectItem(tsma_obj, "start_when_inserted");
         if (!tools_cJSON_IsNumber(tsma_start_obj)) {
             tsma->start_when_inserted = 0;
         } else {
@@ -368,8 +382,8 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
 
 static int getStableInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database = benchArrayGet(g_arguments->databases, index);
-    tools_cJSON *    dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
-    tools_cJSON *    stables = tools_cJSON_GetObjectItem(dbinfo, "super_tables");
+    tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
+    tools_cJSON *stables = tools_cJSON_GetObjectItem(dbinfo, "super_tables");
     if (!tools_cJSON_IsArray(stables)) {
         infoPrint("create database %s without stables\n", database->dbName);
         return 0;
@@ -403,21 +417,25 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->disorderRange = DEFAULT_DISORDER_RANGE;
         superTable->insert_interval = g_arguments->insert_interval;
         superTable->max_sql_len = BUFFER_SIZE;
-        superTable->partialColumnNum = 0;
+        superTable->partialColNum = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
         superTable->file_factor = -1;
         superTable->rollup = NULL;
         tools_cJSON *stbInfo = tools_cJSON_GetArrayItem(stables, i);
+
         tools_cJSON *stbName = tools_cJSON_GetObjectItem(stbInfo, "name");
         if (tools_cJSON_IsString(stbName)) {
             superTable->stbName = stbName->valuestring;
         }
-        tools_cJSON *prefix = tools_cJSON_GetObjectItem(stbInfo, "childtable_prefix");
+
+        tools_cJSON *prefix =
+            tools_cJSON_GetObjectItem(stbInfo, "childtable_prefix");
         if (tools_cJSON_IsString(prefix)) {
             superTable->childTblPrefix = prefix->valuestring;
         }
-        tools_cJSON *escapeChar = tools_cJSON_GetObjectItem(stbInfo, "escape_character");
+        tools_cJSON *escapeChar =
+            tools_cJSON_GetObjectItem(stbInfo, "escape_character");
         if (tools_cJSON_IsString(escapeChar) &&
             (0 == strcasecmp(escapeChar->valuestring, "yes"))) {
             superTable->escape_character = true;
@@ -436,26 +454,31 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         tools_cJSON *childTblExists =
             tools_cJSON_GetObjectItem(stbInfo, "child_table_exists");
         if (tools_cJSON_IsString(childTblExists) &&
-            (0 == strcasecmp(childTblExists->valuestring, "yes")) &&
-            !database->drop) {
+            (0 == strcasecmp(childTblExists->valuestring, "yes"))
+            && !database->drop) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
         }
 
-        tools_cJSON *count = tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
-        if (tools_cJSON_IsNumber(count)) {
-            superTable->childTblCount = count->valueint;
-            g_arguments->g_totalChildTables += superTable->childTblCount;
+        tools_cJSON *childTableCount =
+            tools_cJSON_GetObjectItem(stbInfo, "childtable_count");
+        if (tools_cJSON_IsNumber(childTableCount)) {
+            superTable->childTblCount = childTableCount->valueint;
+            g_arguments->totalChildTables += superTable->childTblCount;
         } else {
             superTable->childTblCount = 0;
-            g_arguments->g_totalChildTables += superTable->childTblCount;
+            g_arguments->totalChildTables += superTable->childTblCount;
         }
-        tools_cJSON *dataSource = tools_cJSON_GetObjectItem(stbInfo, "data_source");
+
+        tools_cJSON *dataSource =
+            tools_cJSON_GetObjectItem(stbInfo, "data_source");
         if (tools_cJSON_IsString(dataSource) &&
             (0 == strcasecmp(dataSource->valuestring, "sample"))) {
             superTable->random_data_source = false;
         }
-        tools_cJSON *stbIface = tools_cJSON_GetObjectItem(stbInfo, "insert_mode");
+
+        tools_cJSON *stbIface =
+            tools_cJSON_GetObjectItem(stbInfo, "insert_mode");
         if (tools_cJSON_IsString(stbIface)) {
             if (0 == strcasecmp(stbIface->valuestring, "rest")) {
                 superTable->iface = REST_IFACE;
@@ -469,13 +492,15 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n",
+                               g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
                 superTable->iface = SML_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n", g_arguments->reqPerReq, SML_MAX_BATCH);
+                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n",
+                               g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
                 superTable->iface = SML_REST_IFACE;
@@ -491,7 +516,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
 #endif
 
-        tools_cJSON *stbLineProtocol = tools_cJSON_GetObjectItem(stbInfo, "line_protocol");
+        tools_cJSON *stbLineProtocol =
+            tools_cJSON_GetObjectItem(stbInfo, "line_protocol");
         if (tools_cJSON_IsString(stbLineProtocol)) {
             if (0 == strcasecmp(stbLineProtocol->valuestring, "telnet")) {
                 superTable->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
@@ -499,14 +525,16 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->lineProtocol = TSDB_SML_JSON_PROTOCOL;
             }
         }
-        tools_cJSON *transferProtocol = tools_cJSON_GetObjectItem(stbInfo, "tcp_transfer");
+        tools_cJSON *transferProtocol =
+            tools_cJSON_GetObjectItem(stbInfo, "tcp_transfer");
         if (tools_cJSON_IsString(transferProtocol) &&
             (0 == strcasecmp(transferProtocol->valuestring, "yes"))) {
             superTable->tcpTransfer = true;
         }
         tools_cJSON *childTbl_limit =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_limit");
-        if (tools_cJSON_IsNumber(childTbl_limit) && (childTbl_limit->valueint >= 0)) {
+        if (tools_cJSON_IsNumber(childTbl_limit)
+            && (childTbl_limit->valueint >= 0)) {
             superTable->childTblLimit = childTbl_limit->valueint;
         } else {
             superTable->childTblLimit = superTable->childTblCount;
@@ -535,78 +563,115 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->startTimestamp =
                 toolsGetTimestamp(database->precision);
         }
-        tools_cJSON *timestampStep = tools_cJSON_GetObjectItem(stbInfo, "timestamp_step");
+
+        tools_cJSON *timestampStep =
+            tools_cJSON_GetObjectItem(stbInfo, "timestamp_step");
         if (tools_cJSON_IsNumber(timestampStep)) {
             superTable->timestamp_step = timestampStep->valueint;
         }
-        tools_cJSON *sampleFile = tools_cJSON_GetObjectItem(stbInfo, "sample_file");
+
+        tools_cJSON *keepTrying =
+            tools_cJSON_GetObjectItem(stbInfo, "keep_trying");
+        if (tools_cJSON_IsNumber(keepTrying)) {
+            superTable->keep_trying = keepTrying->valueint;
+        }
+
+        tools_cJSON *tryingInterval =
+            tools_cJSON_GetObjectItem(stbInfo, "trying_interval");
+        if (tools_cJSON_IsNumber(tryingInterval)) {
+            superTable->trying_interval = (uint32_t)tryingInterval->valueint;
+        }
+
+        tools_cJSON *sampleFile =
+            tools_cJSON_GetObjectItem(stbInfo, "sample_file");
         if (tools_cJSON_IsString(sampleFile)) {
             tstrncpy(
                 superTable->sampleFile, sampleFile->valuestring,
-                min(MAX_FILE_NAME_LEN, strlen(sampleFile->valuestring) + 1));
+                MAX_FILE_NAME_LEN);
         } else {
             memset(superTable->sampleFile, 0, MAX_FILE_NAME_LEN);
         }
-        tools_cJSON *useSampleTs = tools_cJSON_GetObjectItem(stbInfo, "use_sample_ts");
+
+        tools_cJSON *useSampleTs =
+            tools_cJSON_GetObjectItem(stbInfo, "use_sample_ts");
         if (tools_cJSON_IsString(useSampleTs) &&
             (0 == strcasecmp(useSampleTs->valuestring, "yes"))) {
             superTable->useSampleTs = true;
         }
-        tools_cJSON *nonStop = tools_cJSON_GetObjectItem(stbInfo, "non_stop_mode");
+
+        tools_cJSON *nonStop =
+            tools_cJSON_GetObjectItem(stbInfo, "non_stop_mode");
         if (tools_cJSON_IsString(nonStop) &&
             (0 == strcasecmp(nonStop->valuestring, "yes"))) {
             superTable->non_stop = true;
         }
 
-        tools_cJSON* max_sql_len_obj = tools_cJSON_GetObjectItem(stbInfo, "max_sql_len");
+        tools_cJSON* max_sql_len_obj =
+            tools_cJSON_GetObjectItem(stbInfo, "max_sql_len");
         if (tools_cJSON_IsNumber(max_sql_len_obj)) {
             superTable->max_sql_len = max_sql_len_obj->valueint;
         }
 
-        tools_cJSON *tagsFile = tools_cJSON_GetObjectItem(stbInfo, "tags_file");
+        tools_cJSON *tagsFile =
+            tools_cJSON_GetObjectItem(stbInfo, "tags_file");
         if (tools_cJSON_IsString(tagsFile)) {
             tstrncpy(superTable->tagsFile, tagsFile->valuestring,
                      MAX_FILE_NAME_LEN);
         } else {
             memset(superTable->tagsFile, 0, MAX_FILE_NAME_LEN);
         }
-        tools_cJSON *insertRows = tools_cJSON_GetObjectItem(stbInfo, "insert_rows");
+
+        tools_cJSON *insertRows =
+            tools_cJSON_GetObjectItem(stbInfo, "insert_rows");
         if (tools_cJSON_IsNumber(insertRows)) {
             superTable->insertRows = insertRows->valueint;
         }
+
         tools_cJSON *stbInterlaceRows =
             tools_cJSON_GetObjectItem(stbInfo, "interlace_rows");
         if (tools_cJSON_IsNumber(stbInterlaceRows)) {
             superTable->interlaceRows = (uint32_t)stbInterlaceRows->valueint;
         }
-        tools_cJSON *disorderRatio = tools_cJSON_GetObjectItem(stbInfo, "disorder_ratio");
+
+        tools_cJSON *disorderRatio =
+            tools_cJSON_GetObjectItem(stbInfo, "disorder_ratio");
         if (tools_cJSON_IsNumber(disorderRatio)) {
             if (disorderRatio->valueint > 50) disorderRatio->valueint = 50;
             if (disorderRatio->valueint < 0) disorderRatio->valueint = 0;
 
             superTable->disorderRatio = (int)disorderRatio->valueint;
         }
-        tools_cJSON *disorderRange = tools_cJSON_GetObjectItem(stbInfo, "disorder_range");
+
+        tools_cJSON *disorderRange =
+            tools_cJSON_GetObjectItem(stbInfo, "disorder_range");
         if (tools_cJSON_IsNumber(disorderRange)) {
             superTable->disorderRange = (int)disorderRange->valueint;
         }
-        tools_cJSON *insertInterval = tools_cJSON_GetObjectItem(stbInfo, "insert_interval");
+
+        tools_cJSON *insertInterval =
+            tools_cJSON_GetObjectItem(stbInfo, "insert_interval");
         if (tools_cJSON_IsNumber(insertInterval)) {
             superTable->insert_interval = insertInterval->valueint;
         }
-        tools_cJSON *pCoumnNum = tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
-        if (tools_cJSON_IsNumber(pCoumnNum)) {
-            superTable->partialColumnNum = pCoumnNum->valueint;
+
+        tools_cJSON *pPartialColNum =
+            tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
+        if (tools_cJSON_IsNumber(pPartialColNum)) {
+            superTable->partialColNum = pPartialColNum->valueint;
         }
+
         if (g_arguments->taosc_version == 3) {
             tools_cJSON *delay = tools_cJSON_GetObjectItem(stbInfo, "delay");
             if (tools_cJSON_IsNumber(delay)) {
                 superTable->delay = (int)delay->valueint;
             }
-            tools_cJSON *file_factor = tools_cJSON_GetObjectItem(stbInfo, "file_factor");
+
+            tools_cJSON *file_factor =
+                tools_cJSON_GetObjectItem(stbInfo, "file_factor");
             if (tools_cJSON_IsNumber(file_factor)) {
                 superTable->file_factor = (int)file_factor->valueint;
             }
+
             tools_cJSON *rollup = tools_cJSON_GetObjectItem(stbInfo, "rollup");
             if (tools_cJSON_IsString(rollup)) {
                 superTable->rollup = rollup->valuestring;
@@ -617,12 +682,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->ttl = (int)ttl->valueint;
             }
 
-            tools_cJSON *max_delay_obj = tools_cJSON_GetObjectItem(stbInfo, "max_delay");
+            tools_cJSON *max_delay_obj =
+                tools_cJSON_GetObjectItem(stbInfo, "max_delay");
             if (tools_cJSON_IsString(max_delay_obj)) {
                 superTable->max_delay = max_delay_obj->valuestring;
             }
 
-            tools_cJSON *watermark_obj = tools_cJSON_GetObjectItem(stbInfo, "watermark");
+            tools_cJSON *watermark_obj =
+                tools_cJSON_GetObjectItem(stbInfo, "watermark");
             if (tools_cJSON_IsString(watermark_obj)) {
                 superTable->watermark = watermark_obj->valuestring;
             }
@@ -631,6 +698,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 return -1;
             }
         }
+
         if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {
             return -1;
         }
@@ -648,25 +716,42 @@ static int getStreamInfo(tools_cJSON* json) {
                 errorPrint("%s", "invalid stream format in json\n");
                 return -1;
             }
-            tools_cJSON* stream_name = tools_cJSON_GetObjectItem(streamObj, "stream_name");
-            tools_cJSON* stream_stb = tools_cJSON_GetObjectItem(streamObj, "stream_stb");
-            tools_cJSON* source_sql = tools_cJSON_GetObjectItem(streamObj, "source_sql");
-            if (!tools_cJSON_IsString(stream_name) || !tools_cJSON_IsString(stream_stb) || !tools_cJSON_IsString(source_sql)) {
-                errorPrint("%s", "Invalid or miss 'stream_name'/'stream_stb'/'source_sql' key in json\n");
+            tools_cJSON* stream_name =
+                tools_cJSON_GetObjectItem(streamObj, "stream_name");
+            tools_cJSON* stream_stb =
+                tools_cJSON_GetObjectItem(streamObj, "stream_stb");
+            tools_cJSON* source_sql =
+                tools_cJSON_GetObjectItem(streamObj, "source_sql");
+            if (!tools_cJSON_IsString(stream_name)
+                || !tools_cJSON_IsString(stream_stb)
+                || !tools_cJSON_IsString(source_sql)) {
+                errorPrint("%s", "Invalid or miss "
+                           "'stream_name'/'stream_stb'/'source_sql' "
+                           "key in json\n");
                 return -1;
             }
             SSTREAM * stream = benchCalloc(1, sizeof(SSTREAM), true);
-            tstrncpy(stream->stream_name, stream_name->valuestring, TSDB_TABLE_NAME_LEN);
-            tstrncpy(stream->stream_stb, stream_stb->valuestring, TSDB_TABLE_NAME_LEN);
-            tstrncpy(stream->source_sql, source_sql->valuestring, TSDB_MAX_SQL_LEN);
-            tools_cJSON* trigger_mode = tools_cJSON_GetObjectItem(streamObj, "trigger_mode");
+            tstrncpy(stream->stream_name, stream_name->valuestring,
+                     TSDB_TABLE_NAME_LEN);
+            tstrncpy(stream->stream_stb, stream_stb->valuestring,
+                     TSDB_TABLE_NAME_LEN);
+            tstrncpy(stream->source_sql, source_sql->valuestring,
+                     TSDB_MAX_SQL_LEN);
+
+            tools_cJSON* trigger_mode =
+                tools_cJSON_GetObjectItem(streamObj, "trigger_mode");
             if (tools_cJSON_IsString(trigger_mode)) {
-                tstrncpy(stream->trigger_mode, trigger_mode->valuestring, BIGINT_BUFF_LEN);
+                tstrncpy(stream->trigger_mode, trigger_mode->valuestring,
+                         BIGINT_BUFF_LEN);
             }
-            tools_cJSON* watermark = tools_cJSON_GetObjectItem(streamObj, "watermark");
+
+            tools_cJSON* watermark =
+                tools_cJSON_GetObjectItem(streamObj, "watermark");
             if (tools_cJSON_IsString(watermark)) {
-                tstrncpy(stream->watermark, watermark->valuestring, BIGINT_BUFF_LEN);
+                tstrncpy(stream->watermark, watermark->valuestring,
+                         BIGINT_BUFF_LEN);
             }
+
             tools_cJSON* drop = tools_cJSON_GetObjectItem(streamObj, "drop");
             if (tools_cJSON_IsString(drop)) {
                 if (0 == strcasecmp(drop->valuestring, "yes")) {
@@ -674,7 +759,8 @@ static int getStreamInfo(tools_cJSON* json) {
                 } else if (0 == strcasecmp(drop->valuestring, "no")) {
                     stream->drop = false;
                 } else {
-                    errorPrint("invalid value for drop field: %s\n", drop->valuestring);
+                    errorPrint("invalid value for drop field: %s\n",
+                               drop->valuestring);
                     return -1;
                 }
             }
@@ -688,8 +774,9 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     int32_t code = -1;
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
-    if (cfgdir && cfgdir->type == tools_cJSON_String && cfgdir->valuestring != NULL) {
-        tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+    if (cfgdir && (cfgdir->type == tools_cJSON_String)
+            && (cfgdir->valuestring != NULL)) {
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
@@ -731,6 +818,17 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         g_arguments->nthreads = (uint32_t)threads->valueint;
     }
 
+    tools_cJSON *keepTrying= tools_cJSON_GetObjectItem(json, "keep_trying");
+    if (keepTrying && keepTrying->type == tools_cJSON_Number) {
+        g_arguments->keep_trying = (int32_t)keepTrying->valueint;
+    }
+
+    tools_cJSON *tryingInterval =
+        tools_cJSON_GetObjectItem(json, "trying_interval");
+    if (tryingInterval && tryingInterval->type == tools_cJSON_Number) {
+        g_arguments->trying_interval = (uint32_t)tryingInterval->valueint;
+    }
+
     tools_cJSON *table_theads =
         tools_cJSON_GetObjectItem(json, "create_table_thread_count");
     if (tools_cJSON_IsNumber(table_theads)) {
@@ -741,10 +839,10 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (!g_arguments->websocket) {
 #endif
 #ifdef LINUX
-    if (strlen(configDir)) {
+    if (strlen(g_configDir)) {
         wordexp_t full_path;
-        if (wordexp(configDir, &full_path, 0) != 0) {
-            errorPrint("Invalid path %s\n", configDir);
+        if (wordexp(g_configDir, &full_path, 0) != 0) {
+            errorPrint("Invalid path %s\n", g_configDir);
             exit(EXIT_FAILURE);
         }
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
@@ -755,14 +853,15 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     }
 #endif
 
-
-    tools_cJSON *numRecPerReq = tools_cJSON_GetObjectItem(json, "num_of_records_per_req");
+    tools_cJSON *numRecPerReq =
+        tools_cJSON_GetObjectItem(json, "num_of_records_per_req");
     if (numRecPerReq && numRecPerReq->type == tools_cJSON_Number) {
         g_arguments->reqPerReq = (uint32_t)numRecPerReq->valueint;
         if (g_arguments->reqPerReq <= 0) goto PARSE_OVER;
     }
 
-    tools_cJSON *prepareRand = tools_cJSON_GetObjectItem(json, "prepared_rand");
+    tools_cJSON *prepareRand =
+        tools_cJSON_GetObjectItem(json, "prepared_rand");
     if (prepareRand && prepareRand->type == tools_cJSON_Number) {
         g_arguments->prepared_rand = prepareRand->valueint;
     }
@@ -775,15 +874,24 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         }
     }
 
-    tools_cJSON *top_insertInterval = tools_cJSON_GetObjectItem(json, "insert_interval");
+    tools_cJSON *top_insertInterval =
+        tools_cJSON_GetObjectItem(json, "insert_interval");
     if (top_insertInterval && top_insertInterval->type == tools_cJSON_Number) {
         g_arguments->insert_interval = top_insertInterval->valueint;
     }
 
+    tools_cJSON *insert_mode = tools_cJSON_GetObjectItem(json, "insert_mode");
+    if (insert_mode && insert_mode->type == tools_cJSON_String
+            && insert_mode->valuestring != NULL) {
+        if (0 == strcasecmp(insert_mode->valuestring, "rest")) {
+            g_arguments->iface = REST_IFACE;
+        }
+    }
+
     tools_cJSON *answerPrompt =
         tools_cJSON_GetObjectItem(json, "confirm_parameter_prompt");  // yes, no,
-    if (answerPrompt && answerPrompt->type == tools_cJSON_String &&
-        answerPrompt->valuestring != NULL) {
+    if (answerPrompt && answerPrompt->type == tools_cJSON_String
+            && answerPrompt->valuestring != NULL) {
         if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
             g_arguments->answer_yes = true;
         }
@@ -822,7 +930,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (tools_cJSON_IsString(cfgdir)) {
-        tstrncpy(configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
@@ -835,7 +943,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         g_arguments->port = (uint16_t)port->valueint;
     }
 
-    tools_cJSON *telnet_tcp_port = tools_cJSON_GetObjectItem(json, "telnet_tcp_port");
+    tools_cJSON *telnet_tcp_port =
+        tools_cJSON_GetObjectItem(json, "telnet_tcp_port");
     if (tools_cJSON_IsNumber(telnet_tcp_port)) {
         g_arguments->telnet_tcp_port = (uint16_t)telnet_tcp_port->valueint;
     }
@@ -858,11 +967,35 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         }
     }
 
+    tools_cJSON *continueIfFail =
+        tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
+    if (tools_cJSON_IsString(continueIfFail)) {
+        if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+            g_queryInfo.continue_if_fail = true;
+        }
+    }
+
     tools_cJSON *gQueryTimes = tools_cJSON_GetObjectItem(json, "query_times");
     if (tools_cJSON_IsNumber(gQueryTimes)) {
         g_queryInfo.query_times = gQueryTimes->valueint;
     } else {
         g_queryInfo.query_times = 1;
+    }
+
+    tools_cJSON *gKillSlowQueryThreshold =
+        tools_cJSON_GetObjectItem(json, "kill_slow_query_threshold");
+    if (tools_cJSON_IsNumber(gKillSlowQueryThreshold)) {
+        g_queryInfo.killQueryThreshold = gKillSlowQueryThreshold->valueint;
+    } else {
+        g_queryInfo.killQueryThreshold = 0;
+    }
+
+    tools_cJSON *gKillSlowQueryInterval =
+        tools_cJSON_GetObjectItem(json, "kill_slow_query_interval");
+    if (tools_cJSON_IsNumber(gKillSlowQueryInterval)) {
+        g_queryInfo.killQueryInterval = gKillSlowQueryInterval ->valueint;
+    } else {
+        g_queryInfo.killQueryInterval = 1;  /* by default, interval 1s */
     }
 
     tools_cJSON *resetCache = tools_cJSON_GetObjectItem(json, "reset_query_cache");
@@ -901,7 +1034,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     g_queryInfo.specifiedQueryInfo.sqls = benchArrayInit(1, sizeof(SSQL));
 
     // specified_table_query
-    tools_cJSON *specifiedQuery = tools_cJSON_GetObjectItem(json, "specified_table_query");
+    tools_cJSON *specifiedQuery =
+        tools_cJSON_GetObjectItem(json, "specified_table_query");
     g_queryInfo.specifiedQueryInfo.concurrent = 1;
     if (tools_cJSON_IsObject(specifiedQuery)) {
         tools_cJSON *queryInterval =
@@ -922,31 +1056,36 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             g_queryInfo.specifiedQueryInfo.queryTimes = g_queryInfo.query_times;
         }
 
-        tools_cJSON *mixedQueryObj = tools_cJSON_GetObjectItem(specifiedQuery, "mixed_query");
+        tools_cJSON *mixedQueryObj =
+            tools_cJSON_GetObjectItem(specifiedQuery, "mixed_query");
         if (tools_cJSON_IsString(mixedQueryObj)) {
             if (0 == strcasecmp(mixedQueryObj->valuestring, "yes")) {
                 g_queryInfo.specifiedQueryInfo.mixed_query = true;
             } else if (0 == strcasecmp(mixedQueryObj->valuestring, "no")) {
                 g_queryInfo.specifiedQueryInfo.mixed_query = false;
             } else {
-                errorPrint("Invalid mixed_query value: %s\n", mixedQueryObj->valuestring);
+                errorPrint("Invalid mixed_query value: %s\n",
+                           mixedQueryObj->valuestring);
                 goto PARSE_OVER;
             }
         }
 
-        tools_cJSON *concurrent = tools_cJSON_GetObjectItem(specifiedQuery, "concurrent");
+        tools_cJSON *concurrent =
+            tools_cJSON_GetObjectItem(specifiedQuery, "concurrent");
         if (tools_cJSON_IsNumber(concurrent)) {
             g_queryInfo.specifiedQueryInfo.concurrent =
                 (uint32_t)concurrent->valueint;
         }
 
-        tools_cJSON *threads = tools_cJSON_GetObjectItem(specifiedQuery, "threads");
+        tools_cJSON *threads =
+            tools_cJSON_GetObjectItem(specifiedQuery, "threads");
         if (tools_cJSON_IsNumber(threads)) {
             g_queryInfo.specifiedQueryInfo.concurrent =
                 (uint32_t)threads->valueint;
         }
 
-        tools_cJSON *specifiedAsyncMode = tools_cJSON_GetObjectItem(specifiedQuery, "mode");
+        tools_cJSON *specifiedAsyncMode =
+            tools_cJSON_GetObjectItem(specifiedQuery, "mode");
         if (tools_cJSON_IsString(specifiedAsyncMode)) {
             if (0 == strcmp("async", specifiedAsyncMode->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.asyncMode = ASYNC_MODE;
@@ -957,16 +1096,27 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
             g_queryInfo.specifiedQueryInfo.asyncMode = SYNC_MODE;
         }
 
-        tools_cJSON *interval = tools_cJSON_GetObjectItem(specifiedQuery, "interval");
-        if (tools_cJSON_IsNumber(interval)) {
+        tools_cJSON *subscribe_interval =
+            tools_cJSON_GetObjectItem(specifiedQuery, "subscribe_interval");
+        if (tools_cJSON_IsNumber(subscribe_interval)) {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
-                interval->valueint;
+                subscribe_interval->valueint;
         } else {
             g_queryInfo.specifiedQueryInfo.subscribeInterval =
                 DEFAULT_SUB_INTERVAL;
         }
 
-        tools_cJSON *restart = tools_cJSON_GetObjectItem(specifiedQuery, "restart");
+        tools_cJSON *specifiedSubscribeTimes =
+            tools_cJSON_GetObjectItem(specifiedQuery, "subscribe_times");
+        if (tools_cJSON_IsNumber(specifiedSubscribeTimes)) {
+            g_queryInfo.specifiedQueryInfo.subscribeTimes =
+                specifiedSubscribeTimes->valueint;
+        } else {
+            g_queryInfo.specifiedQueryInfo.subscribeTimes = g_queryInfo.query_times;
+        }
+
+        tools_cJSON *restart =
+            tools_cJSON_GetObjectItem(specifiedQuery, "restart");
         if (tools_cJSON_IsString(restart)) {
             if (0 == strcmp("no", restart->valuestring)) {
                 g_queryInfo.specifiedQueryInfo.subscribeRestart = false;
@@ -990,11 +1140,13 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
         }
 
         // read sqls from file
-        tools_cJSON *sqlFileObj = tools_cJSON_GetObjectItem(specifiedQuery, "sql_file");
+        tools_cJSON *sqlFileObj =
+            tools_cJSON_GetObjectItem(specifiedQuery, "sql_file");
         if (tools_cJSON_IsString(sqlFileObj)) {
             FILE * fp = fopen(sqlFileObj->valuestring, "r");
             if (fp == NULL) {
-                errorPrint("failed to open file: %s\n", sqlFileObj->valuestring);
+                errorPrint("failed to open file: %s\n",
+                           sqlFileObj->valuestring);
                 goto PARSE_OVER;
             }
             char buf[BUFFER_SIZE];
@@ -1004,37 +1156,47 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
                 sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
                         g_queryInfo.specifiedQueryInfo.sqls->size - 1);
-                sql->command = benchCalloc(1, strlen(buf), true);
-                sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
-                tstrncpy(sql->command, buf, strlen(buf));
+                int bufLen = strlen(buf) + 1;
+                sql->command = benchCalloc(1, bufLen, true);
+                sql->delay_list = benchCalloc(
+                        g_queryInfo.specifiedQueryInfo.queryTimes
+                        * g_queryInfo.specifiedQueryInfo.concurrent,
+                        sizeof(int64_t), true);
+                tstrncpy(sql->command, buf, bufLen);
                 debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, BUFFER_SIZE);
             }
             fclose(fp);
         }
         // sqls
-        tools_cJSON *specifiedSqls = tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
+        tools_cJSON *specifiedSqls =
+            tools_cJSON_GetObjectItem(specifiedQuery, "sqls");
         if (tools_cJSON_IsArray(specifiedSqls)) {
             int specifiedSqlSize = tools_cJSON_GetArraySize(specifiedSqls);
             for (int j = 0; j < specifiedSqlSize; ++j) {
-                tools_cJSON *sqlObj = tools_cJSON_GetArrayItem(specifiedSqls, j);
+                tools_cJSON *sqlObj =
+                    tools_cJSON_GetArrayItem(specifiedSqls, j);
                 if (tools_cJSON_IsObject(sqlObj)) {
                     SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
                     benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
                     sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
                             g_queryInfo.specifiedQueryInfo.sqls->size -1);
-                    sql->delay_list = benchCalloc(g_queryInfo.specifiedQueryInfo.queryTimes *
-                        g_queryInfo.specifiedQueryInfo.concurrent, sizeof(int64_t), true);
+                    sql->delay_list = benchCalloc(
+                            g_queryInfo.specifiedQueryInfo.queryTimes
+                            * g_queryInfo.specifiedQueryInfo.concurrent,
+                            sizeof(int64_t), true);
 
-                    tools_cJSON *sqlStr = tools_cJSON_GetObjectItem(sqlObj, "sql");
+                    tools_cJSON *sqlStr =
+                        tools_cJSON_GetObjectItem(sqlObj, "sql");
                     if (tools_cJSON_IsString(sqlStr)) {
-                        sql->command = benchCalloc(1, strlen(sqlStr->valuestring) + 1, true);
-                        tstrncpy(sql->command, sqlStr->valuestring, strlen(sqlStr->valuestring) + 1);
+                        int strLen = strlen(sqlStr->valuestring) + 1;
+                        sql->command = benchCalloc(1, strLen, true);
+                        tstrncpy(sql->command, sqlStr->valuestring, strLen);
                         // default value is -1, which mean infinite loop
                         g_queryInfo.specifiedQueryInfo.endAfterConsume[j] = -1;
                         tools_cJSON *endAfterConsume =
-                            tools_cJSON_GetObjectItem(specifiedQuery, "endAfterConsume");
+                            tools_cJSON_GetObjectItem(specifiedQuery,
+                                                      "endAfterConsume");
                         if (tools_cJSON_IsNumber(endAfterConsume)) {
                             g_queryInfo.specifiedQueryInfo.endAfterConsume[j] =
                                 (int)endAfterConsume->valueint;
@@ -1044,7 +1206,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
                         g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
                         tools_cJSON *resubAfterConsume =
-                            tools_cJSON_GetObjectItem(specifiedQuery, "resubAfterConsume");
+                            tools_cJSON_GetObjectItem(
+                                    specifiedQuery, "resubAfterConsume");
                         if (tools_cJSON_IsNumber(resubAfterConsume)) {
                             g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] =
                                 (int)resubAfterConsume->valueint;
@@ -1053,9 +1216,11 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                         if (g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] < -1)
                             g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
 
-                        tools_cJSON *result = tools_cJSON_GetObjectItem(sqlObj, "result");
+                        tools_cJSON *result =
+                            tools_cJSON_GetObjectItem(sqlObj, "result");
                         if (tools_cJSON_IsString(result)) {
-                            tstrncpy(sql->result, result->valuestring, MAX_FILE_NAME_LEN);
+                            tstrncpy(sql->result, result->valuestring,
+                                     MAX_FILE_NAME_LEN);
                         } else {
                             memset(sql->result, 0, MAX_FILE_NAME_LEN);
                         }
@@ -1069,26 +1234,30 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     }
 
     // super_table_query
-    tools_cJSON *superQuery = tools_cJSON_GetObjectItem(json, "super_table_query");
+    tools_cJSON *superQuery =
+        tools_cJSON_GetObjectItem(json, "super_table_query");
     g_queryInfo.superQueryInfo.threadCnt = 1;
     if (!superQuery || superQuery->type != tools_cJSON_Object) {
         g_queryInfo.superQueryInfo.sqlCount = 0;
     } else {
-        tools_cJSON *subrate = tools_cJSON_GetObjectItem(superQuery, "query_interval");
+        tools_cJSON *subrate =
+            tools_cJSON_GetObjectItem(superQuery, "query_interval");
         if (subrate && subrate->type == tools_cJSON_Number) {
             g_queryInfo.superQueryInfo.queryInterval = subrate->valueint;
         } else {
             g_queryInfo.superQueryInfo.queryInterval = 0;
         }
 
-        tools_cJSON *superQueryTimes = tools_cJSON_GetObjectItem(superQuery, "query_times");
+        tools_cJSON *superQueryTimes =
+            tools_cJSON_GetObjectItem(superQuery, "query_times");
         if (superQueryTimes && superQueryTimes->type == tools_cJSON_Number) {
             g_queryInfo.superQueryInfo.queryTimes = superQueryTimes->valueint;
         } else {
             g_queryInfo.superQueryInfo.queryTimes = g_queryInfo.query_times;
         }
 
-        tools_cJSON *concurrent = tools_cJSON_GetObjectItem(superQuery, "concurrent");
+        tools_cJSON *concurrent =
+            tools_cJSON_GetObjectItem(superQuery, "concurrent");
         if (concurrent && concurrent->type == tools_cJSON_Number) {
             g_queryInfo.superQueryInfo.threadCnt =
                 (uint32_t)concurrent->valueint;
@@ -1141,8 +1310,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
         tools_cJSON *superkeepProgress =
             tools_cJSON_GetObjectItem(superQuery, "keepProgress");
-        if (superkeepProgress && superkeepProgress->type == tools_cJSON_String &&
-            superkeepProgress->valuestring != NULL) {
+        if (superkeepProgress && superkeepProgress->type == tools_cJSON_String
+            && superkeepProgress->valuestring != NULL) {
             if (0 == strcmp("yes", superkeepProgress->valuestring)) {
                 g_queryInfo.superQueryInfo.subscribeKeepProgress = 1;
             } else {
@@ -1202,8 +1371,8 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 }
 
                 tools_cJSON *result = tools_cJSON_GetObjectItem(sql, "result");
-                if (result != NULL && result->type == tools_cJSON_String &&
-                    result->valuestring != NULL) {
+                if (result != NULL && result->type == tools_cJSON_String
+                    && result->valuestring != NULL) {
                     tstrncpy(g_queryInfo.superQueryInfo.result[j],
                              result->valuestring, MAX_FILE_NAME_LEN);
                 } else {

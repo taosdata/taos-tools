@@ -97,20 +97,6 @@ unsigned int taosRandom() {
 
     return number;
 }
-
-void usleep(__int64 usec)
-{
-    HANDLE timer;
-    LARGE_INTEGER ft;
-
-    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
-
-    timer = CreateWaitableTimer(NULL, TRUE, NULL);
-    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
-    WaitForSingleObject(timer, INFINITE);
-    CloseHandle(timer);
-}
-
 #else  // Not windows
 void setupForAnsiEscape(void) {}
 
@@ -119,8 +105,7 @@ void resetAfterAnsiEscape(void) {
     printf("\x1b[0m");
 }
 
-unsigned int taosRandom() { return (unsigned int)rand(); }
-
+FORCE_INLINE unsigned int taosRandom() { return (unsigned int)rand(); }
 #endif
 
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
@@ -167,6 +152,13 @@ int convertHostToServAddr(char *host, uint16_t port,
     }
     debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host,
             port);
+#ifdef WINDOWS
+    WSADATA wsaData;
+    int ret = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (ret) {
+        return ret;
+    }
+#endif
     struct hostent *server = gethostbyname(host);
     if ((server == NULL) || (server->h_addr == NULL)) {
         errorPrint("%s", "no such host");
@@ -175,9 +167,22 @@ int convertHostToServAddr(char *host, uint16_t port,
     memset(serv_addr, 0, sizeof(struct sockaddr_in));
     serv_addr->sin_family = AF_INET;
     serv_addr->sin_port = htons(port);
+
 #ifdef WINDOWS
-    serv_addr->sin_addr.s_addr = inet_addr(host);
+    struct addrinfo  hints = {0};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    struct addrinfo *pai = NULL;
+
+    if (!getaddrinfo(server->h_name, NULL, &hints, &pai)) {
+        serv_addr->sin_addr.s_addr = 
+               ((struct sockaddr_in *) pai->ai_addr)->sin_addr.s_addr;
+        freeaddrinfo(pai);
+    }
+    WSACleanup();
 #else
+    serv_addr->sin_addr.s_addr = inet_addr(host);
     memcpy(&(serv_addr->sin_addr.s_addr), server->h_addr, server->h_length);
 #endif
     return 0;
@@ -235,26 +240,6 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     // printf("3: %s\n", outSql);
 }
 
-int64_t toolsGetTimestampMs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000L +
-        (int64_t)systemTime.tv_usec / 1000;
-}
-
-int64_t toolsGetTimestampUs() {
-    struct timeval systemTime;
-    toolsGetTimeOfDay(&systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
-}
-
-int64_t toolsGetTimestampNs() {
-    struct timespec systemTime = {0};
-    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
-    return (int64_t)systemTime.tv_sec * 1000000000L +
-        (int64_t)systemTime.tv_nsec;
-}
-
 int64_t toolsGetTimestamp(int32_t precision) {
     if (precision == TSDB_TIME_PRECISION_MICRO) {
         return toolsGetTimestampUs();
@@ -264,8 +249,6 @@ int64_t toolsGetTimestamp(int32_t precision) {
         return toolsGetTimestampMs();
     }
 }
-
-void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
 int regexMatch(const char *s, const char *reg, int cflags) {
     regex_t regex;
@@ -308,8 +291,9 @@ SBenchConn* init_bench_conn() {
         conn->taos = taos_connect(g_arguments->host,
                 g_arguments->user, g_arguments->password, NULL, g_arguments->port);
         if (conn->taos == NULL) {
-            errorPrint("failde to connect native %s:%d, reason: %s\n",
-                    g_arguments->host, g_arguments->port, taos_errstr(NULL));
+            errorPrint("failed to connect native %s:%d, code: 0x%08x, reason: %s\n",
+                    g_arguments->host, g_arguments->port,
+                    taos_errno(NULL), taos_errstr(NULL));
             tmfree(conn);
             return NULL;
         }
@@ -332,17 +316,29 @@ void close_bench_conn(SBenchConn* conn) {
     tmfree(conn);
 }
 
-int queryDbExec(SBenchConn *conn, char *command) {
-    int32_t code;
+int32_t queryDbExecRest(char *command, char* dbName, int precision,
+                    int iface, int protocol, bool tcp, int sockfd) {
+    int32_t code =  postProceSql(command,
+                         dbName,
+                         precision,
+                         iface,
+                         protocol,
+                         tcp,
+                         sockfd,
+                         NULL);
+    return code;
+}
+
+int32_t queryDbExec(SBenchConn *conn, char *command) {
+    int32_t code = 0;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        WS_RES* res = ws_query_timeout(conn->taos_ws, command, g_arguments->timeout);
+        WS_RES* res = ws_query_timeout(conn->taos_ws,
+                                       command, g_arguments->timeout);
         code = ws_errno(res);
         if (code != 0) {
-            errorPrint("Failed to execute <%s>, reason: %s\n", command,
-                    ws_errstr(res));
-            ws_free_result(res);
-            return -1;
+            errorPrint("Failed to execute <%s>, code: %d, reason: %s\n",
+                       command, code, ws_errstr(res));
         }
         ws_free_result(res);
     } else {
@@ -350,16 +346,14 @@ int queryDbExec(SBenchConn *conn, char *command) {
         TAOS_RES *res = taos_query(conn->taos, command);
         code = taos_errno(res);
         if (code != 0) {
-            errorPrint("Failed to execute <%s>, reason: %s\n", command,
-                    taos_errstr(res));
-            taos_free_result(res);
-            return -1;
+            errorPrint("Failed to execute <%s>, code: 0x%08x, reason: %s\n",
+                       command, code, taos_errstr(res));
         }
         taos_free_result(res);
 #ifdef WEBSOCKET
     }
 #endif
-    return 0;
+    return code;
 }
 
 void encode_base_64() {
@@ -399,7 +393,8 @@ void encode_base_64() {
         g_arguments->base64_buf[encoded_len - 1 - l] = '=';
 }
 
-int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int protocol, bool tcp, int sockfd, char* filePath) {
+int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
+                 int protocol, bool tcp, int sockfd, char* filePath) {
     int32_t      code = -1;
     char *       req_fmt =
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
@@ -550,8 +545,10 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         goto free_of_post;
     }
 
-    if (NULL != strstr(response_buf, opentsdbHttpOk) &&
-            (protocol == TSDB_SML_TELNET_PROTOCOL || protocol == TSDB_SML_JSON_PROTOCOL) && iface == SML_REST_IFACE) {
+    if (NULL != strstr(response_buf, opentsdbHttpOk)
+            && (protocol == TSDB_SML_TELNET_PROTOCOL
+            || protocol == TSDB_SML_JSON_PROTOCOL)
+            && iface == SML_REST_IFACE) {
         code = 0;
         goto free_of_post;
     }
@@ -569,18 +566,23 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
         }
         tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
         if (!tools_cJSON_IsNumber(codeObj)) {
-            errorPrint("Invalid or miss 'code' key in json: %s\n", tools_cJSON_Print(resObj));
+            errorPrint("Invalid or miss 'code' key in json: %s\n",
+                       tools_cJSON_Print(resObj));
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
-        if (codeObj->valueint != 0 &&
-                (iface == SML_REST_IFACE && protocol == TSDB_SML_LINE_PROTOCOL && codeObj->valueint != 200)) {
+        if (codeObj->valueint != 0
+                && (iface == SML_REST_IFACE
+                && protocol == TSDB_SML_LINE_PROTOCOL
+                && codeObj->valueint != 200)) {
             tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
             if (!tools_cJSON_IsString(desc)) {
-                errorPrint("Invalid or miss 'desc' key in json: %s\n", tools_cJSON_Print(resObj));
+                errorPrint("Invalid or miss 'desc' key in json: %s\n",
+                           tools_cJSON_Print(resObj));
                 goto free_of_post;
             }
-            errorPrint("insert mode response, code: %d, reason: %s\n", (int)codeObj->valueint, desc->valuestring);
+            errorPrint("insert mode response, code: %d, reason: %s\n",
+                       (int)codeObj->valueint, desc->valuestring);
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
@@ -588,7 +590,7 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface, int proto
     }
     code = 0;
 free_of_post:
-    if (strlen(filePath) > 0) {
+    if (filePath && strlen(filePath) > 0) {
         appendResultBufToFile(response_buf, filePath);
     }
     tmfree(request_buf);
@@ -905,7 +907,8 @@ void benchArrayClear(BArray* pArray) {
 
 void* benchArrayGet(const BArray* pArray, size_t index) {
     if (index >= pArray->size) {
-        errorPrint("index(%zu) greater than BArray size(%zu)\n", index, pArray->size);
+        errorPrint("index(%zu) greater than BArray size(%zu)\n",
+                   index, pArray->size);
         exit(EXIT_FAILURE);
     }
     return BARRAY_GET_ELEM(pArray, index);
@@ -929,3 +932,72 @@ void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
 }
 #endif
 
+int convertServAddr(int iface, bool tcp, int protocol) {
+    if (iface == REST_IFACE || iface == SML_REST_IFACE) {
+        if (tcp
+                && iface == SML_REST_IFACE
+                && protocol == TSDB_SML_TELNET_PROTOCOL) {
+            if (convertHostToServAddr(g_arguments->host,
+                        g_arguments->telnet_tcp_port,
+                        &(g_arguments->serv_addr))) {
+                errorPrint("%s\n", "convert host to server address");
+                return -1;
+            }
+        } else {
+            if (convertHostToServAddr(g_arguments->host,
+                        (g_arguments->port_inputed)?
+                                      g_arguments->port:
+                                      DEFAULT_REST_PORT,
+                        &(g_arguments->serv_addr))) {
+                errorPrint("%s\n", "convert host to server address");
+                return -1;
+            }
+        }
+    }
+    return 0;
+}
+
+int createSockFd() {
+#ifdef WINDOWS
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+    SOCKET sockfd;
+#else
+    int sockfd;
+#endif
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+#ifdef WINDOWS
+        errorPrint("Could not create socket : %d",
+                   WSAGetLastError());
+#endif
+        debugPrint("%s() LN%d, sockfd=%d\n", __func__,
+                   __LINE__, sockfd);
+        errorPrint("%s\n", "failed to create socket");
+        return -1;
+    }
+
+    int retConn = connect(
+            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
+            sizeof(struct sockaddr));
+    if (retConn < 0) {
+        errorPrint("%s\n", "failed to connect");
+#ifdef WINDOWS
+        closesocket(sockfd);
+        WSACleanup();
+#else
+        close(sockfd);
+#endif
+        return -1;
+    }
+    return sockfd;
+}
+
+void destroySockFd(int sockfd) {
+#ifdef WINDOWS
+    closesocket(sockfd);
+    WSACleanup();
+#else
+    close(sockfd);
+#endif
+}

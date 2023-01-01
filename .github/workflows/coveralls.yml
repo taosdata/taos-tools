@@ -50,9 +50,10 @@ jobs:
         with:
           files: |
             src/*
+            inc/*
             tests/taosbenchmark/*
             tests/taosdump/*
-            inc/*
+            packaging/tools/*
             .github/workflows/coveralls.yml
 
       - name: Run step if any of the listed files above change
@@ -110,7 +111,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Set up Rust
         if: steps.changed-files-specific.outputs.any_changed == 'true'

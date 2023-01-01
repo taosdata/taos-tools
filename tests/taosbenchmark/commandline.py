@@ -45,7 +45,7 @@ class TDTestCase:
             projPath = "/usr/local/taos/bin/"
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:
@@ -58,7 +58,7 @@ class TDTestCase:
     def run(self):
         binPath = self.getPath()
         cmd = (
-            "%s -F 7 -H 9 -n 10 -t 2 -x -y -M -C -d newtest -l 5 -A binary,nchar\(31\) -b tinyint,binary\(23\),bool,nchar -w 29 -E -m $%%^*"
+            "%s -F 7 -n 10 -t 2 -x -y -M -C -d newtest -l 5 -A binary,nchar\(31\) -b tinyint,binary\(23\),bool,nchar -w 29 -E -m $%%^*"
             % binPath
         )
         tdLog.info("%s" % cmd)
@@ -87,6 +87,22 @@ class TDTestCase:
         tdSql.query("show tables")
         tdSql.checkRows(2)
         tdSql.execute("drop database if exists newtest")
+
+        cmd = "%s -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        tdSql.query("show test.tables")
+        tdSql.checkRows(2)
+        tdSql.query("select count(*) from test.meters")
+        tdSql.checkData(0, 0, 20)
+
+        cmd = "%s -I stmt -t 2 -n 10 -b bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -A bool,tinyint,smallint,int,bigint,float,double,utinyint,usmallint,uint,ubigint,binary,nchar,timestamp -y" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        tdSql.query("show test.tables")
+        tdSql.checkRows(2)
+        tdSql.query("select count(*) from test.meters")
+        tdSql.checkData(0, 0, 20)
 
         cmd = "%s -F 7 -n 10 -t 2 -y -M -I stmt" % binPath
         tdLog.info("%s" % cmd)
@@ -155,6 +171,7 @@ class TDTestCase:
         cmd = "%s -S 17 -n 3 -t 1 -y -x" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
+        time.sleep(2)  # to avoid invalid vgroup id
         tdSql.query("select last(ts) from test.meters")
         tdSql.checkData(0, 0, "2017-07-14 10:40:00.034")
 

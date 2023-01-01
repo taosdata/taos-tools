@@ -11,6 +11,7 @@
  */
 
 #include "bench.h"
+#include "toolsdef.h"
 
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
@@ -18,8 +19,8 @@ bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 tools_cJSON*   root;
 
-static char      g_client_info[32] = {0};
-int       g_majorVersionOfClient = 0;
+static char     g_client_info[32] = {0};
+int             g_majorVersionOfClient = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
@@ -40,6 +41,8 @@ void* benchCancelHandler(void* arg) {
 #endif
 
 int main(int argc, char* argv[]) {
+    int ret = 0;
+
     init_argument();
 
     sprintf(g_client_info, "%s", taos_get_client_info());
@@ -57,11 +60,16 @@ int main(int argc, char* argv[]) {
     pthread_create(&spid, NULL, benchCancelHandler, NULL);
 
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
+
 #endif
-    if (bench_parse_args(argc, argv)) {
+    if (benchParseArgs(argc, argv)) {
         return -1;
     }
 #ifdef WEBSOCKET
+    if (g_arguments->debug_print) {
+        ws_enable_log();
+    }
+
     if (g_arguments->dsn != NULL) {
         g_arguments->websocket = true;
     } else {
@@ -75,7 +83,7 @@ int main(int argc, char* argv[]) {
     }
 #endif
     if (g_arguments->metaFile) {
-        g_arguments->g_totalChildTables = 0;
+        g_arguments->totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
     } else {
         modify_argument();
@@ -89,15 +97,23 @@ int main(int argc, char* argv[]) {
     infoPrint("taos client version: %s\n", taos_get_client_info());
 
     if (g_arguments->test_mode == INSERT_TEST) {
-        if (insertTestProcess()) exit(EXIT_FAILURE);
+        if (insertTestProcess()) {
+            errorPrint("%s", "insert test process failed\n");
+            ret = -1;
+        }
     } else if (g_arguments->test_mode == QUERY_TEST) {
         if (queryTestProcess(g_arguments)) {
-            exit(EXIT_FAILURE);
+            errorPrint("%s", "query test process failed\n");
+            ret = -1;
         }
     } else if (g_arguments->test_mode == SUBSCRIBE_TEST) {
-        if (subscribeTestProcess(g_arguments)) exit(EXIT_FAILURE);
+        if (subscribeTestProcess(g_arguments)) {
+            errorPrint("%s", "sub test process failed\n");
+            ret = -1;
+        }
     }
-    if (g_arguments->aggr_func) {
+
+    if ((ret == 0) && g_arguments->aggr_func) {
         queryAggrFunc();
     }
     postFreeResource();
@@ -106,5 +122,6 @@ int main(int argc, char* argv[]) {
     pthread_cancel(spid);
     pthread_join(spid, NULL);
 #endif
-    return 0;
+
+    return ret;
 }

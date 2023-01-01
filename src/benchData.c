@@ -40,22 +40,22 @@ static int usc2utf8(char *p, int unic) {
     if (unic <= 0x0000007F) {
         *p = (unic & 0x7F);
         ret = 1;
-    } else if (unic >= 0x00000080 && unic <= 0x000007FF) {
+    } else if (unic <= 0x000007FF) {
         *(p + 1) = (unic & 0x3F) | 0x80;
         *p = ((unic >> 6) & 0x1F) | 0xC0;
         ret = 2;
-    } else if (unic >= 0x00000800 && unic <= 0x0000FFFF) {
+    } else if (unic <= 0x0000FFFF) {
         *(p + 2) = (unic & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 6) & 0x3F) | 0x80;
         *p = ((unic >> 12) & 0x0F) | 0xE0;
         ret = 3;
-    } else if (unic >= 0x00010000 && unic <= 0x001FFFFF) {
+    } else if (unic <= 0x001FFFFF) {
         *(p + 3) = (unic & 0x3F) | 0x80;
         *(p + 2) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 1) = ((unic >> 12) & 0x3F) | 0x80;
         *p = ((unic >> 18) & 0x07) | 0xF0;
         ret = 4;
-    } else if (unic >= 0x00200000 && unic <= 0x03FFFFFF) {
+    } else if (unic <= 0x03FFFFFF) {
         *(p + 4) = (unic & 0x3F) | 0x80;
         *(p + 3) = ((unic >> 6) & 0x3F) | 0x80;
         *(p + 2) = ((unic >> 12) & 0x3F) | 0x80;
@@ -79,7 +79,6 @@ static int usc2utf8(char *p, int unic) {
 static void rand_string(char *str, int size, bool chinese) {
     if (chinese) {
         char *pstr = str;
-        int   move = 0;
         while (size > 0) {
             // Chinese Character need 3 bytes space
             if (size < 3) {
@@ -87,7 +86,7 @@ static void rand_string(char *str, int size, bool chinese) {
             }
             // Basic Chinese Character's Unicode is from 0x4e00 to 0x9fa5
             int unic = 0x4e00 + taosRandom() % (0x9fa5 - 0x4e00);
-            move = usc2utf8(pstr, unic);
+            int move = usc2utf8(pstr, unic);
             pstr += move;
             size -= move;
         }
@@ -148,7 +147,6 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
 static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
                                        int64_t size) {
     size_t  n = 0;
-    ssize_t readLen = 0;
     char *  line = NULL;
     int     getRows = 0;
 
@@ -159,6 +157,7 @@ static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
         return -1;
     }
     while (1) {
+        ssize_t readLen = 0;
 #if defined(WIN32) || defined(WIN64)
         toolsGetLineFile(&line, &n, fp);
         readLen = n;
@@ -296,7 +295,6 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                       bool tag) {
     int     iface = stbInfo->iface;
     int     line_protocol = stbInfo->lineProtocol;
-    int64_t pos = 0;
     if (iface == STMT_IFACE) {
         for (int i = 0; i < fields->size; ++i) {
             Field * field = benchArrayGet(fields, i);
@@ -309,7 +307,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         }
     }
     for (int64_t k = 0; k < loop; ++k) {
-        pos = k * lenOfOneRow;
+        int64_t pos = k * lenOfOneRow;
         if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
             (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
             pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
@@ -498,115 +496,117 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int32_t int_;
-                    int_ = field->min + (taosRandom() % (field->max - field->min));
+                    int64_t _bigint;
+                    _bigint = field->min + (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((int64_t *)field->data)[k] = int_;
+                        ((int64_t *)field->data)[k] = _bigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%di64,",
-                                       field->name, int_);
+                        pos += sprintf(sampleDataBuf + pos, "%s=%"PRId64"i64,",
+                                       field->name, _bigint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%di64 ",
-                                           field->name, int_);
+                            pos += sprintf(sampleDataBuf + pos, "%s=%"PRId64"i64 ",
+                                           field->name, _bigint);
                         } else {
-                            pos += sprintf(sampleDataBuf + pos, "%di64 ", int_);
+                            pos += sprintf(sampleDataBuf + pos, "%"PRId64"i64 ", _bigint);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%d,", int_);
+                        pos += sprintf(sampleDataBuf + pos, "%"PRId64",", _bigint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uint = field->min + (taosRandom() % (field->max - field->min));
+                    uint32_t _uint = field->min + (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint32_t *)field->data)[k] = uint;
+                        ((uint32_t *)field->data)[k] = _uint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu32,",
-                                       field->name, uint);
+                                       field->name, _uint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%uu32 ",
-                                           field->name, uint);
+                                           field->name, _uint);
                         } else {
-                            pos += sprintf(sampleDataBuf + pos, "%uu32 ", uint);
+                            pos += sprintf(sampleDataBuf + pos, "%uu32 ", _uint);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", uint);
+                        pos += sprintf(sampleDataBuf + pos, "%u,", _uint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint32_t ubigint =
+                    uint64_t _ubigint =
                             field->min +
                         (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint64_t *)field->data)[k] = ubigint;
+                        ((uint64_t *)field->data)[k] = _ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
-                                       field->name, ubigint);
+                        pos += sprintf(sampleDataBuf + pos, "%s=%"PRIu64"u64,",
+                                       field->name, _ubigint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%uu64 ",
-                                           field->name, ubigint);
+                            pos += sprintf(sampleDataBuf + pos,
+                                           "%s=%"PRIu64"u64 ",
+                                           field->name, _ubigint);
                         } else {
                             pos +=
-                                sprintf(sampleDataBuf + pos, "%uu64 ", ubigint);
+                                sprintf(sampleDataBuf + pos,
+                                        "%"PRIu64"u64 ", _ubigint);
                         }
-
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", ubigint);
+                        pos += sprintf(sampleDataBuf + pos,
+                                       "%"PRIu64",", _ubigint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float float_ = (float)(field->min +
+                    float _float = (float)(field->min +
                                            (taosRandom() %
                                             (field->max - field->min)) +
                                            (taosRandom() % 1000) / 1000.0);
                     if (g_arguments->demo_mode && i == 0) {
-                        float_ = (float)(9.8 + 0.04 * (taosRandom() % 10) +
-                                         float_ / 1000000000);
+                        _float = (float)(9.8 + 0.04 * (taosRandom() % 10) +
+                                         _float / 1000000000);
                     } else if (g_arguments->demo_mode && i == 2) {
-                        float_ = (float)((105 + taosRandom() % 10 +
-                                          float_ / 1000000000) /
+                        _float = (float)((105 + taosRandom() % 10 +
+                                          _float / 1000000000) /
                                          360);
                     }
                     if (iface == STMT_IFACE) {
-                        ((float *)(field->data))[k] = float_;
+                        ((float *)(field->data))[k] = _float;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%ff32,",
-                                       field->name, float_);
+                                       field->name, _float);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%ff32 ",
-                                           field->name, float_);
+                                           field->name, _float);
                         } else {
                             pos +=
-                                sprintf(sampleDataBuf + pos, "%ff32 ", float_);
+                                sprintf(sampleDataBuf + pos, "%ff32 ", _float);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%f,", float_);
+                        pos += sprintf(sampleDataBuf + pos, "%f,", _float);
                     }
                     break;
                 }
@@ -656,8 +656,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         if (arraySize) {
                             tools_cJSON *buf = tools_cJSON_GetArrayItem(
                                     field->values,
-                                    taosRandom() %
-                                    tools_cJSON_GetArraySize(field->values));
+                                    taosRandom() % arraySize);
                             sprintf(tmp, "%s", buf->valuestring);
                         } else {
                             errorPrint("%s() cannot read correct value from json file. arrary size: %d\n",
@@ -728,7 +727,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
             }
         }
-    skip:
+skip:
         *(sampleDataBuf + pos - 1) = 0;
     }
 
@@ -738,27 +737,27 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     stbInfo->lenOfCols = calcRowLen(stbInfo->cols, stbInfo->iface);
     stbInfo->lenOfTags = calcRowLen(stbInfo->tags, stbInfo->iface);
-    if (stbInfo->partialColumnNum != 0 &&
+    if (stbInfo->partialColNum != 0 &&
         (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
-        if (stbInfo->partialColumnNum > stbInfo->cols->size) {
-            stbInfo->partialColumnNum = stbInfo->cols->size;
+        if (stbInfo->partialColNum > stbInfo->cols->size) {
+            stbInfo->partialColNum = stbInfo->cols->size;
         } else {
-            stbInfo->partialColumnNameBuf = benchCalloc(1, BUFFER_SIZE, true);
+            stbInfo->partialColNameBuf = benchCalloc(1, BUFFER_SIZE, true);
             int pos = 0;
-            pos += sprintf(stbInfo->partialColumnNameBuf + pos, "ts");
-            for (int i = 0; i < stbInfo->partialColumnNum; ++i) {
+            pos += sprintf(stbInfo->partialColNameBuf + pos, "ts");
+            for (int i = 0; i < stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
-                pos += sprintf(stbInfo->partialColumnNameBuf + pos, ",%s", col->name);
+                pos += sprintf(stbInfo->partialColNameBuf + pos, ",%s", col->name);
             }
-            for (int i = stbInfo->partialColumnNum; i < stbInfo->cols->size; ++i) {
+            for (int i = stbInfo->partialColNum; i < stbInfo->cols->size; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 col->none = true;
             }
-            debugPrint("partialColumnNameBuf: %s\n",
-                       stbInfo->partialColumnNameBuf);
+            debugPrint("partialColNameBuf: %s\n",
+                       stbInfo->partialColNameBuf);
         }
     } else {
-        stbInfo->partialColumnNum = stbInfo->cols->size;
+        stbInfo->partialColNum = stbInfo->cols->size;
     }
     stbInfo->sampleDataBuf =
             benchCalloc(1, stbInfo->lenOfCols * g_arguments->prepared_rand, true);
@@ -807,24 +806,9 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
-    if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
-        if (stbInfo->tcpTransfer
-                && stbInfo->iface == SML_REST_IFACE
-                && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->telnet_tcp_port,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        } else {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->port + TSDB_PORT_HTTP,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        }
+    if (0 != convertServAddr(stbInfo->iface,
+                       stbInfo->tcpTransfer, stbInfo->lineProtocol)) {
+        return -1;
     }
     return 0;
 }
@@ -869,6 +853,7 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTi
             debugPrint("col[%d]: type: %s, len: %d\n", c,
                        convertDatatypeToString(data_type),
                        col->length);
+            param->is_null = col->is_null;
         }
         param->buffer_type = data_type;
         param->length = benchCalloc(batch, sizeof(int32_t), true);
@@ -876,7 +861,6 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTi
         for (int b = 0; b < batch; b++) {
             param->length[b] = (int32_t)param->buffer_length;
         }
-        param->is_null = pThreadInfo->is_null;
         param->num = batch;
     }
 
