@@ -1,3 +1,18 @@
+build/
+debug/
+release/
+target/
+*.swp
+*.swo
+*.bak
+*.pyc
+tests/tmp
+dump_result.txt
+sim
+tests/taosdump/native/*.sql
+tests/taosdump/ws/*.sql
+tests/taosbenchmark/*.sql
+
 # Prerequisites
 *.d
 
@@ -50,3 +65,4 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+.mypy_cache/

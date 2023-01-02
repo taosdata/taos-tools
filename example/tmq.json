@@ -1,0 +1,19 @@
+{
+    "filetype": "subscribe",
+    "cfgdir": "/etc/taos",
+    "host": "127.0.0.1",
+    "port": 6030,
+    "user": "root",
+    "password": "taosdata",
+    "databases": "test",
+    "confirm_parameter_prompt": "no",
+    "specified_table_query": {
+        "concurrent": 1,
+        "interval": 1000,
+        "sqls": [
+            {
+                "sql": "select current from meters;"
+            }
+        ]
+    }
+}

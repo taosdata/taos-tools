@@ -1,0 +1,21 @@
+{
+    "filetype": "subscribe",
+    "cfgdir": "/etc/taos",
+    "host": "127.0.0.1",
+    "port": 6030,
+    "user": "root",
+    "password": "taosdata",
+    "databases": "db",
+    "confirm_parameter_prompt": "no",
+    "specified_table_query": {
+        "concurrent": 1,
+        "subscribe_interval": 1000,
+        "subscribe_times": 10,
+
+        "sqls": [
+            {
+                "sql": "select c0 from stb;"
+            }
+        ]
+    }
+}

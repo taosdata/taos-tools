@@ -8,12 +8,38 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "bench.h"
+
+#ifdef LINUX
+#include <argp.h>
+#else
+#ifndef ARGP_ERR_UNKNOWN
+    #define ARGP_ERR_UNKNOWN E2BIG
+#endif
+#endif
+
+extern char version[];
+
+// get taosBenchmark commit number version
+#ifndef TAOSBENCHMARK_COMMIT_SHA1
+#define TAOSBENCHMARK_COMMIT_SHA1 "unknown"
+#endif
+
+#ifndef TAOSBENCHMARK_TAG
+#define TAOSBENCHMARK_TAG "0.1.0"
+#endif
+
+#ifndef TAOSBENCHMARK_STATUS
+#define TAOSBENCHMARK_STATUS "unknown"
+#endif
+
+#ifdef WINDOWS
+char      g_configDir[MAX_PATH_LEN] = {0};  // "C:\\TDengine\\cfg"};
+#else
+char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
+#endif
 
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
@@ -26,639 +52,602 @@ char *g_aggreFuncDemo[] = {"*",
 char *g_aggreFunc[] = {"*",       "count(*)", "avg(C0)",   "sum(C0)",
                        "max(C0)", "min(C0)",  "first(C0)", "last(C0)"};
 
-const char *              argp_program_version;
-const char *              argp_program_bug_address = "<support@taosdata.com>";
-static char               doc[] = "";
-static char               args_doc[] = "";
-static struct argp_option options[] = {
-    {"file", 'f', "FILE", 0,
-     "(**IMPORTANT**) Set JSON configuration file(all options are going to "
-     "read from this JSON file), which is mutually exclusive with other "
-     "commandline options",
-     0},
-    {"config-dir", 'c', "CONFIG_DIR", 0, "Configuration directory.", 1},
-    {"host", 'h', "HOST", 0,
-     "TDengine server FQDN to connect, default is localhost."},
-    {"port", 'P', "PORT", 0,
-     "The TCP/IP port number to use for the connection, default is 6030."},
-    {"interface", 'I', "IFACE", 0,
-     "insert mode, default is taosc, options: taosc|rest|stmt|sml"},
-    {"user", 'u', "USER", 0,
-     "The user name to use when connecting to the server, default is root."},
-    {"password", 'p', "PASSWORD", 0,
-     "The password to use when connecting to the server, default is taosdata."},
-    {"output", 'o', "FILE", 0,
-     "The path of result output file, default is ./output.txt."},
-    {"threads", 'T', "NUMBER", 0,
-     "The number of thread when insert data, default is 8."},
-    {"insert-interval", 'i', "NUMBER", 0,
-     "Insert interval for interlace mode in milliseconds, default is 0."},
-    {"time-step", 'S', "NUMBER", 0,
-     "Timestamp step in milliseconds, default is 1."},
-    {"interlace-rows", 'B', "NUMBER", 0,
-     "The number of interlace rows insert into tables, default is 0"},
-    {"rec-per-req", 'r', "NUMBER", 0,
-     "Number of records in each insert request, default is 30000."},
-    {"tables", 't', "NUMBER", 0, "Number of child tables, default is 10000."},
-    {"records", 'n', "NUMBER", 0,
-     "Number of records for each table, default is 10000."},
-    {"database", 'd', "DATABASE", 0, "Name of database, default is test."},
-    {"columns", 'l', "NUMBER", 0,
-     "Number of INT data type columns in table, default is 0. "},
-    {"tag-type", 'A', "TAG_TYPE", 0,
-     "Data type of tables' tags, default is INT,BINARY(16)."},
-    {"data-type", 'b', "COL_TYPE", 0,
-     "Data type of tables' cols, default is FLOAT,INT,FLOAT."},
-    {"binwidth", 'w', "NUMBER", 0,
-     "The default length of nchar and binary if not specified, default is "
-     "64."},
-    {"table-prefix", 'm', "TABLE_PREFIX", 0,
-     "Prefix of child table name, default is d."},
-    {"escape-character", 'E', 0, 0,
-     "Use escape character in stable and child table name, optional."},
-    {"chinese", 'C', 0, 0,
-     "Nchar and binary are basic unicode chinese characters, optional."},
-    {"normal-table", 'N', 0, 0,
-     "Only create normal table without super table, optional."},
-    {"random", 'M', 0, 0, "Data source is randomly generated, optional."},
-    {"aggr-func", 'x', 0, 0,
-     "Query aggregation function after insertion, optional."},
-    {"answer-yes", 'y', 0, 0,
-     "Pass confirmation prompt to continue, optional."},
-    {"disorder-range", 'R', "NUMBER", 0,
-     "Range of disordered timestamp, default is 1000."},
-    {"disorder", 'O', "NUMBER", 0,
-     "Ratio of inserting data with disorder timestamp, default is 0."},
-    {"replia", 'a', "NUMBER", 0,
-     "The number of replica when create database, default is 1."},
-    {"debug", 'g', 0, 0, "Debug mode, optional."},
-    {"performance", 'G', 0, 0, "Performance mode, optional."},
-    {"prepared_rand", 'F', "NUMBER", 0,
-     "Random data source size, default is 10000."},
-    {0}};
-
-static int count_datatype(char *dataType, int32_t *number) {
-    char *dup_str;
-    *number = 0;
-    if (strstr(dataType, ",") == NULL) {
-        *number = 1;
-        return 0;
+void printVersion() {
+    char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
+    char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
+    char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
+    if (0 == strlen(taosBenchmark_status)) {
+        printf("taosBenchmark version: %s\ngitinfo: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit);
     } else {
-        dup_str = strdup(dataType);
-        char *running = dup_str;
-        char *token = strsep(&running, ",");
-        while (token != NULL) {
-            (*number)++;
-            token = strsep(&running, ",");
-        }
+        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
+                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
     }
-    tmfree(dup_str);
-    return 0;
 }
 
-static int parse_tag_datatype(char *dataType, Column *tags) {
+void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
     char *dup_str;
+    benchArrayClear(fields);
     if (strstr(dataType, ",") == NULL) {
-        if (0 == strcasecmp(dataType, "int")) {
-            tags[0].type = TSDB_DATA_TYPE_INT;
-            tags[0].length = sizeof(int32_t);
-        } else if (0 == strcasecmp(dataType, "float")) {
-            tags[0].type = TSDB_DATA_TYPE_FLOAT;
-            tags[0].length = sizeof(float);
-        } else if (0 == strcasecmp(dataType, "double")) {
-            tags[0].type = TSDB_DATA_TYPE_DOUBLE;
-            tags[0].length = sizeof(double);
-        } else if (0 == strcasecmp(dataType, "tinyint")) {
-            tags[0].type = TSDB_DATA_TYPE_TINYINT;
-            tags[0].length = sizeof(int8_t);
-        } else if (0 == strcasecmp(dataType, "bool")) {
-            tags[0].type = TSDB_DATA_TYPE_BOOL;
-            tags[0].length = sizeof(char);
-        } else if (0 == strcasecmp(dataType, "smallint")) {
-            tags[0].type = TSDB_DATA_TYPE_SMALLINT;
-            tags[0].length = sizeof(int16_t);
-        } else if (0 == strcasecmp(dataType, "bigint")) {
-            tags[0].type = TSDB_DATA_TYPE_BIGINT;
-            tags[0].length = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "timestamp")) {
-            tags[0].type = TSDB_DATA_TYPE_TIMESTAMP;
-            tags[0].length = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "utinyint")) {
-            tags[0].type = TSDB_DATA_TYPE_UTINYINT;
-            tags[0].length = sizeof(uint8_t);
-        } else if (0 == strcasecmp(dataType, "usmallint")) {
-            tags[0].type = TSDB_DATA_TYPE_USMALLINT;
-            tags[0].length = sizeof(uint16_t);
-        } else if (0 == strcasecmp(dataType, "uint")) {
-            tags[0].type = TSDB_DATA_TYPE_UINT;
-            tags[0].length = sizeof(uint32_t);
-        } else if (0 == strcasecmp(dataType, "ubigint")) {
-            tags[0].type = TSDB_DATA_TYPE_UBIGINT;
-            tags[0].length = sizeof(uint64_t);
-        } else if (0 == strcasecmp(dataType, "nchar")) {
-            tags[0].type = TSDB_DATA_TYPE_NCHAR;
-            tags[0].length = 0;
-        } else if (0 == strcasecmp(dataType, "binary")) {
-            tags[0].type = TSDB_DATA_TYPE_BINARY;
-            tags[0].length = 0;
-        } else if (0 == strcasecmp(dataType, "json")) {
-            tags[0].type = TSDB_DATA_TYPE_JSON;
-            tags[0].length = 0;
-        } else if (1 == regexMatch(dataType, "^(BINARY)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
+        Field * field = benchCalloc(1, sizeof(Field), true);
+        benchArrayPush(fields, field);
+        field = benchArrayGet(fields, 0);
+        if (1 == regexMatch(dataType,
+                    "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                    REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
             sscanf(dataType, "%[^(](%[^)]", type, length);
-            tags[0].type = TSDB_DATA_TYPE_BINARY;
-            tags[0].length = atoi(length);
-        } else if (1 == regexMatch(dataType, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            tags[0].type = TSDB_DATA_TYPE_NCHAR;
-            tags[0].length = atoi(length);
-        } else if (1 == regexMatch(dataType, "^(json)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            tags[0].type = TSDB_DATA_TYPE_JSON;
-            tags[0].length = atoi(length);
+            field->type = convertStringToDatatype(type, 0);
+            field->length = atoi(length);
         } else {
-            errorPrint("Invalid data type: %s\n", dataType);
-            return -1;
+            field->type = convertStringToDatatype(dataType, 0);
+            field->length = convertTypeToLength(field->type);
         }
+        field->min = convertDatatypeToDefaultMin(field->type);
+        field->max = convertDatatypeToDefaultMax(field->type);
+        tstrncpy(field->name, isTag?"t0":"c0", TSDB_COL_NAME_LEN);
     } else {
         dup_str = strdup(dataType);
         char *running = dup_str;
         char *token = strsep(&running, ",");
         int   index = 0;
         while (token != NULL) {
-            if (0 == strcasecmp(token, "int")) {
-                tags[index].type = TSDB_DATA_TYPE_INT;
-                tags[index].length = sizeof(int32_t);
-            } else if (0 == strcasecmp(token, "float")) {
-                tags[index].type = TSDB_DATA_TYPE_FLOAT;
-                tags[index].length = sizeof(float);
-            } else if (0 == strcasecmp(token, "double")) {
-                tags[index].type = TSDB_DATA_TYPE_DOUBLE;
-                tags[index].length = sizeof(double);
-            } else if (0 == strcasecmp(token, "tinyint")) {
-                tags[index].type = TSDB_DATA_TYPE_TINYINT;
-                tags[index].length = sizeof(int8_t);
-            } else if (0 == strcasecmp(token, "bool")) {
-                tags[index].type = TSDB_DATA_TYPE_BOOL;
-                tags[index].length = sizeof(char);
-            } else if (0 == strcasecmp(token, "smallint")) {
-                tags[index].type = TSDB_DATA_TYPE_SMALLINT;
-                tags[index].length = sizeof(int16_t);
-            } else if (0 == strcasecmp(token, "bigint")) {
-                tags[index].type = TSDB_DATA_TYPE_BIGINT;
-                tags[index].length = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "timestamp")) {
-                tags[index].type = TSDB_DATA_TYPE_TIMESTAMP;
-                tags[index].length = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "utinyint")) {
-                tags[index].type = TSDB_DATA_TYPE_UTINYINT;
-                tags[index].length = sizeof(uint8_t);
-            } else if (0 == strcasecmp(token, "usmallint")) {
-                tags[index].type = TSDB_DATA_TYPE_USMALLINT;
-                tags[index].length = sizeof(uint16_t);
-            } else if (0 == strcasecmp(token, "uint")) {
-                tags[index].type = TSDB_DATA_TYPE_UINT;
-                tags[index].length = sizeof(uint32_t);
-            } else if (0 == strcasecmp(token, "ubigint")) {
-                tags[index].type = TSDB_DATA_TYPE_UBIGINT;
-                tags[index].length = sizeof(uint64_t);
-            } else if (0 == strcasecmp(token, "nchar")) {
-                tags[index].type = TSDB_DATA_TYPE_NCHAR;
-                tags[index].length = 0;
-            } else if (0 == strcasecmp(token, "binary")) {
-                tags[index].type = TSDB_DATA_TYPE_BINARY;
-                tags[index].length = 0;
-            } else if (1 == regexMatch(token, "^(BINARY)(\\([1-9][0-9]*\\))$",
-                                       REG_ICASE | REG_EXTENDED)) {
+            Field * field = benchCalloc(1, sizeof(Field), true);
+            benchArrayPush(fields, field);
+            field = benchArrayGet(fields, index);
+            if (1 == regexMatch(token,
+                        "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                        REG_ICASE | REG_EXTENDED)) {
                 char type[DATATYPE_BUFF_LEN];
                 char length[BIGINT_BUFF_LEN];
                 sscanf(token, "%[^(](%[^)]", type, length);
-                tags[index].type = TSDB_DATA_TYPE_BINARY;
-                tags[index].length = atoi(length);
-            } else if (1 == regexMatch(token, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                char type[DATATYPE_BUFF_LEN];
-                char length[BIGINT_BUFF_LEN];
-                sscanf(token, "%[^(](%[^)]", type, length);
-                tags[index].type = TSDB_DATA_TYPE_NCHAR;
-                tags[index].length = atoi(length);
-            } else if (1 == regexMatch(token, "^(JSON)(\\([1-9][0-9]*\\))?$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                errorPrint("%s",
-                           "Json tag type cannot use with other type tags\n");
-                tmfree(dup_str);
-                return -1;
+                field->type = convertStringToDatatype(type, 0);
+                field->length = atoi(length);
             } else {
-                errorPrint("Invalid data type <%s>\n", token);
-                tmfree(dup_str);
-                return -1;
+                field->type = convertStringToDatatype(token, 0);
+                field->length = convertTypeToLength(field->type);
             }
+            field->max = convertDatatypeToDefaultMax(field->type);
+            field->min = convertDatatypeToDefaultMin(field->type);
+            snprintf(field->name, TSDB_COL_NAME_LEN, isTag?"t%d":"c%d", index);
             index++;
             token = strsep(&running, ",");
         }
         tmfree(dup_str);
     }
-    return 0;
 }
 
-static int parse_col_datatype(char *dataType, Column *columns) {
-    char *dup_str;
-    if (strstr(dataType, ",") == NULL) {
-        if (0 == strcasecmp(dataType, "int")) {
-            columns[0].type = TSDB_DATA_TYPE_INT;
-            columns[0].length = sizeof(int32_t);
-        } else if (0 == strcasecmp(dataType, "float")) {
-            columns[0].type = TSDB_DATA_TYPE_FLOAT;
-            columns[0].length = sizeof(float);
-        } else if (0 == strcasecmp(dataType, "double")) {
-            columns[0].type = TSDB_DATA_TYPE_DOUBLE;
-            columns[0].length = sizeof(double);
-        } else if (0 == strcasecmp(dataType, "tinyint")) {
-            columns[0].type = TSDB_DATA_TYPE_TINYINT;
-            columns[0].length = sizeof(int8_t);
-        } else if (0 == strcasecmp(dataType, "bool")) {
-            columns[0].type = TSDB_DATA_TYPE_BOOL;
-            columns[0].length = sizeof(char);
-        } else if (0 == strcasecmp(dataType, "smallint")) {
-            columns[0].type = TSDB_DATA_TYPE_SMALLINT;
-            columns[0].length = sizeof(int16_t);
-        } else if (0 == strcasecmp(dataType, "bigint")) {
-            columns[0].type = TSDB_DATA_TYPE_BIGINT;
-            columns[0].length = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "timestamp")) {
-            columns[0].type = TSDB_DATA_TYPE_TIMESTAMP;
-            columns[0].length = sizeof(int64_t);
-        } else if (0 == strcasecmp(dataType, "utinyint")) {
-            columns[0].type = TSDB_DATA_TYPE_UTINYINT;
-            columns[0].length = sizeof(uint8_t);
-        } else if (0 == strcasecmp(dataType, "usmallint")) {
-            columns[0].type = TSDB_DATA_TYPE_USMALLINT;
-            columns[0].length = sizeof(uint16_t);
-        } else if (0 == strcasecmp(dataType, "uint")) {
-            columns[0].type = TSDB_DATA_TYPE_UINT;
-            columns[0].length = sizeof(uint32_t);
-        } else if (0 == strcasecmp(dataType, "ubigint")) {
-            columns[0].type = TSDB_DATA_TYPE_UBIGINT;
-            columns[0].length = sizeof(uint64_t);
-        } else if (0 == strcasecmp(dataType, "nchar")) {
-            columns[0].type = TSDB_DATA_TYPE_NCHAR;
-            columns[0].length = 0;
-        } else if (0 == strcasecmp(dataType, "binary")) {
-            columns[0].type = TSDB_DATA_TYPE_BINARY;
-            columns[0].length = 0;
-        } else if (1 == regexMatch(dataType, "^(BINARY)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            columns[0].type = TSDB_DATA_TYPE_BINARY;
-            columns[0].length = atoi(length);
-        } else if (1 == regexMatch(dataType, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                   REG_ICASE | REG_EXTENDED)) {
-            char type[DATATYPE_BUFF_LEN];
-            char length[BIGINT_BUFF_LEN];
-            sscanf(dataType, "%[^(](%[^)]", type, length);
-            columns[0].type = TSDB_DATA_TYPE_NCHAR;
-            columns[0].length = atoi(length);
-        } else {
-            errorPrint("Invalid data type: %s\n", dataType);
-            return -1;
-        }
-    } else {
-        dup_str = strdup(dataType);
-        char *running = dup_str;
-        char *token = strsep(&running, ",");
-        int   index = 0;
-        while (token != NULL) {
-            if (0 == strcasecmp(token, "int")) {
-                columns[index].type = TSDB_DATA_TYPE_INT;
-                columns[index].length = sizeof(int32_t);
-            } else if (0 == strcasecmp(token, "float")) {
-                columns[index].type = TSDB_DATA_TYPE_FLOAT;
-                columns[index].length = sizeof(float);
-            } else if (0 == strcasecmp(token, "double")) {
-                columns[index].type = TSDB_DATA_TYPE_DOUBLE;
-                columns[index].length = sizeof(double);
-            } else if (0 == strcasecmp(token, "tinyint")) {
-                columns[index].type = TSDB_DATA_TYPE_TINYINT;
-                columns[index].length = sizeof(int8_t);
-            } else if (0 == strcasecmp(token, "bool")) {
-                columns[index].type = TSDB_DATA_TYPE_BOOL;
-                columns[index].length = sizeof(char);
-            } else if (0 == strcasecmp(token, "smallint")) {
-                columns[index].type = TSDB_DATA_TYPE_SMALLINT;
-                columns[index].length = sizeof(int16_t);
-            } else if (0 == strcasecmp(token, "bigint")) {
-                columns[index].type = TSDB_DATA_TYPE_BIGINT;
-                columns[index].length = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "timestamp")) {
-                columns[index].type = TSDB_DATA_TYPE_TIMESTAMP;
-                columns[index].length = sizeof(int64_t);
-            } else if (0 == strcasecmp(token, "utinyint")) {
-                columns[index].type = TSDB_DATA_TYPE_UTINYINT;
-                columns[index].length = sizeof(uint8_t);
-            } else if (0 == strcasecmp(token, "usmallint")) {
-                columns[index].type = TSDB_DATA_TYPE_USMALLINT;
-                columns[index].length = sizeof(uint16_t);
-            } else if (0 == strcasecmp(token, "uint")) {
-                columns[index].type = TSDB_DATA_TYPE_UINT;
-                columns[index].length = sizeof(uint32_t);
-            } else if (0 == strcasecmp(token, "ubigint")) {
-                columns[index].type = TSDB_DATA_TYPE_UBIGINT;
-                columns[index].length = sizeof(uint64_t);
-            } else if (0 == strcasecmp(token, "nchar")) {
-                columns[index].type = TSDB_DATA_TYPE_NCHAR;
-                columns[index].length = 0;
-            } else if (0 == strcasecmp(token, "binary")) {
-                columns[index].type = TSDB_DATA_TYPE_BINARY;
-                columns[index].length = 0;
-            } else if (1 == regexMatch(token, "^(BINARY)(\\([1-9][0-9]*\\))$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                char type[DATATYPE_BUFF_LEN];
-                char length[BIGINT_BUFF_LEN];
-                sscanf(token, "%[^(](%[^)]", type, length);
-                columns[index].type = TSDB_DATA_TYPE_BINARY;
-                columns[index].length = atoi(length);
-            } else if (1 == regexMatch(token, "^(NCHAR)(\\([1-9][0-9]*\\))$",
-                                       REG_ICASE | REG_EXTENDED)) {
-                char type[DATATYPE_BUFF_LEN];
-                char length[BIGINT_BUFF_LEN];
-                sscanf(token, "%[^(](%[^)]", type, length);
-                columns[index].type = TSDB_DATA_TYPE_NCHAR;
-                columns[index].length = atoi(length);
-            } else {
-                errorPrint("Invalid data type <%s>\n", token);
-                tmfree(dup_str);
-                return -1;
-            }
-            index++;
-            token = strsep(&running, ",");
-        }
-        tmfree(dup_str);
-    }
-    return 0;
-}
-
-static error_t parse_opt(int key, char *arg, struct argp_state *state) {
-    SArguments *arguments = state->input;
+int32_t benchParseSingleOpt(int32_t key, char* arg) {
+    SDataBase *database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
     switch (key) {
         case 'F':
-            arguments->prepared_rand = atol(arg);
-            if (arguments->prepared_rand <= 0) {
-                errorPrint("Invalid -F: %s, will auto set to default(10000)\n",
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "F");
+            }
+
+            g_arguments->prepared_rand = atol(arg);
+            if (g_arguments->prepared_rand <= 0) {
+                errorPrint(
+                           "Invalid -F: %s, will auto set to default(10000)\n",
                            arg);
-                arguments->prepared_rand = DEFAULT_PREPARED_RAND;
+                g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
             }
             break;
+
         case 'f':
-            arguments->demo_mode = false;
-            arguments->metaFile = arg;
+            g_arguments->demo_mode = false;
+            g_arguments->metaFile = arg;
+            g_arguments->nthreads_auto = false;
             break;
+
         case 'h':
-            arguments->host = arg;
+            g_arguments->host = arg;
+            g_arguments->host_auto = false;
+            g_arguments->nthreads_auto = false;
             break;
+
         case 'P':
-            arguments->port = atoi(arg);
-            if (arguments->port <= 0) {
-                errorPrint("Invalid -P: %s, will auto set to default(6030)\n",
-                           arg);
-                arguments->port = DEFAULT_PORT;
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "P");
             }
+            g_arguments->port = atoi(arg);
+            if (g_arguments->port <= 0) {
+                errorPrint(
+                           "Invalid -P: %s, will auto set to default(6030)\n",
+                           arg);
+                if (REST_IFACE == g_arguments->iface) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                } else {
+                    g_arguments->port = DEFAULT_PORT;
+                }
+            } else {
+                g_arguments->port_auto = false;
+            }
+            g_arguments->port_inputed = true;
             break;
+
         case 'I':
             if (0 == strcasecmp(arg, "taosc")) {
-                arguments->db->superTbls->iface = TAOSC_IFACE;
+                stbInfo->iface = TAOSC_IFACE;
             } else if (0 == strcasecmp(arg, "stmt")) {
-                arguments->db->superTbls->iface = STMT_IFACE;
+                stbInfo->iface = STMT_IFACE;
             } else if (0 == strcasecmp(arg, "rest")) {
-                arguments->db->superTbls->iface = REST_IFACE;
+                stbInfo->iface = REST_IFACE;
+                g_arguments->nthreads_auto = false;
+                if (false == g_arguments->port_inputed) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                }
             } else if (0 == strcasecmp(arg, "sml")) {
-                arguments->db->superTbls->iface = SML_IFACE;
+                stbInfo->iface = SML_IFACE;
             } else {
-                errorPrint("Invalid -I: %s, will auto set to default (taosc)\n",
+                errorPrint(
+                           "Invalid -I: %s, will auto set to default (taosc)\n",
                            arg);
-                arguments->db->superTbls->iface = TAOSC_IFACE;
+                stbInfo->iface = TAOSC_IFACE;
             }
+            g_arguments->iface = stbInfo->iface;
             break;
-        case 'p':
-            arguments->password = arg;
-            break;
-        case 'u':
-            arguments->user = arg;
-            break;
-        case 'c':
-            tstrncpy(configDir, arg, TSDB_FILENAME_LEN);
-            break;
-        case 'o':
-            arguments->output_file = arg;
-            break;
-        case 'T':
-            arguments->nthreads = atoi(arg);
-            if (arguments->nthreads <= 0) {
-                errorPrint("Invalid -T: %s, will auto set to default(8)\n",
-                           arg);
-                arguments->nthreads = DEFAULT_NTHREADS;
-            }
-            arguments->nthreads_pool = arguments->nthreads + 5;
-            break;
-        case 'i':
-            arguments->db->superTbls->insert_interval = atoi(arg);
-            if (arguments->db->superTbls->insert_interval <= 0) {
-                errorPrint("Invalid -i: %s, will auto set to default(0)\n",
-                           arg);
-                arguments->db->superTbls->insert_interval = 0;
-            }
-            break;
-        case 'S':
-            arguments->db->superTbls->timestamp_step = atol(arg);
-            if (arguments->db->superTbls->timestamp_step <= 0) {
-                errorPrint("Invalid -S: %s, will auto set to default(1)\n",
-                           arg);
-                arguments->db->superTbls->timestamp_step = 1;
-            }
-            break;
-        case 'B':
-            arguments->db->superTbls->interlaceRows = atoi(arg);
-            if (arguments->db->superTbls->interlaceRows <= 0) {
-                errorPrint("Invalid -B: %s, will auto set to default(0)\n",
-                           arg);
-                arguments->db->superTbls->interlaceRows = 0;
-            }
-            break;
-        case 'r':
-            arguments->reqPerReq = atoi(arg);
-            if (arguments->reqPerReq <= 0 ||
-                arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
-                errorPrint("Invalid -r: %s, will auto set to default(30000)\n",
-                           arg);
-                arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
-            }
-            break;
-        case 't':
-            arguments->db->superTbls->childTblCount = atoi(arg);
-            if (arguments->db->superTbls->childTblCount <= 0) {
-                errorPrint("Invalid -t: %s, will auto set to default(10000)\n",
-                           arg);
-                arguments->db->superTbls->childTblCount = DEFAULT_CHILDTABLES;
-            }
-            g_arguments->g_totalChildTables =
-                arguments->db->superTbls->childTblCount;
-            break;
-        case 'n':
-            arguments->db->superTbls->insertRows = atol(arg);
-            if (arguments->db->superTbls->insertRows <= 0) {
-                errorPrint("Invalid -n: %s, will auto set to default(10000)\n",
-                           arg);
-                arguments->db->superTbls->insertRows = DEFAULT_INSERT_ROWS;
-            }
-            break;
-        case 'd':
-            arguments->db->dbName = arg;
-            break;
-        case 'l':
-            arguments->demo_mode = false;
-            arguments->intColumnCount = atoi(arg);
-            if (arguments->intColumnCount <= 0) {
-                errorPrint("Invalid -l: %s, will auto set to default(0)\n",
-                           arg);
-                arguments->intColumnCount = 0;
-            }
-            break;
-        case 'A':
-            arguments->demo_mode = false;
-            count_datatype(arg, &(arguments->db->superTbls->tagCount));
-            tmfree(arguments->db->superTbls->tags);
-            arguments->db->superTbls->tags =
-                calloc(arguments->db->superTbls->tagCount, sizeof(Column));
-            if (parse_tag_datatype(arg, arguments->db->superTbls->tags)) {
-                tmfree(arguments->db->superTbls->tags);
-                exit(EXIT_FAILURE);
-            }
-            break;
-        case 'b':
-            arguments->demo_mode = false;
-            tmfree(arguments->db->superTbls->columns);
-            count_datatype(arg, &(arguments->db->superTbls->columnCount));
-            arguments->db->superTbls->columns =
-                calloc(arguments->db->superTbls->columnCount, sizeof(Column));
 
-            if (parse_col_datatype(arg, arguments->db->superTbls->columns)) {
-                tmfree(arguments->db->superTbls->columns);
-                exit(EXIT_FAILURE);
+        case 'p':
+            g_arguments->password = arg;
+            break;
+
+        case 'u':
+            g_arguments->user = arg;
+            break;
+
+        case 'c':
+            tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
+            g_arguments->cfg_inputed = true;
+            break;
+
+        case 'o':
+            g_arguments->output_file = arg;
+            break;
+
+        case 'T':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "T");
+            }
+
+            g_arguments->nthreads = atoi(arg);
+            if (g_arguments->nthreads <= 0) {
+                errorPrint(
+                           "Invalid -T: %s, will auto set to default(8)\n",
+                           arg);
+                g_arguments->nthreads = DEFAULT_NTHREADS;
+            } else {
+                g_arguments->nthreads_auto = false;
             }
             break;
+
+        case 'i':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "i");
+            }
+
+            stbInfo->insert_interval = atoi(arg);
+            if (stbInfo->insert_interval <= 0) {
+                errorPrint(
+                           "Invalid -i: %s, will auto set to default(0)\n",
+                           arg);
+                stbInfo->insert_interval = 0;
+            }
+            break;
+
+        case 'S':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "S");
+            }
+
+            stbInfo->timestamp_step = atol(arg);
+            if (stbInfo->timestamp_step <= 0) {
+                errorPrint(
+                           "Invalid -S: %s, will auto set to default(1)\n",
+                           arg);
+                stbInfo->timestamp_step = 1;
+            }
+            break;
+
+        case 'B':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "B");
+            }
+
+            stbInfo->interlaceRows = atoi(arg);
+            if (stbInfo->interlaceRows <= 0) {
+                errorPrint(
+                           "Invalid -B: %s, will auto set to default(0)\n",
+                           arg);
+                stbInfo->interlaceRows = 0;
+            }
+            break;
+
+        case 'r':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "r");
+            }
+
+            g_arguments->reqPerReq = atoi(arg);
+            if (g_arguments->reqPerReq <= 0 ||
+                g_arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
+                errorPrint(
+                           "Invalid -r: %s, will auto set to default(30000)\n",
+                           arg);
+                g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
+            }
+            break;
+
+        case 's':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "s");
+            }
+
+            g_arguments->startTimestamp = atol(arg);
+            break;
+
+        case 'U':
+            g_arguments->supplementInsert = true;
+            g_arguments->nthreads_auto = false;
+            break;
+
+        case 't':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "t");
+            }
+
+            stbInfo->childTblCount = atoi(arg);
+            if (stbInfo->childTblCount <= 0) {
+                errorPrint(
+                           "Invalid -t: %s, will auto set to default(10000)\n",
+                           arg);
+                stbInfo->childTblCount = DEFAULT_CHILDTABLES;
+            }
+            g_arguments->totalChildTables = stbInfo->childTblCount;
+            break;
+
+        case 'n':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "n");
+            }
+
+            stbInfo->insertRows = atol(arg);
+            if (stbInfo->insertRows <= 0) {
+                errorPrint(
+                           "Invalid -n: %s, will auto set to default(10000)\n",
+                           arg);
+                stbInfo->insertRows = DEFAULT_INSERT_ROWS;
+            }
+            break;
+
+        case 'd':
+            database->dbName = arg;
+            break;
+
+        case 'l':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "l");
+            }
+
+            g_arguments->demo_mode = false;
+            g_arguments->intColumnCount = atoi(arg);
+            if (g_arguments->intColumnCount <= 0) {
+                errorPrint(
+                           "Invalid -l: %s, will auto set to default(0)\n",
+                           arg);
+                g_arguments->intColumnCount = 0;
+            }
+            break;
+
+        case 'L':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "L");
+            }
+
+            g_arguments->demo_mode = false;
+            g_arguments->partialColNum = atoi(arg);
+            break;
+
+        case 'A':
+            g_arguments->demo_mode = false;
+            parseFieldDatatype(arg, stbInfo->tags, true);
+            break;
+
+        case 'b':
+            g_arguments->demo_mode = false;
+            parseFieldDatatype(arg, stbInfo->cols, false);
+            break;
+
+        case 'k':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "k");
+            }
+
+            g_arguments->keep_trying = atoi(arg);
+            debugPrint("keep_trying: %d\n", g_arguments->keep_trying);
+            break;
+
+        case 'z':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "z");
+            }
+
+            g_arguments->trying_interval = atoi(arg);
+            if (g_arguments->trying_interval < 0) {
+                errorPrint(
+                        "Invalid value for z: %s, will auto set to default(0)\n",
+                        arg);
+                g_arguments->trying_interval = 0;
+            }
+            debugPrint("trying_interval: %d\n", g_arguments->trying_interval);
+            break;
+
         case 'w':
-            arguments->binwidth = atoi(arg);
-            if (arguments->binwidth <= 0) {
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "w");
+            }
+
+            g_arguments->binwidth = atoi(arg);
+            if (g_arguments->binwidth <= 0) {
                 errorPrint(
-                    "Invalid value for w: %s, will auto set to default(64)\n",
-                    arg);
-                arguments->binwidth = DEFAULT_BINWIDTH;
-            } else if (arguments->binwidth > TSDB_MAX_BINARY_LEN) {
-                errorPrint("-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
-                           "), will auto set to default(64)\n",
-                           arguments->binwidth, (uint64_t)TSDB_MAX_BINARY_LEN);
-                arguments->binwidth = DEFAULT_BINWIDTH;
+                        "Invalid value for w: %s, will auto set to default(64)\n",
+                        arg);
+                g_arguments->binwidth = DEFAULT_BINWIDTH;
+            } else if (g_arguments->binwidth > TSDB_MAX_BINARY_LEN) {
+                errorPrint(
+                           "-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
+                                   "), will auto set to default(64)\n",
+                           g_arguments->binwidth, (uint64_t)TSDB_MAX_BINARY_LEN);
+                g_arguments->binwidth = DEFAULT_BINWIDTH;
             }
             break;
+
         case 'm':
-            arguments->db->superTbls->childTblPrefix = arg;
+            stbInfo->childTblPrefix = arg;
             break;
+
         case 'E':
-            arguments->db->superTbls->escape_character = true;
+            stbInfo->escape_character = true;
             break;
+
         case 'C':
-            arguments->chinese = true;
+            g_arguments->chinese = true;
             break;
+
         case 'N':
-            arguments->demo_mode = false;
-            arguments->db->superTbls->use_metric = false;
-            arguments->db->superTbls->tagCount = 0;
+            g_arguments->demo_mode = false;
+            stbInfo->use_metric = false;
+            benchArrayClear(stbInfo->tags);
             break;
+
         case 'M':
-            arguments->demo_mode = false;
+            g_arguments->demo_mode = false;
             break;
+
         case 'x':
-            arguments->aggr_func = true;
+            g_arguments->aggr_func = true;
             break;
+
         case 'y':
-            arguments->answer_yes = true;
+            g_arguments->answer_yes = true;
             break;
+
         case 'R':
-            arguments->db->superTbls->disorderRange = atoi(arg);
-            if (arguments->db->superTbls->disorderRange <= 0) {
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "R");
+            }
+
+            stbInfo->disorderRange = atoi(arg);
+            if (stbInfo->disorderRange <= 0) {
                 errorPrint(
-                    "Invalid value for -R: %s, will auto set to "
-                    "default(1000)\n",
-                    arg);
-                arguments->db->superTbls->disorderRange =
-                    DEFAULT_DISORDER_RANGE;
+                           "Invalid value for -R: %s, will auto set to "
+                           "default(1000)\n",
+                           arg);
+                stbInfo->disorderRange =
+                        DEFAULT_DISORDER_RANGE;
             }
             break;
+
         case 'O':
-            arguments->db->superTbls->disorderRatio = atoi(arg);
-            if (arguments->db->superTbls->disorderRatio <= 0) {
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "O");
+            }
+
+            stbInfo->disorderRatio = atoi(arg);
+            if (stbInfo->disorderRatio <= 0) {
                 errorPrint(
-                    "Invalid value for -O: %s, will auto set to default(0)\n",
-                    arg);
-                arguments->db->superTbls->disorderRatio = 0;
+                        "Invalid value for -O: %s, will auto set to default(0)\n",
+                        arg);
+                stbInfo->disorderRatio = 0;
             }
             break;
-        case 'a':
-            arguments->db->dbCfg.replica = atoi(arg);
-            if (arguments->db->dbCfg.replica <= 0) {
-                errorPrint(
-                    "Invalid value for -a: %s, will auto set to default(1)\n",
-                    arg);
-                arguments->db->dbCfg.replica = 1;
+
+        case 'a':{
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "a");
             }
+
+            int replica = atoi(arg);
+            if (replica <= 0) {
+                errorPrint(
+                        "Invalid value for -a: %s, will auto set to default(1)\n",
+                        arg);
+                replica = 1;
+            }
+            SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
+            cfg->name = benchCalloc(1, 10, true);
+            sprintf(cfg->name, "replica");
+            cfg->valuestring = NULL;
+            cfg->valueint = replica;
+            benchArrayPush(database->cfgs, cfg);
             break;
+        }
         case 'g':
-            arguments->debug_print = true;
+            g_arguments->debug_print = true;
             break;
         case 'G':
-            arguments->performance_print = true;
+            g_arguments->performance_print = true;
             break;
+
+#ifdef WEBSOCKET
+        case 'W':
+            g_arguments->dsn = arg;
+            break;
+        case 'D':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "D");
+            }
+
+            g_arguments->timeout = atoi(arg);
+            break;
+#endif
+
+        case 'V':
+            printVersion();
+            exit(0);
+
         default:
             return ARGP_ERR_UNKNOWN;
     }
     return 0;
 }
 
-static struct argp argp = {options, parse_opt, args_doc, doc};
+#ifdef LINUX
 
-static SSuperTable *init_stable() {
-    SDataBase *database = g_arguments->db;
-    database->superTbls = calloc(1, sizeof(SSuperTable));
-    SSuperTable *stbInfo = database->superTbls;
+const char *              argp_program_version = version;
+const char *              argp_program_bug_address = BENCH_EMAIL;
+
+static struct argp_option bench_options[] = {
+    {"file", 'f', "FILE", 0, BENCH_FILE, 0},
+    {"config-dir", 'c', "CONFIG_DIR", 0, BENCH_CFG_DIR, 1},
+    {"host", 'h', "HOST", 0, BENCH_HOST},
+    {"port", 'P', "PORT", 0, BENCH_PORT},
+    {"interface", 'I', "IFACE", 0, BENCH_MODE},
+    {"user", 'u', "USER", 0, BENCH_USER},
+    {"password", 'p', "PASSWORD", 0, BENCH_PASS},
+    {"output", 'o', "FILE", 0, BENCH_OUTPUT},
+    {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
+    {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
+    {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
+    {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
+    {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
+    {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},
+    {"rec-per-req", 'r', "NUMBER", 0, BENCH_BATCH},
+    {"tables", 't', "NUMBER", 0, BENCH_TABLE},
+    {"records", 'n', "NUMBER", 0, BENCH_ROWS},
+    {"database", 'd', "DATABASE", 0, BENCH_DATABASE},
+    {"columns", 'l', "NUMBER", 0, BENCH_COLS_NUM},
+    {"partial-col-num", 'L', "NUMBER", 0, BENCH_PARTIAL_COL_NUM},
+    {"tag-type", 'A', "TAG_TYPE", 0, BENCH_TAGS},
+    {"data-type", 'b', "COL_TYPE", 0, BENCH_COLS},
+    {"binwidth", 'w', "NUMBER", 0, BENCH_WIDTH},
+    {"table-prefix", 'm', "TABLE_PREFIX", 0, BENCH_PREFIX},
+    {"escape-character", 'E', 0, 0, BENCH_ESCAPE},
+    {"chinese", 'C', 0, 0, BENCH_CHINESE},
+    {"normal-table", 'N', 0, 0, BENCH_NORMAL},
+    {"random", 'M', 0, 0, BENCH_RANDOM},
+    {"aggr-func", 'x', 0, 0, BENCH_AGGR},
+    {"answer-yes", 'y', 0, 0, BENCH_YES},
+    {"disorder-range", 'R', "NUMBER", 0, BENCH_RANGE},
+    {"disorder", 'O', "NUMBER", 0, BENCH_DISORDER},
+    {"replia", 'a', "NUMBER", 0, BENCH_REPLICA},
+    {"debug", 'g', 0, 0, BENCH_DEBUG},
+    {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
+    {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},
+#ifdef WEBSOCKET
+    {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
+    {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
+#endif
+    {"keep-trying", 'k', "NUMBER", 0, BENCH_KEEPTRYING},
+    {"trying-interval", 'z', "NUMBER", 0, BENCH_TRYING_INTERVAL},
+    {"version", 'V', 0, 0, BENCH_VERSION},
+    {0}
+};
+
+static error_t benchParseOpt(int key, char *arg, struct argp_state *state) {
+    return benchParseSingleOpt(key, arg);
+}
+
+static struct argp bench_argp = {bench_options, benchParseOpt, "", ""};
+
+void benchParseArgsByArgp(int argc, char *argv[]) {
+    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
+}
+
+#endif
+
+int32_t benchParseArgs(int32_t argc, char* argv[]) {
+#ifdef LINUX
+    benchParseArgsByArgp(argc, argv);
+    return 0;
+#else
+    return benchParseArgsNoArgp(argc, argv);
+#endif
+}
+
+static void init_stable() {
+    SDataBase *database = benchArrayGet(g_arguments->databases, 0);
+    database->superTbls = benchArrayInit(1, sizeof(SSuperTable));
+    SSuperTable * stbInfo = benchCalloc(1, sizeof(SSuperTable), true);
+    benchArrayPush(database->superTbls, stbInfo);
+    stbInfo = benchArrayGet(database->superTbls, 0);
     stbInfo->iface = TAOSC_IFACE;
     stbInfo->stbName = "meters";
     stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
     stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
-    stbInfo->columns = calloc(3, sizeof(Column));
-    stbInfo->columns[0].type = TSDB_DATA_TYPE_FLOAT;
-    stbInfo->columns[1].type = TSDB_DATA_TYPE_INT;
-    stbInfo->columns[2].type = TSDB_DATA_TYPE_FLOAT;
-    stbInfo->columns[0].length = sizeof(float);
-    stbInfo->columns[1].length = sizeof(int32_t);
-    stbInfo->columns[2].length = sizeof(float);
-    stbInfo->tags = calloc(3, sizeof(Column));
-    stbInfo->tags[0].type = TSDB_DATA_TYPE_INT;
-    stbInfo->tags[1].type = TSDB_DATA_TYPE_BINARY;
-    stbInfo->tags[0].length = sizeof(int32_t);
-    stbInfo->tags[1].length = 16;
-    stbInfo->columnCount = 3;
-    stbInfo->tagCount = 2;
+    stbInfo->max_sql_len = MAX_SQL_LEN;
+    stbInfo->cols = benchArrayInit(3, sizeof(Field));
+    for (int i = 0; i < 3; ++i) {
+        Field *col = benchCalloc(1, sizeof(Field), true);
+        benchArrayPush(stbInfo->cols, col);
+    }
+    Field * c1 = benchArrayGet(stbInfo->cols, 0);
+    Field * c2 = benchArrayGet(stbInfo->cols, 1);
+    Field * c3 = benchArrayGet(stbInfo->cols, 2);
+
+    c1->type = TSDB_DATA_TYPE_FLOAT;
+    c2->type = TSDB_DATA_TYPE_INT;
+    c3->type = TSDB_DATA_TYPE_FLOAT;
+
+    c1->length = sizeof(float);
+    c2->length = sizeof(int32_t);
+    c3->length = sizeof(float);
+
+    tstrncpy(c1->name, "current", TSDB_COL_NAME_LEN + 1);
+    tstrncpy(c2->name, "voltage", TSDB_COL_NAME_LEN + 1);
+    tstrncpy(c3->name, "phase", TSDB_COL_NAME_LEN + 1);
+
+    c1->min = 9;
+    c1->max = 10;
+    c2->min = 110;
+    c2->max = 119;
+    c3->min = 115;
+    c3->max = 125;
+
+    stbInfo->tags = benchArrayInit(2, sizeof(Field));
+    for (int i = 0; i < 2; ++i) {
+        Field * tag = benchCalloc(1, sizeof(Field), true);
+        benchArrayPush(stbInfo->tags, tag);
+    }
+    Field * t1 = benchArrayGet(stbInfo->tags, 0);
+    Field * t2 = benchArrayGet(stbInfo->tags, 1);
+
+    t1->type = TSDB_DATA_TYPE_INT;
+    t2->type = TSDB_DATA_TYPE_BINARY;
+
+    t1->length = sizeof(int32_t);
+    t2->length = 24;
+
+    tstrncpy(t1->name, "groupid", TSDB_COL_NAME_LEN + 1);
+    tstrncpy(t2->name, "location", TSDB_COL_NAME_LEN + 1);
+
+    t1->min = 1;
+    t1->max = 10;
+
+
     stbInfo->insert_interval = 0;
     stbInfo->timestamp_step = 1;
     stbInfo->interlaceRows = 0;
@@ -669,162 +658,174 @@ static SSuperTable *init_stable() {
     stbInfo->childTblExists = false;
     stbInfo->random_data_source = true;
     stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
-    stbInfo->tsPrecision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-    stbInfo->startTimestamp = DEFAULT_START_TIME;
+
     stbInfo->insertRows = DEFAULT_INSERT_ROWS;
     stbInfo->disorderRange = DEFAULT_DISORDER_RANGE;
     stbInfo->disorderRatio = 0;
-    return stbInfo;
+    stbInfo->file_factor = -1;
+    stbInfo->delay = -1;
+    stbInfo->keep_trying = 0;
+    stbInfo->trying_interval = 0;
 }
 
-static SDataBase *init_database() {
-    g_arguments->db = calloc(1, sizeof(SDataBase));
-    SDataBase *database = g_arguments->db;
+static void init_database() {
+    g_arguments->databases = benchArrayInit(1, sizeof(SDataBase));
+    SDataBase *database = benchCalloc(1, sizeof(SDataBase), true);
+    benchArrayPush(g_arguments->databases, database);
+    database = benchArrayGet(g_arguments->databases, 0);
     database->dbName = DEFAULT_DATABASE;
     database->drop = 1;
-    database->superTblCount = 1;
-    database->dbCfg.minRows = -1;
-    database->dbCfg.maxRows = -1;
-    database->dbCfg.comp = -1;
-    database->dbCfg.walLevel = -1;
-    database->dbCfg.cacheLast = -1;
-    database->dbCfg.fsync = -1;
-    database->dbCfg.replica = -1;
-    database->dbCfg.update = -1;
-    database->dbCfg.keep = -1;
-    database->dbCfg.days = -1;
-    database->dbCfg.cache = -1;
-    database->dbCfg.blocks = -1;
-    database->dbCfg.quorum = -1;
-    database->dbCfg.precision = TSDB_TIME_PRECISION_MILLI;
-    database->dbCfg.sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
-    return database;
+    database->precision = TSDB_TIME_PRECISION_MILLI;
+    database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
+    database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
 }
+
 void init_argument() {
-    g_arguments = calloc(1, sizeof(SArguments));
-    g_memoryUsage += sizeof(SArguments);
-    g_arguments->pool = calloc(1, sizeof(TAOS_POOL));
-    g_memoryUsage += sizeof(TAOS_POOL);
+    g_arguments = benchCalloc(1, sizeof(SArguments), true);
+    if (taos_get_client_info()[0] == '3') {
+        g_arguments->taosc_version = 3;
+    } else {
+        g_arguments->taosc_version = 2;
+    }
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = 1;
-    g_arguments->dbCount = 1;
     g_arguments->host = NULL;
+    g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
+    g_arguments->port_inputed = false;
+    g_arguments->port_auto = true;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;
     g_arguments->password = TSDB_DEFAULT_PASS;
     g_arguments->answer_yes = 0;
     g_arguments->debug_print = 0;
+    g_arguments->binwidth = DEFAULT_BINWIDTH;
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
-    g_arguments->nthreads_pool = DEFAULT_NTHREADS + 5;
-    g_arguments->binwidth = DEFAULT_BINWIDTH;
+    g_arguments->nthreads_auto = true;
+    g_arguments->table_threads = DEFAULT_NTHREADS;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
-    g_arguments->g_totalChildTables = DEFAULT_CHILDTABLES;
-    g_arguments->g_actualChildTables = 0;
-    g_arguments->g_autoCreatedChildTables = 0;
-    g_arguments->g_existedChildTables = 0;
-    g_arguments->chinese = 0;
+    g_arguments->totalChildTables = DEFAULT_CHILDTABLES;
+    g_arguments->actualChildTables = 0;
+    g_arguments->autoCreatedChildTables = 0;
+    g_arguments->existedChildTables = 0;
+    g_arguments->chinese = false;
     g_arguments->aggr_func = 0;
-    g_arguments->db = init_database();
-    g_arguments->db->superTbls = init_stable();
-}
+    g_arguments->terminate = false;
+#ifdef WEBSOCKET
+    g_arguments->timeout = 10;
+#endif
 
-void commandLineParseArgument(int argc, char *argv[]) {
-    argp_program_version = taos_get_client_info();
-    argp_parse(&argp, argc, argv, 0, 0, g_arguments);
+    g_arguments->supplementInsert = false;
+    g_arguments->startTimestamp = DEFAULT_START_TIME;
+    g_arguments->partialColNum = 0;
+
+    g_arguments->keep_trying = 0;
+    g_arguments->trying_interval = 0;
+    g_arguments->iface = TAOSC_IFACE;
+
+    init_database();
+    init_stable();
+    g_arguments->streams = benchArrayInit(1, sizeof(SSTREAM));
 }
 
 void modify_argument() {
-    SSuperTable *superTable = g_arguments->db->superTbls;
-    if (init_taos_list()) exit(EXIT_FAILURE);
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable *superTable = benchArrayGet(database->superTbls, 0);
+#ifdef WEBSOCKET
+    if (!g_arguments->websocket) {
+#endif
+        if (strlen(g_configDir)
+                && g_arguments->host_auto
+                && g_arguments->port_auto) {
+#ifdef LINUX
+            wordexp_t full_path;
+            if (wordexp(g_configDir, &full_path, 0) != 0) {
+                errorPrint("Invalid path %s\n", g_configDir);
+                exit(EXIT_FAILURE);
+            }
+            taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+            wordfree(&full_path);
+#else
+            taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
+#endif
+            g_arguments->host = NULL;
+            g_arguments->port = 0;
+        }
+#ifdef WEBSOCKET
+    }
+#endif
 
-    if (g_arguments->db->superTbls->iface == STMT_IFACE) {
+    superTable->startTimestamp = g_arguments->startTimestamp;
+
+    if (0 != g_arguments->partialColNum) {
+        superTable->partialColNum = g_arguments->partialColNum;
+    }
+
+    if (superTable->iface == STMT_IFACE) {
         if (g_arguments->reqPerReq > INT16_MAX) {
             g_arguments->reqPerReq = INT16_MAX;
         }
-        if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
+        if (g_arguments->prepared_rand > g_arguments->reqPerReq) {
             g_arguments->prepared_rand = g_arguments->reqPerReq;
         }
     }
 
-    for (int i = 0; i < superTable->columnCount; ++i) {
-        if (superTable->columns[i].length == 0) {
-            superTable->columns[i].length = g_arguments->binwidth;
+    for (int i = 0; i < superTable->cols->size; ++i) {
+        Field * col = benchArrayGet(superTable->cols, i);
+        if (!g_arguments->demo_mode) {
+            snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", i);
+            col->min = convertDatatypeToDefaultMin(col->type);
+            col->max = convertDatatypeToDefaultMax(col->type);
+        }
+        if (col->length == 0) {
+            col->length = g_arguments->binwidth;
         }
     }
 
-    if (g_arguments->demo_mode) {
-        superTable->tags[0].name = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->tags[0].name, "groupid");
-        superTable->tags[0].min = -1 * (RAND_MAX >> 1);
-        superTable->tags[1].min = -1 * (RAND_MAX >> 1);
-        superTable->tags[0].max = RAND_MAX >> 1;
-        superTable->tags[1].max = RAND_MAX >> 1;
-        superTable->tags[1].name = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->tags[1].name, "location");
-        superTable->columns[0].name = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->columns[0].name, "current");
-        superTable->columns[1].name = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->columns[1].name, "voltage");
-        superTable->columns[2].name = calloc(1, TSDB_COL_NAME_LEN);
-        sprintf(superTable->columns[2].name, "phase");
-        superTable->columns[0].min = -1 * (RAND_MAX >> 1);
-        superTable->columns[0].max = RAND_MAX >> 1;
-        superTable->columns[1].min = -1 * (RAND_MAX >> 1);
-        superTable->columns[1].max = RAND_MAX >> 1;
-        superTable->columns[2].min = -1 * (RAND_MAX >> 1);
-        superTable->columns[2].max = RAND_MAX >> 1;
-    } else {
-        for (int i = 0; i < superTable->tagCount; ++i) {
-            superTable->tags[i].name = calloc(1, TSDB_COL_NAME_LEN);
-            sprintf(superTable->tags[i].name, "t%d", i);
-            superTable->tags[i].min = -1 * (RAND_MAX >> 1);
-            superTable->tags[i].max = RAND_MAX >> 1;
+    for (int i = 0; i < superTable->tags->size; ++i) {
+        Field* tag = benchArrayGet(superTable->tags, i);
+        if (!g_arguments->demo_mode) {
+            snprintf(tag->name, TSDB_COL_NAME_LEN, "t%d", i);
+        }
+        if (tag->length == 0) {
+            tag->length = g_arguments->binwidth;
         }
     }
 
-    for (int i = 0; i < superTable->tagCount; ++i) {
-        if (superTable->tags[i].length == 0) {
-            superTable->tags[i].length = g_arguments->binwidth;
+    if (g_arguments->intColumnCount > superTable->cols->size) {
+        for (int i = superTable->cols->size;
+                i < g_arguments->intColumnCount; ++i) {
+            Field * col = benchCalloc(1, sizeof(Field), true);
+            benchArrayPush(superTable->cols, col);
+            col = benchArrayGet(superTable->cols, i);
+            col->type = TSDB_DATA_TYPE_INT;
+            col->length = sizeof(int32_t);
+            snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", i);
+            col->min = convertDatatypeToDefaultMin(col->type);
+            col->max = convertDatatypeToDefaultMax(col->type);
         }
     }
 
-    if (g_arguments->intColumnCount > superTable->columnCount) {
-        Column *tmp_col = (Column *)realloc(
-            superTable->columns, g_arguments->intColumnCount * sizeof(Column));
-        if (tmp_col != NULL) {
-            superTable->columns = tmp_col;
-            for (int i = superTable->columnCount;
-                 i < g_arguments->intColumnCount; ++i) {
-                memset(&superTable->columns[i], 0, sizeof(Column));
-                superTable->columns[i].type = TSDB_DATA_TYPE_INT;
-                superTable->columns[i].length = sizeof(int32_t);
-            }
-        }
-        superTable->columnCount = g_arguments->intColumnCount;
-    }
-    if (!g_arguments->demo_mode) {
-        for (int i = 0; i < superTable->columnCount; ++i) {
-            superTable->columns[i].name = calloc(1, TSDB_COL_NAME_LEN);
-            sprintf(superTable->columns[i].name, "c%d", i);
-            superTable->columns[i].min = -1 * (RAND_MAX >> 1);
-            superTable->columns[i].max = RAND_MAX >> 1;
-        }
+    if (g_arguments->keep_trying) {
+        superTable->keep_trying = g_arguments->keep_trying;
+        superTable->trying_interval = g_arguments->trying_interval;
     }
 }
 
 static void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->taos;
+    TAOS *      taos = pThreadInfo->conn->taos;
+#ifdef LINUX
     prctl(PR_SET_NAME, "queryStableAggrFunc");
-    char *command = calloc(1, BUFFER_SIZE);
-
+#endif
+    char *command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
-    int64_t totalData = g_arguments->db->superTbls->insertRows *
-                        g_arguments->db->superTbls->childTblCount;
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    int64_t totalData = stbInfo->insertRows * stbInfo->childTblCount;
     char **aggreFunc;
     int    n;
 
@@ -844,9 +845,7 @@ static void *queryStableAggrFunc(void *sarg) {
         char condition[COND_BUF_LEN] = "\0";
         char tempS[64] = "\0";
 
-        int64_t m = 10 < g_arguments->db->superTbls->childTblCount
-                        ? 10
-                        : g_arguments->db->superTbls->childTblCount;
+        int64_t m = 10 < stbInfo->childTblCount ? 10 : stbInfo->childTblCount;
 
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
@@ -864,7 +863,7 @@ static void *queryStableAggrFunc(void *sarg) {
             }
             strncat(condition, tempS, COND_BUF_LEN - 1);
 
-            sprintf(command, "SELECT %s FROM meters WHERE %s", aggreFunc[j],
+            sprintf(command, "SELECT %s FROM %s.meters WHERE %s", aggreFunc[j], database->dbName,
                     condition);
             if (fp) {
                 fprintf(fp, "%s\n", command);
@@ -890,7 +889,8 @@ static void *queryStableAggrFunc(void *sarg) {
                 fprintf(fp, "| Speed: %12.2f(per s) | Latency: %.4f(ms) |\n",
                         totalData / (t / 1000), t);
             }
-            infoPrint("%s took %.6f second(s)\n\n", command, t / 1000000);
+            infoPrint("%s took %.6f second(s)\n\n", command,
+                      t / 1000000);
 
             taos_free_result(pSql);
         }
@@ -901,12 +901,15 @@ static void *queryStableAggrFunc(void *sarg) {
 
 static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->taos;
+    TAOS *      taos = pThreadInfo->conn->taos;
+#ifdef LINUX
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
-    char *  command = calloc(1, BUFFER_SIZE);
+#endif
+    char *  command = benchCalloc(1, BUFFER_SIZE, false);
     FILE *  fp = g_arguments->fpOfInsertResult;
-    int64_t totalData = g_arguments->db->superTbls->childTblCount *
-                        g_arguments->db->superTbls->insertRows;
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    int64_t totalData = stbInfo->childTblCount * stbInfo->insertRows;
     char **aggreFunc;
     int    n;
 
@@ -928,19 +931,19 @@ static void *queryNtableAggrFunc(void *sarg) {
     for (int j = 0; j < n; j++) {
         double   totalT = 0;
         uint64_t count = 0;
-        for (int64_t i = 0; i < g_arguments->db->superTbls->childTblCount;
-             i++) {
-            if (g_arguments->db->superTbls->escape_character) {
+        for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+            if (stbInfo->escape_character) {
                 sprintf(command,
-                        "SELECT %s FROM `%s%" PRId64 "` WHERE ts>= %" PRIu64,
+                        "SELECT %s FROM %s.`%s%" PRId64 "` WHERE ts>= %" PRIu64,
                         aggreFunc[j],
-                        g_arguments->db->superTbls->childTblPrefix, i,
-                        DEFAULT_START_TIME);
+                        database->dbName,
+                        stbInfo->childTblPrefix, i,
+                        (uint64_t) DEFAULT_START_TIME);
             } else {
                 sprintf(
-                    command, "SELECT %s FROM %s%" PRId64 " WHERE ts>= %" PRIu64,
-                    aggreFunc[j], g_arguments->db->superTbls->childTblPrefix, i,
-                    DEFAULT_START_TIME);
+                    command, "SELECT %s FROM %s.%s%" PRId64 " WHERE ts>= %" PRIu64,
+                    aggreFunc[j], database->dbName, stbInfo->childTblPrefix, i,
+                    (uint64_t)DEFAULT_START_TIME);
             }
 
             double    t = (double)toolsGetTimestampUs();
@@ -966,14 +969,12 @@ static void *queryNtableAggrFunc(void *sarg) {
         }
         if (fp) {
             fprintf(fp, "|%10s  |   %" PRId64 "   |  %12.2f   |   %10.2f  |\n",
-                    aggreFunc[j][0] == '*' ? "   *   " : aggreFunc[j],
-                    totalData,
-                    (double)(g_arguments->db->superTbls->childTblCount *
-                             g_arguments->db->superTbls->insertRows) /
-                        totalT,
+                    aggreFunc[j][0] == '*' ? "   *   " : aggreFunc[j], totalData,
+                    (double)(stbInfo->childTblCount * stbInfo->insertRows) / totalT,
                     totalT / 1000000);
         }
-        infoPrint("<%s> took %.6f second(s)\n", command, totalT / 1000000);
+        infoPrint("<%s> took %.6f second(s)\n", command,
+                  totalT / 1000000);
     }
     free(command);
     return NULL;
@@ -981,13 +982,35 @@ static void *queryNtableAggrFunc(void *sarg) {
 
 void queryAggrFunc() {
     pthread_t   read_id;
-    threadInfo *pThreadInfo = calloc(1, sizeof(threadInfo));
-    pThreadInfo->taos = select_one_from_pool(g_arguments->db->dbName);
-    if (g_arguments->db->superTbls->use_metric) {
+    threadInfo *pThreadInfo = benchCalloc(1, sizeof(threadInfo), false);
+    if (NULL == pThreadInfo) {
+        errorPrint("%s() failed to allocate memory\n", __func__);
+        return;
+    }
+    SDataBase * database = benchArrayGet(g_arguments->databases, 0);
+    if (NULL == database) {
+        errorPrint("%s() failed to get database\n", __func__);
+        free(pThreadInfo);
+        return;
+    }
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    if (NULL == stbInfo) {
+        errorPrint("%s() failed to get super table\n", __func__);
+        free(pThreadInfo);
+        return;
+    }
+    pThreadInfo->conn = init_bench_conn();
+    if (pThreadInfo->conn == NULL) {
+        errorPrint("%s() failed to init connection\n", __func__);
+        free(pThreadInfo);
+        return;
+    }
+    if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
     } else {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
+    close_bench_conn(pThreadInfo->conn);
     free(pThreadInfo);
 }

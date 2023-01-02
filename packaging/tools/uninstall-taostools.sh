@@ -20,10 +20,7 @@ bin_link_dir="/usr/bin"
 install_main_dir="/usr/local/taos"
 
 # Color setting
-RED='\033[0;31m'
 GREEN='\033[1;32m'
-GREEN_DARK='\033[0;32m'
-GREEN_UNDERLINE='\033[4;32m'
 NC='\033[0m'
 
 csudo=""
@@ -36,6 +33,14 @@ function kill_process() {
   if [ -n "$pid" ]; then
     ${csudo}kill -9 $pid   || :
   fi
+}
+
+function uninstall_libtaosws() {
+    if [ ! -f ${install_main_dir}/bin/taos ]; then
+        [ -f /usr/lib/libtaosws.so ] && ${csudo}rm -f /usr/lib/libtaosws.so ||:
+        [ -f /usr/lib64/libtaosws.so ] && ${csudo}rm -f /usr/lib64/libtaosws.so ||:
+        [ -f ${install_main_dir}/driver/libtaosws.so ] && ${csudo}rm -f ${install_main_dir}/driver/libtaosws.so ||:
+    fi
 }
 
 function uninstall_bin() {
@@ -61,9 +66,10 @@ function uninstall_taostools() {
     kill_process ${dumpName}
 
     uninstall_bin
+    uninstall_libtaosws
 
     echo
-    echo -e "\033[44;32;1m${taosName} tools is uninstalled successfully!${NC}"
+    echo -e "${GREEN}${taosName} tools is uninstalled successfully!${NC}"
 }
 
 ## ==============================Main program starts from here============================

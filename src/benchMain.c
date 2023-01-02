@@ -8,23 +8,82 @@
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "bench.h"
+#include "toolsdef.h"
+
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
 bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
-cJSON*         root;
+tools_cJSON*   root;
+
+static char     g_client_info[32] = {0};
+int             g_majorVersionOfClient = 0;
+
+#ifdef LINUX
+void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
+    sem_post(&g_arguments->cancelSem);
+}
+
+void* benchCancelHandler(void* arg) {
+    if (bsem_wait(&g_arguments->cancelSem) != 0) {
+        toolsMsleep(10);
+    }
+    infoPrint("%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
+    if(g_arguments->in_prompt) {
+        exit(EXIT_SUCCESS);
+    }
+    g_arguments->terminate = true;
+    return NULL;
+}
+#endif
 
 int main(int argc, char* argv[]) {
+    int ret = 0;
+
     init_argument();
-    commandLineParseArgument(argc, argv);
+
+    sprintf(g_client_info, "%s", taos_get_client_info());
+    g_majorVersionOfClient = atoi(g_client_info);
+    debugPrint("Client info: %s, major version: %d\n",
+            g_client_info,
+            g_majorVersionOfClient);
+
+#ifdef LINUX
+    if (sem_init(&g_arguments->cancelSem, 0, 0) != 0) {
+        errorPrint("%s", "failed to create cancel semaphore\n");
+        exit(EXIT_FAILURE);
+    }
+    pthread_t spid = {0};
+    pthread_create(&spid, NULL, benchCancelHandler, NULL);
+
+    benchSetSignal(SIGINT, benchQueryInterruptHandler);
+
+#endif
+    if (benchParseArgs(argc, argv)) {
+        return -1;
+    }
+#ifdef WEBSOCKET
+    if (g_arguments->debug_print) {
+        ws_enable_log();
+    }
+
+    if (g_arguments->dsn != NULL) {
+        g_arguments->websocket = true;
+    } else {
+        char * dsn = getenv("TDENGINE_CLOUD_DSN");
+        if (dsn != NULL) {
+            g_arguments->dsn = dsn;
+            g_arguments->websocket = true;
+        } else {
+            g_arguments->dsn = false;
+        }
+    }
+#endif
     if (g_arguments->metaFile) {
-        g_arguments->g_totalChildTables = 0;
+        g_arguments->totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
     } else {
         modify_argument();
@@ -35,21 +94,34 @@ int main(int argc, char* argv[]) {
         errorPrint("failed to open %s for save result\n",
                    g_arguments->output_file);
     }
+    infoPrint("taos client version: %s\n", taos_get_client_info());
 
     if (g_arguments->test_mode == INSERT_TEST) {
-        if (insertTestProcess()) exit(EXIT_FAILURE);
-    } else if (g_arguments->test_mode == QUERY_TEST) {
-        if (queryTestProcess(g_arguments)) exit(EXIT_FAILURE);
-        for (int64_t i = 0; i < g_queryInfo.superQueryInfo.childTblCount; ++i) {
-            tmfree(g_queryInfo.superQueryInfo.childTblName[i]);
+        if (insertTestProcess()) {
+            errorPrint("%s", "insert test process failed\n");
+            ret = -1;
         }
-        tmfree(g_queryInfo.superQueryInfo.childTblName);
+    } else if (g_arguments->test_mode == QUERY_TEST) {
+        if (queryTestProcess(g_arguments)) {
+            errorPrint("%s", "query test process failed\n");
+            ret = -1;
+        }
     } else if (g_arguments->test_mode == SUBSCRIBE_TEST) {
-        if (subscribeTestProcess(g_arguments)) exit(EXIT_FAILURE);
+        if (subscribeTestProcess(g_arguments)) {
+            errorPrint("%s", "sub test process failed\n");
+            ret = -1;
+        }
     }
-    if (g_arguments->aggr_func) {
-        queryAggrFunc(g_arguments, g_arguments->pool);
+
+    if ((ret == 0) && g_arguments->aggr_func) {
+        queryAggrFunc();
     }
     postFreeResource();
-    return 0;
+
+#ifdef LINUX
+    pthread_cancel(spid);
+    pthread_join(spid, NULL);
+#endif
+
+    return ret;
 }
