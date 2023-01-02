@@ -1774,7 +1774,7 @@ static int parseBufferToStmtBatch(
     int64_t lenOfOneRow = stbInfo->lenOfCols;
 
     if (stbInfo->useSampleTs) {
-        columnCount += 1; // for skiping first column
+        columnCount += 1; // for skipping first column
     }
     for (int i=0; i < g_arguments->prepared_rand; i++) {
         int cursor = 0;

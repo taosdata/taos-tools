@@ -255,7 +255,7 @@ int32_t toolsParseTimezone(char* str, int64_t* tzOffset) {
         i += 2;
     }
 
-    //return error if there're illegal charaters after min(2 Digits)
+    //return error if there're illegal characters after min(2 Digits)
     char *minStr = &str[i];
     if (minStr[1] != '\0' && minStr[2] != '\0') {
         return -1;

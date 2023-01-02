@@ -872,19 +872,19 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
     return 0;
 }
 
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles) {
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
     if (pData == NULL) {
         return NULL;
     }
 
-    if (benchArrayEnsureCap(pArray, pArray->size + nEles) != 0) {
+    if (benchArrayEnsureCap(pArray, pArray->size + elems) != 0) {
         return NULL;
     }
 
     void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
-    memcpy(dst, pData, pArray->elemSize * nEles);
+    memcpy(dst, pData, pArray->elemSize * elems);
     tmfree(pData);
-    pArray->size += nEles;
+    pArray->size += elems;
     return dst;
 }
 
@@ -945,7 +945,7 @@ int convertServAddr(int iface, bool tcp, int protocol) {
             }
         } else {
             if (convertHostToServAddr(g_arguments->host,
-                        (g_arguments->port_inputed)?
+                        (g_arguments->port_inputted)?
                                       g_arguments->port:
                                       DEFAULT_REST_PORT,
                         &(g_arguments->serv_addr))) {

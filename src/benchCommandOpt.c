@@ -165,7 +165,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             } else {
                 g_arguments->port_auto = false;
             }
-            g_arguments->port_inputed = true;
+            g_arguments->port_inputted = true;
             break;
 
         case 'I':
@@ -176,7 +176,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
                 g_arguments->nthreads_auto = false;
-                if (false == g_arguments->port_inputed) {
+                if (false == g_arguments->port_inputted) {
                     g_arguments->port = DEFAULT_REST_PORT;
                 }
             } else if (0 == strcasecmp(arg, "sml")) {
@@ -200,7 +200,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'c':
             tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
-            g_arguments->cfg_inputed = true;
+            g_arguments->cfg_inputted = true;
             break;
 
         case 'o':
@@ -692,7 +692,7 @@ void init_argument() {
     g_arguments->host = NULL;
     g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
-    g_arguments->port_inputed = false;
+    g_arguments->port_inputted = false;
     g_arguments->port_auto = true;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;

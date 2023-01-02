@@ -659,7 +659,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                     taosRandom() % arraySize);
                             sprintf(tmp, "%s", buf->valuestring);
                         } else {
-                            errorPrint("%s() cannot read correct value from json file. arrary size: %d\n",
+                            errorPrint("%s() cannot read correct value from json file. array size: %d\n",
                                     __func__, arraySize);
                             free(tmp);
                             return -1;

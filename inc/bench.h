@@ -196,7 +196,7 @@
 #define BENCH_EMAIL   "<support@taosdata.com>"
 #define BENCH_VERSION "Print program version."
 #define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
-#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a postive number. Only valid when keep trying be enabled."
+#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a positive number. Only valid when keep trying be enabled."
 
 #ifdef WEBSOCKET
 #define BENCH_DSN "The dsn to connect TDengine cloud service."
@@ -627,8 +627,8 @@ typedef struct SArguments_S {
     uint16_t            port;
     bool                host_auto;
     bool                port_auto;
-    bool                port_inputed;
-    bool                cfg_inputed;
+    bool                port_inputted;
+    bool                cfg_inputted;
     uint16_t            telnet_tcp_port;
     char *              user;
     char *              password;
@@ -795,7 +795,7 @@ void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems);
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
