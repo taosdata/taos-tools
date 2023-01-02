@@ -23,3 +23,9 @@ repos:
           #      - id: cpplint
       - id: cppcheck
         args: ["--error-exitcode=0"]
+
+repos:
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.13.6
+    hooks:
+      - id: typos
