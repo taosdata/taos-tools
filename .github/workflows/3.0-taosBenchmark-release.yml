@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21131-taosbenchmark-bigint-random'
+          ref: 'fix/sangshuduo/TS-2360-taosdump-update'
 
       - name: Change time zone
         if: |

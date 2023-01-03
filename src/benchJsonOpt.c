@@ -504,6 +504,15 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                     return -1;
                 }
                 superTable->iface = SML_REST_IFACE;
+                if (0 != convertServAddr(REST_IFACE,
+                                         false,
+                                         1)) {
+                    errorPrint("%s", "Failed to convert server address\n");
+                    return -1;
+                }
+                encodeAuthBase64();
+                g_arguments->rest_server_ver_major =
+                    getServerVersionRest(g_arguments->port + TSDB_PORT_HTTP);
             }
         }
 
