@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2253-taosbenchmark-rest-mode-in-json'
+          ref: 'fix/sangshuduo/TS-2360-taosdump-update'
 
       - name: Change time zone
         if: |

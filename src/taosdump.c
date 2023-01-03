@@ -3462,7 +3462,7 @@ static void dumpCreateDbClause(
 
         pstr += sprintf(pstr,
                 "%s %s %s %s %s %s "
-                "%s %s PRECISION '%s' %s %s",
+                "%s %s PRECISION '%s' %s %s ",
                 (g_majorVersionOfClient < 3)?"":strict,
                 (g_majorVersionOfClient < 3)?quorum:"",
                 (g_majorVersionOfClient < 3)?days:duration,
