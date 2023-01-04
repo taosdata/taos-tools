@@ -492,14 +492,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n",
+                    errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
                 superTable->iface = SML_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n",
+                    errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
