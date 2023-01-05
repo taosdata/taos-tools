@@ -55,11 +55,9 @@ static int getSuperTableFromServerTaosc(
     res = taos_query(conn->taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        debugPrint("failed to run command %s, reason: %s\n", command,
-                   taos_errstr(res));
+        printErrCmdCodeStr(command, code, res);
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
-        taos_free_result(res);
         close_bench_conn(conn);
         return -1;
     }
@@ -310,9 +308,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
-        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
-                    cmd, code, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
 
@@ -320,9 +316,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
-        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
-                    cmd, code, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
 
@@ -343,9 +337,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
-        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
-                    cmd, code, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
 
@@ -455,9 +447,7 @@ int32_t getRemainVnodes(SBenchConn *conn) {
     TAOS_RES *res = taos_query(conn->taos, command);
     int32_t   code = taos_errno(res);
     if (code) {
-        errorPrint("failed to get child table name: %s. reason: %s",
-                   command, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(command, code, res);
         close_bench_conn(conn);
         return -1;
     }
@@ -1937,9 +1927,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         int32_t   code = taos_errno(res);
         int64_t   count = 0;
         if (code) {
-            errorPrint("failed to get child table name: %s. reason: %s",
-                    cmd, taos_errstr(res));
-            taos_free_result(res);
+            printErrCmdCodeStr(cmd, code, res);
             close_bench_conn(conn);
             return -1;
         }
@@ -2394,9 +2382,7 @@ static int getStbInsertedRows(char* dbName, char* stbName, TAOS* taos) {
     TAOS_RES* res = taos_query(taos, command);
     int code = taos_errno(res);
     if (code != 0) {
-        errorPrint("Failed to execute <%s>, reason: %s\n",
-                command, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(command, code, res);
         return -1;
     }
     TAOS_ROW row = taos_fetch_row(res);

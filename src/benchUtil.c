@@ -19,7 +19,7 @@ char resHttpOk[] = "HTTP/1.1 200 OK";
 char influxHttpOk[] = "HTTP/1.1 204";
 char opentsdbHttpOk[] = "HTTP/1.1 400";
 
-inline void* benchCalloc(size_t nmemb, size_t size, bool record) {
+FORCE_INLINE void* benchCalloc(size_t nmemb, size_t size, bool record) {
     void* ret = calloc(nmemb, size);
     if (NULL == ret) {
         errorPrint("%s", "failed to allocate memory\n");
@@ -31,14 +31,14 @@ inline void* benchCalloc(size_t nmemb, size_t size, bool record) {
     return ret;
 }
 
-inline void tmfclose(FILE *fp) {
+FORCE_INLINE void tmfclose(FILE *fp) {
     if (NULL != fp) {
         fclose(fp);
         fp = NULL;
     }
 }
 
-inline void tmfree(void *buf) {
+FORCE_INLINE void tmfree(void *buf) {
     if (NULL != buf) {
         free(buf);
         buf = NULL;
@@ -125,10 +125,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
     int32_t   code = taos_errno(res);
     int64_t   count = 0;
     if (code) {
-        errorPrint("failed to get child table name: %s. reason: %s",
-                cmd, taos_errstr(res));
-        taos_free_result(res);
-
+        printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
     TAOS_ROW row = NULL;
@@ -353,11 +350,11 @@ int32_t queryDbExec(SBenchConn *conn, char *command) {
 #endif
         TAOS_RES *res = taos_query(conn->taos, command);
         code = taos_errno(res);
-        if (code != 0) {
-            errorPrint("Failed to execute <%s>, code: 0x%08x, reason: %s\n",
-                       command, code, taos_errstr(res));
+        if (code) {
+            printErrCmdCodeStr(command, code, res);
+        } else {
+            taos_free_result(res);
         }
-        taos_free_result(res);
 #ifdef WEBSOCKET
     }
 #endif
@@ -1129,3 +1126,10 @@ void destroySockFd(int sockfd) {
     close(sockfd);
 #endif
 }
+
+FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
+    errorPrint("failed to run command %s, code: 0x%08x, reason: %s\n",
+               cmd, code, taos_errstr(res));
+    taos_free_result(res);
+}
+

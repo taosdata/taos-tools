@@ -296,11 +296,7 @@ int subscribeTestProcess() {
         TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
-            errorPrint(
-                       "failed to count child table name: %s. reason: %s\n",
-                       cmd, taos_errstr(res));
-            taos_free_result(res);
-
+            printErrCmdCodeStr(cmd, code, res);
             return -1;
         }
         TAOS_ROW    row = NULL;
