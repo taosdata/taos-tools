@@ -64,7 +64,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'feat/sangshuduo/TD-16450-taosdump-for-windows'
+          ref: 'fix/sangshuduo/TS-2389-taosbenchmark-check-remain-vnodes'
 
       - name: Change time zone
         if: |
