@@ -890,19 +890,18 @@ static void *queryStableAggrFunc(void *sarg) {
                                     0, g_arguments->port, 0,
                                     pThreadInfo->sockfd, NULL);
             } else {
-                TAOS_RES *pSql = taos_query(taos, command);
-                code = taos_errno(pSql);
+                TAOS_RES *res = taos_query(taos, command);
+                code = taos_errno(res);
                 if (code != 0) {
-                    errorPrint("Failed to query:%s\n", taos_errstr(pSql));
-                    taos_free_result(pSql);
+                    printErrCmdCodeStr(command, code, res);
                     free(command);
                     return NULL;
                 }
                 int count = 0;
-                while (taos_fetch_row(pSql) != NULL) {
+                while (taos_fetch_row(res) != NULL) {
                     count++;
                 }
-                taos_free_result(pSql);
+                taos_free_result(res);
             }
             t = toolsGetTimestampUs() - t;
             if (fp) {
@@ -970,19 +969,17 @@ static void *queryNtableAggrFunc(void *sarg) {
                                     0, g_arguments->port, 0,
                                     pThreadInfo->sockfd, NULL);
             } else {
-                TAOS_RES *pSql = taos_query(taos, command);
-                code = taos_errno(pSql);
+                TAOS_RES *res = taos_query(taos, command);
+                code = taos_errno(res);
                 if (code != 0) {
-                    errorPrint("Failed to query <%s>, reason:%s\n", command,
-                               taos_errstr(pSql));
-                    taos_free_result(pSql);
+                    printErrCmdCodeStr(command, code, res);
                     free(command);
                     return NULL;
                 }
-                while (taos_fetch_row(pSql) != NULL) {
+                while (taos_fetch_row(res) != NULL) {
                     count++;
                 }
-                taos_free_result(pSql);
+                taos_free_result(res);
             }
 
             t = toolsGetTimestampUs() - t;

@@ -596,10 +596,8 @@ void *queryKiller(void *arg) {
             "SELECT kill_id,exec_usec,sql FROM performance_schema.perf_queries";
         TAOS_RES *res = taos_query(taos, command);
         int32_t code = taos_errno(res);
-        if (code != 0) {
-            errorPrint("%s execution failed. Reason: %s\n",
-                    command, taos_errstr(res));
-            taos_free_result(res);
+        if (code) {
+            printErrCmdCodeStr(command, code, res);
         }
 
         TAOS_ROW row = NULL;
@@ -621,14 +619,12 @@ void *queryKiller(void *arg) {
                     snprintf(killCommand, KILLID_LEN + 15, "KILL QUERY '%s'", killId);
                     TAOS_RES *resKill = taos_query(taos, killCommand);
                     int32_t codeKill = taos_errno(resKill);
-                    if (codeKill != 0) {
-                        errorPrint("%s execution failed. Reason: %s\n",
-                                killCommand, taos_errstr(resKill));
+                    if (codeKill) {
+                        printErrCmdCodeStr(killCommand, codeKill, resKill);
                     } else {
-                        infoPrint("%s succeed, sql: %s\n", killCommand, sql);
+                        infoPrint("%s succeed, sql: %s killed!\n", killCommand, sql);
+                        taos_free_result(resKill);
                     }
-
-                    taos_free_result(resKill);
                 }
             }
         }
@@ -682,11 +678,7 @@ int queryTestProcess() {
         TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
-            errorPrint(
-                    "failed to count child table name: %s. reason: %s\n",
-                    cmd, taos_errstr(res));
-            taos_free_result(res);
-
+            printErrCmdCodeStr(cmd, code, res);
             return -1;
         }
         TAOS_ROW    row = NULL;
