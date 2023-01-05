@@ -54,6 +54,7 @@
 #include <winsock2.h>
 #endif
 
+#include <limits.h>
 #include <regex.h>
 #include <stdio.h>
 #include <assert.h>
@@ -67,9 +68,6 @@
 #include <string.h>
 #include <time.h>
 #include <stdarg.h>
-
-// temporary flag for 3.0 development TODO need to remove in future
-#define ALLOW_FORBID_FUNC
 
 #include "taos.h"
 #include "toolsdef.h"
