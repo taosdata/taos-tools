@@ -19,55 +19,22 @@ static int getSuperTableFromServerRest(
     return -1;
     // TODO: finish full implementation
 #if 0
-#ifdef WINDOWS
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-    SOCKET sockfd;
-#else
-    int sockfd;
-#endif
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    debugPrint("sockfd=%d\n", sockfd);
+    int sockfd = createSockFd();
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        errorPrint("failed to create socket, reason: %s\n", strerror(errno));
         return -1;
     }
 
-    int retConn = connect(
-            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-            sizeof(struct sockaddr));
-    if (retConn < 0) {
-#ifdef WINDOWS
-        closesocket(sockfd);
-        WSACleanup();
-#else
-        close(sockfd);
-#endif
-        errorPrint("%s() failed to connect with socket, reason: %s\n",
-                   __func__, strerror(errno));
-        return -1;
-    }
-
-    int code =  postProceSql(command,
+    int code = postProceSql(command,
                          database->dbName,
                          database->precision,
                          REST_IFACE,
                          0,
+                         g_arguments->port,
                          false,
                          sockfd,
                          NULL);
 
-#ifdef  WINDOWS
-    closesocket(sockfd);
-    WSACleanup();
-#else
-    close(sockfd);
-#endif
-    return code;
+    destroySockFd(sockfd);
 #endif   // 0
 }
 
@@ -290,7 +257,7 @@ skip:
     if (REST_IFACE == stbInfo->iface) {
         int sockfd = createSockFd();
         if (sockfd < 0) {
-            ret = sockfd;
+            ret = -1;
         } else {
             ret = queryDbExecRest(command,
                               database->dbName,
@@ -444,68 +411,36 @@ int createDatabaseRest(SDataBase* database) {
     int32_t code = 0;
     char       command[SQL_BUFF_LEN] = "\0";
 
-#ifdef WINDOWS
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-    SOCKET sockfd;
-#else
-    int sockfd;
-#endif
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    debugPrint("sockfd=%d\n", sockfd);
+    int sockfd = createSockFd();
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        errorPrint("failed to create socket, reason: %s\n", strerror(errno));
-        return -1;
-    }
-
-    int retConn = connect(
-            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-            sizeof(struct sockaddr));
-    if (retConn < 0) {
-#ifdef WINDOWS
-        closesocket(sockfd);
-        WSACleanup();
-#else
-        close(sockfd);
-#endif
-        errorPrint("%s() failed to connect with socket, reason: %s\n",
-                   __func__, strerror(errno));
         return -1;
     }
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
-    code =  postProceSql(command,
-                         database->dbName,
-                         database->precision,
-                         REST_IFACE,
-                         0,
-                         false,
-                         sockfd,
-                         NULL);
-
+    code = postProceSql(command,
+                        database->dbName,
+                        database->precision,
+                        REST_IFACE,
+                        0,
+                        g_arguments->port,
+                        false,
+                        sockfd,
+                        NULL);
     if (code != 0) {
         errorPrint("Failed to drop database %s\n", database->dbName);
     } else {
         geneDbCreateCmd(database, command);
-        code =  postProceSql(command,
-                             database->dbName,
-                             database->precision,
-                             REST_IFACE,
-                             0,
-                             false,
-                             sockfd,
-                             NULL);
+        code = postProceSql(command,
+                            database->dbName,
+                            database->precision,
+                            REST_IFACE,
+                            0,
+                            g_arguments->port,
+                            false,
+                            sockfd,
+                            NULL);
     }
-#ifdef  WINDOWS
-    closesocket(sockfd);
-    WSACleanup();
-#else
-    close(sockfd);
-#endif
+    destroySockFd(sockfd);
     return code;
 }
 
@@ -963,26 +898,28 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case REST_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
-            code =  postProceSql(pThreadInfo->buffer,
-                                  database->dbName,
-                                  database->precision,
-                                  stbInfo->iface,
-                                  stbInfo->lineProtocol,
-                                  stbInfo->tcpTransfer,
-                                  pThreadInfo->sockfd,
-                                  pThreadInfo->filePath);
+            code = postProceSql(pThreadInfo->buffer,
+                                database->dbName,
+                                database->precision,
+                                stbInfo->iface,
+                                stbInfo->lineProtocol,
+                                g_arguments->port,
+                                stbInfo->tcpTransfer,
+                                pThreadInfo->sockfd,
+                                pThreadInfo->filePath);
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
-                code =  postProceSql(pThreadInfo->buffer,
-                                  database->dbName,
-                                  database->precision,
-                                  stbInfo->iface,
-                                  stbInfo->lineProtocol,
-                                  stbInfo->tcpTransfer,
-                                  pThreadInfo->sockfd,
-                                  pThreadInfo->filePath);
+                code = postProceSql(pThreadInfo->buffer,
+                                    database->dbName,
+                                    database->precision,
+                                    stbInfo->iface,
+                                    stbInfo->lineProtocol,
+                                    g_arguments->port,
+                                    stbInfo->tcpTransfer,
+                                    pThreadInfo->sockfd,
+                                    pThreadInfo->filePath);
                 if (trying != -1) {
                     trying --;
                 }
@@ -1044,9 +981,10 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
                 code = postProceSql(pThreadInfo->lines[0], database->dbName,
-                                      database->precision, stbInfo->iface,
-                                      stbInfo->lineProtocol, stbInfo->tcpTransfer,
-                                      pThreadInfo->sockfd, pThreadInfo->filePath);
+                                    database->precision, stbInfo->iface,
+                                    stbInfo->lineProtocol, g_arguments->port,
+                                    stbInfo->tcpTransfer,
+                                    pThreadInfo->sockfd, pThreadInfo->filePath);
             } else {
                 int len = 0;
                 for (int i = 0; i < k; ++i) {
@@ -1066,6 +1004,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 code = postProceSql(pThreadInfo->buffer, database->dbName,
                         database->precision,
                         stbInfo->iface, stbInfo->lineProtocol,
+                        g_arguments->port,
                         stbInfo->tcpTransfer,
                         pThreadInfo->sockfd, pThreadInfo->filePath);
             }
@@ -1601,7 +1540,7 @@ void *syncWriteProgressive(void *sarg) {
                 g_fail = true;
                 goto free_of_progressive;
             }
-            endTs = toolsGetTimestampUs();
+            endTs = toolsGetTimestampUs()+1;
 
             if (stbInfo->insert_interval > 0) {
                 debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
@@ -1774,7 +1713,7 @@ static int parseBufferToStmtBatch(
     int64_t lenOfOneRow = stbInfo->lenOfCols;
 
     if (stbInfo->useSampleTs) {
-        columnCount += 1; // for skiping first column
+        columnCount += 1; // for skipping first column
     }
     for (int i=0; i < g_arguments->prepared_rand; i++) {
         int cursor = 0;
@@ -2192,32 +2131,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
             }
             case SML_REST_IFACE: {
-#ifdef WINDOWS
-                WSADATA wsaData;
-                WSAStartup(MAKEWORD(2, 2), &wsaData);
-                SOCKET sockfd;
-#else
-                int sockfd;
-#endif
-                sockfd = socket(AF_INET, SOCK_STREAM, 0);
-                debugPrint("sockfd=%d\n", sockfd);
+                int sockfd = createSockFd();
                 if (sockfd < 0) {
-#ifdef WINDOWS
-                    errorPrint("Could not create socket : %d",
-                               WSAGetLastError());
-#endif
-
-                    errorPrint("%s\n", "failed to create socket");
-                    free(pids);
-                    free(infos);
-                    return -1;
-                }
-                int retConn = connect(
-                    sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-                    sizeof(struct sockaddr));
-                if (retConn < 0) {
-                    errorPrint("%s\n", "failed to connect");
-                    destroySockFd(sockfd);
                     free(pids);
                     free(infos);
                     return -1;
@@ -2341,12 +2256,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         threadInfo *pThreadInfo = infos + i;
         switch (stbInfo->iface) {
             case REST_IFACE:
-#ifdef WINDOWS
-                closesocket(pThreadInfo->sockfd);
-                WSACleanup();
-#else
-                close(pThreadInfo->sockfd);
-#endif
+                destroySockFd(pThreadInfo->sockfd);
                 if (stbInfo->interlaceRows > 0) {
                     free_ds(&pThreadInfo->buffer);
                 } else {
@@ -2578,8 +2488,7 @@ int insertTestProcess() {
 
     prompt(0);
 
-    encode_base_64();
-
+    encodeAuthBase64();
     for (int i = 0; i < g_arguments->databases->size; ++i) {
         if (REST_IFACE == g_arguments->iface) {
             if (0 != convertServAddr(g_arguments->iface,

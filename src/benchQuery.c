@@ -21,7 +21,8 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
 
     if (g_queryInfo.iface == REST_IFACE) {
         int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE,
-                0, false, pThreadInfo->sockfd, pThreadInfo->filePath);
+                                   0, g_arguments->port, false,
+                                   pThreadInfo->sockfd, pThreadInfo->filePath);
         if (0 != retCode) {
             errorPrint("====restful return fail, threadID[%u]\n",
                        threadID);
@@ -76,7 +77,8 @@ static void *mixedQuery(void *sarg) {
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
                 int retCode = postProceSql(sql->command, g_queryInfo.dbName,
-                        0, g_queryInfo.iface, 0, false, pThreadInfo->sockfd, "");
+                                           0, g_queryInfo.iface, 0, g_arguments->port,
+                                           false, pThreadInfo->sockfd, "");
                 if (retCode) {
                     errorPrint("thread[%d]: restful query <%s> failed\n",
                             pThreadInfo->threadId, sql->command);
@@ -312,34 +314,8 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                     i < b ? tableFrom + a : tableFrom + a - 1;
             tableFrom = pThreadInfo->end_table_to + 1;
             if (iface == REST_IFACE) {
-#ifdef WINDOWS
-                WSADATA wsaData;
-                WSAStartup(MAKEWORD(2, 2), &wsaData);
-                SOCKET sockfd;
-#else
-                int sockfd;
-#endif
-                sockfd = socket(AF_INET, SOCK_STREAM, 0);
+                int sockfd = createSockFd();
                 if (sockfd < 0) {
-#ifdef WINDOWS
-                    errorPrint("Could not create socket : %d",
-                               WSAGetLastError());
-#endif
-                    debugPrint("sockfd=%d\n", sockfd);
-                    goto OVER;
-                }
-
-                int retConn = connect(
-                        sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-                        sizeof(struct sockaddr));
-                if (retConn < 0) {
-                    errorPrint("connect return %d\n", retConn);
-#ifdef WINDOWS
-                    closesocket(sockfd);
-                    WSACleanup();
-#else
-                    close(sockfd);
-#endif
                     goto OVER;
                 }
                 pThreadInfo->sockfd = sockfd;
@@ -357,12 +333,7 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
             pthread_join(pidsOfSub[i], NULL);
             threadInfo *pThreadInfo = infosOfSub + i;
             if (iface == REST_IFACE) {
-#ifdef WINDOWS
-                closesocket(pThreadInfo->sockfd);
-            WSACleanup();
-#else
-                close(pThreadInfo->sockfd);
-#endif
+                destroySockFd(pThreadInfo->sockfd);
             } else {
                 close_bench_conn(pThreadInfo->conn);
             }
@@ -407,44 +378,10 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
                 if (iface == REST_IFACE) {
-#ifdef WINDOWS
-                    WSADATA wsaData;
-                    WSAStartup(MAKEWORD(2, 2), &wsaData);
-                    SOCKET sockfd;
-#else
-                    int sockfd;
-#endif
-
-                    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+                    int sockfd = createSockFd();
                     // int iMode = 1;
                     // ioctl(sockfd, FIONBIO, &iMode);
-                    debugPrint("sockfd=%d\n", sockfd);
                     if (sockfd < 0) {
-#ifdef WINDOWS
-                        errorPrint("Could not create socket : %d",
-                                   WSAGetLastError());
-#endif
-                        errorPrint(
-                                   "failed to create socket, reason: %s\n",
-                                   strerror(errno));
-                        tmfree((char *)pids);
-                        tmfree((char *)infos);
-                        return -1;
-                    }
-
-                    int retConn = connect(
-                            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-                            sizeof(struct sockaddr));
-                    if (retConn < 0) {
-                        errorPrint(
-                                "%s() failed to connect with socket, reason: %s\n",
-                                __func__, strerror(errno));
-#ifdef WINDOWS
-                        closesocket(sockfd);
-                        WSACleanup();
-#else
-                        close(sockfd);
-#endif
                         tmfree((char *)pids);
                         tmfree((char *)infos);
                         return -1;
@@ -453,12 +390,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 } else {
                     pThreadInfo->conn = init_bench_conn();
                     if (pThreadInfo->conn == NULL) {
-#ifdef WINDOWS
-                        closesocket(pThreadInfo->sockfd);
-                        WSACleanup();
-#else
-                        close(pThreadInfo->sockfd);
-#endif
+                        destroySockFd(pThreadInfo->sockfd);
                         tmfree((char *)pids);
                         tmfree((char *)infos);
                         return -1;
@@ -568,37 +500,8 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
         pQueryThreadInfo->total_delay = 0;
         pQueryThreadInfo->query_delay_list = benchArrayInit(1, sizeof(int64_t));
         if (iface == REST_IFACE) {
-#ifdef WINDOWS
-            WSADATA wsaData;
-                    WSAStartup(MAKEWORD(2, 2), &wsaData);
-                    SOCKET sockfd;
-#else
-            int sockfd;
-#endif
-
-            sockfd = socket(AF_INET, SOCK_STREAM, 0);
-            debugPrint("sockfd=%d\n", sockfd);
+            int sockfd = createSockFd();
             if (sockfd < 0) {
-#ifdef WINDOWS
-                errorPrint("Could not create socket : %d",
-                                   WSAGetLastError());
-#endif
-                errorPrint("failed to create socket, reason: %s\n", strerror(errno));
-                goto OVER;
-            }
-
-            int retConn = connect(
-                    sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-                    sizeof(struct sockaddr));
-            if (retConn < 0) {
-#ifdef WINDOWS
-                closesocket(sockfd);
-                WSACleanup();
-#else
-                close(sockfd);
-#endif
-                errorPrint("%s() failed to connect with socket, reason: %s\n",
-                           __func__, strerror(errno));
                 goto OVER;
             }
             pQueryThreadInfo->sockfd = sockfd;
@@ -739,8 +642,11 @@ void *queryKiller(void *arg) {
 }
 
 int queryTestProcess() {
-    encode_base_64();
     prompt(0);
+
+    if (REST_IFACE == g_queryInfo.iface) {
+        encodeAuthBase64();
+    }
 
     pthread_t pidKiller = {0};
     if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {

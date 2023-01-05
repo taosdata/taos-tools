@@ -165,7 +165,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             } else {
                 g_arguments->port_auto = false;
             }
-            g_arguments->port_inputed = true;
+            g_arguments->port_inputted = true;
             break;
 
         case 'I':
@@ -176,7 +176,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
                 g_arguments->nthreads_auto = false;
-                if (false == g_arguments->port_inputed) {
+                if (false == g_arguments->port_inputted) {
                     g_arguments->port = DEFAULT_REST_PORT;
                 }
             } else if (0 == strcasecmp(arg, "sml")) {
@@ -200,7 +200,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'c':
             tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
-            g_arguments->cfg_inputed = true;
+            g_arguments->cfg_inputted = true;
             break;
 
         case 'o':
@@ -692,7 +692,7 @@ void init_argument() {
     g_arguments->host = NULL;
     g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
-    g_arguments->port_inputed = false;
+    g_arguments->port_inputted = false;
     g_arguments->port_auto = true;
     g_arguments->telnet_tcp_port = TELNET_TCP_PORT;
     g_arguments->user = TSDB_DEFAULT_USER;
@@ -725,6 +725,7 @@ void init_argument() {
     g_arguments->keep_trying = 0;
     g_arguments->trying_interval = 0;
     g_arguments->iface = TAOSC_IFACE;
+    g_arguments->rest_server_ver_major = -1;
 
     init_database();
     init_stable();
@@ -813,11 +814,27 @@ void modify_argument() {
         superTable->keep_trying = g_arguments->keep_trying;
         superTable->trying_interval = g_arguments->trying_interval;
     }
+
+    if (REST_IFACE == g_arguments->iface) {
+        if (0 != convertServAddr(g_arguments->iface,
+                                 false,
+                                 1)) {
+            errorPrint("%s", "Failed to convert server address\n");
+            return;
+        }
+        encodeAuthBase64();
+        g_arguments->rest_server_ver_major =
+            getServerVersionRest(g_arguments->port);
+    }
 }
 
 static void *queryStableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->conn->taos;
+
+    TAOS *taos = NULL;
+    if (REST_IFACE != g_arguments->iface) {
+        taos = pThreadInfo->conn->taos;
+    }
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryStableAggrFunc");
 #endif
@@ -844,9 +861,7 @@ static void *queryStableAggrFunc(void *sarg) {
     for (int j = 0; j < n; j++) {
         char condition[COND_BUF_LEN] = "\0";
         char tempS[64] = "\0";
-
         int64_t m = 10 < stbInfo->childTblCount ? 10 : stbInfo->childTblCount;
-
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
                 if (g_arguments->demo_mode) {
@@ -862,27 +877,32 @@ static void *queryStableAggrFunc(void *sarg) {
                 }
             }
             strncat(condition, tempS, COND_BUF_LEN - 1);
-
-            sprintf(command, "SELECT %s FROM %s.meters WHERE %s", aggreFunc[j], database->dbName,
+            sprintf(command, "SELECT %s FROM %s.meters WHERE %s",
+                    aggreFunc[j], database->dbName,
                     condition);
             if (fp) {
                 fprintf(fp, "%s\n", command);
             }
-
             double t = (double)toolsGetTimestampUs();
-
-            TAOS_RES *pSql = taos_query(taos, command);
-            int32_t   code = taos_errno(pSql);
-
-            if (code != 0) {
-                errorPrint("Failed to query:%s\n", taos_errstr(pSql));
+            int32_t code = -1;
+            if (REST_IFACE == g_arguments->iface) {
+                code = postProceSql(command, NULL, 0, REST_IFACE,
+                                    0, g_arguments->port, 0,
+                                    pThreadInfo->sockfd, NULL);
+            } else {
+                TAOS_RES *pSql = taos_query(taos, command);
+                code = taos_errno(pSql);
+                if (code != 0) {
+                    errorPrint("Failed to query:%s\n", taos_errstr(pSql));
+                    taos_free_result(pSql);
+                    free(command);
+                    return NULL;
+                }
+                int count = 0;
+                while (taos_fetch_row(pSql) != NULL) {
+                    count++;
+                }
                 taos_free_result(pSql);
-                free(command);
-                return NULL;
-            }
-            int count = 0;
-            while (taos_fetch_row(pSql) != NULL) {
-                count++;
             }
             t = toolsGetTimestampUs() - t;
             if (fp) {
@@ -891,8 +911,6 @@ static void *queryStableAggrFunc(void *sarg) {
             }
             infoPrint("%s took %.6f second(s)\n\n", command,
                       t / 1000000);
-
-            taos_free_result(pSql);
         }
     }
     free(command);
@@ -945,27 +963,31 @@ static void *queryNtableAggrFunc(void *sarg) {
                     aggreFunc[j], database->dbName, stbInfo->childTblPrefix, i,
                     (uint64_t)DEFAULT_START_TIME);
             }
-
             double    t = (double)toolsGetTimestampUs();
-            TAOS_RES *pSql = taos_query(taos, command);
-            int32_t   code = taos_errno(pSql);
-
-            if (code != 0) {
-                errorPrint("Failed to query <%s>, reason:%s\n", command,
-                           taos_errstr(pSql));
+            int32_t code = -1;
+            if (REST_IFACE == g_arguments->iface) {
+                code = postProceSql(command, NULL, 0, REST_IFACE,
+                                    0, g_arguments->port, 0,
+                                    pThreadInfo->sockfd, NULL);
+            } else {
+                TAOS_RES *pSql = taos_query(taos, command);
+                code = taos_errno(pSql);
+                if (code != 0) {
+                    errorPrint("Failed to query <%s>, reason:%s\n", command,
+                               taos_errstr(pSql));
+                    taos_free_result(pSql);
+                    free(command);
+                    return NULL;
+                }
+                while (taos_fetch_row(pSql) != NULL) {
+                    count++;
+                }
                 taos_free_result(pSql);
-                free(command);
-                return NULL;
-            }
-
-            while (taos_fetch_row(pSql) != NULL) {
-                count++;
             }
 
             t = toolsGetTimestampUs() - t;
             totalT += t;
 
-            taos_free_result(pSql);
         }
         if (fp) {
             fprintf(fp, "|%10s  |   %" PRId64 "   |  %12.2f   |   %10.2f  |\n",
@@ -999,11 +1021,16 @@ void queryAggrFunc() {
         free(pThreadInfo);
         return;
     }
-    pThreadInfo->conn = init_bench_conn();
-    if (pThreadInfo->conn == NULL) {
-        errorPrint("%s() failed to init connection\n", __func__);
-        free(pThreadInfo);
-        return;
+
+    if (REST_IFACE != g_arguments->iface) {
+        pThreadInfo->conn = init_bench_conn();
+        if (pThreadInfo->conn == NULL) {
+            errorPrint("%s() failed to init connection\n", __func__);
+            free(pThreadInfo);
+            return;
+        }
+    } else {
+        pThreadInfo->sockfd = createSockFd();
     }
     if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
@@ -1011,6 +1038,10 @@ void queryAggrFunc() {
         pthread_create(&read_id, NULL, queryNtableAggrFunc, pThreadInfo);
     }
     pthread_join(read_id, NULL);
-    close_bench_conn(pThreadInfo->conn);
+    if (REST_IFACE != g_arguments->iface) {
+        close_bench_conn(pThreadInfo->conn);
+    } else {
+        destroySockFd(pThreadInfo->sockfd);
+    }
     free(pThreadInfo);
 }

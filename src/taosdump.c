@@ -876,7 +876,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 }
             } else if (AVRO_CODEC_INVALID == avroCodec) {
                 errorPrint("%s",
-                        "Invalid AVRO codec inputed. Exit program!\n");
+                        "Invalid AVRO codec inputted. Exit program!\n");
                 exit(1);
             }
             break;
@@ -2519,7 +2519,7 @@ static int getTableTagValueWS(
         // if child-table have tag, using  select tagName from table to get tagValue
         ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
     } else {
-        errorPrint("%s() LN%d, major version %d is not suppported\n",
+        errorPrint("%s() LN%d, major version %d is not supported\n",
                 __func__, __LINE__, g_majorVersionOfClient);
     }
 
@@ -2815,7 +2815,7 @@ static int getTableTagValueNative(
         // if child-table have tag, using  select tagName from table to get tagValue
         ret = getTableTagValueNativeV2(taos, dbName, table, ppTableDes);
     } else {
-        errorPrint("%s() LN%d, major version %d is not suppported\n",
+        errorPrint("%s() LN%d, major version %d is not supported\n",
                 __func__, __LINE__, g_majorVersionOfClient);
     }
 
@@ -3462,7 +3462,7 @@ static void dumpCreateDbClause(
 
         pstr += sprintf(pstr,
                 "%s %s %s %s %s %s "
-                "%s %s PRECISION '%s' %s %s",
+                "%s %s PRECISION '%s' %s %s ",
                 (g_majorVersionOfClient < 3)?"":strict,
                 (g_majorVersionOfClient < 3)?quorum:"",
                 (g_majorVersionOfClient < 3)?days:duration,
@@ -9415,7 +9415,7 @@ static int checkParam() {
         if (g_args.debug_print || g_args.verbose_print) {
             g_args.avro = false;
         } else {
-            errorPrint("%s", "Unknown AVRO codec inputed. Exit program!\n");
+            errorPrint("%s", "Unknown AVRO codec inputted. Exit program!\n");
             exit(1);
         }
     }

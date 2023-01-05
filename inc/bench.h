@@ -196,7 +196,7 @@
 #define BENCH_EMAIL   "<support@taosdata.com>"
 #define BENCH_VERSION "Print program version."
 #define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
-#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a postive number. Only valid when keep trying be enabled."
+#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a positive number. Only valid when keep trying be enabled."
 
 #ifdef WEBSOCKET
 #define BENCH_DSN "The dsn to connect TDengine cloud service."
@@ -627,8 +627,8 @@ typedef struct SArguments_S {
     uint16_t            port;
     bool                host_auto;
     bool                port_auto;
-    bool                port_inputed;
-    bool                cfg_inputed;
+    bool                port_inputted;
+    bool                cfg_inputted;
     uint16_t            telnet_tcp_port;
     char *              user;
     char *              password;
@@ -672,6 +672,7 @@ typedef struct SArguments_S {
     int32_t             keep_trying;
     uint32_t            trying_interval;
     int                 iface;
+    int                 rest_server_ver_major;
 } SArguments;
 
 typedef struct SBenchConn{
@@ -764,7 +765,7 @@ void parseFieldDatatype(char *dataType, BArray *fields, bool isTag);
 int getInfoFromJsonFile();
 /* demoUtil.c */
 int     compare(const void *a, const void *b);
-void    encode_base_64();
+void    encodeAuthBase64();
 void    replaceChildTblName(char *inSql, char *outSql, int tblIndex);
 void    setupForAnsiEscape(void);
 void    resetAfterAnsiEscape(void);
@@ -776,10 +777,12 @@ void    tmfclose(FILE *fp);
 void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
+int     getServerVersionRest(int16_t rest_port);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
-                    int protocol, bool tcp, int sockfd, char* filePath);
+                    int protocol, uint16_t rest_port, bool tcp,
+                    int sockfd, char* filePath);
 int     queryDbExec(SBenchConn *conn, char *command);
-int queryDbExecRest(char *command, char* dbName, int precision,
+int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);
 SBenchConn* init_bench_conn();
 void    close_bench_conn(SBenchConn* conn);
@@ -795,7 +798,7 @@ void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t nEles);
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems);
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
