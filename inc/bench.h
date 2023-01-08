@@ -837,6 +837,7 @@ void printVersion();
 int32_t benchParseSingleOpt(int32_t key, char* arg);
 
 void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
+void printWarnCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
 
 #ifndef LINUX
 int32_t benchParseArgsNoArgp(int argc, char* argv[]);

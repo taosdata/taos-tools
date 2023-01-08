@@ -55,7 +55,7 @@ static int getSuperTableFromServerTaosc(
     res = taos_query(conn->taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        printErrCmdCodeStr(command, code, res);
+        printWarnCmdCodeStr(command, code, res);
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
         close_bench_conn(conn);
@@ -115,7 +115,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     int ret = 0;
 
     char         command[SQL_BUFF_LEN] = "\0";
-    snprintf(command, SQL_BUFF_LEN, "describe %s.`%s`", database->dbName,
+    snprintf(command, SQL_BUFF_LEN, "DESCRIBE %s.`%s`", database->dbName,
              stbInfo->stbName);
 
     if (REST_IFACE == stbInfo->iface) {
@@ -893,7 +893,7 @@ void postFreeResource() {
     }
     benchArrayDestroy(g_arguments->databases);
     benchArrayDestroy(g_arguments->streams);
-    tools_cJSON_Delete(root);
+    tools_cJSON_free(root);
 }
 
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
