@@ -15,6 +15,10 @@ extern int g_majorVersionOfClient;
 
 int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     int ret = 0;
+
+    if (g_arguments->terminate) {
+        return -1;
+    }
     uint32_t threadID = pThreadInfo->threadID;
     char dbName[TSDB_DB_NAME_LEN] = {0};
     tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN);
@@ -330,7 +334,8 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
         g_queryInfo.superQueryInfo.threadCnt = threads;
 
         for (int i = 0; i < g_queryInfo.superQueryInfo.threadCnt; i++) {
-            pthread_join(pidsOfSub[i], NULL);
+            if (!g_arguments->terminate)
+                pthread_join(pidsOfSub[i], NULL);
             threadInfo *pThreadInfo = infosOfSub + i;
             if (iface == REST_IFACE) {
                 destroySockFd(pThreadInfo->sockfd);
