@@ -492,18 +492,27 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n",
+                    errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
                 superTable->iface = SML_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
-                    errorPrint("reqPerReq (%u) larget than maximum (%d)\n",
+                    errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
                 superTable->iface = SML_REST_IFACE;
+                if (0 != convertServAddr(REST_IFACE,
+                                         false,
+                                         1)) {
+                    errorPrint("%s", "Failed to convert server address\n");
+                    return -1;
+                }
+                encodeAuthBase64();
+                g_arguments->rest_server_ver_major =
+                    getServerVersionRest(g_arguments->port + TSDB_PORT_HTTP);
             }
         }
 

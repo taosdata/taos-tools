@@ -19,55 +19,22 @@ static int getSuperTableFromServerRest(
     return -1;
     // TODO: finish full implementation
 #if 0
-#ifdef WINDOWS
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-    SOCKET sockfd;
-#else
-    int sockfd;
-#endif
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    debugPrint("sockfd=%d\n", sockfd);
+    int sockfd = createSockFd();
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        errorPrint("failed to create socket, reason: %s\n", strerror(errno));
         return -1;
     }
 
-    int retConn = connect(
-            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-            sizeof(struct sockaddr));
-    if (retConn < 0) {
-#ifdef WINDOWS
-        closesocket(sockfd);
-        WSACleanup();
-#else
-        close(sockfd);
-#endif
-        errorPrint("%s() failed to connect with socket, reason: %s\n",
-                   __func__, strerror(errno));
-        return -1;
-    }
-
-    int code =  postProceSql(command,
+    int code = postProceSql(command,
                          database->dbName,
                          database->precision,
                          REST_IFACE,
                          0,
+                         g_arguments->port,
                          false,
                          sockfd,
                          NULL);
 
-#ifdef  WINDOWS
-    closesocket(sockfd);
-    WSACleanup();
-#else
-    close(sockfd);
-#endif
-    return code;
+    destroySockFd(sockfd);
 #endif   // 0
 }
 
@@ -88,11 +55,9 @@ static int getSuperTableFromServerTaosc(
     res = taos_query(conn->taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        debugPrint("failed to run command %s, reason: %s\n", command,
-                   taos_errstr(res));
+        printErrCmdCodeStr(command, code, res);
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
-        taos_free_result(res);
         close_bench_conn(conn);
         return -1;
     }
@@ -290,7 +255,7 @@ skip:
     if (REST_IFACE == stbInfo->iface) {
         int sockfd = createSockFd();
         if (sockfd < 0) {
-            ret = sockfd;
+            ret = -1;
         } else {
             ret = queryDbExecRest(command,
                               database->dbName,
@@ -343,9 +308,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
-        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
-                    cmd, code, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
 
@@ -353,9 +316,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
-        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
-                    cmd, code, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
 
@@ -376,9 +337,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
-        errorPrint("failed to execute: %s. code: 0x%08x reason: %s\n",
-                    cmd, code, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
 
@@ -394,15 +353,18 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
 
-int geneDbCreateCmd(SDataBase *database, char *command) {
+int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     int dataLen = 0;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if (g_arguments->nthreads_auto) {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
-                            "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d", database->dbName, toolsGetNumberOfCores());
+                            "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
+                            database->dbName,
+                            min(remainVnodes, toolsGetNumberOfCores()));
     } else {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
-                            "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
+                            "CREATE DATABASE IF NOT EXISTS %s",
+                            database->dbName);
     }
 #else
     dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
@@ -444,73 +406,63 @@ int createDatabaseRest(SDataBase* database) {
     int32_t code = 0;
     char       command[SQL_BUFF_LEN] = "\0";
 
-#ifdef WINDOWS
-    WSADATA wsaData;
-    WSAStartup(MAKEWORD(2, 2), &wsaData);
-    SOCKET sockfd;
-#else
-    int sockfd;
-#endif
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    debugPrint("sockfd=%d\n", sockfd);
+    int sockfd = createSockFd();
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        errorPrint("failed to create socket, reason: %s\n", strerror(errno));
-        return -1;
-    }
-
-    int retConn = connect(
-            sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-            sizeof(struct sockaddr));
-    if (retConn < 0) {
-#ifdef WINDOWS
-        closesocket(sockfd);
-        WSACleanup();
-#else
-        close(sockfd);
-#endif
-        errorPrint("%s() failed to connect with socket, reason: %s\n",
-                   __func__, strerror(errno));
         return -1;
     }
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
-    code =  postProceSql(command,
-                         database->dbName,
-                         database->precision,
-                         REST_IFACE,
-                         0,
-                         false,
-                         sockfd,
-                         NULL);
-
+    code = postProceSql(command,
+                        database->dbName,
+                        database->precision,
+                        REST_IFACE,
+                        0,
+                        g_arguments->port,
+                        false,
+                        sockfd,
+                        NULL);
     if (code != 0) {
         errorPrint("Failed to drop database %s\n", database->dbName);
     } else {
-        geneDbCreateCmd(database, command);
-        code =  postProceSql(command,
-                             database->dbName,
-                             database->precision,
-                             REST_IFACE,
-                             0,
-                             false,
-                             sockfd,
-                             NULL);
+        int remainVnodes = INT_MAX;
+        geneDbCreateCmd(database, command, remainVnodes);
+        code = postProceSql(command,
+                            database->dbName,
+                            database->precision,
+                            REST_IFACE,
+                            0,
+                            g_arguments->port,
+                            false,
+                            sockfd,
+                            NULL);
     }
-#ifdef  WINDOWS
-    closesocket(sockfd);
-    WSACleanup();
-#else
-    close(sockfd);
-#endif
+    destroySockFd(sockfd);
     return code;
 }
 
+int32_t getRemainVnodes(SBenchConn *conn) {
+    int remainVnodes = 0;
+    char command[SQL_BUFF_LEN] = "SHOW DNODES";
+
+    TAOS_RES *res = taos_query(conn->taos, command);
+    int32_t   code = taos_errno(res);
+    if (code) {
+        printErrCmdCodeStr(command, code, res);
+        close_bench_conn(conn);
+        return -1;
+    }
+    TAOS_ROW row = NULL;
+    while ((row = taos_fetch_row(res)) != NULL) {
+        remainVnodes += (*(int16_t*)(row[3]) - *(int16_t*)(row[2]));
+    }
+    debugPrint("%s() LN%d, remainVnodes: %d\n",
+               __func__, __LINE__, remainVnodes);
+    taos_free_result(res);
+    return remainVnodes;
+}
+
 int createDatabaseTaosc(SDataBase* database) {
-    char       command[SQL_BUFF_LEN] = "\0";
+    char command[SQL_BUFF_LEN] = "\0";
     SBenchConn* conn = init_bench_conn();
     if (NULL == conn) {
         return -1;
@@ -536,13 +488,25 @@ int createDatabaseTaosc(SDataBase* database) {
         return -1;
     }
 
-    geneDbCreateCmd(database, command);
+    int remainVnodes = INT_MAX;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    if (g_arguments->nthreads_auto) {
+        remainVnodes = getRemainVnodes(conn);
+        if (0 >= remainVnodes) {
+            errorPrint("Remain vnodes %d, failed to create database\n",
+                       remainVnodes);
+            return -1;
+        }
+    }
+#endif
+    geneDbCreateCmd(database, command, remainVnodes);
 
     int32_t code = queryDbExec(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
-        infoPrint("will sleep %"PRIu32" milliseconds then re-create database %s\n",
-                          g_arguments->trying_interval, database->dbName);
+        infoPrint("will sleep %"PRIu32" milliseconds then "
+                  "re-create database %s\n",
+                  g_arguments->trying_interval, database->dbName);
         toolsMsleep(g_arguments->trying_interval);
         code = queryDbExec(conn, command);
         if (trying != -1) {
@@ -963,26 +927,28 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
         case REST_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
-            code =  postProceSql(pThreadInfo->buffer,
-                                  database->dbName,
-                                  database->precision,
-                                  stbInfo->iface,
-                                  stbInfo->lineProtocol,
-                                  stbInfo->tcpTransfer,
-                                  pThreadInfo->sockfd,
-                                  pThreadInfo->filePath);
+            code = postProceSql(pThreadInfo->buffer,
+                                database->dbName,
+                                database->precision,
+                                stbInfo->iface,
+                                stbInfo->lineProtocol,
+                                g_arguments->port,
+                                stbInfo->tcpTransfer,
+                                pThreadInfo->sockfd,
+                                pThreadInfo->filePath);
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
-                code =  postProceSql(pThreadInfo->buffer,
-                                  database->dbName,
-                                  database->precision,
-                                  stbInfo->iface,
-                                  stbInfo->lineProtocol,
-                                  stbInfo->tcpTransfer,
-                                  pThreadInfo->sockfd,
-                                  pThreadInfo->filePath);
+                code = postProceSql(pThreadInfo->buffer,
+                                    database->dbName,
+                                    database->precision,
+                                    stbInfo->iface,
+                                    stbInfo->lineProtocol,
+                                    g_arguments->port,
+                                    stbInfo->tcpTransfer,
+                                    pThreadInfo->sockfd,
+                                    pThreadInfo->filePath);
                 if (trying != -1) {
                     trying --;
                 }
@@ -1044,9 +1010,10 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                 pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
                 code = postProceSql(pThreadInfo->lines[0], database->dbName,
-                                      database->precision, stbInfo->iface,
-                                      stbInfo->lineProtocol, stbInfo->tcpTransfer,
-                                      pThreadInfo->sockfd, pThreadInfo->filePath);
+                                    database->precision, stbInfo->iface,
+                                    stbInfo->lineProtocol, g_arguments->port,
+                                    stbInfo->tcpTransfer,
+                                    pThreadInfo->sockfd, pThreadInfo->filePath);
             } else {
                 int len = 0;
                 for (int i = 0; i < k; ++i) {
@@ -1066,6 +1033,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 code = postProceSql(pThreadInfo->buffer, database->dbName,
                         database->precision,
                         stbInfo->iface, stbInfo->lineProtocol,
+                        g_arguments->port,
                         stbInfo->tcpTransfer,
                         pThreadInfo->sockfd, pThreadInfo->filePath);
             }
@@ -1601,7 +1569,7 @@ void *syncWriteProgressive(void *sarg) {
                 g_fail = true;
                 goto free_of_progressive;
             }
-            endTs = toolsGetTimestampUs();
+            endTs = toolsGetTimestampUs()+1;
 
             if (stbInfo->insert_interval > 0) {
                 debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
@@ -1774,7 +1742,7 @@ static int parseBufferToStmtBatch(
     int64_t lenOfOneRow = stbInfo->lenOfCols;
 
     if (stbInfo->useSampleTs) {
-        columnCount += 1; // for skiping first column
+        columnCount += 1; // for skipping first column
     }
     for (int i=0; i < g_arguments->prepared_rand; i++) {
         int cursor = 0;
@@ -1959,9 +1927,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         int32_t   code = taos_errno(res);
         int64_t   count = 0;
         if (code) {
-            errorPrint("failed to get child table name: %s. reason: %s",
-                    cmd, taos_errstr(res));
-            taos_free_result(res);
+            printErrCmdCodeStr(cmd, code, res);
             close_bench_conn(conn);
             return -1;
         }
@@ -2192,32 +2158,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
             }
             case SML_REST_IFACE: {
-#ifdef WINDOWS
-                WSADATA wsaData;
-                WSAStartup(MAKEWORD(2, 2), &wsaData);
-                SOCKET sockfd;
-#else
-                int sockfd;
-#endif
-                sockfd = socket(AF_INET, SOCK_STREAM, 0);
-                debugPrint("sockfd=%d\n", sockfd);
+                int sockfd = createSockFd();
                 if (sockfd < 0) {
-#ifdef WINDOWS
-                    errorPrint("Could not create socket : %d",
-                               WSAGetLastError());
-#endif
-
-                    errorPrint("%s\n", "failed to create socket");
-                    free(pids);
-                    free(infos);
-                    return -1;
-                }
-                int retConn = connect(
-                    sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
-                    sizeof(struct sockaddr));
-                if (retConn < 0) {
-                    errorPrint("%s\n", "failed to connect");
-                    destroySockFd(sockfd);
                     free(pids);
                     free(infos);
                     return -1;
@@ -2341,12 +2283,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         threadInfo *pThreadInfo = infos + i;
         switch (stbInfo->iface) {
             case REST_IFACE:
-#ifdef WINDOWS
-                closesocket(pThreadInfo->sockfd);
-                WSACleanup();
-#else
-                close(pThreadInfo->sockfd);
-#endif
+                destroySockFd(pThreadInfo->sockfd);
                 if (stbInfo->interlaceRows > 0) {
                     free_ds(&pThreadInfo->buffer);
                 } else {
@@ -2438,16 +2375,14 @@ static int startMultiThreadInsertData(SDataBase* database,
     return 0;
 }
 
-static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
+static int getStbInsertedRows(char* dbName, char* stbName, TAOS* taos) {
     int rows = 0;
     char command[SQL_BUFF_LEN];
-    sprintf(command, "select count(*) from %s.%s", dbName, stbName);
+    sprintf(command, "SELECT COUNT(*) FROM %s.%s", dbName, stbName);
     TAOS_RES* res = taos_query(taos, command);
     int code = taos_errno(res);
     if (code != 0) {
-        errorPrint("Failed to execute <%s>, reason: %s\n",
-                command, taos_errstr(res));
-        taos_free_result(res);
+        printErrCmdCodeStr(command, code, res);
         return -1;
     }
     TAOS_ROW row = taos_fetch_row(res);
@@ -2463,8 +2398,8 @@ static int get_stb_inserted_rows(char* dbName, char* stbName, TAOS* taos) {
 static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     char command[SQL_BUFF_LEN];
     int len = snprintf(command, SQL_BUFF_LEN,
-                       "create sma index %s on %s function(%s) "
-                       "interval (%s) sliding (%s)",
+                       "CREATE sma INDEX %s ON %s function(%s) "
+                       "INTERVAL (%s) SLIDING (%s)",
                        tsma->name, stbName, tsma->func,
                        tsma->interval, tsma->sliding);
     if (tsma->custom) {
@@ -2490,7 +2425,7 @@ static void* create_tsmas(void* args) {
         return NULL;
     }
     while(finished < pThreadInfo->tsmas->size && inserted_rows >= 0) {
-        inserted_rows = (int)get_stb_inserted_rows(
+        inserted_rows = (int)getStbInsertedRows(
                 pThreadInfo->dbName, pThreadInfo->stbName, conn->taos);
         for (int i = 0; i < pThreadInfo->tsmas->size; i++) {
             TSMA* tsma = benchArrayGet(pThreadInfo->tsmas, i);
@@ -2578,8 +2513,7 @@ int insertTestProcess() {
 
     prompt(0);
 
-    encode_base_64();
-
+    encodeAuthBase64();
     for (int i = 0; i < g_arguments->databases->size; ++i) {
         if (REST_IFACE == g_arguments->iface) {
             if (0 != convertServAddr(g_arguments->iface,
