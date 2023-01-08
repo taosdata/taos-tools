@@ -301,7 +301,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
             if (field->type == TSDB_DATA_TYPE_BINARY) {
                 field->data = benchCalloc(1, loop * (field->length + 1), true);
             } else if (field->type == TSDB_DATA_TYPE_NCHAR) {
-                field->data = benchCalloc(1, loop * (field->length*4 + 1), true);
+                field->data = benchCalloc(1, loop * (field->length + 1), true);
             } else {
                 field->data = benchCalloc(1, loop * field->length, true);
             }
@@ -646,7 +646,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_NCHAR: {
                     uint32_t fieldBytes;
                     if (TSDB_DATA_TYPE_NCHAR == field->type) {
-                        fieldBytes = field->length * 4;
+                        fieldBytes = field->length;
                     } else {
                         fieldBytes = field->length;
                     }
