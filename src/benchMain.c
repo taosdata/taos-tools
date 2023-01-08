@@ -24,6 +24,7 @@ int             g_majorVersionOfClient = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
+    infoPrint("%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
     sem_post(&g_arguments->cancelSem);
 }
 
@@ -33,10 +34,16 @@ void* benchCancelHandler(void* arg) {
     if (bsem_wait(&g_arguments->cancelSem) != 0) {
         toolsMsleep(10);
     }
-    infoPrint("%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
-    postFreeResource();
+
+    g_arguments->terminate = true;
     toolsMsleep(10);
-    exit(EXIT_SUCCESS);
+
+    if (INSERT_TEST != g_arguments->test_mode) {
+        postFreeResource();
+        toolsMsleep(10);
+        exit(EXIT_SUCCESS);
+    }
+    return NULL;
 }
 #endif
 
