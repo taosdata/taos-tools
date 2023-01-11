@@ -54,7 +54,10 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout TDengine 2.6
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           submodules: recursive

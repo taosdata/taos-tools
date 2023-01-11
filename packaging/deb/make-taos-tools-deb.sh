@@ -5,7 +5,7 @@ set -e
 # set -x
 
 dumpName="taosdump"
-benchmarkName="taosBenchmark"
+#benchmarkName="taosBenchmark"
 TDinsight="TDinsight.sh"
 
 deb_dir=$(pwd)
@@ -17,11 +17,13 @@ cpuType=$5
 osType=$6
 verMode=$7
 verType=$8
+versionComp=$9
 
-script_dir="$(dirname $(readlink -f $0))"
+#script_dir="$(dirname $(readlink -f $0))"
 pkg_dir="${top_dir}/debworkroom"
 
 echo "deb_dir: ${deb_dir}"
+echo "verMode: ${verMode}"
 #echo "top_dir: ${top_dir}"
 #echo "script_dir: ${script_dir}"
 echo "compile_dir: ${compile_dir}"
@@ -64,12 +66,16 @@ fi
 cp -r ${deb_dir}/DEBIAN ${pkg_dir}/
 chmod 755 ${pkg_dir}/DEBIAN/*
 
-debname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
+compN=""
+if [ ! -z "${versionComp}" ]; then
+  versionCompFirst=$(echo "${versionComp}" | awk -F '.' '{print $1}')
+  [ ! -z "${versionCompFirst}" ] && compN="-comp${versionCompFirst}"
+fi
 
 if [ "$verType" == "beta" ]; then
-  debname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".deb"
+  debname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}${compN}".deb"
 elif [ "$verType" == "stable" ]; then
-  debname=${debname}".deb"
+  debname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}${compN}".deb"
 else
   echo "unknow verType, nor stabel or beta"
   exit 1
