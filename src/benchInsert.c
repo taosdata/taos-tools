@@ -895,7 +895,7 @@ void postFreeResource() {
     }
     benchArrayDestroy(g_arguments->databases);
     benchArrayDestroy(g_arguments->streams);
-    tools_cJSON_free(root);
+    tools_cJSON_Delete(root);
 }
 
 static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
