@@ -657,7 +657,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                             tools_cJSON *buf = tools_cJSON_GetArrayItem(
                                     field->values,
                                     taosRandom() % arraySize);
-                            sprintf(tmp, "%s", buf->valuestring);
+                            snprintf(tmp, field->length, "%s", buf->valuestring);
                         } else {
                             errorPrint("%s() cannot read correct value from json file. array size: %d\n",
                                     __func__, arraySize);
