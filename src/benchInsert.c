@@ -12,6 +12,7 @@
 
 #include "bench.h"
 #include "benchData.h"
+#include "benchInsertMix.h"
 
 static int getSuperTableFromServerRest(
     SDataBase* database, SSuperTable* stbInfo, char *command) {
@@ -1331,6 +1332,13 @@ void *syncWriteProgressive(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+
+    // special deal flow for TAOSC_IFACE
+    if (insertDataMix(pThreadInfo, database, stbInfo)) {
+        // request be dealed by this function , so return
+        return NULL;
+    }
+
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if (g_arguments->nthreads_auto) {
         if (0 == pThreadInfo->vg->tbCountPerVgId) {
