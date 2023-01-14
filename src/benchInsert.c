@@ -1561,6 +1561,11 @@ void *syncWriteProgressive(void *sarg) {
                             break;
                         }
                     }
+                    if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+                        pThreadInfo->lines[0] =
+                            tools_cJSON_PrintUnformatted(
+                                pThreadInfo->json_array);
+                    }
                     break;
                 }
                 default:
