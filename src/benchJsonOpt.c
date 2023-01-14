@@ -642,19 +642,56 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->interlaceRows = (uint32_t)stbInterlaceRows->valueint;
         }
 
+        // disorder 
         tools_cJSON *disorderRatio =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_ratio");
         if (tools_cJSON_IsNumber(disorderRatio)) {
-            if (disorderRatio->valueint > 50) disorderRatio->valueint = 50;
+            if (disorderRatio->valueint > 90) disorderRatio->valueint = 90; // 
             if (disorderRatio->valueint < 0) disorderRatio->valueint = 0;
 
             superTable->disorderRatio = (int)disorderRatio->valueint;
+            superTable->disRatio = (uint8_t)disorderRatio->valueint;
         }
-
         tools_cJSON *disorderRange =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_range");
         if (tools_cJSON_IsNumber(disorderRange)) {
             superTable->disorderRange = (int)disorderRange->valueint;
+            superTable->disRange = disorderRange->valueint;
+        }
+
+        // update
+        tools_cJSON *updRatio =
+            tools_cJSON_GetObjectItem(stbInfo, "update_ratio");
+        if (tools_cJSON_IsNumber(updRatio)) {
+            if (updRatio->valueint > 100) updRatio->valueint = 100;
+            if (updRatio->valueint < 0) updRatio->valueint = 0;
+            superTable->updRatio = (int8_t)updRatio->valueint;
+        }
+        tools_cJSON *updRange =
+            tools_cJSON_GetObjectItem(stbInfo, "update_range");
+        if (tools_cJSON_IsNumber(updRange)) {
+            superTable->updRange = (uint64_t)updRange->valueint;
+        }
+
+        // delete
+        tools_cJSON *delRatio =
+            tools_cJSON_GetObjectItem(stbInfo, "delete_ratio");
+        if (tools_cJSON_IsNumber(delRatio)) {
+            if (delRatio->valueint > 100) delRatio->valueint = 100;
+            if (delRatio->valueint < 0) delRatio->valueint = 0;
+            superTable->delRatio = (int8_t)delRatio->valueint;
+        }
+        tools_cJSON *delRange =
+            tools_cJSON_GetObjectItem(stbInfo, "delete_range");
+        if (tools_cJSON_IsNumber(delRange)) {
+            superTable->delRange = (uint64_t)delRange->valueint;
+        }
+
+        // generate row rule 
+        tools_cJSON *rowRule =
+            tools_cJSON_GetObjectItem(stbInfo, "generate_row_rule");
+        if (tools_cJSON_IsNumber(rowRule)) {
+            superTable->genRowRule = (int8_t)rowRule->valueint;
         }
 
         tools_cJSON *insertInterval =

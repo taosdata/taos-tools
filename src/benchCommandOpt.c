@@ -456,6 +456,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             }
 
             stbInfo->disorderRatio = atoi(arg);
+            stbInfo->disRatio      = (uint8_t)atoi(arg);
             if (stbInfo->disorderRatio <= 0) {
                 errorPrint(
                         "Invalid value for -O: %s, will auto set to default(0)\n",

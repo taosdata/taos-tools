@@ -465,6 +465,13 @@ typedef struct STSMA {
     bool  done;
 } TSMA;
 
+// generate row data rule
+#define RULE_OLD          0 // old generator method
+#define RULE_MIX          1 // old data mix update delete ratio
+#define RULE_MIX_TS_CALC  2 // ts calc other column
+#define RULE_MIX_FIX_VALE 3 // fixed value with give
+
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -485,6 +492,20 @@ typedef struct SSuperTable_S {
     uint32_t interlaceRows;  //
     int      disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
+
+    // ratio
+    uint8_t disRatio; // disorder ratio 0 ~ 100 % 
+    uint8_t updRatio; // update ratio   0 ~ 100 % 
+    uint8_t delRatio; // delete ratio   0 ~ 100 % 
+
+    // range
+    uint64_t disRange; // disorder range
+    uint64_t updRange; // update range
+    uint64_t delRange; // delete range
+
+    // generate row value rule see pre RULE_ define
+    uint8_t genRowRule;
+
     int64_t  max_sql_len;
     uint64_t insert_interval;
     uint64_t insertRows;
