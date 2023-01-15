@@ -964,7 +964,8 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
     tmfree(tbName);
 }
 
-void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,
+void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
+                         SSuperTable *stbInfo,
                             uint32_t time_precision, int64_t timestamp) {
     tools_cJSON * record = tools_cJSON_CreateObject();
     tools_cJSON * ts = tools_cJSON_CreateObject();
@@ -980,7 +981,7 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbI
     Field* col = benchArrayGet(stbInfo->cols, 0);
     switch (col->type) {
         case TSDB_DATA_TYPE_BOOL:
-            tools_cJSON_AddBoolToObject(value, "value", (taosRandom() % 2) & 1);
+            tools_cJSON_AddBoolToObject(value, "value", (taosRandom()%2)&1);
             tools_cJSON_AddStringToObject(value, "type", "bool");
             break;
         case TSDB_DATA_TYPE_FLOAT:

@@ -968,10 +968,6 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
 
         case SML_IFACE:
-            if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                pThreadInfo->lines[0] =
-                    tools_cJSON_Print(pThreadInfo->json_array);
-            }
             res = taos_schemaless_insert(
                 pThreadInfo->conn->taos, pThreadInfo->lines,
                 stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
@@ -1201,7 +1197,8 @@ static void *syncWriteInterlace(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->sml_precision, disorderTs?disorderTs:timestamp);
+                                database->sml_precision,
+                                    disorderTs?disorderTs:timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1228,6 +1225,11 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                         generated++;
                         timestamp += stbInfo->timestamp_step;
+                    }
+                    if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+                        pThreadInfo->lines[0] =
+                            tools_cJSON_PrintUnformatted(
+                                pThreadInfo->json_array);
                     }
                     break;
                 }
@@ -1558,6 +1560,11 @@ void *syncWriteProgressive(void *sarg) {
                         if (i + generated >= stbInfo->insertRows) {
                             break;
                         }
+                    }
+                    if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+                        pThreadInfo->lines[0] =
+                            tools_cJSON_PrintUnformatted(
+                                pThreadInfo->json_array);
                     }
                     break;
                 }
