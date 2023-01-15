@@ -19,6 +19,8 @@
 #include <sysinfoapi.h>
 #else
 #include <unistd.h>
+#include <termios.h>
+#include <errno.h>
 #endif
 
 #include <toolsdef.h>
@@ -75,5 +77,42 @@ void errorPrintReqArg3(char *program, char *wrong_arg) {
     fprintf(stderr,
             "Try `taosdump --help' or `taosdump --usage' for more "
             "information.\n");
+}
+
+int setConsoleEcho(bool on) {
+#if defined(WINDOWS)
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD  mode = 0;
+    GetConsoleMode(hStdin, &mode);
+    if (on) {
+        mode |= ENABLE_ECHO_INPUT;
+    } else {
+        mode &= ~ENABLE_ECHO_INPUT;
+    }
+    SetConsoleMode(hStdin, mode);
+
+#else
+#define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
+    int err;
+    struct termios term;
+
+    if (tcgetattr(STDIN_FILENO, &term) == -1) {
+        perror("Cannot get the attribution of the terminal");
+        return -1;
+    }
+
+    if (on)
+        term.c_lflag |= ECHOFLAGS;
+    else
+        term.c_lflag &= ~ECHOFLAGS;
+
+    err = tcsetattr(STDIN_FILENO, TCSAFLUSH, &term);
+    if (err == -1 || err == EINTR) {
+        perror("Cannot set the attribution of the terminal");
+        return -1;
+    }
+
+#endif
+    return 0;
 }
 
