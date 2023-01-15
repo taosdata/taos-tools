@@ -506,6 +506,10 @@ typedef struct SSuperTable_S {
     // generate row value rule see pre RULE_ define
     uint8_t genRowRule;
 
+    uint32_t fillIntervalUpd;  // fill Upd interval rows cnt
+    uint32_t fillIntervalDis;  // fill Dis interval rows cnt
+    uint32_t fillIntervalDel;  // fill Del interval rows cnt
+
     int64_t  max_sql_len;
     uint64_t insert_interval;
     uint64_t insertRows;
