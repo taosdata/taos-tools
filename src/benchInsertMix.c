@@ -365,13 +365,14 @@ uint32_t genBatchSql(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRati
 //
 // generate delete batch body
 //
-uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t slen) {
+uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t slen) {
   uint32_t genRows = 0;
   uint32_t len = slen;  // slen: start len
 
   uint64_t remain = stb->insertRows - info->totalInsertRows;
   bool     forceDel = FORCE_TAKEOUT(MDEL, remain);
   bool     first = false;
+  int64_t* buf = mix->buf[MDEL];
 
   if (stb->genRowRule != RULE_MIX) {
     return 0;
@@ -380,10 +381,10 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t s
   // forceDel put all to buffer
   if (forceDel) {
     for (int32_t i = mix->bufCnt[MDEL] - 1; i >= 0; i--) {
-      int64_t ts = mix->buf[i];
+      int64_t ts = buf[i];
 
       // draw
-      len += snprintf(pstr + len, "%s%" PRId64 "", ts, first ? "" : ",");
+      len += snprintf(pstr + len, "%s%" PRId64 "", first ? "" : ",", ts);
       if (first) first = false;
       genRows++;
       mix->bufCnt[MDEL] -= 1;
@@ -396,9 +397,9 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t s
 
     // append end flag
     if (pstr[len - 1] == ',') {
-      pstr[len - 1] = ")";
+      pstr[len - 1] = ')';
     } else {
-      pstr[len] = ")";
+      pstr[len] = ')';
       len += 1;
       pstr[len] = 0;
     }
@@ -413,14 +414,14 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t s
   first = true;
   while (genRows < count && ++loop < count * 2) {
     i = RD(bufCnt);
-    int64_t ts = mix->buf[i];
+    int64_t ts = buf[i];
 
     // takeout
-    len += snprintf(pstr + len, "%s%" PRId64 "", ts, first ? "" : ",");
+    len += snprintf(pstr + len, "%s%" PRId64 "", first ? "" : ",", ts);
     if (first) first = false;
     genRows++;
     // replace delete with last
-    mix->buf[i] = mix->buf[bufCnt - 1];
+    buf[i] = buf[bufCnt - 1];
     // reduce buffer count
     mix->bufCnt[MDEL] -= 1;
     bufCnt = mix->bufCnt[MDEL];
@@ -433,9 +434,9 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t s
 
   // append end flag
   if (pstr[len - 1] == ',') {
-    pstr[len - 1] = ")";
+    pstr[len - 1] = ')';
   } else {
-    pstr[len] = ")";
+    pstr[len] = ')';
     len += 1;
     pstr[len] = 0;
   }
@@ -486,7 +487,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // delete
       if (needExecDel(&mixRatio)) {
         len = genDelPreSql(db, stb, tbName, &mixRatio, info->buffer);
-        batchRows = genBatchDelSql(stb, &mixRatio, info->buffer, len);
+        batchRows = genBatchDelSql(info, stb, &mixRatio, info->buffer, len);
         if (batchRows > 0) {
             if (execBufSql(info, batchRows) != 0) {
               g_fail = true;
