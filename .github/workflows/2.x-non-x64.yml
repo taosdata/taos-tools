@@ -142,7 +142,7 @@ jobs:
             cd TDengine
             mkdir debug ||:
             cd debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null && make > /dev/null
+            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make > /dev/null
             if [[ ! -f build/bin/taosd ]] || [[ ! -f build/bin/taosdump ]] || [[ ! -f build/bin/taosBenchmark ]]
             then
               echo "TDengine build failure"
@@ -167,7 +167,7 @@ jobs:
             cd TDengine
             mkdir debug ||:
             cd debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null
+            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null
             make > /dev/null && make install > /dev/null
 
             if [[ ! -f /usr/local/taos/bin/taosd ]]
