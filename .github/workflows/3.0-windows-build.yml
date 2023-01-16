@@ -82,7 +82,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom -j 8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} && jom -j 8 && jom install
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
@@ -116,7 +116,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && jom -j8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true && jom -j8 && jom install
 
           #      - name: taosdump codec Test
           #        if:
