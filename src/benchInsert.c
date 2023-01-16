@@ -899,7 +899,7 @@ void postFreeResource() {
     tools_cJSON_Delete(root);
 }
 
-static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     TAOS_RES *   res = NULL;
