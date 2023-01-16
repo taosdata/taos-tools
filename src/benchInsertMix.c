@@ -373,6 +373,7 @@ uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char
   bool     forceDel = FORCE_TAKEOUT(MDEL, remain);
   bool     first = false;
   int64_t* buf = mix->buf[MDEL];
+  int32_t  i;
 
   if (stb->genRowRule != RULE_MIX) {
     return 0;
@@ -380,11 +381,11 @@ uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char
 
   // forceDel put all to buffer
   if (forceDel) {
-    for (int32_t i = mix->bufCnt[MDEL] - 1; i >= 0; i--) {
+    for (i = mix->bufCnt[MDEL] - 1; i >= 0; i--) {
       int64_t ts = buf[i];
 
       // draw
-      len += snprintf(pstr + len, "%s%" PRId64 "", first ? "" : ",", ts);
+      len += snprintf(pstr + len, MAX_SQL_LEN, "%s%" PRId64 "", first ? "" : ",", ts);
       if (first) first = false;
       genRows++;
       mix->bufCnt[MDEL] -= 1;
@@ -417,7 +418,7 @@ uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char
     int64_t ts = buf[i];
 
     // takeout
-    len += snprintf(pstr + len, "%s%" PRId64 "", first ? "" : ",", ts);
+    len += snprintf(pstr + len, MAX_SQL_LEN, "%s%" PRId64 "", first ? "" : ",", ts);
     if (first) first = false;
     genRows++;
     // replace delete with last
@@ -486,7 +487,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
       // delete
       if (needExecDel(&mixRatio)) {
-        len = genDelPreSql(db, stb, tbName, &mixRatio, info->buffer);
+        len = genDelPreSql(db, stb, tbName, info->buffer);
         batchRows = genBatchDelSql(info, stb, &mixRatio, info->buffer, len);
         if (batchRows > 0) {
             if (execBufSql(info, batchRows) != 0) {
