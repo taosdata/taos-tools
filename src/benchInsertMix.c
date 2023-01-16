@@ -51,7 +51,16 @@ typedef struct {
 
 } SMixRatio;
 
+typedef struct {
+  uint64_t insertedRows;
+  uint64_t updRows;
+  uint64_t disRows;
+  uint64_t delRows;
+} STotal;
+
+
 void mixRatioInit(SMixRatio* mix, SSuperTable* stb) {
+  memset(mix, 0, sizeof(SMixRatio));
   uint64_t rows = stb->insertRows;
   uint32_t batchSize = g_arguments->reqPerReq;
 
@@ -153,7 +162,7 @@ uint32_t genDelPreSql(SDataBase* db, SSuperTable* stb, char* tableName, char* ps
   uint32_t len = 0;
   // super table name or child table name random select
   char* name = RD(2) ? tableName : stb->stbName;
-  len = snprintf(pstr, MAX_SQL_LEN, "delete from %s.%s where ts in ( ", db->dbName, name);
+  len = snprintf(pstr, MAX_SQL_LEN, "delete from %s.%s where ", db->dbName, name);
 
   return len;
 }
@@ -231,7 +240,7 @@ bool takeRowOutToBuf(SMixRatio* mix, uint8_t type, int64_t ts) {
 // row rule mix , global info put into mix
 //
 #define MIN_COMMIT_ROWS 10000
-uint32_t appendRowRuleMix(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t len, int64_t ts, uint32_t* pGenRows) {
+uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t len, int64_t ts, uint32_t* pGenRows) {
     uint32_t size = 0;
     
     // remain need generate rows
@@ -312,13 +321,14 @@ uint32_t fillBatchWithBuf(SSuperTable* stb, SMixRatio* mix, int64_t startTime, c
 
 
 //
-// generate  insert batch body
+// generate  insert batch body, return rows in batch
 //
-uint32_t genBatchSql(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRatio* mix, int64_t* pStartTime, char* pstr, uint32_t slen) {
+uint32_t genBatchSql(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRatio* mix, int64_t* pStartTime, char* pstr, uint32_t slen, STotal* pTotal) {
   uint32_t genRows = 0;
   int64_t  ts = *pStartTime;
   int64_t  startTime = *pStartTime;
   uint32_t len = slen; // slen: start len
+  uint32_t insertedRows = 0;
 
   uint64_t remain = stb->insertRows - info->totalInsertRows;
   bool     forceDis = FORCE_TAKEOUT(MDIS, remain);
@@ -329,19 +339,35 @@ uint32_t genBatchSql(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRati
       case RULE_OLD:
         len += appendRowRuleOld(stb, pstr, len, ts);
         genRows ++;
+        pTotal->insertedRows ++;
         break;
       case RULE_MIX:
         // add new row (maybe del)
-        len += appendRowRuleMix(info, db, stb, mix, pstr, len, ts, &genRows);
+        insertedRows = 0;
+        len += appendRowRuleMix(info, stb, mix, pstr, len, ts, &insertedRows);
+        if (insertedRows > 0) {
+          genRows += insertedRows;
+          pTotal->insertedRows += insertedRows;
+        }
 
         if( forceUpd || RD(stb->fillIntervalUpd) == 0) {
             // fill update rows from buffer
-            len += fillBatchWithBuf(stb, mix, startTime, pstr, len, &genRows, MUPD, stb->fillIntervalUpd*2);
+            uint32_t updRows = 0;
+            len += fillBatchWithBuf(stb, mix, startTime, pstr, len, &updRows, MUPD, stb->fillIntervalUpd*2);
+            if (updRows > 0) {
+              genRows += updRows;
+              pTotal->updRows += updRows;
+            }
         }
 
         if( forceDis || RD(stb->fillIntervalDis) == 0) {
             // fill disorder rows from buffer
-            len += fillBatchWithBuf(stb, mix, startTime, pstr, len, &genRows, MDIS, stb->fillIntervalDis*2);
+            uint32_t disRows = 0;
+            len += fillBatchWithBuf(stb, mix, startTime, pstr, len, &disRows, MDIS, stb->fillIntervalDis*2);
+            if (disRows > 0) {
+              genRows += disRows;
+              pTotal->disRows += disRows;
+            }
         }
         break;
       default:
@@ -386,7 +412,7 @@ uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char
       int64_t ts = buf[i];
 
       // draw
-      len += snprintf(pstr + len, MAX_SQL_LEN, "%s%" PRId64 "", first ? "" : ",", ts);
+      len += snprintf(pstr + len, MAX_SQL_LEN, "%s ts=%" PRId64 "", first ? "" : " or ", ts);
       if (first) first = false;
       genRows++;
       mix->bufCnt[MDEL] -= 1;
@@ -395,15 +421,6 @@ uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char
       if (len > (MAX_SQL_LEN - stb->lenOfCols - 24)) {
         break;
       }
-    }
-
-    // append end flag
-    if (pstr[len - 1] == ',') {
-      pstr[len - 1] = ')';
-    } else {
-      pstr[len] = ')';
-      len += 1;
-      pstr[len] = 0;
     }
 
     return genRows;
@@ -419,7 +436,7 @@ uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char
     int64_t ts = buf[i];
 
     // takeout
-    len += snprintf(pstr + len, MAX_SQL_LEN, "%s%" PRId64 "", first ? "" : ",", ts);
+    len += snprintf(pstr + len, MAX_SQL_LEN, "%s ts=%" PRId64 "", first ? "" : " or ", ts);
     if (first) first = false;
     genRows++;
     // replace delete with last
@@ -432,15 +449,6 @@ uint32_t genBatchDelSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char
     if (len > (MAX_SQL_LEN - stb->lenOfCols - 24)) {
       break;
     }
-  }
-
-  // append end flag
-  if (pstr[len - 1] == ',') {
-    pstr[len - 1] = ')';
-  } else {
-    pstr[len] = ')';
-    len += 1;
-    pstr[len] = 0;
   }
 
   return genRows;
@@ -457,6 +465,9 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     return false;
   }
 
+  STotal total;
+  memset(&total, 0, sizeof(STotal));
+
   // loop insert child tables
   for (uint64_t tbIdx = info->start_table_from; tbIdx <= info->end_table_to; ++tbIdx) {
     char* tbName = stb->childTblName[tbIdx];
@@ -466,8 +477,10 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     uint32_t len = 0;
     batchCnt = 0;
     int64_t batchStartTime = stb->startTimestamp;
+    STotal tbTotal;
+    memset(&tbTotal, 0 , sizeof(STotal));
 
-    while (info->totalInsertRows < stb->insertRows) {
+    while (tbTotal.insertedRows < stb->insertRows) {
       // check terminate
       if (g_arguments->terminate) {
         break;
@@ -477,13 +490,31 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       len = genInsertPreSql(info, db, stb, tbName, tbIdx, info->buffer);
 
       // batch create sql values
-      uint32_t batchRows = genBatchSql(info, db, stb , &mixRatio, &batchStartTime, info->buffer, len);
+      STotal batTotal;
+      memset(&batTotal, 0 , sizeof(STotal));
+      uint32_t batchRows = genBatchSql(info, db, stb , &mixRatio, &batchStartTime, info->buffer, len, &batTotal);
 
       // execute insert sql
       //int64_t startTs = toolsGetTimestampUs();
       if (execBufSql(info, batchRows) != 0) {
         g_fail = true;
+        g_arguments->terminate = true;
         break;
+      }
+
+      // update total
+      if(batTotal.insertedRows>0) {
+        tbTotal.insertedRows += batTotal.insertedRows;  
+      }
+
+      if (batTotal.disRows > 0) {
+        tbTotal.disRows += batTotal.disRows;
+        mixRatio.doneCnt[MDIS] += batTotal.disRows;
+      }
+
+      if (batTotal.updRows > 0) {
+        tbTotal.updRows += batTotal.updRows;
+        mixRatio.doneCnt[MUPD] += batTotal.updRows;
       }
 
       // delete
@@ -495,6 +526,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
               g_fail = true;
               break;
             }
+            tbTotal.delRows += batchRows;
+            mixRatio.doneCnt[MDEL] += batchRows;
         }
       }
 
@@ -506,16 +539,32 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       }
 
       // total
-      info->totalInsertRows += batchRows;
       batchCnt++;
     }  // row end
 
+    // total
+    total.insertedRows += tbTotal.insertedRows;
+    total.delRows += tbTotal.delRows;
+    total.disRows += tbTotal.disRows;
+    total.updRows += tbTotal.updRows;
+
+    // print
+    infoPrint("table:%s inserted ok, rows inserted(%" PRId64 ")  disorder(%" PRId64 ") update(%" PRId64") delete(%" PRId64 ")",
+              tbName, tbTotal.insertedRows, tbTotal.disRows, tbTotal.updRows, tbTotal.delRows);
+
   }  // child table end
+
 
   // end
   if (0 == info->totalDelay) info->totalDelay = 1;
+
+  // total
   succPrint("thread[%d] %s(), completed total inserted rows: %" PRIu64 ", %.2f records/second\n", info->threadID,
             __func__, info->totalInsertRows, (double)(info->totalInsertRows / ((double)info->totalDelay / 1E6)));
+
+  // print
+  succPrint("inserted finished, rows inserted(%" PRId64 ")  disorder(%" PRId64 ") update(%" PRId64") delete(%" PRId64 ")",
+            total.insertedRows, total.disRows, total.updRows, total.delRows);
 
   return true;
 }

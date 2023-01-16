@@ -48,12 +48,15 @@
                     "partial_col_num": 0,
                     "disorder_range": 1000,
                     "timestamp_step": 10,
+                    
                     "disorder_ratio": 30,
                     "update_ratio": 20,
                     "delete_ratio": 10,
                     "disorder_fill_interval": 30,
                     "update_fill_interval": 25,
                     "delete_fill_interval": 20,
+                    "generate_row_rule": 1,
+
                     "start_timestamp": "2020-10-01 00:00:00.000",
                     "sample_format": "csv",
                     "sample_file": "./sample.csv",
