@@ -858,8 +858,6 @@ void postFreeResource() {
                 }
                 benchArrayDestroy(stbInfo->tags);
 
-                debugPrint("%s() LN%d, col size: %"PRIu64"\n",
-                        __func__, __LINE__, (uint64_t)stbInfo->cols->size);
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
                     tmfree(col->data);
@@ -905,8 +903,6 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     TAOS_RES *   res = NULL;
     int32_t      code = 0;
     uint16_t     iface = stbInfo->iface;
-
-    debugPrint("iface: %d\n", iface);
 
     int32_t trying = (stbInfo->keep_trying)?
         stbInfo->keep_trying:g_arguments->keep_trying;
@@ -969,10 +965,6 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
 
         case SML_IFACE:
-            if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                pThreadInfo->lines[0] =
-                    tools_cJSON_Print(pThreadInfo->json_array);
-            }
             res = taos_schemaless_insert(
                 pThreadInfo->conn->taos, pThreadInfo->lines,
                 stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL ? 0 : k,
@@ -1202,7 +1194,8 @@ static void *syncWriteInterlace(void *sarg) {
                                 true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
-                                database->sml_precision, disorderTs?disorderTs:timestamp);
+                                database->sml_precision,
+                                    disorderTs?disorderTs:timestamp);
                         } else if (stbInfo->lineProtocol ==
                                    TSDB_SML_LINE_PROTOCOL) {
                             snprintf(
@@ -1230,6 +1223,11 @@ static void *syncWriteInterlace(void *sarg) {
                         generated++;
                         timestamp += stbInfo->timestamp_step;
                     }
+                    if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+                        pThreadInfo->lines[0] =
+                            tools_cJSON_PrintUnformatted(
+                                pThreadInfo->json_array);
+                    }
                     break;
                 }
             }
@@ -1254,7 +1252,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         startTs = toolsGetTimestampUs();
-        if(execInsert(pThreadInfo, generated)) {
+        if (execInsert(pThreadInfo, generated)) {
             g_fail = true;
             goto free_of_interlace;
         }
@@ -1566,6 +1564,11 @@ void *syncWriteProgressive(void *sarg) {
                         if (i + generated >= stbInfo->insertRows) {
                             break;
                         }
+                    }
+                    if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
+                        pThreadInfo->lines[0] =
+                            tools_cJSON_PrintUnformatted(
+                                pThreadInfo->json_array);
                     }
                     break;
                 }
