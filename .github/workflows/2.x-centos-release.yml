@@ -76,7 +76,7 @@ jobs:
           BASE_BRANCH: ${{ github.base_ref }}
         if: github.event_name == 'pull_request'
 
-      - name: intall packages for build
+      - name: install packages for build
         if: |
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')

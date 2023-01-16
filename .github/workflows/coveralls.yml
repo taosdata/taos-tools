@@ -223,7 +223,7 @@ jobs:
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
-          echo "TEST: singal normal table with unknown codec"
+          echo "TEST: single normal table with unknown codec"
           ./build/bin/taosdump test d0 -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
