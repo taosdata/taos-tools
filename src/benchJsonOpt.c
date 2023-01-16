@@ -528,7 +528,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         tools_cJSON *stbLineProtocol =
             tools_cJSON_GetObjectItem(stbInfo, "line_protocol");
         if (tools_cJSON_IsString(stbLineProtocol)) {
-            if (0 == strcasecmp(stbLineProtocol->valuestring, "telnet")) {
+            if (0 == strcasecmp(stbLineProtocol->valuestring, "line")) {
+                superTable->lineProtocol = TSDB_SML_LINE_PROTOCOL;
+            } else if (0 == strcasecmp(stbLineProtocol->valuestring, "telnet")) {
                 superTable->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
             } else if (0 == strcasecmp(stbLineProtocol->valuestring, "json")) {
                 superTable->lineProtocol = TSDB_SML_JSON_PROTOCOL;

@@ -25,16 +25,13 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <strings.h>
-#include <termios.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 #include <wordexp.h>
 #else
 #include <argp.h>
-
 #include <unistd.h>
 #include <strings.h>
-#include <termios.h>
 #include <sys/time.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
@@ -610,43 +607,6 @@ static uint64_t getUniqueIDFromEpoch() {
             __func__, __LINE__, id);
 
     return id;
-}
-
-int setConsoleEcho(bool on) {
-#if defined(WINDOWS)
-    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
-    DWORD  mode = 0;
-    GetConsoleMode(hStdin, &mode);
-    if (on) {
-        mode |= ENABLE_ECHO_INPUT;
-    } else {
-        mode &= ~ENABLE_ECHO_INPUT;
-    }
-    SetConsoleMode(hStdin, mode);
-
-#else
-#define ECHOFLAGS (ECHO | ECHOE | ECHOK | ECHONL)
-    int err;
-    struct termios term;
-
-    if (tcgetattr(STDIN_FILENO, &term) == -1) {
-        perror("Cannot get the attribution of the terminal");
-        return -1;
-    }
-
-    if (on)
-        term.c_lflag |= ECHOFLAGS;
-    else
-        term.c_lflag &= ~ECHOFLAGS;
-
-    err = tcsetattr(STDIN_FILENO, TCSAFLUSH, &term);
-    if (err == -1 || err == EINTR) {
-        perror("Cannot set the attribution of the terminal");
-        return -1;
-    }
-
-#endif
-    return 0;
 }
 
 static void printVersion(FILE *file) {

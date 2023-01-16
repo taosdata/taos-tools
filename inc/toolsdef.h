@@ -229,4 +229,6 @@ void errorWrongValue(char *program, char *wrong_arg, char *wrong_value);
 void errorPrintReqArg(char *program, char *wrong_arg);
 void errorPrintReqArg2(char *program, char *wrong_arg);
 void errorPrintReqArg3(char *program, char *wrong_arg);
+int setConsoleEcho(bool on);
+
 #endif // __TOOLSDEF_H_
