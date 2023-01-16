@@ -660,6 +660,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->disorderRange = (int)disorderRange->valueint;
             superTable->disRange = disorderRange->valueint;
         }
+        tools_cJSON *disFill =
+            tools_cJSON_GetObjectItem(stbInfo, "disorder_fill_interval");
+        if (tools_cJSON_IsNumber(disFill)) {
+            superTable->fillIntervalDis = (int)disFill->valueint;
+        }
+
 
         // update
         tools_cJSON *updRatio =
@@ -669,10 +675,10 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (updRatio->valueint < 0) updRatio->valueint = 0;
             superTable->updRatio = (int8_t)updRatio->valueint;
         }
-        tools_cJSON *updRange =
-            tools_cJSON_GetObjectItem(stbInfo, "update_range");
-        if (tools_cJSON_IsNumber(updRange)) {
-            superTable->updRange = (uint64_t)updRange->valueint;
+        tools_cJSON *updFill =
+            tools_cJSON_GetObjectItem(stbInfo, "update_fill_interval");
+        if (tools_cJSON_IsNumber(updFill)) {
+            superTable->fillIntervalUpd = (uint64_t)updFill->valueint;
         }
 
         // delete
@@ -683,10 +689,10 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (delRatio->valueint < 0) delRatio->valueint = 0;
             superTable->delRatio = (int8_t)delRatio->valueint;
         }
-        tools_cJSON *delRange =
-            tools_cJSON_GetObjectItem(stbInfo, "delete_range");
-        if (tools_cJSON_IsNumber(delRange)) {
-            superTable->delRange = (uint64_t)delRange->valueint;
+        tools_cJSON *delFill =
+            tools_cJSON_GetObjectItem(stbInfo, "delete_fill_interval");
+        if (tools_cJSON_IsNumber(delFill)) {
+            superTable->fillIntervalDel = (uint64_t)delFill->valueint;
         }
 
         // generate row rule 

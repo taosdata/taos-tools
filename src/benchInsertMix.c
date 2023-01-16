@@ -167,7 +167,7 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
   int      disorderRange = stb->disorderRange;
 
   if (stb->useSampleTs && !stb->random_data_source) {
-    len += snprintf(pstr + len, MAX_SQL_LEN - len, "(%s)", stb->sampleDataBuf + pos * stb->lenOfCols);
+    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%s)", stb->sampleDataBuf + pos * stb->lenOfCols);
   } else {
     int64_t disorderTs = 0;
     if (stb->disorderRatio > 0) {
@@ -184,7 +184,8 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
             rand_num, stb->disorderRatio, disorderTs);
       }
     }
-    len += snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64 ",%s)", disorderTs ? disorderTs : timestamp,
+    // generate
+    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64 ",%s)", disorderTs ? disorderTs : timestamp,
                     stb->sampleDataBuf + pos * stb->lenOfCols);
   }
 
@@ -333,12 +334,12 @@ uint32_t genBatchSql(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRati
         // add new row (maybe del)
         len += appendRowRuleMix(info, db, stb, mix, pstr, len, ts, &genRows);
 
-        if( forceUpd || RD(stb->fillIntervalUpd)) {
+        if( forceUpd || RD(stb->fillIntervalUpd) == 0) {
             // fill update rows from buffer
             len += fillBatchWithBuf(stb, mix, startTime, pstr, len, &genRows, MUPD, stb->fillIntervalUpd*2);
         }
 
-        if( forceDis || RD(stb->fillIntervalDis)) {
+        if( forceDis || RD(stb->fillIntervalDis) == 0) {
             // fill disorder rows from buffer
             len += fillBatchWithBuf(stb, mix, startTime, pstr, len, &genRows, MDIS, stb->fillIntervalDis*2);
         }
