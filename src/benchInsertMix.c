@@ -28,7 +28,6 @@
 #define  FORCE_TAKEOUT(type, remain) (remain < mix->genCnt[type] - mix->doneCnt[type] - mix->bufCnt[type] + 1000 )
 #define  RD(max) (taosRandom() % max)
 
-int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 
 typedef struct {
   int8_t ratio[MCNT];
@@ -99,6 +98,19 @@ void mixRatioExit(SMixRatio* mix) {
 }
 
 //
+//  --------------------- util ----------------
+//
+
+// return true can do execute delelte sql
+bool needExecDel(SMixRatio* mix) {
+  if (mix->genCnt[MDEL] == 0 || mix->doneCnt[MDEL] >= mix->genCnt[MDEL]) {
+    return false;
+  }
+
+  return mix->bufCnt[MDEL] > 0;
+}
+
+//
 // ------------------ gen area -----------------------
 //
 
@@ -130,6 +142,18 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
                      stb->partialColNameBuf);
     }
   }
+
+  return len;
+}
+
+//
+// generate delete pre sql like "delete from st"
+//
+uint32_t genDelPreSql(SDataBase* db, SSuperTable* stb, char* tableName, char* pstr) {
+  uint32_t len = 0;
+  // super table name or child table name random select
+  char* name = RD(2) ? tableName : stb->stbName;
+  len = snprintf(pstr, MAX_SQL_LEN, "delete from %s.%s where ts in ( ", db->dbName, name);
 
   return len;
 }
@@ -167,9 +191,9 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
   return size;
 }
 
-//
+
+
 // create columns data 
-//
 uint32_t createColsDataRandom(SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
   uint32_t size = 0;
   int32_t  pos = RD(g_arguments->prepared_rand);
@@ -180,6 +204,7 @@ uint32_t createColsDataRandom(SSuperTable* stb, char* pstr, uint32_t len, int64_
   return size;
 }
 
+// take out row
 bool takeRowOutToBuf(SMixRatio* mix, uint8_t type, int64_t ts) {
     int64_t* buf = mix->buf[type];
     if(buf == NULL){
@@ -212,6 +237,12 @@ uint32_t appendRowRuleMix(threadInfo* info, SDataBase* db, SSuperTable* stb, SMi
     uint64_t remain = stb->insertRows - info->totalInsertRows;
     bool forceDis = FORCE_TAKEOUT(MDIS, remain);
     bool forceUpd = FORCE_TAKEOUT(MUPD, remain);
+    bool forceDel = FORCE_TAKEOUT(MDEL, remain);
+
+    // delete
+    if (forceDel || NEED_TAKEOUT_ROW_TOBUF(MDEL)) {
+        takeRowOutToBuf(mix, MDEL, ts);
+    }
 
     // disorder
     if ( forceDis || NEED_TAKEOUT_ROW_TOBUF(MDIS)) {
@@ -221,7 +252,7 @@ uint32_t appendRowRuleMix(threadInfo* info, SDataBase* db, SSuperTable* stb, SMi
         }
     }
 
-    // append row
+    // gen col data
     size = createColsDataRandom(stb, pstr, len, ts);
     *pGenRows += 1;
 
@@ -280,7 +311,7 @@ uint32_t fillBatchWithBuf(SSuperTable* stb, SMixRatio* mix, int64_t startTime, c
 
 
 //
-// generate body
+// generate  insert batch body
 //
 uint32_t genBatchSql(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRatio* mix, int64_t* pStartTime, char* pstr, uint32_t slen) {
   uint32_t genRows = 0;
@@ -332,6 +363,87 @@ uint32_t genBatchSql(threadInfo* info, SDataBase* db, SSuperTable* stb, SMixRati
 }
 
 //
+// generate delete batch body
+//
+uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t slen) {
+  uint32_t genRows = 0;
+  uint32_t len = slen;  // slen: start len
+
+  uint64_t remain = stb->insertRows - info->totalInsertRows;
+  bool     forceDel = FORCE_TAKEOUT(MDEL, remain);
+  bool     first = false;
+
+  if (stb->genRowRule != RULE_MIX) {
+    return 0;
+  }
+
+  // forceDel put all to buffer
+  if (forceDel) {
+    for (int32_t i = mix->bufCnt[MDEL] - 1; i >= 0; i--) {
+      int64_t ts = mix->buf[i];
+
+      // draw
+      len += snprintf(pstr + len, "%s%" PRId64 "", ts, first ? "" : ",");
+      if (first) first = false;
+      genRows++;
+      mix->bufCnt[MDEL] -= 1;
+
+      // check over MAX_SQL_LENGTH
+      if (len > (MAX_SQL_LEN - stb->lenOfCols - 24)) {
+        break;
+      }
+    }
+
+    // append end flag
+    if (pstr[len - 1] == ',') {
+      pstr[len - 1] = ")";
+    } else {
+      pstr[len] = ")";
+      len += 1;
+      pstr[len] = 0;
+    }
+
+    return genRows;
+  }
+
+  // random select count to delete
+  uint32_t bufCnt = mix->bufCnt[MDEL];
+  uint32_t count = RD(bufCnt);
+  int32_t  loop = 0;
+  first = true;
+  while (genRows < count && ++loop < count * 2) {
+    i = RD(bufCnt);
+    int64_t ts = mix->buf[i];
+
+    // takeout
+    len += snprintf(pstr + len, "%s%" PRId64 "", ts, first ? "" : ",");
+    if (first) first = false;
+    genRows++;
+    // replace delete with last
+    mix->buf[i] = mix->buf[bufCnt - 1];
+    // reduce buffer count
+    mix->bufCnt[MDEL] -= 1;
+    bufCnt = mix->bufCnt[MDEL];
+
+    // check over MAX_SQL_LENGTH
+    if (len > (MAX_SQL_LEN - stb->lenOfCols - 24)) {
+      break;
+    }
+  }
+
+  // append end flag
+  if (pstr[len - 1] == ',') {
+    pstr[len - 1] = ")";
+  } else {
+    pstr[len] = ")";
+    len += 1;
+    pstr[len] = 0;
+  }
+
+  return genRows;
+}
+
+//
 // insert data to db->stb with info
 //
 bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
@@ -366,20 +478,22 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
       // execute insert sql
       //int64_t startTs = toolsGetTimestampUs();
-      if (execInsert(info, batchRows) != 0) {
+      if (execBufSql(info, batchRows) != 0) {
         g_fail = true;
         break;
       }
 
-      /* 
-      // execute delete sql if need
-      if (mixRatioNeedDel(&mixRatio)) {
-        if (execDelete(info) != 0) {
-          g_fail = true;
-          break;
+      // delete
+      if (needExecDel(&mixRatio)) {
+        len = genDelPreSql(db, stb, tbName, &mixRatio, info->buffer);
+        batchRows = genBatchDelSql(stb, &mixRatio, info->buffer, len);
+        if (batchRows > 0) {
+            if (execBufSql(info, batchRows) != 0) {
+              g_fail = true;
+              break;
+            }
         }
       }
-      */
 
       // sleep if need
       if (stb->insert_interval > 0) {
