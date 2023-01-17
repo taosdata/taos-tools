@@ -49,6 +49,7 @@ int main(int argc, char* argv[]) {
     int ret = 0;
 
     init_argument();
+    srand(time(NULL)%1000000);
 
     sprintf(g_client_info, "%s", taos_get_client_info());
     g_majorVersionOfClient = atoi(g_client_info);

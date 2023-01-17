@@ -40,7 +40,7 @@
                     "insert_mode": "taosc",
                     "non_stop_mode": "no",
                     "line_protocol": "line",
-                    "insert_rows": 100000,
+                    "insert_rows": 1000,
                     "childtable_limit": 10,
                     "childtable_offset": 100,
                     "interlace_rows": 0,
@@ -48,7 +48,7 @@
                     "partial_col_num": 0,
                     "disorder_range": 1000,
                     "timestamp_step": 10,
-                    
+                    "start_timestamp":1500000000000,
                     "disorder_ratio": 30,
                     "update_ratio": 0,
                     "delete_ratio": 0,
@@ -57,7 +57,6 @@
                     "delete_fill_interval": 20,
                     "generate_row_rule": 1,
 
-                    "start_timestamp": "2020-10-01 00:00:00.000",
                     "sample_format": "csv",
                     "sample_file": "./sample.csv",
                     "use_sample_ts": "no",
