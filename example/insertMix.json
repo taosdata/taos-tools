@@ -31,7 +31,7 @@
                 {
                     "name": "meters",
                     "child_table_exists": "no",
-                    "childtable_count": 10,
+                    "childtable_count": 1,
                     "childtable_prefix": "d",
                     "escape_character": "yes",
                     "auto_create_table": "no",
@@ -50,8 +50,8 @@
                     "timestamp_step": 10,
                     
                     "disorder_ratio": 30,
-                    "update_ratio": 20,
-                    "delete_ratio": 10,
+                    "update_ratio": 0,
+                    "delete_ratio": 0,
                     "disorder_fill_interval": 30,
                     "update_fill_interval": 25,
                     "delete_fill_interval": 20,
