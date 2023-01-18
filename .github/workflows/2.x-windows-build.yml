@@ -46,7 +46,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/windows.yml
+            .github/workflows/2.x-windows-build.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'

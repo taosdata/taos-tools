@@ -1,4 +1,4 @@
-name: macOS (3.0 Release)
+name: macOS (3.0 Debug)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ develop ]
 
 env:
-  TOOLS_BUILD_TYPE: Release
+  TOOLS_BUILD_TYPE: Debug
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
@@ -48,7 +48,7 @@ jobs:
             deps/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/3.0-macos-release.yml
+            .github/workflows/3.0-macos-debug.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -154,7 +154,7 @@ jobs:
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           #if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           if [[ ! -f /usr/local/bin/taosBenchmark ]]
           then

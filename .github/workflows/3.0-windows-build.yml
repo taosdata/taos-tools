@@ -46,7 +46,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/windows-build-for3.0.yml
+            .github/workflows/3.0-windows-build.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2389-taosbenchmark-check-remain-vnodes'
+          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-schemaless-refine'
 
       - name: create debug directory
         if: |
@@ -82,7 +82,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom -j 8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} && jom -j 8 && jom install
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
@@ -116,7 +116,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && jom -j8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true && jom -j8 && jom install
 
           #      - name: taosdump codec Test
           #        if:

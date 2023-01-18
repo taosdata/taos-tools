@@ -51,7 +51,7 @@ jobs:
             deps/CMakeLists.txt
             packaging/tools/*
             packaging/rpm/*
-            .github/workflows/centos-release.yml
+            .github/workflows/2.x-centos-release.yml
 
       - name: Run step if any of the listed files above change
         id: changedflag
@@ -76,7 +76,7 @@ jobs:
           BASE_BRANCH: ${{ github.base_ref }}
         if: github.event_name == 'pull_request'
 
-      - name: intall packages for build
+      - name: install packages for build
         if: |
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
@@ -163,7 +163,7 @@ jobs:
         run: |
           yum install -y python3 python3-pip zlib-devel zlib-static xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel > /dev/null
           python3 -m pip install --upgrade pip > /dev/null 2>&1
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && make install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j8 && make install
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"

@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2389-taosbenchmark-check-remain-vnodes'
+          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-schemaless-refine'
 
       - name: Change time zone
         if:
@@ -161,7 +161,7 @@ jobs:
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=Debug -DWEBSOCKET=true -DTOOLS_COVER=true > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true -DTOOLS_COVER=true > /dev/null
           make -j8 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
@@ -289,7 +289,7 @@ jobs:
           taos -s "select count(*) from test.meters"|grep "4 |" && echo success || exit $?
           rm -rf *.sql *.avro* taosdump.*
 
-          echo "TEST: singal normal table with unknown codec"
+          echo "TEST: single normal table with unknown codec"
           ./build/bin/taosdump test d0 -d unknown -gg > /dev/null
           taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
@@ -459,7 +459,7 @@ jobs:
           taos -s "select count(*) from test.meters"|grep "4 |" && echo success ||:
           rm -rf *.sql *.avro* taosdump.*
 
-          echo "TEST: singal normal table with unknown codec"
+          echo "TEST: single normal table with unknown codec"
           ./build/bin/taosdump test d0 -R -d unknown -gg > /dev/null ||:
           taos -s "drop database test"
           ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
