@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-schemaless-refine'
+          ref: 'enh/xftan/TD-21998-alpine'
 
       - name: create debug directory
         if: |
