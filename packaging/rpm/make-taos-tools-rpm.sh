@@ -38,7 +38,7 @@ function cp_rpm_package() {
     cd $1
     cur_dir=$(pwd)
 
-    for dirlist in "${cur_dir}"/* ; do
+    for dirlist in "$(ls ${cur_dir})"; do
         if test -d ${dirlist}; then
             cd ${dirlist}
             cp_rpm_package ${cur_dir}/${dirlist}
@@ -79,7 +79,7 @@ if [ "$verType" == "beta" ]; then
 elif [ "$verType" == "stable" ]; then
   rpmname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}${compN}".rpm"
 else
-  echo "unknow verType, nor stabel or beta"
+  echo "unknown verType, neither stabel nor beta"
   exit 1
 fi
 
@@ -87,3 +87,4 @@ mv ${output_dir}/taosTools-${taos_tools_ver}.rpm ${output_dir}/${rpmname}
 
 cd ..
 ${csudo}rm -rf ${pkg_dir}
+
