@@ -47,7 +47,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/macos-release.yml
+            .github/workflows/2.x-macos-release.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -94,7 +94,7 @@ jobs:
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_HTTP=false && make && sudo make install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_JDBC=false -DBUILD_TOOLS=true -DBUILD_HTTP=false && make && sudo make install
 
           #      - name: Func Test
           #        run: |

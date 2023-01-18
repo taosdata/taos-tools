@@ -39,17 +39,17 @@
 #include <dirent.h>
 #endif
 #include <inttypes.h>
+#include <limits.h>
+
+#include <avro.h>
+#include <jansson.h>
 
 #include "taos.h"
-
 #include "toolsdef.h"
 
 #ifdef WEBSOCKET
 #include "taosws.h"
 #endif
-
-#include <avro.h>
-#include <jansson.h>
 
 // get taosdump commit number version
 #ifndef TAOSDUMP_COMMIT_SHA1
