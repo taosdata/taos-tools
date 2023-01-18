@@ -82,10 +82,10 @@ void mixRatioInit(SMixRatio* mix, SSuperTable* stb) {
   // calc count
   mix->genCnt[MDIS] = mix->insertRows * stb->disRatio / 100;
   mix->genCnt[MUPD] = mix->insertRows * stb->updRatio / 100;
-  //mix->genCnt[MDEL] = mix->insertRows * stb->delRatio / 100;
+  mix->genCnt[MDEL] = mix->insertRows * stb->delRatio / 100;
 
   // malloc buffer
-  for (int32_t i = 0; i < MCNT; i++) {
+  for (int32_t i = 0; i < MCNT - 1; i++) {
     // max
     if (mix->genCnt[i] > 0) {
       // buffer max count calc
@@ -119,7 +119,7 @@ bool needExecDel(SMixRatio* mix) {
     return false;
   }
 
-  return mix->bufCnt[MDEL] > 0;
+  return true;
 }
 
 //
@@ -472,7 +472,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   sprintf(where, " ts >= %" PRId64 " and ts < %" PRId64 ";", ds, de);
 
   len += snprintf(pstr + len, MAX_SQL_LEN - len, "%s", where);
-  debugPrint("  batch delete range=%s" PRId64 " \n", where);
+  debugPrint("  batch delete range=%s \n", where);
 
   return count;
 }
@@ -481,7 +481,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
 // insert data to db->stb with info
 //
 bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
-  //int64_t lastPrintTime = 0;
+  int64_t lastPrintTime = 0;
 
   // check interface
   if (stb->iface != TAOSC_IFACE) {
@@ -489,8 +489,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
   }
 
   // debug
-  g_arguments->debug_print = true;
-  stb->startTimestamp = 1500000000000;
+  //g_arguments->debug_print = true;
 
   STotal total;
   memset(&total, 0, sizeof(STotal));
@@ -554,12 +553,12 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         len = genDelPreSql(db, stb, tbName, info->buffer);
         batchRows = genBatchDelSql(stb, &mixRatio, batStartTime, info->buffer, len);
         if (batchRows > 0) {
-            g_arguments->debug_print = false;
+            //g_arguments->debug_print = false;
             if (execBufSql(info, batchRows) != 0) {
               g_fail = true;
               break;
             }
-            // g_arguments->debug_print = true;
+            //g_arguments->debug_print = true;
             tbTotal.delRows += batchRows;
             mixRatio.doneCnt[MDEL] += batchRows;
         }
@@ -584,15 +583,14 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         benchArrayPush(info->delayList, pdelay);
         info->totalDelay += delay;
       }
-
-      /*
+       
       int64_t currentPrintTime = toolsGetTimestampMs();
       if (currentPrintTime - lastPrintTime > 30 * 1000) {
         infoPrint("thread[%d] has currently inserted rows: %" PRIu64 "\n", info->threadID,
                   info->totalInsertRows);
         lastPrintTime = currentPrintTime;
       }
-      */
+      
 
       // total
       mixRatio.curBatchCnt++;
@@ -607,6 +605,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     total.delRows += tbTotal.delRows;
     total.disRows += tbTotal.disRows;
     total.updRows += tbTotal.updRows;
+
+    info->totalInsertRows +=mixRatio.insertedRows;
   }  // child table end
 
 

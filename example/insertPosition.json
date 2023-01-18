@@ -30,6 +30,7 @@
             "super_tables": [
                 {
                     "name": "meters",
+                    "data_position": 1,
                     "child_table_exists": "no",
                     "childtable_count": 1000,
                     "childtable_prefix": "d",

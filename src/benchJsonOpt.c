@@ -571,8 +571,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 }
             }
         } else {
-            superTable->startTimestamp =
-                toolsGetTimestamp(database->precision);
+            if (tools_cJSON_IsNumber(ts)) {
+                superTable->startTimestamp = ts->valueint;
+            } else {
+                superTable->startTimestamp = toolsGetTimestamp(database->precision);
+            }
         }
 
         tools_cJSON *timestampStep =
