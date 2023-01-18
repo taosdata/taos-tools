@@ -48,6 +48,10 @@
 #include "taosws.h"
 #endif
 
+#ifdef _ALPINE
+#include <limits.h>
+#endif
+
 #include <avro.h>
 #include <jansson.h>
 

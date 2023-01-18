@@ -17,6 +17,9 @@
 #define __TOOLSDEF_H_
 
 #include <stdbool.h>
+#ifdef _ALPINE
+#include <time.h>
+#endif
 
 // max file name length on Linux is 255
 #define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
