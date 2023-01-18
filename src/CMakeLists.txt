@@ -271,8 +271,12 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
 
         IF (${OS_ID} MATCHES "alpine")
             MESSAGE("${Yellow} DEBUG mode use shared avro library to link for debug ${ColourReset}")
+            FIND_LIBRARY(LIBZ_LIBRARY z)
             MESSAGE(${LIBZ_LIBRARY})
+
+            FIND_LIBRARY(LIBZ_LIBRARY z)
             MESSAGE(${ARGP_LIBRARY})
+
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson $<$<BOOL:${LIBZ_LIBRARY}>:${LIBZ_LIBRARY}> $<$<BOOL:${ARGP_LIBRARY}>:${ARGP_LIBRARY}> ${WEBSOCKET_LINK_FLAGS})
             TARGET_LINK_LIBRARIES(taosdump taos avro jansson atomic pthread argp $<$<BOOL:${LIBZ_LIBRARY}>:${LIBZ_LIBRARY}> $<$<BOOL:${ARGP_LIBRARY}>:${ARGP_LIBRARY}> ${WEBSOCKET_LINK_FLAGS})
         ELSEIF(${OS_ID} MATCHES "Darwin")
@@ -363,11 +367,13 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             SET_PROPERTY(TARGET libz-static PROPERTY IMPORTED_LOCATION "${LIBZ_PATH}")
 
             IF (${OS_ID} MATCHES "alpine")
-                find_library (ARGP_LIBRARY argp)
                 MESSAGE("alpine TARGET_LINK_LIBRARIES")
-                find_library (LIBZ_LIBRARY z)
-                MESSAGE(${LIBZ_LIBRARY})
+                FIND_LIBRARY(ARGP_LIBRARY argp)
                 MESSAGE(${ARGP_LIBRARY})
+
+                FIND_LIBRARY(LIBZ_LIBRARY z)
+                MESSAGE(${LIBZ_LIBRARY})
+
                 TARGET_LINK_LIBRARIES(taosdump taos avro jansson snappy stdc++ lzma atomic pthread $<$<BOOL:${LIBZ_LIBRARY}>:${LIBZ_LIBRARY}> $<$<BOOL:${ARGP_LIBRARY}>:${ARGP_LIBRARY}> ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
                 TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson $<$<BOOL:${LIBZ_LIBRARY}>:${LIBZ_LIBRARY}> $<$<BOOL:${ARGP_LIBRARY}>:${ARGP_LIBRARY}> ${WEBSOCKET_LINK_FLAGS} ${GCC_COVERAGE_LINK_FLAGS})
             ELSE()
