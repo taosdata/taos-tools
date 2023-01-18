@@ -154,6 +154,8 @@
 #define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
+#define TS_COL_NAME "ts"
+
 
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
@@ -466,11 +468,17 @@ typedef struct STSMA {
 } TSMA;
 
 // generate row data rule
-#define RULE_OLD          0 // old generator method
-#define RULE_MIX          1 // old data mix update delete ratio
-#define RULE_MIX_TS_CALC  2 // ts calc other column
-#define RULE_MIX_FIX_VALE 3 // fixed value with give
+#define RULE_OLD           0 // old generator method
+#define RULE_MIX_RANDOM    1 // old data mix update delete ratio
+#define RULE_MIX_ALL       2 // mix with all var data
+#define RULE_MIX_TS_CALC   3 // ts calc other column
+#define RULE_MIX_FIX_VALUE 4 // fixed value with give
 
+// define data position
+#define DATAPOS_MEM       1  
+#define DATAPOS_STT       2
+#define DATAPOS_FILE      3
+#define DATAPOS_MUL_FILE  4
 
 typedef struct SSuperTable_S {
     char *   stbName;
@@ -505,6 +513,9 @@ typedef struct SSuperTable_S {
 
     // generate row value rule see pre RULE_ define
     uint8_t genRowRule;
+
+    // data position
+    uint8_t dataPos; //  see define DATAPOS_
 
     uint32_t fillIntervalUpd;  // fill Upd interval rows cnt
     uint32_t fillIntervalDis;  // fill Dis interval rows cnt
@@ -707,6 +718,7 @@ typedef struct SBenchConn{
 #endif
 } SBenchConn;
 
+#define MAX_BATCOLS 256
 typedef struct SThreadInfo_S {
     SBenchConn* conn;
     uint64_t * bind_ts;
@@ -745,6 +757,11 @@ typedef struct SThreadInfo_S {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     SVGroup   *vg;
 #endif
+
+    // new
+    uint16_t batCols[MAX_BATCOLS];
+    uint16_t nBatCols; // valid count for array batCols
+
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {

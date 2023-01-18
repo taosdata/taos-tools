@@ -12,7 +12,9 @@
 
 #include "bench.h"
 #include "benchData.h"
+#include "benchDataMix.h"
 #include "benchInsertMix.h"
+
 
 //
 // ------------------ mix ratio area -----------------------
@@ -126,34 +128,88 @@ bool needExecDel(SMixRatio* mix) {
 // ------------------ gen area -----------------------
 //
 
+#define SWAP(left,rirght) (mid=left; left=right; right=mid;) 
+void randomFillCols(uint16_t* cols, uint16_t max, uint16_t cnt) {
+  uint16_t i;
+  // fill index
+  for (i = 0; i < max; i++) {
+    cols[i] = i;
+  }
+
+  // check special
+  if (cnt == max || cnt == 1) {
+    return;
+  }
+
+  // swap cnt with random
+  uint16_t left, right, mid;
+  for (i = 0; i < cnt; i++) {
+    left = RD(cnt);
+    right = cnt + RD(max - cnt);
+    SWAP(left, right)
+  }
+}
+
+char* genBatColsNames(threadInfo* info, SSuperTable* stb) {
+  uint16_t* cols = info->batCols;
+  int32_t size = info->nBatCols * (TSDB_COL_NAME_LEN + 2);
+  char* buf = calloc(1, size);
+  strcpy(buf, TS_COL_NAME);
+
+  uint16_t idx;
+  for (uint16_t i = 0; i < info->nBatCols; i++) {
+    idx = info->batCols[i];
+    Field* fd = benchArrayGet(stb->cols, idx);
+    strcat(buf, ",");
+    strcat(buf, fd->name);
+  }
+
+  return buf;
+}
+
 //
 // generate head
 //
 uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tableName, uint64_t tableSeq, char* pstr) {
   uint32_t len = 0;
-  // ttl
-  char ttl[20] = "";
-  if (stb->ttl != 0) {
-    sprintf(ttl, "TTL %d", stb->ttl);
+
+  if (stb->genRowRule == RULE_OLD || stb->genRowRule == RULE_MIX_RANDOM) {    
+    // ttl
+    char ttl[20] = "";
+    if (stb->ttl != 0) {
+      sprintf(ttl, "TTL %d", stb->ttl);
+    }
+
+    if (stb->partialColNum == stb->cols->size) {
+      if (stb->autoCreateTable) {
+        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
+                       tableName, db->dbName, stb->stbName, stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
+      } else {
+        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s VALUES ", STR_INSERT_INTO, db->dbName, tableName);
+      }
+    } else {
+      if (stb->autoCreateTable) {
+        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
+                       tableName, stb->partialColNameBuf, db->dbName, stb->stbName,
+                       stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
+      } else {
+        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName,
+                       stb->partialColNameBuf);
+      }
+    }
+
+    return len;
   }
 
-  if (stb->partialColNum == stb->cols->size) {
-    if (stb->autoCreateTable) {
-      len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
-                     tableName, db->dbName, stb->stbName, stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
-    } else {
-      len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s VALUES ", STR_INSERT_INTO, db->dbName, tableName);
-    }
-  } else {
-    if (stb->autoCreateTable) {
-      len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO,
-                     db->dbName, tableName, stb->partialColNameBuf, db->dbName, stb->stbName,
-                     stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
-    } else {
-      len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName,
-                     stb->partialColNameBuf);
-    }
-  }
+  // new mix rule
+  int32_t max = stb->cols->size > MAX_BATCOLS ? MAX_BATCOLS : stb->cols->size;
+  info->nBatCols = RD(max) + 1;
+
+  // random select cnt elements from max
+  randomFillCols(info->batCols, max, info->nBatCols);
+  char * colNames = genBatColsNames(info, stb);
+  len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName, colNames);
+  free(colNames);
 
   return len;
 }
@@ -204,16 +260,44 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
   return size;
 }
 
-
-
-// create columns data 
-uint32_t createColsDataRandom(SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
+#define GET_IDX(i) info->batCols[i]
+uint32_t genMixAllRow(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
   uint32_t size = 0;
-  int32_t  pos = RD(g_arguments->prepared_rand);
+  // first col is ts 
+  size = snprintf(pstr +len, MAX_SQL_LEN - len, "(" PRId64 "", ts);
+
+  // other cols data
+  for(uint16_t i = 0; i< info->nBatCols; i++) {
+    Field* fd = benchArrayGet(stb->cols, GET_IDX(i));
+    size += dataGenByField(fd, pstr, len + size);
+  }
+
+  // end 
+  size = snprintf(pstr + len + size, MAX_SQL_LEN - len - size, "%s", ")");
+
+  return size;
+}
+
+uint32_t genTsCalcRow(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
+  uint32_t size = 0;
+  return size;
+}
+
+
+// create columns data
+uint32_t createColsData(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
+  uint32_t size = 0;
 
   // gen row data
-  size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64 ",%s)", ts, stb->sampleDataBuf + pos * stb->lenOfCols);
-  
+  if (stb->genRowRule == RULE_MIX_ALL) {
+    size = genMixAllRow(info, stb, pstr, len, ts);
+  } else if (stb->genRowRule == RULE_MIX_TS_CALC) {
+    size = genTsCalcRow(info, stb, pstr, len, ts);
+  } else {  // random
+    int32_t pos = RD(g_arguments->prepared_rand);
+    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64 ",%s)", ts, stb->sampleDataBuf + pos * stb->lenOfCols);
+  }
+
   return size;
 }
 
@@ -259,7 +343,7 @@ uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, ch
     }
 
     // gen col data
-    size = createColsDataRandom(stb, pstr, len + size, ts);
+    size = createColsData(info, stb, pstr, len + size, ts);
     if(size > 0) {
       *pGenRows += 1;
       debugPrint("    row ord ts=%" PRId64 " \n", ts);
@@ -276,7 +360,7 @@ uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, ch
 //
 // fill update rows from mix
 //
-uint32_t fillBatchWithBuf(SSuperTable* stb, SMixRatio* mix, int64_t startTime, char* pstr, uint32_t len, uint32_t* pGenRows, uint8_t type, uint32_t maxFill, bool force) {
+uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t startTime, char* pstr, uint32_t len, uint32_t* pGenRows, uint8_t type, uint32_t maxFill, bool force) {
     uint32_t size = 0;
     if (maxFill == 0) return 0;
 
@@ -313,7 +397,7 @@ uint32_t fillBatchWithBuf(SSuperTable* stb, SMixRatio* mix, int64_t startTime, c
         }
 
         // generate row by ts
-        size += createColsDataRandom(stb, pstr, len + size, ts);
+        size += createColsData(info, stb, pstr, len + size, ts);
         *pGenRows += 1;
         selCnt ++;
         debugPrint("    row %s ts=%" PRId64 " \n", type == MDIS ? "dis" : "upd", ts);
@@ -346,13 +430,12 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
 
   while ( genRows < g_arguments->reqPerReq) {
     last = genRows;
-    switch (stb->genRowRule) {
-      case RULE_OLD:
+
+    if(stb->genRowRule == RULE_OLD) {
         len += appendRowRuleOld(stb, pstr, len, ts);
         genRows ++;
         pBatT->ordRows ++;
-        break;
-      case RULE_MIX:
+    } else {
         // add new row (maybe del)
         if (mix->insertedRows + pBatT->disRows + pBatT->ordRows  < mix->insertRows) {
           ordRows = 0;
@@ -384,7 +467,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
               }
 
               uint32_t updRows = 0;
-              len += fillBatchWithBuf(stb, mix, startTime, pstr, len, &updRows, MUPD, maxFill, forceUpd);
+              len += fillBatchWithBuf(info, stb, mix, startTime, pstr, len, &updRows, MUPD, maxFill, forceUpd);
               if (updRows > 0) {
                 genRows += updRows;
                 if (genRows >= g_arguments->reqPerReq) {
@@ -416,10 +499,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
               }
             }
         }
-        break;
-      default:
-        break;
-    }
+    } // if RULE_
 
     // move next ts
     ts += stb->timestamp_step;
@@ -433,7 +513,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
       // now new row fill
       break;
     }
-  }
+  } // while
 
   *pStartTime = ts;
   debugPrint("  batch gen EndTime=  %" PRId64 " genRows=%d \n", *pStartTime, genRows);

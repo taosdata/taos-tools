@@ -705,6 +705,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->genRowRule = (int8_t)rowRule->valueint;
         }
 
+        // generate row rule 
+        tools_cJSON *rowRule =
+            tools_cJSON_GetObjectItem(stbInfo, "generate_row_rule");
+        if (tools_cJSON_IsNumber(rowRule)) {
+            superTable->genRowRule = (int8_t)rowRule->valueint;
+        }
+
+
         tools_cJSON *insertInterval =
             tools_cJSON_GetObjectItem(stbInfo, "insert_interval");
         if (tools_cJSON_IsNumber(insertInterval)) {
