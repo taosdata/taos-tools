@@ -343,7 +343,7 @@ uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, ch
     }
 
     // gen col data
-    size = createColsData(info, stb, pstr, len + size, ts);
+    size = createColsData(info, stb, pstr, len, ts);
     if(size > 0) {
       *pGenRows += 1;
       debugPrint("    row ord ts=%" PRId64 " \n", ts);
@@ -505,7 +505,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
     ts += stb->timestamp_step;
 
     // check over MAX_SQL_LENGTH
-    if (len > (MAX_SQL_LEN - stb->lenOfCols)) {
+    if (len > (MAX_SQL_LEN - stb->lenOfCols - 320)) {
       break;
     }
 
