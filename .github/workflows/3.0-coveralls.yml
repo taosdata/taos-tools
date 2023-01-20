@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'enh/xftan/TD-21998-alpine'
+          ref: 'feat/sangshuduo/TD-21806-taosbenchmark-specify-vnodes'
 
       - name: Change time zone
         if:
