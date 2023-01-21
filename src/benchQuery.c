@@ -592,7 +592,7 @@ void *queryKiller(void *arg) {
                 g_arguments->password, NULL, g_arguments->port);
         if (NULL == taos) {
             errorPrint("Slow query killer thread "
-                    "failed to connect to TDengine server %s\n",
+                    "failed to connect to the server %s\n",
                     g_arguments->host);
             return NULL;
         }

@@ -64,6 +64,9 @@ void benchPrintHelp() {
     printf("%s%s%s%s\r\n", indent, "-W,", indent, BENCH_DSN);
     printf("%s%s%s%s\r\n", indent, "-D,", indent, BENCH_TIMEOUT);
 #endif
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    printf("%s%s%s%s\r\n", indent, "-v,", indent, BENCH_VGROUPS);
+#endif
     printf("%s%s%s%s\r\n", indent, "-V,", indent, BENCH_VERSION);
     printf("\r\n\r\nReport bugs to %s.\r\n", BENCH_EMAIL);
 }
@@ -92,7 +95,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
             return -1;
         }
 
-        if (key[1] == 'f' || key[1] == 'c'
+        if (   key[1] == 'f' || key[1] == 'c'
             || key[1] == 'h' || key[1] == 'P'
             || key[1] == 'I' || key[1] == 'u'
             || key[1] == 'p' || key[1] == 'o'
@@ -109,6 +112,9 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
 #ifdef WEBSOCKET
             || key[1] == 'D' || key[1] == 'W'
 #endif
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+            || key[1] == 'v'
+#endif
         ) {
             if (i + 1 >= argc) {
                 errorPrint("option %s requires an argument\r\n", key);
@@ -124,7 +130,8 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
         } else if (key[1] == 'E' || key[1] == 'C'
                 || key[1] == 'N' || key[1] == 'M'
                 || key[1] == 'x' || key[1] == 'y'
-                || key[1] == 'g' || key[1] == 'G' || key[1] == 'V') {
+                || key[1] == 'g' || key[1] == 'G'
+                || key[1] == 'V') {
             benchParseSingleOpt(key[1], NULL);
         } else {
             errorPrint("Invalid option %s\r\n", key);

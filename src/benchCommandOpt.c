@@ -495,6 +495,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
         case 'W':
             g_arguments->dsn = arg;
             break;
+
         case 'D':
             if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2("taosBenchmark", "D");
@@ -502,6 +503,15 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
             g_arguments->timeout = atoi(arg);
             break;
+#endif
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+        case 'v':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "v");
+            }
+            g_arguments->nthreads_auto = false;
+            g_arguments->inputed_vgroups = atoi(arg);
+	    break;
 #endif
 
         case 'V':
@@ -562,6 +572,9 @@ static struct argp_option bench_options[] = {
 #endif
     {"keep-trying", 'k', "NUMBER", 0, BENCH_KEEPTRYING},
     {"trying-interval", 'z', "NUMBER", 0, BENCH_TRYING_INTERVAL},
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    {"vgroups", 'v', "NUMBER", 0, BENCH_VGROUPS},
+#endif
     {"version", 'V', 0, 0, BENCH_VERSION},
     {0}
 };
@@ -587,7 +600,7 @@ int32_t benchParseArgs(int32_t argc, char* argv[]) {
 #endif
 }
 
-static void init_stable() {
+static void initStable() {
     SDataBase *database = benchArrayGet(g_arguments->databases, 0);
     database->superTbls = benchArrayInit(1, sizeof(SSuperTable));
     SSuperTable * stbInfo = benchCalloc(1, sizeof(SSuperTable), true);
@@ -668,7 +681,7 @@ static void init_stable() {
     stbInfo->trying_interval = 0;
 }
 
-static void init_database() {
+static void initDatabase() {
     g_arguments->databases = benchArrayInit(1, sizeof(SDataBase));
     SDataBase *database = benchCalloc(1, sizeof(SDataBase), true);
     benchArrayPush(g_arguments->databases, database);
@@ -726,9 +739,12 @@ void init_argument() {
     g_arguments->trying_interval = 0;
     g_arguments->iface = TAOSC_IFACE;
     g_arguments->rest_server_ver_major = -1;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    g_arguments->inputed_vgroups = -1;
+#endif
 
-    init_database();
-    init_stable();
+    initDatabase();
+    initStable();
     g_arguments->streams = benchArrayInit(1, sizeof(SSTREAM));
 }
 
