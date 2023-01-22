@@ -19,4 +19,7 @@
 
 uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len);
 
+// data generate by calc ts 
+uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts);
+
 #endif

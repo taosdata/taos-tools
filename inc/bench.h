@@ -708,10 +708,12 @@ typedef struct SArguments_S {
     uint32_t            trying_interval;
     int                 iface;
     int                 rest_server_ver_major;
+    bool                check_sql;
 } SArguments;
 
 typedef struct SBenchConn{
     TAOS* taos;
+    TAOS* ctaos; // check taos
     TAOS_STMT* stmt;
 #ifdef WEBSOCKET
     WS_TAOS* taos_ws;
@@ -762,6 +764,11 @@ typedef struct SThreadInfo_S {
     // new
     uint16_t batCols[MAX_BATCOLS];
     uint16_t nBatCols; // valid count for array batCols
+
+    // check sql result
+    char * csql;
+    int32_t clen; // csql current write position
+
 
 } threadInfo;
 

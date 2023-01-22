@@ -88,6 +88,7 @@ uint32_t genRadomString(char* val, uint32_t len) {
     return size;
 }
 
+// data row generate by randowm
 uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
     uint32_t size = 0;
     char val[512] = VAL_NULL;
@@ -143,6 +144,48 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
         break;
     case TSDB_DATA_TYPE_NCHAR:
         genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length);
+        break;
+    default:
+        break;
+    }
+
+    size += sprintf(pstr + len, ",%s", val);
+    return size;
+}
+
+
+// data row generate by ts calc
+uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts) {
+    uint32_t size = 0;
+    char val[512] = VAL_NULL;
+
+    switch (fd->type) {    
+    case TSDB_DATA_TYPE_BOOL:
+        strcpy(val, (ts % 2 == 0) ? "true" : "false");
+        break;
+    // timestamp
+    case TSDB_DATA_TYPE_TIMESTAMP:
+        sprintf(val, "%" PRId64, ts);
+        break;
+    // signed    
+    case TSDB_DATA_TYPE_TINYINT:
+    case TSDB_DATA_TYPE_SMALLINT:
+    case TSDB_DATA_TYPE_INT:
+    case TSDB_DATA_TYPE_BIGINT:
+    // unsigned    
+    case TSDB_DATA_TYPE_UTINYINT:
+    case TSDB_DATA_TYPE_USMALLINT:
+    case TSDB_DATA_TYPE_UINT:
+    case TSDB_DATA_TYPE_UBIGINT:
+    // float double
+    case TSDB_DATA_TYPE_FLOAT:
+    case TSDB_DATA_TYPE_DOUBLE:
+        sprintf(val, "%d", ts%10); 
+        break;
+    // binary nchar
+    case TSDB_DATA_TYPE_BINARY:
+    case TSDB_DATA_TYPE_NCHAR:
+        sprintf(val, "%" PRId64, ts);
         break;
     default:
         break;

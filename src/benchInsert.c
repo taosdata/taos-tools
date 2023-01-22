@@ -573,6 +573,7 @@ static void *createTable(void *sarg) {
 #endif
     uint64_t lastPrintTime = toolsGetTimestampMs();
     pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
+    pThreadInfo->csql = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
     int len = 0;
     int batchNum = 0;
     infoPrint(
@@ -2303,6 +2304,12 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
+        // free check sql
+        if(pThreadInfo->csql) {
+            tmfree(pThreadInfo->csql);
+            pThreadInfo->csql = NULL;
+        }
+        
         switch (stbInfo->iface) {
             case REST_IFACE:
                 destroySockFd(pThreadInfo->sockfd);
