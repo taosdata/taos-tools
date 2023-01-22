@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'enh/xftan/TD-21998-alpine'
+          ref: 'feat/sangshuduo/TD-21806-taosbenchmark-specify-vnodes'
 
       - name: Change time zone
         if:
@@ -200,6 +200,12 @@ jobs:
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taosBenchmark -V"
           ./build/bin/taosBenchmark -V
+          echo "TEST: taoBenchmark -w 16375"
+          ./build/bin/taosBenchmark -b binary -A bool -w 16375 > /dev/null || :
+          echo "TEST: taoBenchmark -D NotANumber"
+          ./build/bin/taosBenchmark -D NotANumber > /dev/null || :
+          echo "TEST: taosBenchmark -v NotANumber"
+          ./build/bin/taosBenchmark -v NotANumber > /dev/null || :
           echo "TEST: kill taosBenchmark"
           ./build/bin/taosBenchmark -t 1 -n 100 -B 1 -i 1000 -r 1 -y &
           sleep 5
@@ -639,7 +645,7 @@ jobs:
             for i in `find taosdump/system-test -name "*.py"|sort`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-      - name: taosBenchmark Test cases
+      - name: taosBenchmark native Test cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -657,7 +663,7 @@ jobs:
             for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m $i success! \033[0m"|| echo -e " \033[31m $i failed! \033[0m"; done
           fi
 
-      - name: Test WebSocket
+      - name: taosBenchmakr WebSocket Test cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -670,7 +676,7 @@ jobs:
             for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m $i success! \033[0m"|| echo -e " \033[31m $i failed! \033[0m" ;done
           fi
 
-      - name: Test taosdemo query
+      - name: taosdemo query Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')

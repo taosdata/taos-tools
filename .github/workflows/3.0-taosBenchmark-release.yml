@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'enh/xftan/TD-21998-alpine'
+          ref: 'feat/sangshuduo/TD-21806-taosbenchmark-specify-vnodes'
 
       - name: Change time zone
         if: |
@@ -173,12 +173,12 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          #cd tests
+          cd tests
 
-          #if find taosbenchmark/ws -name "*.py"|grep -q .;
-          #then
-          #  for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
-          #fi
+          if find taosbenchmark/ws -name "*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
+          fi
 
       - name: Test taosdemo query
         if:

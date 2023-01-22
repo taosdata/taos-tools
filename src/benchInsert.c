@@ -356,11 +356,12 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     int dataLen = 0;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto) {
+    if (g_arguments->nthreads_auto || (-1 != g_arguments->inputed_vgroups)) {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
                             database->dbName,
-                            min(remainVnodes, toolsGetNumberOfCores()));
+                            (-1 != g_arguments->inputed_vgroups)?
+                            g_arguments->inputed_vgroups:min(remainVnodes, toolsGetNumberOfCores()));
     } else {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s",
