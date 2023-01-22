@@ -17,11 +17,11 @@
 #define VAL_NULL "NULL"
 
 #define VBOOL_CNT 3
-char vBool[VBOOL_CNT][] = {"true","false", VAL_NULL}; 
 
 int32_t inul = 20; // interval null count
 
 #define SIGNED_RANDOM(type, high, format)  \
+      {                                 \
         type max = high/2;              \
         type min = (max-1) * -1;        \
         type mid = RD(max);             \
@@ -30,51 +30,69 @@ int32_t inul = 20; // interval null count
         } else {                        \
             if(RD(50) == 0) mid = min;  \
         }                               \
-        sprintf(val, format, mid);        \
+        sprintf(val, format, mid);      \
+      }                                 \
 
-#define UNSIGNED_RANDOM(type, high, format)           \
-        type max = high;              \
-        type min = 0;        \
+#define UNSIGNED_RANDOM(type, high, format)   \
+      {                                 \
+        type max = high;                \
+        type min = 0;                   \
         type mid = RD(max);             \
         if(RD(50) == 0) {               \
             mid = max;                  \
         } else {                        \
             if(RD(50) == 0) mid = min;  \
         }                               \
-        sprintf(val, format, mid);        \
+        sprintf(val, format, mid);      \
+      }                                 \
+
 
 #define FLOAT_RANDOM(type, min, max)    \
-        type mid =  RD(higt);           \
+      {                                 \
+        type mid =  RD((int32_t)max);   \
+        mid += RD(1000000)/800001.1;    \
         if(RD(50) == 0) {               \
             mid = max;                  \
         } else {                        \
             if(RD(50) == 0) mid = min;  \
         }                               \
         sprintf(val, "%f", mid);        \
+      }                                 \
 
 
-// 0 ~ 255 radom char
+// 32 ~ 126 + '\r' '\n' '\t' radom char
 uint32_t genRadomString(char* val, uint32_t len) {
-    uint32_t size = RD(len) * 0.70;
-    if(size == 0) {
-        return size;
+  uint32_t size = RD(len) / 2;
+  if (size < 3) {
+    strcpy(val, VAL_NULL);
+    return sizeof(VAL_NULL);
     }
 
-    for(int32_t i=0; i < size - 1; i++) {
-        val[i] = RD(255) + 1;
+    val[0] = '\'';
+
+    char spe[] = {'\\', '\r', '\n', '\t'};
+    for (int32_t i = 1; i < size - 1; i++) {
+        if (false) {
+          val[i] = spe[RD(sizeof(spe))];
+        } else {
+          val[i] = 32 + RD(94);
+        }
+        if(val[i] == '\'' || val[i] == '\"' || val[i] == '%' || val[i] == '\\') {
+            val[i] = 'x';
+        }
     }
-    
+
+    val[size - 1] = '\'';
     // set string end
-    val[size - 1] = 0;
+    val[size] = 0;
     return size;
 }
 
-
 uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
     uint32_t size = 0;
-    char val[128] = VAL_NULL;    
-    if(RD(inul) == 0 ) {
-        size = sprintf(pstr + len, "%s", VAL_NULL);
+    char val[512] = VAL_NULL;
+    if( RD(inul) == 0 ) {
+        size = sprintf(pstr + len, ",%s", VAL_NULL);
         return size;
     }
 
@@ -89,21 +107,7 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
     // signed    
     case TSDB_DATA_TYPE_TINYINT:
         SIGNED_RANDOM(int8_t, 0xFF, "%d")
-        break;
-        /*
-        int8_t max = 0xFF/2;
-        int8_t min = (max-1) * -1;
-        int8_t mid = RD(max);
-        if(RD(50) == 0) {
-            mid = max;
-        } else {
-            if(RD(50) == 0) mid = min;
-        }
-        sprintf(val, "%d", mid);
-        */
-
-    
-        
+        break;        
     case TSDB_DATA_TYPE_SMALLINT:
         SIGNED_RANDOM(int16_t, 0xFFFF, "%d")
         break;
@@ -111,20 +115,20 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
         SIGNED_RANDOM(int32_t, 0xFFFFFFFF, "%d")
         break;
     case TSDB_DATA_TYPE_BIGINT:
-        SIGNED_RANDOM(int64_t, 0xFFFFFFFF, "%"PRId64)
+        SIGNED_RANDOM(int64_t, 0xFFFFFFFFFFFFFFFF, "%"PRId64)
         break;
     // unsigned    
     case TSDB_DATA_TYPE_UTINYINT:
-        UNSIGNED_RANDOM(uint8_t, "%d")
+        UNSIGNED_RANDOM(uint8_t, 0xFF,"%u")
         break;
     case TSDB_DATA_TYPE_USMALLINT:
-        UNSIGNED_RANDOM(uint16_t, "%d")
+        UNSIGNED_RANDOM(uint16_t, 0xFFFF, "%u")
         break;
     case TSDB_DATA_TYPE_UINT:
-        UNSIGNED_RANDOM(uint32_t, "%d")
+        UNSIGNED_RANDOM(uint32_t, 0xFFFFFFFF, "%u")
         break;
     case TSDB_DATA_TYPE_UBIGINT:
-        UNSIGNED_RANDOM(uint64_t, "%"PRIu64)
+        UNSIGNED_RANDOM(uint64_t, 0xFFFFFFFFFFFFFFFF, "%"PRIu64)
         break;
     // float double
     case TSDB_DATA_TYPE_FLOAT:
@@ -144,6 +148,6 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
         break;
     }
 
-    size += sprintf(pstr + len, "%s", val);
+    size += sprintf(pstr + len, ",%s", val);
     return size;
 }

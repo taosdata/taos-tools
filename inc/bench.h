@@ -155,6 +155,7 @@
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
 #define TS_COL_NAME "ts"
+#define  RD(max) (taosRandom() % max)
 
 
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
