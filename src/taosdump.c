@@ -1155,6 +1155,16 @@ static void freeDbInfos() {
     tfree(g_dbInfos);
 }
 
+TAOS *taosConnect(const char *dbName) {
+    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
+            dbName, g_args.port);
+    if (NULL == taos) {
+        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
+                g_args.host, taos_errno(NULL), taos_errstr(NULL));
+    }
+    return taos;
+}
+
 #ifdef WEBSOCKET
 WS_TAOS *wsConnect() {
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
@@ -1354,10 +1364,8 @@ static int getTableRecordInfoImplNative(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo,
         bool tryStable) {
-    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            dbName, g_args.port);
-    if (taos == NULL) {
-        errorPrint("Failed to connect to server %s\n", g_args.host);
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
@@ -1692,10 +1700,7 @@ static int getDumpDbCount() {
         ws_taos = NULL;
     } else {
 #endif  // WEBSOCKET
-        taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                NULL, g_args.port);
-        if (NULL == taos) {
-            errorPrint("Failed to connect to server %s\n", g_args.host);
+        if (NULL == (taos = taosConnect(NULL))) {
             free(command);
             return 0;
         }
@@ -1862,16 +1867,12 @@ static int64_t getNtbCountOfStbWS(const char *command) {
 
 static int64_t getNtbCountOfStbNative(
         const char *dbName, const char *stbName, const char *command) {
-    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
-                g_args.host, taos_errno(NULL), taos_errstr(NULL));
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
     int64_t count = 0;
-
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
@@ -7163,10 +7164,7 @@ static int64_t dumpInOneAvroFile(
         taos_v = ws_taos;
     } else {
 #endif
-        taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                namespace, g_args.port);
-        if (taos == NULL) {
-            errorPrint("Failed to connect to server %s\n", g_args.host);
+        if (NULL == (taos = taosConnect(namespace))) {
             return -1;
         }
         taos_v = taos;
@@ -7899,13 +7897,8 @@ static int64_t dumpTableDataAvroNative(
         int64_t start_time,
         int64_t end_time
         ) {
-    TAOS *taos = taos_connect(g_args.host,
-            g_args.user, g_args.password, dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint(
-                "Failed to connect to server %s by "
-                "specified database %s\n",
-                g_args.host, dbName);
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
@@ -8148,13 +8141,8 @@ static int64_t dumpTableDataNative(
         const int64_t start_time,
         const int64_t end_time
         ) {
-    TAOS *taos = taos_connect(g_args.host,
-            g_args.user, g_args.password, dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint(
-                "Failed to connect to server %s by "
-                "specified database %s\n",
-                g_args.host, dbName);
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
@@ -10045,12 +10033,7 @@ static int dumpInDebugWorkThreads(const char *dbPath) {
             }
         } else {
 #endif  // WEBSOCKET
-            pThreadInfo->taos = taos_connect(
-                    g_args.host, g_args.user, g_args.password,
-                    NULL, g_args.port);
-            if (pThreadInfo->taos == NULL) {
-                errorPrint("Failed to connect to server %s\n",
-                        g_args.host);
+            if (NULL == (pThreadInfo->taos = taosConnect(NULL))) {
                 free(infos);
                 free(pids);
                 return -1;
@@ -10107,15 +10090,8 @@ static int dumpInDbs(const char *dbPath) {
         taos_v = ws_taos;
     } else {
 #endif
-        TAOS *taos = taos_connect(
-                g_args.host, g_args.user, g_args.password,
-                NULL, g_args.port);
-
-        if (taos == NULL) {
-            errorPrint("%s() LN%d, failed to connect to the server %s, "
-                    "code: 0x%08x, reason: %s!\n",
-                    __func__, __LINE__, g_args.host,
-                    taos_errno(NULL), taos_errstr(NULL));
+        TAOS *taos;
+        if (NULL == (taos = taosConnect(NULL))) {
             return -1;
         }
         taos_v = taos;
@@ -10563,19 +10539,7 @@ static int64_t dumpNtbOfStbByThreads(
             }
         } else {
 #endif  // WEBSOCKET
-            pThreadInfo->taos = taos_connect(
-                    g_args.host,
-                    g_args.user,
-                    g_args.password,
-                    dbInfo->name,
-                    g_args.port
-                    );
-            if (NULL == pThreadInfo->taos) {
-                errorPrint("%s() LN%d, Failed to connect to server, "
-                        "reason: %s\n",
-                        __func__,
-                        __LINE__,
-                        taos_errstr(NULL));
+            if (NULL == (pThreadInfo->taos = taosConnect(dbInfo->name))) {
                 if (tbNameArr) {
                     free(tbNameArr);
                 }
@@ -10583,7 +10547,6 @@ static int64_t dumpNtbOfStbByThreads(
                 free(pids);
                 free(infos);
                 free(command);
-
                 return -1;
             }
 #ifdef WEBSOCKET
@@ -12023,11 +11986,7 @@ static int dumpOut() {
         dbCount = fillDbInfoWS(ws_taos);
     } else {
 #endif
-        taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                NULL, g_args.port);
-        if (NULL == taos) {
-            errorPrint("Failed to connect to server %s\n",
-                    g_args.host);
+        if (NULL == (taos = taosConnect(NULL))) {
             ret = -1;
             goto _exit_failure;
         }
