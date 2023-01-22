@@ -1156,6 +1156,15 @@ static void freeDbInfos() {
 }
 
 #ifdef WEBSOCKET
+WS_TAOS *wsConnect() {
+    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
+    if (NULL == ws_taos) {
+        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
+            g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+    }
+    return ws_taos;
+}
+
 static int getTableRecordInfoImplWS(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo,
@@ -1164,12 +1173,7 @@ static int getTableRecordInfoImplWS(
     WS_RES  *ws_res;
     int32_t code;
 
-    ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        code = ws_errno(ws_taos);
-        errorPrint("Failed to connector to server %s, code: %d, "
-                "reason: %s!\n",
-                g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
@@ -1660,11 +1664,7 @@ static int getDumpDbCount() {
     WS_RES   *ws_res;
     /* Connect to server */
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-        if (NULL == ws_taos) {
-            code = ws_errno(ws_taos);
-            errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
-                    g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+        if (NULL == (ws_taos = wsConnect())) {
             free(command);
             return 0;
         }
@@ -1799,10 +1799,8 @@ static int dumpCreateMTableClause(
 
 #ifdef WEBSOCKET
 static int64_t getNtbCountOfStbWS(const char *command) {
-    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
-                g_args.dsn, ws_errno(NULL), ws_errstr(NULL));
+    WS_TAOS *ws_taos;
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
 
@@ -7159,12 +7157,7 @@ static int64_t dumpInOneAvroFile(
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-        if (NULL == ws_taos) {
-            errorPrint("Failed to connect to server %s,"
-                    " code: 0x%08x, reason: %s!\n",
-                    g_args.dsn,
-                    ws_errno(NULL), ws_errstr(NULL));
+        if (NULL == (ws_taos = wsConnect())) {
             return -1;
         }
         taos_v = ws_taos;
@@ -7867,13 +7860,8 @@ static int64_t dumpTableDataAvroWS(
         int64_t start_time,
         int64_t end_time
         ) {
-    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        errorPrint(
-                "%s() LN%d, failed to connect to the server %s by "
-                "specified database %s, code: 0x%08x, reason: %s!\n",
-                __func__, __LINE__,
-                g_args.dsn, dbName, ws_errno(ws_taos), ws_errstr(ws_taos));
+    WS_TAOS *ws_taos;
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
 
@@ -8129,13 +8117,8 @@ static int64_t dumpTableDataWS(
         const int64_t start_time,
         const int64_t end_time
         ) {
-    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        errorPrint(
-                "%s() LN%d, failed to connect to the server %s by "
-                "specified database %s, code: 0x%08x, reason: %s\n",
-                __func__, __LINE__,
-                g_args.dsn, dbName, ws_errno(ws_taos), ws_errstr(ws_taos));
+    WS_TAOS *ws_taos;
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
 
@@ -8143,7 +8126,6 @@ static int64_t dumpTableDataWS(
             ws_taos, dbName, tbName, precision, start_time, end_time);
 
     int64_t totalRows = -1;
-
     if (ws_res) {
         totalRows = writeResultDebugWS(ws_res, fp, dbName, tbName);
     }
@@ -10056,12 +10038,7 @@ static int dumpInDebugWorkThreads(const char *dbPath) {
 
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
-            if (pThreadInfo->taos == NULL) {
-                errorPrint("%s() LN%d, failed to connect to the server %s,"
-                        " code: 0x%08x, reason: %s!\n",
-                        __func__, __LINE__,
-                        g_args.dsn, ws_errno(NULL), ws_errstr(NULL));
+            if (NULL == (pThreadInfo->taos = wsConnect())) {
                 free(infos);
                 free(pids);
                 return -1;
@@ -10124,13 +10101,7 @@ static int dumpInDbs(const char *dbPath) {
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-
-        if (ws_taos == NULL) {
-            errorPrint("%s() LN%d, failed to connect to the server %s, "
-                    "code: 0x%08x, reason: %s!\n",
-                    __func__, __LINE__, g_args.dsn,
-                    ws_errno(ws_taos), ws_errstr(ws_taos));
+        if (NULL == (ws_taos = wsConnect())) {
             return -1;
         }
         taos_v = ws_taos;
@@ -10574,8 +10545,7 @@ static int64_t dumpNtbOfStbByThreads(
         pThreadInfo = infos + i;
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
-            if (NULL == pThreadInfo->taos) {
+            if (NULL == (pThreadInfo->taos = wsConnect())) {
                 errorPrint("%s() LN%d, Failed to connect to server, "
                         "reason: %s\n",
                         __func__,
@@ -12038,10 +12008,7 @@ static int dumpOut() {
     WS_TAOS  *ws_taos    = NULL;
 
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-        if (NULL == ws_taos) {
-            errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
-                    g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+        if (NULL == (ws_taos = wsConnect())) {
             ret = -1;
             goto _exit_failure;
         }
