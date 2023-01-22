@@ -496,6 +496,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
 #ifdef WEBSOCKET
         case 'W':
+            g_arguments->nthreads_auto = false;
             g_arguments->dsn = arg;
             break;
 
