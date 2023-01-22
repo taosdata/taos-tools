@@ -200,6 +200,12 @@ jobs:
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taosBenchmark -V"
           ./build/bin/taosBenchmark -V
+          echo "TEST: taoBenchmark -w 16375"
+          ./build/bin/taosBenchmark -b binary -A bool -w 16375 > /dev/null || :
+          echo "TEST: taoBenchmark -D NotANumber"
+          ./build/bin/taosBenchmark -D NotANumber > /dev/null || :
+          echo "TEST: taosBenchmark -v NotANumber"
+          ./build/bin/taosBenchmark -v NotANumber > /dev/null || :
           echo "TEST: kill taosBenchmark"
           ./build/bin/taosBenchmark -t 1 -n 100 -B 1 -i 1000 -r 1 -y &
           sleep 5

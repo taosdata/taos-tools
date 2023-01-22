@@ -395,11 +395,14 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                         "Invalid value for w: %s, will auto set to default(64)\n",
                         arg);
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
-            } else if (g_arguments->binwidth > TSDB_MAX_BINARY_LEN) {
+            } else if (g_arguments->binwidth >
+			    (TSDB_MAX_BINARY_LEN - sizeof(int64_t) -2)) {
                 errorPrint(
-                           "-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
-                                   "), will auto set to default(64)\n",
-                           g_arguments->binwidth, (uint64_t)TSDB_MAX_BINARY_LEN);
+                           "-w(%d) > (TSDB_MAX_BINARY_LEN(%u"
+                                   ")-(TIMESTAMP length(%zu) - extrabytes(2), "
+				   "will auto set to default(64)\n",
+                           g_arguments->binwidth,
+			   TSDB_MAX_BINARY_LEN, sizeof(int64_t));
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
             }
             break;
