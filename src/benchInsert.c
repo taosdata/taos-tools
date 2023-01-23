@@ -724,13 +724,9 @@ static int startMultiThreadCreateChildTable(
     }
     int64_t b = ntables % threads;
 
-    for (int64_t i = 0; i < threads; i++) {
+    for (uint32_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-#ifdef LINUX
-        pThreadInfo->threadID = (pthread_t)i;
-#else
-        pThreadInfo->threadID = (uint32_t)i;
-#endif
+        pThreadInfo->threadID = i;
         pThreadInfo->stbInfo = stbInfo;
         pThreadInfo->dbInfo = database;
         if (REST_IFACE == stbInfo->iface) {
