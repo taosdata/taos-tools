@@ -50,10 +50,10 @@ class TDTestCase:
                     paths.append(os.path.join(root, tool))
                     break
         if len(paths) == 0:
-            tdLog.exit(f"{tool} not found!")
+            tdLog.exit(f"{tool} not found in {projPath}!")
             return
         else:
-            tdLog.info("%s found in %s" % (tool, paths[0]))
+            tdLog.info(f"{tool} is found in {paths[0]!")
             return paths[0]
 
     def run(self):
@@ -62,8 +62,7 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
 
-        taosPath = self.getPath("taos")
-        cmd = "%s -s 'select * from test.meters'" % taosPath
+        cmd = "%s -s 'select * from test.meters'" % "/usr/local/taos/bin"
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
 

@@ -786,8 +786,8 @@ int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
 int     queryDbExecTaosc(SBenchConn *conn, char *command);
 int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);
-SBenchConn* init_bench_conn();
-void    close_bench_conn(SBenchConn* conn);
+SBenchConn* initBenchConn();
+void    closeBenchConn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);

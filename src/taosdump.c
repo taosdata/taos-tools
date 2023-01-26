@@ -1169,8 +1169,12 @@ TAOS *taosConnect(const char *dbName) {
 WS_TAOS *wsConnect() {
     WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
     if (NULL == ws_taos) {
+        char maskedDsn[256] = "\0";
+        memcpy(maskedDsn, g_args.dsn, 20);
+        memcpy(maskedDsn+20, "...", 3);
+        memcpy(maskedDsn+23, g_args.dsn + strlen(g_args.dsn) - 10, 10);
         errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
-            g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+            maskedDsn, ws_errno(ws_taos), ws_errstr(ws_taos));
     }
     return ws_taos;
 }

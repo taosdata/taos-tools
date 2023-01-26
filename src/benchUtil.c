@@ -279,17 +279,23 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-SBenchConn* init_bench_conn() {
+SBenchConn* initBenchConn() {
     SBenchConn* conn = benchCalloc(1, sizeof(SBenchConn), true);
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
         conn->taos_ws = ws_connect_with_dsn(g_arguments->dsn);
+        char maskedDsn[256] = "\0";
+        memcpy(maskedDsn, g_arguments->dsn, 20);
+        memcpy(maskedDsn+20, "...", 3);
+        memcpy(maskedDsn+23, g_arguments->dsn + strlen(g_arguments->dsn) - 10, 10);
         if (conn->taos_ws == NULL) {
             errorPrint("failed to connect %s, reason: %s\n",
-                    g_arguments->dsn, ws_errstr(NULL));
+                    maskedDsn, ws_errstr(NULL));
             tmfree(conn);
             return NULL;
         }
+
+        succPrint("%s conneced\n", maskedDsn);
     } else {
 #endif
         conn->taos = taos_connect(g_arguments->host,
@@ -307,7 +313,7 @@ SBenchConn* init_bench_conn() {
     return conn;
 }
 
-void close_bench_conn(SBenchConn* conn) {
+void closeBenchConn(SBenchConn* conn) {
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
         ws_close(conn->taos_ws);

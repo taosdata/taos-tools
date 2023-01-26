@@ -47,7 +47,7 @@ static int getSuperTableFromServerTaosc(
 #endif
     TAOS_RES *   res;
     TAOS_ROW     row = NULL;
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         return -1;
     }
@@ -58,7 +58,7 @@ static int getSuperTableFromServerTaosc(
         printWarnCmdCodeStr(command, code, res);
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         return -1;
     }
     infoPrint("find stable<%s>, will get meta data from server\n",
@@ -107,7 +107,7 @@ static int getSuperTableFromServerTaosc(
         }
     }
     taos_free_result(res);
-    close_bench_conn(conn);
+    closeBenchConn(conn);
     return 0;
 }
 
@@ -144,7 +144,7 @@ static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command)
             destroySockFd(sockfd);
         }
     } else {
-        SBenchConn* conn = init_bench_conn();
+        SBenchConn* conn = initBenchConn();
         if (NULL == conn) {
             ret = -1;
         } else {
@@ -165,7 +165,7 @@ static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command)
                        stbInfo->stbName);
                 ret = -1;
             }
-            close_bench_conn(conn);
+            closeBenchConn(conn);
         }
     }
 
@@ -474,7 +474,7 @@ int32_t getRemainVnodes(SBenchConn *conn) {
     int32_t   code = taos_errno(res);
     if (code) {
         printErrCmdCodeStr(command, code, res);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         return -1;
     }
     TAOS_ROW row = NULL;
@@ -489,7 +489,7 @@ int32_t getRemainVnodes(SBenchConn *conn) {
 
 int createDatabaseTaosc(SDataBase* database) {
     char command[SQL_BUFF_LEN] = "\0";
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         return -1;
     }
@@ -499,7 +499,7 @@ int createDatabaseTaosc(SDataBase* database) {
             if (stream->drop) {
                 sprintf(command, "DROP STREAM IF EXISTS %s;", stream->stream_name);
                 if (queryDbExecTaosc(conn, command)) {
-                    close_bench_conn(conn);
+                    closeBenchConn(conn);
                     return -1;
                 }
                 infoPrint("%s\n",command);
@@ -516,7 +516,7 @@ int createDatabaseTaosc(SDataBase* database) {
                       "to drop database! DROP DATABASE failure is ignored!\n");
         } else {
 #endif
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             return -1;
 #ifdef WEBSOCKET
         }
@@ -557,7 +557,7 @@ int createDatabaseTaosc(SDataBase* database) {
         } else {
 #endif
 
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             errorPrint("\ncreate database %s failed!\n\n",
                database->dbName);
             return -1;
@@ -572,7 +572,7 @@ int createDatabaseTaosc(SDataBase* database) {
         if (g_arguments->nthreads_auto) {
             int32_t vgroups = getVgroupsOfDb(conn, database);
             if (vgroups <=0) {
-                close_bench_conn(conn);
+                closeBenchConn(conn);
                 errorPrint("Database %s's vgroups is %d\n",
                            database->dbName, vgroups);
                 return -1;
@@ -581,6 +581,7 @@ int createDatabaseTaosc(SDataBase* database) {
     }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
 
+/*
 #if 0
 #ifdef LINUX
     sleep(2);
@@ -590,7 +591,8 @@ int createDatabaseTaosc(SDataBase* database) {
     Sleep(2);
 #endif
 #endif
-    close_bench_conn(conn);
+*/
+    closeBenchConn(conn);
     return 0;
 }
 
@@ -782,7 +784,7 @@ static int startMultiThreadCreateChildTable(
             }
             pThreadInfo->sockfd = sockfd;
         } else {
-            pThreadInfo->conn = init_bench_conn();
+            pThreadInfo->conn = initBenchConn();
             if (NULL == pThreadInfo->conn) {
                 goto over;
             }
@@ -806,7 +808,7 @@ static int startMultiThreadCreateChildTable(
         g_arguments->actualChildTables += pThreadInfo->tables_created;
 
         if (REST_IFACE != stbInfo->iface) {
-            close_bench_conn(pThreadInfo->conn);
+            closeBenchConn(pThreadInfo->conn);
         }
     }
 
@@ -1954,7 +1956,7 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE)
             && stbInfo->childTblExists) {
-        SBenchConn* conn = init_bench_conn();
+        SBenchConn* conn = initBenchConn();
         if (NULL == conn) {
             return -1;
         }
@@ -1978,7 +1980,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         int64_t   count = 0;
         if (code) {
             printErrCmdCodeStr(cmd, code, res);
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             return -1;
         }
         TAOS_ROW row = NULL;
@@ -1994,7 +1996,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         }
         ntables = count;
         taos_free_result(res);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
     } else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         if (stbInfo->escape_character) {
             snprintf(stbInfo->childTblName[0], TSDB_TABLE_NAME_LEN,
@@ -2025,7 +2027,7 @@ static int startMultiThreadInsertData(SDataBase* database,
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if ((0 == stbInfo->interlaceRows)
             && (g_arguments->nthreads_auto)) {
-        SBenchConn* conn = init_bench_conn();
+        SBenchConn* conn = initBenchConn();
         if (NULL == conn) {
             return -1;
         }
@@ -2085,7 +2087,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
             }
         }
-        close_bench_conn(conn);
+        closeBenchConn(conn);
     } else {
         a = ntables / threads;
         if (a < 1) {
@@ -2169,7 +2171,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
             }
             case STMT_IFACE: {
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 if (NULL == pThreadInfo->conn) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2217,7 +2219,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->sockfd = sockfd;
             }
             case SML_IFACE: {
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2275,7 +2277,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
             }
             case TAOSC_IFACE: {
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2361,12 +2363,12 @@ static int startMultiThreadInsertData(SDataBase* database,
                     tools_cJSON_Delete(pThreadInfo->sml_json_tags);
                     tools_cJSON_Delete(pThreadInfo->json_array);
                 }
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 tmfree(pThreadInfo->lines);
                 break;
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
@@ -2378,7 +2380,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 } else {
                     tmfree(pThreadInfo->buffer);
                 }
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 break;
             default:
                 break;
@@ -2473,14 +2475,14 @@ static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
 static void* create_tsmas(void* args) {
     tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
     int inserted_rows = 0;
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         return NULL;
     }
     int finished = 0;
     if (taos_select_db(conn->taos, pThreadInfo->dbName)) {
         errorPrint("failed to use database (%s)\n", pThreadInfo->dbName);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         return NULL;
     }
     while(finished < pThreadInfo->tsmas->size && inserted_rows >= 0) {
@@ -2498,7 +2500,7 @@ static void* create_tsmas(void* args) {
         toolsMsleep(10);
     }
     benchArrayDestroy(pThreadInfo->tsmas);
-    close_bench_conn(conn);
+    closeBenchConn(conn);
     return NULL;
 }
 
@@ -2508,7 +2510,7 @@ static int32_t createStream(SSTREAM* stream) {
     snprintf(command, BUFFER_SIZE, "DROP STREAM IF EXISTS %s",
              stream->stream_name);
     infoPrint("%s\n", command);
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         goto END;
     }
@@ -2526,7 +2528,7 @@ static int32_t createStream(SSTREAM* stream) {
     }
 
     if (code) {
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         goto END;
     }
 
@@ -2559,10 +2561,10 @@ static int32_t createStream(SSTREAM* stream) {
     }
 
     if (code) {
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         goto END;
     }
-    close_bench_conn(conn);
+    closeBenchConn(conn);
 END:
     tmfree(command);
     return code;

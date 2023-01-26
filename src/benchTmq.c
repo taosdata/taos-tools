@@ -19,7 +19,7 @@ typedef struct {
 } tmqThreadInfo;
 
 static int create_topic(BArray* sqls) {
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (conn == NULL) {
         return -1;
     }
@@ -28,7 +28,7 @@ static int create_topic(BArray* sqls) {
     memset(command, 0, SQL_BUFF_LEN);
     sprintf(command, "use %s", g_queryInfo.dbName);
     if (queryDbExecTaosc(conn, command)) {
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         return -1;
     }
     for (int i = 0; i < sqls->size; ++i) {
@@ -42,12 +42,12 @@ static int create_topic(BArray* sqls) {
         if (taos_errno(res) != 0) {
             errorPrint("failed to create topic_%d, reason: %s\n",
                     i, taos_errstr(res));
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             return -1;
         }
         infoPrint("successfully create topic_%d\n", i);
     }
-    close_bench_conn(conn);
+    closeBenchConn(conn);
     return 0;
 }
 

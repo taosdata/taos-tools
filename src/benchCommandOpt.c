@@ -1040,7 +1040,7 @@ void queryAggrFunc() {
     }
 
     if (REST_IFACE != g_arguments->iface) {
-        pThreadInfo->conn = init_bench_conn();
+        pThreadInfo->conn = initBenchConn();
         if (pThreadInfo->conn == NULL) {
             errorPrint("%s() failed to init connection\n", __func__);
             free(pThreadInfo);
@@ -1056,7 +1056,7 @@ void queryAggrFunc() {
     }
     pthread_join(read_id, NULL);
     if (REST_IFACE != g_arguments->iface) {
-        close_bench_conn(pThreadInfo->conn);
+        closeBenchConn(pThreadInfo->conn);
     } else {
         destroySockFd(pThreadInfo->sockfd);
     }
