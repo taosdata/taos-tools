@@ -334,7 +334,7 @@ int32_t queryDbExecRest(char *command, char* dbName, int precision,
     return code;
 }
 
-int32_t queryDbExec(SBenchConn *conn, char *command) {
+int32_t queryDbExecTaosc(SBenchConn *conn, char *command) {
     int32_t code = 0;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {

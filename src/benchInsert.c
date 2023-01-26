@@ -114,7 +114,7 @@ static int getSuperTableFromServerTaosc(
 static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     int ret = 0;
 
-    char         command[SQL_BUFF_LEN] = "\0";
+    char command[SQL_BUFF_LEN] = "\0";
     snprintf(command, SQL_BUFF_LEN, "DESCRIBE %s.`%s`", database->dbName,
              stbInfo->stbName);
 
@@ -127,20 +127,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     return ret;
 }
 
-static int dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
-    if (g_arguments->supplementInsert) {
-        return 0;
-    }
-
-    char command[256];
-    snprintf(command, 256,
-        stbInfo->escape_character?
-             "DROP TABLE %s.`%s`":
-             "DROP TABLE %s.%s",
-             database->dbName,
-             stbInfo->stbName);
-
-    infoPrint("drop stable: <%s>\n", command);
+static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command) {
     int ret = 0;
     if (REST_IFACE == stbInfo->iface) {
         int sockfd = createSockFd();
@@ -161,14 +148,14 @@ static int dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         if (NULL == conn) {
             ret = -1;
         } else {
-            ret = queryDbExec(conn, command);
+            ret = queryDbExecTaosc(conn, command);
             int32_t trying = g_arguments->keep_trying;
             while (ret && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-create "
                           "supertable %s\n",
                           g_arguments->trying_interval, stbInfo->stbName);
                 toolsMsleep(g_arguments->trying_interval);
-                ret = queryDbExec(conn, command);
+                ret = queryDbExecTaosc(conn, command);
                 if (trying != -1) {
                     trying --;
                 }
@@ -177,12 +164,31 @@ static int dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
                 errorPrint("create supertable %s failed!\n\n",
                        stbInfo->stbName);
                 ret = -1;
-            } 
+            }
             close_bench_conn(conn);
         }
     }
 
     return ret;
+}
+
+static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
+    if (g_arguments->supplementInsert) {
+        return;
+    }
+
+    char command[SQL_BUFF_LEN] = "\0";
+    snprintf(command, 256,
+        stbInfo->escape_character?
+             "DROP TABLE %s.`%s`":
+             "DROP TABLE %s.%s",
+             database->dbName,
+             stbInfo->stbName);
+
+    infoPrint("drop stable: <%s>\n", command);
+    queryDbExec(database, stbInfo, command);
+
+    return;
 }
 
 static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
@@ -309,46 +315,7 @@ skip:
     }
     infoPrint("create stable: <%s>\n", command);
 
-    int ret = 0;
-    if (REST_IFACE == stbInfo->iface) {
-        int sockfd = createSockFd();
-        if (sockfd < 0) {
-            ret = -1;
-        } else {
-            ret = queryDbExecRest(command,
-                              database->dbName,
-                              database->precision,
-                              stbInfo->iface,
-                              stbInfo->lineProtocol,
-                              stbInfo->tcpTransfer,
-                              sockfd);
-            destroySockFd(sockfd);
-        }
-    } else {
-        SBenchConn* conn = init_bench_conn();
-        if (NULL == conn) {
-            ret = -1;
-        } else {
-            ret = queryDbExec(conn, command);
-            int32_t trying = g_arguments->keep_trying;
-            while (ret && trying) {
-                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
-                          "supertable %s\n",
-                          g_arguments->trying_interval, stbInfo->stbName);
-                toolsMsleep(g_arguments->trying_interval);
-                ret = queryDbExec(conn, command);
-                if (trying != -1) {
-                    trying --;
-                }
-            }
-            if (0 != ret) {
-                errorPrint("create supertable %s failed!\n\n",
-                       stbInfo->stbName);
-                ret = -1;
-            } 
-            close_bench_conn(conn);
-        }
-    }
+    int ret = queryDbExec(database, stbInfo, command);
     free(command);
     return ret;
 }
@@ -531,7 +498,7 @@ int createDatabaseTaosc(SDataBase* database) {
             SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
             if (stream->drop) {
                 sprintf(command, "DROP STREAM IF EXISTS %s;", stream->stream_name);
-                if (queryDbExec(conn, command)) {
+                if (queryDbExecTaosc(conn, command)) {
                     close_bench_conn(conn);
                     return -1;
                 }
@@ -542,7 +509,7 @@ int createDatabaseTaosc(SDataBase* database) {
     }
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
-    if (0 != queryDbExec(conn, command)) {
+    if (0 != queryDbExecTaosc(conn, command)) {
 #ifdef WEBSOCKET
         if (g_arguments->websocket) {
             warnPrint("%s", "TDengine cloud normal users have no permison "
@@ -569,14 +536,14 @@ int createDatabaseTaosc(SDataBase* database) {
 #endif
     geneDbCreateCmd(database, command, remainVnodes);
 
-    int32_t code = queryDbExec(conn, command);
+    int32_t code = queryDbExecTaosc(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds then "
                   "re-create database %s\n",
                   g_arguments->trying_interval, database->dbName);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExec(conn, command);
+        code = queryDbExecTaosc(conn, command);
         if (trying != -1) {
             trying --;
         }
@@ -722,14 +689,14 @@ static void *createTable(void *sarg) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd);
         } else {
-            ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
             int32_t trying = g_arguments->keep_trying;
             while (ret && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-create "
                           "table %s\n",
                           g_arguments->trying_interval, pThreadInfo->buffer);
                 toolsMsleep(g_arguments->trying_interval);
-                ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+                ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
                 }
@@ -761,7 +728,7 @@ static void *createTable(void *sarg) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd);
         } else {
-            ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
         }
         if (0 != ret) {
             g_fail = true;
@@ -985,12 +952,12 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     switch (iface) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
-            code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            code = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
-                code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+                code = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
                 }
@@ -2317,7 +2284,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
                 char command[SQL_BUFF_LEN];
                 sprintf(command, "USE %s", database->dbName);
-                if (queryDbExec(pThreadInfo->conn, command)) {
+                if (queryDbExecTaosc(pThreadInfo->conn, command)) {
                     tmfree(pids);
                     tmfree(infos);
                     errorPrint("taos select database(%s) failed\n", database->dbName);
@@ -2497,7 +2464,7 @@ static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     if (tsma->custom) {
         snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
     }
-    int code = queryDbExec(conn, command);
+    int code = queryDbExecTaosc(conn, command);
     if (code == 0) {
         infoPrint("successfully create tsma with command <%s>\n", command);
     }
@@ -2546,13 +2513,13 @@ static int32_t createStream(SSTREAM* stream) {
         goto END;
     }
 
-    code = queryDbExec(conn, command);
+    code = queryDbExecTaosc(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds then re-drop stream %s\n",
                           g_arguments->trying_interval, stream->stream_name);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExec(conn, command);
+        code = queryDbExecTaosc(conn, command);
         if (trying != -1) {
             trying --;
         }
@@ -2578,14 +2545,14 @@ static int32_t createStream(SSTREAM* stream) {
             "INTO %s as %s", stream->stream_stb, stream->source_sql);
     infoPrint("%s\n", command);
 
-    code = queryDbExec(conn, command);
+    code = queryDbExecTaosc(conn, command);
     trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds "
                   "then re-create stream %s\n",
                   g_arguments->trying_interval, stream->stream_name);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExec(conn, command);
+        code = queryDbExecTaosc(conn, command);
         if (trying != -1) {
             trying --;
         }
@@ -2637,11 +2604,12 @@ int insertTestProcess() {
         if (database->superTbls) {
             for (int j = 0; j < database->superTbls->size; ++j) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-                if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
-                    if (getSuperTableFromServer(database, stbInfo)) {
-                        if (dropSuperTable(database, stbInfo)) return -1;
-                        if (createSuperTable(database, stbInfo)) return -1;
+                if (stbInfo->iface != SML_IFACE
+                        && stbInfo->iface != SML_REST_IFACE) {
+                    if (0 == getSuperTableFromServer(database, stbInfo)) {
+                        dropSuperTable(database, stbInfo);
                     }
+                    if (createSuperTable(database, stbInfo)) return -1;
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;

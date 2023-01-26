@@ -27,7 +27,7 @@ static int create_topic(BArray* sqls) {
     char command[SQL_BUFF_LEN];
     memset(command, 0, SQL_BUFF_LEN);
     sprintf(command, "use %s", g_queryInfo.dbName);
-    if (queryDbExec(conn, command)) {
+    if (queryDbExecTaosc(conn, command)) {
         close_bench_conn(conn);
         return -1;
     }
