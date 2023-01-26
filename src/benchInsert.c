@@ -2609,9 +2609,17 @@ int insertTestProcess() {
                 if (database->drop
                         && stbInfo->iface != SML_IFACE
                         && stbInfo->iface != SML_REST_IFACE) {
+#ifdef WEBSOCKET
+                    if (g_arguments->websocket) {
+                        dropSuperTable(database, stbInfo);
+                    } else {
+#endif
                     if (0 == getSuperTableFromServer(database, stbInfo)) {
                         dropSuperTable(database, stbInfo);
                     }
+#ifdef WEBSOCKET
+                    }
+#endif
                     if (createSuperTable(database, stbInfo)) return -1;
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {

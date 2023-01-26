@@ -11,6 +11,7 @@
 
 # -*- coding: utf-8 -*-
 import os
+import subprocess
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -50,10 +51,10 @@ class TDTestCase:
                     paths.append(os.path.join(root, tool))
                     break
         if len(paths) == 0:
-            tdLog.exit(f"{tool} not found in {projPath}!")
-            return
+            tdLog.info(f"{tool} not found in {projPath}!")
+            return f"/usr/local/taos/bin/{tool}"
         else:
-            tdLog.info(f"{tool} is found in {paths[0]!")
+            tdLog.info(f"{tool} is found in {paths[0]}!")
             return paths[0]
 
     def run(self):
@@ -62,9 +63,15 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
 
-        cmd = "%s -s 'select * from test.meters'" % "/usr/local/taos/bin"
-        tdLog.info("%s" % cmd)
-        os.system("%s" % cmd)
+        taosPath = self.getPath("taos")
+        cmd = f"{taosPath} -s 'select count(*) from test.meters'"
+        tdLog.info(f"{cmd}")
+        cmdOutput = subprocess.check_output(cmd, shell=True).decode("utf-8")
+        tdLog.info(f"{cmdOutput}")
+        if "20 |" in cmdOutput:
+            tdLog.info("count of records is correct!")
+        else:
+            tdLog.exit("count of records is incorrect")
 
     def stop(self):
         tdSql.close()

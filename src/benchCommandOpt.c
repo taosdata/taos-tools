@@ -691,7 +691,7 @@ static void initDatabase() {
     benchArrayPush(g_arguments->databases, database);
     database = benchArrayGet(g_arguments->databases, 0);
     database->dbName = DEFAULT_DATABASE;
-    database->drop = 1;
+    database->drop = true;
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
