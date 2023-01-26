@@ -573,7 +573,6 @@ static void *createTable(void *sarg) {
 #endif
     uint64_t lastPrintTime = toolsGetTimestampMs();
     pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
-    pThreadInfo->csql = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
     int len = 0;
     int batchNum = 0;
     infoPrint(
@@ -2262,6 +2261,9 @@ static int startMultiThreadInsertData(SDataBase* database,
                     pThreadInfo->buffer = new_ds(0);
                 } else {
                     pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, true);
+                    if(g_arguments->check_sql) {
+                        pThreadInfo->csql = benchCalloc(1, MAX_SQL_LEN, true);
+                    }
                 }
 
                 break;
@@ -2284,8 +2286,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                                syncWriteInterlace, pThreadInfo);
         } else {
             if (!g_arguments->terminate)
-                pthread_create(pids + i, NULL,
-                               syncWriteProgressive, pThreadInfo);
+                pthread_create(pids + i, NULL, syncWriteProgressive, pThreadInfo);
         }
     }
 

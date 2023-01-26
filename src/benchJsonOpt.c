@@ -868,10 +868,10 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     tools_cJSON *checkSql = tools_cJSON_GetObjectItem(json, "check_sql");
     if (tools_cJSON_IsString(checkSql)) {
         if (0 == strcasecmp(checkSql->valuestring, "yes")) {
-            g_arguments.check_sql = true;
+            g_arguments->check_sql = true;
         }
     } else {
-        g_arguments.check_sql = false;
+        g_arguments->check_sql = false;
     }
 
     tools_cJSON *resultfile = tools_cJSON_GetObjectItem(json, "result_file");

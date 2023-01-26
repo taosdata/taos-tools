@@ -180,7 +180,7 @@ uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts) {
     // float double
     case TSDB_DATA_TYPE_FLOAT:
     case TSDB_DATA_TYPE_DOUBLE:
-        sprintf(val, "%d", ts%10); 
+        sprintf(val, "%d", (int32_t)(ts % 10)); 
         break;
     // binary nchar
     case TSDB_DATA_TYPE_BINARY:
