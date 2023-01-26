@@ -127,6 +127,64 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     return ret;
 }
 
+static int dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
+    if (g_arguments->supplementInsert) {
+        return 0;
+    }
+
+    char command[256];
+    snprintf(command, 256,
+        stbInfo->escape_character?
+             "DROP TABLE %s.`%s`":
+             "DROP TABLE %s.%s",
+             database->dbName,
+             stbInfo->stbName);
+
+    infoPrint("drop stable: <%s>\n", command);
+    int ret = 0;
+    if (REST_IFACE == stbInfo->iface) {
+        int sockfd = createSockFd();
+        if (sockfd < 0) {
+            ret = -1;
+        } else {
+            ret = queryDbExecRest(command,
+                              database->dbName,
+                              database->precision,
+                              stbInfo->iface,
+                              stbInfo->lineProtocol,
+                              stbInfo->tcpTransfer,
+                              sockfd);
+            destroySockFd(sockfd);
+        }
+    } else {
+        SBenchConn* conn = init_bench_conn();
+        if (NULL == conn) {
+            ret = -1;
+        } else {
+            ret = queryDbExec(conn, command);
+            int32_t trying = g_arguments->keep_trying;
+            while (ret && trying) {
+                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
+                          "supertable %s\n",
+                          g_arguments->trying_interval, stbInfo->stbName);
+                toolsMsleep(g_arguments->trying_interval);
+                ret = queryDbExec(conn, command);
+                if (trying != -1) {
+                    trying --;
+                }
+            }
+            if (0 != ret) {
+                errorPrint("create supertable %s failed!\n\n",
+                       stbInfo->stbName);
+                ret = -1;
+            } 
+            close_bench_conn(conn);
+        }
+    }
+
+    return ret;
+}
+
 static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (g_arguments->supplementInsert) {
         return 0;
@@ -485,8 +543,17 @@ int createDatabaseTaosc(SDataBase* database) {
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
     if (0 != queryDbExec(conn, command)) {
-        close_bench_conn(conn);
-        return -1;
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            warnPrint("%s", "TDengine cloud normal users have no permison "
+                      "to drop database! DROP DATABASE failure is ignored!\n");
+        } else {
+#endif
+            close_bench_conn(conn);
+            return -1;
+#ifdef WEBSOCKET
+        }
+#endif
     }
 
     int remainVnodes = INT_MAX;
@@ -516,10 +583,20 @@ int createDatabaseTaosc(SDataBase* database) {
     }
 
     if (code) {
-        close_bench_conn(conn);
-        errorPrint("\ncreate database %s failed!\n\n",
-                   database->dbName);
-        return -1;
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            warnPrint("%s", "TDengine cloud normal users have no permison "
+                      "to create database! CREATE DATABASE failure is ignored!\n");
+        } else {
+#endif
+
+            close_bench_conn(conn);
+            errorPrint("\ncreate database %s failed!\n\n",
+               database->dbName);
+            return -1;
+#ifdef WEBSOCKET
+        }
+#endif
     }
     infoPrint("create database: <%s>\n", command);
 
@@ -2562,6 +2639,7 @@ int insertTestProcess() {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
                 if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
                     if (getSuperTableFromServer(database, stbInfo)) {
+                        if (dropSuperTable(database, stbInfo)) return -1;
                         if (createSuperTable(database, stbInfo)) return -1;
                     }
                 }

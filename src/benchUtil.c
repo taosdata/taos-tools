@@ -342,7 +342,7 @@ int32_t queryDbExec(SBenchConn *conn, char *command) {
                                        command, g_arguments->timeout);
         code = ws_errno(res);
         if (code != 0) {
-            errorPrint("Failed to execute <%s>, code: %d, reason: %s\n",
+            errorPrint("Failed to execute <%s>, code: 0x%08x, reason: %s\n",
                        command, code, ws_errstr(res));
         }
         ws_free_result(res);
