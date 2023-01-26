@@ -179,7 +179,7 @@ jobs:
 
           if find taosbenchmark/ -name "cloud*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "cloud*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-cloud-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-cloud-test:$i failed! \033[0m" | tee -a ~/benchmark-cloud-failed.txt; done
+            for i in `find taosbenchmark -name "cloud*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-cloud-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-cloud-test:$i failed! \033[0m" | tee -a ~/taosbenchmark-cloud-failed.txt; done
           fi
 
       - name: Test WebSocket cases
@@ -192,7 +192,7 @@ jobs:
 
           if find taosbenchmark/ws -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
+            for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/taosbenchmark-ws-failed.txt; done
           fi
 
       - name: Test taosdemo query
@@ -231,7 +231,7 @@ jobs:
             exit 1
           fi
 
-          if [ -f ~/benchmark-ws-failed.txt ];then
-            cat ~/benchmark-ws-failed.txt
+          if [ -f ~/taosbenchmark-ws-failed.txt ];then
+            cat ~/taosbenchmark-ws-failed.txt
             exit 1
           fi
