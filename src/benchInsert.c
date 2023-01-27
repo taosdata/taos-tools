@@ -2607,7 +2607,8 @@ int insertTestProcess() {
             for (int j = 0; j < database->superTbls->size; ++j) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
                 if (stbInfo->iface != SML_IFACE
-                        && stbInfo->iface != SML_REST_IFACE) {
+                        && stbInfo->iface != SML_REST_IFACE
+                        && !stbInfo->childTblExists) {
 #ifdef WEBSOCKET
                     if (g_arguments->websocket) {
                         dropSuperTable(database, stbInfo);
