@@ -673,7 +673,7 @@ typedef struct SArguments_S {
     int                 iface;
     int                 rest_server_ver_major;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    int16_t             inputed_vgroups;
+    int16_t             inputted_vgroups;
 #endif
 } SArguments;
 

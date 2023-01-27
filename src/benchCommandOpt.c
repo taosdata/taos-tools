@@ -514,7 +514,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 errorPrintReqArg2("taosBenchmark", "v");
             }
             g_arguments->nthreads_auto = false;
-            g_arguments->inputed_vgroups = atoi(arg);
+            g_arguments->inputted_vgroups = atoi(arg);
 	    break;
 #endif
 
@@ -744,7 +744,7 @@ void init_argument() {
     g_arguments->iface = TAOSC_IFACE;
     g_arguments->rest_server_ver_major = -1;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    g_arguments->inputed_vgroups = -1;
+    g_arguments->inputted_vgroups = -1;
 #endif
 
     initDatabase();

@@ -381,12 +381,12 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     int dataLen = 0;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto || (-1 != g_arguments->inputed_vgroups)) {
+    if (g_arguments->nthreads_auto || (-1 != g_arguments->inputted_vgroups)) {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
                             database->dbName,
-                            (-1 != g_arguments->inputed_vgroups)?
-                            g_arguments->inputed_vgroups:min(remainVnodes, toolsGetNumberOfCores()));
+                            (-1 != g_arguments->inputted_vgroups)?
+                            g_arguments->inputted_vgroups:min(remainVnodes, toolsGetNumberOfCores()));
     } else {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s",
@@ -512,7 +512,7 @@ int createDatabaseTaosc(SDataBase* database) {
     if (0 != queryDbExecTaosc(conn, command)) {
 #ifdef WEBSOCKET
         if (g_arguments->websocket) {
-            warnPrint("%s", "TDengine cloud normal users have no permison "
+            warnPrint("%s", "TDengine cloud normal users have no privilege "
                       "to drop database! DROP DATABASE failure is ignored!\n");
         } else {
 #endif
@@ -552,7 +552,7 @@ int createDatabaseTaosc(SDataBase* database) {
     if (code) {
 #ifdef WEBSOCKET
         if (g_arguments->websocket) {
-            warnPrint("%s", "TDengine cloud normal users have no permison "
+            warnPrint("%s", "TDengine cloud normal users have no privilege "
                       "to create database! CREATE DATABASE failure is ignored!\n");
         } else {
 #endif
