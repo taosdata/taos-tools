@@ -172,6 +172,8 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+        env:
+          TDENGINE_CLOUD_DSN: ${{ secrets.TDENGINE_CLOUD_DSN }}
         run: |
           cd tests
 
