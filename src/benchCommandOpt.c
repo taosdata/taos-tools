@@ -514,7 +514,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 errorPrintReqArg2("taosBenchmark", "v");
             }
             g_arguments->nthreads_auto = false;
-            g_arguments->inputed_vgroups = atoi(arg);
+            g_arguments->inputted_vgroups = atoi(arg);
 	    break;
 #endif
 
@@ -691,7 +691,7 @@ static void initDatabase() {
     benchArrayPush(g_arguments->databases, database);
     database = benchArrayGet(g_arguments->databases, 0);
     database->dbName = DEFAULT_DATABASE;
-    database->drop = 1;
+    database->drop = true;
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
@@ -744,7 +744,7 @@ void init_argument() {
     g_arguments->iface = TAOSC_IFACE;
     g_arguments->rest_server_ver_major = -1;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    g_arguments->inputed_vgroups = -1;
+    g_arguments->inputted_vgroups = -1;
 #endif
 
     initDatabase();
@@ -1040,7 +1040,7 @@ void queryAggrFunc() {
     }
 
     if (REST_IFACE != g_arguments->iface) {
-        pThreadInfo->conn = init_bench_conn();
+        pThreadInfo->conn = initBenchConn();
         if (pThreadInfo->conn == NULL) {
             errorPrint("%s() failed to init connection\n", __func__);
             free(pThreadInfo);
@@ -1056,7 +1056,7 @@ void queryAggrFunc() {
     }
     pthread_join(read_id, NULL);
     if (REST_IFACE != g_arguments->iface) {
-        close_bench_conn(pThreadInfo->conn);
+        closeBenchConn(pThreadInfo->conn);
     } else {
         destroySockFd(pThreadInfo->sockfd);
     }

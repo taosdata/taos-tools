@@ -673,7 +673,7 @@ typedef struct SArguments_S {
     int                 iface;
     int                 rest_server_ver_major;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    int16_t             inputed_vgroups;
+    int16_t             inputted_vgroups;
 #endif
 } SArguments;
 
@@ -783,11 +783,11 @@ int     getServerVersionRest(int16_t rest_port);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                     int protocol, uint16_t rest_port, bool tcp,
                     int sockfd, char* filePath);
-int     queryDbExec(SBenchConn *conn, char *command);
+int     queryDbExecTaosc(SBenchConn *conn, char *command);
 int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);
-SBenchConn* init_bench_conn();
-void    close_bench_conn(SBenchConn* conn);
+SBenchConn* initBenchConn();
+void    closeBenchConn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
