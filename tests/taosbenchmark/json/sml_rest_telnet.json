@@ -17,8 +17,7 @@
     {
       "dbinfo": {
         "name": "db",
-        "drop": "yes",
-        "replica": 1
+        "drop": "yes"
       },
       "super_tables": [
         {
