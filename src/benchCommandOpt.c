@@ -179,7 +179,8 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 if (false == g_arguments->port_inputted) {
                     g_arguments->port = DEFAULT_REST_PORT;
                 }
-            } else if (0 == strcasecmp(arg, "sml")) {
+            } else if (0 == strcasecmp(arg, "sml")
+                    || 0 == strcasecmp(arg, "sml-line")) {
                 stbInfo->iface = SML_IFACE;
                 stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
             } else if (0 == strcasecmp(arg, "sml-telnet")) {

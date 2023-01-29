@@ -31,6 +31,7 @@ import taos
 if __name__ == "__main__":
 
     fileName = "all"
+    specified = False
     deployPath = ""
     masterIp = ""
     testCluster = False
@@ -73,6 +74,7 @@ if __name__ == "__main__":
 
         if key in ("-f", "--file"):
             fileName = value
+            specified = True
 
         if key in ("-p", "--path"):
             deployPath = value
@@ -101,6 +103,8 @@ if __name__ == "__main__":
         if key in ("-w", "--windows"):
             windows = 1
 
+    if not specified:
+        tdLog.notice(f"fileName is not specified, use default: {fileName}")
     if stop != 0:
         if valgrind == 0:
             toBeKilled = "taosd"
