@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'enh/xftan/TD-21998-alpine'
+          ref: 'fix/sangshuduo/TD-22022-ignore-drop-failure-for-cloud'
 
       - name: Change time zone
         if: |
@@ -154,7 +154,7 @@ jobs:
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
-      - name: Test
+      - name: Test native cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -164,21 +164,36 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query|cloud"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
           fi
 
-      - name: Test WebSocket
+      - name: Test cloud cases
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        env:
+          TDENGINE_CLOUD_DSN: ${{ secrets.TDENGINE_CLOUD_DSN }}
+        run: |
+          cd tests
+
+          if find taosbenchmark/ -name "cloud*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark -name "cloud*.py"`; do printf $i && python3 ./test.py -f $i && echo -e " \033[32m benchmark-cloud-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-cloud-test:$i failed! \033[0m" | tee -a ~/taosbenchmark-cloud-failed.txt; done
+          fi
+
+      - name: Test WebSocket cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          #cd tests
+          cd tests
 
-          #if find taosbenchmark/ws -name "*.py"|grep -q .;
-          #then
-          #  for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
-          #fi
+          if find taosbenchmark/ws -name "*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/taosbenchmark-ws-failed.txt; done
+          fi
 
       - name: Test taosdemo query
         if:
@@ -211,7 +226,12 @@ jobs:
             exit 1
           fi
 
-          if [ -f ~/benchmark-ws-failed.txt ];then
-            cat ~/benchmark-ws-failed.txt
+          if [ -f ~/taosbenchmark-cloud-failed.txt ];then
+            cat ~/taosbenchmark-cloud-failed.txt
+            exit 1
+          fi
+
+          if [ -f ~/taosbenchmark-ws-failed.txt ];then
+            cat ~/taosbenchmark-ws-failed.txt
             exit 1
           fi

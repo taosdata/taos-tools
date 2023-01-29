@@ -42,6 +42,11 @@
 #include <string.h>
 #include <time.h>
 #include <winsock2.h>
+
+// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
+// until 00:00:00 January 1, 1970
+static const uint64_t TIMEEPOCH = ((uint64_t)116444736000000000ULL);
+
 //#define TM_YEAR_BASE 1970 //origin
 #define TM_YEAR_BASE 1900  // slguan
 /*
@@ -280,37 +285,13 @@ int32_t toolsClockGetTime(int clock_id, struct timespec *pTS) {
 #if defined(WIN32) || defined(WIN64)
     LARGE_INTEGER        t;
     FILETIME             f;
-    static FILETIME      ff;
-    static SYSTEMTIME    ss;
-    static LARGE_INTEGER offset;
-
-    static int8_t        offsetInit = 0;
-    static volatile bool offsetInitFinished = false;
-    int8_t               old = _InterlockedCompareExchange8(&offsetInit, 0, 1);
-    if (0 == old) {
-        ss.wYear = 1970;
-        ss.wMonth = 1;
-        ss.wDay = 1;
-        ss.wHour = 0;
-        ss.wMinute = 0;
-        ss.wSecond = 0;
-        ss.wMilliseconds = 0;
-        SystemTimeToFileTime(&ss, &ff);
-        offset.QuadPart = ff.dwHighDateTime;
-        offset.QuadPart <<= 32;
-        offset.QuadPart |= ff.dwLowDateTime;
-        offsetInitFinished = true;
-    } else {
-        while (!offsetInitFinished)
-            ; // Ensure initialization is completed.
-    }
 
     GetSystemTimeAsFileTime(&f);
     t.QuadPart = f.dwHighDateTime;
     t.QuadPart <<= 32;
     t.QuadPart |= f.dwLowDateTime;
 
-    t.QuadPart -= offset.QuadPart;
+    t.QuadPart -= TIMEEPOCH;
     pTS->tv_sec = t.QuadPart / 10000000;
     pTS->tv_nsec = (t.QuadPart % 10000000)*100;
     return (0);
@@ -778,14 +759,18 @@ FORCE_INLINE int32_t toolsGetTimestampSec() { return (int32_t)time(NULL); }
 
 FORCE_INLINE int32_t toolsGetTimeOfDay(struct timeval *tv) {
 #if defined(WIN32) || defined(WIN64)
-    time_t t;
-    t = toolsGetTimestampSec();
-    SYSTEMTIME st;
-    GetLocalTime(&st);
+    LARGE_INTEGER t;
+    FILETIME      f;
 
-    tv->tv_sec = (long)t;
-    tv->tv_usec = st.wMilliseconds * 1000;
-    return 0;
+    GetSystemTimeAsFileTime(&f);
+    t.QuadPart = f.dwHighDateTime;
+    t.QuadPart <<= 32;
+    t.QuadPart |= f.dwLowDateTime;
+
+    t.QuadPart -= TIMEEPOCH;
+    tv->tv_sec = t.QuadPart / 10000000;
+    tv->tv_usec = (t.QuadPart % 10000000) / 10;
+    return (0);
 #else
     return gettimeofday(tv, NULL);
 #endif

@@ -457,9 +457,9 @@ static struct argp_option options[] = {
         "inspect avro file content and print on screen", 10},
     {"no-escape",  'n', 0,  0,  "No escape char '`'. Default is using it.", 10},
 #ifdef WEBSOCKET
-    {"restful",  'R', 0,  0,  "Use RESTful interface to connect TDengine", 11},
+    {"restful",  'R', 0,  0,  "Use RESTful interface to connect server", 11},
     {"cloud",  'C', "CLOUD_DSN",  0,
-        "specify a DSN to access TDengine cloud service", 11},
+        "specify a DSN to access the cloud service", 11},
     {"timeout", 't', "SECONDS", 0, "The timeout seconds for websocket to interact."},
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
@@ -1155,7 +1155,30 @@ static void freeDbInfos() {
     tfree(g_dbInfos);
 }
 
+TAOS *taosConnect(const char *dbName) {
+    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
+            dbName, g_args.port);
+    if (NULL == taos) {
+        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
+                g_args.host, taos_errno(NULL), taos_errstr(NULL));
+    }
+    return taos;
+}
+
 #ifdef WEBSOCKET
+WS_TAOS *wsConnect() {
+    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
+    if (NULL == ws_taos) {
+        char maskedDsn[256] = "\0";
+        memcpy(maskedDsn, g_args.dsn, 20);
+        memcpy(maskedDsn+20, "...", 3);
+        memcpy(maskedDsn+23, g_args.dsn + strlen(g_args.dsn) - 10, 10);
+        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
+            maskedDsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+    }
+    return ws_taos;
+}
+
 static int getTableRecordInfoImplWS(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo,
@@ -1164,12 +1187,7 @@ static int getTableRecordInfoImplWS(
     WS_RES  *ws_res;
     int32_t code;
 
-    ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        code = ws_errno(ws_taos);
-        errorPrint("Failed to connector to TDengine %s, code: %d, "
-                "reason: %s!\n",
-                g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
     memset(pTableRecordInfo, 0, sizeof(TableRecordInfo));
@@ -1350,10 +1368,8 @@ static int getTableRecordInfoImplNative(
         char *dbName,
         char *table, TableRecordInfo *pTableRecordInfo,
         bool tryStable) {
-    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            dbName, g_args.port);
-    if (taos == NULL) {
-        errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
@@ -1660,11 +1676,7 @@ static int getDumpDbCount() {
     WS_RES   *ws_res;
     /* Connect to server */
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-        if (NULL == ws_taos) {
-            code = ws_errno(ws_taos);
-            errorPrint("Failed to connect to TDengine %s, code: %d, reason: %s!\n",
-                    g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+        if (NULL == (ws_taos = wsConnect())) {
             free(command);
             return 0;
         }
@@ -1692,10 +1704,7 @@ static int getDumpDbCount() {
         ws_taos = NULL;
     } else {
 #endif  // WEBSOCKET
-        taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                NULL, g_args.port);
-        if (NULL == taos) {
-            errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+        if (NULL == (taos = taosConnect(NULL))) {
             free(command);
             return 0;
         }
@@ -1799,10 +1808,8 @@ static int dumpCreateMTableClause(
 
 #ifdef WEBSOCKET
 static int64_t getNtbCountOfStbWS(const char *command) {
-    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        errorPrint("Failed to connect to TDengine server %s, code: %d, reason: %s!\n",
-                g_args.dsn, ws_errno(NULL), ws_errstr(NULL));
+    WS_TAOS *ws_taos;
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
 
@@ -1864,16 +1871,12 @@ static int64_t getNtbCountOfStbWS(const char *command) {
 
 static int64_t getNtbCountOfStbNative(
         const char *dbName, const char *stbName, const char *command) {
-    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint("Failed to connect to TDengine server %s, code: %d, reason: %s!\n",
-                g_args.host, taos_errno(NULL), taos_errstr(NULL));
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
     int64_t count = 0;
-
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
@@ -7159,21 +7162,13 @@ static int64_t dumpInOneAvroFile(
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-        if (NULL == ws_taos) {
-            errorPrint("Failed to connect to TDengine server %s,"
-                    " code: 0x%08x, reason: %s!\n",
-                    g_args.dsn,
-                    ws_errno(NULL), ws_errstr(NULL));
+        if (NULL == (ws_taos = wsConnect())) {
             return -1;
         }
         taos_v = ws_taos;
     } else {
 #endif
-        taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                namespace, g_args.port);
-        if (taos == NULL) {
-            errorPrint("Failed to connect to TDengine server %s\n", g_args.host);
+        if (NULL == (taos = taosConnect(namespace))) {
             return -1;
         }
         taos_v = taos;
@@ -7867,13 +7862,8 @@ static int64_t dumpTableDataAvroWS(
         int64_t start_time,
         int64_t end_time
         ) {
-    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        errorPrint(
-                "%s() LN%d, failed to connect to TDengine server %s by "
-                "specified database %s, code: 0x%08x, reason: %s!\n",
-                __func__, __LINE__,
-                g_args.dsn, dbName, ws_errno(ws_taos), ws_errstr(ws_taos));
+    WS_TAOS *ws_taos;
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
 
@@ -7911,13 +7901,8 @@ static int64_t dumpTableDataAvroNative(
         int64_t start_time,
         int64_t end_time
         ) {
-    TAOS *taos = taos_connect(g_args.host,
-            g_args.user, g_args.password, dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint(
-                "Failed to connect to TDengine server %s by "
-                "specified database %s\n",
-                g_args.host, dbName);
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
@@ -8129,13 +8114,8 @@ static int64_t dumpTableDataWS(
         const int64_t start_time,
         const int64_t end_time
         ) {
-    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
-    if (NULL == ws_taos) {
-        errorPrint(
-                "%s() LN%d, failed to connect to TDengine server %s by "
-                "specified database %s, code: 0x%08x, reason: %s\n",
-                __func__, __LINE__,
-                g_args.dsn, dbName, ws_errno(ws_taos), ws_errstr(ws_taos));
+    WS_TAOS *ws_taos;
+    if (NULL == (ws_taos = wsConnect())) {
         return -1;
     }
 
@@ -8143,7 +8123,6 @@ static int64_t dumpTableDataWS(
             ws_taos, dbName, tbName, precision, start_time, end_time);
 
     int64_t totalRows = -1;
-
     if (ws_res) {
         totalRows = writeResultDebugWS(ws_res, fp, dbName, tbName);
     }
@@ -8166,13 +8145,8 @@ static int64_t dumpTableDataNative(
         const int64_t start_time,
         const int64_t end_time
         ) {
-    TAOS *taos = taos_connect(g_args.host,
-            g_args.user, g_args.password, dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint(
-                "Failed to connect to TDengine server %s by "
-                "specified database %s\n",
-                g_args.host, dbName);
+    TAOS *taos;
+    if (NULL == (taos = taosConnect(dbName))) {
         return -1;
     }
 
@@ -10056,24 +10030,14 @@ static int dumpInDebugWorkThreads(const char *dbPath) {
 
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
-            if (pThreadInfo->taos == NULL) {
-                errorPrint("%s() LN%d, failed to connect to TDengine server %s,"
-                        " code: 0x%08x, reason: %s!\n",
-                        __func__, __LINE__,
-                        g_args.dsn, ws_errno(NULL), ws_errstr(NULL));
+            if (NULL == (pThreadInfo->taos = wsConnect())) {
                 free(infos);
                 free(pids);
                 return -1;
             }
         } else {
 #endif  // WEBSOCKET
-            pThreadInfo->taos = taos_connect(
-                    g_args.host, g_args.user, g_args.password,
-                    NULL, g_args.port);
-            if (pThreadInfo->taos == NULL) {
-                errorPrint("Failed to connect to TDengine server %s\n",
-                        g_args.host);
+            if (NULL == (pThreadInfo->taos = taosConnect(NULL))) {
                 free(infos);
                 free(pids);
                 return -1;
@@ -10124,27 +10088,14 @@ static int dumpInDbs(const char *dbPath) {
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-
-        if (ws_taos == NULL) {
-            errorPrint("%s() LN%d, failed to connect to TDengine server %s, "
-                    "code: 0x%08x, reason: %s!\n",
-                    __func__, __LINE__, g_args.dsn,
-                    ws_errno(ws_taos), ws_errstr(ws_taos));
+        if (NULL == (ws_taos = wsConnect())) {
             return -1;
         }
         taos_v = ws_taos;
     } else {
 #endif
-        TAOS *taos = taos_connect(
-                g_args.host, g_args.user, g_args.password,
-                NULL, g_args.port);
-
-        if (taos == NULL) {
-            errorPrint("%s() LN%d, failed to connect to TDengine server %s, "
-                    "code: 0x%08x, reason: %s!\n",
-                    __func__, __LINE__, g_args.host,
-                    taos_errno(NULL), taos_errstr(NULL));
+        TAOS *taos;
+        if (NULL == (taos = taosConnect(NULL))) {
             return -1;
         }
         taos_v = taos;
@@ -10574,9 +10525,8 @@ static int64_t dumpNtbOfStbByThreads(
         pThreadInfo = infos + i;
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            pThreadInfo->taos = ws_connect_with_dsn(g_args.dsn);
-            if (NULL == pThreadInfo->taos) {
-                errorPrint("%s() LN%d, Failed to connect to TDengine, "
+            if (NULL == (pThreadInfo->taos = wsConnect())) {
+                errorPrint("%s() LN%d, Failed to connect to server, "
                         "reason: %s\n",
                         __func__,
                         __LINE__,
@@ -10593,19 +10543,7 @@ static int64_t dumpNtbOfStbByThreads(
             }
         } else {
 #endif  // WEBSOCKET
-            pThreadInfo->taos = taos_connect(
-                    g_args.host,
-                    g_args.user,
-                    g_args.password,
-                    dbInfo->name,
-                    g_args.port
-                    );
-            if (NULL == pThreadInfo->taos) {
-                errorPrint("%s() LN%d, Failed to connect to TDengine, "
-                        "reason: %s\n",
-                        __func__,
-                        __LINE__,
-                        taos_errstr(NULL));
+            if (NULL == (pThreadInfo->taos = taosConnect(dbInfo->name))) {
                 if (tbNameArr) {
                     free(tbNameArr);
                 }
@@ -10613,7 +10551,6 @@ static int64_t dumpNtbOfStbByThreads(
                 free(pids);
                 free(infos);
                 free(command);
-
                 return -1;
             }
 #ifdef WEBSOCKET
@@ -12038,10 +11975,7 @@ static int dumpOut() {
     WS_TAOS  *ws_taos    = NULL;
 
     if (g_args.cloud || g_args.restful) {
-        ws_taos = ws_connect_with_dsn(g_args.dsn);
-        if (NULL == ws_taos) {
-            errorPrint("Failed to connect to TDengine %s, code: %d, reason: %s!\n",
-                    g_args.dsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+        if (NULL == (ws_taos = wsConnect())) {
             ret = -1;
             goto _exit_failure;
         }
@@ -12056,11 +11990,7 @@ static int dumpOut() {
         dbCount = fillDbInfoWS(ws_taos);
     } else {
 #endif
-        taos = taos_connect(g_args.host, g_args.user, g_args.password,
-                NULL, g_args.port);
-        if (NULL == taos) {
-            errorPrint("Failed to connect to TDengine server %s\n",
-                    g_args.host);
+        if (NULL == (taos = taosConnect(NULL))) {
             ret = -1;
             goto _exit_failure;
         }
@@ -12954,7 +12884,7 @@ int main(int argc, char *argv[]) {
     if (g_majorVersionOfClient > 2) {
         if (g_args.allow_sys) {
             warnPrint("The system database should not be backuped "
-                    "with TDengine version: %d\n",
+                    "with server version: %d\n",
                     g_majorVersionOfClient);
             g_args.allow_sys = false;
         }

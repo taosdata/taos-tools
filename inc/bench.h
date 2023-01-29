@@ -160,7 +160,7 @@
 
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
-#define BENCH_HOST  "TDengine server FQDN to connect, default is localhost."
+#define BENCH_HOST  "Specify FQDN to connect server, default is localhost."
 #define BENCH_PORT  "The TCP/IP port number to use for the connection, default is 6030."
 #define BENCH_MODE  "insert mode, default is taosc, options: taosc|rest|stmt|sml"
 #define BENCH_USER  "The user name to use when connecting to the server, default is root."
@@ -195,12 +195,13 @@
 #define BENCH_PERFORMANCE "Performance mode, optional."
 #define BENCH_PREPARE "Random data source size, default is 10000."
 #define BENCH_EMAIL   "<support@taosdata.com>"
+#define BENCH_VGROUPS "Specify Vgroups number for creating database, only valid with daemon version 3.0+"
 #define BENCH_VERSION "Print program version."
 #define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
 #define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a positive number. Only valid when keep trying be enabled."
 
 #ifdef WEBSOCKET
-#define BENCH_DSN "The dsn to connect TDengine cloud service."
+#define BENCH_DSN "The dsn to connect the cloud service."
 #define BENCH_TIMEOUT "The timeout wait on websocket query in seconds, default is 10."
 #endif
 
@@ -660,11 +661,11 @@ typedef struct SArguments_S {
     int32_t             test_mode;
     char *              host;
     uint16_t            port;
+    uint16_t            telnet_tcp_port;
     bool                host_auto;
     bool                port_auto;
     bool                port_inputted;
     bool                cfg_inputted;
-    uint16_t            telnet_tcp_port;
     char *              user;
     char *              password;
     bool                answer_yes;
@@ -709,6 +710,9 @@ typedef struct SArguments_S {
     int                 iface;
     int                 rest_server_ver_major;
     bool                check_sql;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    int16_t             inputted_vgroups;
+#endif
 } SArguments;
 
 typedef struct SBenchConn{
@@ -827,11 +831,11 @@ int     getServerVersionRest(int16_t rest_port);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                     int protocol, uint16_t rest_port, bool tcp,
                     int sockfd, char* filePath);
-int     queryDbExec(SBenchConn *conn, char *command);
+int     queryDbExecTaosc(SBenchConn *conn, char *command);
 int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);
-SBenchConn* init_bench_conn();
-void    close_bench_conn(SBenchConn* conn);
+SBenchConn* initBenchConn();
+void    closeBenchConn(SBenchConn* conn);
 int     regexMatch(const char *s, const char *reg, int cflags);
 int     convertHostToServAddr(char *host, uint16_t port,
                               struct sockaddr_in *serv_addr);
