@@ -208,8 +208,8 @@ jobs:
           ./build/bin/taosBenchmark -v NotANumber > /dev/null || :
           echo "TEST: taosBenchmark -o out.txt"
           ./build/bin/taosBenchmark -t 1 -n 1 -o out.txt -y > /dev/null
-          echo "TEST: taosBenchmark -C /etc/taos"
-          ./build/bin/taosBenchmark -C /etc/taos -t 1 -n 1 -y > /dev/null
+          echo "TEST: taosBenchmark -c /etc/taos"
+          ./build/bin/taosBenchmark -c /etc/taos -t 1 -n 1 -y > /dev/null
           echo "TEST: kill taosBenchmark"
           ./build/bin/taosBenchmark -t 1 -n 100 -B 1 -i 1000 -r 1 -y &
           sleep 5
