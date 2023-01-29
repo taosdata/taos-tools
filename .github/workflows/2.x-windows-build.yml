@@ -46,7 +46,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/windows.yml
+            .github/workflows/2.x-windows-build.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -54,7 +54,10 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout TDengine 2.6
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -73,10 +76,14 @@ jobs:
 
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
-          choco install jom
-          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
+          choco install jom gawk grep -y
+          #cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom && jom install
+          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" && jom && jom install
 
           #      - name: Func Test
           #        run: |

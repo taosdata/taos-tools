@@ -106,7 +106,7 @@ jobs:
           #          run: |
           #            echo "The uname output was ${{ steps.setup.outputs.uname }}"
           #            apt update -y > /dev/null
-          #            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          #            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y > /dev/null
           #            cd TDengine
           #            mkdir armv7-debug ||:
           #            cd armv7-debug
@@ -130,10 +130,11 @@ jobs:
           run: |
             echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
-            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev > /dev/null
+            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
 
             echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
-            git clone --branch 3.0 --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
+
+            git clone --branch fix/sangshuduo/TD-22022-ignore-drop-failure-for-cloud  --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
 
             echo "build TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
             cd TDengine || exit 1

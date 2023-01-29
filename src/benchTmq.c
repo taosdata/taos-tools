@@ -19,7 +19,7 @@ typedef struct {
 } tmqThreadInfo;
 
 static int create_topic(BArray* sqls) {
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (conn == NULL) {
         return -1;
     }
@@ -27,8 +27,8 @@ static int create_topic(BArray* sqls) {
     char command[SQL_BUFF_LEN];
     memset(command, 0, SQL_BUFF_LEN);
     sprintf(command, "use %s", g_queryInfo.dbName);
-    if (queryDbExec(conn, command)) {
-        close_bench_conn(conn);
+    if (queryDbExecTaosc(conn, command)) {
+        closeBenchConn(conn);
         return -1;
     }
     for (int i = 0; i < sqls->size; ++i) {
@@ -42,12 +42,12 @@ static int create_topic(BArray* sqls) {
         if (taos_errno(res) != 0) {
             errorPrint("failed to create topic_%d, reason: %s\n",
                     i, taos_errstr(res));
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             return -1;
         }
         infoPrint("successfully create topic_%d\n", i);
     }
-    close_bench_conn(conn);
+    closeBenchConn(conn);
     return 0;
 }
 
@@ -67,7 +67,9 @@ static void* tmqConsume(void* arg) {
     bool first_time = true;
     int64_t st = toolsGetTimestampUs();
     int64_t et = toolsGetTimestampUs();
-    while(!g_arguments->terminate) {
+    uint64_t subscribeTimes = g_queryInfo.specifiedQueryInfo.subscribeTimes;
+    while(!g_arguments->terminate
+        && subscribeTimes > 0) {
         debugPrint("%s", "tmq_consumer_poll()");
         TAOS_RES * tmqMessage = tmq_consumer_poll(
                 pThreadInfo->tmq, g_queryInfo.specifiedQueryInfo.queryInterval);
@@ -89,6 +91,7 @@ static void* tmqConsume(void* arg) {
             }
             pThreadInfo->rows += numOfRows;
         }
+        subscribeTimes --;
     }
     int code = tmq_consumer_close(pThreadInfo->tmq);
     if (code) {

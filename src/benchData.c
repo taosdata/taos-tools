@@ -496,115 +496,117 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int32_t int_;
-                    int_ = field->min + (taosRandom() % (field->max - field->min));
+                    int64_t _bigint;
+                    _bigint = field->min + (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((int64_t *)field->data)[k] = int_;
+                        ((int64_t *)field->data)[k] = _bigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%di64,",
-                                       field->name, int_);
+                        pos += sprintf(sampleDataBuf + pos, "%s=%"PRId64"i64,",
+                                       field->name, _bigint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%di64 ",
-                                           field->name, int_);
+                            pos += sprintf(sampleDataBuf + pos, "%s=%"PRId64"i64 ",
+                                           field->name, _bigint);
                         } else {
-                            pos += sprintf(sampleDataBuf + pos, "%di64 ", int_);
+                            pos += sprintf(sampleDataBuf + pos, "%"PRId64"i64 ", _bigint);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%d,", int_);
+                        pos += sprintf(sampleDataBuf + pos, "%"PRId64",", _bigint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uint = field->min + (taosRandom() % (field->max - field->min));
+                    uint32_t _uint = field->min + (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint32_t *)field->data)[k] = uint;
+                        ((uint32_t *)field->data)[k] = _uint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu32,",
-                                       field->name, uint);
+                                       field->name, _uint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%uu32 ",
-                                           field->name, uint);
+                                           field->name, _uint);
                         } else {
-                            pos += sprintf(sampleDataBuf + pos, "%uu32 ", uint);
+                            pos += sprintf(sampleDataBuf + pos, "%uu32 ", _uint);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", uint);
+                        pos += sprintf(sampleDataBuf + pos, "%u,", _uint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint32_t ubigint =
+                    uint64_t _ubigint =
                             field->min +
                         (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint64_t *)field->data)[k] = ubigint;
+                        ((uint64_t *)field->data)[k] = _ubigint;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%uu64,",
-                                       field->name, ubigint);
+                        pos += sprintf(sampleDataBuf + pos, "%s=%"PRIu64"u64,",
+                                       field->name, _ubigint);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%uu64 ",
-                                           field->name, ubigint);
+                            pos += sprintf(sampleDataBuf + pos,
+                                           "%s=%"PRIu64"u64 ",
+                                           field->name, _ubigint);
                         } else {
                             pos +=
-                                sprintf(sampleDataBuf + pos, "%uu64 ", ubigint);
+                                sprintf(sampleDataBuf + pos,
+                                        "%"PRIu64"u64 ", _ubigint);
                         }
-
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", ubigint);
+                        pos += sprintf(sampleDataBuf + pos,
+                                       "%"PRIu64",", _ubigint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float float_ = (float)(field->min +
+                    float _float = (float)(field->min +
                                            (taosRandom() %
                                             (field->max - field->min)) +
                                            (taosRandom() % 1000) / 1000.0);
                     if (g_arguments->demo_mode && i == 0) {
-                        float_ = (float)(9.8 + 0.04 * (taosRandom() % 10) +
-                                         float_ / 1000000000);
+                        _float = (float)(9.8 + 0.04 * (taosRandom() % 10) +
+                                         _float / 1000000000);
                     } else if (g_arguments->demo_mode && i == 2) {
-                        float_ = (float)((105 + taosRandom() % 10 +
-                                          float_ / 1000000000) /
+                        _float = (float)((105 + taosRandom() % 10 +
+                                          _float / 1000000000) /
                                          360);
                     }
                     if (iface == STMT_IFACE) {
-                        ((float *)(field->data))[k] = float_;
+                        ((float *)(field->data))[k] = _float;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%ff32,",
-                                       field->name, float_);
+                                       field->name, _float);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%ff32 ",
-                                           field->name, float_);
+                                           field->name, _float);
                         } else {
                             pos +=
-                                sprintf(sampleDataBuf + pos, "%ff32 ", float_);
+                                sprintf(sampleDataBuf + pos, "%ff32 ", _float);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%f,", float_);
+                        pos += sprintf(sampleDataBuf + pos, "%f,", _float);
                     }
                     break;
                 }
@@ -655,9 +657,9 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                             tools_cJSON *buf = tools_cJSON_GetArrayItem(
                                     field->values,
                                     taosRandom() % arraySize);
-                            sprintf(tmp, "%s", buf->valuestring);
+                            snprintf(tmp, field->length, "%s", buf->valuestring);
                         } else {
-                            errorPrint("%s() cannot read correct value from json file. arrary size: %d\n",
+                            errorPrint("%s() cannot read correct value from json file. array size: %d\n",
                                     __func__, arraySize);
                             free(tmp);
                             return -1;
@@ -804,24 +806,9 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
-    if (stbInfo->iface == REST_IFACE || stbInfo->iface == SML_REST_IFACE) {
-        if (stbInfo->tcpTransfer
-                && stbInfo->iface == SML_REST_IFACE
-                && stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL) {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->telnet_tcp_port,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        } else {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->port + TSDB_PORT_HTTP,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        }
+    if (0 != convertServAddr(stbInfo->iface,
+                       stbInfo->tcpTransfer, stbInfo->lineProtocol)) {
+        return -1;
     }
     return 0;
 }
@@ -977,7 +964,8 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
     tmfree(tbName);
 }
 
-void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,
+void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
+                         SSuperTable *stbInfo,
                             uint32_t time_precision, int64_t timestamp) {
     tools_cJSON * record = tools_cJSON_CreateObject();
     tools_cJSON * ts = tools_cJSON_CreateObject();
@@ -993,7 +981,7 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbI
     Field* col = benchArrayGet(stbInfo->cols, 0);
     switch (col->type) {
         case TSDB_DATA_TYPE_BOOL:
-            tools_cJSON_AddBoolToObject(value, "value", (taosRandom() % 2) & 1);
+            tools_cJSON_AddBoolToObject(value, "value", (taosRandom()%2)&1);
             tools_cJSON_AddStringToObject(value, "type", "bool");
             break;
         case TSDB_DATA_TYPE_FLOAT:

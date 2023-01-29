@@ -11,6 +11,7 @@
  */
 
 #include "bench.h"
+#include "toolsdef.h"
 
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
@@ -18,11 +19,12 @@ bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 tools_cJSON*   root;
 
-static char      g_client_info[32] = {0};
-int       g_majorVersionOfClient = 0;
+static char     g_client_info[32] = {0};
+int             g_majorVersionOfClient = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
+    infoPrint("%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
     sem_post(&g_arguments->cancelSem);
 }
 
@@ -30,11 +32,15 @@ void* benchCancelHandler(void* arg) {
     if (bsem_wait(&g_arguments->cancelSem) != 0) {
         toolsMsleep(10);
     }
-    infoPrint("%s", "Receive SIGINT or other signal, quit taosBenchmark\n");
-    if(g_arguments->in_prompt) {
+
+    g_arguments->terminate = true;
+    toolsMsleep(10);
+
+    if (INSERT_TEST != g_arguments->test_mode) {
+        postFreeResource();
+        toolsMsleep(10);
         exit(EXIT_SUCCESS);
     }
-    g_arguments->terminate = true;
     return NULL;
 }
 #endif
@@ -60,10 +66,8 @@ int main(int argc, char* argv[]) {
 
     benchSetSignal(SIGINT, benchQueryInterruptHandler);
 
-    pthread_cancel(spid);
-    pthread_join(spid, NULL);
 #endif
-    if (bench_parse_args(argc, argv)) {
+    if (benchParseArgs(argc, argv)) {
         return -1;
     }
 #ifdef WEBSOCKET
@@ -78,13 +82,14 @@ int main(int argc, char* argv[]) {
         if (dsn != NULL) {
             g_arguments->dsn = dsn;
             g_arguments->websocket = true;
+            g_arguments->nthreads_auto = false;
         } else {
             g_arguments->dsn = false;
         }
     }
 #endif
     if (g_arguments->metaFile) {
-        g_arguments->g_totalChildTables = 0;
+        g_arguments->totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
     } else {
         modify_argument();
@@ -118,6 +123,11 @@ int main(int argc, char* argv[]) {
         queryAggrFunc();
     }
     postFreeResource();
+
+#ifdef LINUX
+    pthread_cancel(spid);
+    pthread_join(spid, NULL);
+#endif
 
     return ret;
 }

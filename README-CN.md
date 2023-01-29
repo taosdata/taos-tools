@@ -17,32 +17,39 @@ taosdump 是用于备份 TDengine 数据到本地目录和从本地目录恢复�
 
 #### 对于 Ubuntu/Debian 系统
 
-```
-sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev
+```shell
+sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev
 ```
 
 #### 对于 CentOS 7/RHEL 系统
 
-```
-sudo yum install -y xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
+```shell
+sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel
 ```
 
 #### 对于 CentOS 8/Rocky Linux 系统
 
-```
+```shell
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel
+sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel
 ```
 
 注意：由于 snappy 缺乏 pkg-config 支持
 （参考 [链接](https://github.com/google/snappy/pull/86)），会导致
 cmake 提示无法发现 libsnappy，实际上工作正常。
 
-#### 对于 macOS 系统（目前仅支持 taosBenchmark）
+如果有些包由于 CentOS 8 EOL 的问题无法下载，可以尝试先执行如下命令：
 
 ```
+sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+```
+
+#### 对于 macOS 系统（目前仅支持 taosBenchmark）
+
+```shell
 brew install argp-standalone
 ```
 
@@ -54,7 +61,7 @@ TDengine 客户端安装或参考 [GitHub](github.com/taosdata/TDengine)
 
 ### 克隆源码并编译
 
-```
+```shell
 git clone https://github.com/taosdata/taos-tools
 cd taos-tools
 git submodule update --init --recursive
@@ -66,6 +73,6 @@ make
 
 ### 安装
 
-```
+```shell
 sudo make install
 ```

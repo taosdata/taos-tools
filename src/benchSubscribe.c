@@ -276,10 +276,11 @@ free_of_super_subscribe:
 int subscribeTestProcess() {
     prompt(0);
 
-    encode_base_64();
-
+    if (REST_IFACE == g_queryInfo.iface) {
+        encodeAuthBase64();
+    }
     if (0 != g_queryInfo.superQueryInfo.sqlCount) {
-        SBenchConn* conn = init_bench_conn();
+        SBenchConn* conn = initBenchConn();
         if (conn == NULL) {
             return -1;
         }
@@ -295,11 +296,7 @@ int subscribeTestProcess() {
         TAOS_RES *res = taos_query(conn->taos, cmd);
         int32_t   code = taos_errno(res);
         if (code) {
-            errorPrint(
-                       "failed to count child table name: %s. reason: %s\n",
-                       cmd, taos_errstr(res));
-            taos_free_result(res);
-
+            printErrCmdCodeStr(cmd, code, res);
             return -1;
         }
         TAOS_ROW    row = NULL;
@@ -327,10 +324,10 @@ int subscribeTestProcess() {
                 g_queryInfo.superQueryInfo.stbName,
                 g_queryInfo.superQueryInfo.childTblName,
                 g_queryInfo.superQueryInfo.childTblCount)) {
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             return -1;
         }
-        close_bench_conn(conn);
+        closeBenchConn(conn);
     }
 
     pthread_t * pids = NULL;
@@ -354,7 +351,7 @@ int subscribeTestProcess() {
                 threadInfo *pThreadInfo = infos + seq;
                 pThreadInfo->threadID = (int)seq;
                 pThreadInfo->querySeq = i;
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 pthread_create(pids + seq, NULL, specifiedSubscribe,
                                pThreadInfo);
             }
@@ -371,7 +368,7 @@ int subscribeTestProcess() {
                 if (*(int32_t *)result) {
                     g_fail = true;
                 }
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 tmfree(result);
             }
         }
@@ -414,7 +411,7 @@ int subscribeTestProcess() {
                 pThreadInfo->end_table_to =
                     j < b ? tableFrom + a : tableFrom + a - 1;
                 tableFrom = pThreadInfo->end_table_to + 1;
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 pthread_create(pidsOfStable + seq, NULL, superSubscribe,
                                pThreadInfo);
             }
@@ -431,7 +428,7 @@ int subscribeTestProcess() {
                 if (*(int32_t *)result) {
                     g_fail = true;
                 }
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 tmfree(result);
             }
         }

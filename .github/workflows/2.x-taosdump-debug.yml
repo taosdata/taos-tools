@@ -83,14 +83,14 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y
           cd TDengine && mkdir debug && cd debug \
-          && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DBUILD_HTTP=false \
+          && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DBUILD_HTTP=false \
           && make -j8 > /dev/null && sudo make install > /dev/null
 
           if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
@@ -152,6 +152,22 @@ jobs:
           if find taosdump/native -name "*.py"|grep -q .;
           then
             for i in `find taosdump/native -name "*.py"`; \
+              do python3 ./test.py -f $i > /dev/null \
+                && echo -e "\033[32m $i success! \033[0m" \
+                || echo -e "\033[31m $i failed! \033[0m" \
+                            | tee -a ~/taosdump-failed.txt ;done
+          fi
+
+      - name: taosdump special Develop Test
+        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        run: |
+          cd TDengine/src/kit/taos-tools/tests
+          sudo pkill -9 taosadapter || :
+          sudo pkill -9 taosd || :
+
+          if find taosdump/native2 -name "*.py"|grep -q .;
+          then
+            for i in `find taosdump/native2 -name "*.py"`; \
               do python3 ./test.py -f $i > /dev/null \
                 && echo -e "\033[32m $i success! \033[0m" \
                 || echo -e "\033[31m $i failed! \033[0m" \
