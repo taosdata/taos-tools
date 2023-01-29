@@ -954,7 +954,73 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                 tools_cJSON_AddNumberToObject(
                         tagObj, "value",
                         tag->min + (taosRandom() % (tag->max - tag->min)));
-                tools_cJSON_AddStringToObject(tagObj, "type", convertDatatypeToString(tag->type));
+                tools_cJSON_AddStringToObject(tagObj, "type",
+                                              convertDatatypeToString(tag->type));
+                break;
+        }
+        tools_cJSON_AddItemToObject(tags, tagName, tagObj);
+    }
+    tools_cJSON_AddItemToArray(tagsList, tags);
+    tmfree(tagName);
+    tmfree(tbName);
+}
+
+void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
+                            uint64_t start_table_from, int tbSeq) {
+    tools_cJSON * tags = tools_cJSON_CreateObject();
+    char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
+    snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
+             stbInfo->childTblPrefix, tbSeq + start_table_from);
+    tools_cJSON_AddStringToObject(tags, "id", tbName);
+    char *tagName = benchCalloc(1, TSDB_MAX_TAGS, true);
+    for (int i = 0; i < stbInfo->tags->size; i++) {
+        Field * tag = benchArrayGet(stbInfo->tags, i);
+        tools_cJSON *tagObj = tools_cJSON_CreateObject();
+        snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
+        switch (tag->type) {
+            case TSDB_DATA_TYPE_BOOL: {
+                tools_cJSON_AddBoolToObject(tagObj, "value", (taosRandom() % 2) & 1);
+                tools_cJSON_AddStringToObject(tagObj, "type", "bool");
+                break;
+            }
+            case TSDB_DATA_TYPE_FLOAT: {
+                tools_cJSON_AddNumberToObject(
+                        tagObj, "value",
+                        (float)(tag->min +
+                            (taosRandom() % (tag->max - tag->min)) +
+                            taosRandom() % 1000 / 1000.0));
+                tools_cJSON_AddStringToObject(tagObj, "type", "float");
+                break;
+            }
+            case TSDB_DATA_TYPE_DOUBLE: {
+                tools_cJSON_AddNumberToObject(
+                        tagObj, "value",
+                        (double)(tag->min + (taosRandom() % (tag->max - tag->min)) +
+                             taosRandom() % 1000000 / 1000000.0));
+                tools_cJSON_AddStringToObject(tagObj, "type", "double");
+                break;
+            }
+
+            case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_NCHAR: {
+                char *buf = (char *)benchCalloc(tag->length + 1, 1, false);
+                rand_string(buf, tag->length, g_arguments->chinese);
+                if (tag->type == TSDB_DATA_TYPE_BINARY) {
+                    tools_cJSON_AddStringToObject(tagObj, "value", buf);
+                    tools_cJSON_AddStringToObject(tagObj, "type", "binary");
+                } else {
+                    tools_cJSON_AddStringToObject(tagObj, "value", buf);
+                    tools_cJSON_AddStringToObject(tagObj, "type", "nchar");
+                }
+                tmfree(buf);
+                break;
+            }
+            default:
+                tools_cJSON_AddNumberToObject(
+                        tagObj, "value",
+                        tag->min + (taosRandom() % (tag->max - tag->min)));
+                tools_cJSON_AddStringToObject(tagObj, "type",
+                                              convertDatatypeToString(tag->type));
                 break;
         }
         tools_cJSON_AddItemToObject(tags, tagName, tagObj);
@@ -1019,7 +1085,74 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
                     value, "value",
                     (double)col->min +
                     (taosRandom() % (col->max - col->min)));
-            tools_cJSON_AddStringToObject(value, "type", convertDatatypeToString(col->type));
+            tools_cJSON_AddStringToObject(value, "type",
+                                          convertDatatypeToString(col->type));
+            break;
+    }
+    tools_cJSON_AddItemToObject(record, "timestamp", ts);
+    tools_cJSON_AddItemToObject(record, "value", value);
+    tools_cJSON_AddItemToObject(record, "tags", tag);
+    tools_cJSON_AddStringToObject(record, "metric", stbInfo->stbName);
+    tools_cJSON_AddItemToArray(array, record);
+}
+
+void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
+                         SSuperTable *stbInfo,
+                            uint32_t time_precision, int64_t timestamp) {
+    tools_cJSON * record = tools_cJSON_CreateObject();
+    tools_cJSON * ts = tools_cJSON_CreateObject();
+    tools_cJSON_AddNumberToObject(ts, "value", (double)timestamp);
+    if (time_precision == TSDB_SML_TIMESTAMP_MILLI_SECONDS) {
+        tools_cJSON_AddStringToObject(ts, "type", "ms");
+    } else if (time_precision == TSDB_SML_TIMESTAMP_MICRO_SECONDS) {
+        tools_cJSON_AddStringToObject(ts, "type", "us");
+    } else if (time_precision == TSDB_SML_TIMESTAMP_NANO_SECONDS) {
+        tools_cJSON_AddStringToObject(ts, "type", "ns");
+    }
+    tools_cJSON *value = tools_cJSON_CreateObject();
+    Field* col = benchArrayGet(stbInfo->cols, 0);
+    switch (col->type) {
+        case TSDB_DATA_TYPE_BOOL:
+            tools_cJSON_AddBoolToObject(value, "value", (taosRandom()%2)&1);
+            tools_cJSON_AddStringToObject(value, "type", "bool");
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            tools_cJSON_AddNumberToObject(
+                value, "value",
+                (float)(col->min +
+                        (taosRandom() % (col->max - col->min)) +
+                        taosRandom() % 1000 / 1000.0));
+            tools_cJSON_AddStringToObject(value, "type", "float");
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            tools_cJSON_AddNumberToObject(
+                value, "value",
+                (double)(col->min +
+                         (taosRandom() % (col->max - col->min)) +
+                         taosRandom() % 1000000 / 1000000.0));
+            tools_cJSON_AddStringToObject(value, "type", "double");
+            break;
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR: {
+            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
+            rand_string(buf, col->length, g_arguments->chinese);
+            if (col->type == TSDB_DATA_TYPE_BINARY) {
+                tools_cJSON_AddStringToObject(value, "value", buf);
+                tools_cJSON_AddStringToObject(value, "type", "binary");
+            } else {
+                tools_cJSON_AddStringToObject(value, "value", buf);
+                tools_cJSON_AddStringToObject(value, "type", "nchar");
+            }
+            tmfree(buf);
+            break;
+        }
+        default:
+            tools_cJSON_AddNumberToObject(
+                    value, "value",
+                    (double)col->min +
+                    (taosRandom() % (col->max - col->min)));
+            tools_cJSON_AddStringToObject(value, "type",
+                                          convertDatatypeToString(col->type));
             break;
     }
     tools_cJSON_AddItemToObject(record, "timestamp", ts);

@@ -31,4 +31,8 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq);
 void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,
                             uint32_t time_precision, int64_t timestamp);
+void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
+                            uint64_t start_table_from, int tbSeq);
+void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,
+                            uint32_t time_precision, int64_t timestamp);
 #endif

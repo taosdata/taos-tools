@@ -534,6 +534,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
             } else if (0 == strcasecmp(stbLineProtocol->valuestring, "json")) {
                 superTable->lineProtocol = TSDB_SML_JSON_PROTOCOL;
+            } else if (0 == strcasecmp(stbLineProtocol->valuestring, "taosjson")) {
+                superTable->lineProtocol = SML_JSON_TAOS_FORMAT;
             }
         }
         tools_cJSON *transferProtocol =

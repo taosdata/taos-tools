@@ -181,6 +181,16 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 }
             } else if (0 == strcasecmp(arg, "sml")) {
                 stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-telnet")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-json")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_JSON_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-taosjson")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = SML_JSON_TAOS_FORMAT;
             } else {
                 errorPrint(
                            "Invalid -I: %s, will auto set to default (taosc)\n",
