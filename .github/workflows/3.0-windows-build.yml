@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-22022-ignore-drop-failure-for-cloud'
+          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-schemaless-refine'
 
       - name: create debug directory
         if: |
