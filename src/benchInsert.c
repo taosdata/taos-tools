@@ -1564,8 +1564,7 @@ void *syncWriteProgressive(void *sarg) {
                 case SML_REST_IFACE:
                 case SML_IFACE: {
                     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
-                        if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
-                                || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
+                        if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                             tools_cJSON *tag = tools_cJSON_Duplicate(
                                 tools_cJSON_GetArrayItem(
                                     pThreadInfo->sml_json_tags,
@@ -2306,8 +2305,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                     pThreadInfo->json_array = tools_cJSON_CreateArray();
                     pThreadInfo->sml_json_tags = tools_cJSON_CreateArray();
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
-                        if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
-                                && stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
+                        if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                             generateSmlJsonTags(
                                 pThreadInfo->sml_json_tags, stbInfo,
                                 pThreadInfo->start_table_from, t);
