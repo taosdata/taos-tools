@@ -61,35 +61,42 @@ int32_t inul = 20; // interval null count
 
 
 // 32 ~ 126 + '\r' '\n' '\t' radom char
-uint32_t genRadomString(char* val, uint32_t len) {
-  uint32_t size = RD(len) / 2;
+uint32_t genRadomString(char* val, uint32_t len, char* prefix) {
+  uint32_t size = RD(len) ;
   if (size < 3) {
     strcpy(val, VAL_NULL);
     return sizeof(VAL_NULL);
+  }
+
+  val[0] = '\'';
+
+  int32_t pos = 1;
+  int32_t preLen = strlen(prefix);
+  if(preLen > 0 && size > preLen + 3) {
+    strcpy(&val[1], prefix);
+    pos += preLen;
+  }
+
+  char spe[] = {'\\', '\r', '\n', '\t'};
+  for (int32_t i = pos; i < size - 1; i++) {
+    if (false) {
+      val[i] = spe[RD(sizeof(spe))];
+    } else {
+      val[i] = 32 + RD(94);
     }
-
-    val[0] = '\'';
-
-    char spe[] = {'\\', '\r', '\n', '\t'};
-    for (int32_t i = 1; i < size - 1; i++) {
-        if (false) {
-          val[i] = spe[RD(sizeof(spe))];
-        } else {
-          val[i] = 32 + RD(94);
-        }
-        if(val[i] == '\'' || val[i] == '\"' || val[i] == '%' || val[i] == '\\') {
-            val[i] = 'x';
-        }
+    if (val[i] == '\'' || val[i] == '\"' || val[i] == '%' || val[i] == '\\') {
+      val[i] = 'x';
     }
+  }
 
-    val[size - 1] = '\'';
-    // set string end
-    val[size] = 0;
-    return size;
+  val[size - 1] = '\'';
+  // set string end
+  val[size] = 0;
+  return size;
 }
 
 // data row generate by randowm
-uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
+uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
     uint32_t size = 0;
     char val[512] = VAL_NULL;
     if( RD(inul) == 0 ) {
@@ -140,10 +147,10 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len) {
         break;
     // binary nchar
     case TSDB_DATA_TYPE_BINARY:
-        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length);
+        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
         break;
     case TSDB_DATA_TYPE_NCHAR:
-        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length);
+        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
         break;
     default:
         break;

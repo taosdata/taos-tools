@@ -523,6 +523,11 @@ typedef struct SSuperTable_S {
     uint32_t fillIntervalDis;  // fill Dis interval rows cnt
     uint32_t fillIntervalDel;  // fill Del interval rows cnt
 
+    // binary prefix
+    char*    binaryPrefex;
+    // nchar prefix
+    char*    ncharPrefex;
+
     int64_t  max_sql_len;
     uint64_t insert_interval;
     uint64_t insertRows;
@@ -709,6 +714,7 @@ typedef struct SArguments_S {
     uint32_t            trying_interval;
     int                 iface;
     int                 rest_server_ver_major;
+    bool                failed_continue;
     bool                check_sql;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     int16_t             inputted_vgroups;

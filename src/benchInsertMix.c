@@ -29,7 +29,12 @@
 #define  NEED_TAKEOUT_ROW_TOBUF(type)  (mix->genCnt[type] > 0 && mix->doneCnt[type] + mix->bufCnt[type] < mix->genCnt[type] && taosRandom()%100 <= mix->ratio[type]*2)
 #define  FORCE_TAKEOUT(type) (mix->insertedRows * 100 / mix->insertRows > 80)
 
-
+#define FAILED_BREAK()   \
+    if (!g_arguments->failed_continue) {  \
+        g_fail = true;                    \
+        g_arguments->terminate = true;    \
+        break;                            \
+    }                                     \
 
 typedef struct {
   uint64_t insertRows;   // need insert 
@@ -278,7 +283,18 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
   // other cols data
   for(uint16_t i = 0; i< info->nBatCols; i++) {
     Field* fd = benchArrayGet(stb->cols, GET_IDX(i));
-    size += dataGenByField(fd, pstr, len + size);
+    char * prefix = "";
+    if(fd->type == TSDB_DATA_TYPE_BINARY) {
+      if(stb->binaryPrefex) {
+        prefix= stb->binaryPrefex;
+      }
+    } else if(fd->type == TSDB_DATA_TYPE_NCHAR) {
+      if(stb->ncharPrefex) {
+        prefix= stb->ncharPrefex;
+      }
+    }
+    
+    size += dataGenByField(fd, pstr, len + size, prefix);
   }
 
   // end 
@@ -676,6 +692,11 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     return false;
   }
 
+  // old rule return false
+  if(stb->genRowRule == RULE_OLD)   {
+    return false;
+  }
+
   // debug
   //g_arguments->debug_print = true;
 
@@ -711,9 +732,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       int64_t startTs = toolsGetTimestampUs();
       //g_arguments->debug_print = false;
       if (execBufSql(info, batchRows) != 0) {
-        g_fail = true;
-        g_arguments->terminate = true;
-        break;
+        FAILED_BREAK()
       }
       //g_arguments->debug_print = true;
       int64_t endTs = toolsGetTimestampUs();
@@ -751,8 +770,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         }
       }
       if(!ok) {
-        g_fail = true;
-        break;
+        FAILED_BREAK()
       }
 
       // delete
@@ -760,14 +778,13 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         len = genDelPreSql(db, stb, tbName, info->buffer);
         batchRows = genBatchDelSql(stb, &mixRatio, batStartTime, info->buffer, len);
         if (batchRows > 0) {
-            //g_arguments->debug_print = false;
-            if (execBufSql(info, batchRows) != 0) {
-              g_fail = true;
-              break;
-            }
-            //g_arguments->debug_print = true;
-            tbTotal.delRows += batchRows;
-            mixRatio.doneCnt[MDEL] += batchRows;
+          // g_arguments->debug_print = false;
+          if (execBufSql(info, batchRows) != 0) {
+            FAILED_BREAK()
+          }
+          // g_arguments->debug_print = true;
+          tbTotal.delRows += batchRows;
+          mixRatio.doneCnt[MDEL] += batchRows;
         }
       }
 
