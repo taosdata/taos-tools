@@ -47,7 +47,7 @@ static int getSuperTableFromServerTaosc(
 #endif
     TAOS_RES *   res;
     TAOS_ROW     row = NULL;
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         return -1;
     }
@@ -58,7 +58,7 @@ static int getSuperTableFromServerTaosc(
         printWarnCmdCodeStr(command, code, res);
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         return -1;
     }
     infoPrint("find stable<%s>, will get meta data from server\n",
@@ -107,14 +107,14 @@ static int getSuperTableFromServerTaosc(
         }
     }
     taos_free_result(res);
-    close_bench_conn(conn);
+    closeBenchConn(conn);
     return 0;
 }
 
 static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     int ret = 0;
 
-    char         command[SQL_BUFF_LEN] = "\0";
+    char command[SQL_BUFF_LEN] = "\0";
     snprintf(command, SQL_BUFF_LEN, "DESCRIBE %s.`%s`", database->dbName,
              stbInfo->stbName);
 
@@ -125,6 +125,70 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     }
 
     return ret;
+}
+
+static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command) {
+    int ret = 0;
+    if (REST_IFACE == stbInfo->iface) {
+        int sockfd = createSockFd();
+        if (sockfd < 0) {
+            ret = -1;
+        } else {
+            ret = queryDbExecRest(command,
+                              database->dbName,
+                              database->precision,
+                              stbInfo->iface,
+                              stbInfo->lineProtocol,
+                              stbInfo->tcpTransfer,
+                              sockfd);
+            destroySockFd(sockfd);
+        }
+    } else {
+        SBenchConn* conn = initBenchConn();
+        if (NULL == conn) {
+            ret = -1;
+        } else {
+            ret = queryDbExecTaosc(conn, command);
+            int32_t trying = g_arguments->keep_trying;
+            while (ret && trying) {
+                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
+                          "supertable %s\n",
+                          g_arguments->trying_interval, stbInfo->stbName);
+                toolsMsleep(g_arguments->trying_interval);
+                ret = queryDbExecTaosc(conn, command);
+                if (trying != -1) {
+                    trying --;
+                }
+            }
+            if (0 != ret) {
+                errorPrint("create supertable %s failed!\n\n",
+                       stbInfo->stbName);
+                ret = -1;
+            }
+            closeBenchConn(conn);
+        }
+    }
+
+    return ret;
+}
+
+static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
+    if (g_arguments->supplementInsert) {
+        return;
+    }
+
+    char command[SQL_BUFF_LEN] = "\0";
+    snprintf(command, 256,
+        stbInfo->escape_character?
+             "DROP TABLE %s.`%s`":
+             "DROP TABLE %s.%s",
+             database->dbName,
+             stbInfo->stbName);
+
+    infoPrint("drop stable: <%s>\n", command);
+    queryDbExec(database, stbInfo, command);
+
+    return;
 }
 
 static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
@@ -251,46 +315,7 @@ skip:
     }
     infoPrint("create stable: <%s>\n", command);
 
-    int ret = 0;
-    if (REST_IFACE == stbInfo->iface) {
-        int sockfd = createSockFd();
-        if (sockfd < 0) {
-            ret = -1;
-        } else {
-            ret = queryDbExecRest(command,
-                              database->dbName,
-                              database->precision,
-                              stbInfo->iface,
-                              stbInfo->lineProtocol,
-                              stbInfo->tcpTransfer,
-                              sockfd);
-            destroySockFd(sockfd);
-        }
-    } else {
-        SBenchConn* conn = init_bench_conn();
-        if (NULL == conn) {
-            ret = -1;
-        } else {
-            ret = queryDbExec(conn, command);
-            int32_t trying = g_arguments->keep_trying;
-            while (ret && trying) {
-                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
-                          "supertable %s\n",
-                          g_arguments->trying_interval, stbInfo->stbName);
-                toolsMsleep(g_arguments->trying_interval);
-                ret = queryDbExec(conn, command);
-                if (trying != -1) {
-                    trying --;
-                }
-            }
-            if (0 != ret) {
-                errorPrint("create supertable %s failed!\n\n",
-                       stbInfo->stbName);
-                ret = -1;
-            } 
-            close_bench_conn(conn);
-        }
-    }
+    int ret = queryDbExec(database, stbInfo, command);
     free(command);
     return ret;
 }
@@ -356,11 +381,12 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     int dataLen = 0;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto) {
+    if (g_arguments->nthreads_auto || (-1 != g_arguments->inputted_vgroups)) {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
                             database->dbName,
-                            min(remainVnodes, toolsGetNumberOfCores()));
+                            (-1 != g_arguments->inputted_vgroups)?
+                            g_arguments->inputted_vgroups:min(remainVnodes, toolsGetNumberOfCores()));
     } else {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s",
@@ -448,7 +474,7 @@ int32_t getRemainVnodes(SBenchConn *conn) {
     int32_t   code = taos_errno(res);
     if (code) {
         printErrCmdCodeStr(command, code, res);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         return -1;
     }
     TAOS_ROW row = NULL;
@@ -463,7 +489,7 @@ int32_t getRemainVnodes(SBenchConn *conn) {
 
 int createDatabaseTaosc(SDataBase* database) {
     char command[SQL_BUFF_LEN] = "\0";
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         return -1;
     }
@@ -472,8 +498,8 @@ int createDatabaseTaosc(SDataBase* database) {
             SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
             if (stream->drop) {
                 sprintf(command, "DROP STREAM IF EXISTS %s;", stream->stream_name);
-                if (queryDbExec(conn, command)) {
-                    close_bench_conn(conn);
+                if (queryDbExecTaosc(conn, command)) {
+                    closeBenchConn(conn);
                     return -1;
                 }
                 infoPrint("%s\n",command);
@@ -483,9 +509,18 @@ int createDatabaseTaosc(SDataBase* database) {
     }
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
-    if (0 != queryDbExec(conn, command)) {
-        close_bench_conn(conn);
-        return -1;
+    if (0 != queryDbExecTaosc(conn, command)) {
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            warnPrint("%s", "TDengine cloud normal users have no privilege "
+                      "to drop database! DROP DATABASE failure is ignored!\n");
+        } else {
+#endif
+            closeBenchConn(conn);
+            return -1;
+#ifdef WEBSOCKET
+        }
+#endif
     }
 
     int remainVnodes = INT_MAX;
@@ -501,24 +536,34 @@ int createDatabaseTaosc(SDataBase* database) {
 #endif
     geneDbCreateCmd(database, command, remainVnodes);
 
-    int32_t code = queryDbExec(conn, command);
+    int32_t code = queryDbExecTaosc(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds then "
                   "re-create database %s\n",
                   g_arguments->trying_interval, database->dbName);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExec(conn, command);
+        code = queryDbExecTaosc(conn, command);
         if (trying != -1) {
             trying --;
         }
     }
 
     if (code) {
-        close_bench_conn(conn);
-        errorPrint("\ncreate database %s failed!\n\n",
-                   database->dbName);
-        return -1;
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            warnPrint("%s", "TDengine cloud normal users have no privilege "
+                      "to create database! CREATE DATABASE failure is ignored!\n");
+        } else {
+#endif
+
+            closeBenchConn(conn);
+            errorPrint("\ncreate database %s failed!\n\n",
+               database->dbName);
+            return -1;
+#ifdef WEBSOCKET
+        }
+#endif
     }
     infoPrint("create database: <%s>\n", command);
 
@@ -527,7 +572,7 @@ int createDatabaseTaosc(SDataBase* database) {
         if (g_arguments->nthreads_auto) {
             int32_t vgroups = getVgroupsOfDb(conn, database);
             if (vgroups <=0) {
-                close_bench_conn(conn);
+                closeBenchConn(conn);
                 errorPrint("Database %s's vgroups is %d\n",
                            database->dbName, vgroups);
                 return -1;
@@ -536,6 +581,7 @@ int createDatabaseTaosc(SDataBase* database) {
     }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
 
+/*
 #if 0
 #ifdef LINUX
     sleep(2);
@@ -545,7 +591,8 @@ int createDatabaseTaosc(SDataBase* database) {
     Sleep(2);
 #endif
 #endif
-    close_bench_conn(conn);
+*/
+    closeBenchConn(conn);
     return 0;
 }
 
@@ -644,14 +691,14 @@ static void *createTable(void *sarg) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd);
         } else {
-            ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
             int32_t trying = g_arguments->keep_trying;
             while (ret && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-create "
                           "table %s\n",
                           g_arguments->trying_interval, pThreadInfo->buffer);
                 toolsMsleep(g_arguments->trying_interval);
-                ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+                ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
                 }
@@ -683,7 +730,7 @@ static void *createTable(void *sarg) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd);
         } else {
-            ret = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
         }
         if (0 != ret) {
             g_fail = true;
@@ -723,13 +770,9 @@ static int startMultiThreadCreateChildTable(
     }
     int64_t b = ntables % threads;
 
-    for (int64_t i = 0; i < threads; i++) {
+    for (uint32_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
-#ifdef LINUX
-        pThreadInfo->threadID = (pthread_t)i;
-#else
-        pThreadInfo->threadID = (uint32_t)i;
-#endif
+        pThreadInfo->threadID = i;
         pThreadInfo->stbInfo = stbInfo;
         pThreadInfo->dbInfo = database;
         if (REST_IFACE == stbInfo->iface) {
@@ -741,7 +784,7 @@ static int startMultiThreadCreateChildTable(
             }
             pThreadInfo->sockfd = sockfd;
         } else {
-            pThreadInfo->conn = init_bench_conn();
+            pThreadInfo->conn = initBenchConn();
             if (NULL == pThreadInfo->conn) {
                 goto over;
             }
@@ -765,7 +808,7 @@ static int startMultiThreadCreateChildTable(
         g_arguments->actualChildTables += pThreadInfo->tables_created;
 
         if (REST_IFACE != stbInfo->iface) {
-            close_bench_conn(pThreadInfo->conn);
+            closeBenchConn(pThreadInfo->conn);
         }
     }
 
@@ -911,12 +954,12 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     switch (iface) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
-            code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+            code = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
-                code = queryDbExec(pThreadInfo->conn, pThreadInfo->buffer);
+                code = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
                 }
@@ -1913,7 +1956,7 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE)
             && stbInfo->childTblExists) {
-        SBenchConn* conn = init_bench_conn();
+        SBenchConn* conn = initBenchConn();
         if (NULL == conn) {
             return -1;
         }
@@ -1937,7 +1980,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         int64_t   count = 0;
         if (code) {
             printErrCmdCodeStr(cmd, code, res);
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             return -1;
         }
         TAOS_ROW row = NULL;
@@ -1953,7 +1996,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         }
         ntables = count;
         taos_free_result(res);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
     } else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         if (stbInfo->escape_character) {
             snprintf(stbInfo->childTblName[0], TSDB_TABLE_NAME_LEN,
@@ -1984,7 +2027,7 @@ static int startMultiThreadInsertData(SDataBase* database,
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if ((0 == stbInfo->interlaceRows)
             && (g_arguments->nthreads_auto)) {
-        SBenchConn* conn = init_bench_conn();
+        SBenchConn* conn = initBenchConn();
         if (NULL == conn) {
             return -1;
         }
@@ -2044,7 +2087,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
             }
         }
-        close_bench_conn(conn);
+        closeBenchConn(conn);
     } else {
         a = ntables / threads;
         if (a < 1) {
@@ -2128,7 +2171,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
             }
             case STMT_IFACE: {
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 if (NULL == pThreadInfo->conn) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2176,7 +2219,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->sockfd = sockfd;
             }
             case SML_IFACE: {
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2234,7 +2277,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
             }
             case TAOSC_IFACE: {
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2243,7 +2286,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
                 char command[SQL_BUFF_LEN];
                 sprintf(command, "USE %s", database->dbName);
-                if (queryDbExec(pThreadInfo->conn, command)) {
+                if (queryDbExecTaosc(pThreadInfo->conn, command)) {
                     tmfree(pids);
                     tmfree(infos);
                     errorPrint("taos select database(%s) failed\n", database->dbName);
@@ -2320,12 +2363,12 @@ static int startMultiThreadInsertData(SDataBase* database,
                     tools_cJSON_Delete(pThreadInfo->sml_json_tags);
                     tools_cJSON_Delete(pThreadInfo->json_array);
                 }
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 tmfree(pThreadInfo->lines);
                 break;
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
@@ -2337,7 +2380,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 } else {
                     tmfree(pThreadInfo->buffer);
                 }
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
                 break;
             default:
                 break;
@@ -2423,7 +2466,7 @@ static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     if (tsma->custom) {
         snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
     }
-    int code = queryDbExec(conn, command);
+    int code = queryDbExecTaosc(conn, command);
     if (code == 0) {
         infoPrint("successfully create tsma with command <%s>\n", command);
     }
@@ -2432,14 +2475,14 @@ static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
 static void* create_tsmas(void* args) {
     tsmaThreadInfo* pThreadInfo = (tsmaThreadInfo*) args;
     int inserted_rows = 0;
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         return NULL;
     }
     int finished = 0;
     if (taos_select_db(conn->taos, pThreadInfo->dbName)) {
         errorPrint("failed to use database (%s)\n", pThreadInfo->dbName);
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         return NULL;
     }
     while(finished < pThreadInfo->tsmas->size && inserted_rows >= 0) {
@@ -2457,7 +2500,7 @@ static void* create_tsmas(void* args) {
         toolsMsleep(10);
     }
     benchArrayDestroy(pThreadInfo->tsmas);
-    close_bench_conn(conn);
+    closeBenchConn(conn);
     return NULL;
 }
 
@@ -2467,25 +2510,25 @@ static int32_t createStream(SSTREAM* stream) {
     snprintf(command, BUFFER_SIZE, "DROP STREAM IF EXISTS %s",
              stream->stream_name);
     infoPrint("%s\n", command);
-    SBenchConn* conn = init_bench_conn();
+    SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         goto END;
     }
 
-    code = queryDbExec(conn, command);
+    code = queryDbExecTaosc(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds then re-drop stream %s\n",
                           g_arguments->trying_interval, stream->stream_name);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExec(conn, command);
+        code = queryDbExecTaosc(conn, command);
         if (trying != -1) {
             trying --;
         }
     }
 
     if (code) {
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         goto END;
     }
 
@@ -2504,24 +2547,24 @@ static int32_t createStream(SSTREAM* stream) {
             "INTO %s as %s", stream->stream_stb, stream->source_sql);
     infoPrint("%s\n", command);
 
-    code = queryDbExec(conn, command);
+    code = queryDbExecTaosc(conn, command);
     trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds "
                   "then re-create stream %s\n",
                   g_arguments->trying_interval, stream->stream_name);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExec(conn, command);
+        code = queryDbExecTaosc(conn, command);
         if (trying != -1) {
             trying --;
         }
     }
 
     if (code) {
-        close_bench_conn(conn);
+        closeBenchConn(conn);
         goto END;
     }
-    close_bench_conn(conn);
+    closeBenchConn(conn);
 END:
     tmfree(command);
     return code;
@@ -2563,10 +2606,21 @@ int insertTestProcess() {
         if (database->superTbls) {
             for (int j = 0; j < database->superTbls->size; ++j) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-                if (stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE) {
-                    if (getSuperTableFromServer(database, stbInfo)) {
-                        if (createSuperTable(database, stbInfo)) return -1;
+                if (stbInfo->iface != SML_IFACE
+                        && stbInfo->iface != SML_REST_IFACE
+                        && !stbInfo->childTblExists) {
+#ifdef WEBSOCKET
+                    if (g_arguments->websocket) {
+                        dropSuperTable(database, stbInfo);
+                    } else {
+#endif
+                    if (0 == getSuperTableFromServer(database, stbInfo)) {
+                        dropSuperTable(database, stbInfo);
                     }
+#ifdef WEBSOCKET
+                    }
+#endif
+                    if (createSuperTable(database, stbInfo)) return -1;
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;

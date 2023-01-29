@@ -76,7 +76,7 @@ static void *mixedQuery(void *sarg) {
                 return NULL;
             }
             if (g_queryInfo.reset_query_cache) {
-                queryDbExec(pThreadInfo->conn, "reset query cache");
+                queryDbExecTaosc(pThreadInfo->conn, "reset query cache");
             }
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
@@ -175,7 +175,7 @@ static void *specifiedTableQuery(void *sarg) {
                         - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            queryDbExec(pThreadInfo->conn, "reset query cache");
+            queryDbExecTaosc(pThreadInfo->conn, "reset query cache");
         }
 
         st = toolsGetTimestampUs();
@@ -324,7 +324,7 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
                 }
                 pThreadInfo->sockfd = sockfd;
             } else {
-                pThreadInfo->conn = init_bench_conn();
+                pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     goto OVER;
                 }
@@ -340,7 +340,7 @@ static int multi_thread_super_table_query(uint16_t iface, char* dbName) {
             if (iface == REST_IFACE) {
                 destroySockFd(pThreadInfo->sockfd);
             } else {
-                close_bench_conn(pThreadInfo->conn);
+                closeBenchConn(pThreadInfo->conn);
             }
             if (g_fail) {
                 goto OVER;
@@ -393,7 +393,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     }
                     pThreadInfo->sockfd = sockfd;
                 } else {
-                    pThreadInfo->conn = init_bench_conn();
+                    pThreadInfo->conn = initBenchConn();
                     if (pThreadInfo->conn == NULL) {
                         destroySockFd(pThreadInfo->sockfd);
                         tmfree((char *)pids);
@@ -417,7 +417,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                     close(pThreadInfo->sockfd);
 #endif
                 } else {
-                    close_bench_conn(pThreadInfo->conn);
+                    closeBenchConn(pThreadInfo->conn);
                 }
                 if (g_fail) {
                     tmfree(pThreadInfo->query_delay_list);
@@ -511,7 +511,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
             }
             pQueryThreadInfo->sockfd = sockfd;
         } else {
-            pQueryThreadInfo->conn = init_bench_conn();
+            pQueryThreadInfo->conn = initBenchConn();
             if (pQueryThreadInfo->conn == NULL) {
                 goto OVER;
             }
@@ -543,7 +543,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
             close(pThreadInfo->sockfd);
 #endif
         } else {
-            close_bench_conn(pThreadInfo->conn);
+            closeBenchConn(pThreadInfo->conn);
         }
     }
     qsort(delay_list->pData, delay_list->size, delay_list->elemSize, compare);
@@ -592,7 +592,7 @@ void *queryKiller(void *arg) {
                 g_arguments->password, NULL, g_arguments->port);
         if (NULL == taos) {
             errorPrint("Slow query killer thread "
-                    "failed to connect to TDengine server %s\n",
+                    "failed to connect to the server %s\n",
                     g_arguments->host);
             return NULL;
         }
@@ -667,7 +667,7 @@ int queryTestProcess() {
 
     if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
             (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-        SBenchConn* conn = init_bench_conn();
+        SBenchConn* conn = initBenchConn();
         if (conn == NULL) {
             return -1;
         }
@@ -712,10 +712,10 @@ int queryTestProcess() {
                     g_queryInfo.superQueryInfo.childTblName,
                     g_queryInfo.superQueryInfo.childTblCount)) {
             tmfree(g_queryInfo.superQueryInfo.childTblName);
-            close_bench_conn(conn);
+            closeBenchConn(conn);
             return -1;
         }
-        close_bench_conn(conn);
+        closeBenchConn(conn);
     }
 
     uint64_t startTs = toolsGetTimestampMs();

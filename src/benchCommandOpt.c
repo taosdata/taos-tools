@@ -395,11 +395,14 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                         "Invalid value for w: %s, will auto set to default(64)\n",
                         arg);
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
-            } else if (g_arguments->binwidth > TSDB_MAX_BINARY_LEN) {
+            } else if (g_arguments->binwidth >
+			    (TSDB_MAX_BINARY_LEN - sizeof(int64_t) -2)) {
                 errorPrint(
-                           "-w(%d) > TSDB_MAX_BINARY_LEN(%" PRIu64
-                                   "), will auto set to default(64)\n",
-                           g_arguments->binwidth, (uint64_t)TSDB_MAX_BINARY_LEN);
+                           "-w(%d) > (TSDB_MAX_BINARY_LEN(%u"
+                                   ")-(TIMESTAMP length(%zu) - extrabytes(2), "
+				   "will auto set to default(64)\n",
+                           g_arguments->binwidth,
+			   TSDB_MAX_BINARY_LEN, sizeof(int64_t));
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
             }
             break;
@@ -493,8 +496,10 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
 #ifdef WEBSOCKET
         case 'W':
+            g_arguments->nthreads_auto = false;
             g_arguments->dsn = arg;
             break;
+
         case 'D':
             if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2("taosBenchmark", "D");
@@ -502,6 +507,15 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
             g_arguments->timeout = atoi(arg);
             break;
+#endif
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+        case 'v':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "v");
+            }
+            g_arguments->nthreads_auto = false;
+            g_arguments->inputted_vgroups = atoi(arg);
+	    break;
 #endif
 
         case 'V':
@@ -562,6 +576,9 @@ static struct argp_option bench_options[] = {
 #endif
     {"keep-trying", 'k', "NUMBER", 0, BENCH_KEEPTRYING},
     {"trying-interval", 'z', "NUMBER", 0, BENCH_TRYING_INTERVAL},
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    {"vgroups", 'v', "NUMBER", 0, BENCH_VGROUPS},
+#endif
     {"version", 'V', 0, 0, BENCH_VERSION},
     {0}
 };
@@ -587,7 +604,7 @@ int32_t benchParseArgs(int32_t argc, char* argv[]) {
 #endif
 }
 
-static void init_stable() {
+static void initStable() {
     SDataBase *database = benchArrayGet(g_arguments->databases, 0);
     database->superTbls = benchArrayInit(1, sizeof(SSuperTable));
     SSuperTable * stbInfo = benchCalloc(1, sizeof(SSuperTable), true);
@@ -668,13 +685,13 @@ static void init_stable() {
     stbInfo->trying_interval = 0;
 }
 
-static void init_database() {
+static void initDatabase() {
     g_arguments->databases = benchArrayInit(1, sizeof(SDataBase));
     SDataBase *database = benchCalloc(1, sizeof(SDataBase), true);
     benchArrayPush(g_arguments->databases, database);
     database = benchArrayGet(g_arguments->databases, 0);
     database->dbName = DEFAULT_DATABASE;
-    database->drop = 1;
+    database->drop = true;
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
@@ -726,9 +743,12 @@ void init_argument() {
     g_arguments->trying_interval = 0;
     g_arguments->iface = TAOSC_IFACE;
     g_arguments->rest_server_ver_major = -1;
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    g_arguments->inputted_vgroups = -1;
+#endif
 
-    init_database();
-    init_stable();
+    initDatabase();
+    initStable();
     g_arguments->streams = benchArrayInit(1, sizeof(SSTREAM));
 }
 
@@ -1020,7 +1040,7 @@ void queryAggrFunc() {
     }
 
     if (REST_IFACE != g_arguments->iface) {
-        pThreadInfo->conn = init_bench_conn();
+        pThreadInfo->conn = initBenchConn();
         if (pThreadInfo->conn == NULL) {
             errorPrint("%s() failed to init connection\n", __func__);
             free(pThreadInfo);
@@ -1036,7 +1056,7 @@ void queryAggrFunc() {
     }
     pthread_join(read_id, NULL);
     if (REST_IFACE != g_arguments->iface) {
-        close_bench_conn(pThreadInfo->conn);
+        closeBenchConn(pThreadInfo->conn);
     } else {
         destroySockFd(pThreadInfo->sockfd);
     }
