@@ -433,7 +433,7 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
         size += createColsData(info, stb, pstr, len + size, ts);
         *pGenRows += 1;
         selCnt ++;
-        infoPrint("    row %s ts=%" PRId64 " \n", type == MDIS ? "dis" : "upd", ts);
+        debugPrint("    row %s ts=%" PRId64 " \n", type == MDIS ? "dis" : "upd", ts);
 
         // remove current item
         mix->bufCnt[type] -= 1;
@@ -482,7 +482,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
           if (ordRows > 0) {
             genRows += ordRows;
             pBatT->ordRows += ordRows;
-            infoPrint("   ord ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->ordRows);
+            //infoPrint("   ord ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->ordRows);
           } else {
             // takeout to disorder list, so continue to gen
             last = -1;
@@ -511,10 +511,9 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
               uint32_t updRows = 0;
               len += fillBatchWithBuf(info, stb, mix, startTime, pstr, len, &updRows, MUPD, maxFill, forceUpd);
               if (updRows > 0) {
-
                 genRows += updRows;
                 pBatT->updRows += updRows;
-                infoPrint("   upd ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->updRows);
+                debugPrint("   upd ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->updRows);
                 if (genRows >= g_arguments->reqPerReq) {
                   // move to next batch start time
                   ts += stb->timestamp_step;
@@ -542,7 +541,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
               if (disRows > 0) {
                 genRows += disRows;
                 pBatT->disRows += disRows;
-                infoPrint("   dis ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->disRows);
+                debugPrint("   dis ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->disRows);
               }
             }
         }
