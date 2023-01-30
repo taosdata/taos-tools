@@ -522,9 +522,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
         case 'V':
             printVersion();
             exit(0);
-        case 'k':
-            g_arguments->suit = atoi(arg);
-            break;
         default:
             return ARGP_ERR_UNKNOWN;
     }
