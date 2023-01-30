@@ -1240,7 +1240,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     pThreadInfo->sml_json_tags,
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
-                                true);
+                                    true);
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
                                 database->sml_precision,
@@ -1251,7 +1251,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     pThreadInfo->sml_json_tags,
                                     (int)tableSeq -
                                         pThreadInfo->start_table_from),
-                                true);
+                                    true);
                             generateSmlTaosJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
                                 database->sml_precision,
