@@ -8,7 +8,7 @@
     "num_of_records_per_req": 100,
     "thread_count": 10,
     "create_table_thread_count": 5,
-    "result_file": "./insert_res_suit1.txt",
+    "result_file": "./insert_res_suit4.txt",
     "confirm_parameter_prompt": "no",
     "check_sql": "no",
     "databases": [
