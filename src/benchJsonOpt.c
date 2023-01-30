@@ -889,9 +889,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         if (0 == strcasecmp(checkSql->valuestring, "yes")) {
             g_arguments->check_sql = true;
         }
-    } else {
-        g_arguments->check_sql = false;
-    }
+    } 
 
     // failed continue
     tools_cJSON *continueSql = tools_cJSON_GetObjectItem(json, "failed_continue");
@@ -899,10 +897,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         if (0 == strcasecmp(checkSql->valuestring, "yes")) {
             g_arguments->failed_continue = true;
         }
-    } else {
-        g_arguments->failed_continue = false;
-    }
-
+    } 
 
     tools_cJSON *resultfile = tools_cJSON_GetObjectItem(json, "result_file");
     if (resultfile && resultfile->type == tools_cJSON_String &&

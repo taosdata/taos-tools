@@ -441,7 +441,7 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
 
         char sts[128];
         sprintf(sts, "%" PRId64, ts);
-        if (strstr(info->csql, sts)) {
+        if (info->csql && strstr(info->csql, sts)) {
           infoPrint("   %s found duplicate ts=%" PRId64 "\n", type == MDIS ? "dis" : "upd", ts);
         }
 
@@ -490,7 +490,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
         // add new row (maybe del)
         if (mix->insertedRows + pBatT->disRows + pBatT->ordRows  < mix->insertRows) {
           ordRows = 0;
-          if(strstr(info->csql, sts)) {
+          if(info->csql && strstr(info->csql, sts)) {
             infoPrint("   ord found duplicate ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->ordRows);
           }
 
@@ -586,7 +586,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
 //
 // generate delete batch body
 //
-uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, char* pstr, uint32_t slen) {
+uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, TAOS* taos, char* tbName, char* pstr, uint32_t slen, char * sql) {
   uint32_t len = slen;  // slen: start len
   if (stb->genRowRule != RULE_MIX_ALL) {
     return 0;
@@ -614,9 +614,14 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
 
   char where[128] = "";
   sprintf(where, " ts >= %" PRId64 " and ts < %" PRId64 ";", ds, de);
+  sprintf(sql, "select count(*) from %s where %s", tbName, where);
+
+  int64_t queryCnt = queryCount(taos, sql);
+  if(queryCnt == 0) return 0;
+  count = queryCnt;
 
   len += snprintf(pstr + len, MAX_SQL_LEN - len, "%s", where);
-  debugPrint("  batch delete range=%s \n", where);
+  //infoPrint("  batch delete cnt=%d range=%s \n", count, where);
 
   return count;
 }
@@ -633,7 +638,37 @@ void appendEndCheckSql(threadInfo* info) {
   }
 }
 
-bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, int32_t loop) {
+int64_t queryCount(TAOS* taos, char* sql) {
+  int64_t count = 0;
+  // execute sql
+  TAOS_RES* res = taos_query(taos, sql);
+  int32_t   code = taos_errno(res);
+  if (code != 0) {
+    printErrCmdCodeStr(sql, code, res);
+    return 0;
+  }
+
+  // count
+  TAOS_FIELD* fields = taos_fetch_fields(res);
+  TAOS_ROW row = taos_fetch_row(res);
+  code = taos_errno(res);
+  if (code != 0) {
+    printErrCmdCodeStr(sql, code, res);
+    taos_free_result(res);
+    return 0;
+  }
+
+  // int32_t* lengths = taos_fetch_lengths(res);
+  if (fields[0].type == TSDB_DATA_TYPE_BIGINT) {
+    count = *(int64_t*)row[0];
+  }
+
+  // if calc by ts
+  taos_free_result(res);
+  return count;
+}
+
+bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, char* tbName, int32_t loop) {
 
   // info
   if(info->conn->ctaos == NULL) {
@@ -643,41 +678,20 @@ bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, int32_t loop) {
     return false;
   }
 
-  // execute sql
-  TAOS_RES* res = taos_query(info->conn->ctaos, info->csql);
-  int32_t   code = taos_errno(res);
-  if (code != 0) {
-    printErrCmdCodeStr(info->csql, code, res);
+  int64_t count = queryCount(info->conn->ctaos, info->csql);
+  if(count == 0) {
     return false;
   }
 
-  // count
-  TAOS_FIELD* fields = taos_fetch_fields(res);
-  TAOS_ROW row = taos_fetch_row(res);
-  code = taos_errno(res);
-  if (code != 0) {
-    printErrCmdCodeStr(info->csql, code, res);
-    taos_free_result(res);
+  if (count != rowsCnt) {
+    errorPrint("  %s check write count error. loop=%d query: %" PRId64 " inserted: %d\n", tbName, loop, count, rowsCnt);
+    infoPrint("  insert sql:%s\n", info->buffer);
+    infoPrint("  query  sql:%s\n", info->csql);
     return false;
+  } else {
+    infoPrint("  %s check write count ok. loop=%d query: %" PRId64 " inserted: %d\n", tbName, loop, count, rowsCnt);
   }
 
-  // int32_t* lengths = taos_fetch_lengths(res);
-  if (fields[0].type == TSDB_DATA_TYPE_BIGINT) {
-    int64_t count = *(int64_t*)row[0];
-    if (count != rowsCnt) {
-      errorPrint(" check write count error. %d insert count != query count. query: %" PRId64 " inserted: %d\n", loop, count, rowsCnt);
-      infoPrint(" insert sql:%s\n", info->buffer);
-      infoPrint(" query  sql:%s\n", info->csql);
-
-      taos_free_result(res);
-      return false;
-    } else {
-      infoPrint(" check write count ok. query: %" PRId64 " inserted: %d\n", count, rowsCnt);
-    }
-  }
-
-  // if calc by ts
-  taos_free_result(res);
   return true;
 }
 
@@ -756,35 +770,45 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       mixRatio.insertedRows = tbTotal.ordRows + tbTotal.disRows;
 
       // need check sql
-      bool ok = false;
+      
       if(g_arguments->check_sql) {
         appendEndCheckSql(info);
         int32_t loop = 0;
-        while(++loop < 20) {
-          if(!checkSqlsResult(info, batchRows, loop)) {
+        bool ok = false;
+        while(++loop < 10) {
+          if(!checkSqlsResult(info, batchRows, tbName, loop)) {
             toolsMsleep(500);
             continue;
           }
           ok = true;
           break;
         }
-      }
-      if(!ok) {
-        FAILED_BREAK()
+
+        if (!ok) {
+          FAILED_BREAK()
+        }
       }
 
       // delete
       if (needExecDel(&mixRatio)) {
         len = genDelPreSql(db, stb, tbName, info->buffer);
-        batchRows = genBatchDelSql(stb, &mixRatio, batStartTime, info->buffer, len);
-        if (batchRows > 0) {
+        char querySql[512] =  {0};
+        batTotal.delRows = genBatchDelSql(stb, &mixRatio, batStartTime, info->conn->taos,  tbName, info->buffer, len, querySql);
+        if (batTotal.delRows > 0) {
           // g_arguments->debug_print = false;
-          if (execBufSql(info, batchRows) != 0) {
+          if (execBufSql(info, batTotal.delRows) != 0) {
             FAILED_BREAK()
           }
+
+          int64_t delCnt = queryCount(info->conn->taos, querySql);
+          if (delCnt != 0) {
+            errorPrint(" del not clear zero. query count=%" PRId64, delCnt);
+            FAILED_BREAK();
+          }
+
           // g_arguments->debug_print = true;
-          tbTotal.delRows += batchRows;
-          mixRatio.doneCnt[MDEL] += batchRows;
+          tbTotal.delRows += batTotal.delRows;
+          mixRatio.doneCnt[MDEL] += batTotal.delRows;
         }
       }
 
@@ -814,15 +838,20 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
                   info->totalInsertRows + tbTotal.ordRows + tbTotal.disRows);
         lastPrintTime = currentPrintTime;
       }
-      
+
+      // batch show
+      debugPrint("  %s batch %d ord=%" PRId64 " dis=%" PRId64 " upd=%" PRId64 " del=%" PRId64 "\n", tbName,
+                 mixRatio.curBatchCnt, batTotal.ordRows, batTotal.disRows, batTotal.updRows, batTotal.delRows);
 
       // total
       mixRatio.curBatchCnt++;
     }  // row end
 
     // print
-    infoPrint("table:%s inserted ok, inserted(%"  PRId64 ") rows order(%" PRId64 ")  disorder(%" PRId64 ") update(%" PRId64") delete(%" PRId64 ") \n",
-              tbName, mixRatio.insertedRows, tbTotal.ordRows, tbTotal.disRows, tbTotal.updRows, tbTotal.delRows);
+    if (mixRatio.insertedRows + tbTotal.ordRows + tbTotal.disRows + tbTotal.updRows + tbTotal.delRows > 0) {
+      infoPrint("table:%s inserted(%" PRId64 ") rows order(%" PRId64 ")  disorder(%" PRId64 ") update(%" PRId64 ") delete(%" PRId64 ") \n",
+                tbName, mixRatio.insertedRows, tbTotal.ordRows, tbTotal.disRows, tbTotal.updRows, tbTotal.delRows);
+    }
 
     // table total -> all total
     total.ordRows += tbTotal.ordRows;

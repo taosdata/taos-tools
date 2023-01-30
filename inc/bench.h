@@ -476,11 +476,12 @@ typedef struct STSMA {
 #define RULE_MIX_TS_CALC   3 // ts calc other column
 #define RULE_MIX_FIX_VALUE 4 // fixed value with give
 
-// define data position
-#define DATAPOS_MEM       1  
-#define DATAPOS_STT       2
-#define DATAPOS_FILE      3
-#define DATAPOS_MUL_FILE  4
+// define suit 
+#define SUIT_DATAPOS_MEM       1  
+#define SUIT_DATAPOS_STT       2
+#define SUIT_DATAPOS_FILE      3
+#define SUIT_DATAPOS_MUL_FILE  4
+#define SUIT_DATAPOS_MIX       5
 
 typedef struct SSuperTable_S {
     char *   stbName;
@@ -716,6 +717,7 @@ typedef struct SArguments_S {
     int                 rest_server_ver_major;
     bool                failed_continue;
     bool                check_sql;
+    int                 suit;  // see define SUIT_
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     int16_t             inputted_vgroups;
 #endif

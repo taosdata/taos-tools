@@ -22,4 +22,6 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix);
 // data generate by calc ts 
 uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts);
 
+int64_t queryCount(TAOS* taos, char* sql);
+
 #endif
