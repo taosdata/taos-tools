@@ -37,8 +37,8 @@ void* benchCancelHandler(void* arg) {
     toolsMsleep(10);
 
     if (g_arguments->in_prompt || INSERT_TEST != g_arguments->test_mode) {
+        toolsMsleep(100);
         postFreeResource();
-        toolsMsleep(10);
         exit(EXIT_SUCCESS);
     }
     return NULL;
