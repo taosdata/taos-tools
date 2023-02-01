@@ -17,67 +17,67 @@ from util.sql import *
 from util.dnodes import *
 
 
+def getPath(tool="taosBenchmark"):
+    selfPath = os.path.dirname(os.path.realpath(__file__))
+
+    if "community" in selfPath:
+        projPath = selfPath[: selfPath.find("community")]
+    elif "src" in selfPath:
+        projPath = selfPath[: selfPath.find("src")]
+    elif "/tools/" in selfPath:
+        projPath = selfPath[: selfPath.find("/tools/")]
+    elif "/tests/" in selfPath:
+        projPath = selfPath[: selfPath.find("/tests/")]
+    else:
+        tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+        projPath = "/usr/local/taos/bin/"
+
+    paths = []
+    for root, dummy, files in os.walk(projPath):
+        if (tool) in files:
+            rootRealPath = os.path.dirname(os.path.realpath(root))
+            if "packaging" not in rootRealPath:
+                paths.append(os.path.join(root, tool))
+                break
+    if len(paths) == 0:
+        tdLog.exit("taosBenchmark not found!")
+        return
+    else:
+        tdLog.info("taosBenchmark found in %s" % paths[0])
+        return paths[0]
+
 class TDTestCase:
     def caseDescription(self):
         """
-        [TD-21932] taosBenchmark schemaless refine
+        [TD-21932] taosBenchmark sml test cases
         """
 
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
         tdSql.init(conn.cursor(), logSql)
 
-    def getPath(self, tool="taosBenchmark"):
-        selfPath = os.path.dirname(os.path.realpath(__file__))
-
-        if "community" in selfPath:
-            projPath = selfPath[: selfPath.find("community")]
-        elif "src" in selfPath:
-            projPath = selfPath[: selfPath.find("src")]
-        elif "/tools/" in selfPath:
-            projPath = selfPath[: selfPath.find("/tools/")]
-        elif "/tests/" in selfPath:
-            projPath = selfPath[: selfPath.find("/tests/")]
-        else:
-            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
-            projPath = "/usr/local/taos/bin/"
-
-        paths = []
-        for root, dummy, files in os.walk(projPath):
-            if (tool) in files:
-                rootRealPath = os.path.dirname(os.path.realpath(root))
-                if "packaging" not in rootRealPath:
-                    paths.append(os.path.join(root, tool))
-                    break
-        if len(paths) == 0:
-            tdLog.exit("taosBenchmark not found!")
-            return
-        else:
-            tdLog.info("taosBenchmark found in %s" % paths[0])
-            return paths[0]
-
     def run(self):
         tdSql.query("select client_version()")
         client_ver = "".join(tdSql.queryResult[0])
         major_ver = client_ver.split(".")[0]
 
-        binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/sml_json_alltypes-interlace.json" % binPath
+        binPath = getPath()
+        cmd = "%s -f ./taosbenchmark/json/sml_taosjson_alltypes.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
         tdSql.query("describe db.stb1")
         tdSql.checkData(1, 1, "BOOL")
         tdSql.query("describe db.stb2")
-        tdSql.checkData(1, 1, "DOUBLE")
+        tdSql.checkData(1, 1, "TINYINT")
         tdSql.query("describe db.stb3")
-        tdSql.checkData(1, 1, "DOUBLE")
+        tdSql.checkData(1, 1, "SMALLINT")
         tdSql.query("describe db.stb4")
-        tdSql.checkData(1, 1, "DOUBLE")
+        tdSql.checkData(1, 1, "INT")
         tdSql.query("describe db.stb5")
-        tdSql.checkData(1, 1, "DOUBLE")
+        tdSql.checkData(1, 1, "BIGINT")
         tdSql.query("describe db.stb6")
-        tdSql.checkData(1, 1, "DOUBLE")
+        tdSql.checkData(1, 1, "FLOAT")
         tdSql.query("describe db.stb7")
         tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb8")
@@ -85,16 +85,15 @@ class TDTestCase:
             tdSql.checkData(1, 1, "VARCHAR")
             tdSql.checkData(1, 2, 16)
         else:
-            tdSql.checkData(1, 1, "NCHAR")
+            tdSql.checkData(1, 1, "BINARY")
             tdSql.checkData(1, 2, 8)
 
         tdSql.query("describe db.stb9")
+        tdSql.checkData(1, 1, "NCHAR")
         if major_ver == "3":
-            tdSql.checkData(1, 1, "VARCHAR")
             tdSql.checkData(1, 2, 16)
         else:
             tdSql.checkData(1, 2, 8)
-            tdSql.checkData(1, 1, "NCHAR")
 
         tdSql.query("select count(*) from db.stb1")
         tdSql.checkData(0, 0, 160)

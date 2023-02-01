@@ -20,12 +20,7 @@
             "dbinfo": {
                 "name": "test",
                 "drop": "yes",
-                "replica": 1,
-                "precision": "ms",
-                "keep": 3650,
-                "minRows": 100,
-                "maxRows": 4096,
-                "comp": 2
+                "precision": "ms"
             },
             "super_tables": [
                 {

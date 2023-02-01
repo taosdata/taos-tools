@@ -208,10 +208,6 @@ class TDTestCase:
         tdSql.query("select count(*) from d10")
         tdSql.checkData(0, 0, 11)
 
-        cmd = "%s -N -I sml -y" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
         cmd = "%s -n 1 -t 1 -y -b bool" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)

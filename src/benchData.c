@@ -312,7 +312,12 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
             (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
             pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
         }
-        for (int i = 0; i < fields->size; ++i) {
+
+        int fieldSize = fields->size;
+        if (TSDB_SML_TELNET_PROTOCOL == stbInfo->lineProtocol) {
+            fieldSize = 1;
+        }
+        for (int i = 0; i < fieldSize; ++i) {
             Field * field = benchArrayGet(fields, i);
             if (iface == TAOSC_IFACE || iface == REST_IFACE) {
                 if (field->none) {
@@ -458,12 +463,12 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t int_;
+                    int32_t intTmp;
                     if ((g_arguments->demo_mode) && (i == 0)) {
                         unsigned int tmpRand = taosRandom();
-                        int_ = tmpRand % 10 + 1;
+                        intTmp = tmpRand % 10 + 1;
                     } else if ((g_arguments->demo_mode) && (i == 1)) {
-                        int_ = 105 + taosRandom() % 10;
+                        intTmp = 105 + taosRandom() % 10;
                     } else {
                         if (field->min < (-1 * (RAND_MAX >> 1))) {
                             field->min = -1 * (RAND_MAX >> 1);
@@ -471,142 +476,146 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         if (field->max > (RAND_MAX >> 1)) {
                             field->max = RAND_MAX >> 1;
                         }
-                        int_ = field->min + (taosRandom() % (field->max - field->min));
+                        intTmp = field->min + (taosRandom() %
+                            (field->max - field->min));
                     }
                     if (iface == STMT_IFACE) {
-                        ((int32_t *)field->data)[k] = int_;
+                        ((int32_t *)field->data)[k] = intTmp;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%di32,",
-                                       field->name, int_);
+                                       field->name, intTmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%di32 ",
-                                           field->name, int_);
+                                           field->name, intTmp);
                         } else {
-                            pos += sprintf(sampleDataBuf + pos, "%di32 ", int_);
+                            pos += sprintf(sampleDataBuf + pos, "%di32 ", intTmp);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%d,", int_);
+                        pos += sprintf(sampleDataBuf + pos, "%d,", intTmp);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t _bigint;
-                    _bigint = field->min + (taosRandom() % (field->max - field->min));
+                    int64_t bigintTmp;
+                    bigintTmp = field->min + (taosRandom() %
+                        (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((int64_t *)field->data)[k] = _bigint;
+                        ((int64_t *)field->data)[k] = bigintTmp;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%"PRId64"i64,",
-                                       field->name, _bigint);
+                                       field->name, bigintTmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%"PRId64"i64 ",
-                                           field->name, _bigint);
+                                           field->name, bigintTmp);
                         } else {
-                            pos += sprintf(sampleDataBuf + pos, "%"PRId64"i64 ", _bigint);
+                            pos += sprintf(sampleDataBuf + pos,
+                                           "%"PRId64"i64 ", bigintTmp);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%"PRId64",", _bigint);
+                        pos += sprintf(sampleDataBuf + pos, "%"PRId64",", bigintTmp);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t _uint = field->min + (taosRandom() % (field->max - field->min));
+                    uint32_t uintTmp = field->min + (taosRandom()
+                        % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint32_t *)field->data)[k] = _uint;
+                        ((uint32_t *)field->data)[k] = uintTmp;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%uu32,",
-                                       field->name, _uint);
+                                       field->name, uintTmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%uu32 ",
-                                           field->name, _uint);
+                                           field->name, uintTmp);
                         } else {
-                            pos += sprintf(sampleDataBuf + pos, "%uu32 ", _uint);
+                            pos += sprintf(sampleDataBuf + pos, "%uu32 ", uintTmp);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", _uint);
+                        pos += sprintf(sampleDataBuf + pos, "%u,", uintTmp);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t _ubigint =
+                    uint64_t ubigintTmp =
                             field->min +
                         (taosRandom() % (field->max - field->min));
                     if (iface == STMT_IFACE) {
-                        ((uint64_t *)field->data)[k] = _ubigint;
+                        ((uint64_t *)field->data)[k] = ubigintTmp;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%"PRIu64"u64,",
-                                       field->name, _ubigint);
+                                       field->name, ubigintTmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos,
                                            "%s=%"PRIu64"u64 ",
-                                           field->name, _ubigint);
+                                           field->name, ubigintTmp);
                         } else {
                             pos +=
                                 sprintf(sampleDataBuf + pos,
-                                        "%"PRIu64"u64 ", _ubigint);
+                                        "%"PRIu64"u64 ", ubigintTmp);
                         }
                     } else {
                         pos += sprintf(sampleDataBuf + pos,
-                                       "%"PRIu64",", _ubigint);
+                                       "%"PRIu64",", ubigintTmp);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float _float = (float)(field->min +
+                    float floatTmp = (float)(field->min +
                                            (taosRandom() %
                                             (field->max - field->min)) +
                                            (taosRandom() % 1000) / 1000.0);
                     if (g_arguments->demo_mode && i == 0) {
-                        _float = (float)(9.8 + 0.04 * (taosRandom() % 10) +
-                                         _float / 1000000000);
+                        floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10) +
+                                         floatTmp / 1000000000);
                     } else if (g_arguments->demo_mode && i == 2) {
-                        _float = (float)((105 + taosRandom() % 10 +
-                                          _float / 1000000000) /
+                        floatTmp = (float)((105 + taosRandom() % 10 +
+                                          floatTmp / 1000000000) /
                                          360);
                     }
                     if (iface == STMT_IFACE) {
-                        ((float *)(field->data))[k] = _float;
+                        ((float *)(field->data))[k] = floatTmp;
                     }
                     if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
                         line_protocol == TSDB_SML_LINE_PROTOCOL) {
                         pos += sprintf(sampleDataBuf + pos, "%s=%ff32,",
-                                       field->name, _float);
+                                       field->name, floatTmp);
                     } else if ((iface == SML_IFACE ||
                                 iface == SML_REST_IFACE) &&
                                line_protocol == TSDB_SML_TELNET_PROTOCOL) {
                         if (tag) {
                             pos += sprintf(sampleDataBuf + pos, "%s=%ff32 ",
-                                           field->name, _float);
+                                           field->name, floatTmp);
                         } else {
                             pos +=
-                                sprintf(sampleDataBuf + pos, "%ff32 ", _float);
+                                sprintf(sampleDataBuf + pos, "%ff32 ", floatTmp);
                         }
 
                     } else {
-                        pos += sprintf(sampleDataBuf + pos, "%f,", _float);
+                        pos += sprintf(sampleDataBuf + pos, "%f,", floatTmp);
                     }
                     break;
                 }
@@ -659,7 +668,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                     taosRandom() % arraySize);
                             snprintf(tmp, field->length, "%s", buf->valuestring);
                         } else {
-                            errorPrint("%s() cannot read correct value from json file. array size: %d\n",
+                            errorPrint("%s() cannot read correct value "
+                                       "from json file. array size: %d\n",
                                     __func__, arraySize);
                             free(tmp);
                             return -1;
@@ -910,6 +920,62 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
     char *tagName = benchCalloc(1, TSDB_MAX_TAGS, true);
     for (int i = 0; i < stbInfo->tags->size; i++) {
         Field * tag = benchArrayGet(stbInfo->tags, i);
+        snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
+        switch (tag->type) {
+            case TSDB_DATA_TYPE_BOOL: {
+                tools_cJSON_AddNumberToObject(tags, tagName, (taosRandom() % 2) & 1);
+                break;
+            }
+            case TSDB_DATA_TYPE_FLOAT: {
+                tools_cJSON_AddNumberToObject(
+                        tags, tagName,
+                        (float)(tag->min +
+                            (taosRandom() % (tag->max - tag->min)) +
+                            taosRandom() % 1000 / 1000.0));
+                break;
+            }
+            case TSDB_DATA_TYPE_DOUBLE: {
+                tools_cJSON_AddNumberToObject(
+                        tags, tagName,
+                        (double)(tag->min + (taosRandom() % (tag->max - tag->min)) +
+                             taosRandom() % 1000000 / 1000000.0));
+                break;
+            }
+
+            case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_NCHAR: {
+                char *buf = (char *)benchCalloc(tag->length + 1, 1, false);
+                rand_string(buf, tag->length, g_arguments->chinese);
+                if (tag->type == TSDB_DATA_TYPE_BINARY) {
+                    tools_cJSON_AddStringToObject(tags, tagName, buf);
+                } else {
+                    tools_cJSON_AddStringToObject(tags, tagName, buf);
+                }
+                tmfree(buf);
+                break;
+            }
+            default:
+                tools_cJSON_AddNumberToObject(
+                        tags, tagName,
+                        tag->min + (taosRandom() % (tag->max - tag->min)));
+                break;
+        }
+    }
+    tools_cJSON_AddItemToArray(tagsList, tags);
+    tmfree(tagName);
+    tmfree(tbName);
+}
+
+void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
+                            uint64_t start_table_from, int tbSeq) {
+    tools_cJSON * tags = tools_cJSON_CreateObject();
+    char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
+    snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
+             stbInfo->childTblPrefix, tbSeq + start_table_from);
+    tools_cJSON_AddStringToObject(tags, "id", tbName);
+    char *tagName = benchCalloc(1, TSDB_MAX_TAGS, true);
+    for (int i = 0; i < stbInfo->tags->size; i++) {
+        Field * tag = benchArrayGet(stbInfo->tags, i);
         tools_cJSON *tagObj = tools_cJSON_CreateObject();
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
         switch (tag->type) {
@@ -954,7 +1020,8 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                 tools_cJSON_AddNumberToObject(
                         tagObj, "value",
                         tag->min + (taosRandom() % (tag->max - tag->min)));
-                tools_cJSON_AddStringToObject(tagObj, "type", convertDatatypeToString(tag->type));
+                tools_cJSON_AddStringToObject(tagObj, "type",
+                                              convertDatatypeToString(tag->type));
                 break;
         }
         tools_cJSON_AddItemToObject(tags, tagName, tagObj);
@@ -965,6 +1032,54 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
 }
 
 void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
+                         SSuperTable *stbInfo,
+                            uint32_t time_precision, int64_t timestamp) {
+    tools_cJSON * record = tools_cJSON_CreateObject();
+    tools_cJSON_AddNumberToObject(record, "timestamp", (double)timestamp);
+    Field* col = benchArrayGet(stbInfo->cols, 0);
+    switch (col->type) {
+        case TSDB_DATA_TYPE_BOOL:
+            tools_cJSON_AddBoolToObject(record, "value", (taosRandom()%2)&1);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            tools_cJSON_AddNumberToObject(
+                record, "value",
+                (float)(col->min +
+                        (taosRandom() % (col->max - col->min)) +
+                        taosRandom() % 1000 / 1000.0));
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            tools_cJSON_AddNumberToObject(
+                record, "value",
+                (double)(col->min +
+                         (taosRandom() % (col->max - col->min)) +
+                         taosRandom() % 1000000 / 1000000.0));
+            break;
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR: {
+            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
+            rand_string(buf, col->length, g_arguments->chinese);
+            if (col->type == TSDB_DATA_TYPE_BINARY) {
+                tools_cJSON_AddStringToObject(record, "value", buf);
+            } else {
+                tools_cJSON_AddStringToObject(record, "value", buf);
+            }
+            tmfree(buf);
+            break;
+        }
+        default:
+            tools_cJSON_AddNumberToObject(
+                    record, "value",
+                    (double)col->min +
+                    (taosRandom() % (col->max - col->min)));
+            break;
+    }
+    tools_cJSON_AddItemToObject(record, "tags", tag);
+    tools_cJSON_AddStringToObject(record, "metric", stbInfo->stbName);
+    tools_cJSON_AddItemToArray(array, record);
+}
+
+void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
                          SSuperTable *stbInfo,
                             uint32_t time_precision, int64_t timestamp) {
     tools_cJSON * record = tools_cJSON_CreateObject();
@@ -1019,7 +1134,8 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
                     value, "value",
                     (double)col->min +
                     (taosRandom() % (col->max - col->min)));
-            tools_cJSON_AddStringToObject(value, "type", convertDatatypeToString(col->type));
+            tools_cJSON_AddStringToObject(value, "type",
+                                          convertDatatypeToString(col->type));
             break;
     }
     tools_cJSON_AddItemToObject(record, "timestamp", ts);
