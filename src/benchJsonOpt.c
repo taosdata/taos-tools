@@ -651,7 +651,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         tools_cJSON *disorderRatio =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_ratio");
         if (tools_cJSON_IsNumber(disorderRatio)) {
-            if (disorderRatio->valueint > 90) disorderRatio->valueint = 90; // 
+            if (disorderRatio->valueint > 100) disorderRatio->valueint = 100; // 
             if (disorderRatio->valueint < 0) disorderRatio->valueint = 0;
 
             superTable->disorderRatio = (int)disorderRatio->valueint;

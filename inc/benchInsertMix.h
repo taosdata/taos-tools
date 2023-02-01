@@ -18,6 +18,8 @@
 
 #define ABS_DIFF(a, b) (a > b ? a - b : b - a)
 
+#define FULL_DISORDER(stb) (stb->disRatio == 100)
+
 // insert data to db->stb with info
 bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb);
 

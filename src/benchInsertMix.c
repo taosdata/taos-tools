@@ -91,6 +91,8 @@ void mixRatioInit(SMixRatio* mix, SSuperTable* stb) {
   mix->genCnt[MUPD] = mix->insertRows * stb->updRatio / 100;
   mix->genCnt[MDEL] = mix->insertRows * stb->delRatio / 100;
 
+  if(FULL_DISORDER(stb)) mix->genCnt[MDIS] = 0;
+
   // malloc buffer
   for (int32_t i = 0; i < MCNT - 1; i++) {
     // max
@@ -476,7 +478,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
   
   int32_t timestamp_step = stb->timestamp_step;
   // full disorder
-  if(stb->disorderRatio == 100) timestamp_step *= -1;
+  if(FULL_DISORDER(stb)) timestamp_step *= -1;
 
   debugPrint("  batch gen StartTime=%" PRId64 " batchID=%d \n", *pStartTime, mix->curBatchCnt);
   int32_t last = -1;
@@ -614,7 +616,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   if (count == 0) count = 1;
 
   int64_t ds = batStartTime - RD(range);
-  if(stb->disorderRatio == 100) ds = batStartTime + RD(range);
+  if(FULL_DISORDER(stb)) ds = batStartTime + RD(range);
 
   int64_t de = ds + count * stb->timestamp_step;
 
@@ -856,7 +858,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     // print
     if (mixRatio.insertedRows + tbTotal.ordRows + tbTotal.disRows + tbTotal.updRows + tbTotal.delRows > 0) {
       infoPrint("table:%s inserted(%" PRId64 ") rows order(%" PRId64 ")  disorder(%" PRId64 ") update(%" PRId64 ") delete(%" PRId64 ") \n",
-                tbName, mixRatio.insertedRows, tbTotal.ordRows, tbTotal.disRows, tbTotal.updRows, tbTotal.delRows);
+                tbName, mixRatio.insertedRows, FULL_DISORDER(stb) ? 0 : tbTotal.ordRows, FULL_DISORDER(stb) ? tbTotal.ordRows : tbTotal.disRows, 
+                tbTotal.updRows, tbTotal.delRows);
     }
 
     // table total -> all total
