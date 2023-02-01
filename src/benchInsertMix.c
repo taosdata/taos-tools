@@ -473,6 +473,10 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
 
   bool forceDis = FORCE_TAKEOUT(MDIS);
   bool forceUpd = FORCE_TAKEOUT(MUPD);
+  
+  int32_t timestamp_step = stb->timestamp_step;
+  // full disorder
+  if(stb->disorderRatio == 100) timestamp_step *= -1;
 
   debugPrint("  batch gen StartTime=%" PRId64 " batchID=%d \n", *pStartTime, mix->curBatchCnt);
   int32_t last = -1;
@@ -507,7 +511,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
 
         if(genRows >= g_arguments->reqPerReq) {
           // move to next batch start time
-          ts += stb->timestamp_step;
+          ts += timestamp_step;
           break;
         }
 
@@ -532,7 +536,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
                 debugPrint("   upd ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->updRows);
                 if (genRows >= g_arguments->reqPerReq) {
                   // move to next batch start time
-                  ts += stb->timestamp_step;
+                  ts += timestamp_step;
                   break;
                 }
               }
@@ -564,7 +568,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
     } // if RULE_
 
     // move next ts
-    ts += stb->timestamp_step;
+    ts += timestamp_step;
 
     // check over MAX_SQL_LENGTH
     if (len > (MAX_SQL_LEN - stb->lenOfCols - 320)) {
@@ -592,7 +596,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
     return 0;
   }
 
-  int64_t range = batStartTime - stb->startTimestamp;
+  int64_t range = ABS_DIFF(batStartTime, stb->startTimestamp);
   int64_t rangeCnt = range / stb->timestamp_step;
 
   if (rangeCnt < 200) return 0;
@@ -610,6 +614,8 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   if (count == 0) count = 1;
 
   int64_t ds = batStartTime - RD(range);
+  if(stb->disorderRatio == 100) ds = batStartTime + RD(range);
+
   int64_t de = ds + count * stb->timestamp_step;
 
   char where[128] = "";

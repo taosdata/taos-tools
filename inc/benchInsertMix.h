@@ -16,6 +16,8 @@
 #ifndef __BENCHINSERTMIX_H_
 #define __BENCHINSERTMIX_H_
 
+#define ABS_DIFF(a, b) (a > b ? a - b : b - a)
+
 // insert data to db->stb with info
 bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb);
 
