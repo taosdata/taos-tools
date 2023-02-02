@@ -40,6 +40,13 @@ sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson
 （参考 [链接](https://github.com/google/snappy/pull/86)），会导致
 cmake 提示无法发现 libsnappy，实际上工作正常。
 
+如果有些包由于 CentOS 8 EOL 的问题无法下载，可以尝试先执行如下命令：
+
+```
+sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+```
+
 #### 对于 macOS 系统（目前仅支持 taosBenchmark）
 
 ```shell

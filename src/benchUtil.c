@@ -436,7 +436,8 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
             && protocol == TSDB_SML_TELNET_PROTOCOL) {
         sprintf(url, "/opentsdb/v1/put/telnet/%s", dbName);
     } else if (iface == SML_REST_IFACE
-            && protocol == TSDB_SML_JSON_PROTOCOL) {
+            && (protocol == TSDB_SML_JSON_PROTOCOL
+                || protocol == SML_JSON_TAOS_FORMAT)) {
         sprintf(url, "/opentsdb/v1/put/json/%s", dbName);
     }
 
@@ -685,7 +686,8 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
 
     if (NULL != strstr(responseBuf, opentsdbHttpOk)
             && (protocol == TSDB_SML_TELNET_PROTOCOL
-            || protocol == TSDB_SML_JSON_PROTOCOL)
+            || protocol == TSDB_SML_JSON_PROTOCOL
+            || protocol == SML_JSON_TAOS_FORMAT)
             && iface == SML_REST_IFACE) {
         code = 0;
         goto free_of_post;

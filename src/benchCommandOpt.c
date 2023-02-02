@@ -179,8 +179,19 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 if (false == g_arguments->port_inputted) {
                     g_arguments->port = DEFAULT_REST_PORT;
                 }
-            } else if (0 == strcasecmp(arg, "sml")) {
+            } else if (0 == strcasecmp(arg, "sml")
+                    || 0 == strcasecmp(arg, "sml-line")) {
                 stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-telnet")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-json")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_JSON_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-taosjson")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = SML_JSON_TAOS_FORMAT;
             } else {
                 errorPrint(
                            "Invalid -I: %s, will auto set to default (taosc)\n",
@@ -396,13 +407,13 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                         arg);
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
             } else if (g_arguments->binwidth >
-			    (TSDB_MAX_BINARY_LEN - sizeof(int64_t) -2)) {
+                (TSDB_MAX_BINARY_LEN - sizeof(int64_t) -2)) {
                 errorPrint(
-                           "-w(%d) > (TSDB_MAX_BINARY_LEN(%u"
-                                   ")-(TIMESTAMP length(%zu) - extrabytes(2), "
-				   "will auto set to default(64)\n",
-                           g_arguments->binwidth,
-			   TSDB_MAX_BINARY_LEN, sizeof(int64_t));
+                        "-w(%d) > (TSDB_MAX_BINARY_LEN(%u"
+                        ")-(TIMESTAMP length(%zu) - extrabytes(2), "
+                        "will auto set to default(64)\n",
+                        g_arguments->binwidth,
+                        TSDB_MAX_BINARY_LEN, sizeof(int64_t));
                 g_arguments->binwidth = DEFAULT_BINWIDTH;
             }
             break;
@@ -516,7 +527,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             }
             g_arguments->nthreads_auto = false;
             g_arguments->inputted_vgroups = atoi(arg);
-	    break;
+            break;
 #endif
 
         case 'V':

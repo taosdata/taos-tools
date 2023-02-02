@@ -156,6 +156,8 @@
 
 #define TS_COL_NAME "ts"
 #define  RD(max) (taosRandom() % max)
+#define SML_JSON_TAOS_FORMAT    255
+
 
 
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
@@ -243,42 +245,42 @@
         fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                         \
     } while (0)
 
-#define infoPrintToFile(fp, fmt, ...)                                          \
+#define infoPrintToFile(fp, fmt, ...)                                    \
     do {                                                                 \
         struct tm      Tm, *ptm;                                         \
         struct timeval timeSecs;                                         \
         time_t         curTime;                                          \
         toolsGetTimeOfDay(&timeSecs);                                    \
         curTime = timeSecs.tv_sec;                                       \
-        ptm = toolsLocalTime(&curTime, &Tm);                                \
+        ptm = toolsLocalTime(&curTime, &Tm);                             \
         fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
                 (int32_t)timeSecs.tv_usec);                              \
         fprintf(fp, "INFO: " fmt, __VA_ARGS__);                          \
     } while (0)
 
-#define perfPrint(fmt, ...)                                       \
-    do {                                                                     \
-        if (g_arguments->performance_print) {                                \
-            struct tm      Tm, *ptm;                                         \
-            struct timeval timeSecs;                                         \
-            time_t         curTime;                                          \
-            toolsGetTimeOfDay(&timeSecs);                                    \
-            curTime = timeSecs.tv_sec;                                       \
+#define perfPrint(fmt, ...)                                                     \
+    do {                                                                        \
+        if (g_arguments->performance_print) {                                   \
+            struct tm      Tm, *ptm;                                            \
+            struct timeval timeSecs;                                            \
+            time_t         curTime;                                             \
+            toolsGetTimeOfDay(&timeSecs);                                       \
+            curTime = timeSecs.tv_sec;                                          \
             ptm = toolsLocalTime(&curTime, &Tm);                                \
-            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
-                    (int32_t)timeSecs.tv_usec);                              \
-            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                          \
-            if (g_arguments->fpOfInsertResult) {                                \
+            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
+                    (int32_t)timeSecs.tv_usec);                                 \
+            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                         \
+            if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
                 fprintf(g_arguments->fpOfInsertResult,                          \
                         "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
-                        ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                        (int32_t)timeSecs.tv_usec);                                 \
-                fprintf(g_arguments->fpOfInsertResult, "PERF: ");              \
+                        ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
+                        (int32_t)timeSecs.tv_usec);                             \
+                fprintf(g_arguments->fpOfInsertResult, "PERF: ");               \
                 fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
             }                                                                   \
-        }                                                                    \
+        }                                                                       \
     } while (0)
 
 #define errorPrint(fmt, ...)                                         \
@@ -299,7 +301,7 @@
         }                                                                   \
         fprintf(stderr, "" fmt, __VA_ARGS__);                               \
         fprintf(stderr, "\033[0m");                                         \
-        if (g_arguments->fpOfInsertResult) {                                \
+        if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
             fprintf(g_arguments->fpOfInsertResult,                          \
                     "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
@@ -327,7 +329,7 @@
         }                                                                   \
         fprintf(stderr, "" fmt, __VA_ARGS__);                               \
         fprintf(stderr, "\033[0m");                                         \
-        if (g_arguments->fpOfInsertResult) {                                \
+        if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
             fprintf(g_arguments->fpOfInsertResult,                          \
                     "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
@@ -355,7 +357,7 @@
         }                                                                   \
         fprintf(stderr, "" fmt, __VA_ARGS__);                               \
         fprintf(stderr, "\033[0m");                                         \
-        if (g_arguments->fpOfInsertResult) {                                \
+        if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
             fprintf(g_arguments->fpOfInsertResult,                          \
                     "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
