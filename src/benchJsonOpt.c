@@ -770,6 +770,22 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->writeFuture = true;
         }
 
+        // insert retry count
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "insert_retry_count");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            superTable->failedRetry = itemObj->valueint;
+        }
+        // insert_failed_retry
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "insert_failed_retry");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            superTable->retrySleepMs = itemObj->valueint;
+        }
+        // retry_sleep_ms
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "check_correct_interval");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            superTable->checkInterval = itemObj->valueint;
+        }
+
         tools_cJSON *insertInterval =
             tools_cJSON_GetObjectItem(stbInfo, "insert_interval");
         if (tools_cJSON_IsNumber(insertInterval)) {

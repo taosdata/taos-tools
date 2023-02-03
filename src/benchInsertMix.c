@@ -11,6 +11,7 @@
  */
 
 #include "bench.h"
+#include "wrapDb.h"
 #include "benchData.h"
 #include "benchDataMix.h"
 #include "benchInsertMix.h"
@@ -636,9 +637,10 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   sprintf(where, " ts >= %" PRId64 " and ts < %" PRId64 ";", ds, de);
   sprintf(sql, "select count(*) from %s where %s", tbName, where);
 
-  int64_t queryCnt = queryCount(taos, sql);
-  if(queryCnt == 0) return 0;
-  count = queryCnt;
+  int64_t count64 = 0;
+  queryCnt(taos, sql, &count64);
+  if(count64 == 0) return 0;
+  count = count64;
 
   len += snprintf(pstr + len, MAX_SQL_LEN - len, "%s", where);
   //infoPrint("  batch delete cnt=%d range=%s \n", count, where);
@@ -658,36 +660,6 @@ void appendEndCheckSql(threadInfo* info) {
   }
 }
 
-int64_t queryCount(TAOS* taos, char* sql) {
-  int64_t count = 0;
-  // execute sql
-  TAOS_RES* res = taos_query(taos, sql);
-  int32_t   code = taos_errno(res);
-  if (code != 0) {
-    printErrCmdCodeStr(sql, code, res);
-    return 0;
-  }
-
-  // count
-  TAOS_FIELD* fields = taos_fetch_fields(res);
-  TAOS_ROW row = taos_fetch_row(res);
-  code = taos_errno(res);
-  if (code != 0) {
-    printErrCmdCodeStr(sql, code, res);
-    taos_free_result(res);
-    return 0;
-  }
-
-  // int32_t* lengths = taos_fetch_lengths(res);
-  if (fields[0].type == TSDB_DATA_TYPE_BIGINT) {
-    count = *(int64_t*)row[0];
-  }
-
-  // if calc by ts
-  taos_free_result(res);
-  return count;
-}
-
 bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, char* tbName, int32_t loop) {
 
   // info
@@ -698,7 +670,8 @@ bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, char* tbName, int32_t lo
     return false;
   }
 
-  int64_t count = queryCount(info->conn->ctaos, info->csql);
+  int64_t count = 0;
+  queryCnt(info->conn->ctaos, info->csql, &count);
   if(count == 0) {
     return false;
   }
@@ -710,6 +683,63 @@ bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, char* tbName, int32_t lo
     return false;
   } else {
     infoPrint("  %s check write count ok. loop=%d query: %" PRId64 " inserted: %d\n", tbName, loop, count, rowsCnt);
+  }
+
+  return true;
+}
+
+int32_t execInsert(threadInfo* info, SSuperTable* stb, uint32_t rows) {
+  int32_t ret = execBufSql(info, rows);
+  if (ret == 0) return 0;
+
+  // no need retry
+  if (stb->failedRetry == 0) return ret;
+
+  int32_t loop = 0;
+  while (stb->failedRetry == -1 || ++loop <= stb->failedRetry) {
+    // sleep
+    if (stb->retrySleepMs > 0) {
+      toolsMsleep(stb->retrySleepMs);
+    }
+    // exec
+    ret = execBufSql(info, rows);
+    if (0 == ret) return 0;
+  }
+
+  return ret;
+}
+
+bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbName, int64_t lastTs) {
+  char     sql[512];
+  int64_t  count = 0, ts = 0;
+  uint64_t calcCount = (lastTs - stb->startTimestamp) / stb->timestamp_step;
+
+  // check count correct
+  sprintf(sql, "select count(*) from %s.%s ", db->dbName, tbName);
+  int32_t code = queryCnt(info->conn->taos, sql, &count);
+  if (code != 0) {
+    errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
+    return false;
+  }
+  if (count != calcCount) {
+    errorPrint("checkCorrect query count unexpect, tbname=%s query=%" PRId64 " expect=%" PRId64, tbName, count,
+               calcCount);
+    return false;
+  }
+
+  // check last(ts) correct
+  sprintf(sql, "select last(ts) from %s.%s ", db->dbName, tbName);
+  code = queryTS(info->conn->taos, sql, &ts);
+  if (code != 0) {
+    errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
+    return false;
+  }
+
+  // check count correct
+  if (ts != lastTs) {
+    errorPrint("checkCorrect query last unexpect, tbname=%s query lasst=%" PRId64 " expect=%" PRId64, tbName, ts,
+               lastTs);
+    return false;
   }
 
   return true;
@@ -768,7 +798,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // execute insert sql
       int64_t startTs = toolsGetTimestampUs();
       //g_arguments->debug_print = false;
-      if (execBufSql(info, batchRows) != 0) {
+      if (execInsert(info, stb, batchRows) != 0) {
         FAILED_BREAK()
       }
       //g_arguments->debug_print = true;
@@ -823,7 +853,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
             FAILED_BREAK()
           }
 
-          int64_t delCnt = queryCount(info->conn->taos, querySql);
+          int64_t delCnt = 0;
+          queryCnt(info->conn->taos, querySql, &delCnt);
           if (delCnt != 0) {
             errorPrint(" del not clear zero. query count=%" PRId64, delCnt);
             FAILED_BREAK();
@@ -868,6 +899,15 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
       // total
       mixRatio.curBatchCnt++;
+
+      if (stb->checkInterval > 0 || mixRatio.curBatchCnt % stb->checkInterval == 0) {
+        // need check
+        int64_t lastTs = batStartTime - stb->timestamp_step;
+        if (!checkCorrect(info, db, stb, tbName, lastTs)) {
+          FAILED_BREAK();
+        }
+      }
+
     }  // row end
 
     // print

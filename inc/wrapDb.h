@@ -13,13 +13,11 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __BENCHDATAMIX_H_
-#define __BENCHDATAMIX_H_
+#ifndef __WRAPDB_H_
+#define __WRAPDB_H_
 
+int32_t queryCnt(TAOS* taos, char* sql, int64_t * pVal);
 
-uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix);
-
-// data generate by calc ts 
-uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts);
+int32_t queryTS(TAOS* taos, char* sql, int64_t* pVal);
 
 #endif
