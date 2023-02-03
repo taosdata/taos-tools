@@ -2658,15 +2658,12 @@ int insertTestProcess() {
 #ifdef WEBSOCKET
                     if (g_arguments->websocket) {
                         dropSuperTable(database, stbInfo);
-                    } else {
-#endif
-                    if (0 == getSuperTableFromServer(database, stbInfo)) {
-                        dropSuperTable(database, stbInfo);
-                    }
-#ifdef WEBSOCKET
                     }
 #endif
-                    if (createSuperTable(database, stbInfo)) return -1;
+                    if (getSuperTableFromServer(database, stbInfo) != 0) {
+                        if (createSuperTable(database, stbInfo))
+                            return -1;
+                    }
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
