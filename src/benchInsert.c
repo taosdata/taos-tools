@@ -172,6 +172,7 @@ static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command)
     return ret;
 }
 
+#ifdef WEBSOCKET
 static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (g_arguments->supplementInsert) {
         return;
@@ -190,6 +191,7 @@ static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
 
     return;
 }
+#endif  // WEBSOCKET
 
 static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (g_arguments->supplementInsert) {
