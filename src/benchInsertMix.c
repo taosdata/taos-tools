@@ -712,7 +712,7 @@ int32_t execInsert(threadInfo* info, SSuperTable* stb, uint32_t rows) {
 bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbName, int64_t lastTs) {
   char     sql[512];
   int64_t  count = 0, ts = 0;
-  uint64_t calcCount = (lastTs - stb->startTimestamp) / stb->timestamp_step;
+  uint64_t calcCount = (lastTs - stb->startTimestamp) / stb->timestamp_step + 1;
 
   // check count correct
   sprintf(sql, "select count(*) from %s.%s ", db->dbName, tbName);
