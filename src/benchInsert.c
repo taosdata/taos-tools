@@ -1765,6 +1765,7 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_UINT:
                 tmpP = calloc(1, sizeof(int) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1772,6 +1773,7 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_UTINYINT:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1779,6 +1781,7 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_USMALLINT:
                 tmpP = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1786,24 +1789,28 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_UBIGINT:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BOOL:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_FLOAT:
                 tmpP = calloc(1, sizeof(float) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_DOUBLE:
                 tmpP = calloc(1, sizeof(double) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1811,12 +1818,14 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_NCHAR:
                 tmpP = calloc(1, g_arguments->prepared_rand * col->length);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_TIMESTAMP:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -2664,8 +2673,9 @@ int insertTestProcess() {
                     }
 #endif
                     if (getSuperTableFromServer(database, stbInfo) != 0) {
-                        if (createSuperTable(database, stbInfo))
+                        if (createSuperTable(database, stbInfo)) {
                             return -1;
+                        }
                     }
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
