@@ -154,6 +154,9 @@
 #define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
+// tdengine define macro 
+#define TSDB_DEFAULT_DURATION_PER_FILE  (10 * 1440)
+
 #define TS_COL_NAME "ts"
 #define  RD(max) (taosRandom() % max)
 #define SML_JSON_TAOS_FORMAT    255
@@ -531,6 +534,11 @@ typedef struct SSuperTable_S {
     // nchar prefix
     char*    ncharPrefex;
 
+    // random write future time
+    bool    useNow;
+    bool    writeFuture;
+    int32_t durMinute;  // passed database->durMinute
+
     int64_t  max_sql_len;
     uint64_t insert_interval;
     uint64_t insertRows;
@@ -594,6 +602,7 @@ typedef struct SDataBase_S {
     bool        drop;  // 0: use exists, 1: if exists, drop then new create
     int         precision;
     int         sml_precision;
+    int         durMinute;  // duration minutes
     BArray     *cfgs;
     BArray     *superTbls;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0

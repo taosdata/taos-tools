@@ -236,8 +236,7 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
 uint32_t genDelPreSql(SDataBase* db, SSuperTable* stb, char* tableName, char* pstr) {
   uint32_t len = 0;
   // super table name or child table name random select
-  char* name = RD(2) ? tableName : stb->stbName;
-  len = snprintf(pstr, MAX_SQL_LEN, "delete from %s.%s where ", db->dbName, name);
+  len = snprintf(pstr, MAX_SQL_LEN, "delete from %s.%s where ", db->dbName, tableName);
 
   return len;
 }
@@ -279,8 +278,21 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
 #define GET_IDX(i) info->batCols[i]
 uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
   uint32_t size = 0;
-  // first col is ts 
-  size = snprintf(pstr +len, MAX_SQL_LEN - len, "(%" PRId64, ts);
+  // first col is ts
+  if (stb->useNow) {
+    char now[32] = "now";
+    // write future 1% fixed fill
+    if (stb->writeFuture && RD(100) == 0) {
+      int32_t min = RD(stb->durMinute);
+      if (min <= 0) min = 1;
+      if (min > 120) min -= 60;  // delay 1 hour prevent date time out
+      sprintf(now, "now+%dm", min);
+    }
+
+    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%s", now);
+  } else {
+    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64, ts);
+  }
 
   // other cols data
   for(uint16_t i = 0; i< info->nBatCols; i++) {
@@ -724,6 +736,9 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
   STotal total;
   memset(&total, 0, sizeof(STotal));
+
+  // passed variant set
+  stb->durMinute = db->durMinute;
 
   // loop insert child tables
   for (uint64_t tbIdx = info->start_table_from; tbIdx <= info->end_table_to; ++tbIdx) {

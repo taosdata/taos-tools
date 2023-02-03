@@ -16,6 +16,7 @@
 #ifndef __BENCHINSERTMIX_H_
 #define __BENCHINSERTMIX_H_
 
+
 #define ABS_DIFF(a, b) (a > b ? a - b : b - a)
 
 #define FULL_DISORDER(stb) (stb->disRatio == 100)

@@ -239,6 +239,32 @@ PARSE_OVER:
     return code;
 }
 
+int32_t getDurationVal(tools_cJSON *jsonObj) {
+    int32_t durMinute = 0;
+    // get duration value
+    if (tools_cJSON_IsString(jsonObj)) {
+        char *val = jsonObj->valuestring;
+        // like 10d or 10h or 10m
+        int32_t len = strlen(val);
+        if (len == 0) return 0;
+        durMinute = atoi(val);
+        if (strchr(val, 'h') || strchr(val, 'H')) {
+            // hour
+            durMinute *= 60;
+        } else if (strchr(val, 'm') || strchr(val, 'M')) {
+            // minute
+            durMinute *= 1;
+        } else {
+            // day
+            durMinute *= 24 * 60;
+        }
+    } else if (tools_cJSON_IsNumber(jsonObj)) {
+        durMinute = jsonObj->valueint * 24 * 60;
+    }
+
+    return durMinute;
+}
+
 static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database;
     if (index > 0) {
@@ -284,6 +310,12 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         } else {
             SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
             cfg->name = cfg_object->string;
+
+            // get duration vallue
+            if (0 == strcasecmp(cfg_object->string, "duration")) {
+                database->durMinute = getDurationVal(cfg_object);
+            }
+
             if (tools_cJSON_IsString(cfg_object)) {
                 cfg->valuestring = cfg_object->valuestring;
             } else if (tools_cJSON_IsNumber(cfg_object)) {
@@ -298,6 +330,9 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         }
         cfg_object = cfg_object->next;
     }
+
+    // set default
+    if(database->durMinute == 0) database->durMinute = TSDB_DEFAULT_DURATION_PER_FILE;
 
     if (database->dbName  == NULL) {
         errorPrint("%s", "miss name in dbinfo\n");
@@ -423,6 +458,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->file_factor = -1;
         superTable->rollup = NULL;
         tools_cJSON *stbInfo = tools_cJSON_GetArrayItem(stables, i);
+        tools_cJSON *itemObj;
 
         tools_cJSON *stbName = tools_cJSON_GetObjectItem(stbInfo, "name");
         if (tools_cJSON_IsString(stbName)) {
@@ -562,6 +598,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =
                     toolsGetTimestamp(database->precision);
+                superTable->useNow = true;
+                //  fill time with now conflict wih check_sql 
+                g_arguments->check_sql = false;
             } else {
                 if (toolsParseTime(ts->valuestring,
                                    &(superTable->startTimestamp),
@@ -725,6 +764,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->ncharPrefex = NULL;
         }
 
+        // write future random
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "random_write_future");
+        if (tools_cJSON_IsString(itemObj) && (0 == strcasecmp(itemObj->valuestring, "yes"))) {
+            superTable->writeFuture = true;
+        }
 
         tools_cJSON *insertInterval =
             tools_cJSON_GetObjectItem(stbInfo, "insert_interval");
