@@ -338,6 +338,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
         printErrCmdCodeStr(cmd, code, res);
         return -1;
     }
+    taos_free_result(res);
 
     sprintf(cmd, "SHOW vgroups");
     res = taos_query(conn->taos, cmd);

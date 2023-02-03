@@ -83,11 +83,7 @@ class TDTestCase:
             tdSql.query("select count(*) from (select distinct(tbname) from db.stb)")
         else:
             tdSql.query("select count(tbname) from db.stb")
-<<<<<<< HEAD
         tdSql.checkData(0, 0, 2)
-=======
-        tdSql.checkData(0, 0, 6)
->>>>>>> c9f0b79ddb054c26fa22c8c66d896a3e17a4e5ea
 
     def stop(self):
         tdSql.close()
