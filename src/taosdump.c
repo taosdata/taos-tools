@@ -8939,8 +8939,8 @@ static int64_t fillTbNameArrWS(
                 debugPrint("%s() LN%d, ws_get_value_in_blocK() return %s. len: %d\n",
                         __func__, __LINE__, (char *)value0, len);
             }
-            tstrncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                    (char*)value0, min(TSDB_TABLE_NAME_LEN, len+1));
+            strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                    (char*)value0, min(TSDB_TABLE_NAME_LEN, len));
 
             debugPrint("%s() LN%d, sub table name: %s %"PRId64" of stable: %s\n",
                     __func__, __LINE__,
@@ -11297,8 +11297,7 @@ static bool fillDBInfoWithFieldsWS(
         } else {
             memset(tmp, 0, VALUE_BUF_LEN);
             memcpy(tmp, value, len);
-            strncpy(g_dbInfos[index]->name,
-                    tmp, len);
+            strncpy(g_dbInfos[index]->name, tmp, len);
         }
     } else if (0 == strcmp(name, "vgroups")) {
         if (TSDB_DATA_TYPE_INT == type) {
