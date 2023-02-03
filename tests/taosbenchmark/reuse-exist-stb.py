@@ -70,7 +70,7 @@ class TDTestCase:
         tdSql.execute("use db")
         tdSql.execute("create table stb (ts timestamp, c0 int)  tags (t0 int)")
         tdSql.execute("insert into stb_0 using stb tags (0) values (now, 0)")
-        sys.exit(0)
+#        sys.exit(0)
         cmd = "%s -f ./taosbenchmark/json/reuse-exist-stb.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
@@ -83,7 +83,7 @@ class TDTestCase:
             tdSql.query("select count(*) from (select distinct(tbname) from db.stb)")
         else:
             tdSql.query("select count(tbname) from db.stb")
-        tdSql.checkData(0, 0, 6)
+        tdSql.checkData(0, 0, 2)
 
     def stop(self):
         tdSql.close()
