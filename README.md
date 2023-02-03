@@ -52,6 +52,13 @@ sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)),
 it lead a cmake prompt libsnappy not found. But snappy will works well.
 
+In case you encounter the issue some packages are not found due to CentOS 8 EOL, you can try following instructions first.
+
+```
+sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+```
+
 #### For macOS (only taosBenchmark for now)
 
 ```shell
