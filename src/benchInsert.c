@@ -1757,6 +1757,7 @@ static int parseBufferToStmtBatch(
 
         is_null = calloc(1, sizeof(char) *g_arguments->prepared_rand);
         ASSERT(is_null);
+        tmfree(col->is_null);
         col->is_null = is_null;
 
         switch(dataType) {
