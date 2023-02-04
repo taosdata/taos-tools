@@ -340,7 +340,7 @@ int32_t queryDbExecRest(char *command, char* dbName, int precision,
     return code;
 }
 
-int32_t queryDbExecTaosc(SBenchConn *conn, char *command) {
+int32_t queryDbExecCall(SBenchConn *conn, char *command) {
     int32_t code = 0;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
@@ -383,8 +383,7 @@ void encodeAuthBase64() {
     size_t userpass_buf_len = strlen(userpass_buf);
     size_t encoded_len = 4 * ((userpass_buf_len + 2) / 3);
 
-    g_arguments->base64_buf = benchCalloc(1, INPUT_BUF_LEN, true);
-
+    memset(g_arguments->base64_buf, 0, INPUT_BUF_LEN);
     for (int n = 0, m = 0; n < userpass_buf_len;) {
         uint32_t oct_a =
             n < userpass_buf_len ? (unsigned char)userpass_buf[n++] : 0;
@@ -630,9 +629,9 @@ static int getCodeFromResp(char *responseBuf) {
         }
         errorPrint("response, code: %d, reason: %s\n",
                    (int)codeObj->valueint, desc->valuestring);
-        tools_cJSON_Delete(resObj);
     }
 
+    tools_cJSON_Delete(resObj);
     return code;
 }
 
