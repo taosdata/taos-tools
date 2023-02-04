@@ -703,7 +703,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     if(stb->trying_interval > 0 && code != 0) {
       toolsMsleep(stb->trying_interval);
     }
-  } while( code != 0 &&  loop++ < stb->keep_trying);
+  } while( code != 0 &&  loop++ < stb->keep_trying && count > 0);
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
@@ -711,6 +711,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
   if (count != calcCount) {
     errorPrint("checkCorrect query count unexpect, tbname=%s query=%" PRId64 " expect=%" PRId64, tbName, count,
                calcCount);
+
     return false;
   }
 
@@ -722,7 +723,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     if(stb->trying_interval > 0 && code != 0) {
       toolsMsleep(stb->trying_interval);
     }
-  } while( code != 0 &&  loop++ < stb->keep_trying);
+  } while( code != 0 &&  loop++ < stb->keep_trying && ts > 0);
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
@@ -730,7 +731,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 
   // check count correct
   if (ts != lastTs) {
-    errorPrint("checkCorrect query last unexpect, tbname=%s query lasst=%" PRId64 " expect=%" PRId64, tbName, ts,
+    errorPrint("checkCorrect query last unexpect, tbname=%s query last=%" PRId64 " expect=%" PRId64, tbName, ts,
                lastTs);
     return false;
   }
@@ -900,6 +901,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         int64_t lastTs = batStartTime - stb->timestamp_step;
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
           FAILED_BREAK();
+          // at once exit
+          exit(1);
         }
       }
 
