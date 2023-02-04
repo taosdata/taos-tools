@@ -902,7 +902,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // total
       mixRatio.curBatchCnt++;
 
-      if (stb->checkInterval > 0 || mixRatio.curBatchCnt % stb->checkInterval == 0) {
+      if (stb->checkInterval > 0 && mixRatio.curBatchCnt % stb->checkInterval == 0) {
         // need check
         int64_t lastTs = batStartTime - stb->timestamp_step;
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
