@@ -8,7 +8,7 @@
     "connection_pool_size": 8,
     "num_of_records_per_req": 100,
     "confirm_parameter_prompt": "no",
-    "thread_count": 10,
+    "thread_count": 1,
     "create_table_thread_count": 1,
     "result_file": "./case_lost.txt",
     "databases": [
@@ -36,6 +36,7 @@
                     "trying_interval":1000,
                     "check_correct_interval": 10,
                     "columns": [
+                        { "type": "timestamp",   "name": "tc"},
                         { "type": "bool",        "name": "bc"},
                         { "type": "float",       "name": "fc",  "max": 1, "min": 0 },
                         { "type": "double",      "name": "dc",  "max": 1, "min": 0 },

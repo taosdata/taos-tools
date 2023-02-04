@@ -700,7 +700,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 
   do {
     code = queryCnt(info->conn->taos, sql, &count);
-    if(stb->trying_interval > 0 && code != 0) {
+    if(stb->trying_interval > 0 && (code != 0 || count == 0 )) {
       toolsMsleep(stb->trying_interval);
     }
   } while( loop++ < stb->keep_trying &&  (code != 0 || count == 0 ));
@@ -720,7 +720,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
   loop = 0;
   do {
     code = queryTS(info->conn->taos, sql, &ts);
-    if(stb->trying_interval > 0 && code != 0) {
+    if(stb->trying_interval > 0 && (code != 0 || ts == 0 )) {
       toolsMsleep(stb->trying_interval);
     }
   } while( loop++ < stb->keep_trying &&  (code != 0 || ts == 0 ));
