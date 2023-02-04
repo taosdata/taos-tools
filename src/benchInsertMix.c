@@ -902,7 +902,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
           FAILED_BREAK();
           // at once exit
-          errorPrint(" \n\n *************  check correct not passed ! *********** \n\n");
+          errorPrint(" \n\n *************  check correct not passed %s.%s ! *********** \n\n", db->dbName, tbName);
           exit(1);
         }
       }
