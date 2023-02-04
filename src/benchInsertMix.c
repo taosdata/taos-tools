@@ -703,7 +703,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     if(stb->trying_interval > 0 && code != 0) {
       toolsMsleep(stb->trying_interval);
     }
-  } while( code != 0 &&  loop++ < stb->keep_trying && count == 0);
+  } while( loop++ < stb->keep_trying &&  (code != 0 || count == 0 ));
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
@@ -723,7 +723,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     if(stb->trying_interval > 0 && code != 0) {
       toolsMsleep(stb->trying_interval);
     }
-  } while( code != 0 &&  loop++ < stb->keep_trying && ts == 0);
+  } while( loop++ < stb->keep_trying &&  (code != 0 || ts == 0 ));
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
@@ -900,10 +900,10 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         // need check
         int64_t lastTs = batStartTime - stb->timestamp_step;
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
-          FAILED_BREAK();
           // at once exit
           errorPrint(" \n\n *************  check correct not passed %s.%s ! *********** \n\n", db->dbName, tbName);
           exit(1);
+          FAILED_BREAK();
         }
       }
 
