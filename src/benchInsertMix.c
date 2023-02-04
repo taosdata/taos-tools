@@ -733,7 +733,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
-  }
+  } 
 
   // check count correct
   if (ts != lastTs) {
@@ -741,6 +741,8 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
                lastTs);
     return false;
   }
+
+  infoPrint(" checkCorrect %s.%s count=%" PRId64 "lastTs=%"PRId64 " ...... passed.\n", db->dbName, tbName, count, ts);
 
   return true;
 }
