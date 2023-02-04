@@ -695,7 +695,15 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 
   // check count correct
   sprintf(sql, "select count(*) from %s.%s ", db->dbName, tbName);
-  int32_t code = queryCnt(info->conn->taos, sql, &count);
+  int32_t loop = 0;
+  int32_t code = 0;
+
+  do {
+    code = queryCnt(info->conn->taos, sql, &count);
+    if(stb->trying_interval > 0 && code != 0) {
+      toolsMsleep(stb->trying_interval);
+    }
+  } while( code != 0 &&  loop++ < stb->keep_trying)
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
@@ -708,7 +716,13 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 
   // check last(ts) correct
   sprintf(sql, "select last(ts) from %s.%s ", db->dbName, tbName);
-  code = queryTS(info->conn->taos, sql, &ts);
+  loop = 0;
+  do {
+    code = queryTS(info->conn->taos, sql, &ts);
+    if(stb->trying_interval > 0 && code != 0) {
+      toolsMsleep(stb->trying_interval);
+    }
+  } while( code != 0 &&  loop++ < stb->keep_trying)  
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
