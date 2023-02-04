@@ -688,27 +688,6 @@ bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, char* tbName, int32_t lo
   return true;
 }
 
-int32_t execInsert(threadInfo* info, SSuperTable* stb, uint32_t rows) {
-  int32_t ret = execBufSql(info, rows);
-  if (ret == 0) return 0;
-
-  // no need retry
-  if (stb->failedRetry == 0) return ret;
-
-  int32_t loop = 0;
-  while (stb->failedRetry == -1 || ++loop <= stb->failedRetry) {
-    // sleep
-    if (stb->retrySleepMs > 0) {
-      toolsMsleep(stb->retrySleepMs);
-    }
-    // exec
-    ret = execBufSql(info, rows);
-    if (0 == ret) return 0;
-  }
-
-  return ret;
-}
-
 bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbName, int64_t lastTs) {
   char     sql[512];
   int64_t  count = 0, ts = 0;
