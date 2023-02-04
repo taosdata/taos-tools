@@ -656,7 +656,7 @@ typedef struct SArguments_S {
     FILE *              fpOfInsertResult;
     BArray *            databases;
     BArray*             streams;
-    char *              base64_buf;
+    char                base64_buf[INPUT_BUF_LEN];
 #ifdef LINUX
     sem_t               cancelSem;
 #endif

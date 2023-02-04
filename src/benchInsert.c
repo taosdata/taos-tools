@@ -877,7 +877,6 @@ static int createChildTables() {
 }
 
 void postFreeResource() {
-    tmfree(g_arguments->base64_buf);
     tmfclose(g_arguments->fpOfInsertResult);
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
