@@ -800,7 +800,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // execute insert sql
       int64_t startTs = toolsGetTimestampUs();
       //g_arguments->debug_print = false;
-      if (execInsert(info, stb, batchRows) != 0) {
+      if (execBufSql(info, batchRows) != 0) {
         FAILED_BREAK()
       }
       //g_arguments->debug_print = true;

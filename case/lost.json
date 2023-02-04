@@ -32,9 +32,9 @@
                     "timestamp_step": 10,
                     "start_timestamp":1500000000000,
                     "generate_row_rule":3,
-                    "insert_failed_retry":-1,
-                    "retry_sleep_ms":1000,
-                    "check_correct_interval": 10000,
+                    "keep_trying": 10000000,
+                    "trying_interval":1000,
+                    "check_correct_interval": 10,
                     "columns": [
                         { "type": "bool",        "name": "bc"},
                         { "type": "float",       "name": "fc",  "max": 1, "min": 0 },

@@ -538,8 +538,6 @@ typedef struct SSuperTable_S {
     bool    useNow;
     bool    writeFuture;
     int32_t durMinute;  // passed database->durMinute
-    int32_t failedRetry;
-    int32_t retrySleepMs;
     int32_t checkInterval; // check correct interval
 
     int64_t  max_sql_len;
