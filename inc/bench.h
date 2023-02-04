@@ -785,7 +785,7 @@ int     getServerVersionRest(int16_t rest_port);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                     int protocol, uint16_t rest_port, bool tcp,
                     int sockfd, char* filePath);
-int     queryDbExecTaosc(SBenchConn *conn, char *command);
+int     queryDbExecCall(SBenchConn *conn, char *command);
 int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);
 SBenchConn* initBenchConn();
