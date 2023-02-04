@@ -742,7 +742,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     return false;
   }
 
-  infoPrint(" checkCorrect %s.%s count=%" PRId64 "lastTs=%"PRId64 " ...... passed.\n", db->dbName, tbName, count, ts);
+  infoPrint(" checkCorrect %s.%s count=%" PRId64 "  lastTs=%"PRId64 "  ......  passed.\n", db->dbName, tbName, count, ts);
 
   return true;
 }

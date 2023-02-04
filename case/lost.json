@@ -8,7 +8,7 @@
     "connection_pool_size": 8,
     "num_of_records_per_req": 100,
     "confirm_parameter_prompt": "no",
-    "thread_count": 1,
+    "thread_count": 10,
     "create_table_thread_count": 1,
     "result_file": "./case_lost.txt",
     "databases": [
@@ -31,8 +31,8 @@
                     "insert_interval": 0,
                     "timestamp_step": 10,
                     "start_timestamp":1500000000000,
-                    "generate_row_rule": 2,
-                    "insert_failed_retry":100,
+                    "generate_row_rule":3,
+                    "insert_failed_retry":-1,
                     "retry_sleep_ms":1000,
                     "check_correct_interval": 10000,
                     "columns": [
