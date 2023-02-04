@@ -629,9 +629,9 @@ static int getCodeFromResp(char *responseBuf) {
         }
         errorPrint("response, code: %d, reason: %s\n",
                    (int)codeObj->valueint, desc->valuestring);
-        tools_cJSON_Delete(resObj);
     }
 
+    tools_cJSON_Delete(resObj);
     return code;
 }
 
