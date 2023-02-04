@@ -703,7 +703,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     if(stb->trying_interval > 0 && code != 0) {
       toolsMsleep(stb->trying_interval);
     }
-  } while( code != 0 &&  loop++ < stb->keep_trying)
+  } while( code != 0 &&  loop++ < stb->keep_trying);
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
@@ -722,7 +722,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     if(stb->trying_interval > 0 && code != 0) {
       toolsMsleep(stb->trying_interval);
     }
-  } while( code != 0 &&  loop++ < stb->keep_trying)  
+  } while( code != 0 &&  loop++ < stb->keep_trying);
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
