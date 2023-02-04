@@ -177,17 +177,25 @@ uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts) {
     // signed    
     case TSDB_DATA_TYPE_TINYINT:
     case TSDB_DATA_TYPE_SMALLINT:
+        sprintf(val, "%d", ts%100); 
+        break;
     case TSDB_DATA_TYPE_INT:
     case TSDB_DATA_TYPE_BIGINT:
+        sprintf(val, "%d", ts%1000000); 
+        break;
     // unsigned    
     case TSDB_DATA_TYPE_UTINYINT:
     case TSDB_DATA_TYPE_USMALLINT:
+        sprintf(val, "%u", ts%100); 
+        break;    
     case TSDB_DATA_TYPE_UINT:
     case TSDB_DATA_TYPE_UBIGINT:
+        sprintf(val, "%u", ts%1000000); 
+        break;
     // float double
     case TSDB_DATA_TYPE_FLOAT:
     case TSDB_DATA_TYPE_DOUBLE:
-        sprintf(val, "%d", (int32_t)(ts % 10)); 
+        sprintf(val, "%f", ts); 
         break;
     // binary nchar
     case TSDB_DATA_TYPE_BINARY:
