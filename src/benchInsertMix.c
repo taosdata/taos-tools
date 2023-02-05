@@ -688,6 +688,9 @@ bool checkSqlsResult(threadInfo* info, int32_t rowsCnt, char* tbName, int32_t lo
   return true;
 }
 
+int32_t errQuertCnt = 0;
+int32_t errLastCnt = 0;
+
 bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbName, int64_t lastTs) {
   char     sql[512];
   int64_t  count = 0, ts = 0;
@@ -700,6 +703,10 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 
   do {
     code = queryCnt(info->conn->taos, sql, &count);
+    if(code == 0  && count == 0) {
+      errQuertCnt++;
+      errorPrint("  *** WARNING:  %s query count return zero. all error count=%d ***\n", tbName, errQuertCnt);
+    }
     if(stb->trying_interval > 0 && (code != 0 || count == 0 )) {
       toolsMsleep(stb->trying_interval);
     }
@@ -720,6 +727,11 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
   loop = 0;
   do {
     code = queryTS(info->conn->taos, sql, &ts);
+    if(code == 0  && ts == 0) {
+      errLastCnt++;
+      errorPrint("  *** WARNING:  %s query last ts return zero. all error count=%d ***\n", tbName, errLastCnt);
+    }
+
     if(stb->trying_interval > 0 && (code != 0 || ts == 0 )) {
       toolsMsleep(stb->trying_interval);
     }
@@ -895,13 +907,16 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
       // total
       mixRatio.curBatchCnt++;
+      if(stb->insert_interval > 0){
+        toolsMsleep(stb->insert_interval);
+      }
 
       if (stb->checkInterval > 0 && mixRatio.curBatchCnt % stb->checkInterval == 0) {
         // need check
         int64_t lastTs = batStartTime - stb->timestamp_step;
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
           // at once exit
-          errorPrint(" \n\n *************  check correct not passed %s.%s ! *********** \n\n", db->dbName, tbName);
+          errorPrint(" \n\n *************  check correct not passed %s.%s ! errQueryCnt=%d errLastCnt=%d *********** \n\n", db->dbName, tbName, errQuertCnt, errLastCnt);
           exit(1);
           FAILED_BREAK();
         }
