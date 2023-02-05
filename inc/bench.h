@@ -468,6 +468,12 @@ typedef struct STSMA {
     bool  done;
 } TSMA;
 
+enum CONTINUE_IF_FAIL_MODE {
+    NO_IF_FAILED,     // 0
+    YES_IF_FAILED,    // 1
+    SMART_IF_FAILED,  // 2
+};
+
 typedef struct SSuperTable_S {
     char *   stbName;
     bool     random_data_source;  // rand_gen or sample
@@ -483,6 +489,9 @@ typedef struct SSuperTable_S {
     uint16_t lineProtocol;
     uint64_t childTblLimit;
     uint64_t childTblOffset;
+    uint64_t childTblFrom;
+    uint64_t childTblTo;
+    enum CONTINUE_IF_FAIL_MODE continueIfFail;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
     uint32_t interlaceRows;  //
@@ -615,7 +624,6 @@ typedef struct SQueryMetaInfo_S {
     int32_t             killQueryInterval;
     uint64_t            response_buffer;
     bool                reset_query_cache;
-    bool                continue_if_fail;
     uint16_t            iface;
     char*               dbName;
 } SQueryMetaInfo;
@@ -677,6 +685,8 @@ typedef struct SArguments_S {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     int16_t             inputted_vgroups;
 #endif
+    enum CONTINUE_IF_FAIL_MODE continueIfFail;
+
 } SArguments;
 
 typedef struct SBenchConn{

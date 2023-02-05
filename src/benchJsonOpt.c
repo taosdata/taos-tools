@@ -540,23 +540,67 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
         tools_cJSON *transferProtocol =
             tools_cJSON_GetObjectItem(stbInfo, "tcp_transfer");
-        if (tools_cJSON_IsString(transferProtocol) &&
-            (0 == strcasecmp(transferProtocol->valuestring, "yes"))) {
+        if (tools_cJSON_IsString(transferProtocol)
+                && (0 == strcasecmp(transferProtocol->valuestring, "yes"))) {
             superTable->tcpTransfer = true;
         }
         tools_cJSON *childTbl_limit =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_limit");
-        if (tools_cJSON_IsNumber(childTbl_limit)
-            && (childTbl_limit->valueint >= 0)) {
-            superTable->childTblLimit = childTbl_limit->valueint;
-        } else {
-            superTable->childTblLimit = superTable->childTblCount;
-        };
+        if (tools_cJSON_IsNumber(childTbl_limit)) {
+            if (childTbl_limit->valueint >= 0) {
+                superTable->childTblLimit = childTbl_limit->valueint;
+            } else {
+                warnPrint("child table limit %"PRId64" is invalid, "
+                          "set to %"PRId64"\n",
+                          childTbl_limit->valueint,
+                          superTable->childTblCount);
+                superTable->childTblLimit = superTable->childTblCount;
+            };
+        }
         tools_cJSON *childTbl_offset =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_offset");
         if (tools_cJSON_IsNumber(childTbl_offset)) {
             superTable->childTblOffset = childTbl_offset->valueint;
         }
+        tools_cJSON *childTbl_from =
+            tools_cJSON_GetObjectItem(stbInfo, "childtable_from");
+        if (tools_cJSON_IsNumber(childTbl_from)) {
+            if (childTbl_from->valueint >= 0) {
+                superTable->childTblFrom = childTbl_from->valueint;
+            } else {
+                warnPrint("child table from %"PRId64" is invalid, set to 0\n",
+                          childTbl_from->valueint);
+                superTable->childTblFrom = 0;
+            };
+        }
+        tools_cJSON *childTbl_to =
+            tools_cJSON_GetObjectItem(stbInfo, "childtable_to");
+        if (tools_cJSON_IsNumber(childTbl_to)) {
+            superTable->childTblTo = childTbl_to->valueint;
+            if (superTable->childTblTo < superTable->childTblFrom) {
+                errorPrint("child table to is invalid number,"
+                    "%"PRId64" < %"PRId64"\n",
+                    superTable->childTblTo, superTable->childTblFrom);
+                return -1;
+            }
+        }
+
+        tools_cJSON *continueIfFail =
+            tools_cJSON_GetObjectItem(stbInfo, "continue_if_fail");  // yes, no,
+        if (tools_cJSON_IsString(continueIfFail)) {
+            if (0 == strcasecmp(continueIfFail->valuestring, "no")) {
+                superTable->continueIfFail = NO_IF_FAILED;
+            } else if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+                superTable->continueIfFail = YES_IF_FAILED;
+            } else if (0 == strcasecmp(continueIfFail->valuestring, "smart")) {
+                superTable->continueIfFail = SMART_IF_FAILED;
+            } else {
+                errorPrint("cointinue_if_fail has unknown mode %s\n",
+                           continueIfFail->valuestring);
+                return -1;
+            }
+        }
+
         tools_cJSON *ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
         if (tools_cJSON_IsString(ts)) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
@@ -983,8 +1027,16 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     tools_cJSON *continueIfFail =
         tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
     if (tools_cJSON_IsString(continueIfFail)) {
-        if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
-            g_queryInfo.continue_if_fail = true;
+        if (0 == strcasecmp(continueIfFail->valuestring, "no")) {
+            g_arguments->continueIfFail = NO_IF_FAILED;
+        } else if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+            g_arguments->continueIfFail = YES_IF_FAILED;
+        } else if (0 == strcasecmp(continueIfFail->valuestring, "smart")) {
+            g_arguments->continueIfFail = SMART_IF_FAILED;
+        } else {
+            errorPrint("cointinue_if_fail has unknown mode %s\n",
+                       continueIfFail->valuestring);
+            return -1;
         }
     }
 
