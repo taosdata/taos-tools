@@ -422,7 +422,7 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
     uint32_t size = 0;
     if (maxFill == 0) return 0;
 
-    uint32_t rdFill = RD(maxFill*0.75);
+    uint32_t rdFill = (uint32_t)(RD(maxFill) * 0.75);
     if(rdFill == 0) {
         rdFill = maxFill;
     }
