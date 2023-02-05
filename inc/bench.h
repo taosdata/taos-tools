@@ -158,7 +158,7 @@
 #define TSDB_DEFAULT_DURATION_PER_FILE  (10 * 1440)
 
 #define TS_COL_NAME "ts"
-#define  RD(max) (max==0 ? 1 : taosRandom() % max)
+#define  RD(max) ((max)==0 ? 1 : taosRandom() % (max))
 #define SML_JSON_TAOS_FORMAT    255
 
 

@@ -49,7 +49,7 @@ int32_t inul = 20; // interval null count
 
 #define FLOAT_RANDOM(type, min, max)    \
       {                                 \
-        type mid =  RD((int32_t)max);   \
+        type mid =  RD(100000000);   \
         mid += RD(1000000)/800001.1;    \
         if(RD(50) == 0) {               \
             mid = max;                  \
