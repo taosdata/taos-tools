@@ -2351,6 +2351,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                     pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, true);
                     if(g_arguments->check_sql) {
                         pThreadInfo->csql = benchCalloc(1, MAX_SQL_LEN, true);
+                        memset(pThreadInfo->csql, 0, MAX_SQL_LEN);
                     }
                 }
 
