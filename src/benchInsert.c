@@ -148,14 +148,14 @@ static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command)
         if (NULL == conn) {
             ret = -1;
         } else {
-            ret = queryDbExecTaosc(conn, command);
+            ret = queryDbExecCall(conn, command);
             int32_t trying = g_arguments->keep_trying;
             while (ret && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-create "
                           "supertable %s\n",
                           g_arguments->trying_interval, stbInfo->stbName);
                 toolsMsleep(g_arguments->trying_interval);
-                ret = queryDbExecTaosc(conn, command);
+                ret = queryDbExecCall(conn, command);
                 if (trying != -1) {
                     trying --;
                 }
@@ -172,6 +172,7 @@ static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command)
     return ret;
 }
 
+#ifdef WEBSOCKET
 static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (g_arguments->supplementInsert) {
         return;
@@ -190,6 +191,7 @@ static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
 
     return;
 }
+#endif  // WEBSOCKET
 
 static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (g_arguments->supplementInsert) {
@@ -499,7 +501,7 @@ int createDatabaseTaosc(SDataBase* database) {
             SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
             if (stream->drop) {
                 sprintf(command, "DROP STREAM IF EXISTS %s;", stream->stream_name);
-                if (queryDbExecTaosc(conn, command)) {
+                if (queryDbExecCall(conn, command)) {
                     closeBenchConn(conn);
                     return -1;
                 }
@@ -510,7 +512,7 @@ int createDatabaseTaosc(SDataBase* database) {
     }
 
     sprintf(command, "DROP DATABASE IF EXISTS %s;", database->dbName);
-    if (0 != queryDbExecTaosc(conn, command)) {
+    if (0 != queryDbExecCall(conn, command)) {
 #ifdef WEBSOCKET
         if (g_arguments->websocket) {
             warnPrint("%s", "TDengine cloud normal users have no privilege "
@@ -537,14 +539,14 @@ int createDatabaseTaosc(SDataBase* database) {
 #endif
     geneDbCreateCmd(database, command, remainVnodes);
 
-    int32_t code = queryDbExecTaosc(conn, command);
+    int32_t code = queryDbExecCall(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds then "
                   "re-create database %s\n",
                   g_arguments->trying_interval, database->dbName);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExecTaosc(conn, command);
+        code = queryDbExecCall(conn, command);
         if (trying != -1) {
             trying --;
         }
@@ -692,14 +694,14 @@ static void *createTable(void *sarg) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd);
         } else {
-            ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
+            ret = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
             int32_t trying = g_arguments->keep_trying;
             while (ret && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-create "
                           "table %s\n",
                           g_arguments->trying_interval, pThreadInfo->buffer);
                 toolsMsleep(g_arguments->trying_interval);
-                ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
+                ret = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
                 }
@@ -731,7 +733,7 @@ static void *createTable(void *sarg) {
                                   stbInfo->tcpTransfer,
                                   pThreadInfo->sockfd);
         } else {
-            ret = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
+            ret = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
         }
         if (0 != ret) {
             g_fail = true;
@@ -875,7 +877,6 @@ static int createChildTables() {
 }
 
 void postFreeResource() {
-    tmfree(g_arguments->base64_buf);
     tmfclose(g_arguments->fpOfInsertResult);
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
@@ -955,12 +956,12 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     switch (iface) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
-            code = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
+            code = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
             while (code && trying) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
-                code = queryDbExecTaosc(pThreadInfo->conn, pThreadInfo->buffer);
+                code = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
                     trying --;
                 }
@@ -1756,6 +1757,7 @@ static int parseBufferToStmtBatch(
 
         is_null = calloc(1, sizeof(char) *g_arguments->prepared_rand);
         ASSERT(is_null);
+        tmfree(col->is_null);
         col->is_null = is_null;
 
         switch(dataType) {
@@ -1763,6 +1765,7 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_UINT:
                 tmpP = calloc(1, sizeof(int) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1770,6 +1773,7 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_UTINYINT:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1777,6 +1781,7 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_USMALLINT:
                 tmpP = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1784,24 +1789,28 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_UBIGINT:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BOOL:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_FLOAT:
                 tmpP = calloc(1, sizeof(float) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_DOUBLE:
                 tmpP = calloc(1, sizeof(double) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -1809,12 +1818,14 @@ static int parseBufferToStmtBatch(
             case TSDB_DATA_TYPE_NCHAR:
                 tmpP = calloc(1, g_arguments->prepared_rand * col->length);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_TIMESTAMP:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
+                tmfree(col->data);
                 col->data = (void*)tmpP;
                 break;
 
@@ -2331,7 +2342,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
                 char command[SQL_BUFF_LEN];
                 sprintf(command, "USE %s", database->dbName);
-                if (queryDbExecTaosc(pThreadInfo->conn, command)) {
+                if (queryDbExecCall(pThreadInfo->conn, command)) {
                     tmfree(pids);
                     tmfree(infos);
                     errorPrint("taos select database(%s) failed\n",
@@ -2513,7 +2524,7 @@ static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
     if (tsma->custom) {
         snprintf(command + len, SQL_BUFF_LEN - len, " %s", tsma->custom);
     }
-    int code = queryDbExecTaosc(conn, command);
+    int code = queryDbExecCall(conn, command);
     if (code == 0) {
         infoPrint("successfully create tsma with command <%s>\n", command);
     }
@@ -2562,13 +2573,13 @@ static int32_t createStream(SSTREAM* stream) {
         goto END;
     }
 
-    code = queryDbExecTaosc(conn, command);
+    code = queryDbExecCall(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds then re-drop stream %s\n",
                           g_arguments->trying_interval, stream->stream_name);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExecTaosc(conn, command);
+        code = queryDbExecCall(conn, command);
         if (trying != -1) {
             trying --;
         }
@@ -2594,14 +2605,14 @@ static int32_t createStream(SSTREAM* stream) {
             "INTO %s as %s", stream->stream_stb, stream->source_sql);
     infoPrint("%s\n", command);
 
-    code = queryDbExecTaosc(conn, command);
+    code = queryDbExecCall(conn, command);
     trying = g_arguments->keep_trying;
     while (code && trying) {
         infoPrint("will sleep %"PRIu32" milliseconds "
                   "then re-create stream %s\n",
                   g_arguments->trying_interval, stream->stream_name);
         toolsMsleep(g_arguments->trying_interval);
-        code = queryDbExecTaosc(conn, command);
+        code = queryDbExecCall(conn, command);
         if (trying != -1) {
             trying --;
         }
@@ -2659,15 +2670,13 @@ int insertTestProcess() {
 #ifdef WEBSOCKET
                     if (g_arguments->websocket) {
                         dropSuperTable(database, stbInfo);
-                    } else {
-#endif
-                    if (0 == getSuperTableFromServer(database, stbInfo)) {
-                        dropSuperTable(database, stbInfo);
-                    }
-#ifdef WEBSOCKET
                     }
 #endif
-                    if (createSuperTable(database, stbInfo)) return -1;
+                    if (getSuperTableFromServer(database, stbInfo) != 0) {
+                        if (createSuperTable(database, stbInfo)) {
+                            return -1;
+                        }
+                    }
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;

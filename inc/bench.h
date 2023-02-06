@@ -656,7 +656,7 @@ typedef struct SArguments_S {
     FILE *              fpOfInsertResult;
     BArray *            databases;
     BArray*             streams;
-    char *              base64_buf;
+    char                base64_buf[INPUT_BUF_LEN];
 #ifdef LINUX
     sem_t               cancelSem;
 #endif
@@ -785,7 +785,7 @@ int     getServerVersionRest(int16_t rest_port);
 int     postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                     int protocol, uint16_t rest_port, bool tcp,
                     int sockfd, char* filePath);
-int     queryDbExecTaosc(SBenchConn *conn, char *command);
+int     queryDbExecCall(SBenchConn *conn, char *command);
 int     queryDbExecRest(char *command, char* dbName, int precision,
                     int iface, int protocol, bool tcp, int sockfd);
 SBenchConn* initBenchConn();

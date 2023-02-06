@@ -949,7 +949,10 @@ static void *queryStableAggrFunc(void *sarg) {
 
 static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
-    TAOS *      taos = pThreadInfo->conn->taos;
+    TAOS *      taos = NULL;
+    if (pThreadInfo && pThreadInfo->conn) {
+        taos = pThreadInfo->conn->taos;
+    }
 #ifdef LINUX
     prctl(PR_SET_NAME, "queryNtableAggrFunc");
 #endif
