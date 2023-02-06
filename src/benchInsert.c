@@ -841,8 +841,8 @@ static int createChildTables() {
         if (database->superTbls) {
             for (int j = 0; j < database->superTbls->size; j++) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-                if (stbInfo->autoCreateTable || stbInfo->iface == SML_IFACE ||
-                        stbInfo->iface == SML_REST_IFACE) {
+                if (stbInfo->autoCreateTable || stbInfo->iface == SML_IFACE
+                        || stbInfo->iface == SML_REST_IFACE) {
                     g_arguments->autoCreatedChildTables +=
                             stbInfo->childTblCount;
                     continue;
@@ -1949,6 +1949,80 @@ static int parseBufferToStmtBatch(
     return 0;
 }
 
+static void fillChildTblNameByCount(SSuperTable *stbInfo) {
+    for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
+        if (stbInfo->escape_character) {
+            snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
+                     "`%s%" PRIu64 "`", stbInfo->childTblPrefix, i);
+        } else {
+            snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
+                     "%s%" PRIu64 "", stbInfo->childTblPrefix, i);
+        }
+    }
+}
+
+static int64_t fillChildTblNameByFromTo(SDataBase *database,
+        SSuperTable* stbInfo) {
+    for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
+        if (stbInfo->escape_character) {
+            snprintf(stbInfo->childTblName[i-stbInfo->childTblFrom],
+                     TSDB_TABLE_NAME_LEN,
+                     "`%s%" PRIu64 "`", stbInfo->childTblPrefix, i);
+        } else {
+            snprintf(stbInfo->childTblName[i-stbInfo->childTblTo],
+                     TSDB_TABLE_NAME_LEN,
+                     "%s%" PRIu64 "", stbInfo->childTblPrefix, i);
+        }
+    }
+
+    return (stbInfo->childTblTo-stbInfo->childTblFrom);
+}
+
+static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
+        SSuperTable* stbInfo) {
+    SBenchConn* conn = initBenchConn();
+    if (NULL == conn) {
+        return -1;
+    }
+    char cmd[SQL_BUFF_LEN] = "\0";
+    if (g_arguments->taosc_version == 3) {
+        snprintf(cmd, SQL_BUFF_LEN,
+                 "SELECT DISTINCT(TBNAME) FROM %s.`%s` LIMIT %" PRId64
+                 " OFFSET %" PRIu64 "",
+                 database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
+                 stbInfo->childTblOffset);
+    } else {
+        snprintf(cmd, SQL_BUFF_LEN,
+                 "SELECT TBNAME FROM %s.`%s` LIMIT %" PRId64
+                 " OFFSET %" PRIu64 "",
+                 database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
+                 stbInfo->childTblOffset);
+    }
+    debugPrint("cmd: %s\n", cmd);
+    TAOS_RES *res = taos_query(conn->taos, cmd);
+    int32_t   code = taos_errno(res);
+    int64_t   count = 0;
+    if (code) {
+        printErrCmdCodeStr(cmd, code, res);
+        closeBenchConn(conn);
+        return -1;
+    }
+    TAOS_ROW row = NULL;
+    while ((row = taos_fetch_row(res)) != NULL) {
+        int *lengths = taos_fetch_lengths(res);
+        stbInfo->childTblName[count][0] = '`';
+        strncpy(stbInfo->childTblName[count] + 1, row[0], lengths[0]);
+        stbInfo->childTblName[count][lengths[0] + 1] = '`';
+        stbInfo->childTblName[count][lengths[0] + 2] = '\0';
+        debugPrint("stbInfo->childTblName[%" PRId64 "]: %s\n",
+                   count, stbInfo->childTblName[count]);
+        count++;
+    }
+    taos_free_result(res);
+    closeBenchConn(conn);
+    return count;
+}
+
 static int startMultiThreadInsertData(SDataBase* database,
         SSuperTable* stbInfo) {
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE)
@@ -2002,48 +2076,20 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     if ((stbInfo->iface != SML_IFACE && stbInfo->iface != SML_REST_IFACE)
             && stbInfo->childTblExists) {
-        SBenchConn* conn = initBenchConn();
-        if (NULL == conn) {
-            return -1;
-        }
-        char cmd[SQL_BUFF_LEN] = "\0";
-        if (g_arguments->taosc_version == 3) {
-            snprintf(cmd, SQL_BUFF_LEN,
-                    "SELECT DISTINCT(TBNAME) FROM %s.`%s` LIMIT %" PRId64
-                    " OFFSET %" PRIu64 "",
-                    database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
-                    stbInfo->childTblOffset);
+
+        if (stbInfo->childTblLimit) {
+            ntables = fillChildTblNameByLimitOffset(database, stbInfo);
+        } else if (stbInfo->childTblFrom && stbInfo->childTblTo) {
+            ntables = fillChildTblNameByFromTo(database, stbInfo);
         } else {
-            snprintf(cmd, SQL_BUFF_LEN,
-                    "SELECT TBNAME FROM %s.`%s` LIMIT %" PRId64
-                    " OFFSET %" PRIu64 "",
-                    database->dbName, stbInfo->stbName, stbInfo->childTblLimit,
-                    stbInfo->childTblOffset);
+            fillChildTblNameByCount(stbInfo);
         }
-        debugPrint("cmd: %s\n", cmd);
-        TAOS_RES *res = taos_query(conn->taos, cmd);
-        int32_t   code = taos_errno(res);
-        int64_t   count = 0;
-        if (code) {
-            printErrCmdCodeStr(cmd, code, res);
-            closeBenchConn(conn);
+
+        if (ntables < 0) {
             return -1;
         }
-        TAOS_ROW row = NULL;
-        while ((row = taos_fetch_row(res)) != NULL) {
-            int *lengths = taos_fetch_lengths(res);
-            stbInfo->childTblName[count][0] = '`';
-            strncpy(stbInfo->childTblName[count] + 1, row[0], lengths[0]);
-            stbInfo->childTblName[count][lengths[0] + 1] = '`';
-            stbInfo->childTblName[count][lengths[0] + 2] = '\0';
-            debugPrint("stbInfo->childTblName[%" PRId64 "]: %s\n",
-                       count, stbInfo->childTblName[count]);
-            count++;
-        }
-        ntables = count;
-        taos_free_result(res);
-        closeBenchConn(conn);
     } else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
+        // Normal table
         if (stbInfo->escape_character) {
             snprintf(stbInfo->childTblName[0], TSDB_TABLE_NAME_LEN,
                     "`%s`", stbInfo->stbName);
@@ -2052,17 +2098,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                     "%s", stbInfo->stbName);
         }
     } else {
-        for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
-            if (stbInfo->escape_character) {
-                snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
-                        "`%s%" PRIu64 "`", stbInfo->childTblPrefix, i);
-            } else {
-                snprintf(stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN,
-                        "%s%" PRIu64 "", stbInfo->childTblPrefix, i);
-            }
-        }
+        fillChildTblNameByCount(stbInfo);
         ntables = stbInfo->childTblCount;
     }
+
     if (ntables == 0) {
         return 0;
     }
