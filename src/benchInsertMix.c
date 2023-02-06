@@ -507,7 +507,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
 
         // add new row (maybe del)
         if (mix->insertedRows + pBatT->disRows + pBatT->ordRows  < mix->insertRows) {
-          ordRows = 0;
+          uint32_t ordRows = 0;
           if(info->csql && strstr(info->csql, sts)) {
             infoPrint("   ord found duplicate ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->ordRows);
           }
