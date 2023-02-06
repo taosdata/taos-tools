@@ -484,7 +484,6 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
   int64_t  ts = *pStartTime;
   int64_t  startTime = *pStartTime;
   uint32_t len = slen; // slen: start len
-  uint32_t ordRows = 0;
 
   bool forceDis = FORCE_TAKEOUT(MDIS);
   bool forceUpd = FORCE_TAKEOUT(MUPD);
@@ -917,8 +916,9 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
           // at once exit
           errorPrint(" \n\n *************  check correct not passed %s.%s ! errQueryCnt=%d errLastCnt=%d *********** \n\n", db->dbName, tbName, errQuertCnt, errLastCnt);
-          exit(1);
-          FAILED_BREAK();
+          if(!g_arguments->failed_continue) {
+            exit(1);
+          }
         }
       }
 

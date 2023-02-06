@@ -8,16 +8,12 @@
 	"confirm_parameter_prompt": "no",
     "continue_if_fail": "yes",
 	"databases": "test",
-	"query_times": 1000000,
+	"query_times": 2,
 	"query_mode": "taosc",
 	"specified_table_query": {
 		"query_interval": 1,
 		"concurrent": 3,
 		"sqls": [
-			{
-				"sql":"select count(*),tbname from meters partition by tbname order by tbname desc",
-				"result":"./query_res2.txt"
-			},
 			{
 				"sql": "select last_row(*) from meters",
 				"result": "./query_res0.txt"
