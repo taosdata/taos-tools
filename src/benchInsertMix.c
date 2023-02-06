@@ -150,8 +150,8 @@ void randomFillCols(uint16_t* cols, uint16_t max, uint16_t cnt) {
   }
 
   // swap cnt with random
-  uint16_t left, right, mid;
   for (i = 0; i < cnt; i++) {
+    uint16_t left, right, mid;
     left = RD(cnt);
     right = cnt + RD(max - cnt);
     SWAP(cols, left, right)
@@ -163,9 +163,8 @@ char* genBatColsNames(threadInfo* info, SSuperTable* stb) {
   char* buf = calloc(1, size);
   strcpy(buf, TS_COL_NAME);
 
-  uint16_t idx;
   for (uint16_t i = 0; i < info->nBatCols; i++) {
-    idx = info->batCols[i];
+    uint16_t idx = info->batCols[i];
     Field* fd = benchArrayGet(stb->cols, idx);
     strcat(buf, ",");
     strcat(buf, fd->name);
@@ -298,14 +297,14 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
   // other cols data
   for(uint16_t i = 0; i< info->nBatCols; i++) {
     Field* fd = benchArrayGet(stb->cols, GET_IDX(i));
-    char * prefix = "";
+    char prefix[256] = "";
     if(fd->type == TSDB_DATA_TYPE_BINARY) {
       if(stb->binaryPrefex) {
-        prefix= stb->binaryPrefex;
+        sprintf(prefix, "%s", stb->binaryPrefex);
       }
     } else if(fd->type == TSDB_DATA_TYPE_NCHAR) {
       if(stb->ncharPrefex) {
-        prefix= stb->ncharPrefex;
+        sprintf(prefix, "%s", stb->ncharPrefex);
       }
     }
     
@@ -441,14 +440,12 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
     // fill from buf
     int32_t selCnt = 0;
     int32_t findCnt = 0;
-    int64_t ts;
-    int32_t i;
     int32_t multiple = force ? 4 : 2;
 
     while(selCnt < rdFill && bufCnt > 0 && ++findCnt < rdFill * multiple) {
         // get ts
-        i = RD(bufCnt);
-        ts = buf[i];
+        int32_t i = RD(bufCnt);
+        int64_t ts = buf[i];
         if( ts >= startTime) {
             // in current batch , ignore
             continue;
@@ -493,10 +490,9 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
   if(FULL_DISORDER(stb)) timestamp_step *= -1;
 
   debugPrint("  batch gen StartTime=%" PRId64 " batchID=%d \n", *pStartTime, mix->curBatchCnt);
-  int32_t last = -1;
 
   while ( genRows < g_arguments->reqPerReq) {
-    last = genRows;
+    int32_t last = genRows;
     if(stb->genRowRule == RULE_OLD) {
         len += appendRowRuleOld(stb, pstr, len, ts);
         genRows ++;
@@ -605,7 +601,6 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
 // generate delete batch body
 //
 uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, TAOS* taos, char* tbName, char* pstr, uint32_t slen, char * sql) {
-  uint32_t len = slen;  // slen: start len
   if (stb->genRowRule != RULE_MIX_ALL) {
     return 0;
   }
@@ -641,7 +636,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   if(count64 == 0) return 0;
   count = count64;
 
-  len += snprintf(pstr + len, MAX_SQL_LEN - len, "%s", where);
+  snprintf(pstr + slen, MAX_SQL_LEN - len, "%s", where);
   //infoPrint("  batch delete cnt=%d range=%s \n", count, where);
 
   return count;
@@ -654,6 +649,7 @@ void appendEndCheckSql(threadInfo* info) {
 
   if(csql[len-1] == ',') {
     csql[len-1] = ')';
+    csql[len] = 0;
   } else {
     strcat(csql, ")");
   }
@@ -783,7 +779,6 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
     SMixRatio mixRatio;
     mixRatioInit(&mixRatio, stb);
-    uint32_t len = 0;
     int64_t batStartTime = stb->startTimestamp;
     STotal tbTotal;
     memset(&tbTotal, 0 , sizeof(STotal));
@@ -795,7 +790,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       }
 
       // generate pre sql  like "insert into tbname ( part column names) values  "
-      len = genInsertPreSql(info, db, stb, tbName, tbIdx, info->buffer);
+      uint32_t len = genInsertPreSql(info, db, stb, tbName, tbIdx, info->buffer);
 
       // batch create sql values
       STotal batTotal;
