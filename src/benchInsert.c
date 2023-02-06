@@ -389,7 +389,8 @@ int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
                             "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
                             database->dbName,
                             (-1 != g_arguments->inputted_vgroups)?
-                            g_arguments->inputted_vgroups:min(remainVnodes, toolsGetNumberOfCores()));
+                            g_arguments->inputted_vgroups:
+                            min(remainVnodes, toolsGetNumberOfCores()));
     } else {
         dataLen += snprintf(command + dataLen, SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s",
@@ -500,7 +501,8 @@ int createDatabaseTaosc(SDataBase* database) {
         for (int i = 0; i < g_arguments->streams->size; i++) {
             SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
             if (stream->drop) {
-                sprintf(command, "DROP STREAM IF EXISTS %s;", stream->stream_name);
+                sprintf(command, "DROP STREAM IF EXISTS %s;",
+                        stream->stream_name);
                 if (queryDbExecCall(conn, command)) {
                     closeBenchConn(conn);
                     return -1;
@@ -1042,11 +1044,13 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 }
             }
 
-            if (code != TSDB_CODE_SUCCESS) {
+            if (code != TSDB_CODE_SUCCESS && !g_arguments->terminate) {
                 errorPrint(
                     "failed to execute schemaless insert. "
                         "content: %s, code: 0x%08x reason: %s\n",
-                    pThreadInfo->lines[0], code, taos_errstr(res));
+                        pThreadInfo->lines?(pThreadInfo->lines[0]?
+                            pThreadInfo->lines[0]:""):"",
+                        code, taos_errstr(res));
             }
             taos_free_result(res);
             break;
@@ -1139,7 +1143,8 @@ static void *syncWriteInterlace(void *sarg) {
                                     " USING `",
                                     stbInfo->stbName,
                                     "` TAGS (",
-                                    stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
+                                    stbInfo->tagDataBuf
+                                        + stbInfo->lenOfTags * tableSeq,
                                     ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 2,
@@ -1154,7 +1159,8 @@ static void *syncWriteInterlace(void *sarg) {
                                         ") USING `",
                                         stbInfo->stbName,
                                         "` TAGS (",
-                                        stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
+                                        stbInfo->tagDataBuf
+                                        + stbInfo->lenOfTags * tableSeq,
                                         ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 4,
@@ -1181,12 +1187,14 @@ static void *syncWriteInterlace(void *sarg) {
                             }
                         }
                         char time_string[BIGINT_BUFF_LEN];
-                        sprintf(time_string, "%"PRId64"", disorderTs?disorderTs:timestamp);
+                        sprintf(time_string, "%"PRId64"",
+                                disorderTs?disorderTs:timestamp);
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
                                     ",",
-                                    stbInfo->sampleDataBuf + pos * stbInfo->lenOfCols,
+                                    stbInfo->sampleDataBuf
+                                    + pos * stbInfo->lenOfCols,
                                     ") ");
                         if (ds_len(pThreadInfo->buffer) > stbInfo->max_sql_len) {
                             errorPrint("sql buffer length (%"PRIu64") "
@@ -1338,7 +1346,10 @@ static void *syncWriteInterlace(void *sarg) {
                         || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
                     debugPrint("pThreadInfo->lines[0]: %s\n",
                                pThreadInfo->lines[0]);
-                    tools_cJSON_Delete(pThreadInfo->json_array);
+                    if (pThreadInfo->json_array && !g_arguments->terminate) {
+                        tools_cJSON_Delete(pThreadInfo->json_array);
+                        pThreadInfo->json_array = NULL;
+                    }
                     pThreadInfo->json_array = tools_cJSON_CreateArray();
                     tmfree(pThreadInfo->lines[0]);
                 } else {
@@ -1565,7 +1576,8 @@ void *syncWriteProgressive(void *sarg) {
                 }
                 case SML_REST_IFACE:
                 case SML_IFACE: {
-                    for (int j = 0; j < g_arguments->reqPerReq; ++j) {
+                    for (int j = 0; (j < g_arguments->reqPerReq)
+                            && !g_arguments->terminate; ++j) {
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                             tools_cJSON *tag = tools_cJSON_Duplicate(
                                 tools_cJSON_GetArrayItem(
@@ -1623,8 +1635,10 @@ void *syncWriteProgressive(void *sarg) {
                                     disorderRange = stbInfo->disorderRange;
                                 }
                                 timestamp = startTimestamp - disorderRange;
-                                debugPrint("rand_num: %d, < disorderRatio: %d, ts: %"PRId64"\n",
-                                       rand_num, stbInfo->disorderRatio, timestamp);
+                                debugPrint("rand_num: %d, < disorderRatio: %d, "
+                                           "ts: %"PRId64"\n",
+                                       rand_num, stbInfo->disorderRatio,
+                                           timestamp);
                             }
                         }
                         generated++;
@@ -1678,9 +1692,14 @@ void *syncWriteProgressive(void *sarg) {
                 case SML_IFACE:
                     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
                             || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
-                        tools_cJSON_Delete(pThreadInfo->json_array);
+                        if (pThreadInfo->json_array && !g_arguments->terminate) {
+                            tools_cJSON_Delete(pThreadInfo->json_array);
+                            pThreadInfo->json_array = NULL;
+                        }
                         pThreadInfo->json_array = tools_cJSON_CreateArray();
-                        tmfree(pThreadInfo->lines[0]);
+                        if (pThreadInfo->lines) {
+                            tmfree(pThreadInfo->lines[0]);
+                        }
                     } else {
                         for (int j = 0; j < generated; ++j) {
                             debugPrint("pThreadInfo->lines[%d]: %s\n",
@@ -2275,7 +2294,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     tmfree(pids);
                     tmfree(infos);
-                    errorPrint("taos select database(%s) failed\n", database->dbName);
+                    errorPrint("taos select database(%s) failed\n",
+                               database->dbName);
                     return -1;
                 }
                 pThreadInfo->max_sql_len =
@@ -2418,8 +2438,14 @@ static int startMultiThreadInsertData(SDataBase* database,
                     tmfree(pThreadInfo->sml_tags);
 
                 } else {
-                    tools_cJSON_Delete(pThreadInfo->sml_json_tags);
-                    tools_cJSON_Delete(pThreadInfo->json_array);
+                    if (pThreadInfo->sml_json_tags && !g_arguments->terminate) {
+                        tools_cJSON_Delete(pThreadInfo->sml_json_tags);
+                        pThreadInfo->sml_json_tags = NULL;
+                    }
+                    if (pThreadInfo->json_array && !g_arguments->terminate) {
+                        tools_cJSON_Delete(pThreadInfo->json_array);
+                        pThreadInfo->json_array = NULL;
+                    }
                 }
                 closeBenchConn(pThreadInfo->conn);
                 tmfree(pThreadInfo->lines);
