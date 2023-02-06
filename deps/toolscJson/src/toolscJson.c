@@ -117,10 +117,8 @@ static unsigned char* tools_cJSON_strdup(const unsigned char* string, const inte
     {
         return NULL;
     }
-    memcpy(copy, string, length);
-
-    // set string termination explicitly to solve static code analysis
-    copy[length] = 0;
+    
+    strcpy(copy, (const char*)string);
     return copy;
 }
 
