@@ -39,7 +39,6 @@
                     "delete_ratio": 0,
                     "disorder_fill_interval": 100,
                     "update_fill_interval": 25,
-                    "delete_fill_interval": 20,
                     "generate_row_rule": 2,
                     "columns": [
                         { "type": "bool",        "name": "bc"},

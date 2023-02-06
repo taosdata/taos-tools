@@ -527,7 +527,6 @@ typedef struct SSuperTable_S {
 
     uint32_t fillIntervalUpd;  // fill Upd interval rows cnt
     uint32_t fillIntervalDis;  // fill Dis interval rows cnt
-    uint32_t fillIntervalDel;  // fill Del interval rows cnt
 
     // binary prefix
     char*    binaryPrefex;

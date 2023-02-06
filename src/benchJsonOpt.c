@@ -733,11 +733,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (delRatio->valueint < 0) delRatio->valueint = 0;
             superTable->delRatio = (int8_t)delRatio->valueint;
         }
-        tools_cJSON *delFill =
-            tools_cJSON_GetObjectItem(stbInfo, "delete_fill_interval");
-        if (tools_cJSON_IsNumber(delFill)) {
-            superTable->fillIntervalDel = (uint64_t)delFill->valueint;
-        }
 
         // generate row rule 
         tools_cJSON *rowRule =
