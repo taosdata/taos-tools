@@ -25,10 +25,12 @@ class TDTestCase:
         taosBenchmark insert mix data
         """
 
+    @classmethod
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
         tdSql.init(conn.cursor(), logSql)
 
+    @classmethod
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
@@ -55,6 +57,7 @@ class TDTestCase:
             return ""
         return paths[0]
 
+    @classmethod
     def run(self):
         binPath = self.getPath()
         cmd = (
@@ -75,6 +78,7 @@ class TDTestCase:
         tdSql.query("select count(*) from mix.meters")
         tdSql.checkData(0, 0, 30000)
 
+    @classmethod
     def stop(self):
         tdSql.close()
         tdLog.success("%s successfully executed" % __file__)
