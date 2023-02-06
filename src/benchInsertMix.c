@@ -297,14 +297,14 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
   // other cols data
   for(uint16_t i = 0; i< info->nBatCols; i++) {
     Field* fd = benchArrayGet(stb->cols, GET_IDX(i));
-    char prefix[256] = "";
+    char* prefix = "";
     if(fd->type == TSDB_DATA_TYPE_BINARY) {
       if(stb->binaryPrefex) {
-        sprintf(prefix, "%s", stb->binaryPrefex);
+        prefix = stb->binaryPrefex;
       }
     } else if(fd->type == TSDB_DATA_TYPE_NCHAR) {
       if(stb->ncharPrefex) {
-        sprintf(prefix, "%s", stb->ncharPrefex);
+        prefix = stb->ncharPrefex;
       }
     }
     
@@ -636,7 +636,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   if(count64 == 0) return 0;
   count = count64;
 
-  snprintf(pstr + slen, MAX_SQL_LEN - len, "%s", where);
+  snprintf(pstr + slen, MAX_SQL_LEN - slen, "%s", where);
   //infoPrint("  batch delete cnt=%d range=%s \n", count, where);
 
   return count;
