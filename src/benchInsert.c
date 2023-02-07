@@ -157,7 +157,7 @@ static int queryDbExec(SDataBase *database, SSuperTable *stbInfo, char *command)
                 toolsMsleep(g_arguments->trying_interval);
                 ret = queryDbExecCall(conn, command);
                 if (trying != -1) {
-                    trying --;
+                    trying--;
                 }
             }
             if (0 != ret) {
@@ -548,7 +548,7 @@ int createDatabaseTaosc(SDataBase* database) {
         toolsMsleep(g_arguments->trying_interval);
         code = queryDbExecCall(conn, command);
         if (trying != -1) {
-            trying --;
+            trying--;
         }
     }
 
@@ -609,6 +609,27 @@ int createDatabase(SDataBase* database) {
     return ret;
 }
 
+static int generateChildTblName(int len, char *buffer, SDataBase *database,
+                                SSuperTable *stbInfo, uint64_t i,
+                                char *ttl) {
+    if (0 == len) {
+        memset(buffer, 0, TSDB_MAX_SQL_LEN);
+        len += snprintf(buffer + len,
+                        TSDB_MAX_SQL_LEN - len, "CREATE TABLE ");
+    }
+
+    len += snprintf(
+            buffer + len, TSDB_MAX_SQL_LEN - len,
+            stbInfo->escape_character ? "%s.`%s%" PRIu64
+            "` USING %s.`%s` TAGS (%s) %s "
+            : "%s.%s%" PRIu64
+            " USING %s.%s TAGS (%s) %s ",
+            database->dbName, stbInfo->childTblPrefix, i, database->dbName,
+            stbInfo->stbName, stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+
+    return len;
+}
+
 static void *createTable(void *sarg) {
     if (g_arguments->supplementInsert) {
         return NULL;
@@ -660,22 +681,12 @@ static void *createTable(void *sarg) {
         } else {
             if (0 == len) {
                 batchNum = 0;
-                memset(pThreadInfo->buffer, 0, TSDB_MAX_SQL_LEN);
-                len += snprintf(pThreadInfo->buffer + len,
-                                TSDB_MAX_SQL_LEN - len, "CREATE TABLE ");
             }
-
-            len += snprintf(
-                pThreadInfo->buffer + len, TSDB_MAX_SQL_LEN - len,
-                stbInfo->escape_character ? "%s.`%s%" PRIu64
-                                            "` USING %s.`%s` TAGS (%s) %s "
-                                          : "%s.%s%" PRIu64
-                                            " USING %s.%s TAGS (%s) %s ",
-                database->dbName, stbInfo->childTblPrefix, i, database->dbName,
-                stbInfo->stbName, stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+            len = generateChildTblName(len, pThreadInfo->buffer,
+                                       database, stbInfo, i, ttl);
             batchNum++;
-            if ((batchNum < stbInfo->batchCreateTableNum) &&
-                ((TSDB_MAX_SQL_LEN - len) >=
+            if ((batchNum < stbInfo->batchCreateTableNum)
+                && ((TSDB_MAX_SQL_LEN - len) >=
                  (stbInfo->lenOfTags + EXTRA_SQL_LEN))) {
                 continue;
             }
@@ -703,7 +714,7 @@ static void *createTable(void *sarg) {
                 toolsMsleep(g_arguments->trying_interval);
                 ret = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
-                    trying --;
+                    trying--;
                 }
             }
         }
@@ -963,7 +974,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 toolsMsleep(trying_interval);
                 code = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
                 if (trying != -1) {
-                    trying --;
+                    trying--;
                 }
             }
             break;
@@ -993,7 +1004,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                     pThreadInfo->sockfd,
                                     pThreadInfo->filePath);
                 if (trying != -1) {
-                    trying --;
+                    trying--;
                 }
             }
             break;
@@ -1038,7 +1049,7 @@ static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                             : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
                 code = taos_errno(res);
                 if (trying != -1) {
-                    trying --;
+                    trying--;
                 }
             }
 
@@ -1170,7 +1181,7 @@ static void *syncWriteInterlace(void *sarg) {
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
                             if (rand_num < stbInfo->disorderRatio) {
-                                disorderRange --;
+                                disorderRange--;
                                 if (0 == disorderRange) {
                                     disorderRange = stbInfo->disorderRange;
                                 }
@@ -1224,7 +1235,7 @@ static void *syncWriteInterlace(void *sarg) {
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
                             if (rand_num < stbInfo->disorderRatio) {
-                                disorderRange --;
+                                disorderRange--;
                                 if (0 == disorderRange) {
                                     disorderRange = stbInfo->disorderRange;
                                 }
@@ -1512,7 +1523,7 @@ void *syncWriteProgressive(void *sarg) {
                             if (stbInfo->disorderRatio > 0) {
                                 int rand_num = taosRandom() % 100;
                                 if (rand_num < stbInfo->disorderRatio) {
-                                    disorderRange --;
+                                    disorderRange--;
                                     if (0 == disorderRange) {
                                         disorderRange = stbInfo->disorderRange;
                                     }
@@ -1618,13 +1629,16 @@ void *syncWriteProgressive(void *sarg) {
                         if (stbInfo->disorderRatio > 0) {
                             int rand_num = taosRandom() % 100;
                             if (rand_num < stbInfo->disorderRatio) {
-                                disorderRange --;
+                                disorderRange--;
                                 if (0 == disorderRange) {
                                     disorderRange = stbInfo->disorderRange;
                                 }
                                 timestamp = startTimestamp - disorderRange;
-                                debugPrint("rand_num: %d, < disorderRatio: %d, ts: %"PRId64"\n",
-                                       rand_num, stbInfo->disorderRatio, timestamp);
+                                debugPrint("rand_num: %d, < disorderRatio: %d"
+                                           ", ts: %"PRId64"\n",
+                                           rand_num,
+                                           stbInfo->disorderRatio,
+                                           timestamp);
                             }
                         }
                         generated++;
@@ -1650,9 +1664,73 @@ void *syncWriteProgressive(void *sarg) {
             }
             // only measure insert
             startTs = toolsGetTimestampUs();
-            if(execInsert(pThreadInfo, generated)) {
-                g_fail = true;
-                goto free_of_progressive;
+            int code = execInsert(pThreadInfo, generated);
+            if (code) {
+                if (NO_IF_FAILED == stbInfo->continueIfFail) {
+                    warnPrint("The super table parameter "
+                              "continueIfFail: %d, STOP insertion!\n",
+                              stbInfo->continueIfFail);
+                    g_fail = true;
+                    goto free_of_progressive;
+                } else if (YES_IF_FAILED == stbInfo->continueIfFail) {
+                    infoPrint("The super table parameter "
+                              "continueIfFail: %d, will continue to insert ..\n",
+                              stbInfo->continueIfFail);
+                } else if (SMART_IF_FAILED == stbInfo->continueIfFail) {
+                    warnPrint("The super table parameter "
+                              "continueIfFail: %d, will create table then insert ..\n",
+                              stbInfo->continueIfFail);
+                    // TODO: create sub table 
+                    char *buffer = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
+                    snprintf(
+                            buffer, TSDB_MAX_SQL_LEN,
+                            stbInfo->escape_character ?
+                            "CREATE TABLE %s.%s USING %s.`%s` TAGS (%s) %s "
+                            : "%s.%s USING %s.%s TAGS (%s) %s ",
+                            database->dbName, tableName, database->dbName,
+                            stbInfo->stbName,
+                            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+                    debugPrint("creating table: %s\n", buffer);
+                    int ret;
+                    if (REST_IFACE == stbInfo->iface) {
+                        ret = queryDbExecRest(buffer,
+                                              database->dbName,
+                                              database->precision,
+                                              stbInfo->iface,
+                                              stbInfo->lineProtocol,
+                                              stbInfo->tcpTransfer,
+                                              pThreadInfo->sockfd);
+                    } else {
+                        ret = queryDbExecCall(pThreadInfo->conn, buffer);
+                        int32_t trying = g_arguments->keep_trying;
+                        while (ret && trying) {
+                            infoPrint("will sleep %"PRIu32" milliseconds then re-create "
+                                  "table %s\n",
+                                  g_arguments->trying_interval, buffer);
+                            toolsMsleep(g_arguments->trying_interval);
+                            ret = queryDbExecCall(pThreadInfo->conn, buffer);
+                            if (trying != -1) {
+                                trying--;
+                            }
+                        }
+                    }
+                    if (0 != ret) {
+                        g_fail = true;
+                        goto free_of_progressive;
+                    }
+
+                    code = execInsert(pThreadInfo, generated);
+                    if (code) {
+                        g_fail = true;
+                        goto free_of_progressive;
+                    }
+                } else {
+                    warnPrint("Unknown super table parameter "
+                              "continueIfFail: %d\n",
+                              stbInfo->continueIfFail);
+                    g_fail = true;
+                    goto free_of_progressive;
+                }
             }
             endTs = toolsGetTimestampUs()+1;
 
@@ -2620,7 +2698,7 @@ static int32_t createStream(SSTREAM* stream) {
         toolsMsleep(g_arguments->trying_interval);
         code = queryDbExecCall(conn, command);
         if (trying != -1) {
-            trying --;
+            trying--;
         }
     }
 
@@ -2653,7 +2731,7 @@ static int32_t createStream(SSTREAM* stream) {
         toolsMsleep(g_arguments->trying_interval);
         code = queryDbExecCall(conn, command);
         if (trying != -1) {
-            trying --;
+            trying--;
         }
     }
 

@@ -77,27 +77,29 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
-        tdSql.execute("create table d5 using meters tags (5, 'd5')")
+        tdSql.execute("create table d4 using meters tags (4, 'd4')")
 
         cmd = "%s -f ./taosbenchmark/json/insert-from-to-continue-yes.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 7)
+        tdSql.checkData(0, 0, 5)
 
         binPath = self.getPath()
         cmd = (
-            "%s -t 4 -n 1 -y"
+            "%s -t 3 -n 1 -y"
             % binPath
         )
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
+        tdSql.execute("use test")
+        tdSql.execute("create table d4 using meters tags (4, 'd4')")
 
         cmd = "%s -f ./taosbenchmark/json/insert-from-to-continue-smart.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 7)
+        tdSql.checkData(0, 0, 6)
 
 
     def stop(self):
