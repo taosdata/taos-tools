@@ -794,7 +794,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     }
     debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
 
-    if (!stbInfo->childTblExists && stbInfo->tags->size != 0) {
+    if (stbInfo->tags->size != 0) {
         stbInfo->tagDataBuf =
                 benchCalloc(1, stbInfo->childTblCount * stbInfo->lenOfTags, true);
         infoPrint(
