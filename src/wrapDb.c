@@ -19,7 +19,7 @@ int32_t queryCnt(TAOS* taos, char* sql, int64_t* pVal) {
   int32_t   code = taos_errno(res);
   if (code != 0) {
     printErrCmdCodeStr(sql, code, res);
-    return 0;
+    return code;
   }
 
   // count
@@ -48,7 +48,7 @@ int32_t queryTS(TAOS* taos, char* sql, int64_t* pVal) {
   int32_t   code = taos_errno(res);
   if (code != 0) {
     printErrCmdCodeStr(sql, code, res);
-    return 0;
+    return code;
   }
 
   // count
@@ -58,7 +58,7 @@ int32_t queryTS(TAOS* taos, char* sql, int64_t* pVal) {
   if (code != 0) {
     printErrCmdCodeStr(sql, code, res);
     taos_free_result(res);
-    return 0;
+    return code;
   }
 
   // int32_t* lengths = taos_fetch_lengths(res);
