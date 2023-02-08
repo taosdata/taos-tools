@@ -73,7 +73,7 @@ class TDTestCase:
             time.sleep(1)
             processID = subprocess.check_output(psCmd, shell=True)
 
-        tdSql.query("select count(*) from mix.meters")
+        tdSql.query("select count(*) from mix1.meters")
 
     @classmethod
     def stop(self):
