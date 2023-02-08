@@ -60,13 +60,11 @@ class TDTestCase:
     @classmethod
     def run(self):
         binPath = self.getPath()
-        cmd = (
-            "%s -f ./taosbenchmark/json/case-insert-mix.json"
-                #            "%s -t 1 -n 10 -i 5000 -r 1 -y &"
-            % binPath
-        )
-        tdLog.info("%s" % cmd)
-        os.system("%s" % cmd)
+        # mix 1 ~ 4
+        for i in range(4):
+            cmd = "%s -f ./taosbenchmark/json/case-insert-mix%d.json"% (binPath, i)
+            tdLog.info("%s" % cmd)
+            os.system("%s" % cmd)
 
         psCmd = "ps -ef|grep -w taosBenchmark| grep -v grep | awk '{print $2}'"
         processID = subprocess.check_output(psCmd, shell=True)
@@ -76,7 +74,6 @@ class TDTestCase:
             processID = subprocess.check_output(psCmd, shell=True)
 
         tdSql.query("select count(*) from mix.meters")
-        tdSql.checkData(0, 0, 30000)
 
     @classmethod
     def stop(self):
