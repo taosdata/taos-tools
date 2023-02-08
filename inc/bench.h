@@ -925,6 +925,6 @@ void printWarnCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
 int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
 
-int32_t execBufSql(threadInfo *pThreadInfo, uint32_t k);
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 
 #endif   // __BENCH_H_

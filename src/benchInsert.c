@@ -955,7 +955,7 @@ void postFreeResource() {
     tools_cJSON_Delete(root);
 }
 
-int32_t execBufSql(threadInfo *pThreadInfo, uint32_t k) {
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     TAOS_RES *   res = NULL;
@@ -1335,7 +1335,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         startTs = toolsGetTimestampUs();
-        if (execBufSql(pThreadInfo, generated)) {
+        if (execInsert(pThreadInfo, generated)) {
             g_fail = true;
             goto free_of_interlace;
         }

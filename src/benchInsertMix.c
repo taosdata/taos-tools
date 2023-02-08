@@ -800,7 +800,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // execute insert sql
       int64_t startTs = toolsGetTimestampUs();
       //g_arguments->debug_print = false;
-      if (execBufSql(info, batchRows) != 0) {
+      if (execInsert(info, batchRows) != 0) {
         FAILED_BREAK()
       }
       //g_arguments->debug_print = true;
@@ -851,7 +851,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         batTotal.delRows = genBatchDelSql(stb, &mixRatio, batStartTime, info->conn->taos,  tbName, info->buffer, len, querySql);
         if (batTotal.delRows > 0) {
           // g_arguments->debug_print = false;
-          if (execBufSql(info, batTotal.delRows) != 0) {
+          if (execInsert(info, batTotal.delRows) != 0) {
             FAILED_BREAK()
           }
 
