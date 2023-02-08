@@ -40,13 +40,16 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
             ret = -2;
         } else {
             TAOS_RES *res = taos_query(taos, command);
-            if (res == NULL || taos_errno(res) != 0) {
-                if (g_queryInfo.continue_if_fail) {
-                    warnPrint("failed to execute sql:%s, reason:%s\n", command,
-                            taos_errstr(res));
+            int code = taos_errno(res);
+            if (res == NULL || code) {
+                if (YES_IF_FAILED == g_arguments->continueIfFail) {
+                    warnPrint("failed to execute sql:%s, "
+                              "code: 0x%08x, reason:%s\n",
+                               command, code, taos_errstr(res));
                 } else {
-                    errorPrint("failed to execute sql:%s, reason:%s\n", command,
-                            taos_errstr(res));
+                    errorPrint("failed to execute sql:%s, "
+                               "code: 0x%08x, reason:%s\n",
+                               command, code, taos_errstr(res));
                     ret = -1;
                 }
             } else {
@@ -76,7 +79,7 @@ static void *mixedQuery(void *sarg) {
                 return NULL;
             }
             if (g_queryInfo.reset_query_cache) {
-                queryDbExecTaosc(pThreadInfo->conn, "reset query cache");
+                queryDbExecCall(pThreadInfo->conn, "reset query cache");
             }
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
@@ -98,7 +101,7 @@ static void *mixedQuery(void *sarg) {
                 }
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos, sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
-                    if (g_queryInfo.continue_if_fail) {
+                    if (YES_IF_FAILED == g_arguments->continueIfFail) {
                         warnPrint(
                                 "thread[%d]: failed to execute sql :%s, "
                                 "code: 0x%x, reason: %s\n",
@@ -175,7 +178,7 @@ static void *specifiedTableQuery(void *sarg) {
                         - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            queryDbExecTaosc(pThreadInfo->conn, "reset query cache");
+            queryDbExecCall(pThreadInfo->conn, "reset query cache");
         }
 
         st = toolsGetTimestampUs();

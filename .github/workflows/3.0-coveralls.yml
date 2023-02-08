@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2526-taosbenchmark-handle-mem-better'
+          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-schemaless-refine'
 
       - name: Change time zone
         if:

@@ -61,7 +61,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2526-taosbenchmark-handle-mem-better'
+          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-schemaless-refine'
 
       - name: Change time zone
         if: |
@@ -154,7 +154,7 @@ jobs:
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
-      - name: Test native cases
+      - name: Run standard test cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -167,7 +167,7 @@ jobs:
             for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query|cloud"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
           fi
 
-      - name: Test cloud cases
+      - name: Run cloud test cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
