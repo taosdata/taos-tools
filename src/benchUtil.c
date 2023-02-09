@@ -537,8 +537,13 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
 
     code = 0;
 free_of_postImpl:
-    if (filePath && strlen(filePath) > 0 && !g_arguments->terminate) {
-        appendResultBufToFile(responseBuf, filePath);
+    if (filePath) {
+        char copyPath[MAX_PATH_LEN] = {0};
+        strncpy(copyPath, filePath, MAX_PATH_LEN);
+        copyPath[MAX_PATH_LEN-1] = 0;
+        if (strlen(copyPath) > 0 && !g_arguments->terminate) {
+            appendResultBufToFile(responseBuf, copyPath);
+        }
     }
     tmfree(request_buf);
     return code;
