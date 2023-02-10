@@ -112,7 +112,7 @@ void resetAfterAnsiEscape(void) {
     printf("\x1b[0m");
 }
 
-FORCE_INLINE unsigned int taosRandom() { return (unsigned int)rand(); }
+FORCE_INLINE unsigned int taosRandom() { unsigned int seed = time(NULL); return (unsigned int)rand_r(&seed); }
 #endif
 
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
