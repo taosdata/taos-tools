@@ -754,7 +754,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         } else {
             stbInfo->partialColNameBuf = benchCalloc(1, BUFFER_SIZE, true);
             int pos = 0;
-            pos += sprintf(stbInfo->partialColNameBuf + pos, "ts");
+            pos += sprintf(stbInfo->partialColNameBuf + pos, TS_COL_NAME);
             for (int i = 0; i < stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 pos += sprintf(stbInfo->partialColNameBuf + pos, ",%s", col->name);
