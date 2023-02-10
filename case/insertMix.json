@@ -18,7 +18,7 @@
         {
             "dbinfo": {
                 "name": "mix",
-                "drop": "no",
+                "drop": "yes",
                 "vgroups": 6,
                 "replica": 3,
                 "precision": "ms",

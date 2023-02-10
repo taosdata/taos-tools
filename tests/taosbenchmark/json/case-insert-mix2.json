@@ -19,12 +19,7 @@
             "dbinfo": {
                 "name": "mix2",
                 "drop": "yes",
-                "vgroups": 2,
-                "replica": 1,
-                "precision": "ms",
-                "keep": 3650,
-                "minRows": 100,
-                "maxRows": 4096
+                "precision": "ms"
             },
             "super_tables": [
                 {

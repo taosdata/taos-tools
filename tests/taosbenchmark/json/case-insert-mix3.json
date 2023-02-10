@@ -17,11 +17,7 @@
             "dbinfo": {
                 "name": "mix3",
                 "drop": "yes",
-                "vgroups": 2,
-                "replica": 1,
-                "precision": "ms",
-                "keep": "1d",
-                "duration":"1h"
+                "precision": "ms"                
             },
             "super_tables": [
                 {
