@@ -22,7 +22,10 @@ const char* locations[] = {"California.SanFrancisco", "California.LosAngles", "C
 
 const char* locations_sml[] = {"California.SanFrancisco", "California.LosAngles", "California.SanDiego",
                            "California.SanJose", "California.PaloAlto", "California.Campbell", "California.MountainView",
-                           "California.Sunnyvale", "California.SantaClara", "California.Cupertino"};
+                           "California.Sunnyvale", "California.SantaClara", "California.Cupertino",
+                           "beijign", "shanghai", "shenzhen", "guangzhou", "hangzhou", "tianjing", "chongqing", "xianggang","taibei","aomen",
+                           "changsha", "zhuzhou", "xiangtan","hengyang","chunzhou","loudi","pingxiang","chaoshan","shaoyang","yiyang",
+                           "xinhua", "youjia", "dongliang","lishan","wushi","chuntian","zhenshang","baisha","caojia","shichongkou"};
 
 #ifdef WINDOWS
     #define ssize_t int
@@ -310,7 +313,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         int64_t pos = k * lenOfOneRow;
         if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
             (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
-            pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
+            //pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
+            pos += sprintf(sampleDataBuf + pos, ",");
         }
 
         int fieldSize = fields->size;
@@ -656,7 +660,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                         if (g_arguments->chinese) {
                             sprintf(tmp, "%s", locations_chinese[tmpRand % 10]);
                         } else if (stbInfo->iface == SML_IFACE) {
-                            sprintf(tmp, "%s", locations_sml[tmpRand % 10]);
+                            sprintf(tmp, "%s", locations_sml[tmpRand % 40]);
                         } else {
                             sprintf(tmp, "%s", locations[tmpRand % 10]);
                         }
@@ -754,7 +758,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         } else {
             stbInfo->partialColNameBuf = benchCalloc(1, BUFFER_SIZE, true);
             int pos = 0;
-            pos += sprintf(stbInfo->partialColNameBuf + pos, TS_COL_NAME);
+            pos += sprintf(stbInfo->partialColNameBuf + pos, "ts");
             for (int i = 0; i < stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 pos += sprintf(stbInfo->partialColNameBuf + pos, ",%s", col->name);

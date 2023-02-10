@@ -154,13 +154,7 @@
 #define BARRAY_MIN_SIZE 8
 #define SML_LINE_SQL_SYNTAX_OFFSET 7
 
-// tdengine define macro 
-#define TSDB_DEFAULT_DURATION_PER_FILE  (10 * 1440)
-
-#define TS_COL_NAME "ts"
-#define  RD(max) ((max)==0 ? 1 : taosRandom() % (max))
 #define SML_JSON_TAOS_FORMAT    255
-
 
 
 #define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
@@ -474,29 +468,16 @@ typedef struct STSMA {
     bool  done;
 } TSMA;
 
-// generate row data rule
-#define RULE_OLD           0 // old generator method
-#define RULE_MIX_RANDOM    1 // old data mix update delete ratio
-#define RULE_MIX_ALL       2 // mix with all var data
-#define RULE_MIX_TS_CALC   3 // ts calc other column
-#define RULE_MIX_FIX_VALUE 4 // fixed value with give
-
-// define suit 
-#define SUIT_DATAPOS_MEM       1  
-#define SUIT_DATAPOS_STT       2
-#define SUIT_DATAPOS_FILE      3
-#define SUIT_DATAPOS_MUL_FILE  4
-#define SUIT_DATAPOS_MIX       5
-
 enum CONTINUE_IF_FAIL_MODE {
     NO_IF_FAILED,     // 0
     YES_IF_FAILED,    // 1
     SMART_IF_FAILED,  // 2
 };
 
-
 typedef struct SSuperTable_S {
     char *   stbName;
+	uint32_t loopCnt;	
+    uint32_t nthreads;
     bool     random_data_source;  // rand_gen or sample
     bool     escape_character;
     bool     use_metric;
@@ -518,37 +499,6 @@ typedef struct SSuperTable_S {
     uint32_t interlaceRows;  //
     int      disorderRatio;  // 0: no disorder, >0: x%
     int      disorderRange;  // ms, us or ns. according to database precision
-
-    // ratio
-    uint8_t disRatio; // disorder ratio 0 ~ 100 % 
-    uint8_t updRatio; // update ratio   0 ~ 100 % 
-    uint8_t delRatio; // delete ratio   0 ~ 100 % 
-
-    // range
-    uint64_t disRange; // disorder range
-    uint64_t updRange; // update range
-    uint64_t delRange; // delete range
-
-    // generate row value rule see pre RULE_ define
-    uint8_t genRowRule;
-
-    // data position
-    uint8_t dataPos; //  see define DATAPOS_
-
-    uint32_t fillIntervalUpd;  // fill Upd interval rows cnt
-    uint32_t fillIntervalDis;  // fill Dis interval rows cnt
-
-    // binary prefix
-    char*    binaryPrefex;
-    // nchar prefix
-    char*    ncharPrefex;
-
-    // random write future time
-    bool    useNow;
-    bool    writeFuture;
-    int32_t durMinute;  // passed database->durMinute
-    int32_t checkInterval; // check correct interval
-
     int64_t  max_sql_len;
     uint64_t insert_interval;
     uint64_t insertRows;
@@ -612,7 +562,6 @@ typedef struct SDataBase_S {
     bool        drop;  // 0: use exists, 1: if exists, drop then new create
     int         precision;
     int         sml_precision;
-    int         durMinute;  // duration minutes
     BArray     *cfgs;
     BArray     *superTbls;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
@@ -735,9 +684,6 @@ typedef struct SArguments_S {
     uint32_t            trying_interval;
     int                 iface;
     int                 rest_server_ver_major;
-    bool                failed_continue;
-    bool                check_sql;
-    int                 suit;  // see define SUIT_
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     int16_t             inputted_vgroups;
 #endif
@@ -747,7 +693,6 @@ typedef struct SArguments_S {
 
 typedef struct SBenchConn{
     TAOS* taos;
-    TAOS* ctaos; // check taos
     TAOS_STMT* stmt;
 #ifdef WEBSOCKET
     WS_TAOS* taos_ws;
@@ -755,7 +700,6 @@ typedef struct SBenchConn{
 #endif
 } SBenchConn;
 
-#define MAX_BATCOLS 256
 typedef struct SThreadInfo_S {
     SBenchConn* conn;
     uint64_t * bind_ts;
@@ -794,14 +738,6 @@ typedef struct SThreadInfo_S {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     SVGroup   *vg;
 #endif
-
-    // new
-    uint16_t batCols[MAX_BATCOLS];
-    uint16_t nBatCols; // valid count for array batCols
-
-    // check sql result
-    char * csql;
-    int32_t clen; // csql current write position
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -924,7 +860,5 @@ void printWarnCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
 #ifndef LINUX
 int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
-
-int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 
 #endif   // __BENCH_H_

@@ -239,32 +239,6 @@ PARSE_OVER:
     return code;
 }
 
-int32_t getDurationVal(tools_cJSON *jsonObj) {
-    int32_t durMinute = 0;
-    // get duration value
-    if (tools_cJSON_IsString(jsonObj)) {
-        char *val = jsonObj->valuestring;
-        // like 10d or 10h or 10m
-        int32_t len = strlen(val);
-        if (len == 0) return 0;
-        durMinute = atoi(val);
-        if (strchr(val, 'h') || strchr(val, 'H')) {
-            // hour
-            durMinute *= 60;
-        } else if (strchr(val, 'm') || strchr(val, 'M')) {
-            // minute
-            durMinute *= 1;
-        } else {
-            // day
-            durMinute *= 24 * 60;
-        }
-    } else if (tools_cJSON_IsNumber(jsonObj)) {
-        durMinute = jsonObj->valueint * 24 * 60;
-    }
-
-    return durMinute;
-}
-
 static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database;
     if (index > 0) {
@@ -310,12 +284,6 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         } else {
             SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
             cfg->name = cfg_object->string;
-
-            // get duration vallue
-            if (0 == strcasecmp(cfg_object->string, "duration")) {
-                database->durMinute = getDurationVal(cfg_object);
-            }
-
             if (tools_cJSON_IsString(cfg_object)) {
                 cfg->valuestring = cfg_object->valuestring;
             } else if (tools_cJSON_IsNumber(cfg_object)) {
@@ -330,9 +298,6 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         }
         cfg_object = cfg_object->next;
     }
-
-    // set default
-    if(database->durMinute == 0) database->durMinute = TSDB_DEFAULT_DURATION_PER_FILE;
 
     if (database->dbName  == NULL) {
         errorPrint("%s", "miss name in dbinfo\n");
@@ -458,11 +423,22 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->file_factor = -1;
         superTable->rollup = NULL;
         tools_cJSON *stbInfo = tools_cJSON_GetArrayItem(stables, i);
-        tools_cJSON *itemObj;
 
         tools_cJSON *stbName = tools_cJSON_GetObjectItem(stbInfo, "name");
         if (tools_cJSON_IsString(stbName)) {
             superTable->stbName = stbName->valuestring;
+        }
+
+        superTable->loopCnt = 0;
+        tools_cJSON *looCnt = tools_cJSON_GetObjectItem(stbInfo, "loop_cnt");
+        if (tools_cJSON_IsNumber(looCnt)) {
+            superTable->loopCnt = looCnt->valueint;
+        }
+
+        superTable->nthreads = 1;
+        tools_cJSON *nthreads = tools_cJSON_GetObjectItem(stbInfo, "thread_count");
+        if (tools_cJSON_IsNumber(nthreads)) {
+            superTable->nthreads = nthreads->valueint;
         }
 
         tools_cJSON *prefix =
@@ -642,9 +618,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =
                     toolsGetTimestamp(database->precision);
-                superTable->useNow = true;
-                //  fill time with now conflict wih check_sql 
-                g_arguments->check_sql = false;
             } else {
                 if (toolsParseTime(ts->valuestring,
                                    &(superTable->startTimestamp),
@@ -656,11 +629,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 }
             }
         } else {
-            if (tools_cJSON_IsNumber(ts)) {
-                superTable->startTimestamp = ts->valueint;
-            } else {
-                superTable->startTimestamp = toolsGetTimestamp(database->precision);
-            }
+            superTable->startTimestamp =
+                toolsGetTimestamp(database->precision);
         }
 
         tools_cJSON *timestampStep =
@@ -732,87 +702,19 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->interlaceRows = (uint32_t)stbInterlaceRows->valueint;
         }
 
-        // disorder 
         tools_cJSON *disorderRatio =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_ratio");
         if (tools_cJSON_IsNumber(disorderRatio)) {
-            if (disorderRatio->valueint > 100) disorderRatio->valueint = 100; // 
+            if (disorderRatio->valueint > 50) disorderRatio->valueint = 50;
             if (disorderRatio->valueint < 0) disorderRatio->valueint = 0;
 
             superTable->disorderRatio = (int)disorderRatio->valueint;
-            superTable->disRatio = (uint8_t)disorderRatio->valueint;
         }
+
         tools_cJSON *disorderRange =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_range");
         if (tools_cJSON_IsNumber(disorderRange)) {
             superTable->disorderRange = (int)disorderRange->valueint;
-            superTable->disRange = disorderRange->valueint;
-        }
-        tools_cJSON *disFill =
-            tools_cJSON_GetObjectItem(stbInfo, "disorder_fill_interval");
-        if (tools_cJSON_IsNumber(disFill)) {
-            superTable->fillIntervalDis = (int)disFill->valueint;
-        }
-
-
-        // update
-        tools_cJSON *updRatio =
-            tools_cJSON_GetObjectItem(stbInfo, "update_ratio");
-        if (tools_cJSON_IsNumber(updRatio)) {
-            if (updRatio->valueint > 100) updRatio->valueint = 100;
-            if (updRatio->valueint < 0) updRatio->valueint = 0;
-            superTable->updRatio = (int8_t)updRatio->valueint;
-        }
-        tools_cJSON *updFill =
-            tools_cJSON_GetObjectItem(stbInfo, "update_fill_interval");
-        if (tools_cJSON_IsNumber(updFill)) {
-            superTable->fillIntervalUpd = (uint64_t)updFill->valueint;
-        }
-
-        // delete
-        tools_cJSON *delRatio =
-            tools_cJSON_GetObjectItem(stbInfo, "delete_ratio");
-        if (tools_cJSON_IsNumber(delRatio)) {
-            if (delRatio->valueint > 100) delRatio->valueint = 100;
-            if (delRatio->valueint < 0) delRatio->valueint = 0;
-            superTable->delRatio = (int8_t)delRatio->valueint;
-        }
-
-        // generate row rule 
-        tools_cJSON *rowRule =
-            tools_cJSON_GetObjectItem(stbInfo, "generate_row_rule");
-        if (tools_cJSON_IsNumber(rowRule)) {
-            superTable->genRowRule = (int8_t)rowRule->valueint;
-        }
-
-        // binary prefix
-        tools_cJSON *binPrefix =
-            tools_cJSON_GetObjectItem(stbInfo, "binary_prefix");
-        if (tools_cJSON_IsString(binPrefix)) {
-            superTable->binaryPrefex = binPrefix->valuestring;
-        } else {
-            superTable->binaryPrefex = NULL;
-        }
-
-        // nchar prefix
-        tools_cJSON *ncharPrefix =
-            tools_cJSON_GetObjectItem(stbInfo, "nchar_prefix");
-        if (tools_cJSON_IsString(ncharPrefix)) {
-            superTable->ncharPrefex = ncharPrefix->valuestring;
-        } else {
-            superTable->ncharPrefex = NULL;
-        }
-
-        // write future random
-        itemObj = tools_cJSON_GetObjectItem(stbInfo, "random_write_future");
-        if (tools_cJSON_IsString(itemObj) && (0 == strcasecmp(itemObj->valuestring, "yes"))) {
-            superTable->writeFuture = true;
-        }
-
-        // check_correct_interval
-        itemObj = tools_cJSON_GetObjectItem(stbInfo, "check_correct_interval");
-        if (tools_cJSON_IsNumber(itemObj)) {
-            superTable->checkInterval = itemObj->valueint;
         }
 
         tools_cJSON *insertInterval =
@@ -973,22 +875,6 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         password->valuestring != NULL) {
         g_arguments->password = password->valuestring;
     }
-
-    // check after inserted
-    tools_cJSON *checkSql = tools_cJSON_GetObjectItem(json, "check_sql");
-    if (tools_cJSON_IsString(checkSql)) {
-        if (0 == strcasecmp(checkSql->valuestring, "yes")) {
-            g_arguments->check_sql = true;
-        }
-    } 
-
-    // failed continue
-    tools_cJSON *continueSql = tools_cJSON_GetObjectItem(json, "failed_continue");
-    if (tools_cJSON_IsString(continueSql)) {
-        if (0 == strcasecmp(checkSql->valuestring, "yes")) {
-            g_arguments->failed_continue = true;
-        }
-    } 
 
     tools_cJSON *resultfile = tools_cJSON_GetObjectItem(json, "result_file");
     if (resultfile && resultfile->type == tools_cJSON_String &&
