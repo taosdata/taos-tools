@@ -117,8 +117,8 @@ static unsigned char* tools_cJSON_strdup(const unsigned char* string, const inte
     {
         return NULL;
     }
-    
-    strcpy(copy, (const char*)string);
+    memcpy(copy, string, length);
+
     return copy;
 }
 
