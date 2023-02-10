@@ -72,7 +72,6 @@ jobs:
           path: 'TDengine'
           ref: 'fix/TD-22330'
 
-
       - name: Change time zone
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
