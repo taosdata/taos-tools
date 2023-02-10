@@ -67,7 +67,7 @@ brew install argp-standalone gawk
 
 ### Install TDengine client
 
-Please [download the TDengine client package] (https://docs.tdengine.com/releases/tdengine/)
+Please [download the TDengine client package](https://docs.tdengine.com/releases/tdengine/)
 or compile TDengine source from [GitHub](https://github.com/taosdata/TDengine)
 and install to your system.
 
