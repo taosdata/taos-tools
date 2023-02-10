@@ -413,7 +413,8 @@ void encodeAuthBase64() {
 }
 
 int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
-                     int protocol, uint16_t rest_port, bool tcp, int sockfd, char* filePath,
+                     int protocol, uint16_t rest_port, bool tcp, int sockfd,
+                     char* filePath,
                      char *responseBuf, int64_t response_length) {
     int32_t      code = -1;
     char *       req_fmt =
@@ -444,6 +445,9 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
     char *   request_buf = NULL;
     int req_buf_len = (int)strlen(sqlstr) + REQ_EXTRA_BUF_LEN;
 
+    if (g_arguments->terminate) {
+        goto free_of_postImpl;
+    }
     request_buf = benchCalloc(1, req_buf_len, false);
 
     int r;
@@ -471,7 +475,7 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
         }
         if (bytes == 0) break;
         sent += bytes;
-    } while (sent < req_str_len);
+    } while ((sent < req_str_len) && !g_arguments->terminate);
 
     if (protocol == TSDB_SML_TELNET_PROTOCOL && iface == SML_REST_IFACE && tcp) {
         code = 0;
@@ -483,6 +487,9 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
 
     bool chunked = false;
 
+    if (g_arguments->terminate) {
+        goto free_of_postImpl;
+    }
     do {
         bytes = recv(sockfd, responseBuf + received,
                 resp_len - received, 0);
@@ -522,7 +529,7 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
                 }
             }
         }
-    } while (received < resp_len);
+    } while ((received < resp_len) && !g_arguments->terminate);
 
     if (received == resp_len) {
         errorPrint("%s", "storing complete response from socket\n");
@@ -539,7 +546,7 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
 
     code = 0;
 free_of_postImpl:
-    if (filePath && strlen(filePath) > 0) {
+    if (filePath && strlen(filePath) > 0 && !g_arguments->terminate) {
         appendResultBufToFile(responseBuf, filePath);
     }
     tmfree(request_buf);
