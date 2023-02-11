@@ -827,7 +827,7 @@ static int startMultiThreadCreateChildTable(
         g_arguments->actualChildTables += pThreadInfo->tables_created;
 
         if (REST_IFACE != stbInfo->iface) {
-            if (pThreadInfo)
+            if (pThreadInfo && pThreadInfo->conn)
                 closeBenchConn(pThreadInfo->conn);
         }
     }
