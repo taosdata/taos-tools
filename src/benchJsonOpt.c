@@ -239,6 +239,32 @@ PARSE_OVER:
     return code;
 }
 
+int32_t getDurationVal(tools_cJSON *jsonObj) {
+    int32_t durMinute = 0;
+    // get duration value
+    if (tools_cJSON_IsString(jsonObj)) {
+        char *val = jsonObj->valuestring;
+        // like 10d or 10h or 10m
+        int32_t len = strlen(val);
+        if (len == 0) return 0;
+        durMinute = atoi(val);
+        if (strchr(val, 'h') || strchr(val, 'H')) {
+            // hour
+            durMinute *= 60;
+        } else if (strchr(val, 'm') || strchr(val, 'M')) {
+            // minute
+            durMinute *= 1;
+        } else {
+            // day
+            durMinute *= 24 * 60;
+        }
+    } else if (tools_cJSON_IsNumber(jsonObj)) {
+        durMinute = jsonObj->valueint * 24 * 60;
+    }
+
+    return durMinute;
+}
+
 static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database;
     if (index > 0) {
@@ -284,6 +310,12 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         } else {
             SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
             cfg->name = cfg_object->string;
+
+            // get duration vallue
+            if (0 == strcasecmp(cfg_object->string, "duration")) {
+                database->durMinute = getDurationVal(cfg_object);
+            }
+
             if (tools_cJSON_IsString(cfg_object)) {
                 cfg->valuestring = cfg_object->valuestring;
             } else if (tools_cJSON_IsNumber(cfg_object)) {
@@ -298,6 +330,9 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         }
         cfg_object = cfg_object->next;
     }
+
+    // set default
+    if(database->durMinute == 0) database->durMinute = TSDB_DEFAULT_DURATION_PER_FILE;
 
     if (database->dbName  == NULL) {
         errorPrint("%s", "miss name in dbinfo\n");
@@ -423,6 +458,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->file_factor = -1;
         superTable->rollup = NULL;
         tools_cJSON *stbInfo = tools_cJSON_GetArrayItem(stables, i);
+        tools_cJSON *itemObj;
 
         tools_cJSON *stbName = tools_cJSON_GetObjectItem(stbInfo, "name");
         if (tools_cJSON_IsString(stbName)) {
@@ -540,28 +576,75 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
         tools_cJSON *transferProtocol =
             tools_cJSON_GetObjectItem(stbInfo, "tcp_transfer");
-        if (tools_cJSON_IsString(transferProtocol) &&
-            (0 == strcasecmp(transferProtocol->valuestring, "yes"))) {
+        if (tools_cJSON_IsString(transferProtocol)
+                && (0 == strcasecmp(transferProtocol->valuestring, "yes"))) {
             superTable->tcpTransfer = true;
         }
         tools_cJSON *childTbl_limit =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_limit");
-        if (tools_cJSON_IsNumber(childTbl_limit)
-            && (childTbl_limit->valueint >= 0)) {
-            superTable->childTblLimit = childTbl_limit->valueint;
-        } else {
-            superTable->childTblLimit = superTable->childTblCount;
-        };
+        if (tools_cJSON_IsNumber(childTbl_limit)) {
+            if (childTbl_limit->valueint >= 0) {
+                superTable->childTblLimit = childTbl_limit->valueint;
+            } else {
+                warnPrint("child table limit %"PRId64" is invalid, "
+                          "set to %"PRId64"\n",
+                          childTbl_limit->valueint,
+                          superTable->childTblCount);
+                superTable->childTblLimit = superTable->childTblCount;
+            };
+        }
         tools_cJSON *childTbl_offset =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_offset");
         if (tools_cJSON_IsNumber(childTbl_offset)) {
             superTable->childTblOffset = childTbl_offset->valueint;
         }
+        tools_cJSON *childTbl_from =
+            tools_cJSON_GetObjectItem(stbInfo, "childtable_from");
+        if (tools_cJSON_IsNumber(childTbl_from)) {
+            if (childTbl_from->valueint >= 0) {
+                superTable->childTblFrom = childTbl_from->valueint;
+            } else {
+                warnPrint("child table from %"PRId64" is invalid, set to 0\n",
+                          childTbl_from->valueint);
+                superTable->childTblFrom = 0;
+            };
+        }
+        tools_cJSON *childTbl_to =
+            tools_cJSON_GetObjectItem(stbInfo, "childtable_to");
+        if (tools_cJSON_IsNumber(childTbl_to)) {
+            superTable->childTblTo = childTbl_to->valueint;
+            if (superTable->childTblTo < superTable->childTblFrom) {
+                errorPrint("child table to is invalid number,"
+                    "%"PRId64" < %"PRId64"\n",
+                    superTable->childTblTo, superTable->childTblFrom);
+                return -1;
+            }
+        }
+
+        tools_cJSON *continueIfFail =
+            tools_cJSON_GetObjectItem(stbInfo, "continue_if_fail");  // yes, no,
+        if (tools_cJSON_IsString(continueIfFail)) {
+            if (0 == strcasecmp(continueIfFail->valuestring, "no")) {
+                superTable->continueIfFail = NO_IF_FAILED;
+            } else if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+                superTable->continueIfFail = YES_IF_FAILED;
+            } else if (0 == strcasecmp(continueIfFail->valuestring, "smart")) {
+                superTable->continueIfFail = SMART_IF_FAILED;
+            } else {
+                errorPrint("cointinue_if_fail has unknown mode %s\n",
+                           continueIfFail->valuestring);
+                return -1;
+            }
+        }
+
         tools_cJSON *ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
         if (tools_cJSON_IsString(ts)) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =
                     toolsGetTimestamp(database->precision);
+                superTable->useNow = true;
+                //  fill time with now conflict wih check_sql 
+                g_arguments->check_sql = false;
             } else {
                 if (toolsParseTime(ts->valuestring,
                                    &(superTable->startTimestamp),
@@ -573,8 +656,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 }
             }
         } else {
-            superTable->startTimestamp =
-                toolsGetTimestamp(database->precision);
+            if (tools_cJSON_IsNumber(ts)) {
+                superTable->startTimestamp = ts->valueint;
+            } else {
+                superTable->startTimestamp = toolsGetTimestamp(database->precision);
+            }
         }
 
         tools_cJSON *timestampStep =
@@ -646,19 +732,87 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->interlaceRows = (uint32_t)stbInterlaceRows->valueint;
         }
 
+        // disorder 
         tools_cJSON *disorderRatio =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_ratio");
         if (tools_cJSON_IsNumber(disorderRatio)) {
-            if (disorderRatio->valueint > 50) disorderRatio->valueint = 50;
+            if (disorderRatio->valueint > 100) disorderRatio->valueint = 100; // 
             if (disorderRatio->valueint < 0) disorderRatio->valueint = 0;
 
             superTable->disorderRatio = (int)disorderRatio->valueint;
+            superTable->disRatio = (uint8_t)disorderRatio->valueint;
         }
-
         tools_cJSON *disorderRange =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_range");
         if (tools_cJSON_IsNumber(disorderRange)) {
             superTable->disorderRange = (int)disorderRange->valueint;
+            superTable->disRange = disorderRange->valueint;
+        }
+        tools_cJSON *disFill =
+            tools_cJSON_GetObjectItem(stbInfo, "disorder_fill_interval");
+        if (tools_cJSON_IsNumber(disFill)) {
+            superTable->fillIntervalDis = (int)disFill->valueint;
+        }
+
+
+        // update
+        tools_cJSON *updRatio =
+            tools_cJSON_GetObjectItem(stbInfo, "update_ratio");
+        if (tools_cJSON_IsNumber(updRatio)) {
+            if (updRatio->valueint > 100) updRatio->valueint = 100;
+            if (updRatio->valueint < 0) updRatio->valueint = 0;
+            superTable->updRatio = (int8_t)updRatio->valueint;
+        }
+        tools_cJSON *updFill =
+            tools_cJSON_GetObjectItem(stbInfo, "update_fill_interval");
+        if (tools_cJSON_IsNumber(updFill)) {
+            superTable->fillIntervalUpd = (uint64_t)updFill->valueint;
+        }
+
+        // delete
+        tools_cJSON *delRatio =
+            tools_cJSON_GetObjectItem(stbInfo, "delete_ratio");
+        if (tools_cJSON_IsNumber(delRatio)) {
+            if (delRatio->valueint > 100) delRatio->valueint = 100;
+            if (delRatio->valueint < 0) delRatio->valueint = 0;
+            superTable->delRatio = (int8_t)delRatio->valueint;
+        }
+
+        // generate row rule 
+        tools_cJSON *rowRule =
+            tools_cJSON_GetObjectItem(stbInfo, "generate_row_rule");
+        if (tools_cJSON_IsNumber(rowRule)) {
+            superTable->genRowRule = (int8_t)rowRule->valueint;
+        }
+
+        // binary prefix
+        tools_cJSON *binPrefix =
+            tools_cJSON_GetObjectItem(stbInfo, "binary_prefix");
+        if (tools_cJSON_IsString(binPrefix)) {
+            superTable->binaryPrefex = binPrefix->valuestring;
+        } else {
+            superTable->binaryPrefex = NULL;
+        }
+
+        // nchar prefix
+        tools_cJSON *ncharPrefix =
+            tools_cJSON_GetObjectItem(stbInfo, "nchar_prefix");
+        if (tools_cJSON_IsString(ncharPrefix)) {
+            superTable->ncharPrefex = ncharPrefix->valuestring;
+        } else {
+            superTable->ncharPrefex = NULL;
+        }
+
+        // write future random
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "random_write_future");
+        if (tools_cJSON_IsString(itemObj) && (0 == strcasecmp(itemObj->valuestring, "yes"))) {
+            superTable->writeFuture = true;
+        }
+
+        // check_correct_interval
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "check_correct_interval");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            superTable->checkInterval = itemObj->valueint;
         }
 
         tools_cJSON *insertInterval =
@@ -819,6 +973,22 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         password->valuestring != NULL) {
         g_arguments->password = password->valuestring;
     }
+
+    // check after inserted
+    tools_cJSON *checkSql = tools_cJSON_GetObjectItem(json, "check_sql");
+    if (tools_cJSON_IsString(checkSql)) {
+        if (0 == strcasecmp(checkSql->valuestring, "yes")) {
+            g_arguments->check_sql = true;
+        }
+    } 
+
+    // failed continue
+    tools_cJSON *continueSql = tools_cJSON_GetObjectItem(json, "failed_continue");
+    if (tools_cJSON_IsString(continueSql)) {
+        if (0 == strcasecmp(checkSql->valuestring, "yes")) {
+            g_arguments->failed_continue = true;
+        }
+    } 
 
     tools_cJSON *resultfile = tools_cJSON_GetObjectItem(json, "result_file");
     if (resultfile && resultfile->type == tools_cJSON_String &&
@@ -983,8 +1153,16 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     tools_cJSON *continueIfFail =
         tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
     if (tools_cJSON_IsString(continueIfFail)) {
-        if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
-            g_queryInfo.continue_if_fail = true;
+        if (0 == strcasecmp(continueIfFail->valuestring, "no")) {
+            g_arguments->continueIfFail = NO_IF_FAILED;
+        } else if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+            g_arguments->continueIfFail = YES_IF_FAILED;
+        } else if (0 == strcasecmp(continueIfFail->valuestring, "smart")) {
+            g_arguments->continueIfFail = SMART_IF_FAILED;
+        } else {
+            errorPrint("cointinue_if_fail has unknown mode %s\n",
+                       continueIfFail->valuestring);
+            return -1;
         }
     }
 
