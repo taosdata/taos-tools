@@ -1066,7 +1066,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 }
             }
 
-            if (code != TSDB_CODE_SUCCESS) {
+            if (code != TSDB_CODE_SUCCESS && !g_arguments->terminate) {
                 errorPrint(
                     "failed to execute schemaless insert. "
                         "content: %s, code: 0x%08x reason: %s\n",
