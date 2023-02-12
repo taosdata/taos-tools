@@ -1445,11 +1445,6 @@ static void *syncWriteInterlace(void *sarg) {
         }
     }
 free_of_interlace:
-    if (pThreadInfo && pThreadInfo->lines) {
-        tmfree(pThreadInfo->lines[0]);
-        tmfree(pThreadInfo->lines);
-        pThreadInfo->lines = NULL;
-    }
     if (pThreadInfo && pThreadInfo->json_array) {
         tools_cJSON_Delete(pThreadInfo->json_array);
         pThreadInfo->json_array = NULL;
@@ -1886,11 +1881,6 @@ void *syncWriteProgressive(void *sarg) {
         }  // insertRows
     }      // tableSeq
 free_of_progressive:
-    if (pThreadInfo && pThreadInfo->lines) {
-        tmfree(pThreadInfo->lines[0]);
-        tmfree(pThreadInfo->lines);
-        pThreadInfo->lines = NULL;
-    }
     if (pThreadInfo && pThreadInfo->json_array) {
         tools_cJSON_Delete(pThreadInfo->json_array);
         pThreadInfo->json_array = NULL;
@@ -2636,6 +2626,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (g_arguments->terminate)
                     toolsMsleep(100);
                 tmfree(pThreadInfo->buffer);
+                // on-purpose no break here
             case SML_IFACE:
                 if (stbInfo->lineProtocol != TSDB_SML_JSON_PROTOCOL
                         && stbInfo->lineProtocol != SML_JSON_TAOS_FORMAT) {
