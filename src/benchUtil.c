@@ -703,18 +703,27 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
         debugPrint("Response: \n%s\n", responseBuf);
         char* start = strstr(responseBuf, "{");
         if ((start == NULL)
-                && (TSDB_SML_TELNET_PROTOCOL != protocol)) {
+                && (TSDB_SML_TELNET_PROTOCOL != protocol)
+                && (TSDB_SML_JSON_PROTOCOL != protocol)
+                && (SML_JSON_TAOS_FORMAT != protocol)
+                ) {
             errorPrint("Invalid response format: %s\n", responseBuf);
             goto free_of_post;
         }
         tools_cJSON* resObj = tools_cJSON_Parse(start);
         if ((resObj == NULL)
-                && (TSDB_SML_TELNET_PROTOCOL != protocol)) {
+                && (TSDB_SML_TELNET_PROTOCOL != protocol)
+                && (TSDB_SML_JSON_PROTOCOL != protocol)
+                && (SML_JSON_TAOS_FORMAT != protocol)
+                ) {
             errorPrint("Cannot parse response into json: %s\n", start);
         }
         tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
         if ((!tools_cJSON_IsNumber(codeObj))
-                && (TSDB_SML_TELNET_PROTOCOL != protocol)) {
+                && (TSDB_SML_TELNET_PROTOCOL != protocol)
+                && (TSDB_SML_JSON_PROTOCOL != protocol)
+                && (SML_JSON_TAOS_FORMAT != protocol)
+                ) {
             errorPrint("Invalid or miss 'code' key in json: %s\n",
                        tools_cJSON_Print(resObj));
             tools_cJSON_Delete(resObj);
