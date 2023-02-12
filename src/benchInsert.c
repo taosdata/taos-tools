@@ -12,6 +12,7 @@
 
 #include "bench.h"
 #include "benchData.h"
+#include "benchInsertMix.h"
 
 static int getSuperTableFromServerRest(
     SDataBase* database, SSuperTable* stbInfo, char *command) {
@@ -825,9 +826,9 @@ static int startMultiThreadCreateChildTable(
         threadInfo *pThreadInfo = infos + i;
         g_arguments->actualChildTables += pThreadInfo->tables_created;
 
-        if (REST_IFACE != stbInfo->iface) {
-            if (pThreadInfo)
-                closeBenchConn(pThreadInfo->conn);
+        if ((REST_IFACE != stbInfo->iface)
+                && pThreadInfo && pThreadInfo->conn) {
+            closeBenchConn(pThreadInfo->conn);
         }
     }
 
@@ -964,7 +965,7 @@ void postFreeResource() {
     tools_cJSON_Delete(root);
 }
 
-static int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     TAOS_RES *   res = NULL;
@@ -1439,6 +1440,13 @@ void *syncWriteProgressive(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+
+    // special deal flow for TAOSC_IFACE
+    if (insertDataMix(pThreadInfo, database, stbInfo)) {
+        // request be dealed by this function , so return
+        return NULL;
+    }
+
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if (g_arguments->nthreads_auto) {
         if (0 == pThreadInfo->vg->tbCountPerVgId) {
@@ -1715,7 +1723,7 @@ void *syncWriteProgressive(void *sarg) {
                     warnPrint("The super table parameter "
                               "continueIfFail: %d, will create table then insert ..\n",
                               stbInfo->continueIfFail);
-                    // TODO: create sub table 
+                    // TODO: create sub table
                     char *buffer = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
                     snprintf(
                             buffer, TSDB_MAX_SQL_LEN,
@@ -2515,6 +2523,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                     pThreadInfo->buffer = new_ds(0);
                 } else {
                     pThreadInfo->buffer = benchCalloc(1, MAX_SQL_LEN, true);
+                    if(g_arguments->check_sql) {
+                        pThreadInfo->csql = benchCalloc(1, MAX_SQL_LEN, true);
+                        memset(pThreadInfo->csql, 0, MAX_SQL_LEN);
+                    }
                 }
 
                 break;
@@ -2556,6 +2568,12 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
+        // free check sql
+        if(pThreadInfo->csql) {
+            tmfree(pThreadInfo->csql);
+            pThreadInfo->csql = NULL;
+        }
+
         switch (stbInfo->iface) {
             case REST_IFACE:
                 if (g_arguments->terminate)

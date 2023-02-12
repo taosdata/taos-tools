@@ -754,7 +754,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         } else {
             stbInfo->partialColNameBuf = benchCalloc(1, BUFFER_SIZE, true);
             int pos = 0;
-            pos += sprintf(stbInfo->partialColNameBuf + pos, "ts");
+            pos += sprintf(stbInfo->partialColNameBuf + pos, TS_COL_NAME);
             for (int i = 0; i < stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 pos += sprintf(stbInfo->partialColNameBuf + pos, ",%s", col->name);
@@ -916,7 +916,6 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
     char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
              stbInfo->childTblPrefix, tbSeq + start_table_from);
-    tools_cJSON_AddStringToObject(tags, "id", tbName);
     char *tagName = benchCalloc(1, TSDB_MAX_TAGS, true);
     for (int i = 0; i < stbInfo->tags->size; i++) {
         Field * tag = benchArrayGet(stbInfo->tags, i);

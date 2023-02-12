@@ -307,6 +307,11 @@ SBenchConn* initBenchConn() {
             tmfree(conn);
             return NULL;
         }
+
+        
+        conn->ctaos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
+
+
 #ifdef WEBSOCKET
     }
 #endif
@@ -320,6 +325,10 @@ void closeBenchConn(SBenchConn* conn) {
     } else {
 #endif
         taos_close(conn->taos);
+        if(conn->ctaos) {
+            taos_close(conn->ctaos);
+            conn->ctaos = NULL;
+        }
 #ifdef WEBSOCKET
     }
 #endif
