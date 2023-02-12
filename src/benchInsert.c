@@ -1445,7 +1445,12 @@ static void *syncWriteInterlace(void *sarg) {
         }
     }
 free_of_interlace:
-    if (pThreadInfo->json_array) {
+    if (pThreadInfo->lines) {
+        tmfree(pThreadInfo->lines[0]);
+        tmfree(pThreadInfo->lines);
+        pThreadInfo->lines = NULL;
+    }
+    if (pThreadInfo && pThreadInfo->json_array) {
         tools_cJSON_Delete(pThreadInfo->json_array);
         pThreadInfo->json_array = NULL;
     }
