@@ -702,32 +702,35 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
     if (g_arguments->test_mode == INSERT_TEST) {
         debugPrint("Response: \n%s\n", responseBuf);
         char* start = strstr(responseBuf, "{");
-        if (start == NULL) {
+        if ((start == NULL)
+                && (TSDB_SML_TELNET_PROTOCOL != protocol)) {
             errorPrint("Invalid response format: %s\n", responseBuf);
             goto free_of_post;
         }
         tools_cJSON* resObj = tools_cJSON_Parse(start);
-        if (resObj == NULL) {
+        if ((resObj == NULL)
+                && (TSDB_SML_TELNET_PROTOCOL != protocol)) {
             errorPrint("Cannot parse response into json: %s\n", start);
         }
         tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
-        if (!tools_cJSON_IsNumber(codeObj)) {
+        if ((!tools_cJSON_IsNumber(codeObj))
+                && (TSDB_SML_TELNET_PROTOCOL != protocol)) {
             errorPrint("Invalid or miss 'code' key in json: %s\n",
                        tools_cJSON_Print(resObj));
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
 
-        if ((SML_REST_IFACE == iface) && (200 == codeObj->valueint)) {
+        if ((SML_REST_IFACE == iface) && codeObj && (200 == codeObj->valueint)) {
             code = 0;
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
 
-        if (codeObj->valueint != 0
-                && (iface == SML_REST_IFACE
-                && protocol == TSDB_SML_LINE_PROTOCOL
-                && codeObj->valueint != 200)) {
+        if ((iface == SML_REST_IFACE)
+                && (protocol == TSDB_SML_LINE_PROTOCOL)
+                && codeObj
+                && (codeObj->valueint != 0) && (codeObj->valueint != 200)) {
             tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
             if (!tools_cJSON_IsString(desc)) {
                 errorPrint("Invalid or miss 'desc' key in json: %s\n",
