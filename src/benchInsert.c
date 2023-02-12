@@ -265,7 +265,9 @@ skip:
             : "CREATE TABLE %s.%s (ts TIMESTAMP%s) TAGS %s",
         database->dbName, stbInfo->stbName, cols, tags);
     tmfree(cols);
+    cols = NULL;
     tmfree(tags);
+    tags = NULL;
     if (stbInfo->comment != NULL) {
         length += snprintf(command + length, BUFFER_SIZE - length,
                            " COMMENT '%s'", stbInfo->comment);
@@ -761,6 +763,7 @@ static void *createTable(void *sarg) {
     }
 create_table_end:
     tmfree(pThreadInfo->buffer);
+    pThreadInfo->buffer = NULL;
     return NULL;
 }
 
@@ -798,7 +801,9 @@ static int startMultiThreadCreateChildTable(
             int sockfd = createSockFd();
             if (sockfd < 0) {
                 tmfree(pids);
+                pids = NULL;
                 tmfree(infos);
+                infos = NULL;
                 return -1;
             }
             pThreadInfo->sockfd = sockfd;
@@ -826,9 +831,9 @@ static int startMultiThreadCreateChildTable(
         threadInfo *pThreadInfo = infos + i;
         g_arguments->actualChildTables += pThreadInfo->tables_created;
 
-        if (REST_IFACE != stbInfo->iface) {
-            if (pThreadInfo && pThreadInfo->conn)
-                closeBenchConn(pThreadInfo->conn);
+        if ((REST_IFACE != stbInfo->iface)
+                && pThreadInfo && pThreadInfo->conn) {
+            closeBenchConn(pThreadInfo->conn);
         }
     }
 
@@ -904,6 +909,7 @@ void postFreeResource() {
                 SDbCfg *cfg = benchArrayGet(database->cfgs, c);
                 if ((NULL == root) && (0 == strcmp(cfg->name, "replica"))) {
                     tmfree(cfg->name);
+                    cfg->name = NULL;
                 }
             }
             benchArrayDestroy(database->cfgs);
@@ -912,19 +918,26 @@ void postFreeResource() {
             for (uint64_t j = 0; j < database->superTbls->size; j++) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
                 tmfree(stbInfo->colsOfCreateChildTable);
+                stbInfo->colsOfCreateChildTable = NULL;
                 tmfree(stbInfo->sampleDataBuf);
+                stbInfo->sampleDataBuf = NULL;
                 tmfree(stbInfo->tagDataBuf);
+                stbInfo->tagDataBuf = NULL;
                 tmfree(stbInfo->partialColNameBuf);
+                stbInfo->partialColNameBuf = NULL;
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
                     tmfree(tag->data);
+                    tag->data = NULL;
                 }
                 benchArrayDestroy(stbInfo->tags);
 
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
                     tmfree(col->data);
+                    col->data = NULL;
                     tmfree(col->is_null);
+                    col->is_null = NULL;
                 }
                 benchArrayDestroy(stbInfo->cols);
                 if (g_arguments->test_mode == INSERT_TEST &&
@@ -933,10 +946,12 @@ void postFreeResource() {
                         ++k) {
                         if (stbInfo->childTblName) {
                             tmfree(stbInfo->childTblName[k]);
+                            stbInfo->childTblName[k] = NULL;
                         }
                     }
                 }
                 tmfree(stbInfo->childTblName);
+                stbInfo->childTblName = NULL;
                 benchArrayDestroy(stbInfo->tsmas);
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
                 if ((0 == stbInfo->interlaceRows)
@@ -945,8 +960,10 @@ void postFreeResource() {
                         SVGroup *vg = benchArrayGet(database->vgArray, v);
                         for (int64_t t = 0; t < vg->tbCountPerVgId; t ++) {
                             tmfree(vg->childTblName[t]);
+                            vg->childTblName[t] = NULL;
                         }
                         tmfree(vg->childTblName);
+                        vg->childTblName = NULL;
                     }
                 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
@@ -1066,7 +1083,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 }
             }
 
-            if (code != TSDB_CODE_SUCCESS && !g_arguments->terminate) {
+            if (code != TSDB_CODE_SUCCESS) {
                 errorPrint(
                     "failed to execute schemaless insert. "
                         "content: %s, code: 0x%08x reason: %s\n",
@@ -1080,7 +1097,8 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case SML_REST_IFACE: {
             if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
                     || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
-                pThreadInfo->lines[0] = tools_cJSON_Print(pThreadInfo->json_array);
+                pThreadInfo->lines[0] = tools_cJSON_PrintUnformatted(
+                            pThreadInfo->json_array);
                 code = postProceSql(pThreadInfo->lines[0], database->dbName,
                                     database->precision, stbInfo->iface,
                                     stbInfo->lineProtocol, g_arguments->port,
@@ -1383,7 +1401,10 @@ static void *syncWriteInterlace(void *sarg) {
                         pThreadInfo->json_array = NULL;
                     }
                     pThreadInfo->json_array = tools_cJSON_CreateArray();
-                    tmfree(pThreadInfo->lines[0]);
+                    if (pThreadInfo->lines && pThreadInfo->lines[0]) {
+                        tmfree(pThreadInfo->lines[0]);
+                        pThreadInfo->lines[0] = NULL;
+                    }
                 } else {
                     for (int j = 0; j < generated; ++j) {
                         if (pThreadInfo && pThreadInfo->lines
@@ -1424,7 +1445,13 @@ static void *syncWriteInterlace(void *sarg) {
         }
     }
 free_of_interlace:
-    if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
+    if (pThreadInfo && pThreadInfo->json_array) {
+        tools_cJSON_Delete(pThreadInfo->json_array);
+        pThreadInfo->json_array = NULL;
+    }
+    if ((pThreadInfo) && (0 == pThreadInfo->totalDelay)) {
+        pThreadInfo->totalDelay = 1;
+    }
     succPrint(
             "thread[%d] %s(), completed total inserted rows: %" PRIu64
             ", %.2f records/second\n",
@@ -1691,6 +1718,8 @@ void *syncWriteProgressive(void *sarg) {
                     }
                     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
                             || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
+                        tmfree(pThreadInfo->lines[0]);
+                        pThreadInfo->lines[0] = NULL;
                         pThreadInfo->lines[0] =
                             tools_cJSON_PrintUnformatted(
                                 pThreadInfo->json_array);
@@ -1747,8 +1776,8 @@ void *syncWriteProgressive(void *sarg) {
                         ret = queryDbExecCall(pThreadInfo->conn, buffer);
                         int32_t trying = g_arguments->keep_trying;
                         while (ret && trying) {
-                            infoPrint("will sleep %"PRIu32" milliseconds then re-create "
-                                  "table %s\n",
+                            infoPrint("will sleep %"PRIu32" milliseconds then "
+                                      "re-create table %s\n",
                                   g_arguments->trying_interval, buffer);
                             toolsMsleep(g_arguments->trying_interval);
                             ret = queryDbExecCall(pThreadInfo->conn, buffer);
@@ -1802,14 +1831,15 @@ void *syncWriteProgressive(void *sarg) {
                 case SML_IFACE:
                     if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
                             || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
+                        if (pThreadInfo->lines && pThreadInfo->lines[0]) {
+                            tmfree(pThreadInfo->lines[0]);
+                            pThreadInfo->lines[0] = NULL;
+                        }
                         if (pThreadInfo->json_array) {
                             tools_cJSON_Delete(pThreadInfo->json_array);
                             pThreadInfo->json_array = NULL;
                         }
                         pThreadInfo->json_array = tools_cJSON_CreateArray();
-                        if (pThreadInfo->lines) {
-                            tmfree(pThreadInfo->lines[0]);
-                        }
                     } else {
                         for (int j = 0; j < generated; ++j) {
                             debugPrint("pThreadInfo->lines[%d]: %s\n",
@@ -1851,7 +1881,13 @@ void *syncWriteProgressive(void *sarg) {
         }  // insertRows
     }      // tableSeq
 free_of_progressive:
-    if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
+    if (pThreadInfo && pThreadInfo->json_array) {
+        tools_cJSON_Delete(pThreadInfo->json_array);
+        pThreadInfo->json_array = NULL;
+    }
+    if (pThreadInfo && (0 == pThreadInfo->totalDelay)) {
+        pThreadInfo->totalDelay = 1;
+    }
     succPrint(
             "thread[%d] %s(), completed total inserted rows: %" PRIu64
             ", %.2f records/second\n",
@@ -2583,12 +2619,14 @@ static int startMultiThreadInsertData(SDataBase* database,
                     free_ds(&pThreadInfo->buffer);
                 } else {
                     tmfree(pThreadInfo->buffer);
+                    pThreadInfo->buffer = NULL;
                 }
                 break;
             case SML_REST_IFACE:
                 if (g_arguments->terminate)
                     toolsMsleep(100);
                 tmfree(pThreadInfo->buffer);
+                // on-purpose no break here
             case SML_IFACE:
                 if (stbInfo->lineProtocol != TSDB_SML_JSON_PROTOCOL
                         && stbInfo->lineProtocol != SML_JSON_TAOS_FORMAT) {
@@ -2598,7 +2636,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                     for (int j = 0; j < g_arguments->reqPerReq; j++) {
                         tmfree(pThreadInfo->lines[j]);
                     }
-                    tmfree(pThreadInfo->sml_tags);
+                    if (pThreadInfo->sml_tags) {
+                        tmfree(pThreadInfo->sml_tags);
+                        pThreadInfo->sml_tags = NULL;
+                    }
 
                 } else {
                     if (pThreadInfo->sml_json_tags) {
@@ -2611,8 +2652,12 @@ static int startMultiThreadInsertData(SDataBase* database,
                     }
                 }
                 closeBenchConn(pThreadInfo->conn);
-                tmfree(pThreadInfo->lines);
+                if (pThreadInfo->lines) {
+                    tmfree(pThreadInfo->lines);
+                    pThreadInfo->lines = NULL;
+                }
                 break;
+
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
                 closeBenchConn(pThreadInfo->conn);
@@ -2621,14 +2666,17 @@ static int startMultiThreadInsertData(SDataBase* database,
                 tmfree(pThreadInfo->bindParams);
                 tmfree(pThreadInfo->is_null);
                 break;
+
             case TAOSC_IFACE:
                 if (stbInfo->interlaceRows > 0) {
                     free_ds(&pThreadInfo->buffer);
                 } else {
                     tmfree(pThreadInfo->buffer);
+                    pThreadInfo->buffer = NULL;
                 }
                 closeBenchConn(pThreadInfo->conn);
                 break;
+
             default:
                 break;
         }
@@ -2637,6 +2685,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData,
                 pThreadInfo->delayList->size);
         tmfree(pThreadInfo->delayList);
+        pThreadInfo->delayList = NULL;
     }
     qsort(total_delay_list->pData, total_delay_list->size,
             total_delay_list->elemSize, compare);
