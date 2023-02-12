@@ -31,11 +31,13 @@
 #define  FORCE_TAKEOUT(type) (mix->insertedRows * 100 / mix->insertRows > 80)
 
 #define FAILED_BREAK()   \
-    if (!g_arguments->failed_continue) {  \
-        g_fail = true;                    \
-        g_arguments->terminate = true;    \
-        break;                            \
-    }                                     \
+    if (g_arguments->failed_continue) {  \
+        continue;                        \
+    } else {                             \
+        g_fail = true;                   \
+        g_arguments->terminate = true;   \
+        break;                           \
+    }                                    \
 
 typedef struct {
   uint64_t insertRows;   // need insert 
@@ -800,7 +802,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // execute insert sql
       int64_t startTs = toolsGetTimestampUs();
       //g_arguments->debug_print = false;
-      if (execInsert(info, batchRows) != 0) {
+
+      if(execInsert(info, batchRows) != 0) {
         FAILED_BREAK()
       }
       //g_arguments->debug_print = true;
