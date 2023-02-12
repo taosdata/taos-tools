@@ -1445,7 +1445,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
     }
 free_of_interlace:
-    if (pThreadInfo->lines) {
+    if (pThreadInfo && pThreadInfo->lines) {
         tmfree(pThreadInfo->lines[0]);
         tmfree(pThreadInfo->lines);
         pThreadInfo->lines = NULL;
@@ -1454,7 +1454,9 @@ free_of_interlace:
         tools_cJSON_Delete(pThreadInfo->json_array);
         pThreadInfo->json_array = NULL;
     }
-    if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
+    if ((pThreadInfo) && (0 == pThreadInfo->totalDelay)) {
+        pThreadInfo->totalDelay = 1;
+    }
     succPrint(
             "thread[%d] %s(), completed total inserted rows: %" PRIu64
             ", %.2f records/second\n",
@@ -1884,16 +1886,18 @@ void *syncWriteProgressive(void *sarg) {
         }  // insertRows
     }      // tableSeq
 free_of_progressive:
-    if (pThreadInfo->lines) {
+    if (pThreadInfo && pThreadInfo->lines) {
         tmfree(pThreadInfo->lines[0]);
         tmfree(pThreadInfo->lines);
         pThreadInfo->lines = NULL;
     }
-    if (pThreadInfo->json_array) {
+    if (pThreadInfo && pThreadInfo->json_array) {
         tools_cJSON_Delete(pThreadInfo->json_array);
         pThreadInfo->json_array = NULL;
     }
-    if (0 == pThreadInfo->totalDelay) pThreadInfo->totalDelay = 1;
+    if (pThreadInfo && (0 == pThreadInfo->totalDelay)) {
+        pThreadInfo->totalDelay = 1;
+    }
     succPrint(
             "thread[%d] %s(), completed total inserted rows: %" PRIu64
             ", %.2f records/second\n",
