@@ -94,28 +94,27 @@
 #endif
 
 #ifndef TSDB_DATA_TYPE_MAX
-#define TSDB_DATA_TYPE_MAX 20
+#define TSDB_DATA_TYPE_MAX        20
 #endif
 
-#define REQ_EXTRA_BUF_LEN 1024
-#define RESP_BUF_LEN      4096
-#define SQL_BUFF_LEN      1024
+#define REQ_EXTRA_BUF_LEN         1024
+#define RESP_BUF_LEN              4096
+#define SHORT_1K_SQL_BUFF_LEN     1024
+#define URL_BUFF_LEN              1024
+#define TTL_BUFF_LEN              20
 
-#define STR_INSERT_INTO "INSERT INTO "
+#define STR_INSERT_INTO           "INSERT INTO "
 
-#define HEAD_BUFF_LEN \
-    TSDB_MAX_COLUMNS * 24  // 16*MAX_COLUMNS + (192+32)*2 + insert into ..
+#define HEAD_BUFF_LEN         (TSDB_MAX_COLUMNS * 24)  // 16*MAX_COLUMNS + (192+32)*2 + insert into ..
 
-#define BUFFER_SIZE       TSDB_MAX_ALLOWED_SQL_LEN
-#define FETCH_BUFFER_SIZE 100 * TSDB_MAX_ALLOWED_SQL_LEN
-#define COND_BUF_LEN      (BUFFER_SIZE - 30)
+#define FETCH_BUFFER_SIZE     (100 * TSDB_MAX_ALLOWED_SQL_LEN)
+#define COND_BUF_LEN          (TSDB_MAX_ALLOWED_SQL_LEN - 30)
 
-#define OPT_ABORT         1    /* –abort */
-#define MAX_RECORDS_PER_REQ 65536
-#define DEFAULT_START_TIME  1500000000000
-#define MAX_SQL_LEN         1048576
-#define TELNET_TCP_PORT     6046
-#define INT_BUFF_LEN        12
+#define OPT_ABORT                 1    /* –abort */
+#define MAX_RECORDS_PER_REQ       65536
+#define DEFAULT_START_TIME        1500000000000
+#define TELNET_TCP_PORT           6046
+#define INT_BUFF_LEN              12
 #define BIGINT_BUFF_LEN     21
 #define SMALLINT_BUFF_LEN   8
 #define TINYINT_BUFF_LEN    6
@@ -144,6 +143,8 @@
 #define DEFAULT_TB_PREFIX      "d"
 #define DEFAULT_OUTPUT         "./output.txt"
 #define DEFAULT_BINWIDTH       64
+#define DEFAULT_REPLICA        1
+#define DEFAULT_CFGNAME_LEN    10
 #define DEFAULT_PREPARED_RAND  10000
 #define DEFAULT_REQ_PER_REQ    30000
 #define DEFAULT_INSERT_ROWS    10000
@@ -151,9 +152,10 @@
 #define DEFAULT_CREATE_BATCH   10
 #define DEFAULT_SUB_INTERVAL   10000
 #define DEFAULT_QUERY_INTERVAL 10000
-#define BARRAY_MIN_SIZE 8
-#define SML_LINE_SQL_SYNTAX_OFFSET 7
+#define BARRAY_MIN_SIZE             8
+#define SML_LINE_SQL_SYNTAX_OFFSET  7
 
+#define TEMP_BUFF_LEN               64
 // tdengine define macro 
 #define TSDB_DEFAULT_DURATION_PER_FILE  (10 * 1440)
 
@@ -659,7 +661,7 @@ typedef struct SuperQueryInfo_S {
     int       subscribeKeepProgress;
     uint64_t  childTblCount;
     int       sqlCount;
-    char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
+    char      sql[MAX_QUERY_SQL_COUNT][TSDB_MAX_ALLOWED_SQL_LEN + 1];
     char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
     int       resubAfterConsume;
     int       endAfterConsume;

@@ -10,7 +10,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "bench.h"
+#include <bench.h>
 
 char resEncodingChunk[] = "Encoding: chunked";
 char succMessage[] = "succ";
@@ -118,8 +118,9 @@ FORCE_INLINE unsigned int taosRandom() { return (unsigned int)rand(); }
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         char ** childTblNameOfSuperTbl,
         int64_t childTblCountOfSuperTbl) {
-    char cmd[SQL_BUFF_LEN] = "\0";
-    snprintf(cmd, SQL_BUFF_LEN, "select tbname from %s.`%s` limit %" PRId64 "",
+    char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
+             "select tbname from %s.`%s` limit %" PRId64 "",
             dbName, stbName, childTblCountOfSuperTbl);
     TAOS_RES *res = taos_query(taos, cmd);
     int32_t   code = taos_errno(res);
@@ -136,7 +137,8 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
             return -1;
         }
         int32_t * lengths = taos_fetch_lengths(res);
-        childTblNameOfSuperTbl[count] = benchCalloc(1, TSDB_TABLE_NAME_LEN + 3, true);
+        childTblNameOfSuperTbl[count] =
+            benchCalloc(1, TSDB_TABLE_NAME_LEN + 3, true);
         childTblNameOfSuperTbl[count][0] = '`';
         strncpy(childTblNameOfSuperTbl[count] + 1, row[0], lengths[0]);
         childTblNameOfSuperTbl[count][lengths[0] + 1] = '`';
@@ -180,7 +182,7 @@ int convertHostToServAddr(char *host, uint16_t port,
     struct addrinfo *pai = NULL;
 
     if (!getaddrinfo(server->h_name, NULL, &hints, &pai)) {
-        serv_addr->sin_addr.s_addr = 
+        serv_addr->sin_addr.s_addr =
                ((struct sockaddr_in *) pai->ai_addr)->sin_addr.s_addr;
         freeaddrinfo(pai);
     }
@@ -198,8 +200,10 @@ void prompt(bool nonStopMode) {
         if (nonStopMode) {
             printf(
                     "\n\n         Current is the Non-Stop insertion mode. "
-                    "taosBenchmark will continuously insert data unless you press "
-                    "Ctrl-C to end it.\n\n         press enter key to continue and "
+                    "taosBenchmark will continuously "
+                    "insert data unless you press "
+                    "Ctrl-C to end it.\n\n         "
+                    "press enter key to continue and "
                     "Ctrl-C to "
                     "stop\n\n");
             (void)getchar();
@@ -228,7 +232,8 @@ static void appendResultBufToFile(char *resultBuf, char * filePath) {
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
     char subTblName[TSDB_TABLE_NAME_LEN];
-    sprintf(subTblName, "%s.%s", g_queryInfo.dbName,
+    snprintf(subTblName, TSDB_TABLE_NAME_LEN,
+            "%s.%s", g_queryInfo.dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
     // printf("inSql: %s\n", inSql);
@@ -238,9 +243,9 @@ void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
 
     tstrncpy(outSql, inSql, pos - inSql + 1);
     // printf("1: %s\n", outSql);
-    strncat(outSql, subTblName, BUFFER_SIZE - 1);
+    strncat(outSql, subTblName, TSDB_MAX_ALLOWED_SQL_LEN - 1);
     // printf("2: %s\n", outSql);
-    strncat(outSql, pos + strlen(sourceString), BUFFER_SIZE - 1);
+    strncat(outSql, pos + strlen(sourceString), TSDB_MAX_ALLOWED_SQL_LEN - 1);
     // printf("3: %s\n", outSql);
 }
 
@@ -287,7 +292,8 @@ SBenchConn* initBenchConn() {
         char maskedDsn[256] = "\0";
         memcpy(maskedDsn, g_arguments->dsn, 20);
         memcpy(maskedDsn+20, "...", 3);
-        memcpy(maskedDsn+23, g_arguments->dsn + strlen(g_arguments->dsn) - 10, 10);
+        memcpy(maskedDsn+23,
+               g_arguments->dsn + strlen(g_arguments->dsn)-10, 10);
         if (conn->taos_ws == NULL) {
             errorPrint("failed to connect %s, reason: %s\n",
                     maskedDsn, ws_errstr(NULL));
@@ -299,19 +305,21 @@ SBenchConn* initBenchConn() {
     } else {
 #endif
         conn->taos = taos_connect(g_arguments->host,
-                g_arguments->user, g_arguments->password, NULL, g_arguments->port);
+                g_arguments->user, g_arguments->password,
+                NULL, g_arguments->port);
         if (conn->taos == NULL) {
-            errorPrint("failed to connect native %s:%d, code: 0x%08x, reason: %s\n",
+            errorPrint("failed to connect native %s:%d, "
+                       "code: 0x%08x, reason: %s\n",
                     g_arguments->host, g_arguments->port,
                     taos_errno(NULL), taos_errstr(NULL));
             tmfree(conn);
             return NULL;
         }
 
-        
-        conn->ctaos = taos_connect(g_arguments->host, g_arguments->user, g_arguments->password, NULL, g_arguments->port);
-
-
+        conn->ctaos = taos_connect(g_arguments->host,
+                                   g_arguments->user,
+                                   g_arguments->password,
+                                   NULL, g_arguments->port);
 #ifdef WEBSOCKET
     }
 #endif
@@ -325,7 +333,7 @@ void closeBenchConn(SBenchConn* conn) {
     } else {
 #endif
         taos_close(conn->taos);
-        if(conn->ctaos) {
+        if (conn->ctaos) {
             taos_close(conn->ctaos);
             conn->ctaos = NULL;
         }
@@ -421,12 +429,13 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
         "POST %s HTTP/1.1\r\nHost: %s:%d\r\nAccept: */*\r\nAuthorization: "
         "Basic %s\r\nContent-Length: %d\r\nContent-Type: "
         "application/x-www-form-urlencoded\r\n\r\n%s";
-    char url[1024];
+    char url[URL_BUFF_LEN] = {0};
     if (iface == REST_IFACE) {
-        sprintf(url, "/rest/sql/%s", dbName);
-    } else if (iface == SML_REST_IFACE &&
-            protocol == TSDB_SML_LINE_PROTOCOL) {
-        sprintf(url, "/influxdb/v1/write?db=%s&precision=%s", dbName,
+        snprintf(url, URL_BUFF_LEN, "/rest/sql/%s", dbName);
+    } else if (iface == SML_REST_IFACE
+            && protocol == TSDB_SML_LINE_PROTOCOL) {
+        snprintf(url, URL_BUFF_LEN,
+                 "/influxdb/v1/write?db=%s&precision=%s", dbName,
                 precision == TSDB_TIME_PRECISION_MILLI
                 ? "ms"
                 : precision == TSDB_TIME_PRECISION_NANO
@@ -434,11 +443,11 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
                 : "u");
     } else if (iface == SML_REST_IFACE
             && protocol == TSDB_SML_TELNET_PROTOCOL) {
-        sprintf(url, "/opentsdb/v1/put/telnet/%s", dbName);
+        snprintf(url, URL_BUFF_LEN, "/opentsdb/v1/put/telnet/%s", dbName);
     } else if (iface == SML_REST_IFACE
             && (protocol == TSDB_SML_JSON_PROTOCOL
                 || protocol == SML_JSON_TAOS_FORMAT)) {
-        sprintf(url, "/opentsdb/v1/put/json/%s", dbName);
+        snprintf(url, URL_BUFF_LEN, "/opentsdb/v1/put/json/%s", dbName);
     }
 
     int      bytes, sent, received, req_str_len, resp_len;
@@ -477,7 +486,8 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
         sent += bytes;
     } while ((sent < req_str_len) && !g_arguments->terminate);
 
-    if (protocol == TSDB_SML_TELNET_PROTOCOL && iface == SML_REST_IFACE && tcp) {
+    if (protocol == TSDB_SML_TELNET_PROTOCOL
+            && iface == SML_REST_IFACE && tcp) {
         code = 0;
         goto free_of_postImpl;
     }
@@ -555,8 +565,8 @@ free_of_postImpl:
 
 static int getServerVersionRestImpl(int16_t rest_port, int sockfd) {
     int server_ver = -1;
-    char       command[SQL_BUFF_LEN] = "\0";
-    sprintf(command, "SELECT SERVER_VERSION()");
+    char       command[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    snprintf(command, SHORT_1K_SQL_BUFF_LEN, "SELECT SERVER_VERSION()");
     char *responseBuf = benchCalloc(1, RESP_BUF_LEN, false);
     int code = postProceSqlImpl(command,
                                 NULL,
@@ -730,7 +740,8 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
             goto free_of_post;
         }
 
-        if ((SML_REST_IFACE == iface) && codeObj && (200 == codeObj->valueint)) {
+        if ((SML_REST_IFACE == iface) && codeObj
+                && (200 == codeObj->valueint)) {
             code = 0;
             tools_cJSON_Delete(resObj);
             goto free_of_post;
@@ -780,7 +791,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         num_rows++;
         char temp[HEAD_BUFF_LEN] = {0};
         int  len = taos_print_row(temp, row, fields, num_fields);
-        len += sprintf(temp + len, "\n");
+        len += snprintf(temp + len, HEAD_BUFF_LEN - len, "\n");
         debugPrint("query result:%s\n", temp);
         memcpy(databuf + totalLen, temp, len);
         totalLen += len;

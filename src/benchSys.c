@@ -1,19 +1,13 @@
 /*
- * =====================================================================================
+ * Copyright (c) 2019 TAOS Data, Inc. <jhtao@taosdata.com>
  *
- *       Filename:  benchSys.c
+ * This program is free software: you can use, redistribute, and/or modify
+ * it under the terms of the MIT license as published by the Free Software
+ * Foundation.
  *
- *    Description:  
- *
- *        Version:  1.0
- *        Created:  2022年12月17日 21时40分29秒
- *       Revision:  none
- *       Compiler:  gcc
- *
- *         Author:  YOUR NAME (), 
- *   Organization:  
- *
- * =====================================================================================
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.
  */
 #include <stdlib.h>
 #include <bench.h>
@@ -78,7 +72,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
             exit(EXIT_SUCCESS);
         }
 
-        if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "--usage") == 0
             || strcmp(argv[i], "-?") == 0) {
             benchPrintHelp();
             exit(EXIT_SUCCESS);

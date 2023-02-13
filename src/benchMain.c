@@ -10,8 +10,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "bench.h"
-#include "toolsdef.h"
+#include <bench.h>
+#include <toolsdef.h>
 
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
@@ -19,7 +19,9 @@ bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 tools_cJSON*   root;
 
-static char     g_client_info[32] = {0};
+#define CLIENT_INFO_LEN   20
+static char     g_client_info[CLIENT_INFO_LEN] = {0};
+
 int             g_majorVersionOfClient = 0;
 
 #ifdef LINUX
@@ -51,7 +53,7 @@ int main(int argc, char* argv[]) {
     init_argument();
     srand(time(NULL)%1000000);
 
-    sprintf(g_client_info, "%s", taos_get_client_info());
+    snprintf(g_client_info, CLIENT_INFO_LEN, "%s", taos_get_client_info());
     g_majorVersionOfClient = atoi(g_client_info);
     debugPrint("Client info: %s, major version: %d\n",
             g_client_info,

@@ -188,25 +188,25 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
 
     if (stb->partialColNum == stb->cols->size) {
       if (stb->autoCreateTable) {
-        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
+        len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
                        tableName, db->dbName, stb->stbName, stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
       } else {
-        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s VALUES ", STR_INSERT_INTO, db->dbName, tableName);
+        len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s VALUES ", STR_INSERT_INTO, db->dbName, tableName);
       }
     } else {
       if (stb->autoCreateTable) {
-        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
+        len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
                        tableName, stb->partialColNameBuf, db->dbName, stb->stbName,
                        stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
       } else {
-        len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName,
+        len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName,
                        stb->partialColNameBuf);
       }
     }
 
     // generate check sql 
     if(info->csql) {
-      info->clen = snprintf(info->csql, MAX_SQL_LEN, "select count(*) from %s.%s where ts in(", db->dbName, tableName);
+      info->clen = snprintf(info->csql, TSDB_MAX_ALLOWED_SQL_LEN, "select count(*) from %s.%s where ts in(", db->dbName, tableName);
     }
     
     return len;
@@ -214,7 +214,7 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
 
   // generate check sql
   if (info->csql) {
-    info->clen = snprintf(info->csql, MAX_SQL_LEN, "select count(*) from %s.%s where ts in(", db->dbName, tableName);
+    info->clen = snprintf(info->csql, TSDB_MAX_ALLOWED_SQL_LEN, "select count(*) from %s.%s where ts in(", db->dbName, tableName);
   }
 
   // new mix rule
@@ -224,7 +224,7 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
   // random select cnt elements from max
   randomFillCols(info->batCols, max, info->nBatCols);
   char * colNames = genBatColsNames(info, stb);
-  len = snprintf(pstr, MAX_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName, colNames);
+  len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName, colNames);
   free(colNames);
 
   return len;
@@ -236,7 +236,7 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
 uint32_t genDelPreSql(SDataBase* db, SSuperTable* stb, char* tableName, char* pstr) {
   uint32_t len = 0;
   // super table name or child table name random select
-  len = snprintf(pstr, MAX_SQL_LEN, "delete from %s.%s where ", db->dbName, tableName);
+  len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "delete from %s.%s where ", db->dbName, tableName);
 
   return len;
 }
@@ -250,7 +250,7 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
   int      disorderRange = stb->disorderRange;
 
   if (stb->useSampleTs && !stb->random_data_source) {
-    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%s)", stb->sampleDataBuf + pos * stb->lenOfCols);
+    size = snprintf(pstr + len, TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s)", stb->sampleDataBuf + pos * stb->lenOfCols);
   } else {
     int64_t disorderTs = 0;
     if (stb->disorderRatio > 0) {
@@ -268,7 +268,7 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
       }
     }
     // generate
-    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64 ",%s)", disorderTs ? disorderTs : timestamp,
+    size = snprintf(pstr + len, TSDB_MAX_ALLOWED_SQL_LEN - len, "(%" PRId64 ",%s)", disorderTs ? disorderTs : timestamp,
                     stb->sampleDataBuf + pos * stb->lenOfCols);
   }
 
@@ -289,9 +289,9 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
       sprintf(now, "now+%dm", min);
     }
 
-    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%s", now);
+    size = snprintf(pstr + len, TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s", now);
   } else {
-    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64, ts);
+    size = snprintf(pstr + len, TSDB_MAX_ALLOWED_SQL_LEN - len, "(%" PRId64, ts);
   }
 
   // other cols data
@@ -312,7 +312,7 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
   }
 
   // end 
-  size += snprintf(pstr + len + size, MAX_SQL_LEN - len - size, "%s", ")");
+  size += snprintf(pstr + len + size, TSDB_MAX_ALLOWED_SQL_LEN - len - size, "%s", ")");
 
   return size;
 }
@@ -320,7 +320,7 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
 uint32_t genRowTsCalc(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
   uint32_t size = 0;
   // first col is ts 
-  size = snprintf(pstr +len, MAX_SQL_LEN - len, "(%" PRId64, ts);
+  size = snprintf(pstr +len, TSDB_MAX_ALLOWED_SQL_LEN - len, "(%" PRId64, ts);
 
   // other cols data
   for(uint16_t i = 0; i< info->nBatCols; i++) {
@@ -329,7 +329,7 @@ uint32_t genRowTsCalc(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
   }
 
   // end 
-  size += snprintf(pstr + len + size, MAX_SQL_LEN - len - size, "%s", ")");
+  size += snprintf(pstr + len + size, TSDB_MAX_ALLOWED_SQL_LEN - len - size, "%s", ")");
 
   return size;
 }
@@ -346,12 +346,12 @@ uint32_t createColsData(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t
     size = genRowTsCalc(info, stb, pstr, len, ts);
   } else {  // random
     int32_t pos = RD(g_arguments->prepared_rand);
-    size = snprintf(pstr + len, MAX_SQL_LEN - len, "(%" PRId64 ",%s)", ts, stb->sampleDataBuf + pos * stb->lenOfCols);
+    size = snprintf(pstr + len, TSDB_MAX_ALLOWED_SQL_LEN - len, "(%" PRId64 ",%s)", ts, stb->sampleDataBuf + pos * stb->lenOfCols);
   }
 
   // check sql
   if(info->csql) {
-    info->clen += snprintf(info->csql + info->clen, MAX_SQL_LEN - info->clen, "%" PRId64 ",", ts);
+    info->clen += snprintf(info->csql + info->clen, TSDB_MAX_ALLOWED_SQL_LEN - info->clen, "%" PRId64 ",", ts);
   }
   
 
@@ -580,8 +580,8 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
     // move next ts
     ts += timestamp_step;
 
-    // check over MAX_SQL_LENGTH
-    if (len > (MAX_SQL_LEN - stb->lenOfCols - 320)) {
+    // check over TSDB_MAX_ALLOWED_SQL_LENGTH
+    if (len > (TSDB_MAX_ALLOWED_SQL_LEN - stb->lenOfCols - 320)) {
       break;
     }
 
@@ -636,7 +636,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   if(count64 == 0) return 0;
   count = count64;
 
-  snprintf(pstr + slen, MAX_SQL_LEN - slen, "%s", where);
+  snprintf(pstr + slen, TSDB_MAX_ALLOWED_SQL_LEN - slen, "%s", where);
   //infoPrint("  batch delete cnt=%d range=%s \n", count, where);
 
   return count;

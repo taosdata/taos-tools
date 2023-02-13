@@ -10,7 +10,8 @@
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "bench.h"
+#include <bench.h>
+
 extern int g_majorVersionOfClient;
 
 static void stable_sub_callback(TAOS_SUB *tsub, TAOS_RES *res, void *param,
@@ -49,7 +50,8 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
     if ((SPECIFIED_CLASS == class) &&
         (ASYNC_MODE == g_queryInfo.specifiedQueryInfo.asyncMode)) {
         tsub = taos_subscribe(
-            pThreadInfo->conn->taos, restart, topic, sql, specified_sub_callback,
+            pThreadInfo->conn->taos, restart,
+                    topic, sql, specified_sub_callback,
             (void *)pThreadInfo,
             (int)g_queryInfo.specifiedQueryInfo.subscribeInterval);
     } else if ((STABLE_CLASS == class) &&
@@ -58,7 +60,8 @@ static TAOS_SUB *subscribeImpl(QUERY_CLASS class, threadInfo *pThreadInfo,
                            stable_sub_callback, (void *)pThreadInfo,
                            (int)g_queryInfo.superQueryInfo.subscribeInterval);
     } else {
-        tsub = taos_subscribe(pThreadInfo->conn->taos, restart, topic, sql, NULL,
+        tsub = taos_subscribe(pThreadInfo->conn->taos,
+                              restart, topic, sql, NULL,
                               NULL, (int)interval);
     }
 
@@ -81,10 +84,12 @@ static void *specifiedSubscribe(void *sarg) {
     sprintf(g_queryInfo.specifiedQueryInfo.topic[pThreadInfo->threadID],
             "taosbenchmark-subscribe-%" PRIu64 "-%d", pThreadInfo->querySeq,
             pThreadInfo->threadID);
-    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, pThreadInfo->querySeq);
+    SSQL * sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls,
+                               pThreadInfo->querySeq);
     if (sql->result[0] !=
         '\0') {
-        sprintf(pThreadInfo->filePath, "%s-%d", sql->result, pThreadInfo->threadID);
+        snprintf(pThreadInfo->filePath, MAX_PATH_LEN,
+                 "%s-%d", sql->result, pThreadInfo->threadID);
     }
     g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID] = subscribeImpl(
         SPECIFIED_CLASS, pThreadInfo, sql->command,
@@ -116,7 +121,8 @@ static void *specifiedSubscribe(void *sarg) {
                 g_queryInfo.specifiedQueryInfo.tsub[pThreadInfo->threadID]);
         if (g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID]) {
             if (sql->result[0] != 0) {
-                sprintf(pThreadInfo->filePath, "%s-%d", sql->result, pThreadInfo->threadID);
+                snprintf(pThreadInfo->filePath, MAX_PATH_LEN,
+                         "%s-%d", sql->result, pThreadInfo->threadID);
             }
             fetchResult(
                 g_queryInfo.specifiedQueryInfo.res[pThreadInfo->threadID],
@@ -164,7 +170,7 @@ static void *superSubscribe(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS_SUB *  tsub[MAX_QUERY_SQL_COUNT] = {0};
     uint64_t    tsubSeq;
-    char *      subSqlStr = benchCalloc(1, BUFFER_SIZE, false);
+    char *      subSqlStr = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
 #ifdef LINUX
     prctl(PR_SET_NAME, "superSub");
 #endif
@@ -182,12 +188,12 @@ static void *superSubscribe(void *sarg) {
         tsubSeq = i - pThreadInfo->start_table_from;
         sprintf(topic, "taosbenchmark-subscribe-%" PRIu64 "-%" PRIu64 "", i,
                 pThreadInfo->querySeq);
-        memset(subSqlStr, 0, BUFFER_SIZE);
+        memset(subSqlStr, 0, TSDB_MAX_ALLOWED_SQL_LEN);
         replaceChildTblName(
             g_queryInfo.superQueryInfo.sql[pThreadInfo->querySeq], subSqlStr,
             (int)i);
         if (g_queryInfo.superQueryInfo.result[pThreadInfo->querySeq][0] != 0) {
-            sprintf(pThreadInfo->filePath, "%s-%d",
+            snprintf(pThreadInfo->filePath, MAX_PATH_LEN, "%s-%d",
                     g_queryInfo.superQueryInfo.result[pThreadInfo->querySeq],
                     pThreadInfo->threadID);
         }
@@ -233,7 +239,9 @@ static void *superSubscribe(void *sarg) {
             if (res) {
                 if (g_queryInfo.superQueryInfo
                         .result[pThreadInfo->querySeq][0] != 0) {
-                    sprintf(pThreadInfo->filePath, "%s-%d",
+                    snprintf(pThreadInfo->filePath,
+                             MAX_PATH_LEN,
+                             "%s-%d",
                             g_queryInfo.superQueryInfo
                                 .result[pThreadInfo->querySeq],
                             pThreadInfo->threadID);
@@ -284,13 +292,13 @@ int subscribeTestProcess() {
         if (conn == NULL) {
             return -1;
         }
-        char  cmd[SQL_BUFF_LEN] = "\0";
+        char  cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
         if (3 == g_majorVersionOfClient) {
-            snprintf(cmd, SQL_BUFF_LEN,
+            snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
                     "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
                     g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
         } else {
-            snprintf(cmd, SQL_BUFF_LEN, "SELECT COUNT(TBNAME) FROM %s.%s",
+            snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SELECT COUNT(TBNAME) FROM %s.%s",
                     g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
         }
         TAOS_RES *res = taos_query(conn->taos, cmd);
@@ -339,10 +347,12 @@ int subscribeTestProcess() {
     //==== create threads for query for specified table
     int sqlCount = g_queryInfo.specifiedQueryInfo.sqls->size;
     if (sqlCount > 0) {
-        pids = benchCalloc(1, sqlCount * g_queryInfo.specifiedQueryInfo.concurrent *
-                             sizeof(pthread_t), false);
-        infos = benchCalloc(1, sqlCount * g_queryInfo.specifiedQueryInfo.concurrent *
-                              sizeof(threadInfo), false);
+        pids = benchCalloc(1, sqlCount
+                           *g_queryInfo.specifiedQueryInfo.concurrent
+                           *sizeof(pthread_t), false);
+        infos = benchCalloc(1, sqlCount
+                            *g_queryInfo.specifiedQueryInfo.concurrent
+                            *sizeof(threadInfo), false);
         for (int i = 0; i < sqlCount; i++) {
             for (int j = 0; j < g_queryInfo.specifiedQueryInfo.concurrent;
                  j++) {
