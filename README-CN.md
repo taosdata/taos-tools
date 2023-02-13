@@ -47,6 +47,16 @@ sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
 sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 ```
 
+#### 对于 CentOS + devtoolset 系统
+
+除上述编译依赖包，需要执行以下命令：
+
+```
+sudo yum install centos-release-scl
+sudo yum install devtoolset-9 devtoolset-9-libatomic-devel
+scl enable devtoolset-9 -- bash
+```
+
 #### 对于 macOS 系统（目前仅支持 taosBenchmark）
 
 ```shell
