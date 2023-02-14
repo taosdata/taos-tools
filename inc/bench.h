@@ -21,10 +21,11 @@
 #define ALLOW_FORBID_FUNC
 
 #ifdef LINUX
-#include <inttypes.h>
+
 #ifndef _ALPINE
 #include <error.h>
 #endif
+
 #include <semaphore.h>
 #include <stdbool.h>
 #include <time.h>
@@ -58,6 +59,7 @@
 #include <assert.h>
 #include <toolscJson.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
