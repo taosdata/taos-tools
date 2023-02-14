@@ -113,22 +113,38 @@ static void rand_string(char *str, int size, bool chinese) {
 int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
+    int n;
     if (stbInfo->autoCreateTable) {
         char ttl[20] = "";
         if (stbInfo->ttl != 0) {
             sprintf(ttl, "TTL %d", stbInfo->ttl);
         }
-        len += sprintf(prepare + len,
+        n = snprintf(prepare + len,
+                       TSDB_MAX_ALLOWED_SQL_LEN - len,
                        "INSERT INTO ? USING `%s` TAGS (%s) %s VALUES(?",
                        stbInfo->stbName,
                        stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
                        ttl);
     } else {
-        len += sprintf(prepare + len, "INSERT INTO ? VALUES(?");
+        n = snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
+                        "INSERT INTO ? VALUES(?");
+    }
+
+    if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - len) {
+        errorPrint("%s() LN%d snprintf overflow\n", __func__, __LINE__);
+        return -1;
+    } else {
+        len += n;
     }
 
     for (int col = 0; col < stbInfo->cols->size; col++) {
-        len += sprintf(prepare + len, ",?");
+        n = snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len, ",?");
+        if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - len) {
+            errorPrint("%s() LN%d snprintf overflow on %d\n", __func__, __LINE__, col);
+            break;;
+        } else {
+            len += n;
+        }
     }
     sprintf(prepare + len, ")");
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
@@ -770,14 +786,29 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             stbInfo->partialColNameBuf =
                     benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
             int pos = 0;
-            pos += snprintf(stbInfo->partialColNameBuf + pos,
+            int n;
+            n = snprintf(stbInfo->partialColNameBuf + pos,
                             TSDB_MAX_ALLOWED_SQL_LEN - pos,
                             TS_COL_NAME);
+            if (n < 0 || n > TSDB_MAX_ALLOWED_SQL_LEN - pos) {
+                errorPrint("%s() LN%d snprintf overflow\n",
+                           __func__, __LINE__);
+            } else {
+                pos += n;
+            }
             for (int i = 0; i < stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
-                pos += snprintf(stbInfo->partialColNameBuf+pos,
+                n = snprintf(stbInfo->partialColNameBuf+pos,
                                 TSDB_MAX_ALLOWED_SQL_LEN - pos,
                                ",%s", col->name);
+                if (n < 0 || n > TSDB_MAX_ALLOWED_SQL_LEN - pos) {
+                    errorPrint("%s() LN%d snprintf overflow at %d\n",
+                               __func__, __LINE__, i);
+                } else {
+                    pos += n;
+                }
+            }
+                for (int i = 0; i < stbInfo->partialColNum; ++i) {
             }
             for (int i = stbInfo->partialColNum; i < stbInfo->cols->size; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);

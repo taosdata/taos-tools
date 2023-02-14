@@ -312,15 +312,24 @@ skip:
     for (int i = 0; i < stbInfo->cols->size; ++i) {
         Field * col = benchArrayGet(stbInfo->cols, i);
         if (col->sma) {
+            int n;
             if (first_sma) {
-                length += snprintf(command + length,
+                n = snprintf(command + length,
                                    TSDB_MAX_ALLOWED_SQL_LEN - length,
                         " SMA(%s", col->name);
                 first_sma = false;
             } else {
-                length += snprintf(command + length,
+                n = snprintf(command + length,
                                    TSDB_MAX_ALLOWED_SQL_LEN - length,
                         ",%s", col->name);
+            }
+
+            if (n < 0 || n > TSDB_MAX_ALLOWED_SQL_LEN - length) {
+                errorPrint("%s() LN%d snprintf overflow on %d iteral\n",
+                           __func__, __LINE__, i);
+                break;
+            } else {
+                length += n;
             }
         }
     }
@@ -417,16 +426,24 @@ int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
 
     if (database->cfgs) {
         for (int i = 0; i < database->cfgs->size; i++) {
-                SDbCfg* cfg = benchArrayGet(database->cfgs, i);
-                if (cfg->valuestring) {
-                    dataLen += snprintf(command + dataLen,
+            SDbCfg* cfg = benchArrayGet(database->cfgs, i);
+            int n;
+            if (cfg->valuestring) {
+                n = snprintf(command + dataLen,
                                         TSDB_MAX_ALLOWED_SQL_LEN - dataLen,
                             " %s %s", cfg->name, cfg->valuestring);
-                } else {
-                    dataLen += snprintf(command + dataLen,
+            } else {
+                n = snprintf(command + dataLen,
                                         TSDB_MAX_ALLOWED_SQL_LEN - dataLen,
                             " %s %d", cfg->name, cfg->valueint);
-                }
+            }
+            if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - dataLen) {
+                errorPrint("%s() LN%d snprintf overflow on %d\n",
+                           __func__, __LINE__, i);
+                break;
+            } else {
+                dataLen += n;
+            }
         }
     }
 
@@ -1124,16 +1141,24 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 int len = 0;
                 for (int i = 0; i < k; ++i) {
                     if (strlen(pThreadInfo->lines[i]) != 0) {
+                        int n;
                         if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL
-                            && stbInfo->tcpTransfer) {
-                            len += snprintf(pThreadInfo->buffer + len,
+                                && stbInfo->tcpTransfer) {
+                            n = snprintf(pThreadInfo->buffer + len,
                                             TSDB_MAX_ALLOWED_SQL_LEN - len,
                                            "put %s\n", pThreadInfo->lines[i]);
                         } else {
-                            len += snprintf(pThreadInfo->buffer + len,
+                            n = snprintf(pThreadInfo->buffer + len,
                                             TSDB_MAX_ALLOWED_SQL_LEN - len,
                                             "%s\n",
                                            pThreadInfo->lines[i]);
+                        }
+                        if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - len) {
+                            errorPrint("%s() LN%d snprintf overflow on %d\n",
+                                __func__, __LINE__, i);
+                            break;
+                        } else {
+                            len += n;
                         }
                     } else {
                         break;
