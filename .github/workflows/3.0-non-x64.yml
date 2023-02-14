@@ -134,7 +134,7 @@ jobs:
 
             echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
 
-            git clone --branch fix/sangshuduo/TD-22334-sml-rest-ctrlc --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
+            git clone --branch fix/sangshuduo/TD-21932-taosbenchmark-schemaless-refine --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
 
             echo "build TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
             cd TDengine || exit 1
