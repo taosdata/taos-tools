@@ -219,7 +219,7 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
                     ",%s %s", col->name,
                     convertDatatypeToString(col->type));
         }
-        if (n < 0 || n > col_buffer_len - len) {
+        if (n < 0 || n >= col_buffer_len - len) {
             errorPrint("%s() LN%d, snprintf overflow on %d\n",
                        __func__, __LINE__, colIndex);
             break;
@@ -265,6 +265,13 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         } else if (tag->type == TSDB_DATA_TYPE_JSON) {
             n = snprintf(tags + len, tag_buffer_len - len,
                     "%s json", tag->name);
+            if (n < 0 || n >= tag_buffer_len - len) {
+                errorPrint("%s() LN%d snprintf overflow on %d\n",
+                       __func__, __LINE__, tagIndex);
+                break;
+            } else {
+                len += n;
+            }
             goto skip;
         } else {
             n = snprintf(tags + len, tag_buffer_len - len,
@@ -448,7 +455,7 @@ int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
-    if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - dataLen) {
+    if (n < 0 || n >= SHORT_1K_SQL_BUFF_LEN - dataLen) {
         errorPrint("%s() LN%d snprintf overflow\n",
                            __func__, __LINE__);
         return -1;
@@ -567,7 +574,8 @@ int createDatabaseTaosc(SDataBase* database) {
         for (int i = 0; i < g_arguments->streams->size; i++) {
             SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
             if (stream->drop) {
-                snprintf(command, SHORT_1K_SQL_BUFF_LEN, "DROP STREAM IF EXISTS %s;",
+                snprintf(command, SHORT_1K_SQL_BUFF_LEN,
+                         "DROP STREAM IF EXISTS %s;",
                         stream->stream_name);
                 if (queryDbExecCall(conn, command)) {
                     closeBenchConn(conn);
@@ -2186,7 +2194,8 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
                                 strncpy((char *)col->data + i * col->length,
                                         tmpStr+1, min(col->length, tmpLen - 2));
                             } else {
-                                strcpy((char *)col->data + i*col->length, "");
+                                strncpy((char *)col->data + i*col->length,
+                                        "", 1);
                             }
                         }
                         break;
@@ -2424,8 +2433,8 @@ static int startMultiThreadInsertData(SDataBase* database,
             for (int32_t v = 0; v < database->vgroups; v++) {
                 SVGroup *vg = benchArrayGet(database->vgArray, v);
                 if (vgId == vg->vgId) {
-                    strcpy(vg->childTblName[vg->tbOffset],
-                           stbInfo->childTblName[i]);
+                    strncpy(vg->childTblName[vg->tbOffset],
+                           stbInfo->childTblName[i], TSDB_TABLE_NAME_LEN);
                     vg->tbOffset++;
                 }
             }
@@ -2455,8 +2464,6 @@ static int startMultiThreadInsertData(SDataBase* database,
         b = ntables % threads;
     }
 #endif   // TD_VER_COMPATIBLE_3_0_0_0
-
-
     pthread_t * pids = benchCalloc(1, threads * sizeof(pthread_t), true);
     threadInfo *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
 
@@ -2644,7 +2651,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                     return -1;
                 }
                 char command[SHORT_1K_SQL_BUFF_LEN];
-                snprintf(command, SHORT_1K_SQL_BUFF_LEN, "USE %s", database->dbName);
+                snprintf(command, SHORT_1K_SQL_BUFF_LEN,
+                         "USE %s", database->dbName);
                 if (queryDbExecCall(pThreadInfo->conn, command)) {
                     tmfree(pids);
                     tmfree(infos);
@@ -2861,7 +2869,8 @@ static void create_tsma(TSMA* tsma, SBenchConn* conn, char* stbName) {
                        tsma->name, stbName, tsma->func,
                        tsma->interval, tsma->sliding);
     if (tsma->custom) {
-        snprintf(command + len, SHORT_1K_SQL_BUFF_LEN - len, " %s", tsma->custom);
+        snprintf(command + len, SHORT_1K_SQL_BUFF_LEN - len,
+                 " %s", tsma->custom);
     }
     int code = queryDbExecCall(conn, command);
     if (code == 0) {
