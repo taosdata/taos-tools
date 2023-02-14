@@ -116,7 +116,8 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     int ret = 0;
 
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
-    snprintf(command, SHORT_1K_SQL_BUFF_LEN, "DESCRIBE %s.`%s`", database->dbName,
+    snprintf(command, SHORT_1K_SQL_BUFF_LEN,
+             "DESCRIBE %s.`%s`", database->dbName,
              stbInfo->stbName);
 
     if (REST_IFACE == stbInfo->iface) {
@@ -207,15 +208,23 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
 
     for (int colIndex = 0; colIndex < stbInfo->cols->size; colIndex++) {
         Field * col = benchArrayGet(stbInfo->cols, colIndex);
+        int n;
         if (col->type == TSDB_DATA_TYPE_BINARY ||
                 col->type == TSDB_DATA_TYPE_NCHAR) {
-            len += snprintf(cols + len, col_buffer_len - len,
+            n = snprintf(cols + len, col_buffer_len - len,
                     ",%s %s(%d)", col->name,
                     convertDatatypeToString(col->type), col->length);
         } else {
-            len += snprintf(cols + len, col_buffer_len - len,
+            n = snprintf(cols + len, col_buffer_len - len,
                     ",%s %s", col->name,
                     convertDatatypeToString(col->type));
+        }
+        if (n < 0 || n > col_buffer_len - len) {
+            errorPrint("%s() LN%d, snprintf overflow on %d\n",
+                       __func__, __LINE__, colIndex);
+            break;
+        } else {
+            len += n;
         }
     }
 
@@ -237,22 +246,38 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     int  tagIndex;
     len = 0;
 
-    len += snprintf(tags + len, tag_buffer_len - len, "(");
+    int n;
+    n = snprintf(tags + len, tag_buffer_len - len, "(");
+    if (n < 0 || n >= tag_buffer_len - len) {
+        errorPrint("%s() LN%d snprintf overflow\n",
+                       __func__, __LINE__);
+        return -1;
+    } else {
+        len += n;
+    }
     for (tagIndex = 0; tagIndex < stbInfo->tags->size; tagIndex++) {
         Field * tag = benchArrayGet(stbInfo->tags, tagIndex);
         if (tag->type == TSDB_DATA_TYPE_BINARY ||
                 tag->type == TSDB_DATA_TYPE_NCHAR) {
-            len += snprintf(tags + len, tag_buffer_len - len,
+            n = snprintf(tags + len, tag_buffer_len - len,
                     "%s %s(%d),", tag->name,
                     convertDatatypeToString(tag->type), tag->length);
         } else if (tag->type == TSDB_DATA_TYPE_JSON) {
-            len += snprintf(tags + len, tag_buffer_len - len,
+            n = snprintf(tags + len, tag_buffer_len - len,
                     "%s json", tag->name);
             goto skip;
         } else {
-            len += snprintf(tags + len, tag_buffer_len - len,
+            n = snprintf(tags + len, tag_buffer_len - len,
                     "%s %s,", tag->name,
                     convertDatatypeToString(tag->type));
+        }
+
+        if (n < 0 || n >= tag_buffer_len - len) {
+            errorPrint("%s() LN%d snprintf overflow on %d\n",
+                       __func__, __LINE__, tagIndex);
+            break;
+        } else {
+            len += n;
         }
     }
     len -= 1;
@@ -312,7 +337,6 @@ skip:
     for (int i = 0; i < stbInfo->cols->size; ++i) {
         Field * col = benchArrayGet(stbInfo->cols, i);
         if (col->sma) {
-            int n;
             if (first_sma) {
                 n = snprintf(command + length,
                                    TSDB_MAX_ALLOWED_SQL_LEN - length,
@@ -406,28 +430,35 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 
 int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     int dataLen = 0;
+    int n;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if (g_arguments->nthreads_auto || (-1 != g_arguments->inputted_vgroups)) {
-        dataLen += snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
+        n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
                             database->dbName,
                             (-1 != g_arguments->inputted_vgroups)?
                             g_arguments->inputted_vgroups:
                             min(remainVnodes, toolsGetNumberOfCores()));
     } else {
-        dataLen += snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
+        n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
                             "CREATE DATABASE IF NOT EXISTS %s",
                             database->dbName);
     }
 #else
-    dataLen += snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
+    n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
                         "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
+    if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - dataLen) {
+        errorPrint("%s() LN%d snprintf overflow\n",
+                           __func__, __LINE__);
+        return -1;
+    } else {
+        dataLen += n;
+    }
 
     if (database->cfgs) {
         for (int i = 0; i < database->cfgs->size; i++) {
             SDbCfg* cfg = benchArrayGet(database->cfgs, i);
-            int n;
             if (cfg->valuestring) {
                 n = snprintf(command + dataLen,
                                         TSDB_MAX_ALLOWED_SQL_LEN - dataLen,
@@ -934,7 +965,10 @@ static int createChildTables() {
 }
 
 void postFreeResource() {
-    tmfclose(g_arguments->fpOfInsertResult);
+    if (!g_arguments->terminate) {
+        tmfclose(g_arguments->fpOfInsertResult);
+    }
+
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         if (database->cfgs) {

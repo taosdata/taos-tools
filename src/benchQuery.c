@@ -703,6 +703,7 @@ int queryTestProcess() {
         int32_t   code = taos_errno(res);
         if (code) {
             printErrCmdCodeStr(cmd, code, res);
+            closeBenchConn(conn);
             return -1;
         }
         TAOS_ROW    row = NULL;
@@ -712,6 +713,8 @@ int queryTestProcess() {
             if (0 == strlen((char *)(row[0]))) {
                 errorPrint("stable %s have no child table\n",
                         g_queryInfo.superQueryInfo.stbName);
+                taos_free_result(res);
+                closeBenchConn(conn);
                 return -1;
             }
             char temp[256] = {0};

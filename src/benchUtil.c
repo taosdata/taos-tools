@@ -231,22 +231,17 @@ static void appendResultBufToFile(char *resultBuf, char * filePath) {
 
 void replaceChildTblName(char *inSql, char *outSql, int tblIndex) {
     char sourceString[32] = "xxxx";
+    char *pos = strstr(inSql, sourceString);
+    if (0 == pos) return;
+
     char subTblName[TSDB_TABLE_NAME_LEN];
     snprintf(subTblName, TSDB_TABLE_NAME_LEN,
             "%s.%s", g_queryInfo.dbName,
             g_queryInfo.superQueryInfo.childTblName[tblIndex]);
 
-    // printf("inSql: %s\n", inSql);
-
-    char *pos = strstr(inSql, sourceString);
-    if (0 == pos) return;
-
     tstrncpy(outSql, inSql, pos - inSql + 1);
-    // printf("1: %s\n", outSql);
-    strncat(outSql, subTblName, TSDB_MAX_ALLOWED_SQL_LEN - 1);
-    // printf("2: %s\n", outSql);
-    strncat(outSql, pos + strlen(sourceString), TSDB_MAX_ALLOWED_SQL_LEN - 1);
-    // printf("3: %s\n", outSql);
+    snprintf(outSql + strlen(outSql), TSDB_MAX_ALLOWED_SQL_LEN -1,
+             "%s%s", subTblName, pos + strlen(sourceString));
 }
 
 int64_t toolsGetTimestamp(int32_t precision) {
