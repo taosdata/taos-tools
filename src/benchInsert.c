@@ -2607,6 +2607,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         if (generateRandData(
                                     stbInfo, pThreadInfo->sml_tags[t],
+                                    stbInfo->lenOfTags,
                                     stbInfo->lenOfCols + stbInfo->lenOfTags,
                                     stbInfo->tags, 1, true)) {
                             return -1;

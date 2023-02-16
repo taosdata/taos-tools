@@ -115,9 +115,9 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
     int n;
     if (stbInfo->autoCreateTable) {
-        char ttl[20] = "";
+        char ttl[TTL_BUFF_LEN] = "";
         if (stbInfo->ttl != 0) {
-            sprintf(ttl, "TTL %d", stbInfo->ttl);
+            snprintf(ttl, TTL_BUFF_LEN, "TTL %d", stbInfo->ttl);
         }
         n = snprintf(prepare + len,
                        TSDB_MAX_ALLOWED_SQL_LEN - len,
@@ -140,13 +140,14 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     for (int col = 0; col < stbInfo->cols->size; col++) {
         n = snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len, ",?");
         if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - len) {
-            errorPrint("%s() LN%d snprintf overflow on %d\n", __func__, __LINE__, col);
+            errorPrint("%s() LN%d snprintf overflow on %d\n",
+                       __func__, __LINE__, col);
             break;;
         } else {
             len += n;
         }
     }
-    sprintf(prepare + len, ")");
+    snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len, ")");
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
         infoPrint(
                   "in stmt mode, batch size(%u) can not larger than prepared "
@@ -166,7 +167,8 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     return 0;
 }
 
-static int generateSampleFromCsvForStb(char *buffer, char *file, int32_t length,
+static int generateSampleFromCsvForStb(char *buffer,
+                                       char *file, int32_t length,
                                        int64_t size) {
     size_t  n = 0;
     char *  line = NULL;
@@ -312,11 +314,218 @@ static uint32_t calcRowLen(BArray *fields, int iface) {
     return ret;
 }
 
-int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
+static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
+                     int bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
     int     iface = stbInfo->iface;
-    int     line_protocol = stbInfo->lineProtocol;
+
+    for (int64_t k = 0; k < loop; ++k) {
+        int64_t pos = k * lenOfOneRow;
+        int fieldSize = fields->size;
+        if (!tag && (TSDB_SML_TELNET_PROTOCOL == stbInfo->lineProtocol)) {
+            fieldSize = 1;
+        }
+        for (int i = 0; i < fieldSize; ++i) {
+            Field * field = benchArrayGet(fields, i);
+            if (iface == TAOSC_IFACE || iface == REST_IFACE) {
+                if (field->none) {
+                    continue;
+                }
+                if (field->null) {
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos, "null,");
+                    continue;
+                }
+                if (field->type == TSDB_DATA_TYPE_TIMESTAMP && !tag) {
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos, "now,");
+                    continue;
+                }
+            }
+            switch (field->type) {
+                case TSDB_DATA_TYPE_BOOL: {
+                    bool rand_bool = (taosRandom() % 2) & 1;
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                    "%s,",
+                                    rand_bool ? "true" : "false");
+                    break;
+                }
+                case TSDB_DATA_TYPE_TINYINT: {
+                    int8_t tinyint =
+                            field->min +
+                        (taosRandom() % (field->max - field->min));
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                    "%d,", tinyint);
+                    break;
+                }
+                case TSDB_DATA_TYPE_UTINYINT: {
+                    uint8_t utinyint = field->min
+                        + (taosRandom() % (field->max - field->min));
+                    pos += snprintf(sampleDataBuf + pos,
+                                    bufLen - pos,
+                                    "%u,", utinyint);
+                    break;
+                }
+                case TSDB_DATA_TYPE_SMALLINT: {
+                    int16_t smallint = field->min
+                        + (taosRandom() % (field->max -field->min));
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", smallint);
+                    break;
+                }
+                case TSDB_DATA_TYPE_USMALLINT: {
+                    uint16_t usmallint = field->min
+                        + (taosRandom() % (field->max - field->min));
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%u,", usmallint);
+                    break;
+                }
+                case TSDB_DATA_TYPE_INT: {
+                    int32_t intTmp;
+                    if ((g_arguments->demo_mode) && (i == 0)) {
+                        unsigned int tmpRand = taosRandom();
+                        intTmp = tmpRand % 10 + 1;
+                    } else if ((g_arguments->demo_mode) && (i == 1)) {
+                        intTmp = 105 + taosRandom() % 10;
+                    } else {
+                        if (field->min < (-1 * (RAND_MAX >> 1))) {
+                            field->min = -1 * (RAND_MAX >> 1);
+                        }
+                        if (field->max > (RAND_MAX >> 1)) {
+                            field->max = RAND_MAX >> 1;
+                        }
+                        intTmp = field->min + (taosRandom() %
+                            (field->max - field->min));
+                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", intTmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_BIGINT: {
+                    int64_t bigintTmp;
+                    bigintTmp = field->min + (taosRandom() %
+                        (field->max - field->min));
+                    pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                       "%"PRId64",", bigintTmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_UINT: {
+                    uint32_t uintTmp = field->min + (taosRandom()
+                        % (field->max - field->min));
+                    pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%u,", uintTmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_UBIGINT:
+                case TSDB_DATA_TYPE_TIMESTAMP: {
+                    uint64_t ubigintTmp =
+                            field->min +
+                        (taosRandom() % (field->max - field->min));
+                    pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                       "%"PRIu64",", ubigintTmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_FLOAT: {
+                    float floatTmp = (float)(field->min +
+                                           (taosRandom() %
+                                            (field->max - field->min)) +
+                                           (taosRandom() % 1000) / 1000.0);
+                    if (g_arguments->demo_mode && i == 0) {
+                        floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10) +
+                                         floatTmp / 1000000000);
+                    } else if (g_arguments->demo_mode && i == 2) {
+                        floatTmp = (float)((105 + taosRandom() % 10 +
+                                          floatTmp / 1000000000) /
+                                         360);
+                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%f,", floatTmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_DOUBLE: {
+                    double double_ =
+                        (double)(field->min +
+                                 (taosRandom() %
+                                  (field->max - field->min)) +
+                                 taosRandom() % 1000000 / 1000000.0);
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%f,", double_);
+                    break;
+                }
+                case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_NCHAR: {
+                    char *tmp = benchCalloc(1, field->length + 1, false);
+                    if (g_arguments->demo_mode) {
+                        unsigned int tmpRand = taosRandom();
+                        if (g_arguments->chinese) {
+                            snprintf(tmp, field->length, "%s",
+                                     locations_chinese[tmpRand % 10]);
+                        } else if (stbInfo->iface == SML_IFACE) {
+                            snprintf(tmp, field->length, "%s",
+                                     locations_sml[tmpRand % 10]);
+                        } else {
+                            snprintf(tmp, field->length, "%s",
+                                     locations[tmpRand % 10]);
+                        }
+                    } else if (field->values) {
+                        int arraySize = tools_cJSON_GetArraySize(field->values);
+                        if (arraySize) {
+                            tools_cJSON *buf = tools_cJSON_GetArrayItem(
+                                    field->values,
+                                    taosRandom() % arraySize);
+                            snprintf(tmp, field->length,
+                                     "%s", buf->valuestring);
+                        } else {
+                            errorPrint("%s() cannot read correct value "
+                                       "from json file. array size: %d\n",
+                                    __func__, arraySize);
+                            free(tmp);
+                            return -1;
+                        }
+                    } else {
+                        rand_string(tmp, field->length,
+                                    g_arguments->chinese);
+                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "'%s',", tmp);
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_JSON: {
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos, "'{");
+                    for (int j = 0; j < fields->size; ++j) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "\"k%d\":", j);
+                        char *buf = benchCalloc(1, field->length + 1, false);
+                        rand_string(buf, field->length,
+                                    g_arguments->chinese);
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "\"%s\",", buf);
+                        tmfree(buf);
+                    }
+                    pos += snprintf(sampleDataBuf + pos - 1,
+                                    bufLen - pos, "}'");
+                    goto skip;
+                }
+            }
+        }
+skip:
+        *(sampleDataBuf + pos - 1) = 0;
+    }
+
+    return 0;
+}
+
+static int generateRandDataStmt(
+    SSuperTable *stbInfo,
+    char *sampleDataBuf,
+    int bufLen,
+    int lenOfOneRow, BArray * fields,
+    int64_t loop, bool tag) {
+    // generateRandDataStmt()
+    int     iface = stbInfo->iface;
     if (iface == STMT_IFACE) {
         for (int i = 0; i < fields->size; ++i) {
             Field * field = benchArrayGet(fields, i);
@@ -328,17 +537,10 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
             }
         }
     }
+
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
-        if (line_protocol == TSDB_SML_LINE_PROTOCOL &&
-            (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
-            pos += sprintf(sampleDataBuf + pos, "%s,", stbInfo->stbName);
-        }
-
         int fieldSize = fields->size;
-        if (TSDB_SML_TELNET_PROTOCOL == stbInfo->lineProtocol) {
-            fieldSize = 1;
-        }
         for (int i = 0; i < fieldSize; ++i) {
             Field * field = benchArrayGet(fields, i);
             if (iface == TAOSC_IFACE || iface == REST_IFACE) {
@@ -346,11 +548,11 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     continue;
                 }
                 if (field->null) {
-                    pos += sprintf(sampleDataBuf + pos, "null,");
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos, "null,");
                     continue;
                 }
                 if (field->type == TSDB_DATA_TYPE_TIMESTAMP && !tag) {
-                    pos += sprintf(sampleDataBuf + pos, "now,");
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos, "now,");
                     continue;
                 }
             }
@@ -360,26 +562,9 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((bool *)field->data)[k] = rand_bool;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%s,",
-                                       field->name,
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s,",
                                        rand_bool ? "true" : "false");
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%s ",
-                                           field->name,
-                                           rand_bool ? "true" : "false");
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos, "%s ",
-                                           rand_bool ? "true" : "false");
-                        }
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%s,",
-                                       rand_bool ? "true" : "false");
-                    }
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
@@ -389,24 +574,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((int8_t *)field->data)[k] = tinyint;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%di8,",
-                                       field->name, tinyint);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%di8 ",
-                                           field->name, tinyint);
-                        } else {
-                            pos +=
-                                sprintf(sampleDataBuf + pos, "%di8 ", tinyint);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%d,", tinyint);
-                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", tinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
@@ -415,24 +584,9 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((uint8_t *)field->data)[k] = utinyint;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE)
-                            && line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%uu8,",
-                                       field->name, utinyint);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%uu8 ",
-                                           field->name, utinyint);
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos,
-                                           "%uu8 ", utinyint);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", utinyint);
-                    }
+                    pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%u,", utinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
@@ -441,24 +595,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((int16_t *)field->data)[k] = smallint;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%di16,",
-                                       field->name, smallint);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%di16 ",
-                                           field->name, smallint);
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos, "%di16 ",
-                                           smallint);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%d,", smallint);
-                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", smallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
@@ -467,24 +605,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((uint16_t *)field->data)[k] = usmallint;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%uu16,",
-                                       field->name, usmallint);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%uu16 ",
-                                           field->name, usmallint);
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos, "%uu16 ",
-                                           usmallint);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", usmallint);
-                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%u,", usmallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
@@ -507,24 +629,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((int32_t *)field->data)[k] = intTmp;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%di32,",
-                                       field->name, intTmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%di32 ",
-                                           field->name, intTmp);
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos,
-                                           "%di32 ", intTmp);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%d,", intTmp);
-                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", intTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
@@ -534,26 +640,9 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((int64_t *)field->data)[k] = bigintTmp;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%"PRId64"i64,",
-                                       field->name, bigintTmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos,
-                                           "%s=%"PRId64"i64 ",
-                                           field->name, bigintTmp);
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos,
-                                           "%"PRId64"i64 ", bigintTmp);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos,
+                    pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
                                        "%"PRId64",", bigintTmp);
-                    }
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
@@ -562,24 +651,9 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((uint32_t *)field->data)[k] = uintTmp;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%uu32,",
-                                       field->name, uintTmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%uu32 ",
-                                           field->name, uintTmp);
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos,
-                                           "%uu32 ", uintTmp);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%u,", uintTmp);
-                    }
+                    pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%u,", uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
@@ -590,26 +664,9 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((uint64_t *)field->data)[k] = ubigintTmp;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%"PRIu64"u64,",
-                                       field->name, ubigintTmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos,
-                                           "%s=%"PRIu64"u64 ",
-                                           field->name, ubigintTmp);
-                        } else {
-                            pos +=
-                                sprintf(sampleDataBuf + pos,
-                                        "%"PRIu64"u64 ", ubigintTmp);
-                        }
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos,
+                    pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
                                        "%"PRIu64",", ubigintTmp);
-                    }
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
@@ -628,25 +685,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((float *)(field->data))[k] = floatTmp;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%ff32,",
-                                       field->name, floatTmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%ff32 ",
-                                           field->name, floatTmp);
-                        } else {
-                            pos +=
-                                sprintf(sampleDataBuf + pos,
-                                        "%ff32 ", floatTmp);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%f,", floatTmp);
-                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%f,", floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
@@ -658,24 +698,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (iface == STMT_IFACE) {
                         ((double *)field->data)[k] = double_;
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=%ff64,",
-                                       field->name, double_);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=%ff64 ",
-                                           field->name, double_);
-                        } else {
-                            pos +=
-                                sprintf(sampleDataBuf + pos, "%ff64 ", double_);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "%f,", double_);
-                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%f,", double_);
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
@@ -684,11 +708,14 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                     if (g_arguments->demo_mode) {
                         unsigned int tmpRand = taosRandom();
                         if (g_arguments->chinese) {
-                            sprintf(tmp, "%s", locations_chinese[tmpRand % 10]);
+                            snprintf(tmp, field->length, "%s",
+                                     locations_chinese[tmpRand % 10]);
                         } else if (stbInfo->iface == SML_IFACE) {
-                            sprintf(tmp, "%s", locations_sml[tmpRand % 10]);
+                            snprintf(tmp, field->length, "%s",
+                                     locations_sml[tmpRand % 10]);
                         } else {
-                            sprintf(tmp, "%s", locations[tmpRand % 10]);
+                            snprintf(tmp, field->length, "%s",
+                                     locations[tmpRand % 10]);
                         }
                     } else if (field->values) {
                         int arraySize = tools_cJSON_GetArraySize(field->values);
@@ -710,60 +737,29 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
                                     g_arguments->chinese);
                     }
                     if (iface == STMT_IFACE) {
-                        sprintf((char *)field->data + k * field->length,
+                        snprintf((char *)field->data + k * field->length,
+                                 field->length,
                                 "%s", tmp);
                     }
-                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
-                            field->type == TSDB_DATA_TYPE_BINARY &&
-                        line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=\"%s\",",
-                                       field->name, tmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                            field->type == TSDB_DATA_TYPE_NCHAR &&
-                               line_protocol == TSDB_SML_LINE_PROTOCOL) {
-                        pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\",",
-                                       field->name, tmp);
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                            field->type == TSDB_DATA_TYPE_BINARY &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\" ",
-                                           field->name, tmp);
-                        } else {
-                            pos += sprintf(sampleDataBuf + pos, "\"%s\" ", tmp);
-                        }
-
-                    } else if ((iface == SML_IFACE ||
-                                iface == SML_REST_IFACE) &&
-                            field->type == TSDB_DATA_TYPE_NCHAR &&
-                               line_protocol == TSDB_SML_TELNET_PROTOCOL) {
-                        if (tag) {
-                            pos += sprintf(sampleDataBuf + pos, "%s=L\"%s\" ",
-                                           field->name, tmp);
-                        } else {
-                            pos +=
-                                sprintf(sampleDataBuf + pos, "L\"%s\" ", tmp);
-                        }
-
-                    } else {
-                        pos += sprintf(sampleDataBuf + pos, "'%s',", tmp);
-                    }
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "'%s',", tmp);
                     tmfree(tmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_JSON: {
-                    pos += sprintf(sampleDataBuf + pos, "'{");
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos, "'{");
                     for (int j = 0; j < fields->size; ++j) {
-                        pos += sprintf(sampleDataBuf + pos, "\"k%d\":", j);
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "\"k%d\":", j);
                         char *buf = benchCalloc(1, field->length + 1, false);
                         rand_string(buf, field->length,
                                     g_arguments->chinese);
-                        pos += sprintf(sampleDataBuf + pos, "\"%s\",", buf);
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "\"%s\",", buf);
                         tmfree(buf);
                     }
-                    pos += sprintf(sampleDataBuf + pos - 1, "}'");
+                    pos += snprintf(sampleDataBuf + pos - 1,
+                                    bufLen - pos, "}'");
                     goto skip;
                 }
             }
@@ -773,6 +769,498 @@ skip:
     }
 
     return 0;
+}
+
+static int generateRandDataLine(SSuperTable *stbInfo, char *sampleDataBuf,
+                     int bufLen,
+                      int lenOfOneRow, BArray * fields, int64_t loop,
+                      bool tag) {
+    int     iface = stbInfo->iface;
+    int     protocol = stbInfo->lineProtocol;
+
+    for (int64_t k = 0; k < loop; ++k) {
+        int64_t pos = k * lenOfOneRow;
+        if (protocol == TSDB_SML_LINE_PROTOCOL
+                && (iface == SML_IFACE || iface == SML_REST_IFACE) && tag) {
+            pos += snprintf(sampleDataBuf + pos,
+                           bufLen - pos,
+                           "%s,", stbInfo->stbName);
+        }
+
+        int fieldSize = fields->size;
+        if (!tag && (TSDB_SML_TELNET_PROTOCOL == protocol)) {
+            fieldSize = 1;
+        }
+        for (int i = 0; i < fieldSize; ++i) {
+            Field * field = benchArrayGet(fields, i);
+            switch (field->type) {
+                case TSDB_DATA_TYPE_BOOL: {
+                    bool rand_bool = (taosRandom() % 2) & 1;
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%s=%s,",
+                                       field->name,
+                                       rand_bool ? "true" : "false");
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=%s ",
+                                           field->name,
+                                           rand_bool ? "true" : "false");
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s ",
+                                           rand_bool ? "true" : "false");
+                        }
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s,",
+                                       rand_bool ? "true" : "false");
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_TINYINT: {
+                    int8_t tinyint =
+                            field->min +
+                        (taosRandom() % (field->max - field->min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%s=%di8,",
+                                       field->name, tinyint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                            "%s=%di8 ",
+                                           field->name, tinyint);
+                        } else {
+                            pos +=
+                                snprintf(sampleDataBuf + pos,
+                                         bufLen - pos, "%di8 ", tinyint);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", tinyint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_UTINYINT: {
+                    uint8_t utinyint = field->min
+                        + (taosRandom() % (field->max - field->min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE)
+                            && protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=%uu8,",
+                                       field->name, utinyint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=%uu8 ",
+                                           field->name, utinyint);
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                           "%uu8 ", utinyint);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%u,", utinyint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_SMALLINT: {
+                    int16_t smallint = field->min
+                        + (taosRandom() % (field->max -field->min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                       "%s=%di16,",
+                                       field->name, smallint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=%di16 ",
+                                           field->name, smallint);
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%di16 ",
+                                           smallint);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", smallint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_USMALLINT: {
+                    uint16_t usmallint = field->min
+                        + (taosRandom() % (field->max - field->min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=%uu16,",
+                                       field->name, usmallint);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=%uu16 ",
+                                           field->name, usmallint);
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%uu16 ",
+                                           usmallint);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%u,", usmallint);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_INT: {
+                    int32_t intTmp;
+                    if ((g_arguments->demo_mode) && (i == 0)) {
+                        unsigned int tmpRand = taosRandom();
+                        intTmp = tmpRand % 10 + 1;
+                    } else if ((g_arguments->demo_mode) && (i == 1)) {
+                        intTmp = 105 + taosRandom() % 10;
+                    } else {
+                        if (field->min < (-1 * (RAND_MAX >> 1))) {
+                            field->min = -1 * (RAND_MAX >> 1);
+                        }
+                        if (field->max > (RAND_MAX >> 1)) {
+                            field->max = RAND_MAX >> 1;
+                        }
+                        intTmp = field->min + (taosRandom() %
+                            (field->max - field->min));
+                    }
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=%di32,",
+                                       field->name, intTmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=%di32 ",
+                                           field->name, intTmp);
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                           "%di32 ", intTmp);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%d,", intTmp);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_BIGINT: {
+                    int64_t bigintTmp;
+                    bigintTmp = field->min + (taosRandom() %
+                        (field->max - field->min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=%"PRId64"i64,",
+                                       field->name, bigintTmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                           "%s=%"PRId64"i64 ",
+                                           field->name, bigintTmp);
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                           "%"PRId64"i64 ", bigintTmp);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                       "%"PRId64",", bigintTmp);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_UINT: {
+                    uint32_t uintTmp = field->min + (taosRandom()
+                        % (field->max - field->min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=%uu32,",
+                                       field->name, uintTmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                            "%s=%uu32 ",
+                                           field->name, uintTmp);
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                           "%uu32 ", uintTmp);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%u,", uintTmp);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_UBIGINT:
+                case TSDB_DATA_TYPE_TIMESTAMP: {
+                    uint64_t ubigintTmp =
+                            field->min +
+                        (taosRandom() % (field->max - field->min));
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                        "%s=%"PRIu64"u64,",
+                                       field->name, ubigintTmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos,
+                                            bufLen - pos,
+                                           "%s=%"PRIu64"u64 ",
+                                           field->name, ubigintTmp);
+                        } else {
+                            pos +=
+                                snprintf(sampleDataBuf + pos,
+                                         bufLen - pos,
+                                        "%"PRIu64"u64 ", ubigintTmp);
+                        }
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos,
+                                       "%"PRIu64",", ubigintTmp);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_FLOAT: {
+                    float floatTmp = (float)(field->min +
+                                           (taosRandom() %
+                                            (field->max - field->min)) +
+                                           (taosRandom() % 1000) / 1000.0);
+                    if (g_arguments->demo_mode && i == 0) {
+                        floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10) +
+                                         floatTmp / 1000000000);
+                    } else if (g_arguments->demo_mode && i == 2) {
+                        floatTmp = (float)((105 + taosRandom() % 10 +
+                                          floatTmp / 1000000000) /
+                                         360);
+                    }
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos,
+                                        bufLen - pos, "%s=%ff32,",
+                                       field->name, floatTmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=%ff32 ",
+                                           field->name, floatTmp);
+                        } else {
+                            pos +=
+                                snprintf(sampleDataBuf + pos,
+                                         bufLen - pos,
+                                        "%ff32 ", floatTmp);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%f,", floatTmp);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_DOUBLE: {
+                    double double_ =
+                        (double)(field->min +
+                                 (taosRandom() %
+                                  (field->max - field->min)) +
+                                 taosRandom() % 1000000 / 1000000.0);
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=%ff64,",
+                                       field->name, double_);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=%ff64 ",
+                                           field->name, double_);
+                        } else {
+                            pos +=
+                                snprintf(sampleDataBuf + pos, bufLen - pos,
+                                         "%ff64 ", double_);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%f,", double_);
+                    }
+                    break;
+                }
+                case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_NCHAR: {
+                    char *tmp = benchCalloc(1, field->length + 1, false);
+                    if (g_arguments->demo_mode) {
+                        unsigned int tmpRand = taosRandom();
+                        if (g_arguments->chinese) {
+                            snprintf(tmp, field->length, "%s",
+                                     locations_chinese[tmpRand % 10]);
+                        } else if (stbInfo->iface == SML_IFACE) {
+                            snprintf(tmp, field->length, "%s",
+                                     locations_sml[tmpRand % 10]);
+                        } else {
+                            snprintf(tmp, field->length, "%s",
+                                     locations[tmpRand % 10]);
+                        }
+                    } else if (field->values) {
+                        int arraySize = tools_cJSON_GetArraySize(field->values);
+                        if (arraySize) {
+                            tools_cJSON *buf = tools_cJSON_GetArrayItem(
+                                    field->values,
+                                    taosRandom() % arraySize);
+                            snprintf(tmp, field->length,
+                                     "%s", buf->valuestring);
+                        } else {
+                            errorPrint("%s() cannot read correct value "
+                                       "from json file. array size: %d\n",
+                                    __func__, arraySize);
+                            free(tmp);
+                            return -1;
+                        }
+                    } else {
+                        rand_string(tmp, field->length,
+                                    g_arguments->chinese);
+                    }
+                    if ((iface == SML_IFACE || iface == SML_REST_IFACE) &&
+                            field->type == TSDB_DATA_TYPE_BINARY &&
+                        protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=\"%s\",",
+                                       field->name, tmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                            field->type == TSDB_DATA_TYPE_NCHAR &&
+                               protocol == TSDB_SML_LINE_PROTOCOL) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=L\"%s\",",
+                                       field->name, tmp);
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                            field->type == TSDB_DATA_TYPE_BINARY &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=L\"%s\" ",
+                                           field->name, tmp);
+                        } else {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "\"%s\" ", tmp);
+                        }
+
+                    } else if ((iface == SML_IFACE ||
+                                iface == SML_REST_IFACE) &&
+                            field->type == TSDB_DATA_TYPE_NCHAR &&
+                               protocol == TSDB_SML_TELNET_PROTOCOL) {
+                        if (tag) {
+                            pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                            "%s=L\"%s\" ",
+                                           field->name, tmp);
+                        } else {
+                            pos +=
+                                snprintf(sampleDataBuf + pos, bufLen - pos,
+                                         "L\"%s\" ", tmp);
+                        }
+
+                    } else {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "'%s',", tmp);
+                    }
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_JSON: {
+                    pos += snprintf(sampleDataBuf + pos, bufLen - pos, "'{");
+                    for (int j = 0; j < fields->size; ++j) {
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "\"k%d\":", j);
+                        char *buf = benchCalloc(1, field->length + 1, false);
+                        rand_string(buf, field->length,
+                                    g_arguments->chinese);
+                        pos += snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "\"%s\",", buf);
+                        tmfree(buf);
+                    }
+                    pos += snprintf(sampleDataBuf + pos - 1,
+                                    bufLen - pos, "}'");
+                    goto skip;
+                }
+            }
+        }
+skip:
+        *(sampleDataBuf + pos - 1) = 0;
+    }
+
+    return 0;
+}
+
+int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
+                     int bufLen,
+                      int lenOfOneRow, BArray * fields, int64_t loop,
+                      bool tag) {
+    int     iface = stbInfo->iface;
+    switch (iface) {
+        case TAOSC_IFACE:
+        case REST_IFACE:
+            return generateRandDataSQL(stbInfo, sampleDataBuf,
+                                    bufLen, lenOfOneRow, fields, loop, tag);
+        case STMT_IFACE:
+            return generateRandDataStmt(stbInfo, sampleDataBuf,
+                                    bufLen, lenOfOneRow, fields, loop, tag);
+        default:
+            return generateRandDataLine(stbInfo, sampleDataBuf,
+                                    bufLen, lenOfOneRow, fields, loop, tag);
+    }
+
+    errorPrint("Unknown iface: %d\n", iface);
+    return -1;
 }
 
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
@@ -821,13 +1309,16 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         stbInfo->partialColNum = stbInfo->cols->size;
     }
     stbInfo->sampleDataBuf =
-            benchCalloc(1, stbInfo->lenOfCols*g_arguments->prepared_rand, true);
+            benchCalloc(1,
+                        stbInfo->lenOfCols*g_arguments->prepared_rand,
+                        true);
     infoPrint(
               "generate stable<%s> columns data with lenOfCols<%u> * "
               "prepared_rand<%" PRIu64 ">\n",
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
     if (stbInfo->random_data_source) {
         if (generateRandData(stbInfo, stbInfo->sampleDataBuf,
+                            stbInfo->lenOfCols*g_arguments->prepared_rand,
                              stbInfo->lenOfCols,
                              stbInfo->cols,
                              g_arguments->prepared_rand,
@@ -856,16 +1347,19 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         infoPrint(
                   "generate stable<%s> tags data with lenOfTags<%u> * "
                   "childTblCount<%" PRIu64 ">\n",
-                  stbInfo->stbName, stbInfo->lenOfTags, stbInfo->childTblCount);
+                  stbInfo->stbName, stbInfo->lenOfTags,
+                stbInfo->childTblCount);
         if (stbInfo->tagsFile[0] != 0) {
             if (generateSampleFromCsvForStb(
-                    stbInfo->tagDataBuf, stbInfo->tagsFile, stbInfo->lenOfTags,
+                    stbInfo->tagDataBuf, stbInfo->tagsFile,
+                    stbInfo->lenOfTags,
                     stbInfo->childTblCount)) {
                 return -1;
             }
         } else {
             if (generateRandData(stbInfo,
                                  stbInfo->tagDataBuf,
+                                stbInfo->childTblCount*stbInfo->lenOfTags,
                                  stbInfo->lenOfTags,
                                  stbInfo->tags,
                                  stbInfo->childTblCount, true)) {
