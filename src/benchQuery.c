@@ -215,7 +215,7 @@ static void *specifiedTableQuery(void *sarg) {
         uint64_t endTs = toolsGetTimestampMs();
 
         if ((ret == 0) && (currentPrintTime - lastPrintTime > 30 * 1000)) {
-            debugPrint(
+            infoPrint(
                     "thread[%d] has currently completed queries: %" PRIu64
                     ", QPS: %10.6f\n",
                     pThreadInfo->threadID, pThreadInfo->totalQueried,
@@ -482,6 +482,29 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                       sql->delay_list[(int32_t)
                                  (total_query_times * 0.99)]/1E6,  /* p88 */
                       sql->command);
+            infoPrintNoTimestampToFile(g_arguments->fpOfInsertResult,
+                    "complete query with %d threads and %"PRIu64
+                    " query delay "
+                    "avg: \t%.6fs "
+                    "min: \t%.6fs "
+                    "max: \t%.6fs "
+                    "p90: \t%.6fs "
+                    "p95: \t%.6fs "
+                    "p99: \t%.6fs "
+                    "SQL command: %s"
+                    "\n",
+                      nConcurrent, query_times,
+                      avg_delay/1E6,  /* avg */
+                      sql->delay_list[0]/1E6, /* min */
+                      sql->delay_list[(int32_t)
+                                 total_query_times - 1]/1E6,  /*  max */
+                      sql->delay_list[(int32_t)
+                                 (total_query_times * 0.90)]/1E6, /*  p90 */
+                      sql->delay_list[(int32_t)
+                                 (total_query_times * 0.95)]/1E6, /*  p95 */
+                      sql->delay_list[(int32_t)
+                                 (total_query_times * 0.99)]/1E6,  /* p88 */
+                      sql->command);
         }
     } else {
         return 0;
@@ -696,7 +719,8 @@ int queryTestProcess() {
                     "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
                     g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
         } else {
-            snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SELECT COUNT(TBNAME) FROM %s.%s",
+            snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
+                     "SELECT COUNT(TBNAME) FROM %s.%s",
                     g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
         }
         TAOS_RES *res = taos_query(conn->taos, cmd);
@@ -768,7 +792,11 @@ int queryTestProcess() {
     int64_t t = endTs - startTs;
     double  tInS = (double)t / 1000.0;
 
-    debugPrint(
+    infoPrint(
+            "Spend %.4f second completed total queries: %" PRIu64
+            ", the QPS of all threads: %10.3f\n\n",
+            tInS, totalQueried, (double)totalQueried / tInS);
+    infoPrintToFile(g_arguments->fpOfInsertResult,
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
             tInS, totalQueried, (double)totalQueried / tInS);
