@@ -64,7 +64,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2280-print-qps-result'
+          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-data-gen-refactor'
 
       - name: Change time zone
         if: |
@@ -82,7 +82,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           brew update
-          brew install argp-standalone
+          brew install argp-standalone pkg-config
           brew info argp-standalone
 
       - name: Set up Go
