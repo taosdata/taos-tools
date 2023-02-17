@@ -1222,6 +1222,51 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
     return code;
 }
 
+static int smartContinueIfFail(threadInfo *pThreadInfo,
+                               SDataBase *database,
+                               SSuperTable *stbInfo,
+                               char *tableName,
+                               int64_t i,
+                               char *ttl) {
+    char *buffer =
+        benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
+    snprintf(
+            buffer, TSDB_MAX_ALLOWED_SQL_LEN,
+            stbInfo->escape_character ?
+            "CREATE TABLE %s.%s USING %s.`%s` TAGS (%s) %s "
+            : "%s.%s USING %s.%s TAGS (%s) %s ",
+            database->dbName, tableName, database->dbName,
+            stbInfo->stbName,
+            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+    debugPrint("creating table: %s\n", buffer);
+    int ret;
+    if (REST_IFACE == stbInfo->iface) {
+        ret = queryDbExecRest(buffer,
+                              database->dbName,
+                              database->precision,
+                              stbInfo->iface,
+                              stbInfo->lineProtocol,
+                              stbInfo->tcpTransfer,
+                              pThreadInfo->sockfd);
+    } else {
+        ret = queryDbExecCall(pThreadInfo->conn, buffer);
+        int32_t trying = g_arguments->keep_trying;
+        while (ret && trying) {
+            infoPrint("will sleep %"PRIu32" milliseconds then "
+                      "re-create table %s\n",
+                      g_arguments->trying_interval, buffer);
+            toolsMsleep(g_arguments->trying_interval);
+            ret = queryDbExecCall(pThreadInfo->conn, buffer);
+            if (trying != -1) {
+                trying--;
+            }
+        }
+    }
+    tmfree(buffer);
+
+    return ret;
+}
+
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1851,40 +1896,9 @@ void *syncWriteProgressive(void *sarg) {
                               "continueIfFail: %d, will create table "
                               "then insert ..\n",
                               stbInfo->continueIfFail);
-                    char *buffer =
-                        benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
-                    snprintf(
-                            buffer, TSDB_MAX_ALLOWED_SQL_LEN,
-                            stbInfo->escape_character ?
-                            "CREATE TABLE %s.%s USING %s.`%s` TAGS (%s) %s "
-                            : "%s.%s USING %s.%s TAGS (%s) %s ",
-                            database->dbName, tableName, database->dbName,
-                            stbInfo->stbName,
-                            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
-                    debugPrint("creating table: %s\n", buffer);
-                    int ret;
-                    if (REST_IFACE == stbInfo->iface) {
-                        ret = queryDbExecRest(buffer,
-                                              database->dbName,
-                                              database->precision,
-                                              stbInfo->iface,
-                                              stbInfo->lineProtocol,
-                                              stbInfo->tcpTransfer,
-                                              pThreadInfo->sockfd);
-                    } else {
-                        ret = queryDbExecCall(pThreadInfo->conn, buffer);
-                        int32_t trying = g_arguments->keep_trying;
-                        while (ret && trying) {
-                            infoPrint("will sleep %"PRIu32" milliseconds then "
-                                      "re-create table %s\n",
-                                  g_arguments->trying_interval, buffer);
-                            toolsMsleep(g_arguments->trying_interval);
-                            ret = queryDbExecCall(pThreadInfo->conn, buffer);
-                            if (trying != -1) {
-                                trying--;
-                            }
-                        }
-                    }
+                    int ret = smartContinueIfFail(
+                            pThreadInfo,
+                            database, stbInfo, tableName, i, ttl);
                     if (0 != ret) {
                         g_fail = true;
                         goto free_of_progressive;
