@@ -82,7 +82,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           brew update
-          brew install argp-standalone
+          brew install argp-standalone pkg-config
           brew info argp-standalone
 
       - name: Set up Go
