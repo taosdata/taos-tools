@@ -1598,7 +1598,7 @@ free_of_interlace:
     return NULL;
 }
 
-static uint32_t prepareProgressDataStmt(
+static int32_t prepareProgressDataStmt(
     threadInfo *pThreadInfo,
                                SDataBase *database,
                                SSuperTable *stbInfo,
@@ -1612,7 +1612,7 @@ static uint32_t prepareProgressDataStmt(
                 taos_stmt_errstr(pThreadInfo->conn->stmt));
         return -1;
     }
-    uint32_t generated = bindParamBatch(
+    int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
             ? (stbInfo->insertRows - i)
@@ -1622,14 +1622,14 @@ static uint32_t prepareProgressDataStmt(
     return generated;
 }
 
-static uint32_t prepareProgressDataSml(
+static int32_t prepareProgressDataSml(
     threadInfo *pThreadInfo,
     SDataBase *database,
     SSuperTable *stbInfo,
     char *tableName, uint64_t tableSeq,
     int64_t *timestamp, uint64_t i, char *ttl) {
-    // prepareProgressDataSql
-    uint32_t generated = 0;
+    // prepareProgressDataSml
+    int32_t generated = 0;
 
     int32_t pos = 0;
     int disorderRange = stbInfo->disorderRange;
@@ -1716,14 +1716,14 @@ static uint32_t prepareProgressDataSml(
     return generated;
 }
 
-static uint32_t prepareProgressDataSql(
+static int32_t prepareProgressDataSql(
     threadInfo *pThreadInfo,
     SDataBase *database,
     SSuperTable *stbInfo,
     char *tableName, uint64_t tableSeq,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSql
-    uint32_t generated = 0;
+    int32_t generated = 0;
     int len = 0;
     int32_t pos = 0;
     int disorderRange = stbInfo->disorderRange;
@@ -1774,7 +1774,7 @@ static uint32_t prepareProgressDataSql(
                              TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s)",
                              stbInfo->sampleDataBuf +
                              pos * stbInfo->lenOfCols);
-            } else {
+        } else {
             int64_t disorderTs = 0;
             if (stbInfo->disorderRatio > 0) {
                 int rand_num = taosRandom() % 100;
@@ -1888,20 +1888,15 @@ void *syncWriteProgressive(void *sarg) {
             if (g_arguments->terminate) {
                 goto free_of_progressive;
             }
-            uint32_t generated = 0;
+            int32_t generated = 0;
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
-                case REST_IFACE: {
+                case REST_IFACE:
                     generated = prepareProgressDataSql(
                             pThreadInfo, database,
                             stbInfo, tableName,
                             tableSeq, &timestamp, i, ttl);
-                    if (generated < 0) {
-                        g_fail = true;
-                        goto free_of_progressive;
-                    }
                     break;
-                }
                 case STMT_IFACE: {
                     generated = prepareProgressDataStmt(
                             pThreadInfo, database, stbInfo,
@@ -1909,14 +1904,17 @@ void *syncWriteProgressive(void *sarg) {
                     break;
                 }
                 case SML_REST_IFACE:
-                case SML_IFACE: {
+                case SML_IFACE:
                     generated = prepareProgressDataSml(
                             pThreadInfo, database, stbInfo,
                             tableName, tableSeq, &timestamp, i, ttl);
                     break;
-                }
                 default:
                     break;
+            }
+            if (generated < 0) {
+                g_fail = true;
+                goto free_of_progressive;
             }
             if (!stbInfo->non_stop) {
                 i += generated;
