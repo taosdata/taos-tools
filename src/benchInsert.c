@@ -1266,6 +1266,24 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
     return ret;
 }
 
+static void cleanupAndPrint(threadInfo *pThreadInfo, char *mode) {
+    if (pThreadInfo && pThreadInfo->json_array) {
+        tools_cJSON_Delete(pThreadInfo->json_array);
+        pThreadInfo->json_array = NULL;
+    }
+    if ((pThreadInfo) && (0 == pThreadInfo->totalDelay)) {
+        pThreadInfo->totalDelay = 1;
+    }
+    succPrint(
+            "thread[%d] %s mode, completed total inserted rows: %" PRIu64
+            ", %.2f records/second\n",
+            pThreadInfo->threadID,
+            mode,
+            pThreadInfo->totalInsertRows,
+            (double)(pThreadInfo->totalInsertRows /
+            ((double)pThreadInfo->totalDelay / 1E6)));
+}
+
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1580,21 +1598,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
     }
 free_of_interlace:
-    if (pThreadInfo && pThreadInfo->json_array) {
-        tools_cJSON_Delete(pThreadInfo->json_array);
-        pThreadInfo->json_array = NULL;
-    }
-    if ((pThreadInfo) && (0 == pThreadInfo->totalDelay)) {
-        pThreadInfo->totalDelay = 1;
-    }
-    succPrint(
-            "thread[%d] %s(), completed total inserted rows: %" PRIu64
-            ", %.2f records/second\n",
-            pThreadInfo->threadID,
-            __func__,
-            pThreadInfo->totalInsertRows,
-            (double)(pThreadInfo->totalInsertRows /
-            ((double)pThreadInfo->totalDelay / 1E6)));
+    cleanupAndPrint(pThreadInfo, "interlace");
     return NULL;
 }
 
@@ -2037,21 +2041,7 @@ void *syncWriteProgressive(void *sarg) {
         }  // insertRows
     }      // tableSeq
 free_of_progressive:
-    if (pThreadInfo && pThreadInfo->json_array) {
-        tools_cJSON_Delete(pThreadInfo->json_array);
-        pThreadInfo->json_array = NULL;
-    }
-    if (pThreadInfo && (0 == pThreadInfo->totalDelay)) {
-        pThreadInfo->totalDelay = 1;
-    }
-    succPrint(
-            "thread[%d] %s(), completed total inserted rows: %" PRIu64
-            ", %.2f records/second\n",
-            pThreadInfo->threadID,
-            __func__,
-            pThreadInfo->totalInsertRows,
-            (double)(pThreadInfo->totalInsertRows /
-            ((double)pThreadInfo->totalDelay / 1E6)));
+    cleanupAndPrint(pThreadInfo, "progressive");
     return NULL;
 }
 
