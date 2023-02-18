@@ -1626,60 +1626,52 @@ static int32_t prepareProgressDataStmt(
     return generated;
 }
 
-static int32_t prepareProgressDataSml(
+static void makeTimestampDisorder(
+        int64_t *timestamp, SSuperTable *stbInfo) {
+    int64_t startTimestamp = stbInfo->startTimestamp;
+    int disorderRange = stbInfo->disorderRange;
+    int rand_num = taosRandom() % 100;
+    if (rand_num < stbInfo->disorderRatio) {
+        disorderRange--;
+        if (0 == disorderRange) {
+            disorderRange = stbInfo->disorderRange;
+        }
+        *timestamp = startTimestamp - disorderRange;
+        debugPrint("rand_num: %d, < disorderRatio: %d"
+                   ", ts: %"PRId64"\n",
+                   rand_num,
+                   stbInfo->disorderRatio,
+                   *timestamp);
+    }
+}
+
+static int32_t prepareProgressDataSmlJson(
     threadInfo *pThreadInfo,
     SDataBase *database,
     SSuperTable *stbInfo,
     char *tableName, uint64_t tableSeq,
     int64_t *timestamp, uint64_t i, char *ttl) {
-    // prepareProgressDataSml
     int32_t generated = 0;
 
     int32_t pos = 0;
-    int disorderRange = stbInfo->disorderRange;
-    int64_t startTimestamp = stbInfo->startTimestamp;
     int protocol = stbInfo->lineProtocol;
     for (int j = 0; (j < g_arguments->reqPerReq)
             && !g_arguments->terminate; ++j) {
-        if ((TSDB_SML_JSON_PROTOCOL == protocol)
-                || (SML_JSON_TAOS_FORMAT == protocol)) {
-            tools_cJSON *tag = tools_cJSON_Duplicate(
-                    tools_cJSON_GetArrayItem(
-                        pThreadInfo->sml_json_tags,
-                        (int)tableSeq -
-                        pThreadInfo->start_table_from),
-                    true);
-            if (TSDB_SML_JSON_PROTOCOL == protocol) {
-                generateSmlJsonCols(
+        tools_cJSON *tag = tools_cJSON_Duplicate(
+                tools_cJSON_GetArrayItem(
+                    pThreadInfo->sml_json_tags,
+                    (int)tableSeq -
+                    pThreadInfo->start_table_from),
+                true);
+        debugPrintJsonNoTime(tag);
+        if (TSDB_SML_JSON_PROTOCOL == protocol) {
+            generateSmlJsonCols(
                     pThreadInfo->json_array, tag, stbInfo,
                     database->sml_precision, *timestamp);
-            } else {
-                generateSmlTaosJsonCols(
-                    pThreadInfo->json_array, tag, stbInfo,
-                    database->sml_precision, *timestamp);
-            }
-        } else if (TSDB_SML_LINE_PROTOCOL == protocol) {
-            snprintf(
-                    pThreadInfo->lines[j],
-                    stbInfo->lenOfCols + stbInfo->lenOfTags,
-                    "%s %s %" PRId64 "",
-                    pThreadInfo
-                    ->sml_tags[(int)tableSeq -
-                    pThreadInfo->start_table_from],
-                    stbInfo->sampleDataBuf +
-                    pos * stbInfo->lenOfCols,
-                    *timestamp);
         } else {
-            snprintf(
-                    pThreadInfo->lines[j],
-                    stbInfo->lenOfCols + stbInfo->lenOfTags,
-                    "%s %" PRId64 " %s %s", stbInfo->stbName,
-                    *timestamp,
-                    stbInfo->sampleDataBuf
-                    + pos * stbInfo->lenOfCols,
-                    pThreadInfo
-                    ->sml_tags[(int)tableSeq
-                    -pThreadInfo->start_table_from]);
+            generateSmlTaosJsonCols(
+                    pThreadInfo->json_array, tag, stbInfo,
+                    database->sml_precision, *timestamp);
         }
         pos++;
         if (pos >= g_arguments->prepared_rand) {
@@ -1687,19 +1679,7 @@ static int32_t prepareProgressDataSml(
         }
         *timestamp += stbInfo->timestamp_step;
         if (stbInfo->disorderRatio > 0) {
-            int rand_num = taosRandom() % 100;
-            if (rand_num < stbInfo->disorderRatio) {
-                disorderRange--;
-                if (0 == disorderRange) {
-                    disorderRange = stbInfo->disorderRange;
-                }
-                *timestamp = startTimestamp - disorderRange;
-                debugPrint("rand_num: %d, < disorderRatio: %d"
-                           ", ts: %"PRId64"\n",
-                           rand_num,
-                           stbInfo->disorderRatio,
-                           *timestamp);
-            }
+            makeTimestampDisorder(timestamp, stbInfo);
         }
         generated++;
         if (i + generated >= stbInfo->insertRows) {
@@ -1715,6 +1695,115 @@ static int32_t prepareProgressDataSml(
                 pThreadInfo->json_array);
         debugPrint("pThreadInfo->lines[0]: %s\n",
                    pThreadInfo->lines[0]);
+    }
+
+    return generated;
+}
+
+static int32_t prepareProgressDataSmlLine(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    int32_t generated = 0;
+
+    int32_t pos = 0;
+    for (int j = 0; (j < g_arguments->reqPerReq)
+            && !g_arguments->terminate; ++j) {
+        snprintf(
+                pThreadInfo->lines[j],
+                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                "%s %s %" PRId64 "",
+                pThreadInfo
+                ->sml_tags[(int)tableSeq -
+                pThreadInfo->start_table_from],
+                stbInfo->sampleDataBuf +
+                pos * stbInfo->lenOfCols,
+                *timestamp);
+        pos++;
+        if (pos >= g_arguments->prepared_rand) {
+            pos = 0;
+        }
+        *timestamp += stbInfo->timestamp_step;
+        if (stbInfo->disorderRatio > 0) {
+            makeTimestampDisorder(timestamp, stbInfo);
+        }
+        generated++;
+        if (i + generated >= stbInfo->insertRows) {
+            break;
+        }
+    }
+    return generated;
+}
+
+static int32_t prepareProgressDataSmlTelnet(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    int32_t generated = 0;
+
+    int32_t pos = 0;
+    for (int j = 0; (j < g_arguments->reqPerReq)
+            && !g_arguments->terminate; ++j) {
+        snprintf(
+                pThreadInfo->lines[j],
+                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                "%s %" PRId64 " %s %s", stbInfo->stbName,
+                *timestamp,
+                stbInfo->sampleDataBuf
+                + pos * stbInfo->lenOfCols,
+                pThreadInfo
+                ->sml_tags[(int)tableSeq
+                -pThreadInfo->start_table_from]);
+        pos++;
+        if (pos >= g_arguments->prepared_rand) {
+            pos = 0;
+        }
+        *timestamp += stbInfo->timestamp_step;
+        if (stbInfo->disorderRatio > 0) {
+            makeTimestampDisorder(timestamp, stbInfo);
+        }
+        generated++;
+        if (i + generated >= stbInfo->insertRows) {
+            break;
+        }
+    }
+    return generated;
+}
+
+static int32_t prepareProgressDataSml(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    // prepareProgressDataSml
+    int protocol = stbInfo->lineProtocol;
+    int32_t generated = -1;
+    switch (protocol) {
+        case TSDB_SML_LINE_PROTOCOL:
+            generated = prepareProgressDataSmlLine(
+                    pThreadInfo, database, stbInfo,
+                    tableName, tableSeq, timestamp, i, ttl);
+            break;
+        case TSDB_SML_TELNET_PROTOCOL:
+            generated = prepareProgressDataSmlTelnet(
+                    pThreadInfo, database, stbInfo,
+                    tableName, tableSeq, timestamp, i, ttl);
+            break;
+        case TSDB_SML_JSON_PROTOCOL:
+        case SML_JSON_TAOS_FORMAT:
+            generated = prepareProgressDataSmlJson(
+                    pThreadInfo, database, stbInfo,
+                    tableName, tableSeq, timestamp, i, ttl);
+            break;
+        default:
+            errorPrint("%s() LN%d: unknown protcolor: %d\n",
+                       __func__, __LINE__, protocol);
+            break;
     }
 
     return generated;

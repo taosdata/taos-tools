@@ -261,6 +261,22 @@
         }                                                                   \
     } while (0)
 
+#define debugPrintJsonNoTime(json)                                          \
+    do {                                                                    \
+        if (g_arguments->debug_print) {                                     \
+            char *out = tools_cJSON_PrintUnformatted(json);                 \
+            fprintf(stdout, "JSON: %s\n", out);                             \
+            free(out);                                                      \
+        }                                                                   \
+    } while (0)
+
+#define debugPrintNoTimestamp(fmt, ...)                                     \
+    do {                                                                    \
+        if (g_arguments->debug_print) {                                     \
+            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
+        }                                                                   \
+    } while (0)
+
 #define infoPrintNoTimestamp(fmt, ...)                                      \
     do {                                                                    \
         fprintf(stdout, "" fmt, __VA_ARGS__);                               \
