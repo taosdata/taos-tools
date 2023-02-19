@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-22334-sml-rest-ctrlc'
+          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-data-gen-refactor'
 
       - name: create debug directory
         if: |

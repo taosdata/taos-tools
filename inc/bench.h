@@ -13,18 +13,19 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __BENCH_H_
-#define __BENCH_H_
+#ifndef INC_BENCH_H_
+#define INC_BENCH_H_
 
 #define _GNU_SOURCE
 #define CURL_STATICLIB
 #define ALLOW_FORBID_FUNC
 
 #ifdef LINUX
-#include <inttypes.h>
+
 #ifndef _ALPINE
 #include <error.h>
 #endif
+
 #include <semaphore.h>
 #include <stdbool.h>
 #include <time.h>
@@ -37,8 +38,6 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <syscall.h>
-#include <unistd.h>
-#include <wordexp.h>
 #include <sys/ioctl.h>
 #include <signal.h>
 
@@ -60,8 +59,8 @@
 #include <assert.h>
 #include <toolscJson.h>
 #include <ctype.h>
-#include <errno.h>
 #include <inttypes.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -69,12 +68,12 @@
 #include <time.h>
 #include <stdarg.h>
 
-#include "taos.h"
-#include "toolsdef.h"
-#include "taoserror.h"
+#include <taos.h>
+#include <toolsdef.h>
+#include <taoserror.h>
 
 #ifdef WEBSOCKET
-#include "taosws.h"
+#include <taosws.h>
 #endif
 
 #ifndef TSDB_DATA_TYPE_VARCHAR
@@ -94,28 +93,28 @@
 #endif
 
 #ifndef TSDB_DATA_TYPE_MAX
-#define TSDB_DATA_TYPE_MAX 20
+#define TSDB_DATA_TYPE_MAX        20
 #endif
 
-#define REQ_EXTRA_BUF_LEN 1024
-#define RESP_BUF_LEN      4096
-#define SQL_BUFF_LEN      1024
+#define REQ_EXTRA_BUF_LEN         1024
+#define RESP_BUF_LEN              4096
+#define SHORT_1K_SQL_BUFF_LEN     1024
+#define URL_BUFF_LEN              1024
+#define TTL_BUFF_LEN              20
 
-#define STR_INSERT_INTO "INSERT INTO "
+#define STR_INSERT_INTO           "INSERT INTO "
 
-#define HEAD_BUFF_LEN \
-    TSDB_MAX_COLUMNS * 24  // 16*MAX_COLUMNS + (192+32)*2 + insert into ..
+// 16*MAX_COLUMNS + (192+32)*2 + insert into
+#define HEAD_BUFF_LEN         (TSDB_MAX_COLUMNS * 24)
 
-#define BUFFER_SIZE       TSDB_MAX_ALLOWED_SQL_LEN
-#define FETCH_BUFFER_SIZE 100 * TSDB_MAX_ALLOWED_SQL_LEN
-#define COND_BUF_LEN      (BUFFER_SIZE - 30)
+#define FETCH_BUFFER_SIZE     (100 * TSDB_MAX_ALLOWED_SQL_LEN)
+#define COND_BUF_LEN          (TSDB_MAX_ALLOWED_SQL_LEN - 30)
 
-#define OPT_ABORT         1    /* –abort */
-#define MAX_RECORDS_PER_REQ 65536
-#define DEFAULT_START_TIME  1500000000000
-#define MAX_SQL_LEN         1048576
-#define TELNET_TCP_PORT     6046
-#define INT_BUFF_LEN        12
+#define OPT_ABORT                 1    /* –abort */
+#define MAX_RECORDS_PER_REQ       65536
+#define DEFAULT_START_TIME        1500000000000
+#define TELNET_TCP_PORT           6046
+#define INT_BUFF_LEN              12
 #define BIGINT_BUFF_LEN     21
 #define SMALLINT_BUFF_LEN   8
 #define TINYINT_BUFF_LEN    6
@@ -144,6 +143,8 @@
 #define DEFAULT_TB_PREFIX      "d"
 #define DEFAULT_OUTPUT         "./output.txt"
 #define DEFAULT_BINWIDTH       64
+#define DEFAULT_REPLICA        1
+#define DEFAULT_CFGNAME_LEN    10
 #define DEFAULT_PREPARED_RAND  10000
 #define DEFAULT_REQ_PER_REQ    30000
 #define DEFAULT_INSERT_ROWS    10000
@@ -151,87 +152,139 @@
 #define DEFAULT_CREATE_BATCH   10
 #define DEFAULT_SUB_INTERVAL   10000
 #define DEFAULT_QUERY_INTERVAL 10000
-#define BARRAY_MIN_SIZE 8
-#define SML_LINE_SQL_SYNTAX_OFFSET 7
+#define BARRAY_MIN_SIZE             8
+#define SML_LINE_SQL_SYNTAX_OFFSET  7
 
-// tdengine define macro 
+#define TEMP_BUFF_LEN               64
+// tdengine define macro
 #define TSDB_DEFAULT_DURATION_PER_FILE  (10 * 1440)
 
 #define TS_COL_NAME "ts"
-#define  RD(max) ((max)==0 ? 1 : taosRandom() % (max))
+#define  RD(max)      ((max ==0)? 1 : (taosRandom() % (max)))
 #define SML_JSON_TAOS_FORMAT    255
 
 
 
-#define BENCH_FILE  "(**IMPORTANT**) Set JSON configuration file(all options are going to read from this JSON file), which is mutually exclusive with other commandline options, examples are under /usr/local/taos/examples"
+#define BENCH_FILE              \
+    "(**IMPORTANT**) Set JSON configuration file "  \
+    "(all options are going to read from this JSON file), " \
+    "which is mutually exclusive with other commandline options, "  \
+    "examples are under /usr/local/taos/examples"
 #define BENCH_CFG_DIR "Configuration directory."
-#define BENCH_HOST  "Specify FQDN to connect server, default is localhost."
-#define BENCH_PORT  "The TCP/IP port number to use for the connection, default is 6030."
-#define BENCH_MODE  "insert mode, default is taosc, options: taosc|rest|stmt|sml"
-#define BENCH_USER  "The user name to use when connecting to the server, default is root."
-#define BENCH_PASS  "The password to use when connecting to the server, default is taosdata."
+#define BENCH_HOST                \
+    "Specify FQDN to connect server, default is localhost."
+#define BENCH_PORT                \
+    "The TCP/IP port number to use for the connection, default is 6030."
+#define BENCH_MODE                \
+    "insert mode, default is taosc, options: taosc|rest|stmt|sml"
+#define BENCH_USER                \
+    "The user name to use when connecting to the server, default is root."
+#define BENCH_PASS                \
+    "The password to use when connecting to the server, default is taosdata."
 #define BENCH_OUTPUT  "The path of result output file, default is ./output.txt."
 #define BENCH_THREAD  "The number of thread when insert data, default is 8."
-#define BENCH_INTERVAL  "Insert interval for interlace mode in milliseconds, default is 0."
+#define BENCH_INTERVAL            \
+    "Insert interval for interlace mode in milliseconds, default is 0."
 #define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
-#define BENCH_SUPPLEMENT "Supplementally insert data without create database and table, optional, default is off."
-#define BENCH_START_TIMESTAMP "Specify timestamp to insert data. Optional, default is 1500000000000 (2017-07-14 10:40:00.000)."
-#define BENCH_INTERLACE "The number of interlace rows insert into tables, default is 0."
-#define BENCH_BATCH "Number of records in each insert request, default is 30000."
+#define BENCH_SUPPLEMENT          \
+    "Supplementally insert data without create "  \
+    "database and table, optional, default is off."
+#define BENCH_START_TIMESTAMP     \
+    "Specify timestamp to insert data. Optional, "  \
+    "default is 1500000000000 (2017-07-14 10:40:00.000)."
+#define BENCH_INTERLACE           \
+    "The number of interlace rows insert into tables, default is 0."
+#define BENCH_BATCH               \
+    "Number of records in each insert request, default is 30000."
 #define BENCH_TABLE "Number of child tables, default is 10000."
 #define BENCH_ROWS  "Number of records for each table, default is 10000."
 #define BENCH_DATABASE  "Name of database, default is test."
-#define BENCH_COLS_NUM  "Number of INT data type columns in table, default is 0."
-#define BENCH_PARTIAL_COL_NUM "Specify first numbers of columns has data. Rest of columns' data are NULL. Default is all columns have data"
+#define BENCH_COLS_NUM            \
+    "Number of INT data type columns in table, default is 0."
+#define BENCH_PARTIAL_COL_NUM     \
+    "Specify first numbers of columns has data. " \
+    "Rest of columns' data are NULL. Default is all columns have data"
 #define BENCH_TAGS  "Data type of tables' tags, default is INT,BINARY(16)."
 #define BENCH_COLS  "Data type of tables' cols, default is FLOAT,INT,FLOAT."
-#define BENCH_WIDTH "The default length of nchar and binary if not specified, default is 64."
+#define BENCH_WIDTH     \
+    "The default length of nchar and binary if not specified, default is 64."
 #define BENCH_PREFIX  "Prefix of child table name, default is d."
-#define BENCH_ESCAPE "Use escape character in stable and child table name, optional."
-#define BENCH_CHINESE "Nchar and binary are basic unicode chinese characters, optional."
+#define BENCH_ESCAPE    \
+    "Use escape character in stable and child table name, optional."
+#define BENCH_CHINESE   \
+    "Nchar and binary are basic unicode chinese characters, optional."
 #define BENCH_NORMAL  "Only create normal table without super table, optional."
 #define BENCH_RANDOM  "Data source is randomly generated, optional."
 #define BENCH_AGGR  "Query aggregation function after insertion, optional."
 #define BENCH_YES "Pass confirmation prompt to continue, optional."
 #define BENCH_RANGE "Range of disordered timestamp, default is 1000."
-#define BENCH_DISORDER "Ratio of inserting data with disorder timestamp, default is 0."
-#define BENCH_REPLICA "The number of replica when create database, default is 1."
+#define BENCH_DISORDER    \
+    "Ratio of inserting data with disorder timestamp, default is 0."
+#define BENCH_REPLICA     \
+    "The number of replica when create database, default is 1."
 #define BENCH_DEBUG "Debug mode, optional."
 #define BENCH_PERFORMANCE "Performance mode, optional."
 #define BENCH_PREPARE "Random data source size, default is 10000."
 #define BENCH_EMAIL   "<support@taosdata.com>"
-#define BENCH_VGROUPS "Specify Vgroups number for creating database, only valid with daemon version 3.0+"
+#define BENCH_VGROUPS "Specify Vgroups number for creating database, "    \
+                        "only valid with daemon version 3.0+"
 #define BENCH_VERSION "Print program version."
 #define BENCH_KEEPTRYING "Keep trying if failed to insert, default is no."
-#define BENCH_TRYING_INTERVAL "Specify interval between keep trying insert. Valid value is a positive number. Only valid when keep trying be enabled."
+#define BENCH_TRYING_INTERVAL     \
+    "Specify interval between keep trying insert. " \
+    "Valid value is a positive number. Only valid " \
+    "when keep trying be enabled."
 
 #ifdef WEBSOCKET
 #define BENCH_DSN "The dsn to connect the cloud service."
-#define BENCH_TIMEOUT "The timeout wait on websocket query in seconds, default is 10."
+#define BENCH_TIMEOUT     \
+    "The timeout wait on websocket query in seconds, default is 10."
 #endif
 
 
-#define debugPrint(fmt, ...)                                             \
-    do {                                                                     \
-        if (g_arguments->debug_print) {                                      \
-            struct tm      Tm, *ptm;                                         \
-            struct timeval timeSecs;                                         \
-            time_t         curTime;                                          \
-            toolsGetTimeOfDay(&timeSecs);                                    \
-            curTime = timeSecs.tv_sec;                                       \
-            ptm = toolsLocalTime(&curTime, &Tm);                                \
-            fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
-                    (int32_t)timeSecs.tv_usec);                              \
-            fprintf(stdout, "DEBG: ");                                           \
-            fprintf(stdout, "%s(%d) ", __FILE__, __LINE__);                      \
-            fprintf(stdout, "" fmt, __VA_ARGS__);                                \
-        }                                                                    \
+#define debugPrint(fmt, ...)                                                \
+    do {                                                                    \
+        if (g_arguments->debug_print) {                                     \
+            struct tm      Tm, *ptm;                                        \
+            struct timeval timeSecs;                                        \
+            time_t         curTime;                                         \
+            toolsGetTimeOfDay(&timeSecs);                                   \
+            curTime = timeSecs.tv_sec;                                      \
+            ptm = toolsLocalTime(&curTime, &Tm);                            \
+            fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ",             \
+                    ptm->tm_mon + 1,                                        \
+                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
+                    (int32_t)timeSecs.tv_usec);                             \
+            fprintf(stdout, "DEBG: ");                                      \
+            fprintf(stdout, "%s(%d) ", __FILE__, __LINE__);                 \
+            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
+        }                                                                   \
+    } while (0)
+
+#define debugPrintJsonNoTime(json)                                          \
+    do {                                                                    \
+        if (g_arguments->debug_print) {                                     \
+            char *out = tools_cJSON_PrintUnformatted(json);                 \
+            fprintf(stdout, "JSON: %s\n", out);                             \
+            free(out);                                                      \
+        }                                                                   \
+    } while (0)
+
+#define debugPrintNoTimestamp(fmt, ...)                                     \
+    do {                                                                    \
+        if (g_arguments->debug_print) {                                     \
+            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
+        }                                                                   \
     } while (0)
 
 #define infoPrintNoTimestamp(fmt, ...)                                      \
     do {                                                                    \
-        fprintf(stdout, "" fmt, __VA_ARGS__);                         \
+        fprintf(stdout, "" fmt, __VA_ARGS__);                               \
+    } while (0)
+
+#define infoPrintNoTimestampToFile(fp, fmt, ...)                            \
+    do {                                                                    \
+        fprintf(fp, "" fmt, __VA_ARGS__);                                   \
     } while (0)
 
 #define infoPrint(fmt, ...)                                                 \
@@ -242,7 +295,8 @@
         toolsGetTimeOfDay(&timeSecs);                                       \
         curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
+                ptm->tm_mon + 1,                                            \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
                 (int32_t)timeSecs.tv_usec);                                 \
         fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                         \
@@ -262,39 +316,44 @@
         fprintf(fp, "INFO: " fmt, __VA_ARGS__);                          \
     } while (0)
 
-#define perfPrint(fmt, ...)                                                     \
-    do {                                                                        \
-        if (g_arguments->performance_print) {                                   \
-            struct tm      Tm, *ptm;                                            \
-            struct timeval timeSecs;                                            \
-            time_t         curTime;                                             \
-            toolsGetTimeOfDay(&timeSecs);                                       \
-            curTime = timeSecs.tv_sec;                                          \
-            ptm = toolsLocalTime(&curTime, &Tm);                                \
-            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
-                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                    (int32_t)timeSecs.tv_usec);                                 \
-            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                         \
-            if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
-                fprintf(g_arguments->fpOfInsertResult,                          \
-                        "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
-                        ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
-                        (int32_t)timeSecs.tv_usec);                             \
-                fprintf(g_arguments->fpOfInsertResult, "PERF: ");               \
-                fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
-            }                                                                   \
-        }                                                                       \
+#define perfPrint(fmt, ...)                                                 \
+    do {                                                                    \
+        if (g_arguments->performance_print) {                               \
+            struct tm      Tm, *ptm;                                        \
+            struct timeval timeSecs;                                        \
+            time_t         curTime;                                         \
+            toolsGetTimeOfDay(&timeSecs);                                   \
+            curTime = timeSecs.tv_sec;                                      \
+            ptm = toolsLocalTime(&curTime, &Tm);                            \
+            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",             \
+                    ptm->tm_mon + 1,                                        \
+                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
+                    (int32_t)timeSecs.tv_usec);                             \
+            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                     \
+            if (g_arguments->fpOfInsertResult && !g_arguments->terminate) { \
+                fprintf(g_arguments->fpOfInsertResult,                      \
+                        "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
+                        ptm->tm_mon + 1,                                    \
+                        ptm->tm_mday, ptm->tm_hour, ptm->tm_min,            \
+                        ptm->tm_sec,                                        \
+                        (int32_t)timeSecs.tv_usec);                         \
+                fprintf(g_arguments->fpOfInsertResult, "PERF: ");           \
+                fprintf(g_arguments->fpOfInsertResult,                      \
+                        "" fmt, __VA_ARGS__);                               \
+            }                                                               \
+        }                                                                   \
     } while (0)
 
-#define errorPrint(fmt, ...)                                         \
-    do {                                                                 \
-        struct tm      Tm, *ptm;                                         \
-        struct timeval timeSecs;                                         \
-        time_t         curTime;                                          \
-        toolsGetTimeOfDay(&timeSecs);                                    \
-        curTime = timeSecs.tv_sec;                                       \
+#define errorPrint(fmt, ...)                                                \
+    do {                                                                    \
+        struct tm      Tm, *ptm;                                            \
+        struct timeval timeSecs;                                            \
+        time_t         curTime;                                             \
+        toolsGetTimeOfDay(&timeSecs);                                       \
+        curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
+                ptm->tm_mon + 1,                                            \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
                 (int32_t)timeSecs.tv_usec);                                 \
         fprintf(stderr, "\033[31m");                                        \
@@ -322,7 +381,8 @@
         toolsGetTimeOfDay(&timeSecs);                                       \
         curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
+                ptm->tm_mon + 1,                                            \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
                 (int32_t)timeSecs.tv_usec);                                 \
         fprintf(stderr, "\033[33m");                                        \
@@ -350,7 +410,8 @@
         toolsGetTimeOfDay(&timeSecs);                                       \
         curTime = timeSecs.tv_sec;                                          \
         ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,\
+        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
+                ptm->tm_mon + 1,                                            \
                 ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
                 (int32_t)timeSecs.tv_usec);                                 \
         fprintf(stderr, "\033[32m");                                        \
@@ -475,14 +536,14 @@ typedef struct STSMA {
 } TSMA;
 
 // generate row data rule
-#define RULE_OLD           0 // old generator method
-#define RULE_MIX_RANDOM    1 // old data mix update delete ratio
-#define RULE_MIX_ALL       2 // mix with all var data
-#define RULE_MIX_TS_CALC   3 // ts calc other column
-#define RULE_MIX_FIX_VALUE 4 // fixed value with give
+#define RULE_OLD           0  // old generator method
+#define RULE_MIX_RANDOM    1  // old data mix update delete ratio
+#define RULE_MIX_ALL       2  // mix with all var data
+#define RULE_MIX_TS_CALC   3  // ts calc other column
+#define RULE_MIX_FIX_VALUE 4  // fixed value with give
 
-// define suit 
-#define SUIT_DATAPOS_MEM       1  
+// define suit
+#define SUIT_DATAPOS_MEM       1
 #define SUIT_DATAPOS_STT       2
 #define SUIT_DATAPOS_FILE      3
 #define SUIT_DATAPOS_MUL_FILE  4
@@ -520,20 +581,20 @@ typedef struct SSuperTable_S {
     int      disorderRange;  // ms, us or ns. according to database precision
 
     // ratio
-    uint8_t disRatio; // disorder ratio 0 ~ 100 % 
-    uint8_t updRatio; // update ratio   0 ~ 100 % 
-    uint8_t delRatio; // delete ratio   0 ~ 100 % 
+    uint8_t disRatio;   // disorder ratio 0 ~ 100 %
+    uint8_t updRatio;   // update ratio   0 ~ 100 %
+    uint8_t delRatio;   // delete ratio   0 ~ 100 %
 
     // range
-    uint64_t disRange; // disorder range
-    uint64_t updRange; // update range
-    uint64_t delRange; // delete range
+    uint64_t disRange;  // disorder range
+    uint64_t updRange;  // update range
+    uint64_t delRange;  // delete range
 
     // generate row value rule see pre RULE_ define
     uint8_t genRowRule;
 
     // data position
-    uint8_t dataPos; //  see define DATAPOS_
+    uint8_t dataPos;  //  see define DATAPOS_
 
     uint32_t fillIntervalUpd;  // fill Upd interval rows cnt
     uint32_t fillIntervalDis;  // fill Dis interval rows cnt
@@ -547,7 +608,7 @@ typedef struct SSuperTable_S {
     bool    useNow;
     bool    writeFuture;
     int32_t durMinute;  // passed database->durMinute
-    int32_t checkInterval; // check correct interval
+    int32_t checkInterval;  // check correct interval
 
     int64_t  max_sql_len;
     uint64_t insert_interval;
@@ -659,7 +720,7 @@ typedef struct SuperQueryInfo_S {
     int       subscribeKeepProgress;
     uint64_t  childTblCount;
     int       sqlCount;
-    char      sql[MAX_QUERY_SQL_COUNT][BUFFER_SIZE + 1];
+    char      sql[MAX_QUERY_SQL_COUNT][TSDB_MAX_ALLOWED_SQL_LEN + 1];
     char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
     int       resubAfterConsume;
     int       endAfterConsume;
@@ -742,12 +803,11 @@ typedef struct SArguments_S {
     int16_t             inputted_vgroups;
 #endif
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
-
 } SArguments;
 
-typedef struct SBenchConn{
+typedef struct SBenchConn {
     TAOS* taos;
-    TAOS* ctaos; // check taos
+    TAOS* ctaos;  // check taos
     TAOS_STMT* stmt;
 #ifdef WEBSOCKET
     WS_TAOS* taos_ws;
@@ -797,11 +857,11 @@ typedef struct SThreadInfo_S {
 
     // new
     uint16_t batCols[MAX_BATCOLS];
-    uint16_t nBatCols; // valid count for array batCols
+    uint16_t nBatCols;  // valid count for array batCols
 
     // check sql result
     char * csql;
-    int32_t clen; // csql current write position
+    int32_t clen;  // csql current write position
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -833,7 +893,8 @@ extern tools_cJSON *  root;
 extern uint64_t       g_memoryUsage;
 
 #define min(a, b) (((a) < (b)) ? (a) : (b))
-#define BARRAY_GET_ELEM(array, index) ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
+#define BARRAY_GET_ELEM(array, index) \
+    ((void*)((char*)((array)->pData) + (index) * (array)->elemSize))
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
 int32_t benchParseArgs(int32_t argc, char* argv[]);
@@ -927,4 +988,4 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 
 int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 
-#endif   // __BENCH_H_
+#endif   // INC_BENCH_H_

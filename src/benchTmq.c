@@ -10,7 +10,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#include "bench.h"
+#include <bench.h>
 
 typedef struct {
     tmq_t* tmq;
@@ -24,18 +24,18 @@ static int create_topic(BArray* sqls) {
         return -1;
     }
     TAOS* taos = conn->taos;
-    char command[SQL_BUFF_LEN];
-    memset(command, 0, SQL_BUFF_LEN);
-    sprintf(command, "use %s", g_queryInfo.dbName);
+    char command[SHORT_1K_SQL_BUFF_LEN];
+    memset(command, 0, SHORT_1K_SQL_BUFF_LEN);
+    snprintf(command, SHORT_1K_SQL_BUFF_LEN, "use %s", g_queryInfo.dbName);
     if (queryDbExecCall(conn, command)) {
         closeBenchConn(conn);
         return -1;
     }
     for (int i = 0; i < sqls->size; ++i) {
         SSQL * sql = benchArrayGet(sqls, i);
-        char buffer[SQL_BUFF_LEN];
-        memset(buffer, 0, SQL_BUFF_LEN);
-        snprintf(buffer, SQL_BUFF_LEN, "create topic if not exists "
+        char buffer[SHORT_1K_SQL_BUFF_LEN];
+        memset(buffer, 0, SHORT_1K_SQL_BUFF_LEN);
+        snprintf(buffer, SHORT_1K_SQL_BUFF_LEN, "create topic if not exists "
                 "topic_%d as %s",
                 i, sql->command);
         TAOS_RES *res = taos_query(taos, buffer);
@@ -68,8 +68,8 @@ static void* tmqConsume(void* arg) {
     int64_t st = toolsGetTimestampUs();
     int64_t et = toolsGetTimestampUs();
     uint64_t subscribeTimes = g_queryInfo.specifiedQueryInfo.subscribeTimes;
-    while(!g_arguments->terminate
-        && subscribeTimes > 0) {
+    while (!g_arguments->terminate
+            && subscribeTimes > 0) {
         debugPrint("%s", "tmq_consumer_poll()");
         TAOS_RES * tmqMessage = tmq_consumer_poll(
                 pThreadInfo->tmq, g_queryInfo.specifiedQueryInfo.queryInterval);
@@ -91,7 +91,7 @@ static void* tmqConsume(void* arg) {
             }
             pThreadInfo->rows += numOfRows;
         }
-        subscribeTimes --;
+        subscribeTimes--;
     }
     int code = tmq_consumer_close(pThreadInfo->tmq);
     if (code) {
@@ -132,14 +132,14 @@ int subscribeTestProcess() {
         tmq_conf_t * conf = tmq_conf_new();
         char groupid[BIGINT_BUFF_LEN];
         memset(groupid, 0, BIGINT_BUFF_LEN);
-        sprintf(groupid, "tg%d", i);
+        snprintf(groupid, BIGINT_BUFF_LEN, "tg%d", i);
         tmq_conf_set(conf, "group.id", groupid);
         tmq_conf_set(conf, "td.connect.user", g_arguments->user);
         tmq_conf_set(conf, "td.connect.pass", g_arguments->password);
         pThreadInfo->tmq = tmq_consumer_new(conf, NULL, 0);
         tmq_conf_destroy(conf);
         if (pThreadInfo->tmq == NULL) {
-            errorPrint("%s" ,"failed to execute tmq_consumer_new\n");
+            errorPrint("%s", "failed to execute tmq_consumer_new\n");
             ret = -1;
             goto tmq_over;
         }

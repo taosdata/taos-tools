@@ -82,7 +82,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           brew update
-          brew install argp-standalone
+          brew install argp-standalone pkg-config
           brew info argp-standalone
 
       - name: Set up Go
