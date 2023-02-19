@@ -1073,7 +1073,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         case TAOSC_IFACE:
             debugPrint("buffer: %s\n", pThreadInfo->buffer);
             code = queryDbExecCall(pThreadInfo->conn, pThreadInfo->buffer);
-            while (code && trying) {
+            while (code && trying && !g_arguments->terminate) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
@@ -1095,7 +1095,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                                 stbInfo->tcpTransfer,
                                 pThreadInfo->sockfd,
                                 pThreadInfo->filePath);
-            while (code && trying) {
+            while (code && trying && !g_arguments->terminate) {
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
                 toolsMsleep(trying_interval);
@@ -1137,7 +1137,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                     : TSDB_SML_TIMESTAMP_NOT_CONFIGURED);
             code = taos_errno(res);
             trying = stbInfo->keep_trying;
-            while (code && trying) {
+            while (code && trying && !g_arguments->terminate) {
                 taos_free_result(res);
                 infoPrint("will sleep %"PRIu32" milliseconds then re-insert\n",
                           trying_interval);
@@ -1170,13 +1170,12 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
 
         case SML_REST_IFACE: {
-            if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
-                    || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
-                pThreadInfo->lines[0] = tools_cJSON_PrintUnformatted(
-                            pThreadInfo->json_array);
+            int protocol = stbInfo->lineProtocol;
+            if (TSDB_SML_JSON_PROTOCOL == protocol
+                    || SML_JSON_TAOS_FORMAT == protocol) {
                 code = postProceSql(pThreadInfo->lines[0], database->dbName,
                                     database->precision, stbInfo->iface,
-                                    stbInfo->lineProtocol, g_arguments->port,
+                                    protocol, g_arguments->port,
                                     stbInfo->tcpTransfer,
                                     pThreadInfo->sockfd, pThreadInfo->filePath);
             } else {
@@ -1184,7 +1183,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 for (int i = 0; i < k; ++i) {
                     if (strlen(pThreadInfo->lines[i]) != 0) {
                         int n;
-                        if (stbInfo->lineProtocol == TSDB_SML_TELNET_PROTOCOL
+                        if (TSDB_SML_TELNET_PROTOCOL == protocol
                                 && stbInfo->tcpTransfer) {
                             n = snprintf(pThreadInfo->buffer + len,
                                             TSDB_MAX_ALLOWED_SQL_LEN - len,
@@ -1211,7 +1210,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
                 }
                 code = postProceSql(pThreadInfo->buffer, database->dbName,
                         database->precision,
-                        stbInfo->iface, stbInfo->lineProtocol,
+                        stbInfo->iface, protocol,
                         g_arguments->port,
                         stbInfo->tcpTransfer,
                         pThreadInfo->sockfd, pThreadInfo->filePath);
@@ -1220,6 +1219,69 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
         }
     }
     return code;
+}
+
+static int smartContinueIfFail(threadInfo *pThreadInfo,
+                               SDataBase *database,
+                               SSuperTable *stbInfo,
+                               char *tableName,
+                               int64_t i,
+                               char *ttl) {
+    char *buffer =
+        benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
+    snprintf(
+            buffer, TSDB_MAX_ALLOWED_SQL_LEN,
+            stbInfo->escape_character ?
+            "CREATE TABLE %s.%s USING %s.`%s` TAGS (%s) %s "
+            : "%s.%s USING %s.%s TAGS (%s) %s ",
+            database->dbName, tableName, database->dbName,
+            stbInfo->stbName,
+            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+    debugPrint("creating table: %s\n", buffer);
+    int ret;
+    if (REST_IFACE == stbInfo->iface) {
+        ret = queryDbExecRest(buffer,
+                              database->dbName,
+                              database->precision,
+                              stbInfo->iface,
+                              stbInfo->lineProtocol,
+                              stbInfo->tcpTransfer,
+                              pThreadInfo->sockfd);
+    } else {
+        ret = queryDbExecCall(pThreadInfo->conn, buffer);
+        int32_t trying = g_arguments->keep_trying;
+        while (ret && trying) {
+            infoPrint("will sleep %"PRIu32" milliseconds then "
+                      "re-create table %s\n",
+                      g_arguments->trying_interval, buffer);
+            toolsMsleep(g_arguments->trying_interval);
+            ret = queryDbExecCall(pThreadInfo->conn, buffer);
+            if (trying != -1) {
+                trying--;
+            }
+        }
+    }
+    tmfree(buffer);
+
+    return ret;
+}
+
+static void cleanupAndPrint(threadInfo *pThreadInfo, char *mode) {
+    if (pThreadInfo && pThreadInfo->json_array) {
+        tools_cJSON_Delete(pThreadInfo->json_array);
+        pThreadInfo->json_array = NULL;
+    }
+    if ((pThreadInfo) && (0 == pThreadInfo->totalDelay)) {
+        pThreadInfo->totalDelay = 1;
+    }
+    succPrint(
+            "thread[%d] %s mode, completed total inserted rows: %" PRIu64
+            ", %.2f records/second\n",
+            pThreadInfo->threadID,
+            mode,
+            pThreadInfo->totalInsertRows,
+            (double)(pThreadInfo->totalInsertRows /
+            ((double)pThreadInfo->totalDelay / 1E6)));
 }
 
 static void *syncWriteInterlace(void *sarg) {
@@ -1536,22 +1598,315 @@ static void *syncWriteInterlace(void *sarg) {
         }
     }
 free_of_interlace:
-    if (pThreadInfo && pThreadInfo->json_array) {
-        tools_cJSON_Delete(pThreadInfo->json_array);
-        pThreadInfo->json_array = NULL;
-    }
-    if ((pThreadInfo) && (0 == pThreadInfo->totalDelay)) {
-        pThreadInfo->totalDelay = 1;
-    }
-    succPrint(
-            "thread[%d] %s(), completed total inserted rows: %" PRIu64
-            ", %.2f records/second\n",
-            pThreadInfo->threadID,
-            __func__,
-            pThreadInfo->totalInsertRows,
-            (double)(pThreadInfo->totalInsertRows /
-            ((double)pThreadInfo->totalDelay / 1E6)));
+    cleanupAndPrint(pThreadInfo, "interlace");
     return NULL;
+}
+
+static int32_t prepareProgressDataStmt(
+    threadInfo *pThreadInfo,
+                               SDataBase *database,
+                               SSuperTable *stbInfo,
+                               char *tableName, uint64_t tableSeq,
+                               int64_t *timestamp, uint64_t i, char *ttl) {
+    if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
+                             tableName)) {
+        errorPrint(
+                "taos_stmt_set_tbname(%s) failed,"
+                "reason: %s\n", tableName,
+                taos_stmt_errstr(pThreadInfo->conn->stmt));
+        return -1;
+    }
+    int32_t generated = bindParamBatch(
+            pThreadInfo,
+            (g_arguments->reqPerReq > (stbInfo->insertRows - i))
+            ? (stbInfo->insertRows - i)
+            : g_arguments->reqPerReq,
+            *timestamp);
+    *timestamp += generated * stbInfo->timestamp_step;
+    return generated;
+}
+
+static void makeTimestampDisorder(
+        int64_t *timestamp, SSuperTable *stbInfo) {
+    int64_t startTimestamp = stbInfo->startTimestamp;
+    int disorderRange = stbInfo->disorderRange;
+    int rand_num = taosRandom() % 100;
+    if (rand_num < stbInfo->disorderRatio) {
+        disorderRange--;
+        if (0 == disorderRange) {
+            disorderRange = stbInfo->disorderRange;
+        }
+        *timestamp = startTimestamp - disorderRange;
+        debugPrint("rand_num: %d, < disorderRatio: %d"
+                   ", ts: %"PRId64"\n",
+                   rand_num,
+                   stbInfo->disorderRatio,
+                   *timestamp);
+    }
+}
+
+static int32_t prepareProgressDataSmlJson(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    int32_t generated = 0;
+
+    int32_t pos = 0;
+    int protocol = stbInfo->lineProtocol;
+    for (int j = 0; (j < g_arguments->reqPerReq)
+            && !g_arguments->terminate; ++j) {
+        tools_cJSON *tag = tools_cJSON_Duplicate(
+                tools_cJSON_GetArrayItem(
+                    pThreadInfo->sml_json_tags,
+                    (int)tableSeq -
+                    pThreadInfo->start_table_from),
+                true);
+        debugPrintJsonNoTime(tag);
+        if (TSDB_SML_JSON_PROTOCOL == protocol) {
+            generateSmlJsonCols(
+                    pThreadInfo->json_array, tag, stbInfo,
+                    database->sml_precision, *timestamp);
+        } else {
+            generateSmlTaosJsonCols(
+                    pThreadInfo->json_array, tag, stbInfo,
+                    database->sml_precision, *timestamp);
+        }
+        pos++;
+        if (pos >= g_arguments->prepared_rand) {
+            pos = 0;
+        }
+        *timestamp += stbInfo->timestamp_step;
+        if (stbInfo->disorderRatio > 0) {
+            makeTimestampDisorder(timestamp, stbInfo);
+        }
+        generated++;
+        if (i + generated >= stbInfo->insertRows) {
+            break;
+        }
+    }
+    if (TSDB_SML_JSON_PROTOCOL == protocol
+        || SML_JSON_TAOS_FORMAT == protocol) {
+        tmfree(pThreadInfo->lines[0]);
+        pThreadInfo->lines[0] = NULL;
+        pThreadInfo->lines[0] =
+            tools_cJSON_PrintUnformatted(
+                pThreadInfo->json_array);
+        debugPrint("pThreadInfo->lines[0]: %s\n",
+                   pThreadInfo->lines[0]);
+    }
+
+    return generated;
+}
+
+static int32_t prepareProgressDataSmlLine(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    int32_t generated = 0;
+
+    int32_t pos = 0;
+    for (int j = 0; (j < g_arguments->reqPerReq)
+            && !g_arguments->terminate; ++j) {
+        snprintf(
+                pThreadInfo->lines[j],
+                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                "%s %s %" PRId64 "",
+                pThreadInfo
+                ->sml_tags[(int)tableSeq -
+                pThreadInfo->start_table_from],
+                stbInfo->sampleDataBuf +
+                pos * stbInfo->lenOfCols,
+                *timestamp);
+        pos++;
+        if (pos >= g_arguments->prepared_rand) {
+            pos = 0;
+        }
+        *timestamp += stbInfo->timestamp_step;
+        if (stbInfo->disorderRatio > 0) {
+            makeTimestampDisorder(timestamp, stbInfo);
+        }
+        generated++;
+        if (i + generated >= stbInfo->insertRows) {
+            break;
+        }
+    }
+    return generated;
+}
+
+static int32_t prepareProgressDataSmlTelnet(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    int32_t generated = 0;
+
+    int32_t pos = 0;
+    for (int j = 0; (j < g_arguments->reqPerReq)
+            && !g_arguments->terminate; ++j) {
+        snprintf(
+                pThreadInfo->lines[j],
+                stbInfo->lenOfCols + stbInfo->lenOfTags,
+                "%s %" PRId64 " %s %s", stbInfo->stbName,
+                *timestamp,
+                stbInfo->sampleDataBuf
+                + pos * stbInfo->lenOfCols,
+                pThreadInfo
+                ->sml_tags[(int)tableSeq
+                -pThreadInfo->start_table_from]);
+        pos++;
+        if (pos >= g_arguments->prepared_rand) {
+            pos = 0;
+        }
+        *timestamp += stbInfo->timestamp_step;
+        if (stbInfo->disorderRatio > 0) {
+            makeTimestampDisorder(timestamp, stbInfo);
+        }
+        generated++;
+        if (i + generated >= stbInfo->insertRows) {
+            break;
+        }
+    }
+    return generated;
+}
+
+static int32_t prepareProgressDataSml(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    // prepareProgressDataSml
+    int protocol = stbInfo->lineProtocol;
+    int32_t generated = -1;
+    switch (protocol) {
+        case TSDB_SML_LINE_PROTOCOL:
+            generated = prepareProgressDataSmlLine(
+                    pThreadInfo, database, stbInfo,
+                    tableName, tableSeq, timestamp, i, ttl);
+            break;
+        case TSDB_SML_TELNET_PROTOCOL:
+            generated = prepareProgressDataSmlTelnet(
+                    pThreadInfo, database, stbInfo,
+                    tableName, tableSeq, timestamp, i, ttl);
+            break;
+        case TSDB_SML_JSON_PROTOCOL:
+        case SML_JSON_TAOS_FORMAT:
+            generated = prepareProgressDataSmlJson(
+                    pThreadInfo, database, stbInfo,
+                    tableName, tableSeq, timestamp, i, ttl);
+            break;
+        default:
+            errorPrint("%s() LN%d: unknown protcolor: %d\n",
+                       __func__, __LINE__, protocol);
+            break;
+    }
+
+    return generated;
+}
+
+static int32_t prepareProgressDataSql(
+    threadInfo *pThreadInfo,
+    SDataBase *database,
+    SSuperTable *stbInfo,
+    char *tableName, uint64_t tableSeq,
+    int64_t *timestamp, uint64_t i, char *ttl) {
+    // prepareProgressDataSql
+    int32_t generated = 0;
+    int len = 0;
+    int32_t pos = 0;
+    int disorderRange = stbInfo->disorderRange;
+    int64_t startTimestamp = stbInfo->startTimestamp;
+    char *  pstr = pThreadInfo->buffer;
+    if (stbInfo->partialColNum == stbInfo->cols->size) {
+        if (stbInfo->autoCreateTable) {
+            len =
+                snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
+                         "%s %s.%s USING %s.%s "
+                         "TAGS (%s) %s VALUES ",
+                         STR_INSERT_INTO, database->dbName,
+                         tableName, database->dbName,
+                         stbInfo->stbName,
+                         stbInfo->tagDataBuf +
+                         stbInfo->lenOfTags * tableSeq, ttl);
+        } else {
+            len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
+                           "%s %s.%s VALUES ", STR_INSERT_INTO,
+                           database->dbName, tableName);
+        }
+    } else {
+        if (stbInfo->autoCreateTable) {
+            len = snprintf(
+                    pstr, TSDB_MAX_ALLOWED_SQL_LEN,
+                    "%s %s.%s (%s) USING %s.%s "
+                    "TAGS (%s) %s VALUES ",
+                    STR_INSERT_INTO, database->dbName,
+                    tableName,
+                    stbInfo->partialColNameBuf,
+                    database->dbName, stbInfo->stbName,
+                    stbInfo->tagDataBuf +
+                    stbInfo->lenOfTags * tableSeq, ttl);
+        } else {
+            len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
+                           "%s %s.%s (%s) VALUES ",
+                           STR_INSERT_INTO, database->dbName,
+                           tableName,
+                           stbInfo->partialColNameBuf);
+        }
+    }
+
+    for (int j = 0; j < g_arguments->reqPerReq; ++j) {
+        if (stbInfo->useSampleTs &&
+            !stbInfo->random_data_source) {
+                len +=
+                    snprintf(pstr + len,
+                             TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s)",
+                             stbInfo->sampleDataBuf +
+                             pos * stbInfo->lenOfCols);
+        } else {
+            int64_t disorderTs = 0;
+            if (stbInfo->disorderRatio > 0) {
+                int rand_num = taosRandom() % 100;
+                if (rand_num < stbInfo->disorderRatio) {
+                    disorderRange--;
+                    if (0 == disorderRange) {
+                        disorderRange = stbInfo->disorderRange;
+                    }
+                    disorderTs = startTimestamp - disorderRange;
+                    debugPrint("rand_num: %d, < disorderRatio:"
+                               " %d, disorderTs: %"PRId64"\n",
+                               rand_num,
+                               stbInfo->disorderRatio,
+                               disorderTs);
+                }
+            }
+            len += snprintf(pstr + len,
+                            TSDB_MAX_ALLOWED_SQL_LEN - len,
+                            "(%" PRId64 ",%s)",
+                            disorderTs?disorderTs:*timestamp,
+                            stbInfo->sampleDataBuf +
+                            pos * stbInfo->lenOfCols);
+        }
+        pos++;
+        if (pos >= g_arguments->prepared_rand) {
+            pos = 0;
+        }
+        *timestamp += stbInfo->timestamp_step;
+        generated++;
+        if (len > (TSDB_MAX_ALLOWED_SQL_LEN
+            - stbInfo->lenOfCols)) {
+            break;
+        }
+        if (i + generated >= stbInfo->insertRows) {
+            break;
+        }
+    }
+
+    return generated;
 }
 
 void *syncWriteProgressive(void *sarg) {
@@ -1588,9 +1943,6 @@ void *syncWriteProgressive(void *sarg) {
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
 
-    int disorderRange = stbInfo->disorderRange;
-    int64_t startTimestamp = stbInfo->startTimestamp;
-    char *  pstr = pThreadInfo->buffer;
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
             tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
         char *   tableName = NULL;
@@ -1605,8 +1957,6 @@ void *syncWriteProgressive(void *sarg) {
         tableName = stbInfo->childTblName[tableSeq];
 #endif
         int64_t  timestamp = pThreadInfo->start_time;
-        uint64_t len = 0;
-        int32_t pos = 0;
         if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
@@ -1631,202 +1981,33 @@ void *syncWriteProgressive(void *sarg) {
             if (g_arguments->terminate) {
                 goto free_of_progressive;
             }
-            uint32_t generated = 0;
+            int32_t generated = 0;
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
-                case REST_IFACE: {
-                    if (stbInfo->partialColNum == stbInfo->cols->size) {
-                        if (stbInfo->autoCreateTable) {
-                            len =
-                                snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                                        "%s %s.%s USING %s.%s "
-                                         "TAGS (%s) %s VALUES ",
-                                        STR_INSERT_INTO, database->dbName,
-                                        tableName, database->dbName,
-                                        stbInfo->stbName,
-                                        stbInfo->tagDataBuf +
-                                        stbInfo->lenOfTags * tableSeq, ttl);
-                        } else {
-                            len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                                    "%s %s.%s VALUES ", STR_INSERT_INTO,
-                                    database->dbName, tableName);
-                        }
-                    } else {
-                        if (stbInfo->autoCreateTable) {
-                            len = snprintf(
-                                    pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                                    "%s %s.%s (%s) USING %s.%s "
-                                    "TAGS (%s) %s VALUES ",
-                                    STR_INSERT_INTO, database->dbName,
-                                    tableName,
-                                    stbInfo->partialColNameBuf,
-                                    database->dbName, stbInfo->stbName,
-                                    stbInfo->tagDataBuf +
-                                    stbInfo->lenOfTags * tableSeq, ttl);
-                        } else {
-                            len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                                    "%s %s.%s (%s) VALUES ",
-                                    STR_INSERT_INTO, database->dbName,
-                                    tableName,
-                                    stbInfo->partialColNameBuf);
-                        }
-                    }
-
-                    for (int j = 0; j < g_arguments->reqPerReq; ++j) {
-                        if (stbInfo->useSampleTs &&
-                                !stbInfo->random_data_source) {
-                            len +=
-                                snprintf(pstr + len,
-                                        TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s)",
-                                        stbInfo->sampleDataBuf +
-                                        pos * stbInfo->lenOfCols);
-                        } else {
-                            int64_t disorderTs = 0;
-                            if (stbInfo->disorderRatio > 0) {
-                                int rand_num = taosRandom() % 100;
-                                if (rand_num < stbInfo->disorderRatio) {
-                                    disorderRange--;
-                                    if (0 == disorderRange) {
-                                        disorderRange = stbInfo->disorderRange;
-                                    }
-                                    disorderTs = startTimestamp - disorderRange;
-                                    debugPrint("rand_num: %d, < disorderRatio:"
-                                               " %d, disorderTs: %"PRId64"\n",
-                                               rand_num,
-                                               stbInfo->disorderRatio,
-                                               disorderTs);
-                                }
-                            }
-                            len += snprintf(pstr + len,
-                                TSDB_MAX_ALLOWED_SQL_LEN - len,
-                                "(%" PRId64 ",%s)",
-                                            disorderTs?disorderTs:timestamp,
-                                stbInfo->sampleDataBuf +
-                                            pos * stbInfo->lenOfCols);
-                        }
-                        pos++;
-                        if (pos >= g_arguments->prepared_rand) {
-                            pos = 0;
-                        }
-                        timestamp += stbInfo->timestamp_step;
-                        generated++;
-                        if (len > (TSDB_MAX_ALLOWED_SQL_LEN
-                                    - stbInfo->lenOfCols)) {
-                            break;
-                        }
-                        if (i + generated >= stbInfo->insertRows) {
-                            break;
-                        }
-                    }
+                case REST_IFACE:
+                    generated = prepareProgressDataSql(
+                            pThreadInfo, database,
+                            stbInfo, tableName,
+                            tableSeq, &timestamp, i, ttl);
                     break;
-                }
                 case STMT_IFACE: {
-                    if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
-                                tableName)) {
-                        errorPrint(
-                                "taos_stmt_set_tbname(%s) failed,"
-                                "reason: %s\n", tableName,
-                                taos_stmt_errstr(pThreadInfo->conn->stmt));
-                        g_fail = true;
-                        goto free_of_progressive;
-                    }
-                    generated = bindParamBatch(
-                        pThreadInfo,
-                        (g_arguments->reqPerReq > (stbInfo->insertRows - i))
-                            ? (stbInfo->insertRows - i)
-                            : g_arguments->reqPerReq,
-                        timestamp);
-                    timestamp += generated * stbInfo->timestamp_step;
+                    generated = prepareProgressDataStmt(
+                            pThreadInfo, database, stbInfo,
+                            tableName, tableSeq, &timestamp, i, ttl);
                     break;
                 }
                 case SML_REST_IFACE:
-                case SML_IFACE: {
-                    for (int j = 0; (j < g_arguments->reqPerReq)
-                            && !g_arguments->terminate; ++j) {
-                        if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
-                            tools_cJSON *tag = tools_cJSON_Duplicate(
-                                tools_cJSON_GetArrayItem(
-                                    pThreadInfo->sml_json_tags,
-                                    (int)tableSeq -
-                                        pThreadInfo->start_table_from),
-                                true);
-                            generateSmlJsonCols(
-                                pThreadInfo->json_array, tag, stbInfo,
-                                database->sml_precision, timestamp);
-                        } else if (stbInfo->lineProtocol
-                                == SML_JSON_TAOS_FORMAT) {
-                            tools_cJSON *tag = tools_cJSON_Duplicate(
-                                tools_cJSON_GetArrayItem(
-                                    pThreadInfo->sml_json_tags,
-                                    (int)tableSeq -
-                                        pThreadInfo->start_table_from),
-                                true);
-                            generateSmlTaosJsonCols(
-                                pThreadInfo->json_array, tag, stbInfo,
-                                database->sml_precision, timestamp);
-                        } else if (stbInfo->lineProtocol ==
-                                   TSDB_SML_LINE_PROTOCOL) {
-                            snprintf(
-                                pThreadInfo->lines[j],
-                                stbInfo->lenOfCols + stbInfo->lenOfTags,
-                                "%s %s %" PRId64 "",
-                                pThreadInfo
-                                    ->sml_tags[(int)tableSeq -
-                                               pThreadInfo->start_table_from],
-                                stbInfo->sampleDataBuf +
-                                    pos * stbInfo->lenOfCols,
-                                timestamp);
-                        } else {
-                            snprintf(
-                                pThreadInfo->lines[j],
-                                stbInfo->lenOfCols + stbInfo->lenOfTags,
-                                "%s %" PRId64 " %s %s", stbInfo->stbName,
-                                timestamp,
-                                stbInfo->sampleDataBuf +
-                                    pos * stbInfo->lenOfCols,
-                                pThreadInfo
-                                    ->sml_tags[(int)tableSeq -
-                                               pThreadInfo->start_table_from]);
-                        }
-                        pos++;
-                        if (pos >= g_arguments->prepared_rand) {
-                            pos = 0;
-                        }
-                        timestamp += stbInfo->timestamp_step;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            if (rand_num < stbInfo->disorderRatio) {
-                                disorderRange--;
-                                if (0 == disorderRange) {
-                                    disorderRange = stbInfo->disorderRange;
-                                }
-                                timestamp = startTimestamp - disorderRange;
-                                debugPrint("rand_num: %d, < disorderRatio: %d"
-                                           ", ts: %"PRId64"\n",
-                                           rand_num,
-                                           stbInfo->disorderRatio,
-                                           timestamp);
-                            }
-                        }
-                        generated++;
-                        if (i + generated >= stbInfo->insertRows) {
-                            break;
-                        }
-                    }
-                    if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL
-                            || stbInfo->lineProtocol == SML_JSON_TAOS_FORMAT) {
-                        tmfree(pThreadInfo->lines[0]);
-                        pThreadInfo->lines[0] = NULL;
-                        pThreadInfo->lines[0] =
-                            tools_cJSON_PrintUnformatted(
-                                pThreadInfo->json_array);
-                        debugPrint("pThreadInfo->lines[0]: %s\n",
-                               pThreadInfo->lines[0]);
-                    }
+                case SML_IFACE:
+                    generated = prepareProgressDataSml(
+                            pThreadInfo, database, stbInfo,
+                            tableName, tableSeq, &timestamp, i, ttl);
                     break;
-                }
                 default:
                     break;
+            }
+            if (generated < 0) {
+                g_fail = true;
+                goto free_of_progressive;
             }
             if (!stbInfo->non_stop) {
                 i += generated;
@@ -1851,40 +2032,9 @@ void *syncWriteProgressive(void *sarg) {
                               "continueIfFail: %d, will create table "
                               "then insert ..\n",
                               stbInfo->continueIfFail);
-                    char *buffer =
-                        benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
-                    snprintf(
-                            buffer, TSDB_MAX_ALLOWED_SQL_LEN,
-                            stbInfo->escape_character ?
-                            "CREATE TABLE %s.%s USING %s.`%s` TAGS (%s) %s "
-                            : "%s.%s USING %s.%s TAGS (%s) %s ",
-                            database->dbName, tableName, database->dbName,
-                            stbInfo->stbName,
-                            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
-                    debugPrint("creating table: %s\n", buffer);
-                    int ret;
-                    if (REST_IFACE == stbInfo->iface) {
-                        ret = queryDbExecRest(buffer,
-                                              database->dbName,
-                                              database->precision,
-                                              stbInfo->iface,
-                                              stbInfo->lineProtocol,
-                                              stbInfo->tcpTransfer,
-                                              pThreadInfo->sockfd);
-                    } else {
-                        ret = queryDbExecCall(pThreadInfo->conn, buffer);
-                        int32_t trying = g_arguments->keep_trying;
-                        while (ret && trying) {
-                            infoPrint("will sleep %"PRIu32" milliseconds then "
-                                      "re-create table %s\n",
-                                  g_arguments->trying_interval, buffer);
-                            toolsMsleep(g_arguments->trying_interval);
-                            ret = queryDbExecCall(pThreadInfo->conn, buffer);
-                            if (trying != -1) {
-                                trying--;
-                            }
-                        }
-                    }
+                    int ret = smartContinueIfFail(
+                            pThreadInfo,
+                            database, stbInfo, tableName, i, ttl);
                     if (0 != ret) {
                         g_fail = true;
                         goto free_of_progressive;
@@ -1980,21 +2130,7 @@ void *syncWriteProgressive(void *sarg) {
         }  // insertRows
     }      // tableSeq
 free_of_progressive:
-    if (pThreadInfo && pThreadInfo->json_array) {
-        tools_cJSON_Delete(pThreadInfo->json_array);
-        pThreadInfo->json_array = NULL;
-    }
-    if (pThreadInfo && (0 == pThreadInfo->totalDelay)) {
-        pThreadInfo->totalDelay = 1;
-    }
-    succPrint(
-            "thread[%d] %s(), completed total inserted rows: %" PRIu64
-            ", %.2f records/second\n",
-            pThreadInfo->threadID,
-            __func__,
-            pThreadInfo->totalInsertRows,
-            (double)(pThreadInfo->totalInsertRows /
-            ((double)pThreadInfo->totalDelay / 1E6)));
+    cleanupAndPrint(pThreadInfo, "progressive");
     return NULL;
 }
 
