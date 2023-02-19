@@ -33,6 +33,7 @@ void generateSmlJsonTags(tools_cJSON *tagsList,
         char **sml_tags_json_array,
         SSuperTable *stbInfo,
         uint64_t start_table_from, int tbSeq);
+int generateSmlJsonTextCols(char *line, SSuperTable *stbInfo);
 void generateSmlJsonCols(tools_cJSON *array,
         tools_cJSON *tag, SSuperTable *stbInfo,
         uint32_t time_precision, int64_t timestamp);
@@ -42,4 +43,5 @@ void generateSmlTaosJsonTags(tools_cJSON *tagsList,
 void generateSmlTaosJsonCols(tools_cJSON *array,
         tools_cJSON *tag, SSuperTable *stbInfo,
         uint32_t time_precision, int64_t timestamp);
+uint32_t accumulateRowLen(BArray *fields, int iface);
 #endif  // INC_BENCHDATA_H_

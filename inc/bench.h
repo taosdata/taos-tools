@@ -817,43 +817,44 @@ typedef struct SBenchConn {
 
 #define MAX_BATCOLS 256
 typedef struct SThreadInfo_S {
-    SBenchConn* conn;
-    uint64_t * bind_ts;
-    uint64_t * bind_ts_array;
-    char *     bindParams;
-    char *     is_null;
-    uint32_t   threadID;
-    uint64_t   start_table_from;
-    uint64_t   end_table_to;
-    uint64_t   ntables;
-    uint64_t   tables_created;
-    char *     buffer;
-    uint64_t   counter;
-    uint64_t   st;
-    uint64_t   et;
-    uint64_t   samplePos;
-    uint64_t   totalInsertRows;
-    uint64_t   totalQueried;
-    int64_t   totalDelay;
-    uint64_t   querySeq;
+    SBenchConn  *conn;
+    uint64_t    *bind_ts;
+    uint64_t    *bind_ts_array;
+    char        *bindParams;
+    char        *is_null;
+    uint32_t    threadID;
+    uint64_t    start_table_from;
+    uint64_t    end_table_to;
+    uint64_t    ntables;
+    uint64_t    tables_created;
+    char *      buffer;
+    uint64_t    counter;
+    uint64_t    st;
+    uint64_t    et;
+    uint64_t    samplePos;
+    uint64_t    totalInsertRows;
+    uint64_t    totalQueried;
+    int64_t     totalDelay;
+    uint64_t    querySeq;
     TAOS_SUB    *tsub;
-    char **    lines;
-    int32_t    sockfd;
+    char **     lines;
+    uint32_t    line_buf_len;
+    int32_t     sockfd;
     SDataBase   *dbInfo;
     SSuperTable *stbInfo;
     char        **sml_tags;
     tools_cJSON *json_array;
     tools_cJSON *sml_json_tags;
     char        **sml_tags_json_array;
-    uint64_t   start_time;
-    uint64_t   max_sql_len;
-    FILE *     fp;
-    char       filePath[MAX_PATH_LEN];
-    BArray*    delayList;
-    uint64_t*  query_delay_list;
-    double     avg_delay;
+    uint64_t    start_time;
+    uint64_t    max_sql_len;
+    FILE        *fp;
+    char        filePath[MAX_PATH_LEN];
+    BArray*     delayList;
+    uint64_t    *query_delay_list;
+    double      avg_delay;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
-    SVGroup   *vg;
+    SVGroup     *vg;
 #endif
 
     // new
