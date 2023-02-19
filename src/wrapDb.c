@@ -56,7 +56,6 @@ int32_t queryTS(TAOS* taos, char* sql, int64_t* pVal) {
   code = taos_errno(res);
   if (code != 0) {
     printErrCmdCodeStr(sql, code, res);
-    taos_free_result(res);
     return code;
   }
 
