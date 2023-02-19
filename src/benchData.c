@@ -1539,7 +1539,9 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     return batch;
 }
 
-void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
+void generateSmlJsonTags(tools_cJSON *tagsList,
+                         char **sml_tags_json_array,
+                         SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq) {
     tools_cJSON * tags = tools_cJSON_CreateObject();
     char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
@@ -1592,6 +1594,11 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
         }
     }
     tools_cJSON_AddItemToArray(tagsList, tags);
+    debugPrintJsonNoTime(tags);
+    char *tags_text = tools_cJSON_PrintUnformatted(tags);
+    debugPrintNoTimestamp("%s() LN%d, tags text: %s\n",
+                          __func__, __LINE__, tags_text);
+    sml_tags_json_array[tbSeq] = tags_text;
     tmfree(tagName);
     tmfree(tbName);
 }

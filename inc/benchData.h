@@ -29,12 +29,15 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
         uint32_t batch, int64_t startTime);
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo);
-void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
+void generateSmlJsonTags(tools_cJSON *tagsList,
+        char **sml_tags_json_array,
+        SSuperTable *stbInfo,
         uint64_t start_table_from, int tbSeq);
 void generateSmlJsonCols(tools_cJSON *array,
         tools_cJSON *tag, SSuperTable *stbInfo,
         uint32_t time_precision, int64_t timestamp);
-void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
+void generateSmlTaosJsonTags(tools_cJSON *tagsList,
+        SSuperTable *stbInfo,
         uint64_t start_table_from, int tbSeq);
 void generateSmlTaosJsonCols(tools_cJSON *array,
         tools_cJSON *tag, SSuperTable *stbInfo,
