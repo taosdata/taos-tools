@@ -1660,7 +1660,6 @@ static int32_t prepareProgressDataSmlJsonText(
 
     char *line = pThreadInfo->lines[0];
     uint32_t line_buf_len = pThreadInfo->line_buf_len;
-    int n;
 
     strncat(line + len, "[", 2);
     len += 1;
@@ -1670,6 +1669,7 @@ static int32_t prepareProgressDataSmlJsonText(
             && !g_arguments->terminate; j++) {
         strncat(line + len, "{", 2);
         len += 1;
+        int n;
         n = snprintf(line + len, line_buf_len - len,
                  "\"timestamp\":%"PRId64",", *timestamp);
         if (n < 0 || n >= line_buf_len - len) {

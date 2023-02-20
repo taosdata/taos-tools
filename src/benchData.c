@@ -1724,47 +1724,6 @@ void generateSmlJsonValues(
 
     sml_json_value_array[tableSeq] = value_buf;
 }
-
-int generateSmlJsonTextCols(char *line,
-                         SSuperTable *stbInfo) {
-    int n = 0;
-    Field* col = benchArrayGet(stbInfo->cols, 0);
-    switch (col->type) {
-        case TSDB_DATA_TYPE_BOOL:
-            n = sprintf(line, "\"value\":%s,",
-                        ((taosRandom()%2)&1)?"true":"false");
-            break;
-        case TSDB_DATA_TYPE_FLOAT:
-            n = sprintf(line, "\"value\":%f,",
-                (float)(col->min +
-                        (taosRandom() % (col->max - col->min)) +
-                        taosRandom() % 1000 / 1000.0));
-            break;
-        case TSDB_DATA_TYPE_DOUBLE:
-            n = sprintf(
-                line, "\"value\":%f,",
-                (double)(col->min +
-                         (taosRandom() % (col->max - col->min)) +
-                         taosRandom() % 1000000 / 1000000.0));
-            break;
-        case TSDB_DATA_TYPE_BINARY:
-        case TSDB_DATA_TYPE_NCHAR: {
-            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
-            rand_string(buf, col->length, g_arguments->chinese);
-            n = sprintf(line, "\"value\":\"%s\",", buf);
-            tmfree(buf);
-            break;
-        }
-        default:
-            n = sprintf(
-                    line, "\"value\":%f,",
-                    (double)col->min +
-                    (taosRandom() % (col->max - col->min)));
-            break;
-    }
-
-    return n;
-}
 #endif  // RECFACTOR_JSON_TEXT
 
 void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
