@@ -2959,9 +2959,9 @@ static int startMultiThreadInsertData(SDataBase* database,
         pthread_join(pids[i], NULL);
     }
 
-    if (g_arguments->terminate)  toolsMsleep(100);
-
     int64_t end = toolsGetTimestampUs()+1;
+
+    if (g_arguments->terminate)  toolsMsleep(100);
 
     BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t   totalDelay = 0;
