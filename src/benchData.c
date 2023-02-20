@@ -132,6 +132,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
 
     if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - len) {
         errorPrint("%s() LN%d snprintf overflow\n", __func__, __LINE__);
+        tmfree(prepare);
         return -1;
     } else {
         len += n;
@@ -254,64 +255,64 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
     return 0;
 }
 
-static uint32_t calcRowLen(BArray *fields, int iface) {
-    uint32_t ret = 0;
+uint32_t accumulateRowLen(BArray *fields, int iface) {
+    uint32_t len = 0;
     for (int i = 0; i < fields->size; ++i) {
         Field *field = benchArrayGet(fields, i);
         switch (field->type) {
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
-                ret += field->length + 3;
+                len += field->length + 3;
                 break;
             case TSDB_DATA_TYPE_INT:
             case TSDB_DATA_TYPE_UINT:
-                ret += INT_BUFF_LEN;
+                len += INT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_BIGINT:
             case TSDB_DATA_TYPE_UBIGINT:
-                ret += BIGINT_BUFF_LEN;
+                len += BIGINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_SMALLINT:
             case TSDB_DATA_TYPE_USMALLINT:
-                ret += SMALLINT_BUFF_LEN;
+                len += SMALLINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_TINYINT:
             case TSDB_DATA_TYPE_UTINYINT:
-                ret += TINYINT_BUFF_LEN;
+                len += TINYINT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_BOOL:
-                ret += BOOL_BUFF_LEN;
+                len += BOOL_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_FLOAT:
-                ret += FLOAT_BUFF_LEN;
+                len += FLOAT_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_DOUBLE:
-                ret += DOUBLE_BUFF_LEN;
+                len += DOUBLE_BUFF_LEN;
                 break;
 
             case TSDB_DATA_TYPE_TIMESTAMP:
-                ret += TIMESTAMP_BUFF_LEN;
+                len += TIMESTAMP_BUFF_LEN;
                 break;
             case TSDB_DATA_TYPE_JSON:
-                ret += (JSON_BUFF_LEN + field->length) * fields->size;
-                return ret;
+                len += (JSON_BUFF_LEN + field->length) * fields->size;
+                return len;
         }
-        ret += 1;
+        len += 1;
         if (iface == SML_REST_IFACE || iface == SML_IFACE) {
-            ret += SML_LINE_SQL_SYNTAX_OFFSET + strlen(field->name);
+            len += SML_LINE_SQL_SYNTAX_OFFSET + strlen(field->name);
         }
     }
     if (iface == SML_IFACE || iface == SML_REST_IFACE) {
-        ret += 2 * TSDB_TABLE_NAME_LEN * 2 + SML_LINE_SQL_SYNTAX_OFFSET;
+        len += 2 * TSDB_TABLE_NAME_LEN * 2 + SML_LINE_SQL_SYNTAX_OFFSET;
     }
-    ret += TIMESTAMP_BUFF_LEN;
-    return ret;
+    len += TIMESTAMP_BUFF_LEN;
+    return len;
 }
 
 static int tmpStr(char *tmp, int iface, Field *field, int i) {
@@ -1002,7 +1003,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
         int fieldsSize = fields->size;
         for (int i = 0; i < fieldsSize; ++i) {
             Field * field = benchArrayGet(fields, i);
-            int n;
+            int n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
@@ -1130,7 +1131,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                       bool tag) {
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
-        int n;
+        int n = 0;
         if (tag) {
             n = snprintf(sampleDataBuf + pos,
                            bufLen - pos,
@@ -1339,8 +1340,8 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
 }
 
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
-    stbInfo->lenOfCols = calcRowLen(stbInfo->cols, stbInfo->iface);
-    stbInfo->lenOfTags = calcRowLen(stbInfo->tags, stbInfo->iface);
+    stbInfo->lenOfCols = accumulateRowLen(stbInfo->cols, stbInfo->iface);
+    stbInfo->lenOfTags = accumulateRowLen(stbInfo->tags, stbInfo->iface);
     if (stbInfo->partialColNum != 0 &&
         (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
         if (stbInfo->partialColNum > stbInfo->cols->size) {
@@ -1539,12 +1540,14 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     return batch;
 }
 
-void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
+void generateSmlJsonTags(tools_cJSON *tagsList,
+                         char **sml_tags_json_array,
+                         SSuperTable *stbInfo,
                             uint64_t start_table_from, int tbSeq) {
     tools_cJSON * tags = tools_cJSON_CreateObject();
     char *  tbName = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
     snprintf(tbName, TSDB_TABLE_NAME_LEN, "%s%" PRIu64 "",
-             stbInfo->childTblPrefix, tbSeq + start_table_from);
+             stbInfo->childTblPrefix, start_table_from + tbSeq);
     char *tagName = benchCalloc(1, TSDB_MAX_TAGS, true);
     for (int i = 0; i < stbInfo->tags->size; i++) {
         Field * tag = benchArrayGet(stbInfo->tags, i);
@@ -1592,6 +1595,12 @@ void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
         }
     }
     tools_cJSON_AddItemToArray(tagsList, tags);
+    debugPrintJsonNoTime(tags);
+    char *tags_text = tools_cJSON_PrintUnformatted(tags);
+    debugPrintNoTimestamp("%s() LN%d, No.%"PRIu64" table's tags text: %s\n",
+                          __func__, __LINE__,
+                          start_table_from + tbSeq, tags_text);
+    sml_tags_json_array[tbSeq] = tags_text;
     tmfree(tagName);
     tmfree(tbName);
 }
@@ -1662,6 +1671,57 @@ void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
     tools_cJSON_AddItemToArray(tagsList, tags);
     tmfree(tagName);
     tmfree(tbName);
+}
+
+void generateSmlJsonValues(
+        char **sml_json_value_array, SSuperTable *stbInfo, int tableSeq) {
+    char *value_buf = NULL;
+    Field* col = benchArrayGet(stbInfo->cols, 0);
+    int len_key = strlen("\"value\":,");
+    switch (col->type) {
+        case TSDB_DATA_TYPE_BOOL:
+            value_buf = benchCalloc(len_key + 6, 1, true);
+            snprintf(value_buf, len_key + 6,
+                     "\"value\":%s,",
+                        ((taosRandom()%2)&1)?"true":"false");
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            value_buf = benchCalloc(len_key + 20, 1, true);
+            snprintf(value_buf, len_key + 20,
+                     "\"value\":%f,",
+                     (float)(col->min +
+                        (taosRandom() % (col->max - col->min)) +
+                        taosRandom() % 1000 / 1000.0));
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            value_buf = benchCalloc(len_key + 40, 1, true);
+            snprintf(
+                value_buf, len_key + 40, "\"value\":%f,",
+                (double)(col->min +
+                         (taosRandom() % (col->max - col->min)) +
+                         taosRandom() % 1000000 / 1000000.0));
+            break;
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR: {
+            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
+            rand_string(buf, col->length, g_arguments->chinese);
+            value_buf = benchCalloc(len_key + col->length + 3, 1, true);
+            snprintf(value_buf, len_key + col->length + 3,
+                     "\"value\":\"%s\",", buf);
+            tmfree(buf);
+            break;
+        }
+        default:
+            value_buf = benchCalloc(len_key + 20, 1, true);
+            snprintf(
+                    value_buf, len_key + 20,
+                    "\"value\":%f,",
+                    (double)col->min +
+                    (taosRandom() % (col->max - col->min)));
+            break;
+    }
+
+    sml_json_value_array[tableSeq] = value_buf;
 }
 
 void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,

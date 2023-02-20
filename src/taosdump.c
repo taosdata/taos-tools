@@ -3419,7 +3419,7 @@ static void dumpCreateDbClause(
         }
 
         char keep[64] = "";
-        if (dbInfo->keeplist && strlen(dbInfo->keeplist)) {
+        if (strlen(dbInfo->keeplist)) {
             sprintf(keep, "KEEP %s", dbInfo->keeplist);
         }
 
