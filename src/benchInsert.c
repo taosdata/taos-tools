@@ -1724,7 +1724,7 @@ static int32_t prepareProgressDataSmlJsonText(
         if (i + generated >= stbInfo->insertRows) {
             break;
         }
-        if (j < g_arguments->reqPerReq) {
+        if ((j+1) < g_arguments->reqPerReq) {
             n = snprintf(line + len, line_buf_len - len, "%s", ",");
             if (n < 0 || n >= line_buf_len - len) {
                 errorPrint("%s() LN%d snprintf overflow on %d\n",
