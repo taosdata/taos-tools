@@ -14,8 +14,6 @@
 #include <benchData.h>
 #include <benchInsertMix.h>
 
-#define REFACTOR_JSON_TEXT    1
-
 static int getSuperTableFromServerRest(
     SDataBase* database, SSuperTable* stbInfo, char *command) {
 
@@ -1162,7 +1160,8 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             }
 
             if (code != TSDB_CODE_SUCCESS && !g_arguments->terminate) {
-                debugPrint("Failed to execute schemaless insert content: %s\n\n",
+                debugPrint("Failed to execute "
+                           "schemaless insert content: %s\n\n",
                         pThreadInfo->lines?(pThreadInfo->lines[0]?
                             pThreadInfo->lines[0]:""):"");
                 errorPrint(
@@ -1647,7 +1646,6 @@ static void makeTimestampDisorder(
     }
 }
 
-#if REFACTOR_JSON_TEXT
 static int32_t prepareProgressDataSmlJsonText(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
@@ -1731,7 +1729,6 @@ static int32_t prepareProgressDataSmlJsonText(
                __func__, __LINE__, pThreadInfo->lines[0]);
     return generated;
 }
-#endif   // REFACTOR_JSON_TEXT
 
 static int32_t prepareProgressDataSmlJson(
     threadInfo *pThreadInfo,
@@ -1881,16 +1878,10 @@ static int32_t prepareProgressDataSml(
                     tableSeq, timestamp, i, ttl);
             break;
         case TSDB_SML_JSON_PROTOCOL:
-#if REFACTOR_JSON_TEXT
             generated = prepareProgressDataSmlJsonText(
                     pThreadInfo,
                     tableSeq - pThreadInfo->start_table_from,
                 timestamp, i, ttl);
-#else
-            generated = prepareProgressDataSmlJson(
-                    pThreadInfo,
-                    tableSeq, timestamp, i, ttl);
-#endif
             break;
         case SML_JSON_TAOS_FORMAT:
             generated = prepareProgressDataSmlJson(
@@ -2177,20 +2168,8 @@ void *syncWriteProgressive(void *sarg) {
                                (pThreadInfo->max_sql_len + 1));
                 case SML_IFACE:
                     if (TSDB_SML_JSON_PROTOCOL == protocol) {
-#if REFACTOR_JSON_TEXT
                         memset(pThreadInfo->lines[0], 0,
                            pThreadInfo->line_buf_len);
-#else
-                        if (pThreadInfo->lines && pThreadInfo->lines[0]) {
-                            tmfree(pThreadInfo->lines[0]);
-                            pThreadInfo->lines[0] = NULL;
-                        }
-                        if (pThreadInfo->json_array) {
-                            tools_cJSON_Delete(pThreadInfo->json_array);
-                            pThreadInfo->json_array = NULL;
-                        }
-                        pThreadInfo->json_array = tools_cJSON_CreateArray();
-#endif  // REFACTOR_JSON_TEXT
                     } else if (SML_JSON_TAOS_FORMAT == protocol) {
                         if (pThreadInfo->lines && pThreadInfo->lines[0]) {
                             tmfree(pThreadInfo->lines[0]);
@@ -2893,7 +2872,6 @@ static int startMultiThreadInsertData(SDataBase* database,
                     }
                     pThreadInfo->lines = (char **)benchCalloc(
                             1, sizeof(char *), true);
-#if REFACTOR_JSON_TEXT
                     if ((0 == stbInfo->interlaceRows)
                         && (TSDB_SML_JSON_PROTOCOL == protocol)) {
                         pThreadInfo->line_buf_len =
@@ -2904,14 +2882,14 @@ static int startMultiThreadInsertData(SDataBase* database,
                                __func__, __LINE__, pThreadInfo->line_buf_len);
                         pThreadInfo->lines[0] = benchCalloc(
                             1, pThreadInfo->line_buf_len, true);
-                        pThreadInfo->sml_json_value_array = (char **)benchCalloc(
-                            pThreadInfo->ntables, sizeof(char *), true);
+                        pThreadInfo->sml_json_value_array =
+                            (char **)benchCalloc(
+                                pThreadInfo->ntables, sizeof(char *), true);
                         for (int t = 0; t < pThreadInfo->ntables; t++) {
                             generateSmlJsonValues(
                                 pThreadInfo->sml_json_value_array, stbInfo, t);
                         }
                     }
-#endif
                 }
                 break;
             }
@@ -3035,7 +3013,6 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
                 closeBenchConn(pThreadInfo->conn);
                 if (pThreadInfo->lines) {
-#if REFACTOR_JSON_TEXT
                     if ((0 == stbInfo->interlaceRows)
                             && (TSDB_SML_JSON_PROTOCOL == protocol)) {
                         tmfree(pThreadInfo->lines[0]);
@@ -3044,7 +3021,6 @@ static int startMultiThreadInsertData(SDataBase* database,
                         }
                         tmfree(pThreadInfo->sml_json_value_array);
                     }
-#endif
                     tmfree(pThreadInfo->lines);
                     pThreadInfo->lines = NULL;
                 }
