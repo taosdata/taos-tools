@@ -1662,26 +1662,14 @@ static int32_t prepareProgressDataSmlJsonText(
     uint32_t line_buf_len = pThreadInfo->line_buf_len;
     int n;
 
-    n = snprintf(line + len, line_buf_len - len, "%s", "[");
-    if (n < 0 || n >= line_buf_len - len) {
-        errorPrint("%s() LN%d snprintf overflow\n",
-                                __func__, __LINE__);
-        return -1;
-    } else {
-        len += n;
-    }
+    strncat(line + len, "[", 2);
+    len += 1;
 
     int32_t pos = 0;
     for (int j = 0; (j < g_arguments->reqPerReq)
             && !g_arguments->terminate; j++) {
-        n = snprintf(line + len, line_buf_len - len, "%s", "{");
-        if (n < 0 || n >= line_buf_len - len) {
-            errorPrint("%s() LN%d snprintf overflow on %d\n",
-                       __func__, __LINE__, j);
-            return -1;
-        } else {
-            len += n;
-        }
+        strncat(line + len, "{", 2);
+        len += 1;
         n = snprintf(line + len, line_buf_len - len,
                  "\"timestamp\":%"PRId64",", *timestamp);
         if (n < 0 || n >= line_buf_len - len) {
@@ -1725,17 +1713,11 @@ static int32_t prepareProgressDataSmlJsonText(
             break;
         }
         if ((j+1) < g_arguments->reqPerReq) {
-            n = snprintf(line + len, line_buf_len - len, "%s", ",");
-            if (n < 0 || n >= line_buf_len - len) {
-                errorPrint("%s() LN%d snprintf overflow on %d\n",
-                           __func__, __LINE__, j);
-                return -1;
-            } else {
-                len += n;
-            }
+            strncat(line + len, ",", 2);
+            len += 1;
         }
     }
-    snprintf(line + len, line_buf_len - len, "%s", "]");
+    strncat(line + len, "]", 2);
 
     debugPrint("%s() LN%d, lines[0]: %s\n",
                __func__, __LINE__, pThreadInfo->lines[0]);
