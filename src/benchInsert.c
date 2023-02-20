@@ -253,6 +253,9 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (n < 0 || n >= tag_buffer_len - len) {
         errorPrint("%s() LN%d snprintf overflow\n",
                        __func__, __LINE__);
+        free(cols);
+        free(command);
+        tmfree(tags);
         return -1;
     } else {
         len += n;
@@ -905,8 +908,7 @@ static int startMultiThreadCreateChildTable(
         threadInfo *pThreadInfo = infos + i;
         g_arguments->actualChildTables += pThreadInfo->tables_created;
 
-        if ((REST_IFACE != stbInfo->iface)
-                && pThreadInfo && pThreadInfo->conn) {
+        if ((REST_IFACE != stbInfo->iface) && pThreadInfo->conn) {
             closeBenchConn(pThreadInfo->conn);
         }
     }
@@ -1049,9 +1051,7 @@ void postFreeResource() {
             if (database->vgArray)
                 benchArrayDestroy(database->vgArray);
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
-            if (database && database->superTbls) {
-                benchArrayDestroy(database->superTbls);
-            }
+            benchArrayDestroy(database->superTbls);
         }
     }
     benchArrayDestroy(g_arguments->databases);
@@ -1967,13 +1967,13 @@ static int32_t prepareProgressDataSql(
     }
 
     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
-        if (stbInfo->useSampleTs &&
-            !stbInfo->random_data_source) {
-                len +=
-                    snprintf(pstr + len,
-                             TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s)",
-                             stbInfo->sampleDataBuf +
-                             pos * stbInfo->lenOfCols);
+        if (stbInfo->useSampleTs
+                && (!stbInfo->random_data_source)) {
+            len +=
+                snprintf(pstr + len,
+                         TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s)",
+                         stbInfo->sampleDataBuf +
+                         pos * stbInfo->lenOfCols);
         } else {
             int64_t disorderTs = 0;
             if (stbInfo->disorderRatio > 0) {

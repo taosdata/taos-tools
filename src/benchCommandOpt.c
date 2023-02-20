@@ -403,13 +403,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             }
 
             g_arguments->trying_interval = atoi(arg);
-            if (g_arguments->trying_interval < 0) {
-                errorPrint(
-                        "Invalid value for z: %s, "
-                        "will auto set to default(0)\n",
-                        arg);
-                g_arguments->trying_interval = 0;
-            }
             debugPrint("trying_interval: %d\n", g_arguments->trying_interval);
             break;
 
@@ -1088,6 +1081,9 @@ void queryAggrFunc() {
         }
     } else {
         pThreadInfo->sockfd = createSockFd();
+        if (pThreadInfo->sockfd < 0) {
+            return;
+        }
     }
     if (stbInfo->use_metric) {
         pthread_create(&read_id, NULL, queryStableAggrFunc, pThreadInfo);
@@ -1098,7 +1094,9 @@ void queryAggrFunc() {
     if (REST_IFACE != g_arguments->iface) {
         closeBenchConn(pThreadInfo->conn);
     } else {
-        destroySockFd(pThreadInfo->sockfd);
+        if (pThreadInfo->sockfd) {
+            destroySockFd(pThreadInfo->sockfd);
+        }
     }
     free(pThreadInfo);
 }

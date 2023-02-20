@@ -132,6 +132,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
 
     if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - len) {
         errorPrint("%s() LN%d snprintf overflow\n", __func__, __LINE__);
+        tmfree(prepare);
         return -1;
     } else {
         len += n;
@@ -1002,7 +1003,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
         int fieldsSize = fields->size;
         for (int i = 0; i < fieldsSize; ++i) {
             Field * field = benchArrayGet(fields, i);
-            int n;
+            int n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
@@ -1130,7 +1131,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                       bool tag) {
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
-        int n;
+        int n = 0;
         if (tag) {
             n = snprintf(sampleDataBuf + pos,
                            bufLen - pos,
