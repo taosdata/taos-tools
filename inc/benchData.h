@@ -44,4 +44,6 @@ void generateSmlTaosJsonCols(tools_cJSON *array,
         tools_cJSON *tag, SSuperTable *stbInfo,
         uint32_t time_precision, int64_t timestamp);
 uint32_t accumulateRowLen(BArray *fields, int iface);
+void generateSmlJsonValues(
+        char **sml_tags_json_array, SSuperTable *stbInfo, int tableSeq);
 #endif  // INC_BENCHDATA_H_

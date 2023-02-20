@@ -13,6 +13,8 @@
 #include <bench.h>
 #include <benchData.h>
 
+#define RECFACTOR_JSON_TEXT     1
+
 const char charset[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
@@ -1596,11 +1598,13 @@ void generateSmlJsonTags(tools_cJSON *tagsList,
     }
     tools_cJSON_AddItemToArray(tagsList, tags);
     debugPrintJsonNoTime(tags);
+#if RECFACTOR_JSON_TEXT
     char *tags_text = tools_cJSON_PrintUnformatted(tags);
     debugPrintNoTimestamp("%s() LN%d, No.%"PRIu64" table's tags text: %s\n",
                           __func__, __LINE__,
                           start_table_from + tbSeq, tags_text);
     sml_tags_json_array[tbSeq] = tags_text;
+#endif  // RECFACTOR_JSON_TEXT
     tmfree(tagName);
     tmfree(tbName);
 }
@@ -1673,8 +1677,54 @@ void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
     tmfree(tbName);
 }
 
-#define RECFACTOR_JSON_TEXT     1
 #if RECFACTOR_JSON_TEXT
+void generateSmlJsonValues(
+        char **sml_json_value_array, SSuperTable *stbInfo, int tableSeq) {
+    char *value_buf = NULL;
+    Field* col = benchArrayGet(stbInfo->cols, 0);
+    int len_key = strlen("\"value\":,");
+    switch (col->type) {
+        case TSDB_DATA_TYPE_BOOL:
+            value_buf = benchCalloc(len_key + 6, 1, true);
+            sprintf(value_buf, "\"value\":%s,",
+                        ((taosRandom()%2)&1)?"true":"false");
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            value_buf = benchCalloc(len_key + 20, 1, true);
+            sprintf(value_buf, "\"value\":%f,",
+                (float)(col->min +
+                        (taosRandom() % (col->max - col->min)) +
+                        taosRandom() % 1000 / 1000.0));
+            break;
+        case TSDB_DATA_TYPE_DOUBLE:
+            value_buf = benchCalloc(len_key + 40, 1, true);
+            sprintf(
+                value_buf, "\"value\":%f,",
+                (double)(col->min +
+                         (taosRandom() % (col->max - col->min)) +
+                         taosRandom() % 1000000 / 1000000.0));
+            break;
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR: {
+            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
+            rand_string(buf, col->length, g_arguments->chinese);
+            value_buf = benchCalloc(len_key + col->length + 3, 1, true);
+            sprintf(value_buf, "\"value\":\"%s\",", buf);
+            tmfree(buf);
+            break;
+        }
+        default:
+            value_buf = benchCalloc(len_key + 20, 1, true);
+            sprintf(
+                    value_buf, "\"value\":%f,",
+                    (double)col->min +
+                    (taosRandom() % (col->max - col->min)));
+            break;
+    }
+
+    sml_json_value_array[tableSeq] = value_buf;
+}
+
 int generateSmlJsonTextCols(char *line,
                          SSuperTable *stbInfo) {
     int n = 0;

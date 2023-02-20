@@ -846,6 +846,7 @@ typedef struct SThreadInfo_S {
     tools_cJSON *json_array;
     tools_cJSON *sml_json_tags;
     char        **sml_tags_json_array;
+    char        **sml_json_value_array;
     uint64_t    start_time;
     uint64_t    max_sql_len;
     FILE        *fp;
@@ -858,12 +859,12 @@ typedef struct SThreadInfo_S {
 #endif
 
     // new
-    uint16_t batCols[MAX_BATCOLS];
-    uint16_t nBatCols;  // valid count for array batCols
+    uint16_t    batCols[MAX_BATCOLS];
+    uint16_t    nBatCols;  // valid count for array batCols
 
     // check sql result
-    char * csql;
-    int32_t clen;  // csql current write position
+    char        *csql;
+    int32_t     clen;  // csql current write position
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {

@@ -1680,7 +1680,15 @@ static int32_t prepareProgressDataSmlJsonText(
             len += n;
         }
 
-        len += generateSmlJsonTextCols(line + len, stbInfo);
+        n = snprintf(line + len, line_buf_len - len, "%s",
+                        pThreadInfo->sml_json_value_array[tableSeq]);
+        if (n < 0 || n >= line_buf_len - len) {
+            errorPrint("%s() LN%d snprintf overflow on %d\n",
+                       __func__, __LINE__, j);
+            return -1;
+        } else {
+            len += n;
+        }
         n = snprintf(line + len, line_buf_len - len, "\"tags\":%s,",
                        pThreadInfo->sml_tags_json_array[tableSeq]);
         if (n < 0 || n >= line_buf_len - len) {
@@ -2886,17 +2894,23 @@ static int startMultiThreadInsertData(SDataBase* database,
                     pThreadInfo->lines = (char **)benchCalloc(
                             1, sizeof(char *), true);
 #if REFACTOR_JSON_TEXT
-                if ((0 == stbInfo->interlaceRows)
+                    if ((0 == stbInfo->interlaceRows)
                         && (TSDB_SML_JSON_PROTOCOL == protocol)) {
-                    pThreadInfo->line_buf_len =
+                        pThreadInfo->line_buf_len =
                             g_arguments->reqPerReq *
                             accumulateRowLen(pThreadInfo->stbInfo->tags,
                                              pThreadInfo->stbInfo->iface);
-                    debugPrint("%s() LN%d, line_buf_len=%d\n",
+                        debugPrint("%s() LN%d, line_buf_len=%d\n",
                                __func__, __LINE__, pThreadInfo->line_buf_len);
-                    pThreadInfo->lines[0] = benchCalloc(
+                        pThreadInfo->lines[0] = benchCalloc(
                             1, pThreadInfo->line_buf_len, true);
-                }
+                        pThreadInfo->sml_json_value_array = (char **)benchCalloc(
+                            pThreadInfo->ntables, sizeof(char *), true);
+                        for (int t = 0; t < pThreadInfo->ntables; t++) {
+                            generateSmlJsonValues(
+                                pThreadInfo->sml_json_value_array, stbInfo, t);
+                        }
+                    }
 #endif
                 }
                 break;
@@ -3025,6 +3039,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                     if ((0 == stbInfo->interlaceRows)
                             && (TSDB_SML_JSON_PROTOCOL == protocol)) {
                         tmfree(pThreadInfo->lines[0]);
+                        for (int t = 0; t < pThreadInfo->ntables; t++) {
+                            tmfree(pThreadInfo->sml_json_value_array[t]);
+                        }
+                        tmfree(pThreadInfo->sml_json_value_array);
                     }
 #endif
                     tmfree(pThreadInfo->lines);
