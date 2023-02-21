@@ -10,6 +10,7 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
+
 import os
 import time
 from util.log import *
@@ -19,14 +20,12 @@ from util.dnodes import *
 
 
 class TDTestCase:
-    def caseDescription(self):
-        """
-        [TD-11510] taosBenchmark test cases
-        """
-
     def init(self, conn, logSql):
         tdLog.debug("start to execute %s" % __file__)
         tdSql.init(conn.cursor(), logSql)
+
+        now = time.time()
+        self.ts = int(round(now * 1000))
 
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
@@ -37,11 +36,8 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
-        elif "/tests/" in selfPath:
-            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
-            projPath = "/usr/local/taos/bin/"
+            projPath = selfPath[: selfPath.find("tests")]
 
         paths = []
         for root, dummy, files in os.walk(projPath):
@@ -62,31 +58,27 @@ class TDTestCase:
         client_ver = "".join(tdSql.queryResult[0])
         major_ver = client_ver.split(".")[0]
 
-        binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/sml_telnet_tcp.json" % binPath
-        tdLog.info("%s" % cmd)
-        os.system("%s" % cmd)
-        time.sleep(5)
-        tdSql.execute("reset query cache")
+        binPath = self.getPath("taosBenchmark")
+        if binPath == "":
+            tdLog.exit("taosBenchmark not found!")
+        else:
+            tdLog.info("taosBenchmark found in %s" % binPath)
 
+        # insert: create one  or mutiple tables per sql and insert multiple rows per sql
+        # test case for https://jira.taosdata.com:18080/browse/TD-4985
+        os.system("%s -f ./taosbenchmark/json/insert-json-csv.json -y " % binPath)
+
+        tdSql.execute("use db")
         if major_ver == "3":
-            tdSql.query(
-                "select count(*) from (select distinct(tbname) from opentsdb_telnet.stb1)"
-            )
+            tdSql.query("select count(*) from (select distinct(tbname) from stb0)")
         else:
-            tdSql.query("select count(tbname) from opentsdb_telnet.stb1")
-        tdSql.checkData(0, 0, 8)
-        tdSql.query("select count(*) from opentsdb_telnet.stb1")
-        tdSql.checkData(0, 0, 160)
-        if major_ver == "3":
-            tdSql.query(
-                "select count(*) from (select distinct(tbname) from opentsdb_telnet.stb2)"
-            )
-        else:
-            tdSql.query("select count(tbname) from opentsdb_telnet.stb2")
-        tdSql.checkData(0, 0, 8)
-        tdSql.query("select count(*) from opentsdb_telnet.stb2")
-        tdSql.checkData(0, 0, 160)
+            tdSql.query("select count(tbname) from stb0")
+        tdSql.checkData(0, 0, 1)
+
+        tdSql.query("select * from stb0 where  tbname like 'stb00_0'  limit 10")
+        tdSql.checkData(0, 1, 0)
+        tdSql.checkData(1, 1, 1)
+        tdSql.checkData(2, 1, 2)
 
     def stop(self):
         tdSql.close()
