@@ -1900,11 +1900,10 @@ static int32_t prepareProgressDataSml(
 static int32_t prepareProgressDataSql(
     threadInfo *pThreadInfo,
     char *tableName, uint64_t tableSeq,
-    int64_t *timestamp, uint64_t i, char *ttl) {
+    int64_t *timestamp, uint64_t i, char *ttl,
+    int32_t *pos, uint64_t *len) {
     // prepareProgressDataSql
     int32_t generated = 0;
-    int len = 0;
-    int32_t pos = 0;
     SDataBase *database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int disorderRange = stbInfo->disorderRange;
@@ -1912,7 +1911,7 @@ static int32_t prepareProgressDataSql(
     char *  pstr = pThreadInfo->buffer;
     if (stbInfo->partialColNum == stbInfo->cols->size) {
         if (stbInfo->autoCreateTable) {
-            len =
+            *len =
                 snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                          "%s %s.%s USING %s.%s "
                          "TAGS (%s) %s VALUES ",
@@ -1922,13 +1921,13 @@ static int32_t prepareProgressDataSql(
                          stbInfo->tagDataBuf +
                          stbInfo->lenOfTags * tableSeq, ttl);
         } else {
-            len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
+            *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                            "%s %s.%s VALUES ", STR_INSERT_INTO,
                            database->dbName, tableName);
         }
     } else {
         if (stbInfo->autoCreateTable) {
-            len = snprintf(
+            *len = snprintf(
                     pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                     "%s %s.%s (%s) USING %s.%s "
                     "TAGS (%s) %s VALUES ",
@@ -1939,7 +1938,7 @@ static int32_t prepareProgressDataSql(
                     stbInfo->tagDataBuf +
                     stbInfo->lenOfTags * tableSeq, ttl);
         } else {
-            len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
+            *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                            "%s %s.%s (%s) VALUES ",
                            STR_INSERT_INTO, database->dbName,
                            tableName,
@@ -1950,11 +1949,11 @@ static int32_t prepareProgressDataSql(
     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
         if (stbInfo->useSampleTs
                 && (!stbInfo->random_data_source)) {
-            len +=
-                snprintf(pstr + len,
-                         TSDB_MAX_ALLOWED_SQL_LEN - len, "(%s)",
+            *len +=
+                snprintf(pstr + *len,
+                         TSDB_MAX_ALLOWED_SQL_LEN - *len, "(%s)",
                          stbInfo->sampleDataBuf +
-                         pos * stbInfo->lenOfCols);
+                         *pos * stbInfo->lenOfCols);
         } else {
             int64_t disorderTs = 0;
             if (stbInfo->disorderRatio > 0) {
@@ -1972,20 +1971,20 @@ static int32_t prepareProgressDataSql(
                                disorderTs);
                 }
             }
-            len += snprintf(pstr + len,
-                            TSDB_MAX_ALLOWED_SQL_LEN - len,
+            *len += snprintf(pstr + *len,
+                            TSDB_MAX_ALLOWED_SQL_LEN - *len,
                             "(%" PRId64 ",%s)",
                             disorderTs?disorderTs:*timestamp,
                             stbInfo->sampleDataBuf +
-                            pos * stbInfo->lenOfCols);
+                            *pos * stbInfo->lenOfCols);
         }
-        pos++;
-        if (pos >= g_arguments->prepared_rand) {
-            pos = 0;
+        *pos += 1;
+        if (*pos >= g_arguments->prepared_rand) {
+            *pos = 0;
         }
         *timestamp += stbInfo->timestamp_step;
         generated++;
-        if (len > (TSDB_MAX_ALLOWED_SQL_LEN
+        if (*len > (TSDB_MAX_ALLOWED_SQL_LEN
             - stbInfo->lenOfCols)) {
             break;
         }
@@ -2045,6 +2044,8 @@ void *syncWriteProgressive(void *sarg) {
         tableName = stbInfo->childTblName[tableSeq];
 #endif
         int64_t  timestamp = pThreadInfo->start_time;
+        uint64_t len = 0;
+        int32_t pos = 0;
         if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
@@ -2076,7 +2077,7 @@ void *syncWriteProgressive(void *sarg) {
                     generated = prepareProgressDataSql(
                             pThreadInfo,
                             tableName,
-                            tableSeq, &timestamp, i, ttl);
+                            tableSeq, &timestamp, i, ttl, &pos, &len);
                     break;
                 case STMT_IFACE: {
                     generated = prepareProgressDataStmt(
