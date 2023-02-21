@@ -450,7 +450,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                 continue;
             }
 
-            int n;
+            int n = 0;
             if (field->null) {
                 n = snprintf(sampleDataBuf + pos, bufLen - pos, "null,");
                 if (n < 0 || n >= bufLen - pos) {
@@ -616,7 +616,7 @@ static int generateRandDataStmt(
         int fieldsSize = fields->size;
         for (int i = 0; i < fieldsSize; ++i) {
             Field * field = benchArrayGet(fields, i);
-            int n;
+            int n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
@@ -764,7 +764,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
         }
         for (int i = 0; i < fieldsSize; ++i) {
             Field * field = benchArrayGet(fields, i);
-            int n;
+            int n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
