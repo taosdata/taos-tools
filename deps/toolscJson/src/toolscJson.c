@@ -289,7 +289,7 @@ loop_end:
 
     input_buffer->offset += (size_t)(after_end - number_c_string);
 
-    strncpy(item->numberstring, (const char *)number_c_string, strlen((const char*)number_c_string));
+    strncpy(item->numberstring, (const char *)number_c_string, strlen(item->numberstring) - strlen((const char*)number_c_string) - 1);
 
     return true;
 }
