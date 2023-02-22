@@ -22,7 +22,7 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     }
     uint32_t threadID = pThreadInfo->threadID;
     char dbName[TSDB_DB_NAME_LEN] = {0};
-    tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN);
+    tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN-1);
 
     if (g_queryInfo.iface == REST_IFACE) {
         int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE,
@@ -625,7 +625,7 @@ OVER:
 
 void *queryKiller(void *arg) {
     char host[MAX_HOSTNAME_LEN] = {0};
-    tstrncpy(host, g_arguments->host, MAX_HOSTNAME_LEN);
+    tstrncpy(host, g_arguments->host, MAX_HOSTNAME_LEN-1);
 
     while (true) {
         TAOS *taos = taos_connect(g_arguments->host, g_arguments->user,
