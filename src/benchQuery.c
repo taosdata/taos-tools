@@ -80,7 +80,12 @@ static void *mixedQuery(void *sarg) {
                 return NULL;
             }
             if (g_queryInfo.reset_query_cache) {
-                queryDbExecCall(pThreadInfo->conn, "reset query cache");
+                if (queryDbExecCall(pThreadInfo->conn,
+                                    "RESET QUERY CACHE")) {
+                    errorPrint("%s() LN%d, reset query cache failed\n",
+                               __func__, __LINE__);
+                    return NULL;
+                }
             }
             st = toolsGetTimestampUs();
             if (g_queryInfo.iface == REST_IFACE) {
