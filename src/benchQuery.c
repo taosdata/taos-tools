@@ -664,7 +664,7 @@ void *queryKiller(void *arg) {
                              min(strlen((char*)row[2]), SHORT_1K_SQL_BUFF_LEN));
 
                     char killId[KILLID_LEN] = {0};
-                    tstrncpy(killId, (char*)row[0], KILLID_LEN);
+                    tstrncpy(killId, (char*)row[0], KILLID_LEN-1);
                     char killCommand[KILLID_LEN + 15] = {0};
                     snprintf(killCommand, KILLID_LEN + 15,
                              "KILL QUERY '%s'", killId);
