@@ -1528,9 +1528,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
         endTs = toolsGetTimestampUs();
 
-        if (pThreadInfo) {
-            pThreadInfo->totalInsertRows += tmp_total_insert_rows;
-        }
+        pThreadInfo->totalInsertRows += tmp_total_insert_rows;
 
         if (g_arguments->terminate) {
             goto free_of_interlace;
@@ -2603,7 +2601,7 @@ static int startMultiThreadInsertData(SDataBase* database,
     preProcessArgument(stbInfo);
 
     uint64_t tableFrom = 0;
-    uint64_t ntables = stbInfo->childTblCount;
+    int64_t ntables = stbInfo->childTblCount;
     stbInfo->childTblName = benchCalloc(stbInfo->childTblCount,
             sizeof(char *), true);
     for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
@@ -3193,7 +3191,7 @@ static int32_t createStream(SSTREAM* stream) {
     infoPrint("%s\n", command);
     SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
-        goto END;
+        goto END_STREAM;
     }
 
     code = queryDbExecCall(conn, command);
@@ -3210,7 +3208,7 @@ static int32_t createStream(SSTREAM* stream) {
 
     if (code) {
         closeBenchConn(conn);
-        goto END;
+        goto END_STREAM;
     }
 
     memset(command, 0, TSDB_MAX_ALLOWED_SQL_LEN);
@@ -3241,12 +3239,8 @@ static int32_t createStream(SSTREAM* stream) {
         }
     }
 
-    if (code) {
-        closeBenchConn(conn);
-        goto END;
-    }
     closeBenchConn(conn);
-END:
+END_STREAM:
     tmfree(command);
     return code;
 }

@@ -967,7 +967,7 @@ static void *queryStableAggrFunc(void *sarg) {
 static void *queryNtableAggrFunc(void *sarg) {
     threadInfo *pThreadInfo = (threadInfo *)sarg;
     TAOS *      taos = NULL;
-    if (pThreadInfo && pThreadInfo->conn) {
+    if (pThreadInfo->conn) {
         taos = pThreadInfo->conn->taos;
     }
 #ifdef LINUX
@@ -1082,6 +1082,7 @@ void queryAggrFunc() {
     } else {
         pThreadInfo->sockfd = createSockFd();
         if (pThreadInfo->sockfd < 0) {
+            free(pThreadInfo);
             return;
         }
     }
