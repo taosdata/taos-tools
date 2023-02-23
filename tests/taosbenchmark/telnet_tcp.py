@@ -44,7 +44,7 @@ class TDTestCase:
             projPath = "/usr/local/taos/bin/"
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:
@@ -58,15 +58,17 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
+        tdSql.query("select client_version()")
+        client_ver = "".join(tdSql.queryResult[0])
+        major_ver = client_ver.split(".")[0]
+
         binPath = self.getPath()
         cmd = "%s -f ./taosbenchmark/json/sml_telnet_tcp.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         time.sleep(5)
         tdSql.execute("reset query cache")
-        tdSql.query("select client_version()")
-        client_ver = "".join(tdSql.queryResult[0])
-        major_ver = client_ver.split(".")[0]
+
         if major_ver == "3":
             tdSql.query(
                 "select count(*) from (select distinct(tbname) from opentsdb_telnet.stb1)"

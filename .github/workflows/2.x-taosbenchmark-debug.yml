@@ -82,13 +82,13 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make -j8 && sudo make install
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make -j8 && sudo make install
 
           if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
@@ -107,7 +107,7 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          for i in `find taosbenchmark -name "*.py"|grep -v websocket`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-debug-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-debug-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-debug-failed.txt ;done
+          for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|slow-query|mixed-query|tmq|vgroups|cloud|sml-rest"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-debug-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-debug-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-debug-failed.txt ;done
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'

@@ -80,7 +80,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/non-x64.yml
+            .github/workflows/2.x-non-x64.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -142,7 +142,7 @@ jobs:
             cd TDengine
             mkdir debug ||:
             cd debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null && make > /dev/null
+            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make > /dev/null
             if [[ ! -f build/bin/taosd ]] || [[ ! -f build/bin/taosdump ]] || [[ ! -f build/bin/taosBenchmark ]]
             then
               echo "TDengine build failure"
@@ -162,12 +162,12 @@ jobs:
           distro: ubuntu18.04
           run: |
             apt update -y > /dev/null
-            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y > /dev/null
 
             cd TDengine
             mkdir debug ||:
             cd debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true > /dev/null
+            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null
             make > /dev/null && make install > /dev/null
 
             if [[ ! -f /usr/local/taos/bin/taosd ]]

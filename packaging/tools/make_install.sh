@@ -2,12 +2,30 @@
 
 #set -x
 
-installDir="/usr/local/taos"
+osType=`uname`
+
 dumpName="taosdump"
 benchmarkName="taosBenchmark"
 demoName="taosdemo"
 
 source_dir=$1
+
+if [ "$osType" != "Darwin" ]; then
+  installDir="/usr/local/taos"
+else
+  if [ -d $source_dir/build/lib ]; then
+    verNumber=`ls $source_dir/build/lib | grep -E "libtaos\.[0-9]\.[0-9]" | sed "s/libtaos.//g" |  sed "s/.dylib//g" | head -n 1`
+  else
+    verNumber=`taos -V|awk '{print $2}'|sed -e 's/\r//'`
+  fi
+  if [ -d "/usr/local/Cellar/" ];then
+    installDir="/usr/local/Cellar/tdengine/${verNumber}"
+  elif [ -d "/opt/homebrew/Cellar/" ];then
+    installDir="/opt/homebrew/Cellar/tdengine/${verNumber}"
+  else
+    installDir="/usr/local/taos"
+  fi
+fi
 
 csudo=""
 
@@ -15,10 +33,12 @@ if command -v sudo > /dev/null; then
     csudo="sudo "
 fi
 
-[ ! -d ${installDir}/bin ] && mkdir -p ${installDir}/bin
-[ -f ${source_dir}/build/bin/${dumpName} ] && ${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin ||:
+[ ! -d ${installDir}/bin ] && ${csudo}mkdir -p ${installDir}/bin
+if [ "$osType" != "Darwin" ]; then
+    [ -f ${source_dir}/build/bin/${dumpName} ] && ${csudo}cp ${source_dir}/build/bin/${dumpName} ${installDir}/bin ||:
+    [ -f ${installDir}/bin/${dumpName} ] && ${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} ||:
+fi
 [ -f ${source_dir}/build/bin/${benchmarkName} ] && ${csudo}cp ${source_dir}/build/bin/${benchmarkName} ${installDir}/bin ||:
-[ -f ${installDir}/bin/${dumpName} ] && ${csudo}ln -sf ${installDir}/bin/${dumpName} /usr/local/bin/${dumpName} ||:
 [ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${benchmarkName} ||:
 [ -f ${installDir}/bin/${benchmarkName} ] && ${csudo}ln -sf ${installDir}/bin/${benchmarkName} /usr/local/bin/${demoName} ||:
 

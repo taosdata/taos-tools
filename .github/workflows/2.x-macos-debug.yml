@@ -47,7 +47,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/macos.yml
+            .github/workflows/2.x-macos-debug.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -82,20 +82,19 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
           brew update
-          brew upgrade
-          brew install argp-standalone
+          brew install argp-standalone pkg-config
           brew info argp-standalone
 
       - name: Set up Go
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Debug -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make && sudo make install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DBUILD_HTTP=false && make && sudo make install
 
           #      - name: Func Test
           #        run: |

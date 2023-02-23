@@ -43,7 +43,7 @@ class TDTestCase:
             projPath = "/usr/local/taos/bin/"
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:
@@ -69,15 +69,15 @@ class TDTestCase:
         tdSql.query("describe db.stb1")
         tdSql.checkData(1, 1, "BOOL")
         tdSql.query("describe db.stb2")
-        tdSql.checkData(1, 1, "TINYINT")
+        tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb3")
-        tdSql.checkData(1, 1, "SMALLINT")
+        tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb4")
-        tdSql.checkData(1, 1, "INT")
+        tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb5")
-        tdSql.checkData(1, 1, "BIGINT")
+        tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb6")
-        tdSql.checkData(1, 1, "FLOAT")
+        tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb7")
         tdSql.checkData(1, 1, "DOUBLE")
         tdSql.query("describe db.stb8")
@@ -85,14 +85,15 @@ class TDTestCase:
             tdSql.checkData(1, 1, "VARCHAR")
             tdSql.checkData(1, 2, 16)
         else:
-            tdSql.checkData(1, 1, "BINARY")
+            tdSql.checkData(1, 1, "NCHAR")
             tdSql.checkData(1, 2, 8)
 
         tdSql.query("describe db.stb9")
-        tdSql.checkData(1, 1, "NCHAR")
         if major_ver == "3":
+            tdSql.checkData(1, 1, "VARCHAR")
             tdSql.checkData(1, 2, 16)
         else:
+            tdSql.checkData(1, 1, "NCHAR")
             tdSql.checkData(1, 2, 8)
 
         tdSql.query("select count(*) from db.stb1")

@@ -19,7 +19,7 @@ class TDSmlProtocolType(Enum):
     Schemaless Protocol types
     0 - unknown
     1 - InfluxDB Line Protocol
-    2 - OpenTSDB Telnet Protocl
+    2 - OpenTSDB Telnet Protocol
     3 - OpenTSDB JSON Protocol
     """
 
