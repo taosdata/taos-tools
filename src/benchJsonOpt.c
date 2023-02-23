@@ -1367,7 +1367,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                         g_queryInfo.specifiedQueryInfo.queryTimes
                         * g_queryInfo.specifiedQueryInfo.concurrent,
                         sizeof(int64_t), true);
-                tstrncpy(sql->command, buf, bufLen);
+                tstrncpy(sql->command, buf, bufLen - 1);
                 debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, TSDB_MAX_ALLOWED_SQL_LEN);
             }
