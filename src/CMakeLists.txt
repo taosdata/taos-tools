@@ -301,7 +301,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
             MESSAGE("Compiler is: ${CMAKE_C_COMPILER_ID}, version: ${CMAKE_C_COMPILER_VERSION}")
             IF (CMAKE_C_COMPILER_VERSION VERSION_GREATER 4.8.5)
                 IF (${OS_ID} MATCHES "alpine")
-                    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -O3 -DRELEASE -Wformat=2 -Wno-format-nonliteral -Wno-format-truncation ${GCC_COVERAGE_COMPILE_FLAGS} ${TOOLS_SANITIZE_FLAG}")
+                    SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -O3 -DRELEASE -Wformat=2 -Wno-stringop-truncation -Wno-format-nonliteral -Wno-format-truncation ${GCC_COVERAGE_COMPILE_FLAGS} ${TOOLS_SANITIZE_FLAG}")
                 ELSE ()
                     SET(CMAKE_C_FLAGS "-Wall -Wshadow -std=c99 -std=gnu11 -O3 -DRELEASE -Werror -Wformat=2 -Wno-format-nonliteral -Wno-format-truncation ${GCC_COVERAGE_COMPILE_FLAGS} ${TOOLS_SANITIZE_FLAG}")
                 ENDIF ()
