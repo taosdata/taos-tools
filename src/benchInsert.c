@@ -1269,14 +1269,15 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
 }
 
 static void cleanupAndPrint(threadInfo *pThreadInfo, char *mode) {
-    if (pThreadInfo && pThreadInfo->json_array) {
-        tools_cJSON_Delete(pThreadInfo->json_array);
-        pThreadInfo->json_array = NULL;
-    }
-    if ((pThreadInfo) && (0 == pThreadInfo->totalDelay)) {
-        pThreadInfo->totalDelay = 1;
-    }
-    succPrint(
+    if (pThreadInfo) {
+        if (pThreadInfo->json_array) {
+            tools_cJSON_Delete(pThreadInfo->json_array);
+            pThreadInfo->json_array = NULL;
+        }
+        if (0 == pThreadInfo->totalDelay) {
+            pThreadInfo->totalDelay = 1;
+        }
+        succPrint(
             "thread[%d] %s mode, completed total inserted rows: %" PRIu64
             ", %.2f records/second\n",
             pThreadInfo->threadID,
@@ -1284,6 +1285,7 @@ static void cleanupAndPrint(threadInfo *pThreadInfo, char *mode) {
             pThreadInfo->totalInsertRows,
             (double)(pThreadInfo->totalInsertRows /
             ((double)pThreadInfo->totalDelay / 1E6)));
+    }
 }
 
 static void *syncWriteInterlace(void *sarg) {
@@ -2551,6 +2553,45 @@ static void preProcessArgument(SSuperTable *stbInfo) {
     }
 }
 
+static int printTotalDelay(SDataBase *database,
+                           int64_t totalDelay,
+                           BArray *total_delay_list,
+                            int threads,
+                            int64_t totalInsertRows,
+                            int64_t start, int64_t end) {
+    succPrint("Spent %.6f seconds to insert rows: %" PRIu64
+              " with %d thread(s) into %s %.2f records/second\n",
+              (end - start)/1E6, totalInsertRows, threads,
+              database->dbName,
+              (double)(totalInsertRows / ((end - start)/1E6)));
+    if (!total_delay_list->size) {
+        return -1;
+    }
+
+    succPrint("insert delay, "
+              "min: %.4fms, "
+              "avg: %.4fms, "
+              "p90: %.4fms, "
+              "p95: %.4fms, "
+              "p99: %.4fms, "
+              "max: %.4fms\n",
+              *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
+              (double)totalDelay/total_delay_list->size/1E3,
+              *(int64_t *)(benchArrayGet(total_delay_list,
+                                         (int32_t)(total_delay_list->size
+                                         * 0.9)))/1E3,
+              *(int64_t *)(benchArrayGet(total_delay_list,
+                                         (int32_t)(total_delay_list->size
+                                         * 0.95)))/1E3,
+              *(int64_t *)(benchArrayGet(total_delay_list,
+                                         (int32_t)(total_delay_list->size
+                                         * 0.99)))/1E3,
+              *(int64_t *)(benchArrayGet(total_delay_list,
+                                         (int32_t)(total_delay_list->size
+                                         - 1)))/1E3);
+    return 0;
+}
+
 static int startMultiThreadInsertData(SDataBase* database,
         SSuperTable* stbInfo) {
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE)
@@ -3064,40 +3105,11 @@ static int startMultiThreadInsertData(SDataBase* database,
     free(pids);
     free(infos);
 
-    succPrint("Spent %.6f seconds to insert rows: %" PRIu64
-              " with %d thread(s) into %s %.2f records/second\n",
-              (end - start)/1E6, totalInsertRows, threads,
-              database->dbName,
-              (double)(totalInsertRows / ((end - start)/1E6)));
-    if (!total_delay_list->size) {
-        benchArrayDestroy(total_delay_list);
-        return -1;
-    }
-
-    succPrint("insert delay, "
-              "min: %.4fms, "
-              "avg: %.4fms, "
-              "p90: %.4fms, "
-              "p95: %.4fms, "
-              "p99: %.4fms, "
-              "max: %.4fms\n",
-              *(int64_t *)(benchArrayGet(total_delay_list, 0))/1E3,
-              (double)totalDelay/total_delay_list->size/1E3,
-              *(int64_t *)(benchArrayGet(total_delay_list,
-                                         (int32_t)(total_delay_list->size
-                                         * 0.9)))/1E3,
-              *(int64_t *)(benchArrayGet(total_delay_list,
-                                         (int32_t)(total_delay_list->size
-                                         * 0.95)))/1E3,
-              *(int64_t *)(benchArrayGet(total_delay_list,
-                                         (int32_t)(total_delay_list->size
-                                         * 0.99)))/1E3,
-              *(int64_t *)(benchArrayGet(total_delay_list,
-                                         (int32_t)(total_delay_list->size
-                                         - 1)))/1E3);
-
+    int ret = printTotalDelay(database, totalDelay,
+                              total_delay_list, threads,
+                    totalInsertRows, start, end);
     benchArrayDestroy(total_delay_list);
-    if (g_fail) {
+    if (g_fail || ret) {
         return -1;
     }
     return 0;
