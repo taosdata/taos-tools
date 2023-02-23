@@ -26,7 +26,7 @@ int32_t queryCnt(TAOS* taos, char* sql, int64_t* pVal) {
   TAOS_FIELD* fields = taos_fetch_fields(res);
   TAOS_ROW row = taos_fetch_row(res);
   code = taos_errno(res);
-  if (code != 0) {
+  if (code != 0 || row == NULL) {
     printErrCmdCodeStr(sql, code, res);
     return code;
   }
@@ -54,7 +54,7 @@ int32_t queryTS(TAOS* taos, char* sql, int64_t* pVal) {
   TAOS_FIELD* fields = taos_fetch_fields(res);
   TAOS_ROW row = taos_fetch_row(res);
   code = taos_errno(res);
-  if (code != 0) {
+  if (code != 0 || row == NULL) {
     printErrCmdCodeStr(sql, code, res);
     return code;
   }
