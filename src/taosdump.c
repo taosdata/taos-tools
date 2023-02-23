@@ -7001,6 +7001,7 @@ static int64_t dumpInAvroDataImpl(
                            "reason: %s, timestamp: %"PRId64"\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
                 failed -= stmt_count;
+                tfree(tbName);
                 break;
             } else {
                 success++;

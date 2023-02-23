@@ -261,6 +261,25 @@
         }                                                                   \
     } while (0)
 
+#define debugPrintWithLen(fmt, len, ...)                                    \
+    do {                                                                    \
+        if (g_arguments->debug_print) {                                     \
+            struct tm      Tm, *ptm;                                        \
+            struct timeval timeSecs;                                        \
+            time_t         curTime;                                         \
+            toolsGetTimeOfDay(&timeSecs);                                   \
+            curTime = timeSecs.tv_sec;                                      \
+            ptm = toolsLocalTime(&curTime, &Tm);                            \
+            fnprintf(stdout, len, "[%02d/%02d %02d:%02d:%02d.%06d] ",       \
+                    ptm->tm_mon + 1,                                        \
+                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
+                    (int32_t)timeSecs.tv_usec);                             \
+            fprintf(stdout, "DEBG: ");                                      \
+            fprintf(stdout, "%s(%d) ", __FILE__, __LINE__);                 \
+            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
+        }                                                                   \
+    } while (0)
+
 #define debugPrintJsonNoTime(json)                                          \
     do {                                                                    \
         if (g_arguments->debug_print) {                                     \
@@ -718,7 +737,7 @@ typedef struct SuperQueryInfo_S {
     uint64_t  subscribeTimes;  // ms
     bool      subscribeRestart;
     int       subscribeKeepProgress;
-    uint64_t  childTblCount;
+    int64_t   childTblCount;
     int       sqlCount;
     char      sql[MAX_QUERY_SQL_COUNT][TSDB_MAX_ALLOWED_SQL_LEN + 1];
     char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
