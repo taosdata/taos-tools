@@ -630,7 +630,7 @@ OVER:
 
 void *queryKiller(void *arg) {
     char host[MAX_HOSTNAME_LEN] = {0};
-    tstrncpy(host, g_arguments->host, MAX_HOSTNAME_LEN-1);
+    tstrncpy(host, g_arguments->host, MAX_HOSTNAME_LEN);
 
     while (true) {
         TAOS *taos = taos_connect(g_arguments->host, g_arguments->user,
