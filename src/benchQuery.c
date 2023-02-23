@@ -22,7 +22,7 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
     }
     uint32_t threadID = pThreadInfo->threadID;
     char dbName[TSDB_DB_NAME_LEN] = {0};
-    tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN-1);
+    tstrncpy(dbName, g_queryInfo.dbName, TSDB_DB_NAME_LEN);
 
     if (g_queryInfo.iface == REST_IFACE) {
         int retCode = postProceSql(command, g_queryInfo.dbName, 0, REST_IFACE,
@@ -664,7 +664,7 @@ void *queryKiller(void *arg) {
                              min(strlen((char*)row[2]), SHORT_1K_SQL_BUFF_LEN));
 
                     char killId[KILLID_LEN] = {0};
-                    tstrncpy(killId, (char*)row[0], KILLID_LEN-1);
+                    tstrncpy(killId, (char*)row[0], KILLID_LEN);
                     char killCommand[KILLID_LEN + 15] = {0};
                     snprintf(killCommand, KILLID_LEN + 15,
                              "KILL QUERY '%s'", killId);

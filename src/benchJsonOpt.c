@@ -691,7 +691,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsString(sampleFile)) {
             tstrncpy(
                 superTable->sampleFile, sampleFile->valuestring,
-                MAX_FILE_NAME_LEN-1);
+                MAX_FILE_NAME_LEN);
         } else {
             memset(superTable->sampleFile, 0, MAX_FILE_NAME_LEN);
         }
@@ -720,7 +720,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "tags_file");
         if (tools_cJSON_IsString(tagsFile)) {
             tstrncpy(superTable->tagsFile, tagsFile->valuestring,
-                     MAX_FILE_NAME_LEN-1);
+                     MAX_FILE_NAME_LEN);
         } else {
             memset(superTable->tagsFile, 0, MAX_FILE_NAME_LEN);
         }
@@ -905,24 +905,24 @@ static int getStreamInfo(tools_cJSON* json) {
             }
             SSTREAM * stream = benchCalloc(1, sizeof(SSTREAM), true);
             tstrncpy(stream->stream_name, stream_name->valuestring,
-                     TSDB_TABLE_NAME_LEN-1);
+                     TSDB_TABLE_NAME_LEN);
             tstrncpy(stream->stream_stb, stream_stb->valuestring,
-                     TSDB_TABLE_NAME_LEN-1);
+                     TSDB_TABLE_NAME_LEN);
             tstrncpy(stream->source_sql, source_sql->valuestring,
-                     TSDB_MAX_SQL_LEN-1);
+                     TSDB_MAX_SQL_LEN);
 
             tools_cJSON* trigger_mode =
                 tools_cJSON_GetObjectItem(streamObj, "trigger_mode");
             if (tools_cJSON_IsString(trigger_mode)) {
                 tstrncpy(stream->trigger_mode, trigger_mode->valuestring,
-                         BIGINT_BUFF_LEN-1);
+                         BIGINT_BUFF_LEN);
             }
 
             tools_cJSON* watermark =
                 tools_cJSON_GetObjectItem(streamObj, "watermark");
             if (tools_cJSON_IsString(watermark)) {
                 tstrncpy(stream->watermark, watermark->valuestring,
-                         BIGINT_BUFF_LEN-1);
+                         BIGINT_BUFF_LEN);
             }
 
             tools_cJSON* drop = tools_cJSON_GetObjectItem(streamObj, "drop");
@@ -1122,7 +1122,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
 
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (tools_cJSON_IsString(cfgdir)) {
-        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN-1);
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
@@ -1425,7 +1425,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                             tools_cJSON_GetObjectItem(sqlObj, "result");
                         if (tools_cJSON_IsString(result)) {
                             tstrncpy(sql->result, result->valuestring,
-                                     MAX_FILE_NAME_LEN-1);
+                                     MAX_FILE_NAME_LEN);
                         } else {
                             memset(sql->result, 0, MAX_FILE_NAME_LEN);
                         }
@@ -1479,7 +1479,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 && stblname->valuestring != NULL) {
             tstrncpy(g_queryInfo.superQueryInfo.stbName,
                      stblname->valuestring,
-                     TSDB_TABLE_NAME_LEN-1);
+                     TSDB_TABLE_NAME_LEN);
         }
 
         tools_cJSON *superAsyncMode =
@@ -1577,14 +1577,14 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 tools_cJSON *sqlStr = tools_cJSON_GetObjectItem(sql, "sql");
                 if (sqlStr && sqlStr->type == tools_cJSON_String) {
                     tstrncpy(g_queryInfo.superQueryInfo.sql[j],
-                             sqlStr->valuestring, TSDB_MAX_ALLOWED_SQL_LEN-1);
+                             sqlStr->valuestring, TSDB_MAX_ALLOWED_SQL_LEN);
                 }
 
                 tools_cJSON *result = tools_cJSON_GetObjectItem(sql, "result");
                 if (result != NULL && result->type == tools_cJSON_String
                     && result->valuestring != NULL) {
                     tstrncpy(g_queryInfo.superQueryInfo.result[j],
-                             result->valuestring, MAX_FILE_NAME_LEN-1);
+                             result->valuestring, MAX_FILE_NAME_LEN);
                 } else {
                     memset(g_queryInfo.superQueryInfo.result[j], 0,
                            MAX_FILE_NAME_LEN);
