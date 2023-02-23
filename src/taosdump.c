@@ -8681,10 +8681,11 @@ static int createMTableAvroHeadImp(
                         char *bytes = malloc(nlen+1);
                         ASSERT(bytes);
 
-                        strncpy(bytes,
+                        memcpy(bytes,
                                 subTableDes->cols[subTableDes->columns
                                 + tag].var_value,
                                 nlen);
+                        bytes[nlen] = 0;       
                         avro_value_set_bytes(&branch, bytes, nlen);
                         free(bytes);
                     } else {
