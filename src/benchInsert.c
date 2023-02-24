@@ -3204,6 +3204,7 @@ static int32_t createStream(SSTREAM* stream) {
     memset(command, 0, TSDB_MAX_ALLOWED_SQL_LEN);
     int pos = snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
             "CREATE STREAM IF NOT EXISTS %s ", stream->stream_name);
+
     if (stream->trigger_mode[0] != '\0') {
         pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
                 "TRIGGER %s ", stream->trigger_mode);
@@ -3212,8 +3213,34 @@ static int32_t createStream(SSTREAM* stream) {
         pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
                 "WATERMARK %s ", stream->watermark);
     }
+    if (stream->ignore_update[0] != '\0') {
+        pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+                "IGNORE UPDATE %s ", stream->ignore_update);
+    }
+    if (stream->ignore_expired[0] != '\0') {
+        pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+                "IGNORE EXPIRED %s ", stream->ignore_expired);
+    }
+    if (stream->fill_history[0] != '\0') {
+        pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+                "FILL_HISTORY %s ", stream->fill_history);
+    }
+    pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+            "INTO %s", stream->stream_stb);
+    if (stream->stream_stb_field[0] != '\0') {
+        pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+                "%s ", stream->stream_stb_field);
+    }
+    if (stream->stream_tag_field[0] != '\0') {
+        pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+                "TAGS%s ", stream->stream_tag_field);
+    }
+    if (stream->subtable[0] != '\0') {
+        snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+                "SUBTABLE%s ", stream->subtable);
+    }
     snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
-            "INTO %s as %s", stream->stream_stb, stream->source_sql);
+                "as %s", stream->source_sql);
     infoPrint("%s\n", command);
 
     code = queryDbExecCall(conn, command);
