@@ -276,6 +276,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
         database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
     }
     database->drop = true;
+    database->flush = false;
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
@@ -296,6 +297,11 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
             if (tools_cJSON_IsString(cfg_object)
                 && (0 == strcasecmp(cfg_object->valuestring, "no"))) {
                 database->drop = false;
+            }
+        } else if (0 == strcasecmp(cfg_object->string, "flush_each_batch")) {
+            if (tools_cJSON_IsString(cfg_object)
+                && (0 == strcasecmp(cfg_object->valuestring, "yes"))) {
+                database->flush = true;
             }
         } else if (0 == strcasecmp(cfg_object->string, "precision")) {
             if (tools_cJSON_IsString(cfg_object)) {

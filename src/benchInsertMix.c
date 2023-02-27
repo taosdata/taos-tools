@@ -871,6 +871,16 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         }
       }
 
+      // flush
+      if (db->flush) {
+        char sql[260] = "";
+        sprintf(sql, "flush database %s", db->dbName);
+        int32_t code = executeSql(sql);
+        if (code != 0) {
+          perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+        }
+      }
+
       // sleep if need
       if (stb->insert_interval > 0) {
         debugPrint("%s() LN%d, insert_interval: %" PRIu64 "\n", __func__, __LINE__, stb->insert_interval);
