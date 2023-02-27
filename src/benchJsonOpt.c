@@ -472,6 +472,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsString(prefix)) {
             superTable->childTblPrefix = prefix->valuestring;
         }
+        tools_cJSON *childTbleSample =
+            tools_cJSON_GetObjectItem(stbInfo, "childtable_sample_file");
+        if (tools_cJSON_IsString(childTbleSample)) {
+            superTable->childTblSample = childTbleSample->valuestring;
+        }
         tools_cJSON *escapeChar =
             tools_cJSON_GetObjectItem(stbInfo, "escape_character");
         if (tools_cJSON_IsString(escapeChar) &&
@@ -510,8 +515,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
 
         tools_cJSON *dataSource =
             tools_cJSON_GetObjectItem(stbInfo, "data_source");
-        if (tools_cJSON_IsString(dataSource) &&
-            (0 == strcasecmp(dataSource->valuestring, "sample"))) {
+        if (tools_cJSON_IsString(dataSource)
+                && (0 == strcasecmp(dataSource->valuestring, "sample"))) {
             superTable->random_data_source = false;
         }
 

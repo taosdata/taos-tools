@@ -574,13 +574,19 @@ enum CONTINUE_IF_FAIL_MODE {
     SMART_IF_FAILED,  // 2
 };
 
+typedef struct SChildTable_S {
+    char childTableName[TSDB_TABLE_NAME_LEN];
+    bool useOwnSample;
+    char *sampleDataFilename;
+} SChildTable;
 
 typedef struct SSuperTable_S {
-    char *   stbName;
+    char    *stbName;
     bool     random_data_source;  // rand_gen or sample
     bool     escape_character;
     bool     use_metric;
-    char *   childTblPrefix;
+    char    *childTblPrefix;
+    char    *childTblSample;
     bool     childTblExists;
     uint64_t childTblCount;
     uint64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
@@ -619,9 +625,9 @@ typedef struct SSuperTable_S {
     uint32_t fillIntervalDis;  // fill Dis interval rows cnt
 
     // binary prefix
-    char*    binaryPrefex;
+    char    *binaryPrefex;
     // nchar prefix
-    char*    ncharPrefex;
+    char    *ncharPrefex;
 
     // random write future time
     bool    useNow;
@@ -642,12 +648,12 @@ typedef struct SSuperTable_S {
     BArray * cols;
     BArray * tags;
     BArray * tsmas;
-    char **  childTblName;
+    SChildTable   **childTblArray;
     char *   colsOfCreateChildTable;
     uint32_t lenOfTags;
     uint32_t lenOfCols;
 
-    char *sampleDataBuf;
+    char      *sampleDataBuf;
     bool  useSampleTs;
     char *tagDataBuf;
     bool  tcpTransfer;
