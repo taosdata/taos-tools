@@ -498,6 +498,7 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
     do {
         bytes = recv(sockfd, responseBuf + received,
                 resp_len - received, 0);
+        responseBuf[resp_len] = 0;
         debugPrint("response buffer: %s\n", responseBuf);
         if (NULL != strstr(responseBuf, resEncodingChunk)) {
             chunked = true;
