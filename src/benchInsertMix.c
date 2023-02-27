@@ -608,7 +608,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   }
 
   int64_t range = ABS_DIFF(batStartTime, stb->startTimestamp);
-  int64_t rangeCnt = range / stb->timestamp_step;
+  int64_t rangeCnt = range / (stb->timestamp_step == 0 ? 1 : stb->timestamp_step);
 
   if (rangeCnt < 200) return 0;
 
