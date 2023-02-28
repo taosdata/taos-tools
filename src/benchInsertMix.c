@@ -943,6 +943,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     total.updRows += tbTotal.updRows;
 
     info->totalInsertRows +=mixRatio.insertedRows;
+
+    mixRatioExit(&mixRatio);
   }  // child table end
 
 
