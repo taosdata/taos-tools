@@ -28,11 +28,12 @@
                     "insert_mode": "taosc",
                     "insert_interval": 0,
                     "timestamp_step": 10,
-                    "start_timestamp":1500000000000,
+                    "start_timestamp":1600000000000,
                     "generate_row_rule":3,
                     "keep_trying": 2,
                     "trying_interval":10,
                     "check_correct_interval": 1,
+                    "flush_each_batch":"yes",
                     "columns": [
                         { "type": "timestamp",   "name": "tc"},
                         { "type": "bool",        "name": "bc"},
