@@ -1084,6 +1084,11 @@ static void parse_args(
 }
 
 static void copyHumanTimeToArg(char *timeStr, bool isStartTime) {
+    if (0 == strncmp(timeStr, "--start-time=", strlen("--start-time="))) {
+        timeStr += strlen("--start-time=");
+    } else if (0 == strncmp(timeStr, "--end-time=", strlen("--end-time="))) {
+        timeStr += strlen("--end-time=");
+    }
     if (isStartTime) {
         tstrncpy(g_args.humanStartTime, timeStr, HUMAN_TIME_LEN);
     } else {
@@ -1106,9 +1111,9 @@ static void parse_timestamp(
         bool isStartTime = false;
         bool isEndTime = false;
 
-        if (strcmp(argv[i], "-S") == 0) {
+        if (0 == strcmp(argv[i], "-S")) {
             isStartTime = true;
-        } else if (strcmp(argv[i], "-E") == 0) {
+        } else if (0 == strcmp(argv[i], "-E")) {
             isEndTime = true;
         }
 
@@ -1118,6 +1123,30 @@ static void parse_timestamp(
                 exit(-1);
             }
             tmp = strdup(argv[i+1]);
+
+            if (strchr(tmp, ':') && strchr(tmp, '-')) {
+                copyHumanTimeToArg(tmp, isStartTime);
+            } else {
+                copyTimestampToArg(tmp, isStartTime);
+            }
+
+            free(tmp);
+        }
+
+        if (0 == strncmp(argv[i], "--start-time=",
+                         strlen("--start-time="))) {
+            isStartTime = true;
+        } else if (0 == strncmp(argv[i], "--end-time=",
+                             strlen("--end-time="))) {
+            isEndTime = true;
+        }
+
+        if (isStartTime || isEndTime) {
+            if (NULL == argv[i]) {
+                errorPrint("%s need a valid value following!\n", argv[i]);
+                exit(-1);
+            }
+            tmp = strdup(argv[i]);
 
             if (strchr(tmp, ':') && strchr(tmp, '-')) {
                 copyHumanTimeToArg(tmp, isStartTime);
