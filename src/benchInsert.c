@@ -3204,7 +3204,6 @@ static int32_t createStream(SSTREAM* stream) {
     memset(command, 0, TSDB_MAX_ALLOWED_SQL_LEN);
     int pos = snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
             "CREATE STREAM IF NOT EXISTS %s ", stream->stream_name);
-
     if (stream->trigger_mode[0] != '\0') {
         pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
                 "TRIGGER %s ", stream->trigger_mode);
@@ -3236,11 +3235,11 @@ static int32_t createStream(SSTREAM* stream) {
                 "TAGS%s ", stream->stream_tag_field);
     }
     if (stream->subtable[0] != '\0') {
-        snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
+        pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
                 "SUBTABLE%s ", stream->subtable);
     }
     snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
-                "as %s", stream->source_sql);
+            "as %s", stream->source_sql);
     infoPrint("%s\n", command);
 
     code = queryDbExecCall(conn, command);
