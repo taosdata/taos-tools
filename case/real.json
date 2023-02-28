@@ -12,7 +12,7 @@
     "result_file": "./insert_res_mix.txt",
     "confirm_parameter_prompt": "no",
     "check_sql": "yes",
-    "failed_continue": "no",
+    "continue_if_fail": "no",
     "databases": [
         {
             "dbinfo": {

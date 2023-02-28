@@ -31,7 +31,7 @@
 #define  FORCE_TAKEOUT(type) (mix->insertedRows * 100 / mix->insertRows > 80)
 
 #define FAILED_BREAK()   \
-    if (g_arguments->failed_continue) {  \
+    if (g_arguments->continueIfFail == YES_IF_FAILED) {  \
         continue;                        \
     } else {                             \
         g_fail = true;                   \
@@ -924,9 +924,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
           // at once exit
           errorPrint(" \n\n *************  check correct not passed %s.%s ! errQueryCnt=%d errLastCnt=%d *********** \n\n", db->dbName, tbName, errQuertCnt, errLastCnt);
-          if(!g_arguments->failed_continue) {
-            exit(1);
-          }
+          FAILED_BREAK()
         }
       }
 
