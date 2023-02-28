@@ -699,6 +699,7 @@ typedef struct SDataBase_S {
     int32_t     vgroups;
     BArray      *vgArray;
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
+    bool        flush;
 } SDataBase;
 
 typedef struct SSQL_S {
@@ -815,7 +816,6 @@ typedef struct SArguments_S {
     uint32_t            trying_interval;
     int                 iface;
     int                 rest_server_ver_major;
-    bool                failed_continue;
     bool                check_sql;
     int                 suit;  // see define SUIT_
 #ifdef TD_VER_COMPATIBLE_3_0_0_0

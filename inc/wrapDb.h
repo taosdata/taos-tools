@@ -16,6 +16,8 @@
 #ifndef __WRAPDB_H_
 #define __WRAPDB_H_
 
+int32_t executeSql(TAOS* taos, char* sql);
+
 int32_t queryCnt(TAOS* taos, char* sql, int64_t * pVal);
 
 int32_t queryTS(TAOS* taos, char* sql, int64_t* pVal);
