@@ -16,6 +16,8 @@
             "dbinfo": {
                 "name": "mix4",
                 "drop": "yes",
+                "stt_trigger": 6,
+                "flush_each_batch":"yes",
                 "precision": "ms"
             },
             "super_tables": [
@@ -33,7 +35,6 @@
                     "keep_trying": 2,
                     "trying_interval":10,
                     "check_correct_interval": 1,
-                    "flush_each_batch":"yes",
                     "columns": [
                         { "type": "timestamp",   "name": "tc"},
                         { "type": "bool",        "name": "bc"},
