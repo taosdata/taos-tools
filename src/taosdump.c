@@ -1107,53 +1107,44 @@ static void copyTimestampToArg(char *timeStr, bool isStartTime) {
 static void parse_timestamp(
         int argc, char *argv[], SArguments *arguments) {
     for (int i = 1; i < argc; i++) {
-        char *tmp;
+        char *tmp0, *tmp;
         bool isStartTime = false;
         bool isEndTime = false;
 
-        if (0 == strcmp(argv[i], "-S")) {
+        if ((0 == strcmp(argv[i], "-S")
+                 || (0 == strncmp(
+                         argv[i], "--start-time=",
+                         strlen("--start-time="))))) {
             isStartTime = true;
-        } else if (0 == strcmp(argv[i], "-E")) {
+            if (0 == strcmp(argv[i], "-S")) {
+                tmp0 = argv[i+1];
+            } else {
+                tmp0 = argv[i];
+            }
+        } else if ((0 == strcmp(argv[i], "-E")
+                     || (0 == strncmp(
+                             argv[i],
+                             "--end-time=",
+                             strlen("--end-time="))))) {
             isEndTime = true;
+            if (0 == strcmp(argv[i], "-E")) {
+                tmp0 = argv[i+1];
+            } else {
+                tmp0 = argv[i];
+            }
         }
 
         if (isStartTime || isEndTime) {
-            if (NULL == argv[i+1]) {
-                errorPrint("%s need a valid value following!\n", argv[i]);
+            if (NULL == tmp0) {
+                errorPrint("%s need a valid value following!\n", tmp0);
                 exit(-1);
             }
-            tmp = strdup(argv[i+1]);
-
+            tmp = strdup(tmp0);
             if (strchr(tmp, ':') && strchr(tmp, '-')) {
                 copyHumanTimeToArg(tmp, isStartTime);
             } else {
                 copyTimestampToArg(tmp, isStartTime);
             }
-
-            free(tmp);
-        }
-
-        if (0 == strncmp(argv[i], "--start-time=",
-                         strlen("--start-time="))) {
-            isStartTime = true;
-        } else if (0 == strncmp(argv[i], "--end-time=",
-                             strlen("--end-time="))) {
-            isEndTime = true;
-        }
-
-        if (isStartTime || isEndTime) {
-            if (NULL == argv[i]) {
-                errorPrint("%s need a valid value following!\n", argv[i]);
-                exit(-1);
-            }
-            tmp = strdup(argv[i]);
-
-            if (strchr(tmp, ':') && strchr(tmp, '-')) {
-                copyHumanTimeToArg(tmp, isStartTime);
-            } else {
-                copyTimestampToArg(tmp, isStartTime);
-            }
-
             free(tmp);
         }
     }
