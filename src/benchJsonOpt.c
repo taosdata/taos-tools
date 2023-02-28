@@ -949,9 +949,9 @@ static int getStreamInfo(tools_cJSON* json) {
     return 0;
 }
 
-static int getMetaFromInsertJsonFile(tools_cJSON *json) {
+// read common item 
+static int getMetaFromCommonJsonFile(tools_cJSON *json) {
     int32_t code = -1;
-
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
     if (cfgdir && (cfgdir->type == tools_cJSON_String)
             && (cfgdir->valuestring != NULL)) {
@@ -962,13 +962,6 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (host && host->type == tools_cJSON_String && host->valuestring != NULL) {
         g_arguments->host = host->valuestring;
     }
-#ifdef WEBSOCKET
-    tools_cJSON *dsn = tools_cJSON_GetObjectItem(json, "dsn");
-    if (tools_cJSON_IsString(dsn)) {
-        g_arguments->dsn = dsn->valuestring;
-        g_arguments->websocket = true;
-    }
-#endif
 
     tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
     if (port && port->type == tools_cJSON_Number) {
@@ -985,6 +978,47 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         password->valuestring != NULL) {
         g_arguments->password = password->valuestring;
     }
+
+    tools_cJSON *answerPrompt =
+        tools_cJSON_GetObjectItem(json,
+                                  "confirm_parameter_prompt");  // yes, no,
+    if (answerPrompt && answerPrompt->type == tools_cJSON_String
+            && answerPrompt->valuestring != NULL) {
+        if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
+            g_arguments->answer_yes = true;
+        }
+    }
+
+    tools_cJSON *continueIfFail =
+        tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
+    if (tools_cJSON_IsString(continueIfFail)) {
+        if (0 == strcasecmp(continueIfFail->valuestring, "no")) {
+            g_arguments->continueIfFail = NO_IF_FAILED;
+        } else if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
+            g_arguments->continueIfFail = YES_IF_FAILED;
+        } else if (0 == strcasecmp(continueIfFail->valuestring, "smart")) {
+            g_arguments->continueIfFail = SMART_IF_FAILED;
+        } else {
+            errorPrint("cointinue_if_fail has unknown mode %s\n",
+                       continueIfFail->valuestring);
+            return -1;
+        }
+    }
+
+    code = 0;
+    return code;
+}
+
+static int getMetaFromInsertJsonFile(tools_cJSON *json) {
+    int32_t code = -1;
+
+#ifdef WEBSOCKET
+    tools_cJSON *dsn = tools_cJSON_GetObjectItem(json, "dsn");
+    if (tools_cJSON_IsString(dsn)) {
+        g_arguments->dsn = dsn->valuestring;
+        g_arguments->websocket = true;
+    }
+#endif
 
     // check after inserted
     tools_cJSON *checkSql = tools_cJSON_GetObjectItem(json, "check_sql");
@@ -1076,16 +1110,6 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         }
     }
 
-    tools_cJSON *answerPrompt =
-        tools_cJSON_GetObjectItem(json,
-                                  "confirm_parameter_prompt");  // yes, no,
-    if (answerPrompt && answerPrompt->type == tools_cJSON_String
-            && answerPrompt->valuestring != NULL) {
-        if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
-            g_arguments->answer_yes = true;
-        }
-    }
-
     tools_cJSON *dbinfos = tools_cJSON_GetObjectItem(json, "databases");
     if (!tools_cJSON_IsArray(dbinfos)) {
         errorPrint("%s", "Invalid databases format in json\n");
@@ -1117,60 +1141,10 @@ PARSE_OVER:
 static int getMetaFromQueryJsonFile(tools_cJSON *json) {
     int32_t code = -1;
 
-    tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
-    if (tools_cJSON_IsString(cfgdir)) {
-        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
-    }
-
-    tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
-    if (tools_cJSON_IsString(host)) {
-        g_arguments->host = host->valuestring;
-    }
-
-    tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
-    if (tools_cJSON_IsNumber(port)) {
-        g_arguments->port = (uint16_t)port->valueint;
-    }
-
     tools_cJSON *telnet_tcp_port =
         tools_cJSON_GetObjectItem(json, "telnet_tcp_port");
     if (tools_cJSON_IsNumber(telnet_tcp_port)) {
         g_arguments->telnet_tcp_port = (uint16_t)telnet_tcp_port->valueint;
-    }
-
-    tools_cJSON *user = tools_cJSON_GetObjectItem(json, "user");
-    if (tools_cJSON_IsString(user)) {
-        g_arguments->user = user->valuestring;
-    }
-
-    tools_cJSON *password = tools_cJSON_GetObjectItem(json, "password");
-    if (tools_cJSON_IsString(password)) {
-        g_arguments->password = password->valuestring;
-    }
-
-    tools_cJSON *answerPrompt =
-        tools_cJSON_GetObjectItem(json,
-                                  "confirm_parameter_prompt");  // yes, no,
-    if (tools_cJSON_IsString(answerPrompt)) {
-        if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
-            g_arguments->answer_yes = true;
-        }
-    }
-
-    tools_cJSON *continueIfFail =
-        tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
-    if (tools_cJSON_IsString(continueIfFail)) {
-        if (0 == strcasecmp(continueIfFail->valuestring, "no")) {
-            g_arguments->continueIfFail = NO_IF_FAILED;
-        } else if (0 == strcasecmp(continueIfFail->valuestring, "yes")) {
-            g_arguments->continueIfFail = YES_IF_FAILED;
-        } else if (0 == strcasecmp(continueIfFail->valuestring, "smart")) {
-            g_arguments->continueIfFail = SMART_IF_FAILED;
-        } else {
-            errorPrint("cointinue_if_fail has unknown mode %s\n",
-                       continueIfFail->valuestring);
-            return -1;
-        }
     }
 
     tools_cJSON *gQueryTimes = tools_cJSON_GetObjectItem(json, "query_times");
@@ -1643,6 +1617,8 @@ int getInfoFromJsonFile() {
         g_arguments->test_mode = INSERT_TEST;
     }
 
+    // read common item
+    code = getMetaFromCommonJsonFile(root);
     if (INSERT_TEST == g_arguments->test_mode) {
         code = getMetaFromInsertJsonFile(root);
     } else {
