@@ -35,7 +35,6 @@
         continue;                        \
     } else {                             \
         g_fail = true;                   \
-        g_arguments->terminate = true;   \
         break;                           \
     }                                    \
 
@@ -787,7 +786,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
     while (mixRatio.insertedRows < mixRatio.insertRows) {
       // check terminate
-      if (g_arguments->terminate) {
+      if (g_arguments->terminate || g_fail) {
         break;
       }
 
