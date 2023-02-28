@@ -1104,49 +1104,49 @@ static void copyTimestampToArg(char *timeStr, bool isStartTime) {
     }
 }
 
+static void parseTimestampConvert(char *input, bool isStartTime) {
+    if (NULL == input) {
+        errorPrint("%s", "input timestamp need a valid value!\n");
+        exit(-1);
+    }
+
+    char *tmp = strdup(input);
+    if (strchr(tmp, ':') && strchr(tmp, '-')) {
+        copyHumanTimeToArg(tmp, isStartTime);
+    } else {
+        copyTimestampToArg(tmp, isStartTime);
+    }
+    free(tmp);
+}
+
 static void parse_timestamp(
         int argc, char *argv[], SArguments *arguments) {
     for (int i = 1; i < argc; i++) {
-        char *tmp0, *tmp;
-        bool isStartTime = false;
-        bool isEndTime = false;
+        char *tmp;
 
         if ((0 == strcmp(argv[i], "-S")
                  || (0 == strncmp(
                          argv[i], "--start-time=",
                          strlen("--start-time="))))) {
-            isStartTime = true;
             if (0 == strcmp(argv[i], "-S")) {
-                tmp0 = argv[i+1];
+                tmp = argv[i+1];
             } else {
-                tmp0 = argv[i];
+                tmp = argv[i];
             }
+            parseTimestampConvert(tmp, true);
         } else if ((0 == strcmp(argv[i], "-E")
                      || (0 == strncmp(
                              argv[i],
                              "--end-time=",
                              strlen("--end-time="))))) {
-            isEndTime = true;
             if (0 == strcmp(argv[i], "-E")) {
-                tmp0 = argv[i+1];
+                tmp = argv[i+1];
             } else {
-                tmp0 = argv[i];
+                tmp = argv[i];
             }
+            parseTimestampConvert(tmp, false);
         }
 
-        if (isStartTime || isEndTime) {
-            if (NULL == tmp0) {
-                errorPrint("%s need a valid value following!\n", tmp0);
-                exit(-1);
-            }
-            tmp = strdup(tmp0);
-            if (strchr(tmp, ':') && strchr(tmp, '-')) {
-                copyHumanTimeToArg(tmp, isStartTime);
-            } else {
-                copyTimestampToArg(tmp, isStartTime);
-            }
-            free(tmp);
-        }
     }
 }
 
@@ -12793,7 +12793,8 @@ int inspectAvroFile(char *filename) {
 
                                 debugPrint("array_size is %zu\n", array_size);
                                 uint32_t array_u32 = 0;
-                                for (size_t item = 0; item < array_size; item++) {
+                                for (size_t item = 0; item < array_size;
+                                        item++) {
                                     avro_value_t item_value;
                                     avro_value_get_by_index(&field_value, item,
                                             &item_value, NULL);
