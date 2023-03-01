@@ -960,6 +960,13 @@ static int getStreamInfo(tools_cJSON* json) {
                          TSDB_MAX_SQL_LEN);
             }
 
+            tools_cJSON* subtable =
+                tools_cJSON_GetObjectItem(streamObj, "subtable");
+            if (tools_cJSON_IsString(subtable)) {
+                tstrncpy(stream->subtable, subtable->valuestring,
+                         TSDB_MAX_SQL_LEN);
+            }
+
             tools_cJSON* drop = tools_cJSON_GetObjectItem(streamObj, "drop");
             if (tools_cJSON_IsString(drop)) {
                 if (0 == strcasecmp(drop->valuestring, "yes")) {
