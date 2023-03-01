@@ -776,7 +776,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
   // loop insert child tables
   for (uint64_t tbIdx = info->start_table_from; tbIdx <= info->end_table_to; ++tbIdx) {
-    char* tbName = stb->childTblName[tbIdx];
+    char* tbName = stb->childTblArray[tbIdx]->childTableName;
 
     SMixRatio mixRatio;
     mixRatioInit(&mixRatio, stb);
