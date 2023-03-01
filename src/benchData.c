@@ -168,9 +168,26 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     return 0;
 }
 
-static int generateSampleFromCsvForStb(char *buffer,
-                                       char *file, int32_t length,
-                                       int64_t size) {
+static bool getSampleFileNameByPattern(char *filePath,
+                                       SSuperTable *stbInfo,
+                                       int64_t child) {
+    char *pos = strstr(stbInfo->childTblSample, "XXXX");
+    snprintf(filePath, MAX_PATH_LEN, "%s", stbInfo->childTblSample);
+    int64_t offset = (int64_t)pos - (int64_t)stbInfo->childTblSample;
+    snprintf(filePath + offset,
+             MAX_PATH_LEN - offset,
+            "%s",
+            stbInfo->childTblArray[child]->childTableName);
+    size_t len = strlen(stbInfo->childTblArray[child]->childTableName);
+    snprintf(filePath + offset + len,
+            MAX_PATH_LEN - offset - len,
+            "%s", pos +4);
+    return true;
+}
+
+static int generateSampleFromCsv(char *buffer,
+                                 char *file, int32_t length,
+                                 int64_t size) {
     size_t  n = 0;
     char *  line = NULL;
     int     getRows = 0;
@@ -228,11 +245,11 @@ static int generateSampleFromCsvForStb(char *buffer,
     return 0;
 }
 
-static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
-    FILE *  fp = fopen(stbInfo->sampleFile, "r");
+static int getAndSetRowsFromCsvFile(char *sampleFile, uint64_t *insertRows) {
+    FILE *  fp = fopen(sampleFile, "r");
     if (NULL == fp) {
         errorPrint("Failed to open sample file: %s, reason:%s\n",
-                   stbInfo->sampleFile, strerror(errno));
+                   sampleFile, strerror(errno));
         return -1;
     }
 
@@ -249,7 +266,7 @@ static int getAndSetRowsFromCsvFile(SSuperTable *stbInfo) {
     while (fgets(buf, TSDB_MAX_SQL_LEN, fp)) {
         line_count++;
     }
-    stbInfo->insertRows = line_count;
+    *insertRows = line_count;
     fclose(fp);
     tmfree(buf);
     return 0;
@@ -1339,11 +1356,16 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     return -1;
 }
 
+int prepareChildTblSampleData(SDataBase* database, SSuperTable* stbInfo) {
+    return -1;
+}
+
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     stbInfo->lenOfCols = accumulateRowLen(stbInfo->cols, stbInfo->iface);
     stbInfo->lenOfTags = accumulateRowLen(stbInfo->tags, stbInfo->iface);
-    if (stbInfo->partialColNum != 0 &&
-        (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE)) {
+    if (stbInfo->partialColNum != 0
+            && ((stbInfo->iface == TAOSC_IFACE
+                || stbInfo->iface == REST_IFACE))) {
         if (stbInfo->partialColNum > stbInfo->cols->size) {
             stbInfo->partialColNum = stbInfo->cols->size;
         } else {
@@ -1385,16 +1407,15 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         stbInfo->partialColNum = stbInfo->cols->size;
     }
     stbInfo->sampleDataBuf =
-            benchCalloc(1,
-                        stbInfo->lenOfCols*g_arguments->prepared_rand,
-                        true);
+            benchCalloc(
+                1, stbInfo->lenOfCols*g_arguments->prepared_rand, true);
     infoPrint(
               "generate stable<%s> columns data with lenOfCols<%u> * "
               "prepared_rand<%" PRIu64 ">\n",
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
     if (stbInfo->random_data_source) {
         if (generateRandData(stbInfo, stbInfo->sampleDataBuf,
-                            stbInfo->lenOfCols*g_arguments->prepared_rand,
+                             stbInfo->lenOfCols*g_arguments->prepared_rand,
                              stbInfo->lenOfCols,
                              stbInfo->cols,
                              g_arguments->prepared_rand,
@@ -1403,30 +1424,67 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         }
     } else {
         if (stbInfo->useSampleTs) {
-            if (getAndSetRowsFromCsvFile(stbInfo)) return -1;
+            if (getAndSetRowsFromCsvFile(
+                    stbInfo->sampleFile, &stbInfo->insertRows)) {
+                return -1;
+            }
         }
-        if (generateSampleFromCsvForStb(stbInfo->sampleDataBuf,
+        if (generateSampleFromCsv(stbInfo->sampleDataBuf,
                                         stbInfo->sampleFile, stbInfo->lenOfCols,
                                         g_arguments->prepared_rand)) {
             errorPrint("Failed to generate sample from csv file %s\n",
                     stbInfo->sampleFile);
             return -1;
         }
+
+        if (stbInfo->childTblSample) {
+            if (NULL == strstr(stbInfo->childTblSample, "XXXX")) {
+                errorPrint("Child table sample file pattern has no %s\n",
+                   "XXXX");
+                return -1;
+            }
+            for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
+                char sampleFilePath[MAX_PATH_LEN] = {0};
+                getSampleFileNameByPattern(sampleFilePath, stbInfo, child);
+                if (0 != access(sampleFilePath, F_OK)) {
+                    continue;
+                }
+                SChildTable *childTbl = stbInfo->childTblArray[child];
+                if (getAndSetRowsFromCsvFile(sampleFilePath,
+                                             &(childTbl->insertRows))) {
+                    return -1;
+                }
+
+                childTbl->sampleDataBuf =
+                    benchCalloc(
+                        1, stbInfo->lenOfCols*g_arguments->prepared_rand, true);
+                if (generateSampleFromCsv(
+                            childTbl->sampleDataBuf,
+                            sampleFilePath,
+                            stbInfo->lenOfCols,
+                            g_arguments->prepared_rand)) {
+                    errorPrint("Failed to generate sample from file "
+                                   "for child table %"PRId64"\n",
+                                    child);
+                    return -1;
+                }
+                childTbl->useOwnSample = true;
+            }
+        }
     }
     debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
 
     if (stbInfo->tags->size != 0) {
         stbInfo->tagDataBuf =
-                benchCalloc(1,
-                            stbInfo->childTblCount*stbInfo->lenOfTags,
-                            true);
+                benchCalloc(
+                    1, stbInfo->childTblCount*stbInfo->lenOfTags, true);
         infoPrint(
                   "generate stable<%s> tags data with lenOfTags<%u> * "
                   "childTblCount<%" PRIu64 ">\n",
                   stbInfo->stbName, stbInfo->lenOfTags,
-                stbInfo->childTblCount);
+                  stbInfo->childTblCount);
         if (stbInfo->tagsFile[0] != 0) {
-            if (generateSampleFromCsvForStb(
+            if (generateSampleFromCsv(
                     stbInfo->tagDataBuf, stbInfo->tagsFile,
                     stbInfo->lenOfTags,
                     stbInfo->childTblCount)) {
@@ -1435,7 +1493,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         } else {
             if (generateRandData(stbInfo,
                                  stbInfo->tagDataBuf,
-                                stbInfo->childTblCount*stbInfo->lenOfTags,
+                                 stbInfo->childTblCount*stbInfo->lenOfTags,
                                  stbInfo->lenOfTags,
                                  stbInfo->tags,
                                  stbInfo->childTblCount, true)) {
@@ -1445,8 +1503,10 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
-    if (0 != convertServAddr(stbInfo->iface,
-                       stbInfo->tcpTransfer, stbInfo->lineProtocol)) {
+    if (0 != convertServAddr(
+            stbInfo->iface,
+            stbInfo->tcpTransfer,
+            stbInfo->lineProtocol)) {
         return -1;
     }
     return 0;

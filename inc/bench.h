@@ -574,93 +574,100 @@ enum CONTINUE_IF_FAIL_MODE {
     SMART_IF_FAILED,  // 2
 };
 
+typedef struct SChildTable_S {
+    char      childTableName[TSDB_TABLE_NAME_LEN];
+    bool      useOwnSample;
+    char      *sampleDataBuf;
+    uint64_t  insertRows;
+} SChildTable;
 
 typedef struct SSuperTable_S {
-    char *   stbName;
-    bool     random_data_source;  // rand_gen or sample
-    bool     escape_character;
-    bool     use_metric;
-    char *   childTblPrefix;
-    bool     childTblExists;
-    uint64_t childTblCount;
-    uint64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
+    char      *stbName;
+    bool      random_data_source;  // rand_gen or sample
+    bool      escape_character;
+    bool      use_metric;
+    char      *childTblPrefix;
+    char      *childTblSample;
+    bool      childTblExists;
+    uint64_t  childTblCount;
+    uint64_t  batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
                                    // one sql
-    bool     autoCreateTable;
-    uint16_t iface;  // 0: taosc, 1: rest, 2: stmt
-    uint16_t lineProtocol;
-    uint64_t childTblLimit;
-    uint64_t childTblOffset;
-    uint64_t childTblFrom;
-    uint64_t childTblTo;
+    bool      autoCreateTable;
+    uint16_t  iface;  // 0: taosc, 1: rest, 2: stmt
+    uint16_t  lineProtocol;
+    uint64_t  childTblLimit;
+    uint64_t  childTblOffset;
+    uint64_t  childTblFrom;
+    uint64_t  childTblTo;
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
-    uint32_t interlaceRows;  //
-    int      disorderRatio;  // 0: no disorder, >0: x%
-    int      disorderRange;  // ms, us or ns. according to database precision
+    uint32_t  interlaceRows;  //
+    int       disorderRatio;  // 0: no disorder, >0: x%
+    int       disorderRange;  // ms, us or ns. according to database precision
 
     // ratio
-    uint8_t disRatio;   // disorder ratio 0 ~ 100 %
-    uint8_t updRatio;   // update ratio   0 ~ 100 %
-    uint8_t delRatio;   // delete ratio   0 ~ 100 %
+    uint8_t   disRatio;   // disorder ratio 0 ~ 100 %
+    uint8_t   updRatio;   // update ratio   0 ~ 100 %
+    uint8_t   delRatio;   // delete ratio   0 ~ 100 %
 
     // range
-    uint64_t disRange;  // disorder range
-    uint64_t updRange;  // update range
-    uint64_t delRange;  // delete range
+    uint64_t  disRange;  // disorder range
+    uint64_t  updRange;  // update range
+    uint64_t  delRange;  // delete range
 
     // generate row value rule see pre RULE_ define
-    uint8_t genRowRule;
+    uint8_t   genRowRule;
 
     // data position
-    uint8_t dataPos;  //  see define DATAPOS_
+    uint8_t   dataPos;  //  see define DATAPOS_
 
-    uint32_t fillIntervalUpd;  // fill Upd interval rows cnt
-    uint32_t fillIntervalDis;  // fill Dis interval rows cnt
+    uint32_t  fillIntervalUpd;  // fill Upd interval rows cnt
+    uint32_t  fillIntervalDis;  // fill Dis interval rows cnt
 
     // binary prefix
-    char*    binaryPrefex;
+    char      *binaryPrefex;
     // nchar prefix
-    char*    ncharPrefex;
+    char      *ncharPrefex;
 
     // random write future time
-    bool    useNow;
-    bool    writeFuture;
-    int32_t durMinute;  // passed database->durMinute
-    int32_t checkInterval;  // check correct interval
+    bool      useNow;
+    bool      writeFuture;
+    int32_t   durMinute;  // passed database->durMinute
+    int32_t   checkInterval;  // check correct interval
 
-    int64_t  max_sql_len;
-    uint64_t insert_interval;
-    uint64_t insertRows;
-    uint64_t timestamp_step;
-    int64_t  startTimestamp;
-    int64_t  specifiedColumns;
-    char     sampleFile[MAX_FILE_NAME_LEN];
-    char     tagsFile[MAX_FILE_NAME_LEN];
-    uint32_t partialColNum;
-    char *   partialColNameBuf;
-    BArray * cols;
-    BArray * tags;
-    BArray * tsmas;
-    char **  childTblName;
-    char *   colsOfCreateChildTable;
-    uint32_t lenOfTags;
-    uint32_t lenOfCols;
+    int64_t   max_sql_len;
+    uint64_t  insert_interval;
+    uint64_t  insertRows;
+    uint64_t  timestamp_step;
+    int64_t   startTimestamp;
+    int64_t   specifiedColumns;
+    char      sampleFile[MAX_FILE_NAME_LEN];
+    char      tagsFile[MAX_FILE_NAME_LEN];
+    uint32_t  partialColNum;
+    char      *partialColNameBuf;
+    BArray    *cols;
+    BArray    *tags;
+    BArray    *tsmas;
+    SChildTable   **childTblArray;
+    char      *colsOfCreateChildTable;
+    uint32_t  lenOfTags;
+    uint32_t  lenOfCols;
 
-    char *sampleDataBuf;
-    bool  useSampleTs;
-    char *tagDataBuf;
-    bool  tcpTransfer;
-    bool  non_stop;
-    char *comment;
-    int   delay;
-    int   file_factor;
-    char *rollup;
-    char* max_delay;
-    char* watermark;
-    int   ttl;
-    int32_t keep_trying;
-    uint32_t trying_interval;
+    char      *sampleDataBuf;
+    bool      useSampleTs;
+    char      *tagDataBuf;
+    bool      tcpTransfer;
+    bool      non_stop;
+    char      *comment;
+    int       delay;
+    int       file_factor;
+    char      *rollup;
+    char      *max_delay;
+    char      *watermark;
+    int       ttl;
+    int32_t   keep_trying;
+    uint32_t  trying_interval;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
