@@ -1595,7 +1595,9 @@ static void *syncWriteInterlace(void *sarg) {
 
             int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
             *pdelay = delay;
-            benchArrayPush(pThreadInfo->delayList, pdelay);
+            if(benchArrayPush(pThreadInfo->delayList, pdelay) == NULL){
+                tmfree(pdelay);
+            }
             pThreadInfo->totalDelay += delay;
         }
 
@@ -2229,7 +2231,9 @@ void *syncWriteProgressive(void *sarg) {
 
                 int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
                 *pDelay = delay;
-                benchArrayPush(pThreadInfo->delayList, pDelay);
+                if(benchArrayPush(pThreadInfo->delayList, pDelay) == NULL){
+                    tmfree(pDelay);
+                }
                 pThreadInfo->totalDelay += delay;
             }
 

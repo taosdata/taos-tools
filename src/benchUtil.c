@@ -1029,11 +1029,11 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
             tsize = (tsize << 1u);
         }
 
-        pArray->pData = realloc(pArray->pData, tsize * pArray->elemSize);
-        if (pArray->pData == NULL) {
+        void* pData = realloc(pArray->pData, tsize * pArray->elemSize);
+        if (pData == NULL) {
             return -1;
         }
-
+        pArray->pData = pData;
         pArray->capacity = tsize;
     }
     return 0;
