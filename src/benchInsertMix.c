@@ -31,11 +31,10 @@
 #define  FORCE_TAKEOUT(type) (mix->insertedRows * 100 / mix->insertRows > 80)
 
 #define FAILED_BREAK()   \
-    if (g_arguments->failed_continue) {  \
+    if (g_arguments->continueIfFail == YES_IF_FAILED) {  \
         continue;                        \
     } else {                             \
         g_fail = true;                   \
-        g_arguments->terminate = true;   \
         break;                           \
     }                                    \
 
@@ -608,7 +607,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   }
 
   int64_t range = ABS_DIFF(batStartTime, stb->startTimestamp);
-  int64_t rangeCnt = range / stb->timestamp_step;
+  int64_t rangeCnt = range / (stb->timestamp_step == 0 ? 1 : stb->timestamp_step);
 
   if (rangeCnt < 200) return 0;
 
@@ -787,7 +786,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
     while (mixRatio.insertedRows < mixRatio.insertRows) {
       // check terminate
-      if (g_arguments->terminate) {
+      if (g_arguments->terminate || g_fail) {
         break;
       }
 
@@ -871,6 +870,16 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         }
       }
 
+      // flush
+      if (db->flush) {
+        char sql[260] = "";
+        sprintf(sql, "flush database %s", db->dbName);
+        int32_t code = executeSql(info->conn->taos,sql);
+        if (code != 0) {
+          perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+        }
+      }
+
       // sleep if need
       if (stb->insert_interval > 0) {
         debugPrint("%s() LN%d, insert_interval: %" PRIu64 "\n", __func__, __LINE__, stb->insert_interval);
@@ -914,9 +923,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
           // at once exit
           errorPrint(" \n\n *************  check correct not passed %s.%s ! errQueryCnt=%d errLastCnt=%d *********** \n\n", db->dbName, tbName, errQuertCnt, errLastCnt);
-          if(!g_arguments->failed_continue) {
-            exit(1);
-          }
+          FAILED_BREAK()
         }
       }
 
@@ -936,6 +943,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     total.updRows += tbTotal.updRows;
 
     info->totalInsertRows +=mixRatio.insertedRows;
+
+    mixRatioExit(&mixRatio);
   }  // child table end
 
 
