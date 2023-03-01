@@ -2596,7 +2596,7 @@ static int printTotalDelay(SDataBase *database,
                            tmfree(infos);                     \
                            closeBenchConn(pThreadInfo->conn); \
                            pThreadInfo->conn = NULL;          \
-                         }\  
+                         }\
 
 
 static int startMultiThreadInsertData(SDataBase* database,
