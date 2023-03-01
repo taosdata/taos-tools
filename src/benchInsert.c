@@ -3133,14 +3133,9 @@ static int startMultiThreadInsertData(SDataBase* database,
         }
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
-        size_t dataSize = pThreadInfo->delayList->size;
-        void* pData = benchCalloc(1, dataSize, false);
-        if(benchArrayAddBatch(total_delay_list, pData, dataSize) == NULL) {
-            tmfree(pData);
-        }
-
-        // free delayList
-        benchArrayDestroy(pThreadInfo->delayList);
+        benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData,
+                pThreadInfo->delayList->size);
+        tmfree(pThreadInfo->delayList);
         pThreadInfo->delayList = NULL;
         // free conn
         if(pThreadInfo->conn) {
