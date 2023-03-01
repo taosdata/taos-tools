@@ -2592,12 +2592,11 @@ static int printTotalDelay(SDataBase *database,
 }
 
 #define FREE_RESOURCE()  {\
-                           tmfree(pids);                      \
-                           tmfree(infos);                     \
-                           closeBenchConn(pThreadInfo->conn); \
-                           pThreadInfo->conn = NULL;          \
+                           if(pThreadInfo->conn) closeBenchConn(pThreadInfo->conn); \
+                           benchArrayDestroy(pThreadInfo->delayList);  \
+                           tmfree(pids);                               \
+                           tmfree(infos);                              \
                          }\
-
 
 static int startMultiThreadInsertData(SDataBase* database,
         SSuperTable* stbInfo) {
@@ -2948,15 +2947,18 @@ static int startMultiThreadInsertData(SDataBase* database,
                     FREE_RESOURCE()                    
                     return -1;
                 }
-                char command[SHORT_1K_SQL_BUFF_LEN];
-                snprintf(command, SHORT_1K_SQL_BUFF_LEN,
-                         "USE %s", database->dbName);
+                char* command = benchCalloc(1,SHORT_1K_SQL_BUFF_LEN,false);
+                snprintf(command, SHORT_1K_SQL_BUFF_LEN, "USE %s", database->dbName);
                 if (queryDbExecCall(pThreadInfo->conn, command)) {
                     errorPrint("taos select database(%s) failed\n",
                                database->dbName);
                     FREE_RESOURCE()
+                    tmfree(command);
                     return -1;
                 }
+                tmfree(command);
+                command = NULL;
+
                 if (stbInfo->interlaceRows > 0) {
                     pThreadInfo->buffer = new_ds(0);
                 } else {
