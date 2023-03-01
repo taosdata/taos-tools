@@ -877,6 +877,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         int32_t code = executeSql(info->conn->taos,sql);
         if (code != 0) {
           perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+        } else {
+          perfPrint(" %s ok.\n", sql);
         }
       }
 
