@@ -2687,13 +2687,9 @@ static int startMultiThreadInsertData(SDataBase* database,
                     stbInfo->childTblArray[i]->childTableName, &vgId);
             if (ret < 0) {
                 errorPrint("Failed to get %s db's %s table's vgId\n",
-<<<<<<< HEAD
-                           database->dbName, stbInfo->childTblName[i]);
-                closeBenchConn(conn);           
-=======
                            database->dbName,
                            stbInfo->childTblArray[i]->childTableName);
->>>>>>> develop
+                closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
@@ -2731,13 +2727,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                     stbInfo->childTblArray[i]->childTableName, &vgId);
             if (ret < 0) {
                 errorPrint("Failed to get %s db's %s table's vgId\n",
-<<<<<<< HEAD
-                           database->dbName, stbInfo->childTblName[i]);
-                closeBenchConn(conn);           
-=======
                            database->dbName,
                            stbInfo->childTblArray[i]->childTableName);
->>>>>>> develop
+
+                closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
