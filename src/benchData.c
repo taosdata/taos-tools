@@ -617,10 +617,10 @@ static int generateRandDataStmt(
     // generateRandDataStmt()
     for (int i = 0; i < fields->size; ++i) {
         Field * field = benchArrayGet(fields, i);
-        if (field->type == TSDB_DATA_TYPE_BINARY ||
-            field->type == TSDB_DATA_TYPE_NCHAR) {
-                field->data = benchCalloc(1, loop * (field->length + 1), true);
-            } else {
+        if (field->type == TSDB_DATA_TYPE_BINARY
+                || field->type == TSDB_DATA_TYPE_NCHAR) {
+            field->data = benchCalloc(1, loop * (field->length + 1), true);
+        } else {
             field->data = benchCalloc(1, loop * field->length, true);
         }
     }

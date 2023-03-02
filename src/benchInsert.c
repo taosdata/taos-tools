@@ -1794,6 +1794,7 @@ static int32_t prepareProgressDataSmlJson(
 static int32_t prepareProgressDataSmlLine(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
+    char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSmlLine
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1809,7 +1810,7 @@ static int32_t prepareProgressDataSmlLine(
                 pThreadInfo
                 ->sml_tags[(int)tableSeq -
                 pThreadInfo->start_table_from],
-                stbInfo->sampleDataBuf +
+                sampleDataBuf +
                 pos * stbInfo->lenOfCols,
                 *timestamp);
         pos++;
@@ -1831,6 +1832,7 @@ static int32_t prepareProgressDataSmlLine(
 static int32_t prepareProgressDataSmlTelnet(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
+    char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSmlTelnet
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1844,7 +1846,7 @@ static int32_t prepareProgressDataSmlTelnet(
                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                 "%s %" PRId64 " %s %s", stbInfo->stbName,
                 *timestamp,
-                stbInfo->sampleDataBuf
+                sampleDataBuf
                 + pos * stbInfo->lenOfCols,
                 pThreadInfo
                 ->sml_tags[(int)tableSeq
@@ -1867,22 +1869,34 @@ static int32_t prepareProgressDataSmlTelnet(
 
 static int32_t prepareProgressDataSml(
     threadInfo *pThreadInfo,
-    char *tableName, uint64_t tableSeq,
+    SChildTable *childTbl,
+    uint64_t tableSeq,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSml
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+
+    char *sampleDataBuf;
+    if (childTbl->useOwnSample) {
+        sampleDataBuf = childTbl->sampleDataBuf;
+    } else {
+        sampleDataBuf = stbInfo->sampleDataBuf;
+    }
     int protocol = stbInfo->lineProtocol;
     int32_t generated = -1;
     switch (protocol) {
         case TSDB_SML_LINE_PROTOCOL:
             generated = prepareProgressDataSmlLine(
                     pThreadInfo,
-                    tableSeq, timestamp, i, ttl);
+                    tableSeq,
+                    sampleDataBuf,
+                    timestamp, i, ttl);
             break;
         case TSDB_SML_TELNET_PROTOCOL:
             generated = prepareProgressDataSmlTelnet(
                     pThreadInfo,
-                    tableSeq, timestamp, i, ttl);
+                    tableSeq,
+                    sampleDataBuf,
+                    timestamp, i, ttl);
             break;
         case TSDB_SML_JSON_PROTOCOL:
             generated = prepareProgressDataSmlJsonText(
@@ -1893,7 +1907,8 @@ static int32_t prepareProgressDataSml(
         case SML_JSON_TAOS_FORMAT:
             generated = prepareProgressDataSmlJson(
                     pThreadInfo,
-                    tableSeq, timestamp, i, ttl);
+                    tableSeq,
+                    timestamp, i, ttl);
             break;
         default:
             errorPrint("%s() LN%d: unknown protcolor: %d\n",
@@ -2116,7 +2131,8 @@ void *syncWriteProgressive(void *sarg) {
                 case SML_IFACE:
                     generated = prepareProgressDataSml(
                             pThreadInfo,
-                            tableName, tableSeq, &timestamp, i, ttl);
+                            childTbl,
+                            tableSeq, &timestamp, i, ttl);
                     break;
                 default:
                     break;
