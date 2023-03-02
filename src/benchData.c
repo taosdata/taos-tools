@@ -177,8 +177,8 @@ static bool getSampleFileNameByPattern(char *filePath,
     snprintf(filePath + offset,
              MAX_PATH_LEN - offset,
             "%s",
-            stbInfo->childTblArray[child]->childTableName);
-    size_t len = strlen(stbInfo->childTblArray[child]->childTableName);
+            stbInfo->childTblArray[child]->name);
+    size_t len = strlen(stbInfo->childTblArray[child]->name);
     snprintf(filePath + offset + len,
             MAX_PATH_LEN - offset - len,
             "%s", pos +4);

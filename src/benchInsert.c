@@ -404,7 +404,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     }
     taos_free_result(res);
 
-    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SHOW vgroups");
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SHOW VGROUPS");
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
@@ -764,7 +764,7 @@ static void *createTable(void *sarg) {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
                          "CREATE TABLE %s.%s %s;",
                          database->dbName,
-                         stbInfo->childTblArray[i]->childTableName,
+                         stbInfo->childTblArray[i]->name,
                          stbInfo->colsOfCreateChildTable);
             }
             batchNum++;
@@ -1043,12 +1043,8 @@ void postFreeResource() {
                         && (g_arguments->nthreads_auto)) {
                     for (int32_t v = 0; v < database->vgroups; v++) {
                         SVGroup *vg = benchArrayGet(database->vgArray, v);
-                        for (int64_t t = 0; t < vg->tbCountPerVgId; t++) {
-                            tmfree(vg->childTblName[t]);
-                            vg->childTblName[t] = NULL;
-                        }
-                        tmfree(vg->childTblName);
-                        vg->childTblName = NULL;
+                        tmfree(vg->childTblArray);
+                        vg->childTblArray = NULL;
                     }
                 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
@@ -1329,7 +1325,7 @@ static void *syncWriteInterlace(void *sarg) {
             }
             int64_t timestamp = pThreadInfo->start_time;
             char *  tableName =
-                stbInfo->childTblArray[tableSeq]->childTableName;
+                stbInfo->childTblArray[tableSeq]->name;
             char ttl[TTL_BUFF_LEN] = "";
             if (stbInfo->ttl != 0) {
                 snprintf(ttl, TTL_BUFF_LEN, "TTL %d", stbInfo->ttl);
@@ -1910,7 +1906,7 @@ static int32_t prepareProgressDataSml(
 
 static int32_t prepareProgressDataSql(
     threadInfo *pThreadInfo,
-    char *tableName, uint64_t tableSeq,
+    SChildTable *childTbl, uint64_t tableSeq,
     char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl,
     int32_t *pos, uint64_t *len) {
@@ -1928,14 +1924,14 @@ static int32_t prepareProgressDataSql(
                          "%s %s.%s USING %s.%s "
                          "TAGS (%s) %s VALUES ",
                          STR_INSERT_INTO, database->dbName,
-                         tableName, database->dbName,
+                         childTbl->name, database->dbName,
                          stbInfo->stbName,
                          stbInfo->tagDataBuf +
                          stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                            "%s %s.%s VALUES ", STR_INSERT_INTO,
-                           database->dbName, tableName);
+                           database->dbName, childTbl->name);
         }
     } else {
         if (stbInfo->autoCreateTable) {
@@ -1944,7 +1940,7 @@ static int32_t prepareProgressDataSql(
                     "%s %s.%s (%s) USING %s.%s "
                     "TAGS (%s) %s VALUES ",
                     STR_INSERT_INTO, database->dbName,
-                    tableName,
+                    childTbl->name,
                     stbInfo->partialColNameBuf,
                     database->dbName, stbInfo->stbName,
                     stbInfo->tagDataBuf +
@@ -1953,14 +1949,16 @@ static int32_t prepareProgressDataSql(
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                            "%s %s.%s (%s) VALUES ",
                            STR_INSERT_INTO, database->dbName,
-                           tableName,
+                           childTbl->name,
                            stbInfo->partialColNameBuf);
         }
     }
 
     char *ownSampleDataBuf;
-    if (stbInfo->childTblArray[tableSeq]->useOwnSample) {
-        ownSampleDataBuf = stbInfo->childTblArray[tableSeq]->sampleDataBuf;
+    if (childTbl->useOwnSample) {
+        debugPrint("%s is using own sample data\n",
+                  childTbl->name);
+        ownSampleDataBuf = childTbl->sampleDataBuf;
     } else {
         ownSampleDataBuf = stbInfo->sampleDataBuf;
     }
@@ -2053,26 +2051,22 @@ void *syncWriteProgressive(void *sarg) {
         char *   tableName = NULL;
 
         char *sampleDataBuf;
+        SChildTable *childTbl;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
         if (g_arguments->nthreads_auto) {
-            tableName = pThreadInfo->vg->childTblName[tableSeq];
-            sampleDataBuf = stbInfo->sampleDataBuf;
+            childTbl = pThreadInfo->vg->childTblArray[tableSeq];
         } else {
-            tableName = stbInfo->childTblArray[tableSeq]->childTableName;
-            if (stbInfo->childTblArray[tableSeq]->useOwnSample) {
-                sampleDataBuf = stbInfo->childTblArray[tableSeq]->sampleDataBuf;
-            } else {
-                sampleDataBuf = stbInfo->sampleDataBuf;
-            }
+            childTbl = stbInfo->childTblArray[tableSeq];
         }
 #else
-        tableName = stbInfo->childTblArray[tableSeq]->childTableName;
-        if (stbInfo->childTblArray[tableSeq]->useOwnSample) {
-            sampleDataBuf = stbInfo->childTblArray[tableSeq]->sampleDataBuf;
+        childTbl = stbInfo->childTblArray[tableSeq];
+#endif
+        tableName = childTbl->name;
+        if (childTbl->useOwnSample) {
+            sampleDataBuf = childTbl->sampleDataBuf;
         } else {
             sampleDataBuf = stbInfo->sampleDataBuf;
         }
-#endif
 
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
@@ -2107,7 +2101,7 @@ void *syncWriteProgressive(void *sarg) {
                 case REST_IFACE:
                     generated = prepareProgressDataSql(
                             pThreadInfo,
-                            tableName,
+                            childTbl,
                             tableSeq,
                             sampleDataBuf,
                             &timestamp, i, ttl, &pos, &len);
@@ -2476,13 +2470,15 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
 }
 
 static void fillChildTblNameByCount(SSuperTable *stbInfo) {
-    for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
-        snprintf(stbInfo->childTblArray[i]->childTableName,
+    for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+        snprintf(stbInfo->childTblArray[i]->name,
                  TSDB_TABLE_NAME_LEN,
                  stbInfo->escape_character?
                  "`%s%" PRIu64 "`":
                  "%s%" PRIu64 "",
                  stbInfo->childTblPrefix, i);
+        debugPrint("%s(): %s\n", __func__,
+                  stbInfo->childTblArray[i]->name);
     }
 }
 
@@ -2490,11 +2486,11 @@ static int64_t fillChildTblNameByFromTo(SDataBase *database,
         SSuperTable* stbInfo) {
     for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
         if (stbInfo->escape_character) {
-            snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->childTableName,
+            snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->name,
                      TSDB_TABLE_NAME_LEN,
                      "`%s%" PRIu64 "`", stbInfo->childTblPrefix, i);
         } else {
-            snprintf(stbInfo->childTblArray[i-stbInfo->childTblTo]->childTableName,
+            snprintf(stbInfo->childTblArray[i-stbInfo->childTblTo]->name,
                      TSDB_TABLE_NAME_LEN,
                      "%s%" PRIu64 "", stbInfo->childTblPrefix, i);
         }
@@ -2535,12 +2531,12 @@ static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         int *lengths = taos_fetch_lengths(res);
-        stbInfo->childTblArray[count]->childTableName[0] = '`';
-        strncpy(stbInfo->childTblArray[count]->childTableName+1, row[0], lengths[0]);
-        stbInfo->childTblArray[count]->childTableName[lengths[0] + 1] = '`';
-        stbInfo->childTblArray[count]->childTableName[lengths[0] + 2] = '\0';
-        debugPrint("stbInfo->childTblArray[%" PRId64 "]->childTableName: %s\n",
-                   count, stbInfo->childTblArray[count]->childTableName);
+        stbInfo->childTblArray[count]->name[0] = '`';
+        strncpy(stbInfo->childTblArray[count]->name +1, row[0], lengths[0]);
+        stbInfo->childTblArray[count]->name[lengths[0] + 1] = '`';
+        stbInfo->childTblArray[count]->name[lengths[0] + 2] = '\0';
+        debugPrint("stbInfo->childTblArray[%" PRId64 "]->name: %s\n",
+                   count, stbInfo->childTblArray[count]->name);
         count++;
     }
     taos_free_result(res);
@@ -2649,10 +2645,10 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
     } else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         // Normal table
         if (stbInfo->escape_character) {
-            snprintf(stbInfo->childTblArray[0]->childTableName, TSDB_TABLE_NAME_LEN,
+            snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
                     "`%s`", stbInfo->stbName);
         } else {
-            snprintf(stbInfo->childTblArray[0]->childTableName, TSDB_TABLE_NAME_LEN,
+            snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
                     "%s", stbInfo->stbName);
         }
     } else {
@@ -2694,17 +2690,17 @@ static int startMultiThreadInsertData(SDataBase* database,
             int vgId;
             int ret = taos_get_table_vgId(
                     conn->taos, database->dbName,
-                    stbInfo->childTblArray[i]->childTableName, &vgId);
+                    stbInfo->childTblArray[i]->name, &vgId);
             if (ret < 0) {
                 errorPrint("Failed to get %s db's %s table's vgId\n",
                            database->dbName,
-                           stbInfo->childTblArray[i]->childTableName);
+                           stbInfo->childTblArray[i]->name);
                 closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
                        database->dbName,
-                       stbInfo->childTblArray[i]->childTableName, vgId);
+                       stbInfo->childTblArray[i]->name, vgId);
             for (int32_t v = 0; v < database->vgroups; v ++) {
                 SVGroup *vg = benchArrayGet(database->vgArray, v);
                 if (vgId == vg->vgId) {
@@ -2723,36 +2719,31 @@ static int startMultiThreadInsertData(SDataBase* database,
             } else {
                 continue;
             }
-            vg->childTblName = benchCalloc(vg->tbCountPerVgId,
-                                           sizeof(char *), true);
-            for (int64_t n = 0; n < vg->tbCountPerVgId; n++) {
-                vg->childTblName[n] = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
-                vg->tbOffset = 0;
-            }
+            vg->childTblArray = benchCalloc(
+                    vg->tbCountPerVgId, sizeof(SChildTable*), true);
+            vg->tbOffset = 0;
         }
         for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
             int vgId;
             int ret = taos_get_table_vgId(
                     conn->taos, database->dbName,
-                    stbInfo->childTblArray[i]->childTableName, &vgId);
+                    stbInfo->childTblArray[i]->name, &vgId);
             if (ret < 0) {
                 errorPrint("Failed to get %s db's %s table's vgId\n",
                            database->dbName,
-                           stbInfo->childTblArray[i]->childTableName);
+                           stbInfo->childTblArray[i]->name);
 
                 closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
                        database->dbName,
-                       stbInfo->childTblArray[i]->childTableName, vgId);
+                       stbInfo->childTblArray[i]->name, vgId);
             for (int32_t v = 0; v < database->vgroups; v++) {
                 SVGroup *vg = benchArrayGet(database->vgArray, v);
                 if (vgId == vg->vgId) {
-                    strncpy(vg->childTblName[vg->tbOffset],
-                           stbInfo->childTblArray[i]->childTableName,
-                           TSDB_TABLE_NAME_LEN);
-
+                    vg->childTblArray[vg->tbOffset] = 
+                           stbInfo->childTblArray[i];
                     vg->tbOffset++;
                 }
             }
@@ -2899,7 +2890,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     errorPrint("taos select database(%s) failed\n",
                                database->dbName);
-                    FREE_RESOURCE()           
+                    FREE_RESOURCE()
                     return -1;
                 }
                 pThreadInfo->max_sql_len =
@@ -2985,7 +2976,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     errorPrint("%s() failed to connect\n", __func__);
-                    FREE_RESOURCE()                    
+                    FREE_RESOURCE()
                     return -1;
                 }
                 char* command = benchCalloc(1,SHORT_1K_SQL_BUFF_LEN,false);

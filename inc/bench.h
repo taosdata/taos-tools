@@ -575,7 +575,7 @@ enum CONTINUE_IF_FAIL_MODE {
 };
 
 typedef struct SChildTable_S {
-    char      childTableName[TSDB_TABLE_NAME_LEN];
+    char      name[TSDB_TABLE_NAME_LEN];
     bool      useOwnSample;
     char      *sampleDataBuf;
     uint64_t  insertRows;
@@ -687,10 +687,10 @@ typedef struct SSTREAM_S {
 
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
 typedef struct SVGroup_S {
-    int32_t   vgId;
-    uint64_t  tbCountPerVgId;
-    char    **childTblName;  // table name pointer array
-    uint64_t  tbOffset;  // internal use
+    int32_t       vgId;
+    uint64_t      tbCountPerVgId;
+    SChildTable   **childTblArray;
+    uint64_t      tbOffset;  // internal use
 } SVGroup;
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
         //

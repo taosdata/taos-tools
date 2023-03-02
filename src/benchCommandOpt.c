@@ -450,6 +450,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'M':
             g_arguments->mistMode = true;
+            g_arguments->prepared_rand = 57;
             break;
 
         case 'x':
@@ -871,6 +872,11 @@ void modify_argument() {
         encodeAuthBase64();
         g_arguments->rest_server_ver_major =
             getServerVersionRest(g_arguments->port);
+    }
+
+    if (g_arguments->demo_mode) {
+        g_arguments->mistMode = true;
+        g_arguments->prepared_rand = 137;
     }
 }
 
