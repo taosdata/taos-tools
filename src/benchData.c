@@ -458,9 +458,6 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int fieldsSize = fields->size;
-        if (!tag && (TSDB_SML_TELNET_PROTOCOL == stbInfo->lineProtocol)) {
-            fieldsSize = 1;
-        }
         for (int i = 0; i < fieldsSize; ++i) {
             Field * field = benchArrayGet(fields, i);
             if (field->none) {
@@ -1414,13 +1411,31 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
               "prepared_rand<%" PRIu64 ">\n",
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
     if (stbInfo->random_data_source) {
-        if (generateRandData(stbInfo, stbInfo->sampleDataBuf,
+        if (g_arguments->mistMode) {
+            for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
+                SChildTable *childTbl = stbInfo->childTblArray[child];
+                childTbl->sampleDataBuf =
+                    benchCalloc(
+                        1, stbInfo->lenOfCols*g_arguments->prepared_rand, true);
+                if (generateRandData(stbInfo, childTbl->sampleDataBuf,
                              stbInfo->lenOfCols*g_arguments->prepared_rand,
                              stbInfo->lenOfCols,
                              stbInfo->cols,
                              g_arguments->prepared_rand,
                              false)) {
-            return -1;
+                    return -1;
+                }
+                childTbl->useOwnSample = true;
+            }
+        } else {
+            if (generateRandData(stbInfo, stbInfo->sampleDataBuf,
+                             stbInfo->lenOfCols*g_arguments->prepared_rand,
+                             stbInfo->lenOfCols,
+                             stbInfo->cols,
+                             g_arguments->prepared_rand,
+                             false)) {
+                return -1;
+            }
         }
     } else {
         if (stbInfo->useSampleTs) {

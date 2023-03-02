@@ -1958,6 +1958,12 @@ static int32_t prepareProgressDataSql(
         }
     }
 
+    char *ownSampleDataBuf;
+    if (stbInfo->childTblArray[tableSeq]->useOwnSample) {
+        ownSampleDataBuf = stbInfo->childTblArray[tableSeq]->sampleDataBuf;
+    } else {
+        ownSampleDataBuf = stbInfo->sampleDataBuf;
+    }
     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
         if (stbInfo->useSampleTs
                 && (!stbInfo->random_data_source)) {
@@ -1987,7 +1993,7 @@ static int32_t prepareProgressDataSql(
                             TSDB_MAX_ALLOWED_SQL_LEN - *len,
                             "(%" PRId64 ",%s)",
                             disorderTs?disorderTs:*timestamp,
-                            stbInfo->sampleDataBuf +
+                            ownSampleDataBuf +
                             *pos * stbInfo->lenOfCols);
         }
         *pos += 1;

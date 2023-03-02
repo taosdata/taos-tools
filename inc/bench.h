@@ -829,6 +829,7 @@ typedef struct SArguments_S {
     int16_t             inputted_vgroups;
 #endif
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
+    bool                mistMode;
 } SArguments;
 
 typedef struct SBenchConn {

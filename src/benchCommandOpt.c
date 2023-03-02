@@ -449,7 +449,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             break;
 
         case 'M':
-            g_arguments->demo_mode = false;
+            g_arguments->mistMode = true;
             break;
 
         case 'x':
@@ -771,6 +771,7 @@ void init_argument() {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     g_arguments->inputted_vgroups = -1;
 #endif
+    g_arguments->mistMode = false;
 
     initDatabase();
     initStable();
