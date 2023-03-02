@@ -1575,6 +1575,143 @@ PARSE_OVER:
     return code;
 }
 
+
+
+static int getMetaFromTmqJsonFile(tools_cJSON *json) {
+    int32_t code = -1;
+
+    tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
+    if (tools_cJSON_IsString(cfgdir)) {
+        tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
+    }
+
+    tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
+    if (tools_cJSON_IsString(host)) {
+        g_arguments->host = host->valuestring;
+    }
+
+    tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
+    if (tools_cJSON_IsNumber(port)) {
+        g_arguments->port = (uint16_t)port->valueint;
+    }
+
+    tools_cJSON *user = tools_cJSON_GetObjectItem(json, "user");
+    if (tools_cJSON_IsString(user)) {
+        g_arguments->user = user->valuestring;
+    }
+
+    tools_cJSON *password = tools_cJSON_GetObjectItem(json, "password");
+    if (tools_cJSON_IsString(password)) {
+        g_arguments->password = password->valuestring;
+    }
+
+    tools_cJSON *answerPrompt =
+        tools_cJSON_GetObjectItem(json,
+                                  "confirm_parameter_prompt");  // yes, no,
+    if (tools_cJSON_IsString(answerPrompt)) {
+        if (0 == strcasecmp(answerPrompt->valuestring, "no")) {
+            g_arguments->answer_yes = true;
+        }
+    }
+
+    // consumer info
+    tools_cJSON *tmqInfo = tools_cJSON_GetObjectItem(json, "tmq_info");
+    g_tmqInfo.consumerInfo.concurrent = 1;
+
+    tools_cJSON *concurrent = tools_cJSON_GetObjectItem(tmqInfo, "concurrent");
+    if (tools_cJSON_IsNumber(concurrent)) {
+        g_tmqInfo.consumerInfo.concurrent = (uint32_t)concurrent->valueint;
+    }	
+
+    tools_cJSON *pollDelay = tools_cJSON_GetObjectItem(tmqInfo, "poll_delay");
+    if (tools_cJSON_IsNumber(pollDelay)) {
+        g_tmqInfo.consumerInfo.pollDelay = (uint32_t)pollDelay->valueint;
+    }	
+
+    tools_cJSON *autoCommitInterval = tools_cJSON_GetObjectItem(tmqInfo, "auto.commit.interval.ms");
+    if (tools_cJSON_IsNumber(autoCommitInterval)) {
+        g_tmqInfo.consumerInfo.autoCommitIntervalMs = (uint32_t)autoCommitInterval->valueint;
+    }
+
+    tools_cJSON *groupId = tools_cJSON_GetObjectItem(tmqInfo, "group.id");
+    if (tools_cJSON_IsString(groupId)) {
+        g_tmqInfo.consumerInfo.groupId = groupId->valuestring;
+    }
+
+    tools_cJSON *clientId = tools_cJSON_GetObjectItem(tmqInfo, "client.id");
+    if (tools_cJSON_IsString(clientId)) {
+        g_tmqInfo.consumerInfo.clientId = clientId->valuestring;
+    }
+
+    tools_cJSON *autoOffsetReset = tools_cJSON_GetObjectItem(tmqInfo, "auto.offset.reset");
+    if (tools_cJSON_IsString(autoOffsetReset)) {
+        g_tmqInfo.consumerInfo.autoOffsetReset = autoOffsetReset->valuestring;
+    }
+
+
+    tools_cJSON *enableAutoCommit = tools_cJSON_GetObjectItem(tmqInfo, "enable.auto.commit");
+    if (tools_cJSON_IsString(enableAutoCommit)) {
+        g_tmqInfo.consumerInfo.enableAutoCommit = enableAutoCommit->valuestring;
+    }
+
+
+    tools_cJSON *enableHeartbeatBackground = tools_cJSON_GetObjectItem(tmqInfo, "enable.heartbeat.background");
+    if (tools_cJSON_IsString(enableHeartbeatBackground)) {
+        g_tmqInfo.consumerInfo.enableHeartbeatBackground = enableHeartbeatBackground->valuestring;
+    }
+
+    tools_cJSON *snapshotEnable = tools_cJSON_GetObjectItem(tmqInfo, "experimental.snapshot.enable");
+    if (tools_cJSON_IsString(snapshotEnable)) {
+        g_tmqInfo.consumerInfo.snapshotEnable = snapshotEnable->valuestring;
+    }
+
+
+    tools_cJSON *msgWithTableName = tools_cJSON_GetObjectItem(tmqInfo, "msg.with.table.name");
+    if (tools_cJSON_IsString(msgWithTableName)) {
+        g_tmqInfo.consumerInfo.msgWithTableName = msgWithTableName->valuestring;
+    }
+
+
+
+	tools_cJSON *topicList = tools_cJSON_GetObjectItem(tmqInfo, "topic_list");
+	if (tools_cJSON_IsArray(topicList)) {
+		int topicCount = tools_cJSON_GetArraySize(topicList);
+		for (int j = 0; j < topicCount; ++j) {
+			tools_cJSON *topicObj = tools_cJSON_GetArrayItem(topicList, j);
+			if (tools_cJSON_IsObject(topicObj)) {
+				tools_cJSON *topicName = tools_cJSON_GetObjectItem(topicObj, "name");
+				if (tools_cJSON_IsString(topicName)) {
+					//int strLen = strlen(topicName->valuestring) + 1;
+					tstrncpy(g_tmqInfo.consumerInfo.topicName[g_tmqInfo.consumerInfo.topicCount], topicName->valuestring, 255);
+
+				} else {
+					errorPrint("%s","Invalid topic name in json\n");
+					goto PARSE_OVER;
+				}
+				
+				tools_cJSON *sqlString = tools_cJSON_GetObjectItem(topicObj, "sql");
+				if (tools_cJSON_IsString(sqlString)) {
+					//int strLen = strlen(sqlString->valuestring) + 1;
+					tstrncpy(g_tmqInfo.consumerInfo.topicSql[g_tmqInfo.consumerInfo.topicCount], sqlString->valuestring, 255);
+
+				} else {
+					errorPrint("%s","Invalid topic sql in json\n");
+					goto PARSE_OVER;
+				}
+
+				g_tmqInfo.consumerInfo.topicCount++;
+				
+			}
+		}
+	}
+
+    code = 0;
+
+PARSE_OVER:
+    return code;
+}
+
+
 int getInfoFromJsonFile() {
     char *  file = g_arguments->metaFile;
     int32_t code = -1;
@@ -1626,9 +1763,12 @@ int getInfoFromJsonFile() {
     code = getMetaFromCommonJsonFile(root);
     if (INSERT_TEST == g_arguments->test_mode) {
         code = getMetaFromInsertJsonFile(root);
-    } else {
+    } else if (QUERY_TEST == g_arguments->test_mode) {
         memset(&g_queryInfo, 0, sizeof(SQueryMetaInfo));
         code = getMetaFromQueryJsonFile(root);
+    } else if (SUBSCRIBE_TEST == g_arguments->test_mode) {
+        memset(&g_tmqInfo, 0, sizeof(STmqMetaInfo));
+        code = getMetaFromTmqJsonFile(root);
     }
 PARSE_OVER:
     free(content);
