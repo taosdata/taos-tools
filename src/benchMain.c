@@ -15,6 +15,7 @@
 
 SArguments*    g_arguments;
 SQueryMetaInfo g_queryInfo;
+STmqMetaInfo   g_tmqInfo;
 bool           g_fail = false;
 uint64_t       g_memoryUsage = 0;
 tools_cJSON*   root;
