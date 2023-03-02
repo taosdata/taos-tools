@@ -876,9 +876,9 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         sprintf(sql, "flush database %s", db->dbName);
         int32_t code = executeSql(info->conn->taos,sql);
         if (code != 0) {
-          perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+          errorPrint(" %s failed. error code = 0x%x\n", sql, code);
         } else {
-          perfPrint(" %s ok.\n", sql);
+          infoPrint(" %s ok.\n", sql);
         }
       }
 
@@ -898,7 +898,9 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
         int64_t* pdelay = benchCalloc(1, sizeof(int64_t), false);
         *pdelay = delay;
-        benchArrayPush(info->delayList, pdelay);
+        if(info->delayList && benchArrayPush(info->delayList, pdelay) == NULL) {
+          tmfree(pdelay);
+        }
         info->totalDelay += delay;
       }
        
