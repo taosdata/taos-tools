@@ -54,9 +54,9 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                     ret = -1;
                 }
             } else {
-                if (strlen(pThreadInfo->filePath) > 0) {
+                //if (strlen(pThreadInfo->filePath) > 0) {
                     fetchResult(res, pThreadInfo);
-                }
+                //}
             }
             taos_free_result(res);
         }

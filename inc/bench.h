@@ -769,6 +769,32 @@ typedef struct SQueryMetaInfo_S {
     char*               dbName;
 } SQueryMetaInfo;
 
+
+typedef struct SConsumerInfo_S {
+    uint32_t  concurrent;
+    uint32_t  pollDelay;  // ms
+    char*      groupId;
+	char*      clientId;
+	char*      autoOffsetReset;
+
+	char*      enableAutoCommit;	
+	uint32_t  autoCommitIntervalMs; // ms
+	char*      enableHeartbeatBackground;
+	char*      snapshotEnable;
+	char*      msgWithTableName;
+	
+    char      topicName[MAX_QUERY_SQL_COUNT][256];
+    char      topicSql[MAX_QUERY_SQL_COUNT][256];
+    int       topicCount;
+
+} SConsumerInfo;
+
+typedef struct STmqMetaInfo_S {
+    SConsumerInfo      consumerInfo;
+    uint16_t           iface;
+	int16_t            ifSaveData;
+} STmqMetaInfo;
+
 typedef struct SArguments_S {
     uint8_t             taosc_version;
     char *              metaFile;
@@ -916,6 +942,7 @@ extern char *         g_aggreFuncDemo[];
 extern char *         g_aggreFunc[];
 extern SArguments *   g_arguments;
 extern SQueryMetaInfo g_queryInfo;
+extern STmqMetaInfo   g_tmqInfo;
 extern bool           g_fail;
 extern char           configDir[];
 extern tools_cJSON *  root;
