@@ -10,8 +10,8 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
-import os, signal
-from time import sleep
+import os
+import time
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -65,7 +65,7 @@ class TDTestCase:
         cmd = "%s -f ./taosbenchmark/json/tmq_basic.json &" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        time.sleep(15)
+        time.sleep(5)
 #        try:
 #            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
 #                fields = line.split()
