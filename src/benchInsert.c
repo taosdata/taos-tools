@@ -14,6 +14,14 @@
 #include <benchData.h>
 #include <benchInsertMix.h>
 
+#define FREE_RESOURCE()  {\
+                           if(pThreadInfo->conn) closeBenchConn(pThreadInfo->conn); \
+                           benchArrayDestroy(pThreadInfo->delayList);  \
+                           tmfree(pids);                               \
+                           tmfree(infos);                              \
+                         }\
+
+
 static int getSuperTableFromServerRest(
     SDataBase* database, SSuperTable* stbInfo, char *command) {
 
@@ -76,6 +84,7 @@ static int getSuperTableFromServerTaosc(
         if (lengths == NULL) {
             errorPrint("%s", "failed to execute taos_fetch_length\n");
             taos_free_result(res);
+            closeBenchConn(conn);
             return -1;
         }
         if (strncasecmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
@@ -1586,7 +1595,9 @@ static void *syncWriteInterlace(void *sarg) {
 
             int64_t * pdelay = benchCalloc(1, sizeof(int64_t), false);
             *pdelay = delay;
-            benchArrayPush(pThreadInfo->delayList, pdelay);
+            if(benchArrayPush(pThreadInfo->delayList, pdelay) == NULL){
+                tmfree(pdelay);
+            }
             pThreadInfo->totalDelay += delay;
         }
 
@@ -2220,7 +2231,9 @@ void *syncWriteProgressive(void *sarg) {
 
                 int64_t * pDelay = benchCalloc(1, sizeof(int64_t), false);
                 *pDelay = delay;
-                benchArrayPush(pThreadInfo->delayList, pDelay);
+                if(benchArrayPush(pThreadInfo->delayList, pDelay) == NULL){
+                    tmfree(pDelay);
+                }
                 pThreadInfo->totalDelay += delay;
             }
 
@@ -2680,6 +2693,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 errorPrint("Failed to get %s db's %s table's vgId\n",
                            database->dbName,
                            stbInfo->childTblArray[i]->childTableName);
+                closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
@@ -2719,6 +2733,8 @@ static int startMultiThreadInsertData(SDataBase* database,
                 errorPrint("Failed to get %s db's %s table's vgId\n",
                            database->dbName,
                            stbInfo->childTblArray[i]->childTableName);
+
+                closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
@@ -2827,21 +2843,20 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->conn->stmt =
                     taos_stmt_init(pThreadInfo->conn->taos);
                 if (NULL == pThreadInfo->conn->stmt) {
-                    tmfree(pids);
-                    tmfree(infos);
                     errorPrint("taos_stmt_init() failed, reason: %s\n",
                                taos_errstr(NULL));
+                    FREE_RESOURCE()
                     return -1;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                    tmfree(pids);
-                    tmfree(infos);
                     errorPrint("taos select database(%s) failed\n",
                             database->dbName);
+                    FREE_RESOURCE()
                     return -1;
                 }
                 if (!stbInfo->autoCreateTable) {
                     if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, 0)) {
+                        FREE_RESOURCE()
                         return -1;
                     }
                 }
@@ -2871,16 +2886,14 @@ static int startMultiThreadInsertData(SDataBase* database,
             case SML_IFACE: {
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
-                    tmfree(pids);
-                    tmfree(infos);
                     errorPrint("%s() init connection failed\n", __func__);
+                    FREE_RESOURCE()
                     return -1;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                    tmfree(pids);
-                    tmfree(infos);
                     errorPrint("taos select database(%s) failed\n",
                                database->dbName);
+                    FREE_RESOURCE()           
                     return -1;
                 }
                 pThreadInfo->max_sql_len =
@@ -2965,21 +2978,22 @@ static int startMultiThreadInsertData(SDataBase* database,
             case TAOSC_IFACE: {
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
-                    tmfree(pids);
-                    tmfree(infos);
                     errorPrint("%s() failed to connect\n", __func__);
+                    FREE_RESOURCE()                    
                     return -1;
                 }
-                char command[SHORT_1K_SQL_BUFF_LEN];
-                snprintf(command, SHORT_1K_SQL_BUFF_LEN,
-                         "USE %s", database->dbName);
+                char* command = benchCalloc(1,SHORT_1K_SQL_BUFF_LEN,false);
+                snprintf(command, SHORT_1K_SQL_BUFF_LEN, "USE %s", database->dbName);
                 if (queryDbExecCall(pThreadInfo->conn, command)) {
-                    tmfree(pids);
-                    tmfree(infos);
                     errorPrint("taos select database(%s) failed\n",
                                database->dbName);
+                    FREE_RESOURCE()
+                    tmfree(command);
                     return -1;
                 }
+                tmfree(command);
+                command = NULL;
+
                 if (stbInfo->interlaceRows > 0) {
                     pThreadInfo->buffer = new_ds(0);
                 } else {
@@ -3003,6 +3017,7 @@ static int startMultiThreadInsertData(SDataBase* database,
               (double)g_memoryUsage / 1048576);
     prompt(0);
 
+    // create threads
     for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
         threadInfo *pThreadInfo = infos + i;
         if (stbInfo->interlaceRows > 0) {
@@ -3016,6 +3031,7 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     int64_t start = toolsGetTimestampUs();
 
+    // wait threads
     for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
         pthread_join(pids[i], NULL);
     }
@@ -3028,6 +3044,7 @@ static int startMultiThreadInsertData(SDataBase* database,
     int64_t   totalDelay = 0;
     uint64_t  totalInsertRows = 0;
 
+    // free threads resource
     for (int i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
         // free check sql
@@ -3080,7 +3097,6 @@ static int startMultiThreadInsertData(SDataBase* database,
                         pThreadInfo->json_array = NULL;
                     }
                 }
-                closeBenchConn(pThreadInfo->conn);
                 if (pThreadInfo->lines) {
                     if ((0 == stbInfo->interlaceRows)
                             && (TSDB_SML_JSON_PROTOCOL == protocol)) {
@@ -3097,7 +3113,6 @@ static int startMultiThreadInsertData(SDataBase* database,
 
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
-                closeBenchConn(pThreadInfo->conn);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
@@ -3111,7 +3126,6 @@ static int startMultiThreadInsertData(SDataBase* database,
                     tmfree(pThreadInfo->buffer);
                     pThreadInfo->buffer = NULL;
                 }
-                closeBenchConn(pThreadInfo->conn);
                 break;
 
             default:
@@ -3123,7 +3137,14 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->delayList->size);
         tmfree(pThreadInfo->delayList);
         pThreadInfo->delayList = NULL;
+        // free conn
+        if(pThreadInfo->conn) {
+            closeBenchConn(pThreadInfo->conn);
+            pThreadInfo->conn = NULL;
+        }
     }
+
+    // calculate result
     qsort(total_delay_list->pData, total_delay_list->size,
             total_delay_list->elemSize, compare);
 

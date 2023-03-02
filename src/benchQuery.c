@@ -142,7 +142,9 @@ static void *mixedQuery(void *sarg) {
                        __func__, __LINE__, *delay);
 
             pThreadInfo->total_delay += (et - st);
-            benchArrayPush(pThreadInfo->query_delay_list, delay);
+            if(benchArrayPush(pThreadInfo->query_delay_list, delay) == NULL){
+                tmfree(delay);
+            }
             int64_t currentPrintTs = toolsGetTimestampMs();
             if (currentPrintTs - lastPrintTs > 10 * 1000) {
                 infoPrint("thread[%d] has currently complete query %d times\n",

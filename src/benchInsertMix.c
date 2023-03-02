@@ -860,7 +860,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
           int64_t delCnt = 0;
           queryCnt(info->conn->taos, querySql, &delCnt);
           if (delCnt != 0) {
-            errorPrint(" del not clear zero. query count=%" PRId64, delCnt);
+            errorPrint(" del not clear zero. query count=%" PRId64 " \n  delete sql=%s\n  query sql=%s\n", delCnt, info->buffer, querySql);
             FAILED_BREAK();
           }
 
@@ -877,6 +877,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         int32_t code = executeSql(info->conn->taos,sql);
         if (code != 0) {
           perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+        } else {
+          perfPrint(" %s ok.\n", sql);
         }
       }
 
