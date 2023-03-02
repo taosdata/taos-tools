@@ -1012,17 +1012,17 @@ void postFreeResource() {
                 stbInfo->partialColNameBuf = NULL;
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
-                    tmfree(tag->data);
-                    tag->data = NULL;
+                    tmfree(tag->stmtData.data);
+                    tag->stmtData.data = NULL;
                 }
                 benchArrayDestroy(stbInfo->tags);
 
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
-                    tmfree(col->data);
-                    col->data = NULL;
-                    tmfree(col->is_null);
-                    col->is_null = NULL;
+                    tmfree(col->stmtData.data);
+                    col->stmtData.data = NULL;
+                    tmfree(col->stmtData.is_null);
+                    col->stmtData.is_null = NULL;
                 }
                 benchArrayDestroy(stbInfo->cols);
                 if (g_arguments->test_mode == INSERT_TEST
@@ -2292,76 +2292,76 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
 
         is_null = calloc(1, sizeof(char) *g_arguments->prepared_rand);
         ASSERT(is_null);
-        tmfree(col->is_null);
-        col->is_null = is_null;
+        tmfree(col->stmtData.is_null);
+        col->stmtData.is_null = is_null;
 
         switch (dataType) {
             case TSDB_DATA_TYPE_INT:
             case TSDB_DATA_TYPE_UINT:
                 tmpP = calloc(1, sizeof(int) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_TINYINT:
             case TSDB_DATA_TYPE_UTINYINT:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_SMALLINT:
             case TSDB_DATA_TYPE_USMALLINT:
                 tmpP = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BIGINT:
             case TSDB_DATA_TYPE_UBIGINT:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BOOL:
                 tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_FLOAT:
                 tmpP = calloc(1, sizeof(float) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_DOUBLE:
                 tmpP = calloc(1, sizeof(double) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
                 tmpP = calloc(1, g_arguments->prepared_rand * col->length);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             case TSDB_DATA_TYPE_TIMESTAMP:
                 tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
                 assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
+                tmfree(col->stmtData.data);
+                col->stmtData.data = (void*)tmpP;
                 break;
 
             default:
@@ -2410,43 +2410,48 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
             strncpy(tmpStr, restStr, index);
 
             if (0 == strcmp(tmpStr, "NULL")) {
-                *(col->is_null + i) = true;
+                *(col->stmtData.is_null + i) = true;
             } else {
                 switch (dataType) {
                     case TSDB_DATA_TYPE_INT:
                     case TSDB_DATA_TYPE_UINT:
-                        *((int32_t*)col->data + i) = atoi(tmpStr);
+                        *((int32_t*)col->stmtData.data + i) = atoi(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_FLOAT:
-                        *((float*)col->data +i) = (float)atof(tmpStr);
+                        *((float*)col->stmtData.data +i) = (float)atof(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_DOUBLE:
-                        *((double*)col->data + i) = atof(tmpStr);
+                        *((double*)col->stmtData.data + i) = atof(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_TINYINT:
                     case TSDB_DATA_TYPE_UTINYINT:
-                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        *((int8_t*)col->stmtData.data + i) =
+                            (int8_t)atoi(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_SMALLINT:
                     case TSDB_DATA_TYPE_USMALLINT:
-                        *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
+                        *((int16_t*) col->stmtData.data + i) =
+                            (int16_t)atoi(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_BIGINT:
                     case TSDB_DATA_TYPE_UBIGINT:
-                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        *((int64_t*)col->stmtData.data + i) =
+                            (int64_t)atol(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_BOOL:
-                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        *((int8_t*)col->stmtData.data + i) =
+                            (int8_t)atoi(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_TIMESTAMP:
-                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        *((int64_t*)col->stmtData.data + i) =
+                            (int64_t)atol(tmpStr);
                         break;
 
                     case TSDB_DATA_TYPE_BINARY:
@@ -2464,10 +2469,13 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
                             }
 
                             if (tmpLen > 2) {
-                                strncpy((char *)col->data + i * col->length,
-                                        tmpStr+1, min(col->length, tmpLen - 2));
+                                strncpy((char *)col->stmtData.data
+                                        + i * col->length,
+                                        tmpStr+1,
+                                        min(col->length, tmpLen - 2));
                             } else {
-                                strncpy((char *)col->data + i*col->length,
+                                strncpy((char *)col->stmtData.data
+                                        + i*col->length,
                                         "", 1);
                             }
                         }

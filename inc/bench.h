@@ -530,14 +530,22 @@ static const int OFF_CUSTOM     = -3;
 static const int OFF_LEN     = -2;
 static const int OFF_CAP     = -1;
 
+typedef struct SStmtData {
+    void    *data;
+    char    *is_null;
+} StmtData;
+
+typedef struct SChildField {
+    StmtData stmtData;
+} ChildField;
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
     bool     none;
     bool     null;
-    void *   data;
-    char *   is_null;
+    StmtData stmtData;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
@@ -579,6 +587,7 @@ typedef struct SChildTable_S {
     bool      useOwnSample;
     char      *sampleDataBuf;
     uint64_t  insertRows;
+    BArray    *childCols;
 } SChildTable;
 
 typedef struct SSuperTable_S {

@@ -619,9 +619,9 @@ static int generateRandDataStmt(
         Field * field = benchArrayGet(fields, i);
         if (field->type == TSDB_DATA_TYPE_BINARY
                 || field->type == TSDB_DATA_TYPE_NCHAR) {
-            field->data = benchCalloc(1, loop * (field->length + 1), true);
+            field->stmtData.data = benchCalloc(1, loop * (field->length + 1), true);
         } else {
-            field->data = benchCalloc(1, loop * field->length, true);
+            field->stmtData.data = benchCalloc(1, loop * field->length, true);
         }
     }
 
@@ -634,7 +634,7 @@ static int generateRandDataStmt(
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool rand_bool = (taosRandom() % 2) & 1;
-                    ((bool *)field->data)[k] = rand_bool;
+                    ((bool *)field->stmtData.data)[k] = rand_bool;
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s,",
                                        rand_bool ? "true" : "false");
@@ -644,7 +644,7 @@ static int generateRandDataStmt(
                     int8_t tinyint =
                             field->min +
                         (taosRandom() % (field->max - field->min));
-                    ((int8_t *)field->data)[k] = tinyint;
+                    ((int8_t *)field->stmtData.data)[k] = tinyint;
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", tinyint);
                     break;
@@ -652,7 +652,7 @@ static int generateRandDataStmt(
                 case TSDB_DATA_TYPE_UTINYINT: {
                     uint8_t utinyint = field->min
                         + (taosRandom() % (field->max - field->min));
-                    ((uint8_t *)field->data)[k] = utinyint;
+                    ((uint8_t *)field->stmtData.data)[k] = utinyint;
                     n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos,
                                         "%u,", utinyint);
@@ -661,7 +661,7 @@ static int generateRandDataStmt(
                 case TSDB_DATA_TYPE_SMALLINT: {
                     int16_t smallint = field->min
                         + (taosRandom() % (field->max -field->min));
-                    ((int16_t *)field->data)[k] = smallint;
+                    ((int16_t *)field->stmtData.data)[k] = smallint;
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", smallint);
                     break;
@@ -669,14 +669,14 @@ static int generateRandDataStmt(
                 case TSDB_DATA_TYPE_USMALLINT: {
                     uint16_t usmallint = field->min
                         + (taosRandom() % (field->max - field->min));
-                    ((uint16_t *)field->data)[k] = usmallint;
+                    ((uint16_t *)field->stmtData.data)[k] = usmallint;
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%u,", usmallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
                     int32_t intTmp = tmpInt32(field, i);
-                    ((int32_t *)field->data)[k] = intTmp;
+                    ((int32_t *)field->stmtData.data)[k] = intTmp;
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", intTmp);
                     break;
@@ -685,7 +685,7 @@ static int generateRandDataStmt(
                     int64_t bigintTmp;
                     bigintTmp = field->min + (taosRandom()
                         % (field->max - field->min));
-                    ((int64_t *)field->data)[k] = bigintTmp;
+                    ((int64_t *)field->stmtData.data)[k] = bigintTmp;
                     n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos,
                                        "%"PRId64",", bigintTmp);
@@ -694,7 +694,7 @@ static int generateRandDataStmt(
                 case TSDB_DATA_TYPE_UINT: {
                     uint32_t uintTmp = field->min + (taosRandom()
                         % (field->max - field->min));
-                    ((uint32_t *)field->data)[k] = uintTmp;
+                    ((uint32_t *)field->stmtData.data)[k] = uintTmp;
                     n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos,
                                         "%u,", uintTmp);
@@ -705,7 +705,7 @@ static int generateRandDataStmt(
                     uint64_t ubigintTmp =
                             field->min +
                         (taosRandom() % (field->max - field->min));
-                    ((uint64_t *)field->data)[k] = ubigintTmp;
+                    ((uint64_t *)field->stmtData.data)[k] = ubigintTmp;
                     n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos,
                                        "%"PRIu64",", ubigintTmp);
@@ -723,7 +723,7 @@ static int generateRandDataStmt(
                                  (taosRandom() %
                                   (field->max - field->min)) +
                                  taosRandom() % 1000000 / 1000000.0);
-                    ((double *)field->data)[k] = double_;
+                    ((double *)field->stmtData.data)[k] = double_;
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", double_);
                     break;
@@ -735,7 +735,7 @@ static int generateRandDataStmt(
                         free(tmp);
                         return -1;
                     }
-                    snprintf((char *)field->data + k * field->length,
+                    snprintf((char *)field->stmtData.data + k * field->length,
                                  field->length,
                                 "%s", tmp);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
@@ -1420,7 +1420,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                 if (generateRandData(stbInfo, childTbl->sampleDataBuf,
                              stbInfo->lenOfCols*g_arguments->prepared_rand,
                              stbInfo->lenOfCols,
-                             stbInfo->cols,
+                             childTbl->childCols,
                              g_arguments->prepared_rand,
                              false)) {
                     return -1;
@@ -1437,6 +1437,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                 return -1;
             }
         }
+        debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
     } else {
         if (stbInfo->useSampleTs) {
             if (getAndSetRowsFromCsvFile(
@@ -1452,6 +1453,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             return -1;
         }
 
+        debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
         if (stbInfo->childTblSample) {
             if (NULL == strstr(stbInfo->childTblSample, "XXXX")) {
                 errorPrint("Child table sample file pattern has no %s\n",
@@ -1484,10 +1486,10 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                     return -1;
                 }
                 childTbl->useOwnSample = true;
+                debugPrint("sampleDataBuf: %s\n", childTbl->sampleDataBuf);
             }
         }
     }
-    debugPrint("sampleDataBuf: %s\n", stbInfo->sampleDataBuf);
 
     if (stbInfo->tags->size != 0) {
         stbInfo->tagDataBuf =
@@ -1563,12 +1565,12 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         } else {
             Field * col = benchArrayGet(stbInfo->cols, c - 1);
             data_type = col->type;
-            param->buffer = col->data;
+            param->buffer = col->stmtData.data;
             param->buffer_length = col->length;
             debugPrint("col[%d]: type: %s, len: %d\n", c,
                        convertDatatypeToString(data_type),
                        col->length);
-            param->is_null = col->is_null;
+            param->is_null = col->stmtData.is_null;
         }
         param->buffer_type = data_type;
         param->length = benchCalloc(batch, sizeof(int32_t), true);
