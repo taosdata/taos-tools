@@ -530,14 +530,22 @@ static const int OFF_CUSTOM     = -3;
 static const int OFF_LEN     = -2;
 static const int OFF_CAP     = -1;
 
+typedef struct SStmtData {
+    void    *data;
+    char    *is_null;
+} StmtData;
+
+typedef struct SChildField {
+    StmtData stmtData;
+} ChildField;
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
     bool     none;
     bool     null;
-    void *   data;
-    char *   is_null;
+    StmtData stmtData;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
@@ -575,10 +583,11 @@ enum CONTINUE_IF_FAIL_MODE {
 };
 
 typedef struct SChildTable_S {
-    char      childTableName[TSDB_TABLE_NAME_LEN];
+    char      name[TSDB_TABLE_NAME_LEN];
     bool      useOwnSample;
     char      *sampleDataBuf;
     uint64_t  insertRows;
+    BArray    *childCols;
 } SChildTable;
 
 typedef struct SSuperTable_S {
@@ -687,10 +696,10 @@ typedef struct SSTREAM_S {
 
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
 typedef struct SVGroup_S {
-    int32_t   vgId;
-    uint64_t  tbCountPerVgId;
-    char    **childTblName;  // table name pointer array
-    uint64_t  tbOffset;  // internal use
+    int32_t       vgId;
+    uint64_t      tbCountPerVgId;
+    SChildTable   **childTblArray;
+    uint64_t      tbOffset;  // internal use
 } SVGroup;
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
         //
@@ -771,28 +780,27 @@ typedef struct SQueryMetaInfo_S {
 
 
 typedef struct SConsumerInfo_S {
-    uint32_t  concurrent;
-    uint32_t  pollDelay;  // ms
-    char*      groupId;
-	char*      clientId;
-	char*      autoOffsetReset;
+    uint32_t    concurrent;
+    uint32_t    pollDelay;  // ms
+    char*       groupId;
+    char*       clientId;
+    char*       autoOffsetReset;
 
-	char*      enableAutoCommit;	
-	uint32_t  autoCommitIntervalMs; // ms
-	char*      enableHeartbeatBackground;
-	char*      snapshotEnable;
-	char*      msgWithTableName;
-	
-    char      topicName[MAX_QUERY_SQL_COUNT][256];
-    char      topicSql[MAX_QUERY_SQL_COUNT][256];
-    int       topicCount;
+    char*       enableAutoCommit;
+    uint32_t    autoCommitIntervalMs;  // ms
+    char*       enableHeartbeatBackground;
+    char*       snapshotEnable;
+    char*       msgWithTableName;
 
+    char        topicName[MAX_QUERY_SQL_COUNT][256];
+    char        topicSql[MAX_QUERY_SQL_COUNT][256];
+    int         topicCount;
 } SConsumerInfo;
 
 typedef struct STmqMetaInfo_S {
     SConsumerInfo      consumerInfo;
     uint16_t           iface;
-	int16_t            ifSaveData;
+    int16_t            ifSaveData;
 } STmqMetaInfo;
 
 typedef struct SArguments_S {
@@ -855,6 +863,7 @@ typedef struct SArguments_S {
     int16_t             inputted_vgroups;
 #endif
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
+    bool                mistMode;
 } SArguments;
 
 typedef struct SBenchConn {

@@ -449,7 +449,8 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             break;
 
         case 'M':
-            g_arguments->demo_mode = false;
+            g_arguments->mistMode = true;
+            g_arguments->prepared_rand = 57;
             break;
 
         case 'x':
@@ -730,7 +731,7 @@ void init_argument() {
         g_arguments->taosc_version = 2;
     }
     g_arguments->test_mode = INSERT_TEST;
-    g_arguments->demo_mode = 1;
+    g_arguments->demo_mode = true;
     g_arguments->host = NULL;
     g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
@@ -771,6 +772,7 @@ void init_argument() {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     g_arguments->inputted_vgroups = -1;
 #endif
+    g_arguments->mistMode = false;
 
     initDatabase();
     initStable();
@@ -870,6 +872,11 @@ void modify_argument() {
         encodeAuthBase64();
         g_arguments->rest_server_ver_major =
             getServerVersionRest(g_arguments->port);
+    }
+
+    if (g_arguments->demo_mode && TAOSC_IFACE == g_arguments->iface) {
+        g_arguments->mistMode = true;
+        g_arguments->prepared_rand = 57;
     }
 }
 

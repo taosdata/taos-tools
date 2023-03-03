@@ -211,7 +211,7 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     }
 
     uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->cols->size;
-    char         *cols = benchCalloc(1, col_buffer_len, false);
+    char         *colsBuf = benchCalloc(1, col_buffer_len, false);
     char*         command = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
     int          len = 0;
 
@@ -220,11 +220,11 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         int n;
         if (col->type == TSDB_DATA_TYPE_BINARY ||
                 col->type == TSDB_DATA_TYPE_NCHAR) {
-            n = snprintf(cols + len, col_buffer_len - len,
+            n = snprintf(colsBuf + len, col_buffer_len - len,
                     ",%s %s(%d)", col->name,
                     convertDatatypeToString(col->type), col->length);
         } else {
-            n = snprintf(cols + len, col_buffer_len - len,
+            n = snprintf(colsBuf + len, col_buffer_len - len,
                     ",%s %s", col->name,
                     convertDatatypeToString(col->type));
         }
@@ -242,40 +242,40 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         (char *)benchCalloc(len + TIMESTAMP_BUFF_LEN, 1, true);
 
     snprintf(stbInfo->colsOfCreateChildTable, len + TIMESTAMP_BUFF_LEN,
-             "(ts timestamp%s)", cols);
+             "(ts timestamp%s)", colsBuf);
 
     if (stbInfo->tags->size == 0) {
-        free(cols);
+        free(colsBuf);
         free(command);
         return 0;
     }
 
     uint32_t tag_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->tags->size;
-    char *tags = benchCalloc(1, tag_buffer_len, false);
+    char *tagsBuf = benchCalloc(1, tag_buffer_len, false);
     int  tagIndex;
     len = 0;
 
     int n;
-    n = snprintf(tags + len, tag_buffer_len - len, "(");
+    n = snprintf(tagsBuf + len, tag_buffer_len - len, "(");
     if (n < 0 || n >= tag_buffer_len - len) {
         errorPrint("%s() LN%d snprintf overflow\n",
                        __func__, __LINE__);
-        free(cols);
+        free(colsBuf);
         free(command);
-        tmfree(tags);
+        tmfree(tagsBuf);
         return -1;
     } else {
         len += n;
     }
     for (tagIndex = 0; tagIndex < stbInfo->tags->size; tagIndex++) {
-        Field * tag = benchArrayGet(stbInfo->tags, tagIndex);
+        Field *tag = benchArrayGet(stbInfo->tags, tagIndex);
         if (tag->type == TSDB_DATA_TYPE_BINARY ||
                 tag->type == TSDB_DATA_TYPE_NCHAR) {
-            n = snprintf(tags + len, tag_buffer_len - len,
+            n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s %s(%d),", tag->name,
                     convertDatatypeToString(tag->type), tag->length);
         } else if (tag->type == TSDB_DATA_TYPE_JSON) {
-            n = snprintf(tags + len, tag_buffer_len - len,
+            n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s json", tag->name);
             if (n < 0 || n >= tag_buffer_len - len) {
                 errorPrint("%s() LN%d snprintf overflow on %d\n",
@@ -286,7 +286,7 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
             }
             goto skip;
         } else {
-            n = snprintf(tags + len, tag_buffer_len - len,
+            n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s %s,", tag->name,
                     convertDatatypeToString(tag->type));
         }
@@ -301,18 +301,16 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     }
     len -= 1;
 skip:
-    snprintf(tags + len, tag_buffer_len - len, ")");
+    snprintf(tagsBuf + len, tag_buffer_len - len, ")");
 
     int length = snprintf(
         command, TSDB_MAX_ALLOWED_SQL_LEN,
         stbInfo->escape_character
             ? "CREATE TABLE %s.`%s` (ts TIMESTAMP%s) TAGS %s"
             : "CREATE TABLE %s.%s (ts TIMESTAMP%s) TAGS %s",
-        database->dbName, stbInfo->stbName, cols, tags);
-    tmfree(cols);
-    cols = NULL;
-    tmfree(tags);
-    tags = NULL;
+        database->dbName, stbInfo->stbName, colsBuf, tagsBuf);
+    tmfree(colsBuf);
+    tmfree(tagsBuf);
     if (stbInfo->comment != NULL) {
         length += snprintf(command + length, TSDB_MAX_ALLOWED_SQL_LEN - length,
                            " COMMENT '%s'", stbInfo->comment);
@@ -404,7 +402,7 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     }
     taos_free_result(res);
 
-    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SHOW vgroups");
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SHOW VGROUPS");
     res = taos_query(conn->taos, cmd);
     code = taos_errno(res);
     if (code) {
@@ -764,7 +762,7 @@ static void *createTable(void *sarg) {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
                          "CREATE TABLE %s.%s %s;",
                          database->dbName,
-                         stbInfo->childTblArray[i]->childTableName,
+                         stbInfo->childTblArray[i]->name,
                          stbInfo->colsOfCreateChildTable);
             }
             batchNum++;
@@ -982,6 +980,24 @@ static int createChildTables() {
     return 0;
 }
 
+static void freeChildTable(SChildTable *childTbl, int colsSize) {
+    if (childTbl->useOwnSample) {
+        if (childTbl->childCols) {
+            for (int col = 0; col < colsSize; col++) {
+                ChildField *childCol =
+                    benchArrayGet(childTbl->childCols, col);
+                if (childCol) {
+                    tmfree(childCol->stmtData.data);
+                    tmfree(childCol->stmtData.is_null);
+                }
+            }
+            benchArrayDestroy(childTbl->childCols);
+        }
+        tmfree(childTbl->sampleDataBuf);
+    }
+    tmfree(childTbl);
+}
+
 void postFreeResource() {
     if (!g_arguments->terminate) {
         tmfclose(g_arguments->fpOfInsertResult);
@@ -1010,31 +1026,34 @@ void postFreeResource() {
                 stbInfo->tagDataBuf = NULL;
                 tmfree(stbInfo->partialColNameBuf);
                 stbInfo->partialColNameBuf = NULL;
+
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
-                    tmfree(tag->data);
-                    tag->data = NULL;
+                    tmfree(tag->stmtData.data);
+                    tag->stmtData.data = NULL;
                 }
                 benchArrayDestroy(stbInfo->tags);
 
                 for (int k = 0; k < stbInfo->cols->size; ++k) {
                     Field * col = benchArrayGet(stbInfo->cols, k);
-                    tmfree(col->data);
-                    col->data = NULL;
-                    tmfree(col->is_null);
-                    col->is_null = NULL;
+                    tmfree(col->stmtData.data);
+                    col->stmtData.data = NULL;
+                    tmfree(col->stmtData.is_null);
+                    col->stmtData.is_null = NULL;
                 }
-                benchArrayDestroy(stbInfo->cols);
                 if (g_arguments->test_mode == INSERT_TEST
                         && stbInfo->insertRows != 0) {
                     if (stbInfo->childTblArray) {
                         for (int64_t child = 0; child < stbInfo->childTblCount;
-                            child++) {
-                                tmfree(stbInfo->childTblArray[child]->sampleDataBuf);
-                                tmfree(stbInfo->childTblArray[child]);
+                                child++) {
+                            SChildTable *childTbl = stbInfo->childTblArray[child];
+                            if (childTbl) {
+                                freeChildTable(childTbl, stbInfo->cols->size);
+                            }
                         }
                     }
                 }
+                benchArrayDestroy(stbInfo->cols);
                 tmfree(stbInfo->childTblArray);
                 stbInfo->childTblArray = NULL;
                 benchArrayDestroy(stbInfo->tsmas);
@@ -1043,12 +1062,8 @@ void postFreeResource() {
                         && (g_arguments->nthreads_auto)) {
                     for (int32_t v = 0; v < database->vgroups; v++) {
                         SVGroup *vg = benchArrayGet(database->vgArray, v);
-                        for (int64_t t = 0; t < vg->tbCountPerVgId; t++) {
-                            tmfree(vg->childTblName[t]);
-                            vg->childTblName[t] = NULL;
-                        }
-                        tmfree(vg->childTblName);
-                        vg->childTblName = NULL;
+                        tmfree(vg->childTblArray);
+                        vg->childTblArray = NULL;
                     }
                 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
@@ -1232,7 +1247,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 }
 
 static int smartContinueIfFail(threadInfo *pThreadInfo,
-                               char *tableName,
+                               SChildTable *childTbl,
                                int64_t i,
                                char *ttl) {
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1244,7 +1259,7 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
             stbInfo->escape_character ?
             "CREATE TABLE %s.%s USING %s.`%s` TAGS (%s) %s "
             : "%s.%s USING %s.%s TAGS (%s) %s ",
-            database->dbName, tableName, database->dbName,
+            database->dbName, childTbl->name, database->dbName,
             stbInfo->stbName,
             stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
     debugPrint("creating table: %s\n", buffer);
@@ -1328,8 +1343,12 @@ static void *syncWriteInterlace(void *sarg) {
                 goto free_of_interlace;
             }
             int64_t timestamp = pThreadInfo->start_time;
+            SChildTable *childTbl = stbInfo->childTblArray[tableSeq];
             char *  tableName =
-                stbInfo->childTblArray[tableSeq]->childTableName;
+                stbInfo->childTblArray[tableSeq]->name;
+            char *sampleDataBuf = childTbl->useOwnSample?
+                                        childTbl->sampleDataBuf:
+                                        stbInfo->sampleDataBuf;
             char ttl[TTL_BUFF_LEN] = "";
             if (stbInfo->ttl != 0) {
                 snprintf(ttl, TTL_BUFF_LEN, "TTL %d", stbInfo->ttl);
@@ -1398,8 +1417,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     "(",
                                     time_string,
                                     ",",
-                                    stbInfo->sampleDataBuf
-                                    + pos * stbInfo->lenOfCols,
+                                    sampleDataBuf + pos * stbInfo->lenOfCols,
                                     ") ");
                         if (ds_len(pThreadInfo->buffer)
                                 > stbInfo->max_sql_len) {
@@ -1430,7 +1448,8 @@ static void *syncWriteInterlace(void *sarg) {
                         goto free_of_interlace;
                     }
                     generated =
-                        bindParamBatch(pThreadInfo, interlaceRows, timestamp);
+                        bindParamBatch(pThreadInfo, interlaceRows,
+                                       timestamp, childTbl);
                     break;
                 }
                 case SML_REST_IFACE:
@@ -1483,8 +1502,7 @@ static void *syncWriteInterlace(void *sarg) {
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
-                                stbInfo->sampleDataBuf +
-                                    pos * stbInfo->lenOfCols,
+                                    sampleDataBuf + pos * stbInfo->lenOfCols,
                                 disorderTs?disorderTs:timestamp);
                         } else {
                             snprintf(
@@ -1492,8 +1510,7 @@ static void *syncWriteInterlace(void *sarg) {
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                                 "%s %" PRId64 " %s %s", stbInfo->stbName,
                                 disorderTs?disorderTs:timestamp,
-                                stbInfo->sampleDataBuf +
-                                    pos * stbInfo->lenOfCols,
+                                    sampleDataBuf + pos * stbInfo->lenOfCols,
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from]);
@@ -1617,23 +1634,23 @@ free_of_interlace:
 
 static int32_t prepareProgressDataStmt(
         threadInfo *pThreadInfo,
-        char *tableName,
+        SChildTable *childTbl,
         int64_t *timestamp, uint64_t i, char *ttl) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
-                             tableName)) {
+                             childTbl->name)) {
         errorPrint(
                 "taos_stmt_set_tbname(%s) failed,"
-                "reason: %s\n", tableName,
+                "reason: %s\n", childTbl->name,
                 taos_stmt_errstr(pThreadInfo->conn->stmt));
         return -1;
     }
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
-            ? (stbInfo->insertRows - i)
-            : g_arguments->reqPerReq,
-            *timestamp);
+                ? (stbInfo->insertRows - i)
+                : g_arguments->reqPerReq,
+            *timestamp, childTbl);
     *timestamp += generated * stbInfo->timestamp_step;
     return generated;
 }
@@ -1798,6 +1815,7 @@ static int32_t prepareProgressDataSmlJson(
 static int32_t prepareProgressDataSmlLine(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
+    char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSmlLine
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1813,7 +1831,7 @@ static int32_t prepareProgressDataSmlLine(
                 pThreadInfo
                 ->sml_tags[(int)tableSeq -
                 pThreadInfo->start_table_from],
-                stbInfo->sampleDataBuf +
+                sampleDataBuf +
                 pos * stbInfo->lenOfCols,
                 *timestamp);
         pos++;
@@ -1835,6 +1853,7 @@ static int32_t prepareProgressDataSmlLine(
 static int32_t prepareProgressDataSmlTelnet(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
+    char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSmlTelnet
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1848,7 +1867,7 @@ static int32_t prepareProgressDataSmlTelnet(
                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                 "%s %" PRId64 " %s %s", stbInfo->stbName,
                 *timestamp,
-                stbInfo->sampleDataBuf
+                sampleDataBuf
                 + pos * stbInfo->lenOfCols,
                 pThreadInfo
                 ->sml_tags[(int)tableSeq
@@ -1871,22 +1890,34 @@ static int32_t prepareProgressDataSmlTelnet(
 
 static int32_t prepareProgressDataSml(
     threadInfo *pThreadInfo,
-    char *tableName, uint64_t tableSeq,
+    SChildTable *childTbl,
+    uint64_t tableSeq,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSml
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+
+    char *sampleDataBuf;
+    if (childTbl->useOwnSample) {
+        sampleDataBuf = childTbl->sampleDataBuf;
+    } else {
+        sampleDataBuf = stbInfo->sampleDataBuf;
+    }
     int protocol = stbInfo->lineProtocol;
     int32_t generated = -1;
     switch (protocol) {
         case TSDB_SML_LINE_PROTOCOL:
             generated = prepareProgressDataSmlLine(
                     pThreadInfo,
-                    tableSeq, timestamp, i, ttl);
+                    tableSeq,
+                    sampleDataBuf,
+                    timestamp, i, ttl);
             break;
         case TSDB_SML_TELNET_PROTOCOL:
             generated = prepareProgressDataSmlTelnet(
                     pThreadInfo,
-                    tableSeq, timestamp, i, ttl);
+                    tableSeq,
+                    sampleDataBuf,
+                    timestamp, i, ttl);
             break;
         case TSDB_SML_JSON_PROTOCOL:
             generated = prepareProgressDataSmlJsonText(
@@ -1897,7 +1928,8 @@ static int32_t prepareProgressDataSml(
         case SML_JSON_TAOS_FORMAT:
             generated = prepareProgressDataSmlJson(
                     pThreadInfo,
-                    tableSeq, timestamp, i, ttl);
+                    tableSeq,
+                    timestamp, i, ttl);
             break;
         default:
             errorPrint("%s() LN%d: unknown protcolor: %d\n",
@@ -1910,7 +1942,7 @@ static int32_t prepareProgressDataSml(
 
 static int32_t prepareProgressDataSql(
     threadInfo *pThreadInfo,
-    char *tableName, uint64_t tableSeq,
+    SChildTable *childTbl, uint64_t tableSeq,
     char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl,
     int32_t *pos, uint64_t *len) {
@@ -1928,14 +1960,14 @@ static int32_t prepareProgressDataSql(
                          "%s %s.%s USING %s.%s "
                          "TAGS (%s) %s VALUES ",
                          STR_INSERT_INTO, database->dbName,
-                         tableName, database->dbName,
+                         childTbl->name, database->dbName,
                          stbInfo->stbName,
                          stbInfo->tagDataBuf +
                          stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                            "%s %s.%s VALUES ", STR_INSERT_INTO,
-                           database->dbName, tableName);
+                           database->dbName, childTbl->name);
         }
     } else {
         if (stbInfo->autoCreateTable) {
@@ -1944,7 +1976,7 @@ static int32_t prepareProgressDataSql(
                     "%s %s.%s (%s) USING %s.%s "
                     "TAGS (%s) %s VALUES ",
                     STR_INSERT_INTO, database->dbName,
-                    tableName,
+                    childTbl->name,
                     stbInfo->partialColNameBuf,
                     database->dbName, stbInfo->stbName,
                     stbInfo->tagDataBuf +
@@ -1953,11 +1985,19 @@ static int32_t prepareProgressDataSql(
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                            "%s %s.%s (%s) VALUES ",
                            STR_INSERT_INTO, database->dbName,
-                           tableName,
+                           childTbl->name,
                            stbInfo->partialColNameBuf);
         }
     }
 
+    char *ownSampleDataBuf;
+    if (childTbl->useOwnSample) {
+        debugPrint("%s is using own sample data\n",
+                  childTbl->name);
+        ownSampleDataBuf = childTbl->sampleDataBuf;
+    } else {
+        ownSampleDataBuf = stbInfo->sampleDataBuf;
+    }
     for (int j = 0; j < g_arguments->reqPerReq; ++j) {
         if (stbInfo->useSampleTs
                 && (!stbInfo->random_data_source)) {
@@ -1987,7 +2027,7 @@ static int32_t prepareProgressDataSql(
                             TSDB_MAX_ALLOWED_SQL_LEN - *len,
                             "(%" PRId64 ",%s)",
                             disorderTs?disorderTs:*timestamp,
-                            stbInfo->sampleDataBuf +
+                            ownSampleDataBuf +
                             *pos * stbInfo->lenOfCols);
         }
         *pos += 1;
@@ -2044,29 +2084,22 @@ void *syncWriteProgressive(void *sarg) {
 
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
             tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
-        char *   tableName = NULL;
-
         char *sampleDataBuf;
+        SChildTable *childTbl;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
         if (g_arguments->nthreads_auto) {
-            tableName = pThreadInfo->vg->childTblName[tableSeq];
-            sampleDataBuf = stbInfo->sampleDataBuf;
+            childTbl = pThreadInfo->vg->childTblArray[tableSeq];
         } else {
-            tableName = stbInfo->childTblArray[tableSeq]->childTableName;
-            if (stbInfo->childTblArray[tableSeq]->useOwnSample) {
-                sampleDataBuf = stbInfo->childTblArray[tableSeq]->sampleDataBuf;
-            } else {
-                sampleDataBuf = stbInfo->sampleDataBuf;
-            }
+            childTbl = stbInfo->childTblArray[tableSeq];
         }
 #else
-        tableName = stbInfo->childTblArray[tableSeq]->childTableName;
-        if (stbInfo->childTblArray[tableSeq]->useOwnSample) {
-            sampleDataBuf = stbInfo->childTblArray[tableSeq]->sampleDataBuf;
+        childTbl = stbInfo->childTblArray[tableSeq];
+#endif
+        if (childTbl->useOwnSample) {
+            sampleDataBuf = childTbl->sampleDataBuf;
         } else {
             sampleDataBuf = stbInfo->sampleDataBuf;
         }
-#endif
 
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
@@ -2101,7 +2134,7 @@ void *syncWriteProgressive(void *sarg) {
                 case REST_IFACE:
                     generated = prepareProgressDataSql(
                             pThreadInfo,
-                            tableName,
+                            childTbl,
                             tableSeq,
                             sampleDataBuf,
                             &timestamp, i, ttl, &pos, &len);
@@ -2109,14 +2142,15 @@ void *syncWriteProgressive(void *sarg) {
                 case STMT_IFACE: {
                     generated = prepareProgressDataStmt(
                             pThreadInfo,
-                            tableName, &timestamp, i, ttl);
+                            childTbl, &timestamp, i, ttl);
                     break;
                 }
                 case SML_REST_IFACE:
                 case SML_IFACE:
                     generated = prepareProgressDataSml(
                             pThreadInfo,
-                            tableName, tableSeq, &timestamp, i, ttl);
+                            childTbl,
+                            tableSeq, &timestamp, i, ttl);
                     break;
                 default:
                     break;
@@ -2150,7 +2184,7 @@ void *syncWriteProgressive(void *sarg) {
                               stbInfo->continueIfFail);
                     int ret = smartContinueIfFail(
                             pThreadInfo,
-                            tableName, i, ttl);
+                            childTbl, i, ttl);
                     if (0 != ret) {
                         g_fail = true;
                         goto free_of_progressive;
@@ -2255,107 +2289,15 @@ free_of_progressive:
     return NULL;
 }
 
-static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
-    int32_t columnCount;
-    if (stbInfo) {
-        columnCount = stbInfo->cols->size;
+static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
+    int32_t columnCount = stbInfo->cols->size;
+
+    char *sampleDataBuf;
+    if (childTbl) {
+        sampleDataBuf = childTbl->sampleDataBuf;
     } else {
-        SDataBase *db = benchArrayGet(g_arguments->databases, 0);
-        ASSERT(db);
-        stbInfo = benchArrayGet(db->superTbls, 0);
-        ASSERT(stbInfo);
-        columnCount = stbInfo->cols->size;
+        sampleDataBuf = stbInfo->sampleDataBuf;
     }
-
-    for (int c = 0; c < columnCount; c++) {
-        Field *col = benchArrayGet(stbInfo->cols, c);
-        char dataType = col->type;
-
-        char *tmpP = NULL;
-        char *is_null = NULL;
-
-        is_null = calloc(1, sizeof(char) *g_arguments->prepared_rand);
-        ASSERT(is_null);
-        tmfree(col->is_null);
-        col->is_null = is_null;
-
-        switch (dataType) {
-            case TSDB_DATA_TYPE_INT:
-            case TSDB_DATA_TYPE_UINT:
-                tmpP = calloc(1, sizeof(int) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_TINYINT:
-            case TSDB_DATA_TYPE_UTINYINT:
-                tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_SMALLINT:
-            case TSDB_DATA_TYPE_USMALLINT:
-                tmpP = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_BIGINT:
-            case TSDB_DATA_TYPE_UBIGINT:
-                tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_BOOL:
-                tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_FLOAT:
-                tmpP = calloc(1, sizeof(float) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_DOUBLE:
-                tmpP = calloc(1, sizeof(double) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_BINARY:
-            case TSDB_DATA_TYPE_NCHAR:
-                tmpP = calloc(1, g_arguments->prepared_rand * col->length);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            case TSDB_DATA_TYPE_TIMESTAMP:
-                tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
-                assert(tmpP);
-                tmfree(col->data);
-                col->data = (void*)tmpP;
-                break;
-
-            default:
-                errorPrint("Unknown data type: %s\n",
-                        convertDatatypeToString(dataType));
-                exit(EXIT_FAILURE);
-        }
-    }
-
-    char *sampleDataBuf = stbInfo->sampleDataBuf;
     int64_t lenOfOneRow = stbInfo->lenOfCols;
 
     if (stbInfo->useSampleTs) {
@@ -2391,48 +2333,50 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
                     (stbInfo->useSampleTs?c-1:c));
             char dataType = col->type;
 
+            StmtData *stmtData;
+            if (childTbl) {
+                ChildField *childCol =
+                    benchArrayGet(childTbl->childCols,
+                                  (stbInfo->useSampleTs?c-1:c));
+                stmtData = &childCol->stmtData;
+            } else {
+                stmtData = &col->stmtData;
+            }
+
             strncpy(tmpStr, restStr, index);
 
             if (0 == strcmp(tmpStr, "NULL")) {
-                *(col->is_null + i) = true;
+                *(stmtData->is_null + i) = true;
             } else {
                 switch (dataType) {
                     case TSDB_DATA_TYPE_INT:
                     case TSDB_DATA_TYPE_UINT:
-                        *((int32_t*)col->data + i) = atoi(tmpStr);
+                        *((int32_t*)stmtData->data + i) = atoi(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_FLOAT:
-                        *((float*)col->data +i) = (float)atof(tmpStr);
+                        *((float*)stmtData->data +i) = (float)atof(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_DOUBLE:
-                        *((double*)col->data + i) = atof(tmpStr);
+                        *((double*)stmtData->data + i) = atof(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_TINYINT:
                     case TSDB_DATA_TYPE_UTINYINT:
-                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        *((int8_t*)stmtData->data + i) = (int8_t)atoi(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_SMALLINT:
                     case TSDB_DATA_TYPE_USMALLINT:
-                        *((int16_t*) col->data + i) = (int16_t)atoi(tmpStr);
+                        *((int16_t*)stmtData->data + i) = (int16_t)atoi(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_BIGINT:
                     case TSDB_DATA_TYPE_UBIGINT:
-                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        *((int64_t*)stmtData->data + i) = (int64_t)atol(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_BOOL:
-                        *((int8_t*)col->data + i) = (int8_t)atoi(tmpStr);
+                        *((int8_t*)stmtData->data + i) = (int8_t)atoi(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_TIMESTAMP:
-                        *((int64_t*)col->data + i) = (int64_t)atol(tmpStr);
+                        *((int64_t*)stmtData->data + i) = (int64_t)atol(tmpStr);
                         break;
-
                     case TSDB_DATA_TYPE_BINARY:
                     case TSDB_DATA_TYPE_NCHAR:
                         {
@@ -2446,37 +2390,156 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
                                         "is larger than column length %d\n",
                                         (uint64_t)tmpLen, col->length);
                             }
-
                             if (tmpLen > 2) {
-                                strncpy((char *)col->data + i * col->length,
-                                        tmpStr+1, min(col->length, tmpLen - 2));
+                                strncpy((char *)stmtData->data
+                                            + i * col->length,
+                                        tmpStr+1,
+                                        min(col->length, tmpLen - 2));
                             } else {
-                                strncpy((char *)col->data + i*col->length,
+                                strncpy((char *)stmtData->data
+                                            + i*col->length,
                                         "", 1);
                             }
                         }
                         break;
-
                     default:
                         break;
                 }
             }
-
             free(tmpStr);
         }
     }
-
     return 0;
 }
 
+static void initStmtData(char dataType, void **data, uint32_t length) {
+    char *tmpP = NULL;
+
+    switch (dataType) {
+        case TSDB_DATA_TYPE_INT:
+        case TSDB_DATA_TYPE_UINT:
+            tmpP = calloc(1, sizeof(int) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_TINYINT:
+        case TSDB_DATA_TYPE_UTINYINT:
+            tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_USMALLINT:
+            tmpP = calloc(1, sizeof(int16_t) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_BIGINT:
+        case TSDB_DATA_TYPE_UBIGINT:
+            tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_BOOL:
+            tmpP = calloc(1, sizeof(int8_t) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_FLOAT:
+            tmpP = calloc(1, sizeof(float) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_DOUBLE:
+            tmpP = calloc(1, sizeof(double) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_NCHAR:
+            tmpP = calloc(1, g_arguments->prepared_rand * length);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            tmpP = calloc(1, sizeof(int64_t) * g_arguments->prepared_rand);
+            assert(tmpP);
+            tmfree(*data);
+            *data = (void*)tmpP;
+            break;
+
+        default:
+            errorPrint("Unknown data type: %s\n",
+                       convertDatatypeToString(dataType));
+            exit(EXIT_FAILURE);
+    }
+}
+
+static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
+                                          SChildTable* childTbl) {
+    int32_t columnCount = stbInfo->cols->size;
+
+    for (int c = 0; c < columnCount; c++) {
+        Field *col = benchArrayGet(stbInfo->cols, c);
+        ChildField *childCol = benchArrayGet(childTbl->childCols, c);
+        char dataType = col->type;
+
+        char *is_null = benchCalloc(
+                1, sizeof(char) *g_arguments->prepared_rand, false);
+
+        tmfree(childCol->stmtData.is_null);
+        childCol->stmtData.is_null = is_null;
+
+        initStmtData(dataType, &(childCol->stmtData.data), col->length);
+    }
+
+    return initStmtDataValue(stbInfo, childTbl);
+}
+
+static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
+    int32_t columnCount = stbInfo->cols->size;
+
+    for (int c = 0; c < columnCount; c++) {
+        Field *col = benchArrayGet(stbInfo->cols, c);
+        char dataType = col->type;
+
+        char *is_null = benchCalloc(
+                1, sizeof(char) *g_arguments->prepared_rand, false);
+        tmfree(col->stmtData.is_null);
+        col->stmtData.is_null = is_null;
+
+        initStmtData(dataType, &(col->stmtData.data), col->length);
+    }
+
+    return initStmtDataValue(stbInfo, NULL);
+}
+
 static void fillChildTblNameByCount(SSuperTable *stbInfo) {
-    for (int64_t i = 0; i < stbInfo->childTblCount; ++i) {
-        snprintf(stbInfo->childTblArray[i]->childTableName,
+    for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+        snprintf(stbInfo->childTblArray[i]->name,
                  TSDB_TABLE_NAME_LEN,
                  stbInfo->escape_character?
                  "`%s%" PRIu64 "`":
                  "%s%" PRIu64 "",
                  stbInfo->childTblPrefix, i);
+        debugPrint("%s(): %s\n", __func__,
+                  stbInfo->childTblArray[i]->name);
     }
 }
 
@@ -2484,11 +2547,11 @@ static int64_t fillChildTblNameByFromTo(SDataBase *database,
         SSuperTable* stbInfo) {
     for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
         if (stbInfo->escape_character) {
-            snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->childTableName,
+            snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->name,
                      TSDB_TABLE_NAME_LEN,
                      "`%s%" PRIu64 "`", stbInfo->childTblPrefix, i);
         } else {
-            snprintf(stbInfo->childTblArray[i-stbInfo->childTblTo]->childTableName,
+            snprintf(stbInfo->childTblArray[i-stbInfo->childTblTo]->name,
                      TSDB_TABLE_NAME_LEN,
                      "%s%" PRIu64 "", stbInfo->childTblPrefix, i);
         }
@@ -2529,12 +2592,12 @@ static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         int *lengths = taos_fetch_lengths(res);
-        stbInfo->childTblArray[count]->childTableName[0] = '`';
-        strncpy(stbInfo->childTblArray[count]->childTableName+1, row[0], lengths[0]);
-        stbInfo->childTblArray[count]->childTableName[lengths[0] + 1] = '`';
-        stbInfo->childTblArray[count]->childTableName[lengths[0] + 2] = '\0';
-        debugPrint("stbInfo->childTblArray[%" PRId64 "]->childTableName: %s\n",
-                   count, stbInfo->childTblArray[count]->childTableName);
+        stbInfo->childTblArray[count]->name[0] = '`';
+        strncpy(stbInfo->childTblArray[count]->name +1, row[0], lengths[0]);
+        stbInfo->childTblArray[count]->name[lengths[0] + 1] = '`';
+        stbInfo->childTblArray[count]->name[lengths[0] + 2] = '\0';
+        debugPrint("stbInfo->childTblArray[%" PRId64 "]->name: %s\n",
+                   count, stbInfo->childTblArray[count]->name);
         count++;
     }
     taos_free_result(res);
@@ -2643,10 +2706,10 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
     } else if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         // Normal table
         if (stbInfo->escape_character) {
-            snprintf(stbInfo->childTblArray[0]->childTableName, TSDB_TABLE_NAME_LEN,
+            snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
                     "`%s`", stbInfo->stbName);
         } else {
-            snprintf(stbInfo->childTblArray[0]->childTableName, TSDB_TABLE_NAME_LEN,
+            snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
                     "%s", stbInfo->stbName);
         }
     } else {
@@ -2688,17 +2751,17 @@ static int startMultiThreadInsertData(SDataBase* database,
             int vgId;
             int ret = taos_get_table_vgId(
                     conn->taos, database->dbName,
-                    stbInfo->childTblArray[i]->childTableName, &vgId);
+                    stbInfo->childTblArray[i]->name, &vgId);
             if (ret < 0) {
                 errorPrint("Failed to get %s db's %s table's vgId\n",
                            database->dbName,
-                           stbInfo->childTblArray[i]->childTableName);
+                           stbInfo->childTblArray[i]->name);
                 closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
                        database->dbName,
-                       stbInfo->childTblArray[i]->childTableName, vgId);
+                       stbInfo->childTblArray[i]->name, vgId);
             for (int32_t v = 0; v < database->vgroups; v ++) {
                 SVGroup *vg = benchArrayGet(database->vgArray, v);
                 if (vgId == vg->vgId) {
@@ -2717,36 +2780,31 @@ static int startMultiThreadInsertData(SDataBase* database,
             } else {
                 continue;
             }
-            vg->childTblName = benchCalloc(vg->tbCountPerVgId,
-                                           sizeof(char *), true);
-            for (int64_t n = 0; n < vg->tbCountPerVgId; n++) {
-                vg->childTblName[n] = benchCalloc(1, TSDB_TABLE_NAME_LEN, true);
-                vg->tbOffset = 0;
-            }
+            vg->childTblArray = benchCalloc(
+                    vg->tbCountPerVgId, sizeof(SChildTable*), true);
+            vg->tbOffset = 0;
         }
         for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
             int vgId;
             int ret = taos_get_table_vgId(
                     conn->taos, database->dbName,
-                    stbInfo->childTblArray[i]->childTableName, &vgId);
+                    stbInfo->childTblArray[i]->name, &vgId);
             if (ret < 0) {
                 errorPrint("Failed to get %s db's %s table's vgId\n",
                            database->dbName,
-                           stbInfo->childTblArray[i]->childTableName);
+                           stbInfo->childTblArray[i]->name);
 
                 closeBenchConn(conn);
                 return -1;
             }
             debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
                        database->dbName,
-                       stbInfo->childTblArray[i]->childTableName, vgId);
+                       stbInfo->childTblArray[i]->name, vgId);
             for (int32_t v = 0; v < database->vgroups; v++) {
                 SVGroup *vg = benchArrayGet(database->vgArray, v);
                 if (vgId == vg->vgId) {
-                    strncpy(vg->childTblName[vg->tbOffset],
-                           stbInfo->childTblArray[i]->childTableName,
-                           TSDB_TABLE_NAME_LEN);
-
+                    vg->childTblArray[vg->tbOffset] = 
+                           stbInfo->childTblArray[i];
                     vg->tbOffset++;
                 }
             }
@@ -2871,6 +2929,13 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->is_null = benchCalloc(1, g_arguments->reqPerReq,
                                                    true);
                 parseBufferToStmtBatch(stbInfo);
+                for (int64_t child = 0;
+                        child < stbInfo->childTblCount; child++) {
+                    SChildTable *childTbl = stbInfo->childTblArray[child];
+                    if (childTbl->useOwnSample) {
+                        parseBufferToStmtBatchChildTbl(stbInfo, childTbl);
+                    }
+                }
 
                 break;
             }
@@ -2893,7 +2958,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     errorPrint("taos select database(%s) failed\n",
                                database->dbName);
-                    FREE_RESOURCE()           
+                    FREE_RESOURCE()
                     return -1;
                 }
                 pThreadInfo->max_sql_len =
@@ -2919,7 +2984,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                                     stbInfo, pThreadInfo->sml_tags[t],
                                     stbInfo->lenOfTags,
                                     stbInfo->lenOfCols + stbInfo->lenOfTags,
-                                    stbInfo->tags, 1, true)) {
+                                    stbInfo->tags, 1, true, NULL)) {
                             return -1;
                         }
                         debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
@@ -2979,7 +3044,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     errorPrint("%s() failed to connect\n", __func__);
-                    FREE_RESOURCE()                    
+                    FREE_RESOURCE()
                     return -1;
                 }
                 char* command = benchCalloc(1,SHORT_1K_SQL_BUFF_LEN,false);
