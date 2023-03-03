@@ -63,7 +63,7 @@ class TDTestCase:
         tdSql.checkRows(8)
         tdSql.query("select count(*) from db.stb")
         tdSql.checkData(0, 0, 32)
-        tdSql.query("select * from db.stb_0")
+        tdSql.query("select * from db.stb0")
         tdSql.checkRows(4)
         tdSql.checkData(0, 1, 1)
         tdSql.checkData(1, 1, 2)

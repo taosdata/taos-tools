@@ -780,28 +780,27 @@ typedef struct SQueryMetaInfo_S {
 
 
 typedef struct SConsumerInfo_S {
-    uint32_t  concurrent;
-    uint32_t  pollDelay;  // ms
-    char*      groupId;
-	char*      clientId;
-	char*      autoOffsetReset;
+    uint32_t    concurrent;
+    uint32_t    pollDelay;  // ms
+    char*       groupId;
+    char*       clientId;
+    char*       autoOffsetReset;
 
-	char*      enableAutoCommit;	
-	uint32_t  autoCommitIntervalMs; // ms
-	char*      enableHeartbeatBackground;
-	char*      snapshotEnable;
-	char*      msgWithTableName;
-	
-    char      topicName[MAX_QUERY_SQL_COUNT][256];
-    char      topicSql[MAX_QUERY_SQL_COUNT][256];
-    int       topicCount;
+    char*       enableAutoCommit;
+    uint32_t    autoCommitIntervalMs;  // ms
+    char*       enableHeartbeatBackground;
+    char*       snapshotEnable;
+    char*       msgWithTableName;
 
+    char        topicName[MAX_QUERY_SQL_COUNT][256];
+    char        topicSql[MAX_QUERY_SQL_COUNT][256];
+    int         topicCount;
 } SConsumerInfo;
 
 typedef struct STmqMetaInfo_S {
     SConsumerInfo      consumerInfo;
     uint16_t           iface;
-	int16_t            ifSaveData;
+    int16_t            ifSaveData;
 } STmqMetaInfo;
 
 typedef struct SArguments_S {
