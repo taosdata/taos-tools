@@ -6,12 +6,13 @@
   "rest_port": 6041,
   "user": "root",
   "password": "taosdata",
-  "thread_count": 8,
+  "thread_count": 4,
   "create_table_thread_count": 8,
-  "result_file": "/root/taosBenchmark_result.log",
+  "connection_pool_size": 20,
+  "result_file": "./insert_res.txt",
   "confirm_parameter_prompt": "no",
   "insert_interval": 0,
-  "num_of_records_per_req": 100,
+  "num_of_records_per_req": 10,
   "max_sql_len": 1024000,
   "databases": [
     {
@@ -55,7 +56,7 @@
           "trying_interval": 0,
           "start_timestamp": "2020-01-01 00:00:00",
           "sample_format": "csv",
-          "sample_file": "./sample.csv",
+          "sample_file": "",
           "tags_file": "",
           "columns": [
             {
@@ -103,6 +104,5 @@
       "source_sql": "select _wstart as wstart, min(c1),max(c2), count(c3)  from stream_test.stb partition by cast(t1 as int) t1,tbname interval(1s)",
       "drop": "yes"
     }
-  ],
-  "test_log": "/root/testlog/"
+  ]
 }
