@@ -731,7 +731,7 @@ void init_argument() {
         g_arguments->taosc_version = 2;
     }
     g_arguments->test_mode = INSERT_TEST;
-    g_arguments->demo_mode = 1;
+    g_arguments->demo_mode = true;
     g_arguments->host = NULL;
     g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
@@ -874,9 +874,9 @@ void modify_argument() {
             getServerVersionRest(g_arguments->port);
     }
 
-    if (g_arguments->demo_mode) {
+    if (g_arguments->demo_mode && TAOSC_IFACE == g_arguments->iface) {
         g_arguments->mistMode = true;
-        g_arguments->prepared_rand = 137;
+        g_arguments->prepared_rand = 57;
     }
 }
 
