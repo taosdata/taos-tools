@@ -198,7 +198,7 @@ int32_t       toolsCloseDir(TdDirPtr *ppDir);
 
 #define tstrncpy(dst, src, size)       \
     do {                               \
-        strncpy((dst), (src), (size)); \
+        strncpy((dst), (src), (size)-1); \
         (dst)[(size)-1] = 0;           \
     } while (0)
 

@@ -14,7 +14,7 @@
     "insert_interval": 0,
     "chinese": "no",
     "check_sql": "yes",
-    "failed_continue": "yes",
+    "continue_if_fail": "yes",
     "databases": [
         {
             "dbinfo": {

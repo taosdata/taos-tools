@@ -13,6 +13,22 @@
 #include "bench.h"
 #include "wrapDb.h"
 
+// executeSql
+int32_t executeSql(TAOS* taos, char* sql) {
+  // execute sql
+  TAOS_RES* res = taos_query(taos, sql);
+  int32_t   code = taos_errno(res);
+  if (code != 0) {
+    printErrCmdCodeStr(sql, code, res);
+    return code;
+  }
+
+  // if calc by ts
+  taos_free_result(res);
+  return code;
+}
+
+
 int32_t queryCnt(TAOS* taos, char* sql, int64_t* pVal) {
   // execute sql
   TAOS_RES* res = taos_query(taos, sql);
@@ -26,7 +42,7 @@ int32_t queryCnt(TAOS* taos, char* sql, int64_t* pVal) {
   TAOS_FIELD* fields = taos_fetch_fields(res);
   TAOS_ROW row = taos_fetch_row(res);
   code = taos_errno(res);
-  if (code != 0) {
+  if (code != 0 || row == NULL) {
     printErrCmdCodeStr(sql, code, res);
     return code;
   }
@@ -54,7 +70,7 @@ int32_t queryTS(TAOS* taos, char* sql, int64_t* pVal) {
   TAOS_FIELD* fields = taos_fetch_fields(res);
   TAOS_ROW row = taos_fetch_row(res);
   code = taos_errno(res);
-  if (code != 0) {
+  if (code != 0 || row == NULL) {
     printErrCmdCodeStr(sql, code, res);
     return code;
   }

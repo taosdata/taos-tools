@@ -11,7 +11,7 @@
     "result_file": "./case_keep.txt",
     "confirm_parameter_prompt": "no",
     "check_sql": "no",
-    "failed_continue": "yes",
+    "continue_if_fail": "yes",
     "databases": [
         {
             "dbinfo": {

@@ -24,10 +24,10 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         int bufLen,
         int lenOfOneRow, BArray * fields, int64_t loop,
-        bool tag);
+        bool tag, BArray *childCols);
 int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
-        uint32_t batch, int64_t startTime);
+        uint32_t batch, int64_t startTime, SChildTable *childTbl);
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo);
 void generateSmlJsonTags(tools_cJSON *tagsList,
         char **sml_tags_json_array,

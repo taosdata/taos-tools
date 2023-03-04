@@ -261,6 +261,25 @@
         }                                                                   \
     } while (0)
 
+#define debugPrintWithLen(fmt, len, ...)                                    \
+    do {                                                                    \
+        if (g_arguments->debug_print) {                                     \
+            struct tm      Tm, *ptm;                                        \
+            struct timeval timeSecs;                                        \
+            time_t         curTime;                                         \
+            toolsGetTimeOfDay(&timeSecs);                                   \
+            curTime = timeSecs.tv_sec;                                      \
+            ptm = toolsLocalTime(&curTime, &Tm);                            \
+            fnprintf(stdout, len, "[%02d/%02d %02d:%02d:%02d.%06d] ",       \
+                    ptm->tm_mon + 1,                                        \
+                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
+                    (int32_t)timeSecs.tv_usec);                             \
+            fprintf(stdout, "DEBG: ");                                      \
+            fprintf(stdout, "%s(%d) ", __FILE__, __LINE__);                 \
+            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
+        }                                                                   \
+    } while (0)
+
 #define debugPrintJsonNoTime(json)                                          \
     do {                                                                    \
         if (g_arguments->debug_print) {                                     \
@@ -511,14 +530,22 @@ static const int OFF_CUSTOM     = -3;
 static const int OFF_LEN     = -2;
 static const int OFF_CAP     = -1;
 
+typedef struct SStmtData {
+    void    *data;
+    char    *is_null;
+} StmtData;
+
+typedef struct SChildField {
+    StmtData stmtData;
+} ChildField;
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
     uint32_t length;
     bool     none;
     bool     null;
-    void *   data;
-    char *   is_null;
+    StmtData stmtData;
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
@@ -555,93 +582,101 @@ enum CONTINUE_IF_FAIL_MODE {
     SMART_IF_FAILED,  // 2
 };
 
+typedef struct SChildTable_S {
+    char      name[TSDB_TABLE_NAME_LEN];
+    bool      useOwnSample;
+    char      *sampleDataBuf;
+    uint64_t  insertRows;
+    BArray    *childCols;
+} SChildTable;
 
 typedef struct SSuperTable_S {
-    char *   stbName;
-    bool     random_data_source;  // rand_gen or sample
-    bool     escape_character;
-    bool     use_metric;
-    char *   childTblPrefix;
-    bool     childTblExists;
-    uint64_t childTblCount;
-    uint64_t batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
+    char      *stbName;
+    bool      random_data_source;  // rand_gen or sample
+    bool      escape_character;
+    bool      use_metric;
+    char      *childTblPrefix;
+    char      *childTblSample;
+    bool      childTblExists;
+    uint64_t  childTblCount;
+    uint64_t  batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
                                    // one sql
-    bool     autoCreateTable;
-    uint16_t iface;  // 0: taosc, 1: rest, 2: stmt
-    uint16_t lineProtocol;
-    uint64_t childTblLimit;
-    uint64_t childTblOffset;
-    uint64_t childTblFrom;
-    uint64_t childTblTo;
+    bool      autoCreateTable;
+    uint16_t  iface;  // 0: taosc, 1: rest, 2: stmt
+    uint16_t  lineProtocol;
+    uint64_t  childTblLimit;
+    uint64_t  childTblOffset;
+    uint64_t  childTblFrom;
+    uint64_t  childTblTo;
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes
-    uint32_t interlaceRows;  //
-    int      disorderRatio;  // 0: no disorder, >0: x%
-    int      disorderRange;  // ms, us or ns. according to database precision
+    uint32_t  interlaceRows;  //
+    int       disorderRatio;  // 0: no disorder, >0: x%
+    int       disorderRange;  // ms, us or ns. according to database precision
 
     // ratio
-    uint8_t disRatio;   // disorder ratio 0 ~ 100 %
-    uint8_t updRatio;   // update ratio   0 ~ 100 %
-    uint8_t delRatio;   // delete ratio   0 ~ 100 %
+    uint8_t   disRatio;   // disorder ratio 0 ~ 100 %
+    uint8_t   updRatio;   // update ratio   0 ~ 100 %
+    uint8_t   delRatio;   // delete ratio   0 ~ 100 %
 
     // range
-    uint64_t disRange;  // disorder range
-    uint64_t updRange;  // update range
-    uint64_t delRange;  // delete range
+    uint64_t  disRange;  // disorder range
+    uint64_t  updRange;  // update range
+    uint64_t  delRange;  // delete range
 
     // generate row value rule see pre RULE_ define
-    uint8_t genRowRule;
+    uint8_t   genRowRule;
 
     // data position
-    uint8_t dataPos;  //  see define DATAPOS_
+    uint8_t   dataPos;  //  see define DATAPOS_
 
-    uint32_t fillIntervalUpd;  // fill Upd interval rows cnt
-    uint32_t fillIntervalDis;  // fill Dis interval rows cnt
+    uint32_t  fillIntervalUpd;  // fill Upd interval rows cnt
+    uint32_t  fillIntervalDis;  // fill Dis interval rows cnt
 
     // binary prefix
-    char*    binaryPrefex;
+    char      *binaryPrefex;
     // nchar prefix
-    char*    ncharPrefex;
+    char      *ncharPrefex;
 
     // random write future time
-    bool    useNow;
-    bool    writeFuture;
-    int32_t durMinute;  // passed database->durMinute
-    int32_t checkInterval;  // check correct interval
+    bool      useNow;
+    bool      writeFuture;
+    int32_t   durMinute;  // passed database->durMinute
+    int32_t   checkInterval;  // check correct interval
 
-    int64_t  max_sql_len;
-    uint64_t insert_interval;
-    uint64_t insertRows;
-    uint64_t timestamp_step;
-    int64_t  startTimestamp;
-    int64_t  specifiedColumns;
-    char     sampleFile[MAX_FILE_NAME_LEN];
-    char     tagsFile[MAX_FILE_NAME_LEN];
-    uint32_t partialColNum;
-    char *   partialColNameBuf;
-    BArray * cols;
-    BArray * tags;
-    BArray * tsmas;
-    char **  childTblName;
-    char *   colsOfCreateChildTable;
-    uint32_t lenOfTags;
-    uint32_t lenOfCols;
+    int64_t   max_sql_len;
+    uint64_t  insert_interval;
+    uint64_t  insertRows;
+    uint64_t  timestamp_step;
+    int64_t   startTimestamp;
+    int64_t   specifiedColumns;
+    char      sampleFile[MAX_FILE_NAME_LEN];
+    char      tagsFile[MAX_FILE_NAME_LEN];
+    uint32_t  partialColNum;
+    char      *partialColNameBuf;
+    BArray    *cols;
+    BArray    *tags;
+    BArray    *tsmas;
+    SChildTable   **childTblArray;
+    char      *colsOfCreateChildTable;
+    uint32_t  lenOfTags;
+    uint32_t  lenOfCols;
 
-    char *sampleDataBuf;
-    bool  useSampleTs;
-    char *tagDataBuf;
-    bool  tcpTransfer;
-    bool  non_stop;
-    char *comment;
-    int   delay;
-    int   file_factor;
-    char *rollup;
-    char* max_delay;
-    char* watermark;
-    int   ttl;
-    int32_t keep_trying;
-    uint32_t trying_interval;
+    char      *sampleDataBuf;
+    bool      useSampleTs;
+    char      *tagDataBuf;
+    bool      tcpTransfer;
+    bool      non_stop;
+    char      *comment;
+    int       delay;
+    int       file_factor;
+    char      *rollup;
+    char      *max_delay;
+    char      *watermark;
+    int       ttl;
+    int32_t   keep_trying;
+    uint32_t  trying_interval;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -661,10 +696,10 @@ typedef struct SSTREAM_S {
 
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
 typedef struct SVGroup_S {
-    int32_t   vgId;
-    uint64_t  tbCountPerVgId;
-    char    **childTblName;  // table name pointer array
-    uint64_t  tbOffset;  // internal use
+    int32_t       vgId;
+    uint64_t      tbCountPerVgId;
+    SChildTable   **childTblArray;
+    uint64_t      tbOffset;  // internal use
 } SVGroup;
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
         //
@@ -680,6 +715,7 @@ typedef struct SDataBase_S {
     int32_t     vgroups;
     BArray      *vgArray;
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
+    bool        flush;
 } SDataBase;
 
 typedef struct SSQL_S {
@@ -718,7 +754,7 @@ typedef struct SuperQueryInfo_S {
     uint64_t  subscribeTimes;  // ms
     bool      subscribeRestart;
     int       subscribeKeepProgress;
-    uint64_t  childTblCount;
+    int64_t   childTblCount;
     int       sqlCount;
     char      sql[MAX_QUERY_SQL_COUNT][TSDB_MAX_ALLOWED_SQL_LEN + 1];
     char      result[MAX_QUERY_SQL_COUNT][MAX_FILE_NAME_LEN];
@@ -741,6 +777,31 @@ typedef struct SQueryMetaInfo_S {
     uint16_t            iface;
     char*               dbName;
 } SQueryMetaInfo;
+
+
+typedef struct SConsumerInfo_S {
+    uint32_t    concurrent;
+    uint32_t    pollDelay;  // ms
+    char*       groupId;
+    char*       clientId;
+    char*       autoOffsetReset;
+
+    char*       enableAutoCommit;
+    uint32_t    autoCommitIntervalMs;  // ms
+    char*       enableHeartbeatBackground;
+    char*       snapshotEnable;
+    char*       msgWithTableName;
+
+    char        topicName[MAX_QUERY_SQL_COUNT][256];
+    char        topicSql[MAX_QUERY_SQL_COUNT][256];
+    int         topicCount;
+} SConsumerInfo;
+
+typedef struct STmqMetaInfo_S {
+    SConsumerInfo      consumerInfo;
+    uint16_t           iface;
+    int16_t            ifSaveData;
+} STmqMetaInfo;
 
 typedef struct SArguments_S {
     uint8_t             taosc_version;
@@ -796,13 +857,13 @@ typedef struct SArguments_S {
     uint32_t            trying_interval;
     int                 iface;
     int                 rest_server_ver_major;
-    bool                failed_continue;
     bool                check_sql;
     int                 suit;  // see define SUIT_
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     int16_t             inputted_vgroups;
 #endif
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
+    bool                mistMode;
 } SArguments;
 
 typedef struct SBenchConn {
@@ -890,6 +951,7 @@ extern char *         g_aggreFuncDemo[];
 extern char *         g_aggreFunc[];
 extern SArguments *   g_arguments;
 extern SQueryMetaInfo g_queryInfo;
+extern STmqMetaInfo   g_tmqInfo;
 extern bool           g_fail;
 extern char           configDir[];
 extern tools_cJSON *  root;

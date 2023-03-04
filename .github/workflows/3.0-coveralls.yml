@@ -70,7 +70,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-21932-taosbenchmark-data-gen-refactor'
+          ref: 'fix/sangshuduo/TD-11856-taosbenchmark-coverity-scan'
 
       - name: Change time zone
         if:

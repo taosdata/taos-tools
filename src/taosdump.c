@@ -44,11 +44,11 @@
 #include <avro.h>
 #include <jansson.h>
 
-#include "taos.h"
-#include "toolsdef.h"
+#include <taos.h>
+#include <toolsdef.h>
 
 #ifdef WEBSOCKET
-#include "taosws.h"
+#include <taosws.h>
 #endif
 
 // get taosdump commit number version
@@ -268,7 +268,7 @@ typedef struct {
     // int16_t  daysToKeep;
     // int16_t  daysToKeep1;
     // int16_t  daysToKeep2;
-    int32_t  cache;   //MB
+    int32_t  cache;   // MB
     int32_t  blocks;
     int32_t  minrows;
     int32_t  maxrows;
@@ -1051,8 +1051,8 @@ static void parse_args(
             g_args.all_databases = true;
         } else if ((strncmp(argv[i], "-D", strlen("-D")) == 0)
                 || (0 == strncmp(
-                        argv[i], "--database",
-                        strlen("--database")))) {
+                        argv[i], "--databases",
+                        strlen("--databases")))) {
             if (2 == strlen(argv[i])) {
                 if (argc == i+1) {
                     errorPrintReqArg(argv[0], "D");
@@ -1084,6 +1084,11 @@ static void parse_args(
 }
 
 static void copyHumanTimeToArg(char *timeStr, bool isStartTime) {
+    if (0 == strncmp(timeStr, "--start-time=", strlen("--start-time="))) {
+        timeStr += strlen("--start-time=");
+    } else if (0 == strncmp(timeStr, "--end-time=", strlen("--end-time="))) {
+        timeStr += strlen("--end-time=");
+    }
     if (isStartTime) {
         tstrncpy(g_args.humanStartTime, timeStr, HUMAN_TIME_LEN);
     } else {
@@ -1099,34 +1104,49 @@ static void copyTimestampToArg(char *timeStr, bool isStartTime) {
     }
 }
 
+static void parseTimestampConvert(char *input, bool isStartTime) {
+    if (NULL == input) {
+        errorPrint("%s", "input timestamp need a valid value!\n");
+        exit(-1);
+    }
+
+    char *tmp = strdup(input);
+    if (strchr(tmp, ':') && strchr(tmp, '-')) {
+        copyHumanTimeToArg(tmp, isStartTime);
+    } else {
+        copyTimestampToArg(tmp, isStartTime);
+    }
+    free(tmp);
+}
+
 static void parse_timestamp(
         int argc, char *argv[], SArguments *arguments) {
     for (int i = 1; i < argc; i++) {
         char *tmp;
-        bool isStartTime = false;
-        bool isEndTime = false;
 
-        if (strcmp(argv[i], "-S") == 0) {
-            isStartTime = true;
-        } else if (strcmp(argv[i], "-E") == 0) {
-            isEndTime = true;
-        }
-
-        if (isStartTime || isEndTime) {
-            if (NULL == argv[i+1]) {
-                errorPrint("%s need a valid value following!\n", argv[i]);
-                exit(-1);
-            }
-            tmp = strdup(argv[i+1]);
-
-            if (strchr(tmp, ':') && strchr(tmp, '-')) {
-                copyHumanTimeToArg(tmp, isStartTime);
+        if ((0 == strcmp(argv[i], "-S")
+                 || (0 == strncmp(
+                         argv[i], "--start-time=",
+                         strlen("--start-time="))))) {
+            if (0 == strcmp(argv[i], "-S")) {
+                tmp = argv[i+1];
             } else {
-                copyTimestampToArg(tmp, isStartTime);
+                tmp = argv[i];
             }
-
-            free(tmp);
+            parseTimestampConvert(tmp, true);
+        } else if ((0 == strcmp(argv[i], "-E")
+                     || (0 == strncmp(
+                             argv[i],
+                             "--end-time=",
+                             strlen("--end-time="))))) {
+            if (0 == strcmp(argv[i], "-E")) {
+                tmp = argv[i+1];
+            } else {
+                tmp = argv[i];
+            }
+            parseTimestampConvert(tmp, false);
         }
+
     }
 }
 
@@ -1309,7 +1329,8 @@ static int getTableRecordInfoImplWS(
                     }
                     if (length) {
                         if (NULL == value1) {
-                            errorPrint("%s() LN%d, row: %d, col: %d, ws_get_value_in_block() error!\n",
+                            errorPrint("%s() LN%d, row: %d, col: %d, "
+                                       "ws_get_value_in_block() error!\n",
                                     __func__, __LINE__,
                                     row, TSDB_SHOW_TABLES_METRIC_INDEX);
                             break;
@@ -1533,6 +1554,10 @@ static bool isSystemDatabase(char *dbName) {
 }
 
 static int inDatabasesSeq(const char *dbName) {
+    if (NULL == g_args.databasesSeq) {
+        return -1;
+    }
+
     if (strstr(g_args.databasesSeq, ",") == NULL) {
         if (0 == strcmp(g_args.databasesSeq, dbName)) {
             return 0;
@@ -1585,7 +1610,8 @@ static int getDbCountWS(WS_RES *ws_res) {
                     TSDB_SHOW_DB_NAME_INDEX,
                     &type, &length);
             if (NULL == value) {
-                errorPrint("%s() LN%d, row: %d, ws_get_value_in_block() error!\n",
+                errorPrint("%s() LN%d, row: %d, "
+                           "ws_get_value_in_block() error!\n",
                         __func__, __LINE__,
                         row);
                 continue;
@@ -1684,11 +1710,11 @@ static int getDumpDbCount() {
         ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
         code = ws_errno(ws_res);
         if (0 != code) {
-            errorPrint("%s() LN%d, failed to run command <%s>, code: %d, reason: %s\n",
+            errorPrint("%s() LN%d, failed to run command <%s>, "
+                       "code: %d, reason: %s\n",
                     __func__, __LINE__, command,
                     ws_errno(ws_res),
-                    ws_errstr(ws_res)
-                    );
+                    ws_errstr(ws_res));
             ws_free_result(ws_res);
             ws_res = NULL;
             ws_close(ws_taos);
@@ -1714,8 +1740,7 @@ static int getDumpDbCount() {
         if (0 != code) {
             errorPrint("%s() LN%d, failed to run command <%s>, reason: %s\n",
                     __func__, __LINE__, command,
-                    taos_errstr(res)
-                    );
+                    taos_errstr(res));
             taos_free_result(res);
             taos_close(taos);
             free(command);
@@ -2680,7 +2705,7 @@ static int getTableTagValueNativeV3(
         }
 
         index++;
-    };
+    }
 
     taos_free_result(res);
     free(command);
@@ -3448,7 +3473,6 @@ static void dumpCreateDbClause(
         if (dbInfo->comp) {
             pstr += sprintf(pstr, "COMP %d ", dbInfo->comp);
         }
-
     }
 
     pstr += sprintf(pstr, ";");
@@ -7001,6 +7025,7 @@ static int64_t dumpInAvroDataImpl(
                            "reason: %s, timestamp: %"PRId64"\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
                 failed -= stmt_count;
+                tfree(tbName);
                 break;
             } else {
                 success++;
@@ -7401,7 +7426,7 @@ static int dumpInAvroWorkThreads(const char *dbPath, const char *typeExt) {
     }
 
     for (int32_t i = 0; i < threads; i++) {
-        if (pthread_join(pids[i], NULL) !=0 ) {
+        if (pthread_join(pids[i], NULL) !=0) {
             errorPrint("%s() LN%d, thread[%d] failed to join. "
                     "The errno is %d. Reason: %s\n",
                     __func__, __LINE__,
@@ -8681,10 +8706,11 @@ static int createMTableAvroHeadImp(
                         char *bytes = malloc(nlen+1);
                         ASSERT(bytes);
 
-                        strncpy(bytes,
+                        memcpy(bytes,
                                 subTableDes->cols[subTableDes->columns
                                 + tag].var_value,
                                 nlen);
+                        bytes[nlen] = 0;       
                         avro_value_set_bytes(&branch, bytes, nlen);
                         free(bytes);
                     } else {
@@ -9406,7 +9432,7 @@ static int checkParam() {
                 g_args.resultFile,
                 errno, strerror(errno));
         exit(EXIT_FAILURE);
-    };
+    }
 
     return 0;
 }
@@ -9852,8 +9878,8 @@ static int64_t dumpInOneDebugFile(
     while ((read_len = getline(&line, &line_len, fp)) != -1) {
 #endif  // WINDOWS
         ++lineNo;
-        //if (read_len == 0 || isCommentLine(line)) {  // line starts with #
-        if (read_len == 0 ) {
+        // if (read_len == 0 || isCommentLine(line)) {  // line starts with #
+        if (read_len == 0) {
             continue;
         }
         if (line[0] == '#') {
@@ -11566,7 +11592,8 @@ static bool fillDBInfoWithFieldsNative(const int index,
             }
         } else if (0 == strcmp(fields[f].name, "single_stable_model")) {
             if (TSDB_DATA_TYPE_BOOL == fields[f].type) {
-                g_dbInfos[index]->single_stable_model = (bool)(*((bool*)row[f]));
+                g_dbInfos[index]->single_stable_model
+                             = (bool)(*((bool*)row[f]));
             } else {
                 errorPrint("%s() LN%d, unexpected type: %d\n",
                         __func__, __LINE__, fields[f].type);
@@ -12112,11 +12139,13 @@ static int dumpOut() {
                         stbTableDes,
                         g_args.arg_list[i]);
                 if (ret >= 0) {
-                    okPrint("%s() LN%d, dumpANormalTableBelongStb(%s) success\n",
+                    okPrint("%s() LN%d, "
+                            "dumpANormalTableBelongStb(%s) success\n",
                             __func__, __LINE__,
                             tableRecordInfo.tableRecord.stable);
                 } else {
-                    errorPrint("%s() LN%d, dumpANormalTableBelongStb(%s) failed\n",
+                    errorPrint("%s() LN%d, "
+                               "dumpANormalTableBelongStb(%s) failed\n",
                             __func__, __LINE__,
                             tableRecordInfo.tableRecord.stable);
                 }
@@ -12331,7 +12360,8 @@ static int dumpEntry() {
 static RecordSchema *parse_json_for_inspect(json_t *element) {
     RecordSchema *recordSchema = calloc(1, sizeof(RecordSchema));
     if (NULL == recordSchema) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        errorPrint("%s() LN%d, memory allocation failed!\n",
+                   __func__, __LINE__);
         return NULL;
     }
 
@@ -12432,16 +12462,20 @@ static RecordSchema *parse_json_for_inspect(json_t *element) {
                                                             arr_type_ele_value_str,
                                                             TYPE_NAME_LEN-1);
                                                 }
-                                            } else if (JSON_OBJECT == json_typeof(arr_type_ele_value)) {
+                                            } else if (JSON_OBJECT ==
+                                                         json_typeof(arr_type_ele_value)) {
                                                 const char *arr_type_ele_value_key;
                                                 json_t *arr_type_ele_value_value;
 
                                                 json_object_foreach(arr_type_ele_value,
                                                         arr_type_ele_value_key,
                                                         arr_type_ele_value_value) {
-                                                    if (JSON_STRING == json_typeof(arr_type_ele_value_value)) {
+                                                    if (JSON_STRING ==
+                                                             json_typeof(
+                                                                 arr_type_ele_value_value)) {
                                                         const char *arr_type_ele_value_value_str =
-                                                            json_string_value(arr_type_ele_value_value);
+                                                            json_string_value(
+                                                                     arr_type_ele_value_value);
                                                         tstrncpy(field->array_type,
                                                                 arr_type_ele_value_value_str,
                                                                 TYPE_NAME_LEN-1);
@@ -12534,7 +12568,8 @@ int inspectAvroFile(char *filename) {
     int buf_len = 256*1024;
     char *jsonbuf = calloc(1, buf_len);
     if (NULL == jsonbuf) {
-        errorPrint("%s() LN%d, memory allocation failed!\n", __func__, __LINE__);
+        errorPrint("%s() LN%d, memory allocation failed!\n",
+                   __func__, __LINE__);
         return -1;
     }
 
@@ -12702,8 +12737,10 @@ int inspectAvroFile(char *filename) {
                             avro_value_get_bytes(&branch, &bytesbuf,
                                     &bytessize);
                         } else {
-                            avro_value_get_bytes(&field_value, &bytesbuf,
-                                    &bytessize);
+                            avro_value_get_bytes(
+                                &field_value,
+                                &bytesbuf,
+                                &bytessize);
                         }
                         fprintf(stdout, "%s |\t", (char*)bytesbuf);
                     } else if (0 == strcmp(field->type, "boolean")) {
@@ -12736,10 +12773,12 @@ int inspectAvroFile(char *filename) {
                                     size_t array_size;
                                     avro_value_get_size(&branch, &array_size);
 
-                                    debugPrint("array_size is %zu\n", array_size);
+                                    debugPrint("array_size is %zu\n",
+                                               array_size);
 
                                     uint32_t array_u32 = 0;
-                                    for (size_t item = 0; item < array_size; item++) {
+                                    for (size_t item = 0; item < array_size;
+                                            item++) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&branch, item,
                                                 &item_value, NULL);
@@ -12754,7 +12793,8 @@ int inspectAvroFile(char *filename) {
 
                                 debugPrint("array_size is %zu\n", array_size);
                                 uint32_t array_u32 = 0;
-                                for (size_t item = 0; item < array_size; item++) {
+                                for (size_t item = 0; item < array_size;
+                                        item++) {
                                     avro_value_t item_value;
                                     avro_value_get_by_index(&field_value, item,
                                             &item_value, NULL);
@@ -12762,8 +12802,10 @@ int inspectAvroFile(char *filename) {
                                     array_u32 += *n32;
                                 }
                                 if ((TSDB_DATA_UINT_NULL == array_u32)
-                                        || (TSDB_DATA_USMALLINT_NULL == array_u32)
-                                        || (TSDB_DATA_UTINYINT_NULL == array_u32)) {
+                                        || (TSDB_DATA_USMALLINT_NULL
+                                            == array_u32)
+                                        || (TSDB_DATA_UTINYINT_NULL
+                                            == array_u32)) {
                                     fprintf(stdout, "%s |\t", "null?");
                                 } else {
                                     fprintf(stdout, "%u |\t", array_u32);
@@ -12784,9 +12826,11 @@ int inspectAvroFile(char *filename) {
                                     size_t array_size;
                                     avro_value_get_size(&branch, &array_size);
 
-                                    debugPrint("array_size is %zu\n", array_size);
+                                    debugPrint("array_size is %zu\n",
+                                               array_size);
                                     uint64_t array_u64 = 0;
-                                    for (size_t item = 0; item < array_size; item++) {
+                                    for (size_t item = 0; item < array_size;
+                                            item++) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&branch, item,
                                                 &item_value, NULL);
@@ -12801,7 +12845,8 @@ int inspectAvroFile(char *filename) {
 
                                 debugPrint("array_size is %zu\n", array_size);
                                 uint64_t array_u64 = 0;
-                                for (size_t item = 0; item < array_size; item++) {
+                                for (size_t item = 0; item < array_size;
+                                        item++) {
                                     avro_value_t item_value;
                                     avro_value_get_by_index(&field_value, item,
                                             &item_value, NULL);
