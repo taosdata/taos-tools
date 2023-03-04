@@ -3204,8 +3204,7 @@ static int32_t createStream(SSTREAM* stream) {
     memset(command, 0, TSDB_MAX_ALLOWED_SQL_LEN);
     int pos = snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
             "CREATE STREAM IF NOT EXISTS %s ", stream->stream_name);
-    if (stream->
-        [0] != '\0') {
+    if (stream->watermark[0] != '\0') {
         pos += snprintf(command + pos, TSDB_MAX_ALLOWED_SQL_LEN - pos,
                 "TRIGGER %s ", stream->trigger_mode);
     }
