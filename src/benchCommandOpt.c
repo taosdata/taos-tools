@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include <toolsdef.h>
 
 #ifdef LINUX
 #include <argp.h>
@@ -912,21 +913,23 @@ static void *queryStableAggrFunc(void *sarg) {
     }
     for (int j = 0; j < n; j++) {
         char condition[COND_BUF_LEN] = "\0";
-        char tempS[TEMP_BUFF_LEN] = "\0";
+        char tempS[LARGE_BUFF_LEN] = "\0";
         int64_t m = 10 < stbInfo->childTblCount ? 10 : stbInfo->childTblCount;
         for (int64_t i = 1; i <= m; i++) {
             if (i == 1) {
                 if (g_arguments->demo_mode) {
-                    snprintf(tempS, TEMP_BUFF_LEN, "groupid = %" PRId64 "", i);
+                    snprintf(tempS, LARGE_BUFF_LEN,
+                             "groupid = %" PRId64 "", i);
                 } else {
-                    snprintf(tempS, TEMP_BUFF_LEN, "t0 = %" PRId64 "", i);
+                    snprintf(tempS, LARGE_BUFF_LEN,
+                             "t0 = %" PRId64 "", i);
                 }
             } else {
                 if (g_arguments->demo_mode) {
-                    snprintf(tempS, TEMP_BUFF_LEN,
+                    snprintf(tempS, LARGE_BUFF_LEN,
                              " or groupid = %" PRId64 " ", i);
                 } else {
-                    snprintf(tempS, TEMP_BUFF_LEN,
+                    snprintf(tempS, LARGE_BUFF_LEN,
                              " or t0 = %" PRId64 " ", i);
                 }
             }

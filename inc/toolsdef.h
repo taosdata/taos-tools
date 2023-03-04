@@ -19,17 +19,21 @@
 #include <stdbool.h>
 #include <time.h>
 
+#define TINY_BUFF_LEN                   8
+#define SMALL_BUFF_LEN                  20
+#define MIDDLE_BUFF_LEN                  64
+#define LARGE_BUFF_LEN                   512
 // max file name length on Linux is 255
-#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
+#define MAX_FILE_NAME_LEN               256  // max file name length on linux is 255.
 
 // max path length on Linux is 4095
-#define MAX_PATH_LEN      4096
+#define MAX_PATH_LEN                    4096
 
 // max hostname length on Linux is 253
-#define MAX_HOSTNAME_LEN        254
+#define MAX_HOSTNAME_LEN                254
 
-#define TSDB_CODE_SUCCESS                   0
-#define TSDB_CODE_FAILED                    -1   // unknown or needn't tell detail error
+#define TSDB_CODE_SUCCESS               0
+#define TSDB_CODE_FAILED                -1   // unknown or needn't tell detail error
 
 // NULL definition
 #define TSDB_DATA_BOOL_NULL             0x02
@@ -69,27 +73,24 @@
 #define TSDB_PASS_LEN                   129
 #define SHELL_MAX_PASSWORD_LEN          TSDB_PASS_LEN
 
-#define TSDB_TIME_PRECISION_MILLI 0
-#define TSDB_TIME_PRECISION_MICRO 1
-#define TSDB_TIME_PRECISION_NANO  2
+#define TSDB_TIME_PRECISION_MILLI       0
+#define TSDB_TIME_PRECISION_MICRO       1
+#define TSDB_TIME_PRECISION_NANO        2
 
-#define TSDB_MAX_COLUMNS          4096
-#define TSDB_MIN_COLUMNS          2       //PRIMARY COLUMN(timestamp) + other columns
+#define TSDB_MAX_COLUMNS                4096
+#define TSDB_MIN_COLUMNS                2       //PRIMARY COLUMN(timestamp) + other columns
 
-#define TSDB_TABLE_NAME_LEN       193     // it is a null-terminated string
+#define TSDB_TABLE_NAME_LEN             193     // it is a null-terminated string
 
-#define TSDB_DB_NAME_LEN          65
+#define TSDB_DB_NAME_LEN                65
 
-#define TSDB_COL_NAME_LEN         65
-#define TSDB_MAX_ALLOWED_SQL_LEN  (1*1024*1024u)          // sql length should be less than 1mb
+#define TSDB_COL_NAME_LEN               65
+#define TSDB_MAX_ALLOWED_SQL_LEN        (1*1024*1024u)          // sql length should be less than 1mb
 
-#define TSDB_MAX_BYTES_PER_ROW    65531
-#define TSDB_MAX_TAGS             128
+#define TSDB_MAX_BYTES_PER_ROW          65531
+#define TSDB_MAX_TAGS                   128
 
-#define TSDB_DEFAULT_PKT_SIZE     65480  //same as RPC_MAX_UDP_SIZE
-
-#define TSDB_PAYLOAD_SIZE         TSDB_DEFAULT_PKT_SIZE
-#define TSDB_MAX_SQL_LEN          TSDB_PAYLOAD_SIZE
+#define TSDB_DEFAULT_PKT_SIZE           65480  //same as RPC_MAX_UDP_SIZE
 
 #ifdef TSKEY32
 #define TSKEY int32_t;
@@ -97,12 +98,12 @@
 #define TSKEY int64_t
 #endif
 
-#define TSDB_KEYSIZE              sizeof(TSKEY)
-#define TSDB_MAX_FIELD_LEN        65519
-#define TSDB_MAX_BINARY_LEN       TSDB_MAX_FIELD_LEN
-#define TSDB_FILENAME_LEN         128
+#define TSDB_KEYSIZE                    sizeof(TSKEY)
+#define TSDB_MAX_FIELD_LEN              65519
+#define TSDB_MAX_BINARY_LEN             TSDB_MAX_FIELD_LEN
+#define TSDB_FILENAME_LEN               128
 
-#define TSDB_PORT_HTTP            11
+#define TSDB_PORT_HTTP                  11
 
 #if _MSC_VER <= 1900
     #define __func__ __FUNCTION__

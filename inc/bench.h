@@ -100,7 +100,6 @@
 #define RESP_BUF_LEN              4096
 #define SHORT_1K_SQL_BUFF_LEN     1024
 #define URL_BUFF_LEN              1024
-#define TTL_BUFF_LEN              20
 
 #define STR_INSERT_INTO           "INSERT INTO "
 
@@ -129,10 +128,9 @@
 
 #define MAX_JSON_BUFF 6400000
 
-#define INPUT_BUF_LEN     256
-#define EXTRA_SQL_LEN     256
-#define SMALL_BUFF_LEN    8
-#define DATATYPE_BUFF_LEN (SMALL_BUFF_LEN * 3)
+#define INPUT_BUF_LEN         256
+#define EXTRA_SQL_LEN         256
+#define DATATYPE_BUFF_LEN     (TINY_BUFF_LEN * 3)
 #define SML_MAX_BATCH          65536 * 32
 #define DEFAULT_NTHREADS       8
 
@@ -155,7 +153,6 @@
 #define BARRAY_MIN_SIZE             8
 #define SML_LINE_SQL_SYNTAX_OFFSET  7
 
-#define TEMP_BUFF_LEN               64
 // tdengine define macro
 #define TSDB_DEFAULT_DURATION_PER_FILE  (10 * 1440)
 
@@ -690,7 +687,7 @@ typedef struct SSTREAM_S {
     char stream_stb[TSDB_TABLE_NAME_LEN];
     char trigger_mode[BIGINT_BUFF_LEN];
     char watermark[BIGINT_BUFF_LEN];
-    char source_sql[TSDB_MAX_SQL_LEN];
+    char source_sql[TSDB_DEFAULT_PKT_SIZE];
     bool drop;
 } SSTREAM;
 
