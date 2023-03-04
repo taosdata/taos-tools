@@ -115,9 +115,9 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
     int n;
     if (stbInfo->autoCreateTable) {
-        char ttl[TTL_BUFF_LEN] = "";
+        char ttl[SMALL_BUFF_LEN] = "";
         if (stbInfo->ttl != 0) {
-            snprintf(ttl, TTL_BUFF_LEN, "TTL %d", stbInfo->ttl);
+            snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
         }
         n = snprintf(prepare + len,
                        TSDB_MAX_ALLOWED_SQL_LEN - len,
@@ -256,14 +256,14 @@ static int getAndSetRowsFromCsvFile(char *sampleFile, uint64_t *insertRows) {
     int     line_count = 0;
     char *  buf = NULL;
 
-    buf = benchCalloc(1, TSDB_MAX_SQL_LEN, false);
+    buf = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
     if (NULL == buf) {
         errorPrint("%s() failed to allocate memory!\n", __func__);
         fclose(fp);
         return -1;
     }
 
-    while (fgets(buf, TSDB_MAX_SQL_LEN, fp)) {
+    while (fgets(buf, TSDB_MAX_ALLOWED_SQL_LEN, fp)) {
         line_count++;
     }
     *insertRows = line_count;

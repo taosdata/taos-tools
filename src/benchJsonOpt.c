@@ -920,7 +920,7 @@ static int getStreamInfo(tools_cJSON* json) {
             tstrncpy(stream->stream_stb, stream_stb->valuestring,
                      TSDB_TABLE_NAME_LEN);
             tstrncpy(stream->source_sql, source_sql->valuestring,
-                     TSDB_MAX_SQL_LEN);
+                     TSDB_DEFAULT_PKT_SIZE);
 
             tools_cJSON* trigger_mode =
                 tools_cJSON_GetObjectItem(streamObj, "trigger_mode");
