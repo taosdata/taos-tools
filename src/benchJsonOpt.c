@@ -925,24 +925,24 @@ static int getStreamInfo(tools_cJSON* json) {
                          BIGINT_BUFF_LEN);
             }
 
-            tools_cJSON* fill_history =
-                tools_cJSON_GetObjectItem(streamObj, "fill_history");
-            if (tools_cJSON_IsString(fill_history)) {
-                tstrncpy(stream->fill_history, fill_history->valuestring,
-                         BIGINT_BUFF_LEN);
-            }
-
             tools_cJSON* ignore_expired =
                 tools_cJSON_GetObjectItem(streamObj, "ignore_expired");
-            if (tools_cJSON_IsString(ignore_expired)) {
+            if (tools_cJSON_IsNumber(ignore_expired)) {
                 tstrncpy(stream->ignore_expired, ignore_expired->valuestring,
                          BIGINT_BUFF_LEN);
             }
 
             tools_cJSON* ignore_update =
                 tools_cJSON_GetObjectItem(streamObj, "ignore_update");
-            if (tools_cJSON_IsString(ignore_update)) {
+            if (tools_cJSON_IsNumber(ignore_update)) {
                 tstrncpy(stream->ignore_update, ignore_update->valuestring,
+                         BIGINT_BUFF_LEN);
+            }
+
+            tools_cJSON* fill_history =
+                tools_cJSON_GetObjectItem(streamObj, "fill_history");
+            if (tools_cJSON_IsNumber(fill_history)) {
+                tstrncpy(stream->fill_history, fill_history->valuestring,
                          BIGINT_BUFF_LEN);
             }
 

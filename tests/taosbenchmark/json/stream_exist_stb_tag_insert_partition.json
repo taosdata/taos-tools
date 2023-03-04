@@ -98,6 +98,7 @@
       "watermark": "30s",
       "subtable": "(concat(tbname, \"_suffix\"))",
       "fill_history": 1,
+      "ignore_expired": 0,
       "ignore_update": 1,
       "stream_stb_field": "(ts,c1,c2,c3)",
       "stream_tag_field": "(t1)",

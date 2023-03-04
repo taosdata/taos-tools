@@ -657,10 +657,10 @@ typedef struct SSTREAM_S {
     char stream_tag_field[TSDB_MAX_SQL_LEN];
     char subtable[TSDB_MAX_SQL_LEN];
     char trigger_mode[BIGINT_BUFF_LEN];
-    char fill_history[BIGINT_BUFF_LEN];
+    char watermark[BIGINT_BUFF_LEN];
     char ignore_expired[BIGINT_BUFF_LEN];
     char ignore_update[BIGINT_BUFF_LEN];
-    char watermark[BIGINT_BUFF_LEN];
+    char fill_history[BIGINT_BUFF_LEN];
     char source_sql[TSDB_MAX_SQL_LEN];
     bool drop;
 } SSTREAM;
