@@ -1461,8 +1461,15 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
     return -1;
 }
 
-int prepareChildTblSampleData(SDataBase* database, SSuperTable* stbInfo) {
-    return -1;
+static BArray *initChildCols(int colsSize) {
+    BArray *childCols = benchArrayInit(colsSize,
+                                       sizeof(ChildField));
+    for (int col = 0; col < colsSize; col++) {
+        ChildField *childCol = benchCalloc(
+                1, sizeof(ChildField), true);
+        benchArrayPush(childCols, childCol);
+    }
+    return childCols;
 }
 
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
@@ -1523,13 +1530,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
                 SChildTable *childTbl = stbInfo->childTblArray[child];
                 if (STMT_IFACE == stbInfo->iface) {
-                    childTbl->childCols = benchArrayInit(stbInfo->cols->size,
-                                                         sizeof(ChildField));
-                    for (int col = 0; col < stbInfo->cols->size; col++) {
-                        ChildField *childCol = benchCalloc(
-                                1, sizeof(ChildField), true);
-                        benchArrayPush(childTbl->childCols, childCol);
-                    }
+                    childTbl->childCols = initChildCols(stbInfo->cols->size);
                 }
                 childTbl->sampleDataBuf =
                     benchCalloc(
@@ -1609,13 +1610,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                     return -1;
                 }
                 if (STMT_IFACE == stbInfo->iface) {
-                    childTbl->childCols = benchArrayInit(stbInfo->cols->size,
-                                                         sizeof(ChildField));
-                    for (int col = 0; col < stbInfo->cols->size; col++) {
-                        ChildField *childCol = benchCalloc(
-                                1, sizeof(ChildField), true);
-                        benchArrayPush(childTbl->childCols, childCol);
-                    }
+                    childTbl->childCols = initChildCols(stbInfo->cols->size);
                 }
                 childTbl->useOwnSample = true;
                 debugPrint("sampleDataBuf: %s\n", childTbl->sampleDataBuf);
