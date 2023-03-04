@@ -498,6 +498,7 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
     do {
         bytes = recv(sockfd, responseBuf + received,
                 resp_len - received, 0);
+        responseBuf[resp_len] = 0;
         debugPrint("response buffer: %s\n", responseBuf);
         if (NULL != strstr(responseBuf, resEncodingChunk)) {
             chunked = true;
@@ -1028,11 +1029,11 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
             tsize = (tsize << 1u);
         }
 
-        pArray->pData = realloc(pArray->pData, tsize * pArray->elemSize);
-        if (pArray->pData == NULL) {
+        void* pData = realloc(pArray->pData, tsize * pArray->elemSize);
+        if (pData == NULL) {
             return -1;
         }
-
+        pArray->pData = pData;
         pArray->capacity = tsize;
     }
     return 0;

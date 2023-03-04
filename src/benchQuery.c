@@ -54,9 +54,9 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                     ret = -1;
                 }
             } else {
-                if (strlen(pThreadInfo->filePath) > 0) {
+                //if (strlen(pThreadInfo->filePath) > 0) {
                     fetchResult(res, pThreadInfo);
-                }
+                //}
             }
             taos_free_result(res);
         }
@@ -142,7 +142,9 @@ static void *mixedQuery(void *sarg) {
                        __func__, __LINE__, *delay);
 
             pThreadInfo->total_delay += (et - st);
-            benchArrayPush(pThreadInfo->query_delay_list, delay);
+            if(benchArrayPush(pThreadInfo->query_delay_list, delay) == NULL){
+                tmfree(delay);
+            }
             int64_t currentPrintTs = toolsGetTimestampMs();
             if (currentPrintTs - lastPrintTs > 10 * 1000) {
                 infoPrint("thread[%d] has currently complete query %d times\n",
@@ -190,7 +192,12 @@ static void *specifiedTableQuery(void *sarg) {
                         - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            queryDbExecCall(pThreadInfo->conn, "reset query cache");
+            if (queryDbExecCall(pThreadInfo->conn,
+                                "RESET QUERY CACHE")) {
+                errorPrint("%s() LN%d, reset query cache failed\n",
+                           __func__, __LINE__);
+                return NULL;
+            }
         }
 
         st = toolsGetTimestampUs();
