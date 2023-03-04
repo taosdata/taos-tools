@@ -740,9 +740,9 @@ static void *createTable(void *sarg) {
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
 
-    char ttl[TTL_BUFF_LEN] = "";
+    char ttl[SMALL_BUFF_LEN] = "";
     if (stbInfo->ttl != 0) {
-        snprintf(ttl, TTL_BUFF_LEN, "TTL %d", stbInfo->ttl);
+        snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
     }
 
     for (uint64_t i = pThreadInfo->start_table_from;
@@ -1349,9 +1349,9 @@ static void *syncWriteInterlace(void *sarg) {
             char *sampleDataBuf = childTbl->useOwnSample?
                                         childTbl->sampleDataBuf:
                                         stbInfo->sampleDataBuf;
-            char ttl[TTL_BUFF_LEN] = "";
+            char ttl[SMALL_BUFF_LEN] = "";
             if (stbInfo->ttl != 0) {
-                snprintf(ttl, TTL_BUFF_LEN, "TTL %d", stbInfo->ttl);
+                snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
             }
             switch (stbInfo->iface) {
                 case REST_IFACE:
@@ -2113,9 +2113,9 @@ void *syncWriteProgressive(void *sarg) {
             }
         }
 
-        char ttl[TTL_BUFF_LEN] = "";
+        char ttl[SMALL_BUFF_LEN] = "";
         if (stbInfo->ttl != 0) {
-            snprintf(ttl, TTL_BUFF_LEN, "TTL %d", stbInfo->ttl);
+            snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
         }
         for (uint64_t i = 0; i < stbInfo->insertRows;) {
             if (g_arguments->terminate) {
