@@ -31,16 +31,15 @@
 #define  FORCE_TAKEOUT(type) (mix->insertedRows * 100 / mix->insertRows > 80)
 
 #define FAILED_BREAK()   \
-    if (g_arguments->failed_continue) {  \
+    if (g_arguments->continueIfFail == YES_IF_FAILED) {  \
         continue;                        \
     } else {                             \
         g_fail = true;                   \
-        g_arguments->terminate = true;   \
         break;                           \
     }                                    \
 
 typedef struct {
-  uint64_t insertRows;   // need insert 
+  uint64_t insertRows;   // need insert
   uint64_t insertedRows; // already inserted
 
   int8_t ratio[MCNT];
@@ -181,7 +180,7 @@ char* genBatColsNames(threadInfo* info, SSuperTable* stb) {
 uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tableName, uint64_t tableSeq, char* pstr) {
   uint32_t len = 0;
 
-  if (stb->genRowRule == RULE_OLD || stb->genRowRule == RULE_MIX_RANDOM) {    
+  if (stb->genRowRule == RULE_OLD || stb->genRowRule == RULE_MIX_RANDOM) {
     // ttl
     char ttl[20] = "";
     if (stb->ttl != 0) {
@@ -206,11 +205,10 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
       }
     }
 
-    // generate check sql 
+    // generate check sql
     if(info->csql) {
       info->clen = snprintf(info->csql, TSDB_MAX_ALLOWED_SQL_LEN, "select count(*) from %s.%s where ts in(", db->dbName, tableName);
     }
-    
     return len;
   }
 
@@ -309,11 +307,11 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
         prefix = stb->ncharPrefex;
       }
     }
-    
+
     size += dataGenByField(fd, pstr, len + size, prefix);
   }
 
-  // end 
+  // end
   size += snprintf(pstr + len + size, TSDB_MAX_ALLOWED_SQL_LEN - len - size, "%s", ")");
 
   return size;
@@ -321,7 +319,7 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
 
 uint32_t genRowTsCalc(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
   uint32_t size = 0;
-  // first col is ts 
+  // first col is ts
   size = snprintf(pstr +len, TSDB_MAX_ALLOWED_SQL_LEN - len, "(%" PRId64, ts);
 
   // other cols data
@@ -330,7 +328,7 @@ uint32_t genRowTsCalc(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
     size += dataGenByCalcTs(fd, pstr, len + size, ts);
   }
 
-  // end 
+  // end
   size += snprintf(pstr + len + size, TSDB_MAX_ALLOWED_SQL_LEN - len - size, "%s", ")");
 
   return size;
@@ -355,7 +353,6 @@ uint32_t createColsData(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t
   if(info->csql) {
     info->clen += snprintf(info->csql + info->clen, TSDB_MAX_ALLOWED_SQL_LEN - info->clen, "%" PRId64 ",", ts);
   }
-  
 
   return size;
 }
@@ -388,7 +385,6 @@ bool takeRowOutToBuf(SMixRatio* mix, uint8_t type, int64_t ts) {
 #define MIN_COMMIT_ROWS 10000
 uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t len, int64_t ts, uint32_t* pGenRows) {
     uint32_t size = 0;
-    
     // remain need generate rows
     bool forceDis = FORCE_TAKEOUT(MDIS);
     bool forceUpd = FORCE_TAKEOUT(MUPD);
@@ -468,7 +464,7 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
         // remove current item
         mix->bufCnt[type] -= 1;
         buf[i] = buf[bufCnt - 1]; // last set to current
-        bufCnt = mix->bufCnt[type]; 
+        bufCnt = mix->bufCnt[type];
     }
 
     return size;
@@ -486,7 +482,6 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
 
   bool forceDis = FORCE_TAKEOUT(MDIS);
   bool forceUpd = FORCE_TAKEOUT(MUPD);
-  
   int32_t timestamp_step = stb->timestamp_step;
   // full disorder
   if(FULL_DISORDER(stb)) timestamp_step *= -1;
@@ -608,7 +603,7 @@ uint32_t genBatchDelSql(SSuperTable* stb, SMixRatio* mix, int64_t batStartTime, 
   }
 
   int64_t range = ABS_DIFF(batStartTime, stb->startTimestamp);
-  int64_t rangeCnt = range / stb->timestamp_step;
+  int64_t rangeCnt = range / (stb->timestamp_step == 0 ? 1 : stb->timestamp_step);
 
   if (rangeCnt < 200) return 0;
 
@@ -736,7 +731,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
   if (code != 0) {
     errorPrint("checkCorrect sql exec error, error code =0x%x sql=%s", code, sql);
     return false;
-  } 
+  }
 
   // check count correct
   if (ts != lastTs) {
@@ -777,7 +772,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
   // loop insert child tables
   for (uint64_t tbIdx = info->start_table_from; tbIdx <= info->end_table_to; ++tbIdx) {
-    char* tbName = stb->childTblName[tbIdx];
+    char* tbName = stb->childTblArray[tbIdx]->name;
 
     SMixRatio mixRatio;
     mixRatioInit(&mixRatio, stb);
@@ -787,7 +782,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
     while (mixRatio.insertedRows < mixRatio.insertRows) {
       // check terminate
-      if (g_arguments->terminate) {
+      if (g_arguments->terminate || g_fail) {
         break;
       }
 
@@ -828,7 +823,6 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       mixRatio.insertedRows = tbTotal.ordRows + tbTotal.disRows;
 
       // need check sql
-      
       if(g_arguments->check_sql) {
         appendEndCheckSql(info);
         int32_t loop = 0;
@@ -861,13 +855,25 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
           int64_t delCnt = 0;
           queryCnt(info->conn->taos, querySql, &delCnt);
           if (delCnt != 0) {
-            errorPrint(" del not clear zero. query count=%" PRId64, delCnt);
+            errorPrint(" del not clear zero. query count=%" PRId64 " \n  delete sql=%s\n  query sql=%s\n", delCnt, info->buffer, querySql);
             FAILED_BREAK();
           }
 
           // g_arguments->debug_print = true;
           tbTotal.delRows += batTotal.delRows;
           mixRatio.doneCnt[MDEL] += batTotal.delRows;
+        }
+      }
+
+      // flush
+      if (db->flush) {
+        char sql[260] = "";
+        sprintf(sql, "flush database %s", db->dbName);
+        int32_t code = executeSql(info->conn->taos,sql);
+        if (code != 0) {
+          perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+        } else {
+          perfPrint(" %s ok.\n", sql);
         }
       }
 
@@ -890,7 +896,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         benchArrayPush(info->delayList, pdelay);
         info->totalDelay += delay;
       }
-       
+
       int64_t currentPrintTime = toolsGetTimestampMs();
       if (currentPrintTime - lastPrintTime > 30 * 1000) {
         infoPrint("thread[%d] has currently inserted rows: %" PRIu64 "\n", info->threadID,
@@ -914,9 +920,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         if (!checkCorrect(info, db, stb, tbName, lastTs)) {
           // at once exit
           errorPrint(" \n\n *************  check correct not passed %s.%s ! errQueryCnt=%d errLastCnt=%d *********** \n\n", db->dbName, tbName, errQuertCnt, errLastCnt);
-          if(!g_arguments->failed_continue) {
-            exit(1);
-          }
+          FAILED_BREAK()
         }
       }
 
@@ -925,7 +929,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     // print
     if (mixRatio.insertedRows + tbTotal.ordRows + tbTotal.disRows + tbTotal.updRows + tbTotal.delRows > 0) {
       infoPrint("table:%s inserted(%" PRId64 ") rows order(%" PRId64 ")  disorder(%" PRId64 ") update(%" PRId64 ") delete(%" PRId64 ") \n",
-                tbName, mixRatio.insertedRows, FULL_DISORDER(stb) ? 0 : tbTotal.ordRows, FULL_DISORDER(stb) ? tbTotal.ordRows : tbTotal.disRows, 
+                tbName, mixRatio.insertedRows, FULL_DISORDER(stb) ? 0 : tbTotal.ordRows, FULL_DISORDER(stb) ? tbTotal.ordRows : tbTotal.disRows,
                 tbTotal.updRows, tbTotal.delRows);
     }
 
@@ -936,6 +940,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     total.updRows += tbTotal.updRows;
 
     info->totalInsertRows +=mixRatio.insertedRows;
+
+    mixRatioExit(&mixRatio);
   }  // child table end
 
 
