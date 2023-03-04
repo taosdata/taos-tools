@@ -1813,9 +1813,7 @@ static int32_t prepareProgressDataSmlJson(
 }
 
 static int32_t prepareProgressDataSmlLine(
-    threadInfo *pThreadInfo,
-    uint64_t tableSeq,
-    char *sampleDataBuf,
+    threadInfo *pThreadInfo, uint64_t tableSeq, char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSmlLine
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1828,11 +1826,9 @@ static int32_t prepareProgressDataSmlLine(
                 pThreadInfo->lines[j],
                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                 "%s %s %" PRId64 "",
-                pThreadInfo
-                ->sml_tags[(int)tableSeq -
-                pThreadInfo->start_table_from],
-                sampleDataBuf +
-                pos * stbInfo->lenOfCols,
+                pThreadInfo->sml_tags[tableSeq
+                    - pThreadInfo->start_table_from],
+                sampleDataBuf + pos * stbInfo->lenOfCols,
                 *timestamp);
         pos++;
         if (pos >= g_arguments->prepared_rand) {
@@ -1851,9 +1847,7 @@ static int32_t prepareProgressDataSmlLine(
 }
 
 static int32_t prepareProgressDataSmlTelnet(
-    threadInfo *pThreadInfo,
-    uint64_t tableSeq,
-    char *sampleDataBuf,
+    threadInfo *pThreadInfo, uint64_t tableSeq, char *sampleDataBuf,
     int64_t *timestamp, uint64_t i, char *ttl) {
     // prepareProgressDataSmlTelnet
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1868,10 +1862,9 @@ static int32_t prepareProgressDataSmlTelnet(
                 "%s %" PRId64 " %s %s", stbInfo->stbName,
                 *timestamp,
                 sampleDataBuf
-                + pos * stbInfo->lenOfCols,
-                pThreadInfo
-                ->sml_tags[(int)tableSeq
-                -pThreadInfo->start_table_from]);
+                    + pos * stbInfo->lenOfCols,
+                pThreadInfo->sml_tags[tableSeq
+                    -pThreadInfo->start_table_from]);
         pos++;
         if (pos >= g_arguments->prepared_rand) {
             pos = 0;
