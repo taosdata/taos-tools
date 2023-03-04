@@ -939,21 +939,21 @@ static int getStreamInfo(tools_cJSON* json) {
             tools_cJSON* ignore_expired =
                 tools_cJSON_GetObjectItem(streamObj, "ignore_expired");
             if (tools_cJSON_IsString(ignore_expired)) {
-                tstrncpy(stream->ignore_expired, ignore_expired->valueint,
+                tstrncpy(stream->ignore_expired, ignore_expired->valuestring,
                          BIGINT_BUFF_LEN);
             }
 
             tools_cJSON* ignore_update =
                 tools_cJSON_GetObjectItem(streamObj, "ignore_update");
             if (tools_cJSON_IsString(ignore_update)) {
-                tstrncpy(stream->ignore_update, ignore_update->valueint,
+                tstrncpy(stream->ignore_update, ignore_update->valuestring,
                          BIGINT_BUFF_LEN);
             }
 
             tools_cJSON* fill_history =
                 tools_cJSON_GetObjectItem(streamObj, "fill_history");
             if (tools_cJSON_IsString(fill_history)) {
-                tstrncpy(stream->fill_history, fill_history->valueint,
+                tstrncpy(stream->fill_history, fill_history->valuestring,
                          BIGINT_BUFF_LEN);
             }
 
@@ -961,21 +961,21 @@ static int getStreamInfo(tools_cJSON* json) {
                 tools_cJSON_GetObjectItem(streamObj, "stream_stb_field");
             if (tools_cJSON_IsString(stream_stb_field)) {
                 tstrncpy(stream->stream_stb_field, stream_stb_field->valuestring,
-                         TSDB_MAX_SQL_LEN);
+                         TSDB_DEFAULT_PKT_SIZE);
             }
 
             tools_cJSON* stream_tag_field =
                 tools_cJSON_GetObjectItem(streamObj, "stream_tag_field");
             if (tools_cJSON_IsString(stream_tag_field)) {
                 tstrncpy(stream->stream_tag_field, stream_tag_field->valuestring,
-                         TSDB_MAX_SQL_LEN);
+                         TSDB_DEFAULT_PKT_SIZE);
             }
 
             tools_cJSON* subtable =
                 tools_cJSON_GetObjectItem(streamObj, "subtable");
             if (tools_cJSON_IsString(subtable)) {
                 tstrncpy(stream->subtable, subtable->valuestring,
-                         TSDB_MAX_SQL_LEN);
+                         TSDB_DEFAULT_PKT_SIZE);
             }
 
             tools_cJSON* drop = tools_cJSON_GetObjectItem(streamObj, "drop");
