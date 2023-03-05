@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-11856-taosbenchmark-coverity-scan'
+          ref: '3.0'
 
       - name: create debug directory
         if: |
