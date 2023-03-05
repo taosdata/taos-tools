@@ -28,6 +28,7 @@
 
 // max path length on Linux is 4095
 #define MAX_PATH_LEN                    4096
+#define MAX_DIR_LEN                     3808
 
 // max hostname length on Linux is 253
 #define MAX_HOSTNAME_LEN                254

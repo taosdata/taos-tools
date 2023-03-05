@@ -11,12 +11,6 @@
 
 #define _GNU_SOURCE
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <iconv.h>
-#include <sys/stat.h>
-
 #ifdef WINDOWS
 #include <argp.h>
 #include <time.h>
@@ -38,6 +32,13 @@
 #include <wordexp.h>
 #include <dirent.h>
 #endif
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <iconv.h>
+#include <sys/stat.h>
+
 #include <inttypes.h>
 #include <limits.h>
 
@@ -252,7 +253,6 @@ typedef struct {
 #define STRICT_LEN      16
 #define DURATION_LEN    16
 #define KEEPLIST_LEN    48
-#define MAX_DIR_LEN     3808
 
 typedef struct {
     char     name[TSDB_DB_NAME_LEN];
@@ -346,12 +346,11 @@ char *g_avro_codec[] = {
 };
 
 /* avro section begin */
-#define RECORD_NAME_LEN     64
-#define FIELD_NAME_LEN      64
-#define TYPE_NAME_LEN       16
+#define RECORD_NAME_LEN     65
+#define TYPE_NAME_LEN       20
 
 typedef struct FieldStruct_S {
-    char name[FIELD_NAME_LEN];
+    char name[TSDB_COL_NAME_LEN];
     int type;
     bool nullable;
     bool is_array;
@@ -359,7 +358,7 @@ typedef struct FieldStruct_S {
 } FieldStruct;
 
 typedef struct InspectStruct_S {
-    char name[FIELD_NAME_LEN];
+    char name[TSDB_COL_NAME_LEN];
     char type[TYPE_NAME_LEN];
     bool nullable;
     bool is_array;
@@ -3005,7 +3004,7 @@ static RecordSchema *parse_json_to_recordschema(json_t *element) {
                         if (0 == strcmp(ele_key, "name")) {
                             tstrncpy(field->name,
                                     json_string_value(ele_value),
-                                    FIELD_NAME_LEN-1);
+                                    TSDB_COL_NAME_LEN-1);
                         } else if (0 == strcmp(ele_key, "type")) {
                             int ele_type = json_typeof(ele_value);
 
@@ -12462,7 +12461,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element) {
                         if (0 == strcmp(ele_key, "name")) {
                             tstrncpy(field->name,
                                     json_string_value(ele_value),
-                                    FIELD_NAME_LEN-1);
+                                    TSDB_COL_NAME_LEN-1);
                         } else if (0 == strcmp(ele_key, "type")) {
                             int ele_type = json_typeof(ele_value);
 
