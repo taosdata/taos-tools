@@ -1585,6 +1585,18 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
         tstrncpy(g_configDir, cfgdir->valuestring, MAX_FILE_NAME_LEN);
     }
 
+#ifdef LINUX
+    if (strlen(g_configDir)) {
+        wordexp_t full_path;
+	if (wordexp(g_configDir, &full_path, 0) != 0) {
+            errorPrint("Invalid path %s\n", g_configDir);
+            exit(EXIT_FAILURE);
+	}
+        taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
+        wordfree(&full_path);
+    }
+#endif
+
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
     if (tools_cJSON_IsString(host)) {
         g_arguments->host = host->valuestring;
