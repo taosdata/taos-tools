@@ -20,13 +20,8 @@
         "name": "stream_test",
         "drop": "yes",
         "replica": 1,
-        "duration": 10,
         "precision": "ms",
-        "keep": 3650,
-        "minRows": 100,
-        "maxRows": 4096,
-        "comp": 2,
-        "stt_trigger": 1
+        "keep": 3650
       },
       "super_tables": [
         {
