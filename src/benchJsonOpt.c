@@ -1372,8 +1372,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                            sqlFileObj->valuestring);
                 goto PARSE_OVER;
             }
-            char buf[TSDB_MAX_ALLOWED_SQL_LEN];
-            memset(buf, 0, TSDB_MAX_ALLOWED_SQL_LEN);
+            char *buf = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
             while (fgets(buf, TSDB_MAX_ALLOWED_SQL_LEN, fp)) {
                 SSQL * sql = benchCalloc(1, sizeof(SSQL), true);
                 benchArrayPush(g_queryInfo.specifiedQueryInfo.sqls, sql);
@@ -1389,6 +1388,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                 debugPrint("read file buffer: %s\n", sql->command);
                 memset(buf, 0, TSDB_MAX_ALLOWED_SQL_LEN);
             }
+            free(buf);
             fclose(fp);
         }
         // sqls
