@@ -301,10 +301,10 @@ int subscribeTestProcess() {
 		totalMsgs += pThreadInfo->totalMsgs;
 		totalRows += pThreadInfo->totalRows;
     }	
-			
-	infoPrint("Total consumer info: msgs: %" PRId64 ", consume rows: %" PRId64 "\n", totalMsgs, totalRows);
-	infoPrintToFile(g_arguments->fpOfInsertResult,"Total consumer info: msgs: %" PRId64 ", consume rows: %" PRId64 "\n", totalMsgs, totalRows);		
 
+    infoPrint("Consumed total msgs: %" PRId64 ", total rows: %" PRId64 "\n", totalMsgs, totalRows);
+    infoPrintToFile(g_arguments->fpOfInsertResult,"Consumed total msgs: %" PRId64 ", total rows: %" PRId64 "\n", totalMsgs, totalRows);		
+			
 tmq_over:
     free(pids);
     free(infos);
