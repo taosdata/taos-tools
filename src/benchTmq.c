@@ -63,25 +63,6 @@ static tmq_list_t * buildTopicList() {
     return topic_list;
 }
 
-struct tm *taosLocalTime(const time_t *timep, struct tm *result) {
-  if (result == NULL) {
-    return localtime(timep);
-  }
-  
-  localtime_r(timep, result);
-  return result;
-}
-
-char* getCurrentTimeString(char* timeString) {
-  time_t    tTime = (int32_t)time(NULL);
-  struct tm tm;
-  taosLocalTime(&tTime, &tm);
-  sprintf(timeString, "%d-%02d-%02d %02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour,
-          tm.tm_min, tm.tm_sec);
-
-  return timeString;
-}
-
 static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msgIndex) {
   char* buf = (char*)calloc(1, 16*1024);
   if (NULL == buf) {
@@ -91,7 +72,7 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
   
   int32_t totalRows = 0;
 
-  // printf("topic: %s\n", tmq_get_topic_name(msg));
+  // infoPrint("topic: %s\n", tmq_get_topic_name(msg));
   int32_t     vgroupId = tmq_get_vgroup_id(msg);
   const char* dbName = tmq_get_db_name(msg);
 
@@ -108,10 +89,7 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
 
     TAOS_FIELD* fields = taos_fetch_fields(msg);
     int32_t     numOfFields = taos_field_count(msg);
-    //int32_t*    length = taos_fetch_lengths(msg);
-    //int32_t     precision = taos_result_precision(msg);
     const char* tbName = tmq_get_table_name(msg);
-    //dumpToFileForCheck(pInfo->pConsumeRowsFile, row, fields, length, numOfFields, precision);
 
     taos_print_row(buf, row, fields, numOfFields);
 
@@ -122,8 +100,6 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
     totalRows++;
   }
 
-  //addRowsToVgroupId(pInfo, vgroupId, totalRows);
-
   return totalRows;
 }
 
@@ -133,15 +109,11 @@ static void* tmqConsume(void* arg) {
 	int64_t totalMsgs = 0;
 	int64_t totalRows = 0;
 	
-	char tmpString1[128];
-	infoPrint("%s consumer id %d start to loop pull msg\n", getCurrentTimeString(tmpString1), pThreadInfo->id);
+	infoPrint("consumer id %d start to loop pull msg\n", pThreadInfo->id);
 	
-	//pInfo->ts = toolsGetTimestampMs();
-
 	int64_t  lastTotalMsgs = 0;
 	int64_t  lastTotalRows = 0;
 	uint64_t lastPrintTime = toolsGetTimestampMs();
-	//uint64_t startTs = toolsGetTimestampMs();
 	
 	int32_t consumeDelay = g_tmqInfo.consumerInfo.pollDelay == -1 ? -1 : g_tmqInfo.consumerInfo.pollDelay;
 	while (running) {
@@ -149,12 +121,12 @@ static void* tmqConsume(void* arg) {
 	  if (tmqMsg) {
         tmq_res_t msgType = tmq_get_res_type(tmqMsg);
         if (msgType == TMQ_RES_TABLE_META) {
-		  //infoPrint("get TMQ_RES_TABLE_META mesg!!!\n");
+		  errorPrint("consumer id %d get TMQ_RES_TABLE_META mesg.\n", pThreadInfo->id);
 		  break;
         } else if (msgType == TMQ_RES_DATA) {
           totalRows += data_msg_process(tmqMsg, pThreadInfo, totalMsgs);
         } else if (msgType == TMQ_RES_METADATA) {
-          //infoPrint("get TMQ_RES_METADATA mesg !!!\n");
+          errorPrint("consumer id %d get TMQ_RES_METADATA mesg.\n", pThreadInfo->id);
 		  break;
         }
 	
@@ -172,13 +144,11 @@ static void* tmqConsume(void* arg) {
 		}
 
 		if ((g_tmqInfo.consumerInfo.expectRows > 0) && (totalRows > g_tmqInfo.consumerInfo.expectRows)) {
-		    char tmpString3[128];
-    	    infoPrint("%s consumer id %d consumed rows: %" PRId64 " over than expect rows: %d, exit consume\n", getCurrentTimeString(tmpString3), pThreadInfo->id, totalRows, g_tmqInfo.consumerInfo.expectRows);
+    	    infoPrint("consumer id %d consumed rows: %" PRId64 " over than expect rows: %d, exit consume\n", pThreadInfo->id, totalRows, g_tmqInfo.consumerInfo.expectRows);
 	        break;
 		}
 	  } else {
-		char tmpString3[128];
-		infoPrint("%s consumer id %d no poll more msg when time over, break consume\n", getCurrentTimeString(tmpString3), pThreadInfo->id);
+		infoPrint("consumer id %d no poll more msg when time over, break consume\n", pThreadInfo->id);
 		break;
 	  }
 	}
@@ -301,10 +271,10 @@ int subscribeTestProcess() {
 		totalMsgs += pThreadInfo->totalMsgs;
 		totalRows += pThreadInfo->totalRows;
     }	
-
-    infoPrint("Consumed total msgs: %" PRId64 ", total rows: %" PRId64 "\n", totalMsgs, totalRows);
-    infoPrintToFile(g_arguments->fpOfInsertResult,"Consumed total msgs: %" PRId64 ", total rows: %" PRId64 "\n", totalMsgs, totalRows);		
 			
+	infoPrint("Consumed total msgs: %" PRId64 ", total rows: %" PRId64 "\n", totalMsgs, totalRows);
+	infoPrintToFile(g_arguments->fpOfInsertResult,"Consumed total msgs: %" PRId64 ", total rows: %" PRId64 "\n", totalMsgs, totalRows);		
+
 tmq_over:
     free(pids);
     free(infos);
