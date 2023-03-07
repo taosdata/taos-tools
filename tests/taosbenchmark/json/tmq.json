@@ -7,9 +7,10 @@
     "password": "taosdata",
     "databases": "db",
     "confirm_parameter_prompt": "no",
+    "result_file": "./tmq_result1.txt",
     "tmq_info": {
         "concurrent": 2,
-        "poll_delay": 10000,
+        "poll_delay": 3000,
         "group.id": "grpId_0",
         "client.id": "clientId",
         "auto.offset.reset": "earliest",
@@ -18,6 +19,8 @@
         "enable.heartbeat.background": "true",
         "experimental.snapshot.enable": "true",
         "msg.with.table.name": "false",
+        "rows_file": "./consumed_rows1",
+        "expect_rows": -1,
         "topic_list": [
             {"name": "tmq_topic_0", "sql": "select c0 from db.stb;"}
         ]

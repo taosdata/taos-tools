@@ -61,7 +61,7 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
-        cmd = "%s -f ./taosbenchmark/json/tmq.json &" % binPath
+        cmd = "%s -f ./taosbenchmark/json/tmq.json " % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         time.sleep(15)
