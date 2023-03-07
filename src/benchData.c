@@ -203,10 +203,11 @@ static int generateSampleFromCsv(char *buffer,
 #if defined(WIN32) || defined(WIN64)
         toolsGetLineFile(&line, &n, fp);
         readLen = n;
+        if (0 == readLen) {
 #else
         readLen = getline(&line, &n, fp);
-#endif
         if (-1 == readLen) {
+#endif
             if (0 != fseek(fp, 0, SEEK_SET)) {
                 errorPrint("Failed to fseek file: %s, reason:%s\n",
                         file, strerror(errno));
