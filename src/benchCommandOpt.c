@@ -67,7 +67,6 @@ void printVersion() {
 }
 
 void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
-    char *dup_str;
     benchArrayClear(fields);
     if (strstr(dataType, ",") == NULL) {
         Field * field = benchCalloc(1, sizeof(Field), true);
@@ -89,11 +88,11 @@ void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
         field->max = convertDatatypeToDefaultMax(field->type);
         tstrncpy(field->name, isTag?"t0":"c0", TSDB_COL_NAME_LEN);
     } else {
-        dup_str = strdup(dataType);
+        char *dup_str = strdup(dataType);
         char *running = dup_str;
         char *token = strsep(&running, ",");
         int   index = 0;
-        while (token != NULL) {
+        while (token) {
             Field * field = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(fields, field);
             field = benchArrayGet(fields, index);

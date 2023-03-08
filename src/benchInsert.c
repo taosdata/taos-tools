@@ -746,7 +746,7 @@ static void *createTable(void *sarg) {
     }
 
     for (uint64_t i = pThreadInfo->start_table_from;
-        (i <= pThreadInfo->end_table_to && !g_arguments->terminate); i++) {
+            (i <= pThreadInfo->end_table_to && !g_arguments->terminate); i++) {
         if (g_arguments->terminate) {
             goto create_table_end;
         }
@@ -1026,7 +1026,8 @@ void postFreeResource() {
                 stbInfo->tagDataBuf = NULL;
                 tmfree(stbInfo->partialColNameBuf);
                 stbInfo->partialColNameBuf = NULL;
-
+                benchArrayDestroy(stbInfo->batchCreateTblNumbersArray);
+                benchArrayDestroy(stbInfo->batchCreateTblIntervalsArray);
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
                     tmfree(tag->stmtData.data);

@@ -597,6 +597,10 @@ typedef struct SSuperTable_S {
     bool      childTblExists;
     uint64_t  childTblCount;
     uint64_t  batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
+    char      *batchCreateTblNumbers;  // NULL: no numbers
+    BArray    *batchCreateTblNumbersArray;
+    char      *batchCreateTblIntervals;  // NULL: no interval
+    BArray    *batchCreateTblIntervalsArray;
                                    // one sql
     bool      autoCreateTable;
     uint16_t  iface;  // 0: taosc, 1: rest, 2: stmt

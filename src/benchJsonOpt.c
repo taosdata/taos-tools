@@ -429,6 +429,26 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
     return 0;
 }
 
+void parseStringToIntArray(char *str, BArray *arr) {
+    benchArrayClear(arr);
+    if (NULL == strstr(str, ",")) {
+        int *val = benchCalloc(1, sizeof(int), true);
+        *val = atoi(str);
+        benchArrayPush(arr, val);
+    } else {
+        char *dup_str = strdup(str);
+        char *running = dup_str;
+        char *token = strsep(&running, ",");
+        while (token) {
+            int *val = benchCalloc(1, sizeof(int), true);
+            *val = atoi(token);
+            benchArrayPush(arr, val);
+            token = strsep(&running, ",");
+        }
+        tmfree(dup_str);
+    }
+}
+
 static int getStableInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database = benchArrayGet(g_arguments->databases, index);
     tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
@@ -451,6 +471,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->escape_character = false;
         superTable->autoCreateTable = false;
         superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
+        superTable->batchCreateTblNumbers = NULL;
+        superTable->batchCreateTblIntervals = NULL;
         superTable->childTblExists = false;
         superTable->random_data_source = true;
         superTable->iface = TAOSC_IFACE;
@@ -491,14 +513,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
         tools_cJSON *escapeChar =
             tools_cJSON_GetObjectItem(stbInfo, "escape_character");
-        if (tools_cJSON_IsString(escapeChar) &&
-            (0 == strcasecmp(escapeChar->valuestring, "yes"))) {
+        if (tools_cJSON_IsString(escapeChar)
+                && (0 == strcasecmp(escapeChar->valuestring, "yes"))) {
             superTable->escape_character = true;
         }
         tools_cJSON *autoCreateTbl =
             tools_cJSON_GetObjectItem(stbInfo, "auto_create_table");
-        if (tools_cJSON_IsString(autoCreateTbl) &&
-            (0 == strcasecmp(autoCreateTbl->valuestring, "yes"))) {
+        if (tools_cJSON_IsString(autoCreateTbl)
+                && (0 == strcasecmp(autoCreateTbl->valuestring, "yes"))) {
             superTable->autoCreateTable = true;
         }
         tools_cJSON *batchCreateTbl =
@@ -506,11 +528,31 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(batchCreateTbl)) {
             superTable->batchCreateTableNum = batchCreateTbl->valueint;
         }
+        tools_cJSON *batchCreateTblNumbers =
+            tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_numbers");
+        if (tools_cJSON_IsString(batchCreateTblNumbers)) {
+            superTable->batchCreateTblNumbers
+                = batchCreateTblNumbers->valuestring;
+            superTable->batchCreateTblNumbersArray =
+                benchArrayInit(1, sizeof(int));
+            parseStringToIntArray(superTable->batchCreateTblNumbers,
+                                  superTable->batchCreateTblNumbersArray);
+        }
+        tools_cJSON *batchCreateTblIntervals =
+            tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_intervals");
+        if (tools_cJSON_IsString(batchCreateTblIntervals)) {
+            superTable->batchCreateTblIntervals
+                = batchCreateTblIntervals->valuestring;
+            superTable->batchCreateTblIntervalsArray =
+                benchArrayInit(1, sizeof(int));
+            parseStringToIntArray(superTable->batchCreateTblIntervals,
+                                  superTable->batchCreateTblIntervalsArray);
+        }
         tools_cJSON *childTblExists =
             tools_cJSON_GetObjectItem(stbInfo, "child_table_exists");
-        if (tools_cJSON_IsString(childTblExists) &&
-            (0 == strcasecmp(childTblExists->valuestring, "yes"))
-            && !database->drop) {
+        if (tools_cJSON_IsString(childTblExists)
+                && (0 == strcasecmp(childTblExists->valuestring, "yes"))
+                && !database->drop) {
             superTable->childTblExists = true;
             superTable->autoCreateTable = false;
         }
