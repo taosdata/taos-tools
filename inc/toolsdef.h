@@ -192,7 +192,7 @@ int32_t       toolsCloseDir(TdDirPtr *ppDir);
 
 #define toolsGetLineFile(__pLine,__pN, __pFp)                           \
     do {                                                                \
-        *(__pLine) = malloc(1024);                                      \
+        *(__pLine) = calloc(1, 1024);                                   \
         fgets(*(__pLine), 1023, (__pFp));                               \
         (*(__pLine))[1023] = 0;                                         \
         *(__pN)=strlen(*(__pLine));                                     \
