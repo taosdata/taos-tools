@@ -114,12 +114,14 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->values = dataValues;
             if (customName) {
                 if (n >= 1) {
-                    sprintf(col->name, "%s_%d", dataName->valuestring, n);
+                    snprintf(col->name, TSDB_COL_NAME_LEN,
+                             "%s_%d", dataName->valuestring, n);
                 } else {
-                    sprintf(col->name, "%s", dataName->valuestring);
+                    snprintf(col->name, TSDB_COL_NAME_LEN,
+                            "%s", dataName->valuestring);
                 }
             } else {
-                sprintf(col->name, "c%d", index);
+                snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", index);
             }
             index++;
         }
@@ -171,9 +173,10 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             benchArrayPush(stbInfo->tags, tag);
             tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
             if (customName) {
-                sprintf(tag->name, "%s", dataName->valuestring);
+                snprintf(tag->name, TSDB_COL_NAME_LEN,
+                         "%s", dataName->valuestring);
             } else {
-                sprintf(tag->name, "jtag");
+                snprintf(tag->name, TSDB_COL_NAME_LEN, "jtag");
             }
             tag->type = type;
             tag->length = length;
@@ -224,12 +227,14 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             tag->values = dataValues;
             if (customName) {
                 if (n >= 1) {
-                    sprintf(tag->name, "%s_%d", dataName->valuestring, n);
+                    snprintf(tag->name, TSDB_COL_NAME_LEN,
+                             "%s_%d", dataName->valuestring, n);
                 } else {
-                    sprintf(tag->name, "%s", dataName->valuestring);
+                    snprintf(tag->name, TSDB_COL_NAME_LEN,
+                             "%s", dataName->valuestring);
                 }
             } else {
-                sprintf(tag->name, "t%d", index);
+                snprintf(tag->name, TSDB_COL_NAME_LEN, "t%d", index);
             }
             index++;
         }
@@ -338,7 +343,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     }
 
     // set default
-    if(database->durMinute == 0) {
+    if (database->durMinute == 0) {
         database->durMinute = TSDB_DEFAULT_DURATION_PER_FILE;
     }
 
@@ -370,8 +375,9 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
         if (NULL == tsma) {
             errorPrint("%s() failed to allocate memory\n", __func__);
         }
-        tools_cJSON* tsma_name_obj = tools_cJSON_GetObjectItem(tsma_obj, "name");
-        if(!tools_cJSON_IsString(tsma_name_obj)) {
+        tools_cJSON* tsma_name_obj = tools_cJSON_GetObjectItem(tsma_obj,
+                                                               "name");
+        if (!tools_cJSON_IsString(tsma_name_obj)) {
             errorPrint("%s", "Invalid tsma name format in json\n");
             free(tsma);
             return -1;
@@ -389,7 +395,7 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
 
         tools_cJSON* tsma_interval_obj =
             tools_cJSON_GetObjectItem(tsma_obj, "interval");
-        if(!tools_cJSON_IsString(tsma_interval_obj)) {
+        if (!tools_cJSON_IsString(tsma_interval_obj)) {
             errorPrint("%s", "Invalid tsma interval format in json\n");
             free(tsma);
             return -1;
@@ -606,7 +612,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                           childTbl_limit->valueint,
                           superTable->childTblCount);
                 superTable->childTblLimit = superTable->childTblCount;
-            };
+            }
         }
         tools_cJSON *childTbl_offset =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_offset");
@@ -622,7 +628,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 warnPrint("child table from %"PRId64" is invalid, set to 0\n",
                           childTbl_from->valueint);
                 superTable->childTblFrom = 0;
-            };
+            }
         }
         tools_cJSON *childTbl_to =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_to");
@@ -960,14 +966,16 @@ static int getStreamInfo(tools_cJSON* json) {
             tools_cJSON* stream_stb_field =
                 tools_cJSON_GetObjectItem(streamObj, "stream_stb_field");
             if (tools_cJSON_IsString(stream_stb_field)) {
-                tstrncpy(stream->stream_stb_field, stream_stb_field->valuestring,
+                tstrncpy(stream->stream_stb_field,
+                         stream_stb_field->valuestring,
                          TSDB_DEFAULT_PKT_SIZE);
             }
 
             tools_cJSON* stream_tag_field =
                 tools_cJSON_GetObjectItem(streamObj, "stream_tag_field");
             if (tools_cJSON_IsString(stream_tag_field)) {
-                tstrncpy(stream->stream_tag_field, stream_tag_field->valuestring,
+                tstrncpy(stream->stream_tag_field,
+                         stream_tag_field->valuestring,
                          TSDB_DEFAULT_PKT_SIZE);
             }
 
@@ -996,7 +1004,7 @@ static int getStreamInfo(tools_cJSON* json) {
     return 0;
 }
 
-// read common item 
+// read common item
 static int getMetaFromCommonJsonFile(tools_cJSON *json) {
     int32_t code = -1;
     tools_cJSON *cfgdir = tools_cJSON_GetObjectItem(json, "cfgdir");
@@ -1424,20 +1432,26 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                             g_queryInfo.specifiedQueryInfo.endAfterConsume[j] =
                                 (int)endAfterConsume->valueint;
                         }
-                        if (g_queryInfo.specifiedQueryInfo.endAfterConsume[j] < -1)
-                            g_queryInfo.specifiedQueryInfo.endAfterConsume[j] = -1;
+                        if (g_queryInfo.specifiedQueryInfo
+                                .endAfterConsume[j] < -1) {
+                            g_queryInfo.specifiedQueryInfo
+                                .endAfterConsume[j] = -1;
+                        }
 
-                        g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
+                        g_queryInfo.specifiedQueryInfo
+                                .resubAfterConsume[j] = -1;
                         tools_cJSON *resubAfterConsume =
                             tools_cJSON_GetObjectItem(
                                     specifiedQuery, "resubAfterConsume");
                         if (tools_cJSON_IsNumber(resubAfterConsume)) {
-                            g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] =
-                                (int)resubAfterConsume->valueint;
+                            g_queryInfo.specifiedQueryInfo.resubAfterConsume[j]
+                                = (int)resubAfterConsume->valueint;
                         }
 
-                        if (g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] < -1)
-                            g_queryInfo.specifiedQueryInfo.resubAfterConsume[j] = -1;
+                        if (g_queryInfo.specifiedQueryInfo
+                                .resubAfterConsume[j] < -1)
+                            g_queryInfo.specifiedQueryInfo
+                                    .resubAfterConsume[j] = -1;
 
                         tools_cJSON *result =
                             tools_cJSON_GetObjectItem(sqlObj, "result");
@@ -1448,7 +1462,7 @@ static int getMetaFromQueryJsonFile(tools_cJSON *json) {
                             memset(sql->result, 0, MAX_FILE_NAME_LEN);
                         }
                     } else {
-                        errorPrint("%s","Invalid sql in json\n");
+                        errorPrint("%s", "Invalid sql in json\n");
                         goto PARSE_OVER;
                     }
                 }
@@ -1630,10 +1644,10 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
 #ifdef LINUX
     if (strlen(g_configDir)) {
         wordexp_t full_path;
-	if (wordexp(g_configDir, &full_path, 0) != 0) {
+    if (wordexp(g_configDir, &full_path, 0) != 0) {
             errorPrint("Invalid path %s\n", g_configDir);
             exit(EXIT_FAILURE);
-	}
+    }
         taos_options(TSDB_OPTION_CONFIGDIR, full_path.we_wordv[0]);
         wordfree(&full_path);
     }
@@ -1661,16 +1675,18 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     tools_cJSON *concurrent = tools_cJSON_GetObjectItem(tmqInfo, "concurrent");
     if (tools_cJSON_IsNumber(concurrent)) {
         g_tmqInfo.consumerInfo.concurrent = (uint32_t)concurrent->valueint;
-    }	
+    }
 
     tools_cJSON *pollDelay = tools_cJSON_GetObjectItem(tmqInfo, "poll_delay");
     if (tools_cJSON_IsNumber(pollDelay)) {
         g_tmqInfo.consumerInfo.pollDelay = (uint32_t)pollDelay->valueint;
-    }	
+    }
 
-    tools_cJSON *autoCommitInterval = tools_cJSON_GetObjectItem(tmqInfo, "auto.commit.interval.ms");
+    tools_cJSON *autoCommitInterval = tools_cJSON_GetObjectItem(
+            tmqInfo, "auto.commit.interval.ms");
     if (tools_cJSON_IsNumber(autoCommitInterval)) {
-        g_tmqInfo.consumerInfo.autoCommitIntervalMs = (uint32_t)autoCommitInterval->valueint;
+        g_tmqInfo.consumerInfo.autoCommitIntervalMs =
+            (uint32_t)autoCommitInterval->valueint;
     }
 
     tools_cJSON *groupId = tools_cJSON_GetObjectItem(tmqInfo, "group.id");
@@ -1683,27 +1699,33 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
         g_tmqInfo.consumerInfo.clientId = clientId->valuestring;
     }
 
-    tools_cJSON *autoOffsetReset = tools_cJSON_GetObjectItem(tmqInfo, "auto.offset.reset");
+    tools_cJSON *autoOffsetReset = tools_cJSON_GetObjectItem(
+            tmqInfo, "auto.offset.reset");
     if (tools_cJSON_IsString(autoOffsetReset)) {
         g_tmqInfo.consumerInfo.autoOffsetReset = autoOffsetReset->valuestring;
     }
 
-    tools_cJSON *enableAutoCommit = tools_cJSON_GetObjectItem(tmqInfo, "enable.auto.commit");
+    tools_cJSON *enableAutoCommit = tools_cJSON_GetObjectItem(
+            tmqInfo, "enable.auto.commit");
     if (tools_cJSON_IsString(enableAutoCommit)) {
         g_tmqInfo.consumerInfo.enableAutoCommit = enableAutoCommit->valuestring;
     }
 
-    tools_cJSON *enableHeartbeatBackground = tools_cJSON_GetObjectItem(tmqInfo, "enable.heartbeat.background");
+    tools_cJSON *enableHeartbeatBackground = tools_cJSON_GetObjectItem(
+            tmqInfo, "enable.heartbeat.background");
     if (tools_cJSON_IsString(enableHeartbeatBackground)) {
-        g_tmqInfo.consumerInfo.enableHeartbeatBackground = enableHeartbeatBackground->valuestring;
+        g_tmqInfo.consumerInfo.enableHeartbeatBackground =
+            enableHeartbeatBackground->valuestring;
     }
 
-    tools_cJSON *snapshotEnable = tools_cJSON_GetObjectItem(tmqInfo, "experimental.snapshot.enable");
+    tools_cJSON *snapshotEnable = tools_cJSON_GetObjectItem(
+            tmqInfo, "experimental.snapshot.enable");
     if (tools_cJSON_IsString(snapshotEnable)) {
         g_tmqInfo.consumerInfo.snapshotEnable = snapshotEnable->valuestring;
     }
 
-    tools_cJSON *msgWithTableName = tools_cJSON_GetObjectItem(tmqInfo, "msg.with.table.name");
+    tools_cJSON *msgWithTableName = tools_cJSON_GetObjectItem(
+            tmqInfo, "msg.with.table.name");
     if (tools_cJSON_IsString(msgWithTableName)) {
         g_tmqInfo.consumerInfo.msgWithTableName = msgWithTableName->valuestring;
     }
@@ -1711,7 +1733,7 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     tools_cJSON *rowsFile = tools_cJSON_GetObjectItem(tmqInfo, "rows_file");
     if (tools_cJSON_IsString(rowsFile)) {
         g_tmqInfo.consumerInfo.rowsFile = rowsFile->valuestring;
-    }	
+    }
 
     g_tmqInfo.consumerInfo.expectRows = -1;
     tools_cJSON *expectRows = tools_cJSON_GetObjectItem(tmqInfo, "expect_rows");
@@ -1719,37 +1741,41 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
         g_tmqInfo.consumerInfo.expectRows = (uint32_t)expectRows->valueint;
     }
 
-	tools_cJSON *topicList = tools_cJSON_GetObjectItem(tmqInfo, "topic_list");
-	if (tools_cJSON_IsArray(topicList)) {
-		int topicCount = tools_cJSON_GetArraySize(topicList);
-		for (int j = 0; j < topicCount; ++j) {
-			tools_cJSON *topicObj = tools_cJSON_GetArrayItem(topicList, j);
-			if (tools_cJSON_IsObject(topicObj)) {
-				tools_cJSON *topicName = tools_cJSON_GetObjectItem(topicObj, "name");
-				if (tools_cJSON_IsString(topicName)) {
-					//int strLen = strlen(topicName->valuestring) + 1;
-					tstrncpy(g_tmqInfo.consumerInfo.topicName[g_tmqInfo.consumerInfo.topicCount], topicName->valuestring, 255);
+    tools_cJSON *topicList = tools_cJSON_GetObjectItem(tmqInfo, "topic_list");
+    if (tools_cJSON_IsArray(topicList)) {
+        int topicCount = tools_cJSON_GetArraySize(topicList);
+        for (int j = 0; j < topicCount; ++j) {
+            tools_cJSON *topicObj = tools_cJSON_GetArrayItem(topicList, j);
+            if (tools_cJSON_IsObject(topicObj)) {
+                tools_cJSON *topicName = tools_cJSON_GetObjectItem(
+                        topicObj, "name");
+                if (tools_cJSON_IsString(topicName)) {
+                    //  int strLen = strlen(topicName->valuestring) + 1;
+                    tstrncpy(g_tmqInfo.consumerInfo.topicName[
+                                g_tmqInfo.consumerInfo.topicCount],
+                             topicName->valuestring, 255);
 
-				} else {
-					errorPrint("%s","Invalid topic name in json\n");
-					goto PARSE_OVER;
-				}
-				
-				tools_cJSON *sqlString = tools_cJSON_GetObjectItem(topicObj, "sql");
-				if (tools_cJSON_IsString(sqlString)) {
-					//int strLen = strlen(sqlString->valuestring) + 1;
-					tstrncpy(g_tmqInfo.consumerInfo.topicSql[g_tmqInfo.consumerInfo.topicCount], sqlString->valuestring, 255);
+                } else {
+                    errorPrint("%s", "Invalid topic name in json\n");
+                    goto PARSE_OVER;
+                }
 
-				} else {
-					errorPrint("%s","Invalid topic sql in json\n");
-					goto PARSE_OVER;
-				}
+                tools_cJSON *sqlString = tools_cJSON_GetObjectItem(
+                        topicObj, "sql");
+                if (tools_cJSON_IsString(sqlString)) {
+                    //  int strLen = strlen(sqlString->valuestring) + 1;
+                    tstrncpy(g_tmqInfo.consumerInfo.topicSql[
+                                g_tmqInfo.consumerInfo.topicCount],
+                             sqlString->valuestring, 255);
 
-				g_tmqInfo.consumerInfo.topicCount++;
-				
-			}
-		}
-	}
+                } else {
+                    errorPrint("%s", "Invalid topic sql in json\n");
+                    goto PARSE_OVER;
+                }
+                g_tmqInfo.consumerInfo.topicCount++;
+            }
+        }
+    }
 
     code = 0;
 
