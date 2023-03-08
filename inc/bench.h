@@ -794,6 +794,8 @@ typedef struct SConsumerInfo_S {
     char*       enableHeartbeatBackground;
     char*       snapshotEnable;
     char*       msgWithTableName;
+	char*       rowsFile;
+	int32_t     expectRows;
 
     char        topicName[MAX_QUERY_SQL_COUNT][256];
     char        topicSql[MAX_QUERY_SQL_COUNT][256];
@@ -803,7 +805,6 @@ typedef struct SConsumerInfo_S {
 typedef struct STmqMetaInfo_S {
     SConsumerInfo      consumerInfo;
     uint16_t           iface;
-    int16_t            ifSaveData;
 } STmqMetaInfo;
 
 typedef struct SArguments_S {

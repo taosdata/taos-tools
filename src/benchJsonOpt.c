@@ -1639,24 +1639,10 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     }
 #endif
 
-    tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
-    if (tools_cJSON_IsString(host)) {
-        g_arguments->host = host->valuestring;
-    }
-
-    tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
-    if (tools_cJSON_IsNumber(port)) {
-        g_arguments->port = (uint16_t)port->valueint;
-    }
-
-    tools_cJSON *user = tools_cJSON_GetObjectItem(json, "user");
-    if (tools_cJSON_IsString(user)) {
-        g_arguments->user = user->valuestring;
-    }
-
-    tools_cJSON *password = tools_cJSON_GetObjectItem(json, "password");
-    if (tools_cJSON_IsString(password)) {
-        g_arguments->password = password->valuestring;
+    tools_cJSON *resultfile = tools_cJSON_GetObjectItem(json, "result_file");
+    if (resultfile && resultfile->type == tools_cJSON_String
+            && resultfile->valuestring != NULL) {
+        g_arguments->output_file = resultfile->valuestring;
     }
 
     tools_cJSON *answerPrompt =
@@ -1702,12 +1688,10 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
         g_tmqInfo.consumerInfo.autoOffsetReset = autoOffsetReset->valuestring;
     }
 
-
     tools_cJSON *enableAutoCommit = tools_cJSON_GetObjectItem(tmqInfo, "enable.auto.commit");
     if (tools_cJSON_IsString(enableAutoCommit)) {
         g_tmqInfo.consumerInfo.enableAutoCommit = enableAutoCommit->valuestring;
     }
-
 
     tools_cJSON *enableHeartbeatBackground = tools_cJSON_GetObjectItem(tmqInfo, "enable.heartbeat.background");
     if (tools_cJSON_IsString(enableHeartbeatBackground)) {
@@ -1719,13 +1703,21 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
         g_tmqInfo.consumerInfo.snapshotEnable = snapshotEnable->valuestring;
     }
 
-
     tools_cJSON *msgWithTableName = tools_cJSON_GetObjectItem(tmqInfo, "msg.with.table.name");
     if (tools_cJSON_IsString(msgWithTableName)) {
         g_tmqInfo.consumerInfo.msgWithTableName = msgWithTableName->valuestring;
     }
 
+    tools_cJSON *rowsFile = tools_cJSON_GetObjectItem(tmqInfo, "rows_file");
+    if (tools_cJSON_IsString(rowsFile)) {
+        g_tmqInfo.consumerInfo.rowsFile = rowsFile->valuestring;
+    }	
 
+    g_tmqInfo.consumerInfo.expectRows = -1;
+    tools_cJSON *expectRows = tools_cJSON_GetObjectItem(tmqInfo, "expect_rows");
+    if (tools_cJSON_IsNumber(expectRows)) {
+        g_tmqInfo.consumerInfo.expectRows = (uint32_t)expectRows->valueint;
+    }
 
 	tools_cJSON *topicList = tools_cJSON_GetObjectItem(tmqInfo, "topic_list");
 	if (tools_cJSON_IsArray(topicList)) {
