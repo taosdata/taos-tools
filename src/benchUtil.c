@@ -9,7 +9,6 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
-
 #include <bench.h>
 
 char resEncodingChunk[] = "Encoding: chunked";
@@ -1162,32 +1161,43 @@ int createSockFd() {
 
 void destroySockFd(int sockfd) {
     // shutdown the connection since no more data will be sent
-    int result = shutdown(sockfd, SD_SEND);
+    int result, how;
+#ifdef WINDOWS
+    how = SD_SEND;
+#else
+    how = SHUT_WR;
+    #define SOCKET_ERROR  -1
+#endif
+    result = shutdown(sockfd, how);
     if (SOCKET_ERROR == result) {
         errorPrint("Socket shutdown failed with error: %d\n",
-                   WSAGetLastError());
 #ifdef WINDOWS
+                   WSAGetLastError());
         closesocket(sockfd);
         WSACleanup();
 #else
+                   result);
        close(sockfd);
 #endif
         return;
     }
-
     // Receive until the peer closes the connection
-    char recvbuf[LARGER_BUF_LEN];
-    int recvbuflen = LARGER_BUF_LEN;
     do {
-
+        int recvbuflen = LARGE_BUFF_LEN;
+        char recvbuf[LARGE_BUFF_LEN];
         result = recv(sockfd, recvbuf, recvbuflen, 0);
         if ( result > 0 )
             debugPrint("Socket bytes received: %d\n", result);
         else if ( result == 0 )
-            infoPrint("Connection closed\n");
+            infoPrint("Connection closed with result %d\n", result);
         else
             errorPrint("Socket recv failed with error: %d\n",
-                       WSAGetLastError());
+#ifdef WINDOWS
+                       WSAGetLastError()
+#else
+                        result
+#endif
+                       );
     } while( result > 0 );
 #ifdef WINDOWS
     closesocket(sockfd);
