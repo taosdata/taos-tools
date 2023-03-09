@@ -1161,6 +1161,34 @@ int createSockFd() {
 }
 
 void destroySockFd(int sockfd) {
+    // shutdown the connection since no more data will be sent
+    int result = shutdown(sockfd, SD_SEND);
+    if (SOCKET_ERROR == result) {
+        errorPrint("Socket shutdown failed with error: %d\n",
+                   WSAGetLastError());
+#ifdef WINDOWS
+        closesocket(sockfd);
+        WSACleanup();
+#else
+       close(sockfd);
+#endif
+        return;
+    }
+
+    // Receive until the peer closes the connection
+    char recvbuf[LARGER_BUF_LEN];
+    int recvbuflen = LARGER_BUF_LEN;
+    do {
+
+        result = recv(sockfd, recvbuf, recvbuflen, 0);
+        if ( result > 0 )
+            debugPrint("Socket bytes received: %d\n", result);
+        else if ( result == 0 )
+            infoPrint("Connection closed\n");
+        else
+            errorPrint("Socket recv failed with error: %d\n",
+                       WSAGetLastError());
+    } while( result > 0 );
 #ifdef WINDOWS
     closesocket(sockfd);
     WSACleanup();
