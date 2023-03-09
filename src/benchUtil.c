@@ -9,6 +9,7 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
+
 #include <bench.h>
 
 char resEncodingChunk[] = "Encoding: chunked";
@@ -50,7 +51,6 @@ void ERROR_EXIT(const char *msg) {
 }
 
 #ifdef WINDOWS
-
 HANDLE g_stdoutHandle;
 DWORD  g_consoleMode;
 
@@ -1112,6 +1112,14 @@ int convertServAddr(int iface, bool tcp, int protocol) {
     return 0;
 }
 
+static void errorPrintSocketMsg(char *msg, int result) {
+#ifdef WINDOWS
+    errorPrint("%s: %d\n", msg, WSAGetLastError());
+#else
+    errorPrint("%s: %d\n", msg, result);
+#endif
+}
+
 int createSockFd() {
 #ifdef WINDOWS
     WSADATA wsaData;
@@ -1122,13 +1130,7 @@ int createSockFd() {
 #endif
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-#ifdef WINDOWS
-        errorPrint("Could not create socket : %d",
-                   WSAGetLastError());
-#endif
-        debugPrint("%s() LN%d, sockfd=%d\n", __func__,
-                   __LINE__, sockfd);
-        errorPrint("%s\n", "failed to create socket");
+        errorPrintSocketMsg("Could not create socket : ", sockfd);
         return -1;
     }
 
@@ -1148,15 +1150,6 @@ int createSockFd() {
     return sockfd;
 }
 
-static void errorPrintSocketMsg(char *msg, int result) {
-    errorPrint("Socket shutdown failed with error: %d\n",
-#ifdef WINDOWS
-                   WSAGetLastError());
-#else
-                   result);
-#endif
-}
-
 static void closeSockFd(int sockfd) {
 #ifdef WINDOWS
     closesocket(sockfd);
@@ -1171,7 +1164,7 @@ void destroySockFd(int sockfd) {
     int result;
     result = shutdown(sockfd, SHUT_WR);
     if (SOCKET_ERROR == result) {
-        errorPrintSocketMsg("Socket shutdown failed with error: %d\n", result);
+        errorPrintSocketMsg("Socket shutdown failed with error: ", result);
         closeSockFd(sockfd);
         return;
     }
@@ -1185,7 +1178,7 @@ void destroySockFd(int sockfd) {
         } else if (result == 0) {
             infoPrint("Connection closed with result %d\n", result);
         } else {
-            errorPrintSocketMsg("Socket recv failed with error: %d\n", result);
+            errorPrintSocketMsg("Socket recv failed with error: ", result);
         }
     } while (result > 0);
 
