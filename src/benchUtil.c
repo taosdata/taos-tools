@@ -9,7 +9,6 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
-
 #include <bench.h>
 
 char resEncodingChunk[] = "Encoding: chunked";
@@ -51,17 +50,6 @@ void ERROR_EXIT(const char *msg) {
 }
 
 #ifdef WINDOWS
-#define _CRT_RAND_S
-#include <windows.h>
-#include <winsock2.h>
-
-typedef unsigned __int32 uint32_t;
-
-#pragma comment(lib, "ws2_32.lib")
-// Some old MinGW/CYGWIN distributions don't define this:
-#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
-#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
-#endif  // ENABLE_VIRTUAL_TERMINAL_PROCESSING
 
 HANDLE g_stdoutHandle;
 DWORD  g_consoleMode;
@@ -1160,13 +1148,48 @@ int createSockFd() {
     return sockfd;
 }
 
-void destroySockFd(int sockfd) {
+static void errorPrintSocketMsg(char *msg, int result) {
+    errorPrint("Socket shutdown failed with error: %d\n",
+#ifdef WINDOWS
+                   WSAGetLastError());
+#else
+                   result);
+#endif
+}
+
+static void closeSockFd(int sockfd) {
 #ifdef WINDOWS
     closesocket(sockfd);
     WSACleanup();
 #else
     close(sockfd);
 #endif
+}
+
+void destroySockFd(int sockfd) {
+    // shutdown the connection since no more data will be sent
+    int result;
+    result = shutdown(sockfd, SHUT_WR);
+    if (SOCKET_ERROR == result) {
+        errorPrintSocketMsg("Socket shutdown failed with error: %d\n", result);
+        closeSockFd(sockfd);
+        return;
+    }
+    // Receive until the peer closes the connection
+    do {
+        int recvbuflen = LARGE_BUFF_LEN;
+        char recvbuf[LARGE_BUFF_LEN];
+        result = recv(sockfd, recvbuf, recvbuflen, 0);
+        if ( result > 0 ) {
+            debugPrint("Socket bytes received: %d\n", result);
+        } else if (result == 0) {
+            infoPrint("Connection closed with result %d\n", result);
+        } else {
+            errorPrintSocketMsg("Socket recv failed with error: %d\n", result);
+        }
+    } while (result > 0);
+
+    closeSockFd(sockfd);
 }
 
 FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {

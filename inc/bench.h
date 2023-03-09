@@ -41,6 +41,8 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 
+#define SOCKET_ERROR  -1
+
 #elif DARWIN
 #include <argp.h>
 #include <unistd.h>
@@ -49,9 +51,22 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <netdb.h>
-#else
+
+#define SOCKET_ERROR  -1
+
+#else  // WINDOWS
+#define _CRT_RAND_S
+#include <windows.h>
 #include <winsock2.h>
-#endif
+#pragma comment(lib, "ws2_32.lib")
+#define SHUT_WR   SD_SEND
+
+typedef unsigned __int32 uint32_t;
+// Some old MinGW/CYGWIN distributions don't define this:
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif  // ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#endif  // LINUX
 
 #include <limits.h>
 #include <regex.h>
