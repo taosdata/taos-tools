@@ -192,7 +192,7 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
+          if [ -f ~/taosdump-failed.txt ]; then
             cat ~/taosdump-failed.txt;
             exit 1;
           fi

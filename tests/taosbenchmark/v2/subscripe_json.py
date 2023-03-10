@@ -19,9 +19,9 @@ from util.dnodes import *
 
 class TDTestCase:
     def caseDescription(self):
-        '''
+        """
         [TD-11510] taosBenchmark test cases
-        '''
+        """
         return
 
     def init(self, conn, logSql):
@@ -63,14 +63,13 @@ class TDTestCase:
         tdSql.execute("insert into stb_0 using stb tags (0) values (now, 0)")
         tdSql.execute("insert into stb_1 using stb tags (1) values (now, 1)")
         tdSql.execute("insert into stb_2 using stb tags (2) values (now, 2)")
-        cmd = "%s -f ./taosbenchmark/v2/json/specified_subscribe.json -g" %binPath
+        cmd = "%s -f ./taosbenchmark/v2/json/specified_subscribe.json -g" % binPath
         tdLog.info("%s" % cmd)
         assert os.system("%s" % cmd) == 0
 
-        cmd = "%s -f ./taosbenchmark/v2/json/super_subscribe.json -g" %binPath
+        cmd = "%s -f ./taosbenchmark/v2/json/super_subscribe.json -g" % binPath
         tdLog.info("%s" % cmd)
         assert os.system("%s" % cmd) == 0
-
 
     def stop(self):
         tdSql.close()

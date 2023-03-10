@@ -188,7 +188,13 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|Double"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m develop-test:$i success! \033[0m"|| echo -e " \033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|Double"`;  \
+              do printf $i && python3 ./test.py -f $i > /dev/null               \
+                && echo -e " \033[32m develop-test:$i success! \033[0m"         \
+                            | tee -a ~/taosdump-success.txt                     \
+                || echo -e " \033[31m develop-test:$i failed! \033[0m"          \
+                            | tee -a ~/taosdump-failed.txt ;                    \
+                            done
           fi
 
       - name: taosdump Cmd line Test
@@ -208,7 +214,7 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
+          if [ -f ~/taosdump-failed.txt ]; then
             if [ -f ~/taosa.log ]; then
               cat ~/taosa.log
             else
@@ -218,4 +224,6 @@ jobs:
             cat ~/taosdump-failed.txt
 
             exit 1
+          elif [ -f ~/taosdump-success.txt ]; then
+            cat ~/taosdump-success.txt
           fi

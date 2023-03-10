@@ -212,7 +212,7 @@ jobs:
           arch: aarch64
           distro: ubuntu18.04
           run: |
-            if [ -f ~/taosdump-failed.txt ];then
+            if [ -f ~/taosdump-failed.txt ]; then
               cat ~/taosdump-failed.txt;
               exit 1;
             fi

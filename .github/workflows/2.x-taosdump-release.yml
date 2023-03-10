@@ -116,11 +116,13 @@ jobs:
 
           if find tools -name "taosdump*.py"|grep -q .;
           then
-            for i in `find tools -name "taosdump*.py"`; \
-              do python3 ./test.py -f $i > /dev/null \
-                && echo -e "\033[32m $i success! \033[0m" \
-                || echo -e "\033[31m $i failed! \033[0m" \
-                            | tee -a ~/taosdump-failed.txt; done
+            for i in `find tools -name "taosdump*.py"`;       \
+              do python3 ./test.py -f $i > /dev/null          \
+                && echo -e "\033[32m $i success! \033[0m"     \
+                            | tee -a ~/taosdump-success.txt   \
+                || echo -e "\033[31m $i failed! \033[0m"      \
+                            | tee -a ~/taosdump-failed.txt;   \
+                            done
           fi
 
       - name: taosdump System Test
@@ -131,11 +133,13 @@ jobs:
           sudo pkill -9 taosd || :
           if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
           then
-            for i in `find 5-taos-tools/taosdump -name "*.py"`; \
-              do python3 ./test.py -f $i > /dev/null \
+            for i in `find 5-taos-tools/taosdump -name "*.py"`;       \
+              do python3 ./test.py -f $i > /dev/null                  \
                 && echo -e "\033[32m system-test/$i success! \033[0m" \
-                || echo -e "\033[31m system-test/$i failed! \033[0m" \
-                            | tee -a ~/taosdump-failed.txt; done
+                            | tee -a ~/taosdump-success.txt           \
+                || echo -e "\033[31m system-test/$i failed! \033[0m"  \
+                            | tee -a ~/taosdump-failed.txt;           \
+                            done
           fi
 
       - name: taosdump Old Test
@@ -145,8 +149,9 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
           python3 test.py -f 5-taos-tools/TD-12478.py > /dev/null \
-            && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m" \
-            || echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m" \
+            && echo -e "\033[32m  system-test/5-taos-tools/TD-12478.py success! \033[0m"  \
+                            | tee -a ~/taosdump-success.txt                               \
+            || echo -e "\033[31m system-test/5-taos-tools/TD-12478.py failed! \033[0m"    \
                             | tee -a ~/taosdump-failed.txt
 
       - name: taosdump Develop Test
@@ -159,10 +164,12 @@ jobs:
           if find taosdump/native -name "*.py"|grep -q .;
           then
             for i in `find taosdump/native -name "*.py"`; \
-              do python3 ./test.py -f $i > /dev/null \
-                && echo -e "\033[32m develop-test/$i success! \033[0m" \
-                || echo -e "\033[31m develop-test/$i failed! \033[0m" \
-                            | tee -a ~/taosdump-failed.txt ;done
+              do python3 ./test.py -f $i > /dev/null                    \
+                && echo -e "\033[32m develop-test/$i success! \033[0m"  \
+                            | tee -a ~/taosdump-success.txt             \
+                || echo -e "\033[31m develop-test/$i failed! \033[0m"   \
+                            | tee -a ~/taosdump-failed.txt ;            \
+                            done
           fi
 
       - name: taosdump special Develop Test
@@ -174,17 +181,21 @@ jobs:
 
           if find taosdump/native2 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native2 -name "*.py"`; \
-              do python3 ./test.py -f $i > /dev/null \
-                && echo -e "\033[32m $i success! \033[0m" \
-                || echo -e "\033[31m $i failed! \033[0m" \
-                            | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/native2 -name "*.py"`;    \
+              do python3 ./test.py -f $i > /dev/null          \
+                && echo -e "\033[32m $i success! \033[0m"     \
+                            | tee -a ~/taosdump-success.txt   \
+                || echo -e "\033[31m $i failed! \033[0m"      \
+                            | tee -a ~/taosdump-failed.txt;   \
+                            done
           fi
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
-            cat ~/taosdump-failed.txt;
-            exit 1;
+          if [ -f ~/taosdump-failed.txt ]; then
+            cat ~/taosdump-failed.txt
+            exit 1
+          elif [ -f ~/taosdump-success.txt ]; then
+            cat ~/taosdump-success.txt
           fi

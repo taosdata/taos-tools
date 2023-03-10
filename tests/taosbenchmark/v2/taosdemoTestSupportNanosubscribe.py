@@ -11,14 +11,11 @@
 
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 from util.log import *
 from util.cases import *
 from util.sql import *
 from util.dnodes import *
-import time
-from datetime import datetime
 import subprocess
 
 
@@ -56,7 +53,7 @@ class TDTestCase:
     # get the number of subscriptions
     def subTimes(self, filename):
         self.filename = filename
-        command = 'cat %s |wc -l' % filename
+        command = "cat %s |wc -l" % filename
         times = int(subprocess.getstatusoutput(command)[1])
         return times
 
@@ -67,12 +64,14 @@ class TDTestCase:
         self.expectResult = expectResult
         args0 = (filename, subResult, expectResult)
         print("Queryfile:%s ,result is %s != expect: %s" % args0)
-        assert subResult == expectResult, "Queryfile:%s ,result is %s != expect: %s" % args0
+        assert subResult == expectResult, (
+            "Queryfile:%s ,result is %s != expect: %s" % args0
+        )
 
     def run(self):
         tdSql.prepare()
         binPath = self.getPath("taosBenchmark")
-        if (binPath == ""):
+        if binPath == "":
             tdLog.exit("taosBenchmark not found!")
         else:
             tdLog.info("taosBenchmark found in %s" % binPath)
@@ -80,24 +79,28 @@ class TDTestCase:
         # clear envs
 
         os.system(
-            "ps -aux |grep 'taosdemoTestSupportNanoSubscribe.json'  |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1")
+            "ps -aux |grep 'taosdemoTestSupportNanoSubscribe.json'  |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1"
+        )
         os.system(
-            "ps -aux |grep 'taosdemoTestNanoDatabaseInsertForSub.json'  |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1")
+            "ps -aux |grep 'taosdemoTestNanoDatabaseInsertForSub.json'  |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1"
+        )
         os.system("rm -rf ./subscribe_res*")
         os.system("rm -rf ./all_subscribe_res*")
 
         # insert data
         os.system(
-            "%s -f ./taosbenchmark/v2/json/taosdemoTestNanoDatabaseInsertForSub.json" %
-            binPath)
+            "%s -f ./taosbenchmark/v2/json/taosdemoTestNanoDatabaseInsertForSub.json"
+            % binPath
+        )
         tdSql.query("select count(*) from subnsdb.stb0")
         tdSql.checkData(0, 0, 100)
 
         os.system(
-            " nohup %s -f ./taosbenchmark/v2/json/taosdemoTestSupportNanoSubscribe.json & >/dev/null 2>&1" %
-            binPath)
+            " nohup %s -f ./taosbenchmark/v2/json/taosdemoTestSupportNanoSubscribe.json & >/dev/null 2>&1"
+            % binPath
+        )
         sleep(3)
-        print('taosBenchmark query done!')
+        print("taosBenchmark query done!")
 
         # merge result files
 
@@ -118,8 +121,7 @@ class TDTestCase:
 
         # insert extral data
         tdSql.execute("use subnsdb")
-        tdSql.execute(
-            "insert into tb0_0 values(now,100.1000,'subtest1',now-1s)")
+        tdSql.execute("insert into tb0_0 values(now,100.1000,'subtest1',now-1s)")
         sleep(5)
 
         os.system("cat subscribe_res0.txt* > all_subscribe_res0.txt")
@@ -127,16 +129,19 @@ class TDTestCase:
         self.assertCheck("all_subscribe_res0.txt", subTimes0, 202)
 
         sleep(3)
-#        os.system("rm -rf ./subscribe_res*")
-#        os.system("rm -rf ./all_subscribe*")
+        os.system("rm -rf ./subscribe_res*")
+        os.system("rm -rf ./all_subscribe*")
         os.system("rm -rf ./*.py.sql")
         os.system("rm -rf ./nohup*")
         os.system(
-            "ps -aux |grep 'taosdemoTestSupportNanoSubscribe.json' |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1")
+            "ps -aux |grep 'taosdemoTestSupportNanoSubscribe.json' |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1"
+        )
         os.system(
-            "ps -aux |grep 'taosdemoTestSupportNanoSubscribe.json' |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1")
+            "ps -aux |grep 'taosdemoTestSupportNanoSubscribe.json' |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1"
+        )
         os.system(
-            "ps -aux |grep 'taosdemoTestNanoDatabaseInsertForSub.json' |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1")
+            "ps -aux |grep 'taosdemoTestNanoDatabaseInsertForSub.json' |awk '{print $2}'|xargs kill -9 >/dev/null 2>&1"
+        )
 
     def stop(self):
         tdSql.close()

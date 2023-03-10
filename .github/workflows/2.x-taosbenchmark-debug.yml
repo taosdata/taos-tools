@@ -107,12 +107,20 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          for i in `find taosbenchmark -name "*.py"|grep -Ev "v3"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-debug-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-debug-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-debug-failed.txt ;done
+          for i in `find taosbenchmark -name "*.py"|grep -Ev "v3"`;               \
+            do python3 ./test.py -f $i > /dev/null                                \
+              && echo -e "\033[32m taosbenchmark-debug-test/$i success! \033[0m"  \
+                          | tee -a ~/taosbenchmark-debug-success.txt              \
+              || echo -e "\033[31m taosbenchmark-debug-test/$i failed! \033[0m"   \
+                          | tee -a ~/taosbenchmark-debug-failed.txt ;             \
+                          done
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosbenchmark-debug-failed.txt ];then
-            cat ~/taosbenchmark-debug-failed.txt;
-            exit 1;
+          if [ -f ~/taosbenchmark-debug-failed.txt ]; then
+            cat ~/taosbenchmark-debug-failed.txt
+            exit 1
+          elif [ -f ~/taosbenchmark-debug-success.txt ]; then
+            cat ~/taosbenchmark-debug-success.txt
           fi

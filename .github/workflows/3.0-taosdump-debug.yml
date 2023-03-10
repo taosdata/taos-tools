@@ -152,9 +152,21 @@ jobs:
           sudo pkill -9 taosd || :
 
           echo "TEST: old cases"
-          python3 ./test.py -f taosdump/old/taosdumpTest.py > /dev/null && echo -e "\033[32m taosdumpTest.py success! \033[0m"|| echo -e "\033[31m taosdumpTest.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f taosdump/old/taosdumpTest2.py > /dev/null && echo -e "\033[32m taosdumpTest2.py success! \033[0m"|| echo -e "\033[31m taosdumpTest2.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
-          python3 ./test.py -f taosdump/old/taosdumpTestNanoSupport.py > /dev/null && echo -e "\033[32m taosdumpTestNanoSupport.py success! \033[0m"|| echo -e "\033[31m taosdumpTestNanoSupport.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f taosdump/old/taosdumpTest.py > /dev/null   \
+            && echo -e "\033[32m taosdumpTest.py success! \033[0m"        \
+                      | tee -a ~/taosdump-success.txt                     \
+            || echo -e "\033[31m taosdumpTest.py failed! \033[0m"         \
+                      | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f taosdump/old/taosdumpTest2.py > /dev/null  \
+            && echo -e "\033[32m taosdumpTest2.py success! \033[0m"       \
+                        | tee -a ~/taosdump-success.txt                   \
+            || echo -e "\033[31m taosdumpTest2.py failed! \033[0m"        \
+                        | tee -a ~/taosdump-failed.txt
+          python3 ./test.py -f taosdump/old/taosdumpTestNanoSupport.py > /dev/null \
+            && echo -e "\033[32m taosdumpTestNanoSupport.py success! \033[0m"     \
+                        | tee -a ~/taosdump-success.txt                           \
+            || echo -e "\033[31m taosdumpTestNanoSupport.py failed! \033[0m"      \
+                        | tee -a ~/taosdump-failed.txt
 
 
       - name: taosdump Develop Test
@@ -171,10 +183,20 @@ jobs:
           echo "TEST: develop test cases"
           if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native -name "*.py" | grep -Ev "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/native -name "*.py" | grep -Ev "Float|Double"`; \
+              do python3 ./test.py -f $i > /dev/null        \
+                && echo -e "\033[32m $i success! \033[0m"   \
+                          | tee -a ~/taosdump-success.txt   \
+                || echo -e "\033[31m $i failed! \033[0m"    \
+                          | tee -a ~/taosdump-failed.txt;   \
+                          done
           fi
 
-          for i in `find taosdump/native -name "*.py" | grep "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+          for i in `find taosdump/native -name "*.py" | grep "Float|Double"`; \
+            do python3 ./test.py -f $i > /dev/null          \
+              && echo -e "\033[32m $i success! \033[0m"     \
+              || echo -e "\033[31m $i failed! \033[0m" ;    \
+                          done
 
       - name: Check Test Result
         if:
@@ -182,7 +204,9 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
+          if [ -f ~/taosdump-failed.txt ]; then
             cat ~/taosdump-failed.txt;
             exit 1;
+          elif [ -f ~/taosdump-success.txt ]; then
+            cat ~/taosdump-success.txt
           fi

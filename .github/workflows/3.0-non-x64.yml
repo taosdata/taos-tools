@@ -176,7 +176,7 @@ jobs:
 
             python3 ./test.py -f taosdump/old/taosdumpTest.py && echo -e "\033[32m taosdumpTest.py success! \033[0m" || echo -e "\033[31m taosdumpTest.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
-            if [ -f ~/taosdump-failed.txt ];then
+            if [ -f ~/taosdump-failed.txt ]; then
               cat ~/taosdump-failed.txt;
               exit 1;
             fi
