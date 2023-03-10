@@ -1631,8 +1631,7 @@ PARSE_OVER:
     return code;
 }
 
-
-
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
 static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     int32_t code = -1;
 
@@ -1757,7 +1756,7 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
 
                 } else {
                     errorPrint("%s", "Invalid topic name in json\n");
-                    goto PARSE_OVER;
+                    goto TMQ_PARSE_OVER;
                 }
 
                 tools_cJSON *sqlString = tools_cJSON_GetObjectItem(
@@ -1770,19 +1769,17 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
 
                 } else {
                     errorPrint("%s", "Invalid topic sql in json\n");
-                    goto PARSE_OVER;
+                    goto TMQ_PARSE_OVER;
                 }
                 g_tmqInfo.consumerInfo.topicCount++;
             }
         }
     }
-
     code = 0;
-
-PARSE_OVER:
+TMQ_PARSE_OVER:
     return code;
 }
-
+#endif
 
 int getInfoFromJsonFile() {
     char *  file = g_arguments->metaFile;
@@ -1835,12 +1832,18 @@ int getInfoFromJsonFile() {
     code = getMetaFromCommonJsonFile(root);
     if (INSERT_TEST == g_arguments->test_mode) {
         code = getMetaFromInsertJsonFile(root);
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
     } else if (QUERY_TEST == g_arguments->test_mode) {
+#else
+    } else {
+#endif
         memset(&g_queryInfo, 0, sizeof(SQueryMetaInfo));
         code = getMetaFromQueryJsonFile(root);
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
     } else if (SUBSCRIBE_TEST == g_arguments->test_mode) {
         memset(&g_tmqInfo, 0, sizeof(STmqMetaInfo));
         code = getMetaFromTmqJsonFile(root);
+#endif
     }
 PARSE_OVER:
     free(content);
