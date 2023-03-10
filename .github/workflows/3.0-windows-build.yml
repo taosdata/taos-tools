@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-23043-windows-socket-close'
+          ref: 'fix/sangshuduo/TD-23094-taosbenchmark-sub-2.6'
 
       - name: create debug directory
         if: |
@@ -182,11 +182,11 @@ jobs:
           #            fi
           #          fi
           #
-          #          if [ -f taosdump-failed.txt ];then
+          #          if [ -f taosdump-failed.txt ]; then
           #            cat taosdump-failed.txt;
           #            exit 1;
           #          fi
-          #          if [ -f taosbenchmark-failed.txt ];then
+          #          if [ -f taosbenchmark-failed.txt ]; then
           #            cat taosbenchmark-failed.txt;
           #            exit 1;
           #          fi

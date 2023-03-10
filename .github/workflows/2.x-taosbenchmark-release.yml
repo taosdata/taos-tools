@@ -106,13 +106,21 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|slow-query|mixed-query|tmq|vgroups|cloud|sml-rest|stream_function"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "v3"`;   \
+              do python3 ./test.py -f $i > /dev/null      \
+                && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"  \
+                            | tee -a ~/taosbenchmark-release-success.txt              \
+                || echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m"   \
+                            | tee -a ~/taosbenchmark-release-failed.txt;              \
+                            done
           fi
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosbenchmark-release-failed.txt ];then
-            cat ~/taosbenchmark-release-failed.txt;
-            exit 1;
+          if [ -f ~/taosbenchmark-release-failed.txt ]; then
+            cat ~/taosbenchmark-release-failed.txt
+            exit 1
+          elif [ -f ~/taosbenchmark-release-success.txt ]; then
+            cat ~/taosbenchmark-release-success.txt
           fi
