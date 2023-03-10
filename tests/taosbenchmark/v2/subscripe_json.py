@@ -31,24 +31,28 @@ class TDTestCase:
     def getPath(self, tool="taosBenchmark"):
         selfPath = os.path.dirname(os.path.realpath(__file__))
 
-        if ("community" in selfPath):
-            projPath = selfPath[:selfPath.find("community")]
+        if "community" in selfPath:
+            projPath = selfPath[: selfPath.find("community")]
+        elif "src" in selfPath:
+            projPath = selfPath[: selfPath.find("src")]
+        elif "/tools/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/tests/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            projPath = selfPath[:selfPath.find("tests")]
+            tdLog.info("cannot found %s in path: %s, use system's" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
-            if ((tool) in files):
+        for root, dummy, files in os.walk(projPath):
+            if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
-                if ("packaging" not in rootRealPath):
+                if "packaging" not in rootRealPath:
                     paths.append(os.path.join(root, tool))
                     break
-        if (len(paths) == 0):
-            tdLog.exit("taosBenchmark not found!")
-            return
-        else:
-            tdLog.info("taosBenchmark found in %s" % paths[0])
-            return paths[0]
+        if len(paths) == 0:
+            return ""
+        return paths[0]
 
     def run(self):
         binPath = self.getPath()
