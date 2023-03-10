@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-23043-windows-socket-close'
+          ref: 'fix/sangshuduo/TD-23094-taosbenchmark-sub-2.6'
 
       - name: create debug directory
         if: |
