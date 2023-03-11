@@ -1,4 +1,4 @@
-name: Ubuntu (2.x taosBenchmark native release)
+name: Ubuntu (2.x taosbenchmark native release)
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
             tests/taosbenchmark*
             packaging/tools/*
             inc/*
-            .github/workflows/*taosBenchmark*
+            .github/workflows/2.x-taosbenchmark-release.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
