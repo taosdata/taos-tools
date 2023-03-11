@@ -49,7 +49,7 @@ jobs:
             tests/taosbenchmark/*
             tests/taosbenchmark/ws/*
             packaging/tools/*
-            .github/workflows/3.0-taosBenchmark-release.yml
+            .github/workflows/3.0-taosbenchmark-release.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'

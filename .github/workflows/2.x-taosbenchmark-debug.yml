@@ -1,4 +1,4 @@
-name: Ubuntu (2.x taosBenchmark native debug)
+name: Ubuntu (2.x taosbenchmark native debug)
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
             tests/taosbenchmark*
             packaging/tools/*
             inc/*
-            .github/workflows/*taosBenchmark*
+            .github/workflows/2.x-taosbenchmark-debug.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -107,7 +107,7 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          for i in `find taosbenchmark -name "*.py"|grep -Ev "v3"`;               \
+          for i in `find taosbenchmark -name "*.py"|grep -Ev "v3"|sort`;          \
             do python3 ./test.py -f $i > /dev/null                                \
               && echo -e "\033[32m taosbenchmark-debug-test/$i success! \033[0m"  \
                           | tee -a ~/taosbenchmark-debug-success.txt              \
