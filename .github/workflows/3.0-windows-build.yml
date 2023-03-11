@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-23094-taosbenchmark-sub-2.6'
+          ref: 'chore/sangshuduo/TD-19593-gcc12-support'
 
       - name: create debug directory
         if: |

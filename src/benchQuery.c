@@ -668,10 +668,12 @@ void *queryKiller(void *arg) {
                 if (execUSec > g_queryInfo.killQueryThreshold * 1000000) {
                     char sql[SHORT_1K_SQL_BUFF_LEN] = {0};
                     tstrncpy(sql, (char*)row[2],
-                             min(strlen((char*)row[2]), SHORT_1K_SQL_BUFF_LEN));
+                             min(strlen((char*)row[2])+1,
+                                 SHORT_1K_SQL_BUFF_LEN));
 
                     char killId[KILLID_LEN] = {0};
-                    tstrncpy(killId, (char*)row[0], KILLID_LEN);
+                    tstrncpy(killId, (char*)row[0],
+                            min(strlen((char*)row[0])+1, KILLID_LEN));
                     char killCommand[KILLID_LEN + 15] = {0};
                     snprintf(killCommand, KILLID_LEN + 15,
                              "KILL QUERY '%s'", killId);
