@@ -186,7 +186,7 @@ enum _show_db_index {
     TSDB_MAX_SHOW_DB
 };
 
-// -----------------------------------------SHOW TABLES CONFIGURE -------------------------------------
+// SHOW TABLES CONFIGURE -------------------------------------
 enum _show_tables_index {
     TSDB_SHOW_TABLES_NAME_INDEX,
     TSDB_SHOW_TABLES_CREATED_TIME_INDEX,
@@ -198,7 +198,7 @@ enum _show_tables_index {
     TSDB_MAX_SHOW_TABLES
 };
 
-// ---------------------------------- DESCRIBE STABLE CONFIGURE ------------------------------
+// DESCRIBE STABLE CONFIGURE ------------------------------
 enum _describe_table_index {
     TSDB_DESCRIBE_METRIC_FIELD_INDEX,
     TSDB_DESCRIBE_METRIC_TYPE_INDEX,
@@ -443,7 +443,8 @@ static struct argp_option options[] = {
     {"data-batch",  'B', "DATA_BATCH",  0,  "Number of data per query/insert "
         "statement when backup/restore. Default value is 16384. If you see "
             "'error actual dump .. batch ..' when backup or if you see "
-            "'WAL size exceeds limit' error when restore, please adjust the value to a "
+            "'WAL size exceeds limit' error when restore, "
+                 "please adjust the value to a "
             "smaller one and try. The workable value is related to the length "
             "of the row and type of table schema.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,
@@ -459,7 +460,8 @@ static struct argp_option options[] = {
     {"restful",  'R', 0,  0,  "Use RESTful interface to connect server", 11},
     {"cloud",  'C', "CLOUD_DSN",  0,
         "specify a DSN to access the cloud service", 11},
-    {"timeout", 't', "SECONDS", 0, "The timeout seconds for websocket to interact."},
+    {"timeout", 't', "SECONDS", 0, "The timeout seconds for "
+                 "websocket to interact."},
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {0}
@@ -974,7 +976,8 @@ static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
     code = ws_errno(ws_res);
 
     if (code) {
-        errorPrint("Failed to run <%s>, ws_taos: %p, code: 0x%08x, reason: %s\n",
+        errorPrint("Failed to run <%s>, ws_taos: %p, "
+                   "code: 0x%08x, reason: %s\n",
                 command, ws_taos, code, ws_errstr(ws_res));
         ret = -1;;
     }
@@ -1799,7 +1802,8 @@ static int dumpCreateMTableClause(
                     pstr += sprintf(pstr, ",\'%s\'",
                             tableDes->cols[counter].var_value);
                 } else {
-                    pstr += sprintf(pstr, ",\'%s\'", tableDes->cols[counter].value);
+                    pstr += sprintf(pstr, ",\'%s\'",
+                                    tableDes->cols[counter].value);
                 }
             } else {
                 pstr += sprintf(pstr, ",%s", tableDes->cols[counter].value);
@@ -1808,9 +1812,11 @@ static int dumpCreateMTableClause(
             if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
                     || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
                 if (tableDes->cols[counter].var_value) {
-                    pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].var_value);
+                    pstr += sprintf(pstr, "\'%s\'",
+                                    tableDes->cols[counter].var_value);
                 } else {
-                    pstr += sprintf(pstr, "\'%s\'", tableDes->cols[counter].value);
+                    pstr += sprintf(pstr, "\'%s\'",
+                                    tableDes->cols[counter].value);
                 }
             } else {
                 pstr += sprintf(pstr, "%s", tableDes->cols[counter].value);
@@ -1991,7 +1997,8 @@ static int processFieldsValueV3(
                                 __func__, __LINE__);
                         return -1;
                     }
-                    strncpy(tableDes->cols[index].var_value, (char *)value, len);
+                    strncpy(tableDes->cols[index].var_value,
+                            (char *)value, len);
                 }
             } else {
                 if (len < (COL_VALUEBUF_LEN - 2)) {
@@ -2042,18 +2049,20 @@ static int processFieldsValueV3(
                     }
                 } else {
                     if (len < (COL_VALUEBUF_LEN-2)) {
-                        char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
+                        // need reserve 2 bytes for ' '
+                        char tbuf[COL_VALUEBUF_LEN-2];
                         convertNCharToReadable(
                                 (char *)value,
                                 len, tbuf, COL_VALUEBUF_LEN-2);
-                        snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
-                                 "%s", tbuf);
+                        snprintf(tableDes->cols[index].value,
+                                 COL_VALUEBUF_LEN, "%s", tbuf);
                     } else {
                         if (tableDes->cols[index].var_value) {
                             free(tableDes->cols[index].var_value);
                             tableDes->cols[index].var_value = NULL;
                         }
                         tableDes->cols[index].var_value = calloc(1, len * 5);
+                        ASSERT(tableDes->cols[index].var_value);
 
                         if (NULL == tableDes->cols[index].var_value) {
                             errorPrint("%s() LN%d, memory allocation failed!\n",
@@ -2265,12 +2274,13 @@ static int processFieldsValueV2(
                     }
                 } else {
                     if (len < (COL_VALUEBUF_LEN-2)) {
-                        char tbuf[COL_VALUEBUF_LEN-2];    // need reserve 2 bytes for ' '
+                        // need reserve 2 bytes for ' '
+                        char tbuf[COL_VALUEBUF_LEN-2];
                         convertNCharToReadable(
                                 (char *)value,
                                 len, tbuf, COL_VALUEBUF_LEN-2);
-                        snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
-                                 "%s", tbuf);
+                        snprintf(tableDes->cols[index].value,
+                                 COL_VALUEBUF_LEN, "%s", tbuf);
                     } else {
                         if (tableDes->cols[index].var_value) {
                             free(tableDes->cols[index].var_value);
@@ -2491,13 +2501,15 @@ static int getTableTagValueWS(
         TableDes **ppTableDes) {
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
-        // if child-table have tag, V3 using select tag_value from information_schema.ins_tag where table to get tagValue
+        // if child-table have tag, V3 using select tag_value 
+        // from information_schema.ins_tag where table to get tagValue
         ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
         if (ret < 0) {
             ret = getTableTagValueWSV3(ws_taos, dbName, table, ppTableDes);
         }
     } else if (2 == g_majorVersionOfClient) {
-        // if child-table have tag, using  select tagName from table to get tagValue
+        // if child-table have tag,
+        // using  select tagName from table to get tagValue
         ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
     } else {
         errorPrint("%s() LN%d, major version %d is not supported\n",
@@ -5016,35 +5028,29 @@ static int32_t dumpInAvroTagTinyInt(FieldStruct *field, avro_value_t *value,
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            int32_t *n8 = malloc(sizeof(int32_t));
-            ASSERT(n8);
-
-            avro_value_get_int(&tinyint_branch, n8);
-            debugPrint2("%d | ", *n8);
+            int32_t n8 = 0;
+            avro_value_get_int(&tinyint_branch, &n8);
+            debugPrint2("%d | ", n8);
             curr_sqlstr_len += sprintf(
-                             sqlstr+curr_sqlstr_len, "%d,", *n8);
-            free(n8);
+                             sqlstr+curr_sqlstr_len, "%d,", n8);
         }
     } else {
-        int32_t *n8 = malloc(sizeof(int32_t));
-        ASSERT(n8);
-
-        avro_value_get_int(value, n8);
+        int32_t n8 = 0;
+        avro_value_get_int(value, &n8);
 
         verbosePrint("%s() LN%d: *n8=%d null=%d\n",
-                     __func__, __LINE__, (int8_t)*n8,
+                     __func__, __LINE__, (int8_t)n8,
                      (int8_t)TSDB_DATA_TINYINT_NULL);
 
-        if ((int8_t)TSDB_DATA_TINYINT_NULL == (int8_t)*n8) {
+        if ((int8_t)TSDB_DATA_TINYINT_NULL == (int8_t)n8) {
             debugPrint2("%s | ", "null");
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            debugPrint2("%d | ", *n8);
+            debugPrint2("%d | ", n8);
             curr_sqlstr_len += sprintf(
-                             sqlstr+curr_sqlstr_len, "%d,", *n8);
+                             sqlstr+curr_sqlstr_len, "%d,", n8);
         }
-        free(n8);
     }
     return curr_sqlstr_len;
 }
@@ -5060,36 +5066,27 @@ static int32_t dumpInAvroTagSmallInt(FieldStruct *field, avro_value_t *value,
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            int32_t *n16 = malloc(sizeof(int32_t));
-            ASSERT(n16);
-
-            avro_value_get_int(&smallint_branch, n16);
-
-            debugPrint2("%d | ", *n16);
+            int32_t n16 = 0;
+            avro_value_get_int(&smallint_branch, &n16);
+            debugPrint2("%d | ", n16);
             curr_sqlstr_len += sprintf(
-                             sqlstr+curr_sqlstr_len, "%d,", *n16);
-            free(n16);
+                             sqlstr+curr_sqlstr_len, "%d,", n16);
         }
     } else {
-        int32_t *n16 = malloc(sizeof(int32_t));
-        ASSERT(n16);
-
-        avro_value_get_int(value, n16);
-
+        int32_t n16 = 0;
+        avro_value_get_int(value, &n16);
         verbosePrint("%s() LN%d: *n16=%d null=%d\n",
-                              __func__, __LINE__, (int16_t)*n16,
+                              __func__, __LINE__, (int16_t)n16,
                               (int16_t)TSDB_DATA_SMALLINT_NULL);
-
-        if ((int16_t)TSDB_DATA_SMALLINT_NULL == (int16_t)*n16) {
+        if ((int16_t)TSDB_DATA_SMALLINT_NULL == (int16_t)n16) {
             debugPrint2("%s | ", "null");
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            debugPrint2("%d | ", *n16);
+            debugPrint2("%d | ", n16);
             curr_sqlstr_len += sprintf(
-                             sqlstr+curr_sqlstr_len, "%d,", *n16);
+                             sqlstr+curr_sqlstr_len, "%d,", n16);
         }
-        free(n16);
     }
     return curr_sqlstr_len;
 }
@@ -5106,37 +5103,29 @@ static int32_t dumpInAvroTagInt(FieldStruct *field, avro_value_t *value,
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            int32_t *n32 = malloc(sizeof(int32_t));
-            ASSERT(n32);
-
-            avro_value_get_int(&int_branch, n32);
-            debugPrint2("%d | ", *n32);
+            int32_t n32 = 0;
+            avro_value_get_int(&int_branch, &n32);
+            debugPrint2("%d | ", n32);
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len,
-                             "%d,", *n32);
-                     free(n32);
+                             "%d,", n32);
         }
     } else {
-        int32_t *n32 = malloc(sizeof(int32_t));
-        ASSERT(n32);
-
-        avro_value_get_int(value, n32);
-
+        int32_t n32 = 0;
+        avro_value_get_int(value, &n32);
         verbosePrint("%s() LN%d: *n32=%d null=%d\n",
-                              __func__, __LINE__, *n32,
+                              __func__, __LINE__, n32,
                               (int32_t)TSDB_DATA_INT_NULL);
-
-        if ((int32_t)TSDB_DATA_INT_NULL == *n32) {
+        if ((int32_t)TSDB_DATA_INT_NULL == n32) {
             debugPrint2("%s | ", "null");
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            debugPrint2("%d | ", *n32);
+            debugPrint2("%d | ", n32);
             curr_sqlstr_len += sprintf(
                              sqlstr+curr_sqlstr_len,
-                             "%d,", *n32);
+                             "%d,", n32);
         }
-        free(n32);
     }
     return curr_sqlstr_len;
 }
@@ -5152,35 +5141,28 @@ static int32_t dumpInAvroTagBigInt(FieldStruct *field, avro_value_t *value,
             curr_sqlstr_len += sprintf(
                     sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            int64_t *n64 = malloc(sizeof(int64_t));
-            ASSERT(n64);
-
-            avro_value_get_long(&bigint_branch, n64);
-            debugPrint2("%"PRId64" | ", *n64);
+            int64_t n64 = 0;
+            avro_value_get_long(&bigint_branch, &n64);
+            debugPrint2("%"PRId64" | ", n64);
             curr_sqlstr_len += sprintf(
                     sqlstr+curr_sqlstr_len,
-                    "%"PRId64",", *n64);
-            free(n64);
+                    "%"PRId64",", n64);
         }
     } else {
-        int64_t *n64 = malloc(sizeof(int64_t));
-        ASSERT(n64);
-
-        avro_value_get_long(value, n64);
+        int64_t n64 = 0;
+        avro_value_get_long(value, &n64);
         verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
-            __func__, __LINE__, *n64,
+            __func__, __LINE__, n64,
             (int64_t)TSDB_DATA_BIGINT_NULL);
-
-        if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+        if ((int64_t)TSDB_DATA_BIGINT_NULL == n64) {
             debugPrint2("%s | ", "null");
             curr_sqlstr_len += sprintf(
                 sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            debugPrint2("%"PRId64" | ", *n64);
+            debugPrint2("%"PRId64" | ", n64);
             curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len,
-                                       "%"PRId64",", *n64);
+                                       "%"PRId64",", n64);
         }
-        free(n64);
     }
     return curr_sqlstr_len;
 }
@@ -5194,29 +5176,23 @@ static int32_t dumpInAvroTagFloat(FieldStruct *field, avro_value_t *value,
             debugPrint2("%s | ", "NULL");
             curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            float *f = malloc(sizeof(float));
-            ASSERT(f);
-
-            avro_value_get_float(&float_branch, f);
-            debugPrint2("%f | ", *f);
+            float f = 0.0;
+            avro_value_get_float(&float_branch, &f);
+            debugPrint2("%f | ", f);
             curr_sqlstr_len += sprintf(
-                sqlstr+curr_sqlstr_len, "%f,", *f);
-            free(f);
+                sqlstr+curr_sqlstr_len, "%f,", f);
         }
     } else {
-        float *f = malloc(sizeof(float));
-        ASSERT(f);
-
-        avro_value_get_float(value, f);
-        if (TSDB_DATA_FLOAT_NULL == *f) {
+        float f = 0.0;
+        avro_value_get_float(value, &f);
+        if (TSDB_DATA_FLOAT_NULL == f) {
             debugPrint2("%s | ", "NULL");
             curr_sqlstr_len += sprintf(
                 sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            debugPrint2("%f | ", *f);
-            curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "%f,", *f);
+            debugPrint2("%f | ", f);
+            curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "%f,", f);
         }
-        free(f);
     }
     return curr_sqlstr_len;
 }
@@ -5231,27 +5207,21 @@ static int32_t dumpInAvroTagDouble(FieldStruct *field, avro_value_t *value,
             debugPrint2("%s | ", "NULL");
             curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            double *dbl = malloc(sizeof(double));
-            ASSERT(dbl);
-
-            avro_value_get_double(&dbl_branch, dbl);
-            debugPrint2("%f | ", *dbl);
-            curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "%f,", *dbl);
-            free(dbl);
+            double dbl = 0.0;
+            avro_value_get_double(&dbl_branch, &dbl);
+            debugPrint2("%f | ", dbl);
+            curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "%f,", dbl);
         }
     } else {
-        double *dbl = malloc(sizeof(double));
-        ASSERT(dbl);
-
-        avro_value_get_double(value, dbl);
-        if (TSDB_DATA_DOUBLE_NULL == *dbl) {
+        double dbl = 0.0;
+        avro_value_get_double(value, &dbl);
+        if (TSDB_DATA_DOUBLE_NULL == dbl) {
             debugPrint2("%s | ", "NULL");
             curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            debugPrint2("%f | ", *dbl);
-            curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "%f,", *dbl);
+            debugPrint2("%f | ", dbl);
+            curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "%f,", dbl);
         }
-        free(dbl);
     }
     return curr_sqlstr_len;
 }
@@ -5314,37 +5284,29 @@ static int32_t dumpInAvroTagTimeStamp(FieldStruct *field, avro_value_t *value,
             curr_sqlstr_len += sprintf(
                 sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            int64_t *n64 = malloc(sizeof(int64_t));
-            ASSERT(n64);
-
-            avro_value_get_long(&ts_branch, n64);
-
-            debugPrint2("%"PRId64" | ", *n64);
+            int64_t n64 = 0;
+            avro_value_get_long(&ts_branch, &n64);
+            debugPrint2("%"PRId64" | ", n64);
             curr_sqlstr_len += sprintf(
                 sqlstr+curr_sqlstr_len,
-                "%"PRId64",", *n64);
-            free(n64);
+                "%"PRId64",", n64);
         }
     } else {
-        int64_t *n64 = malloc(sizeof(int64_t));
-        ASSERT(n64);
-
-        avro_value_get_long(value, n64);
+        int64_t n64 = 0;
+        avro_value_get_long(value, &n64);
         verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
-            __func__, __LINE__, *n64,
+            __func__, __LINE__, n64,
             (int64_t)TSDB_DATA_BIGINT_NULL);
-
-        if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+        if ((int64_t)TSDB_DATA_BIGINT_NULL == n64) {
             debugPrint2("%s | ", "null");
             curr_sqlstr_len += sprintf(
                 sqlstr+curr_sqlstr_len, "NULL,");
         } else {
-            debugPrint2("%"PRId64" | ", *n64);
+            debugPrint2("%"PRId64" | ", n64);
             curr_sqlstr_len += sprintf(
                 sqlstr+curr_sqlstr_len,
-                "%"PRId64",", *n64);
+                "%"PRId64",", n64);
         }
-        free(n64);
     }
     return curr_sqlstr_len;
 }
@@ -5363,29 +5325,25 @@ static int32_t dumpInAvroTagUnsignedTinyInt(FieldStruct *field,
                                  sqlstr+curr_sqlstr_len, "NULL,");
         } else {
             if (TSDB_DATA_TYPE_INT == field->array_type) {
-                uint8_t *array_u8 = malloc(sizeof(uint8_t));
-                ASSERT(array_u8);
-                *array_u8 = 0;
-
+                uint8_t array_u8 = 0;
                 size_t array_size = 0;
-                int32_t n32tmp;
                 avro_value_get_size(&utinyint_branch, &array_size);
 
                 debugPrint("%s() LN%d, array_size: %zu\n",
                                         __func__, __LINE__, array_size);
                 for (size_t item = 0; item < array_size; item++) {
+                    int32_t n32tmp = 0;
                     avro_value_t item_value;
                     avro_value_get_by_index(&utinyint_branch, item,
                         &item_value, NULL);
                     avro_value_get_int(&item_value, &n32tmp);
-                    *array_u8 += (int8_t)n32tmp;
+                    array_u8 += (int8_t)n32tmp;
                 }
 
-                debugPrint2("%u | ", (uint32_t)*array_u8);
+                debugPrint2("%u | ", (uint32_t)array_u8);
                 curr_sqlstr_len += sprintf(
                                      sqlstr+curr_sqlstr_len, "%u,",
-                                     (uint32_t)*array_u8);
-                free(array_u8);
+                                     (uint32_t)array_u8);
             } else {
                 errorPrint("%s() LN%d mix type %s with int array",
                                         __func__, __LINE__,
@@ -5394,35 +5352,31 @@ static int32_t dumpInAvroTagUnsignedTinyInt(FieldStruct *field,
         }
     } else {
         if (TSDB_DATA_TYPE_INT == field->array_type) {
-            uint8_t *array_u8 = malloc(sizeof(uint8_t));
-            ASSERT(array_u8);
-            *array_u8 = 0;
-
+            uint8_t array_u8 = 0;
             size_t array_size = 0;
-            int32_t n32tmp;
             avro_value_get_size(value, &array_size);
 
             debugPrint("%s() LN%d, array_size: %zu\n",
                                 __func__, __LINE__, array_size);
             for (size_t item = 0; item < array_size; item++) {
+                int32_t n32tmp = 0;
                 avro_value_t item_value;
                 avro_value_get_by_index(value, item,
                                                  &item_value, NULL);
                 avro_value_get_int(&item_value, &n32tmp);
-                *array_u8 += (int8_t)n32tmp;
+                array_u8 += (int8_t)n32tmp;
             }
 
-            if (TSDB_DATA_UTINYINT_NULL == *array_u8) {
+            if (TSDB_DATA_UTINYINT_NULL == array_u8) {
                 debugPrint2("%s |", "null");
                 curr_sqlstr_len += sprintf(
                                  sqlstr+curr_sqlstr_len, "NULL,");
             } else {
-                debugPrint2("%u | ", (uint32_t)*array_u8);
+                debugPrint2("%u | ", (uint32_t)array_u8);
                 curr_sqlstr_len += sprintf(
                                  sqlstr+curr_sqlstr_len, "%u,",
-                                 (uint32_t)*array_u8);
+                                 (uint32_t)array_u8);
             }
-            free(array_u8);
         } else {
             errorPrint("%s() LN%d mix type %s with int array",
                             __func__, __LINE__,
@@ -5445,29 +5399,23 @@ static int32_t dumpInAvroTagUnsignedSmallInt(FieldStruct *field,
                                  sqlstr+curr_sqlstr_len, "NULL,");
         } else {
             if (TSDB_DATA_TYPE_INT == field->array_type) {
-                uint16_t *array_u16 = malloc(sizeof(uint16_t));
-                ASSERT(array_u16);
-                *array_u16 = 0;
-
+                uint16_t array_u16 = 0;
                 size_t array_size = 0;
-                int32_t n32tmp;
                 avro_value_get_size(&usmint_branch, &array_size);
-
                 debugPrint("%s() LN%d, array_size: %zu\n",
                                         __func__, __LINE__, array_size);
                 for (size_t item = 0; item < array_size; item++) {
+                    int32_t n32tmp = 0;
                     avro_value_t item_value;
                     avro_value_get_by_index(&usmint_branch, item,
                                                          &item_value, NULL);
                     avro_value_get_int(&item_value, &n32tmp);
-                    *array_u16 += (int16_t)n32tmp;
+                    array_u16 += (int16_t)n32tmp;
                 }
-
-                debugPrint2("%u | ", (uint32_t)*array_u16);
+                debugPrint2("%u | ", (uint32_t)array_u16);
                 curr_sqlstr_len += sprintf(
                                      sqlstr+curr_sqlstr_len, "%u,",
-                                     (uint32_t)*array_u16);
-                free(array_u16);
+                                     (uint32_t)array_u16);
             } else {
                 errorPrint("%s() LN%d mix type %s with int array",
                                         __func__, __LINE__,
@@ -5476,35 +5424,30 @@ static int32_t dumpInAvroTagUnsignedSmallInt(FieldStruct *field,
         }
     } else {
         if (TSDB_DATA_TYPE_INT == field->array_type) {
-            uint16_t *array_u16 = malloc(sizeof(uint16_t));
-            ASSERT(array_u16);
-            *array_u16 = 0;
-
+            uint16_t array_u16 = 0;
             size_t array_size = 0;
-            int32_t n32tmp;
             avro_value_get_size(value, &array_size);
-
             debugPrint("%s() LN%d, array_size: %zu\n",
                                 __func__, __LINE__, array_size);
             for (size_t item = 0; item < array_size; item++) {
+                int32_t n32tmp = 0;
                 avro_value_t item_value;
                 avro_value_get_by_index(value, item,
                                                  &item_value, NULL);
                 avro_value_get_int(&item_value, &n32tmp);
-                *array_u16 += (int16_t)n32tmp;
+                array_u16 += (int16_t)n32tmp;
             }
 
-            if (TSDB_DATA_USMALLINT_NULL == *array_u16) {
+            if (TSDB_DATA_USMALLINT_NULL == array_u16) {
                 debugPrint2("%s |", "null");
                 curr_sqlstr_len += sprintf(
                                  sqlstr+curr_sqlstr_len, "NULL,");
             } else {
-                debugPrint2("%u | ", (uint32_t)*array_u16);
+                debugPrint2("%u | ", (uint32_t)array_u16);
                 curr_sqlstr_len += sprintf(
                                  sqlstr+curr_sqlstr_len, "%u,",
-                                 (uint32_t)*array_u16);
+                                 (uint32_t)array_u16);
             }
-            free(array_u16);
         } else {
             errorPrint("%s() LN%d mix type %s with int array",
                             __func__, __LINE__,
@@ -5527,10 +5470,7 @@ static int32_t dumpInAvroTagUnsignedInt(FieldStruct *field,
                     sqlstr+curr_sqlstr_len, "NULL,");
         } else {
             if (TSDB_DATA_TYPE_INT == field->array_type) {
-                uint32_t *array_u32 = malloc(sizeof(uint32_t));
-                ASSERT(array_u32);
-                *array_u32 = 0;
-
+                uint32_t array_u32 = 0;
                 size_t array_size = 0;
                 int32_t n32tmp;
                 avro_value_get_size(&uint_branch, &array_size);
@@ -5542,19 +5482,17 @@ static int32_t dumpInAvroTagUnsignedInt(FieldStruct *field,
                     avro_value_get_by_index(&uint_branch, item,
                         &item_value, NULL);
                     avro_value_get_int(&item_value, &n32tmp);
-                    *array_u32 += n32tmp;
+                    array_u32 += n32tmp;
                     debugPrint("%s() LN%d, array index: %d, n32tmp: %d, "
                                "array_u32: %u\n",
                                __func__, __LINE__,
                                (int)item, n32tmp,
-                               (uint32_t)*array_u32);
+                               (uint32_t)array_u32);
                 }
-
-                debugPrint2("%u | ", (uint32_t)*array_u32);
+                debugPrint2("%u | ", (uint32_t)array_u32);
                 curr_sqlstr_len += sprintf(
                     sqlstr+curr_sqlstr_len, "%u,",
-                    (uint32_t)*array_u32);
-                free(array_u32);
+                    (uint32_t)array_u32);
             } else {
                 errorPrint("%s() LN%d mix type %s with int array",
                     __func__, __LINE__,
@@ -5563,14 +5501,10 @@ static int32_t dumpInAvroTagUnsignedInt(FieldStruct *field,
         }
     } else {
         if (TSDB_DATA_TYPE_INT == field->array_type) {
-            uint32_t *array_u32 = malloc(sizeof(uint32_t));
-            ASSERT(array_u32);
-            *array_u32 = 0;
-
+            uint32_t array_u32 = 0;
             size_t array_size = 0;
             int32_t n32tmp;
             avro_value_get_size(value, &array_size);
-
             debugPrint("%s() LN%d, array_size: %zu\n",
                 __func__, __LINE__, array_size);
             for (size_t item = 0; item < array_size; item++) {
@@ -5578,25 +5512,24 @@ static int32_t dumpInAvroTagUnsignedInt(FieldStruct *field,
                 avro_value_get_by_index(value, item,
                     &item_value, NULL);
                 avro_value_get_int(&item_value, &n32tmp);
-                *array_u32 += n32tmp;
+                array_u32 += n32tmp;
                 debugPrint("%s() LN%d, array index: %d, n32tmp: %d, "
                            "array_u32: %u\n",
                            __func__, __LINE__,
                            (int)item, n32tmp,
-                           (uint32_t)*array_u32);
+                           (uint32_t)array_u32);
             }
 
-            if (TSDB_DATA_UINT_NULL == *array_u32) {
+            if (TSDB_DATA_UINT_NULL == array_u32) {
                 debugPrint2("%s |", "null");
                 curr_sqlstr_len += sprintf(
                     sqlstr+curr_sqlstr_len, "NULL,");
             } else {
-                debugPrint2("%u | ", (uint32_t)*array_u32);
+                debugPrint2("%u | ", (uint32_t)array_u32);
                 curr_sqlstr_len += sprintf(
                     sqlstr+curr_sqlstr_len, "%u,",
-                    (uint32_t)*array_u32);
+                    (uint32_t)array_u32);
             }
-            free(array_u32);
         } else {
             errorPrint("%s() LN%d mix type %s with int array",
                 __func__, __LINE__,
@@ -5619,14 +5552,10 @@ static int32_t dumpInAvroTagUnsignedBigInt(FieldStruct *field,
                                  sqlstr+curr_sqlstr_len, "NULL,");
         } else {
             if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
-                uint64_t *array_u64 = malloc(sizeof(uint64_t));
-                ASSERT(array_u64);
-                *array_u64 = 0;
-
+                uint64_t array_u64 = 0;
                 size_t array_size = 0;
                 int64_t n64tmp;
                 avro_value_get_size(&ubigint_branch, &array_size);
-
                 debugPrint("%s() LN%d, array_size: %zu\n",
                                         __func__, __LINE__, array_size);
                 for (size_t item = 0; item < array_size; item++) {
@@ -5634,20 +5563,18 @@ static int32_t dumpInAvroTagUnsignedBigInt(FieldStruct *field,
                     avro_value_get_by_index(&ubigint_branch, item,
                                             &item_value, NULL);
                     avro_value_get_long(&item_value, &n64tmp);
-                    *array_u64 += n64tmp;
+                    array_u64 += n64tmp;
                     debugPrint("%s() LN%d, array "
                                "index: %d, n64tmp: %"PRId64","
                                " array_u64: %"PRIu64"\n",
                                __func__, __LINE__,
                                (int)item, n64tmp,
-                               (uint64_t)*array_u64);
+                               (uint64_t)array_u64);
                 }
-
-                debugPrint2("%"PRIu64" | ", (uint64_t)*array_u64);
+                debugPrint2("%"PRIu64" | ", (uint64_t)array_u64);
                 curr_sqlstr_len += sprintf(
                                      sqlstr+curr_sqlstr_len, "%"PRIu64",",
-                                     (uint64_t)*array_u64);
-                free(array_u64);
+                                     (uint64_t)array_u64);
             } else {
                 errorPrint("%s() LN%d mix type %s with int array",
                     __func__, __LINE__, typeToStr(field->array_type));
@@ -5655,14 +5582,10 @@ static int32_t dumpInAvroTagUnsignedBigInt(FieldStruct *field,
         }
     } else {
         if (TSDB_DATA_TYPE_BIGINT == field->array_type) {
-            uint64_t *array_u64 = malloc(sizeof(uint64_t));
-            ASSERT(array_u64);
-            *array_u64 = 0;
-
+            uint64_t array_u64 = 0;
             size_t array_size = 0;
             int64_t n64tmp;
             avro_value_get_size(value, &array_size);
-
             debugPrint("%s() LN%d, array_size: %zu\n",
                     __func__, __LINE__, array_size);
             for (size_t item = 0; item < array_size; item++) {
@@ -5670,25 +5593,23 @@ static int32_t dumpInAvroTagUnsignedBigInt(FieldStruct *field,
                 avro_value_get_by_index(value, item,
                     &item_value, NULL);
                 avro_value_get_long(&item_value, &n64tmp);
-                         *array_u64 += n64tmp;
+                array_u64 += n64tmp;
                 debugPrint("%s() LN%d, array "
                            "index: %d, n64tmp: %"PRId64","
                            " array_u64: %"PRIu64"\n",
                            __func__, __LINE__, (int)item, n64tmp,
-                           (uint64_t)*array_u64);
+                           (uint64_t)array_u64);
             }
-
-            if (TSDB_DATA_UBIGINT_NULL == *array_u64) {
+            if (TSDB_DATA_UBIGINT_NULL == array_u64) {
                 debugPrint2("%s |", "null");
                 curr_sqlstr_len += sprintf(
                         sqlstr+curr_sqlstr_len, "NULL,");
             } else {
-                debugPrint2("%"PRIu64" | ", (uint64_t)*array_u64);
+                debugPrint2("%"PRIu64" | ", (uint64_t)array_u64);
                 curr_sqlstr_len += sprintf(
                                  sqlstr+curr_sqlstr_len, "%"PRIu64",",
-                                 (uint64_t)*array_u64);
+                                 (uint64_t)array_u64);
             }
-            free(array_u64);
         } else {
             errorPrint("%s() LN%d mix type %s with int array",
                             __func__, __LINE__,
@@ -5708,17 +5629,14 @@ static int32_t dumpInAvroBool(avro_value_t *value,
         curr_sqlstr_len += sprintf(
                          sqlstr+curr_sqlstr_len, "NULL,");
     } else {
-        int32_t *bl = malloc(sizeof(int32_t));
-        ASSERT(bl);
-
-        avro_value_get_boolean(&bool_branch, bl);
-        verbosePrint("%s() LN%d, *bl=%d\n",
-                              __func__, __LINE__, *bl);
-        debugPrint2("%s | ", (*bl)?"true":"false");
+        int32_t bl = 0;
+        avro_value_get_boolean(&bool_branch, &bl);
+        verbosePrint("%s() LN%d, bl=%d\n",
+                              __func__, __LINE__, bl);
+        debugPrint2("%s | ", (bl)?"true":"false");
         curr_sqlstr_len += sprintf(
                          sqlstr+curr_sqlstr_len, "%d,",
-                         (*bl)?1:0);
-        free(bl);
+                         (bl)?1:0);
     }
     return curr_sqlstr_len;
 }
@@ -6130,12 +6048,12 @@ static void dumpInAvroDataUnsignedSmallInt(FieldStruct *field,
                 *array_u16 = 0;
 
                 size_t array_size = 0;
-                int32_t n32tmp;
                 avro_value_get_size(&usmint_branch, &array_size);
 
                 debugPrint("%s() LN%d, array_size: %zu\n",
                         __func__, __LINE__, array_size);
                 for (size_t item = 0; item < array_size; item++) {
+                    int32_t n32tmp = 0;
                     avro_value_t item_value;
                     avro_value_get_by_index(&usmint_branch, item,
                             &item_value, NULL);
@@ -6157,12 +6075,12 @@ static void dumpInAvroDataUnsignedSmallInt(FieldStruct *field,
             *array_u16 = 0;
 
             size_t array_size = 0;
-            int32_t n32tmp;
             avro_value_get_size(value, &array_size);
 
             debugPrint("%s() LN%d, array_size: %zu\n",
                     __func__, __LINE__, array_size);
             for (size_t item = 0; item < array_size; item++) {
+                int32_t n32tmp = 0;
                 avro_value_t item_value;
                 avro_value_get_by_index(value, item, &item_value, NULL);
                 avro_value_get_int(&item_value, &n32tmp);
@@ -6197,12 +6115,12 @@ static void dumpInAvroDataUnsignedTinyInt(FieldStruct *field,
                 *array_u8 = 0;
 
                 size_t array_size = 0;
-                int32_t n32tmp;
                 avro_value_get_size(&utinyint_branch, &array_size);
 
                 debugPrint("%s() LN%d, array_size: %zu\n",
                                             __func__, __LINE__, array_size);
                 for (size_t item = 0; item < array_size; item++) {
+                    int32_t n32tmp = 0;
                     avro_value_t item_value;
                     avro_value_get_by_index(&utinyint_branch, item,
                             &item_value, NULL);
@@ -6225,12 +6143,12 @@ static void dumpInAvroDataUnsignedTinyInt(FieldStruct *field,
             *array_u8 = 0;
 
             size_t array_size = 0;
-            int32_t n32tmp;
             avro_value_get_size(value, &array_size);
 
             debugPrint("%s() LN%d, array_size: %zu\n",
                     __func__, __LINE__, array_size);
             for (size_t item = 0; item < array_size; item++) {
+                int32_t n32tmp = 0;
                 avro_value_t item_value;
                 avro_value_get_by_index(value, item,
                         &item_value, NULL);
@@ -6265,19 +6183,21 @@ static void dumpInAvroDataUnsignedInt(FieldStruct *field,
                 *array_u32 = 0;
 
                 size_t array_size = 0;
-                int32_t n32tmp;
                 avro_value_get_size(&uint_branch, &array_size);
 
                 debugPrint("%s() LN%d, array_size: %zu\n",
                     __func__, __LINE__, array_size);
                 for (size_t item = 0; item < array_size; item++) {
+                    int32_t n32tmp = 0;
                     avro_value_t item_value;
                     avro_value_get_by_index(&uint_branch, item,
                         &item_value, NULL);
                     avro_value_get_int(&item_value, &n32tmp);
                     *array_u32 += n32tmp;
-                    debugPrint("%s() LN%d, array index: %d, n32tmp: %d, array_u32: %u\n",
-                        __func__, __LINE__, (int)item, n32tmp, (uint32_t)*array_u32);
+                    debugPrint("%s() LN%d, array index: %d, n32tmp: %d, "
+                               "array_u32: %u\n",
+                               __func__, __LINE__, (int)item, n32tmp,
+                               (uint32_t)*array_u32);
                 }
                 debugPrint2("%u | ", (uint32_t)*array_u32);
                 bind->buffer_length = sizeof(uint32_t);
@@ -6295,12 +6215,12 @@ static void dumpInAvroDataUnsignedInt(FieldStruct *field,
             *array_u32 = 0;
 
             size_t array_size = 0;
-            int32_t n32tmp;
             avro_value_get_size(value, &array_size);
 
             debugPrint("%s() LN%d, array_size: %zu\n",
                     __func__, __LINE__, array_size);
             for (size_t item = 0; item < array_size; item++) {
+                int32_t n32tmp = 0;
                 avro_value_t item_value;
                 avro_value_get_by_index(value, item,
                         &item_value, NULL);
@@ -6331,7 +6251,6 @@ static void dumpInAvroDataBool(FieldStruct *field,
     } else {
         int32_t *bl = malloc(sizeof(int32_t));
         ASSERT(bl);
-
         avro_value_get_boolean(&bool_branch, bl);
         verbosePrint("%s() LN%d, *bl=%d\n",
             __func__, __LINE__, *bl);
@@ -6397,7 +6316,6 @@ static void dumpInAvroDataDouble(FieldStruct *field,
         } else {
             double *dbl = malloc(sizeof(double));
             ASSERT(dbl);
-
             avro_value_get_double(&dbl_branch, dbl);
             debugPrint2("%f | ", *dbl);
             bind->buffer = dbl;
@@ -6406,7 +6324,6 @@ static void dumpInAvroDataDouble(FieldStruct *field,
     } else {
         double *dbl = malloc(sizeof(double));
         ASSERT(dbl);
-
         avro_value_get_double(value, dbl);
         if (TSDB_DATA_DOUBLE_NULL == *dbl) {
             debugPrint2("%s | ", "NULL");
@@ -6432,7 +6349,6 @@ static void dumpInAvroDataFloat(FieldStruct *field,
         } else {
             float *f = malloc(sizeof(float));
             ASSERT(f);
-
             avro_value_get_float(&float_branch, f);
             debugPrint2("%f | ", *f);
             bind->buffer = f;
@@ -6441,7 +6357,6 @@ static void dumpInAvroDataFloat(FieldStruct *field,
     } else {
         float *f = malloc(sizeof(float));
         ASSERT(f);
-
         avro_value_get_float(value, f);
         if (TSDB_DATA_FLOAT_NULL == *f) {
             debugPrint2("%s | ", "NULL");
@@ -6467,7 +6382,6 @@ static void dumpInAvroDataTimeStamp(FieldStruct *field,
         } else {
             int64_t *n64 = malloc(sizeof(int64_t));
             ASSERT(n64);
-
             avro_value_get_long(&ts_branch, n64);
             debugPrint2("%"PRId64" | ", *n64);
             bind->buffer_length = sizeof(int64_t);
@@ -6476,7 +6390,6 @@ static void dumpInAvroDataTimeStamp(FieldStruct *field,
     } else {
         int64_t *n64 = malloc(sizeof(int64_t));
         ASSERT(n64);
-
         avro_value_get_long(value, n64);
         debugPrint2("%"PRId64" | ", *n64);
         bind->buffer_length = sizeof(int64_t);
@@ -6497,12 +6410,10 @@ static void dumpInAvroDataBigInt(FieldStruct *field,
         } else {
             int64_t *n64 = malloc(sizeof(int64_t));
             ASSERT(n64);
-
             avro_value_get_long(&bigint_branch, n64);
             verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
                                   __func__, __LINE__, *n64,
                                   (int64_t)TSDB_DATA_BIGINT_NULL);
-
             debugPrint2("%"PRId64" | ", *n64);
             bind->buffer_length = sizeof(int64_t);
             bind->buffer = n64;
@@ -6510,12 +6421,10 @@ static void dumpInAvroDataBigInt(FieldStruct *field,
     } else {
         int64_t *n64 = malloc(sizeof(int64_t));
         ASSERT(n64);
-
         avro_value_get_long(value, n64);
         verbosePrint("%s() LN%d: *n64=%"PRId64" null=%"PRId64"\n",
                               __func__, __LINE__, *n64,
                               (int64_t)TSDB_DATA_BIGINT_NULL);
-
         if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
             debugPrint2("%s | ", "null");
             bind->is_null = is_null;
@@ -12687,9 +12596,7 @@ int inspectAvroFile(char *filename) {
                 if (0 == avro_value_get_by_name(&value, field->name,
                             &field_value, NULL)) {
                     if (0 == strcmp(field->type, "int")) {
-                        int32_t *n32 = malloc(sizeof(int32_t));
-                        ASSERT(n32);
-
+                        int32_t n32 = 0;
                         if (field->nullable) {
                             avro_value_t branch;
                             avro_value_get_current_branch(&field_value,
@@ -12697,20 +12604,19 @@ int inspectAvroFile(char *filename) {
                             if (0 == avro_value_get_null(&branch)) {
                                 fprintf(stdout, "%s |\t", "null");
                             } else {
-                                avro_value_get_int(&branch, n32);
-                                fprintf(stdout, "%d |\t", *n32);
+                                avro_value_get_int(&branch, &n32);
+                                fprintf(stdout, "%d |\t", n32);
                             }
                         } else {
-                            avro_value_get_int(&field_value, n32);
-                            if (((int32_t)TSDB_DATA_INT_NULL == *n32)
-                                    || (TSDB_DATA_SMALLINT_NULL == *n32)
-                                    || (TSDB_DATA_TINYINT_NULL == *n32)) {
+                            avro_value_get_int(&field_value, &n32);
+                            if (((int32_t)TSDB_DATA_INT_NULL == n32)
+                                    || (TSDB_DATA_SMALLINT_NULL == n32)
+                                    || (TSDB_DATA_TINYINT_NULL == n32)) {
                                 fprintf(stdout, "%s |\t", "null?");
                             } else {
-                                fprintf(stdout, "%d |\t", *n32);
+                                fprintf(stdout, "%d |\t", n32);
                             }
                         }
-                        free(n32);
                     } else if (0 == strcmp(field->type, "float")) {
                         if (field->nullable) {
                             avro_value_t branch;
@@ -12750,9 +12656,7 @@ int inspectAvroFile(char *filename) {
                             }
                         }
                     } else if (0 == strcmp(field->type, "long")) {
-                        int64_t *n64 = malloc(sizeof(int64_t));
-                        ASSERT(n64);
-
+                        int64_t n64 = 0;
                         if (field->nullable) {
                             avro_value_t branch;
                             avro_value_get_current_branch(&field_value,
@@ -12760,18 +12664,17 @@ int inspectAvroFile(char *filename) {
                             if (0 == avro_value_get_null(&branch)) {
                                 fprintf(stdout, "%s |\t", "null");
                             } else {
-                                avro_value_get_long(&branch, n64);
-                                fprintf(stdout, "%"PRId64" |\t", *n64);
+                                avro_value_get_long(&branch, &n64);
+                                fprintf(stdout, "%"PRId64" |\t", n64);
                             }
                         } else {
-                            avro_value_get_long(&field_value, n64);
-                            if ((int64_t)TSDB_DATA_BIGINT_NULL == *n64) {
+                            avro_value_get_long(&field_value, &n64);
+                            if ((int64_t)TSDB_DATA_BIGINT_NULL == n64) {
                                 fprintf(stdout, "%s |\t", "null");
                             } else {
-                                fprintf(stdout, "%"PRId64" |\t", *n64);
+                                fprintf(stdout, "%"PRId64" |\t", n64);
                             }
                         }
-                        free(n64);
                     } else if (0 == strcmp(field->type, "string")) {
                         if (field->nullable) {
                             avro_value_t branch;
@@ -12813,9 +12716,7 @@ int inspectAvroFile(char *filename) {
                         }
                     } else if (0 == strcmp(field->type, "array")) {
                         if (0 == strcmp(field->array_type, "int")) {
-                            int32_t *n32 = malloc(sizeof(int32_t));
-                            ASSERT(n32);
-
+                            int32_t n32 = 0;
                             if (field->nullable) {
                                 avro_value_t branch;
                                 avro_value_get_current_branch(&field_value,
@@ -12835,8 +12736,8 @@ int inspectAvroFile(char *filename) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&branch, item,
                                                 &item_value, NULL);
-                                        avro_value_get_int(&item_value, n32);
-                                        array_u32 += *n32;
+                                        avro_value_get_int(&item_value, &n32);
+                                        array_u32 += n32;
                                     }
                                     fprintf(stdout, "%u |\t", array_u32);
                                 }
@@ -12851,8 +12752,8 @@ int inspectAvroFile(char *filename) {
                                     avro_value_t item_value;
                                     avro_value_get_by_index(&field_value, item,
                                             &item_value, NULL);
-                                    avro_value_get_int(&item_value, n32);
-                                    array_u32 += *n32;
+                                    avro_value_get_int(&item_value, &n32);
+                                    array_u32 += n32;
                                 }
                                 if ((TSDB_DATA_UINT_NULL == array_u32)
                                         || (TSDB_DATA_USMALLINT_NULL
@@ -12864,10 +12765,8 @@ int inspectAvroFile(char *filename) {
                                     fprintf(stdout, "%u |\t", array_u32);
                                 }
                             }
-                            free(n32);
                         } else if (0 == strcmp(field->array_type, "long")) {
-                            int64_t *n64 = malloc(sizeof(int64_t));
-                            ASSERT(n64);
+                            int64_t n64 = 0;
 
                             if (field->nullable) {
                                 avro_value_t branch;
@@ -12887,8 +12786,8 @@ int inspectAvroFile(char *filename) {
                                         avro_value_t item_value;
                                         avro_value_get_by_index(&branch, item,
                                                 &item_value, NULL);
-                                        avro_value_get_long(&item_value, n64);
-                                        array_u64 += *n64;
+                                        avro_value_get_long(&item_value, &n64);
+                                        array_u64 += n64;
                                     }
                                     fprintf(stdout, "%"PRIu64" |\t", array_u64);
                                 }
@@ -12903,8 +12802,8 @@ int inspectAvroFile(char *filename) {
                                     avro_value_t item_value;
                                     avro_value_get_by_index(&field_value, item,
                                             &item_value, NULL);
-                                    avro_value_get_long(&item_value, n64);
-                                    array_u64 += *n64;
+                                    avro_value_get_long(&item_value, &n64);
+                                    array_u64 += n64;
                                 }
                                 if (TSDB_DATA_UBIGINT_NULL == array_u64) {
                                     fprintf(stdout, "%s |\t", "null?");
@@ -12912,7 +12811,6 @@ int inspectAvroFile(char *filename) {
                                     fprintf(stdout, "%"PRIu64" |\t", array_u64);
                                 }
                             }
-                            free(n64);
                         } else {
                             errorPrint("%s is not supported!\n",
                                     field->array_type);
