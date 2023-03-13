@@ -1,4 +1,4 @@
-name: Ubuntu (3.0 taosbenchmark release)
+name: Ubuntu (3.0 taosbenchmark debug)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ develop ]
 
 env:
-  TOOLS_BUILD_TYPE: Release
+  TOOLS_BUILD_TYPE: Debug
   PR_NUMBER: ${{ github.event.number }}
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
 
       - name: List all changed files
         run: |
@@ -40,14 +40,16 @@ jobs:
 
       - name: Get specific changed files
         id: changed-files-specific
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
         with:
           files: |
             src/bench*
+            src/CMakeLists.txt
             inc/*
+            tests/taosbenchmark/*
             tests/taosbenchmark/ws/*
             packaging/tools/*
-            .github/workflows/3.0-taosBenchmark-release.yml
+            .github/workflows/3.0-taosbenchmark-debug.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -77,7 +79,7 @@ jobs:
           || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Set up Rust
         if: |
@@ -118,7 +120,7 @@ jobs:
           || github.event_name == 'push'
         run: |
           sudo apt update > /dev/null
-          sudo apt install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config expect -y > /dev/null
+          sudo apt install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if:
@@ -136,7 +138,7 @@ jobs:
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=Release -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
@@ -152,7 +154,7 @@ jobs:
           pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
           pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
 
-      - name: Test
+      - name: Run standard test cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -162,21 +164,54 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|taosdemo|kill-slow-query"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "v2|websocket|taosdemo|kill-slow-query|cloud"|sort`; \
+              do printf $i && python3 ./test.py -f $i > /dev/null                     \
+                && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m" \
+                          | tee -a ~/taosbenchmark-release-success.txt                \
+                || echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m"  \
+                          | tee -a ~/taosbenchmark-release-failed.txt;                \
+                          done
           fi
 
-      - name: Test WebSocket
+      - name: Run cloud test cases
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        env:
+          TDENGINE_CLOUD_DSN: ${{ secrets.TDENGINE_CLOUD_DSN }}
+        run: |
+          cd tests
+
+          if find taosbenchmark/v3 -name "cloud*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/v3 -name "cloud*.py"`; \
+              do printf $i && python3 ./test.py -f $i \
+                && echo -e " \033[32m benchmark-cloud-test:$i success! \033[0m" \
+                          | tee -a ~/taosbenchmark-cloud-success.txt            \
+                || echo -e " \033[31m benchmark-cloud-test:$i failed! \033[0m"  \
+                          | tee -a ~/taosbenchmark-cloud-failed.txt;            \
+                          done
+          fi
+
+      - name: Test WebSocket cases
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          #cd tests
+          cd tests
 
-          #if find taosbenchmark/ws -name "*.py"|grep -q .;
-          #then
-          #  for i in `find taosbenchmark/ws -name "*.py"`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"|| echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m" | tee -a ~/benchmark-ws-failed.txt; done
-          #fi
+          if find taosbenchmark/v3 -name "*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/v3 -name "websocket*.py"`; \
+              do printf $i && python3 ./test.py -f $i > /dev/null   \
+                && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"  \
+                          | tee -a ~/taosbenchmark-ws-success.txt             \
+                || echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m"   \
+                          | tee -a ~/taosbenchmark-ws-failed.txt;             \
+                          done
+          fi
 
       - name: Test taosdemo query
         if:
@@ -186,9 +221,15 @@ jobs:
         run: |
           cd tests
 
-          if find taosbenchmark -name "taosdemo*.py"|grep -q .;
+          if find taosbenchmark -name "taosdemo*.py"|grep -Ev "v2"|grep -q .;
           then
-            for i in `find taosbenchmark -name "taosdemo*.py"`; do printf $i && python3 ./test.py -f $i && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt; done
+            for i in `find taosbenchmark -name "taosdemo*.py"|grep -Ev "v2"`;   \
+              do printf $i && python3 ./test.py -f $i                           \
+                && echo -e "\033[32m $i success! \033[0m"                       \
+                  | tee -a ~/taosbenchmark-release-success.txt                  \
+                || echo -e "\033[31m $i failed! \033[0m"                        \
+                  | tee -a ~/taosbenchmark-release-failed.txt;                  \
+              done
           fi
 
       - name: 'Upload taosd logs'
@@ -204,12 +245,23 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          if [ -f ~/taosbenchmark-release-failed.txt ];then
+          if [ -f ~/taosbenchmark-release-failed.txt ]; then
             cat ~/taosbenchmark-release-failed.txt
             exit 1
+          elif [ -f ~/taosbenchmark-release-success.txt ]; then
+            cat ~/taosbenchmark-release-success.txt
           fi
 
-          if [ -f ~/benchmark-ws-failed.txt ];then
-            cat ~/benchmark-ws-failed.txt
+          if [ -f ~/taosbenchmark-cloud-failed.txt ]; then
+            cat ~/taosbenchmark-cloud-failed.txt
             exit 1
+          elif [ -f ~/taosbenchmark-cloud-success.txt ]; then
+            cat ~/taosbenchmark-cloud-success.txt
+          fi
+
+          if [ -f ~/taosbenchmark-ws-failed.txt ]; then
+            cat ~/taosbenchmark-ws-failed.txt
+            exit 1
+          elif [ -f ~/taosbenchmark-ws-success.txt ]; then
+            cat ~/taosbenchmark-ws-success.txt
           fi

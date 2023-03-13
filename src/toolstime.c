@@ -36,11 +36,17 @@
 #include "bench.h"
 #include "toolsdef.h"
 
-#if defined(WIN32) || defined(WIN64)
+#if defined(WINDOWS)
 
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <winsock2.h>
+
+// This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
+// until 00:00:00 January 1, 1970
+static const uint64_t TIMEEPOCH = ((uint64_t)116444736000000000ULL);
+
 //#define TM_YEAR_BASE 1970 //origin
 #define TM_YEAR_BASE 1900  // slguan
 /*
@@ -254,7 +260,7 @@ int32_t toolsParseTimezone(char* str, int64_t* tzOffset) {
         i += 2;
     }
 
-    //return error if there're illegal charaters after min(2 Digits)
+    //return error if there're illegal characters after min(2 Digits)
     char *minStr = &str[i];
     if (minStr[1] != '\0' && minStr[2] != '\0') {
         return -1;
@@ -279,28 +285,13 @@ int32_t toolsClockGetTime(int clock_id, struct timespec *pTS) {
 #if defined(WIN32) || defined(WIN64)
     LARGE_INTEGER        t;
     FILETIME             f;
-    static FILETIME      ff;
-    static SYSTEMTIME    ss;
-    static LARGE_INTEGER offset;
-
-    ss.wYear = 1970;
-    ss.wMonth = 1;
-    ss.wDay = 1;
-    ss.wHour = 0;
-    ss.wMinute = 0;
-    ss.wSecond = 0;
-    ss.wMilliseconds = 0;
-    SystemTimeToFileTime(&ss, &ff);
-    offset.QuadPart = ff.dwHighDateTime;
-    offset.QuadPart <<= 32;
-    offset.QuadPart |= ff.dwLowDateTime;
 
     GetSystemTimeAsFileTime(&f);
     t.QuadPart = f.dwHighDateTime;
     t.QuadPart <<= 32;
     t.QuadPart |= f.dwLowDateTime;
 
-    t.QuadPart -= offset.QuadPart;
+    t.QuadPart -= TIMEEPOCH;
     pTS->tv_sec = t.QuadPart / 10000000;
     pTS->tv_nsec = (t.QuadPart % 10000000)*100;
     return (0);
@@ -763,19 +754,63 @@ struct tm* toolsLocalTime(const time_t *timep, struct tm *result) {
 #endif
     return result;
 }
-int32_t toolsGetTimestampSec() { return (int32_t)time(NULL); }
+
+FORCE_INLINE int32_t toolsGetTimestampSec() { return (int32_t)time(NULL); }
 
 FORCE_INLINE int32_t toolsGetTimeOfDay(struct timeval *tv) {
 #if defined(WIN32) || defined(WIN64)
-    time_t t;
-    t = toolsGetTimestampSec();
-    SYSTEMTIME st;
-    GetLocalTime(&st);
+    LARGE_INTEGER t;
+    FILETIME      f;
 
-    tv->tv_sec = (long)t;
-    tv->tv_usec = st.wMilliseconds * 1000;
-    return 0;
+    GetSystemTimeAsFileTime(&f);
+    t.QuadPart = f.dwHighDateTime;
+    t.QuadPart <<= 32;
+    t.QuadPart |= f.dwLowDateTime;
+
+    t.QuadPart -= TIMEEPOCH;
+    tv->tv_sec = t.QuadPart / 10000000;
+    tv->tv_usec = (t.QuadPart % 10000000) / 10;
+    return (0);
 #else
     return gettimeofday(tv, NULL);
 #endif
 }
+
+FORCE_INLINE int64_t toolsGetTimestampMs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000L +
+        (int64_t)systemTime.tv_usec / 1000;
+}
+
+FORCE_INLINE int64_t toolsGetTimestampUs() {
+    struct timeval systemTime;
+    toolsGetTimeOfDay(&systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000L + (int64_t)systemTime.tv_usec;
+}
+
+#if defined(WINDOWS)
+    #define CLOCK_REALTIME 0
+
+void usleep(__int64 usec)
+{
+    HANDLE timer;
+    LARGE_INTEGER ft;
+
+    ft.QuadPart = -(10*usec); // Convert to 100 nanosecond interval, negative value indicates relative time
+
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &ft, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
+}
+#endif
+
+FORCE_INLINE int64_t toolsGetTimestampNs() {
+    struct timespec systemTime = {0};
+    toolsClockGetTime(CLOCK_REALTIME, &systemTime);
+    return (int64_t)systemTime.tv_sec * 1000000000L +
+        (int64_t)systemTime.tv_nsec;
+}
+
+FORCE_INLINE void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }

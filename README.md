@@ -31,13 +31,13 @@ for details on how to use it.
 #### For Ubuntu/Debian system
 
 ```shell
-sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev gawk
+sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev gawk
 ```
 
 #### For CentOS 7/RHEL
 
 ```shell
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel gawk
+sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel gawk
 ```
 
 #### For CentOS 8/Rocky Linux
@@ -46,11 +46,28 @@ sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgco
 sudo yum install -y epel-release
 sudo yum install -y dnf-plugins-core
 sudo yum config-manager --set-enabled powertools
-sudo yum install -y zlib-devel xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libstdc++-static openssl-devel gawk
+sudo yum install -y zlib-devel zlib-static xz-devel snappy-devel jansson jansson-devel pkgconfig libatomic libatomic-static libstdc++-static openssl-devel gawk
 ```
 
 Note: Since snappy lacks pkg-config support (refer to [link](https://github.com/google/snappy/pull/86)),
 it lead a cmake prompt libsnappy not found. But snappy will works well.
+
+In case you encounter the issue some packages are not found due to CentOS 8 EOL, you can try following instructions first.
+
+```
+sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+```
+
+#### For CentOS + devtoolset
+
+Besides above dependencies, please run following commands:
+
+```
+sudo yum install centos-release-scl
+sudo yum install devtoolset-9 devtoolset-9-libatomic-devel
+scl enable devtoolset-9 -- bash
+```
 
 #### For macOS (only taosBenchmark for now)
 
@@ -60,8 +77,8 @@ brew install argp-standalone gawk
 
 ### Install TDengine client
 
-Please download TDengine client package from [tdengine.com](https://www.tdengine.com/cn/all-downloads/)
-or compile TDengine source from [GitHub](github.com/taosdata/TDengine)
+Please [download the TDengine client package](https://docs.tdengine.com/releases/tdengine/)
+or compile TDengine source from [GitHub](https://github.com/taosdata/TDengine)
 and install to your system.
 
 ### Clone source code and build

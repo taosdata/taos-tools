@@ -111,7 +111,7 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Set up Rust
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -135,7 +135,7 @@ jobs:
           cd TDengine
           mkdir debug
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DBUILD_TOOLS=true -DTOOLS_COVER=true -DTOOLS_BUILD_TYPE=Debug > /dev/null 2>&1
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DBUILD_TOOLS=true -DTOOLS_COVER=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null 2>&1
           make > /dev/null 2>&1
           sudo make install > /dev/null
           if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
@@ -223,7 +223,7 @@ jobs:
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
-          echo "TEST: singal normal table with unknown codec"
+          echo "TEST: single normal table with unknown codec"
           ./build/bin/taosdump test d0 -d unknown -gg > /dev/null
           ./build/bin/taos -s "drop database test"
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null

@@ -106,7 +106,7 @@ jobs:
           #          run: |
           #            echo "The uname output was ${{ steps.setup.outputs.uname }}"
           #            apt update -y > /dev/null
-          #            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          #            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y > /dev/null
           #            cd TDengine
           #            mkdir armv7-debug ||:
           #            cd armv7-debug
@@ -130,9 +130,10 @@ jobs:
           run: |
             echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
-            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev > /dev/null
+            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
 
             echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
+
             git clone --branch 3.0 --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
 
             echo "build TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
@@ -175,7 +176,7 @@ jobs:
 
             python3 ./test.py -f taosdump/old/taosdumpTest.py && echo -e "\033[32m taosdumpTest.py success! \033[0m" || echo -e "\033[31m taosdumpTest.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
-            if [ -f ~/taosdump-failed.txt ];then
+            if [ -f ~/taosdump-failed.txt ]; then
               cat ~/taosdump-failed.txt;
               exit 1;
             fi

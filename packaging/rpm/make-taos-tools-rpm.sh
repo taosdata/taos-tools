@@ -14,6 +14,7 @@ cpuType=$5
 osType=$6
 verMode=$7
 verType=$8
+versionComp=$9
 
 script_dir="$(dirname $(readlink -f $0))"
 pkg_dir="${top_dir}/rpmworkroom"
@@ -22,6 +23,7 @@ spec_file="${script_dir}/taos-tools.spec"
 #echo "curr_dir: ${curr_dir}"
 #echo "top_dir: ${top_dir}"
 #echo "script_dir: ${script_dir}"
+echo "verMode: ${verMode}"
 echo "compile_dir: ${compile_dir}"
 echo "pkg_dir: ${pkg_dir}"
 echo "spec_file: ${spec_file}"
@@ -66,14 +68,18 @@ ${csudo}rpmbuild --define="_version ${taos_tools_ver}" --define="_topdir ${pkg_d
 #${csudo}cp -rf RPMS/* ${output_dir}
 cp_rpm_package ${pkg_dir}/RPMS
 
-rpmname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}
+compN=""
+if [ ! -z "${versionComp}" ]; then
+  versionCompFirst=$(echo "${versionComp}" | awk -F '.' '{print $1}')
+  [ ! -z "${versionCompFirst}" ] && compN="-comp${versionCompFirst}"
+fi
 
 if [ "$verType" == "beta" ]; then
-  rpmname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}".rpm"
+  rpmname="taosTools-"${taos_tools_ver}-${verType}-${osType}-${cpuType}${compN}".rpm"
 elif [ "$verType" == "stable" ]; then
-  rpmname=${rpmname}".rpm"
+  rpmname="taosTools-"${taos_tools_ver}-${osType}-${cpuType}${compN}".rpm"
 else
-  echo "unknow verType, nor stabel or beta"
+  echo "unknown verType, neither stabel nor beta"
   exit 1
 fi
 
@@ -81,3 +87,4 @@ mv ${output_dir}/taosTools-${taos_tools_ver}.rpm ${output_dir}/${rpmname}
 
 cd ..
 ${csudo}rm -rf ${pkg_dir}
+

@@ -86,7 +86,7 @@ class TDTestCase:
                     % (currts + i)
                 )
                 finish = i + 1
-                if (1048576 - len(sql)) < 16384:
+                if (1048576 - len(sql)) < 65519:
                     break
             tdSql.execute(sql)
 

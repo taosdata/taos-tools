@@ -10,7 +10,10 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
+import ast
 import os
+import re
+
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -20,7 +23,7 @@ from util.dnodes import *
 class TDTestCase:
     def caseDescription(self):
         """
-        [TD-11510] taosBenchmark test cases
+        [TD-22190] taosBenchmark reuse exist stb test cases
         """
 
     def init(self, conn, logSql):
@@ -36,8 +39,11 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/tests/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            projPath = selfPath[: selfPath.find("tests")]
+            tdLog.info("Cannot find %s in path: %s" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
         for root, dummy, files in os.walk(projPath):
@@ -54,20 +60,30 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
-        binPath = self.getPath()
+        tdSql.query("select client_version()")
+        client_ver = "".join(tdSql.queryResult[0])
+        major_ver = client_ver.split(".")[0]
 
-        cmd = "%s -f ./taosbenchmark/json/sml_auto_create_table.json" % binPath
+        binPath = self.getPath()
+        tdSql.execute("drop database if exists db")
+        tdSql.execute("create database if not exists db")
+        tdSql.execute("use db")
+        tdSql.execute("create table stb (ts timestamp, c0 int)  tags (t0 int)")
+        tdSql.execute("insert into stb_0 using stb tags (0) values (now, 0)")
+#        sys.exit(0)
+        cmd = "%s -f ./taosbenchmark/json/reuse-exist-stb.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        tdSql.execute("reset query cache")
-        tdSql.query("show db.tables")
-        tdSql.checkRows(16)
-        tdSql.query("select count(*) from db.stb4")
-        tdSql.checkData(0, 0, 160)
+        tdSql.query("select count(*) from db.new_0")
+        tdSql.checkData(0, 0, 5)
+        tdSql.query("select count(*) from db.stb_0")
+        tdSql.checkData(0, 0, 1)
 
-        tdSql.execute("reset query cache")
-        tdSql.query("select count(*) from db.`stb4-2`")
-        tdSql.checkData(0, 0, 160)
+        if major_ver == "3":
+            tdSql.query("select count(*) from (select distinct(tbname) from db.stb)")
+        else:
+            tdSql.query("select count(tbname) from db.stb")
+        tdSql.checkData(0, 0, 2)
 
     def stop(self):
         tdSql.close()

@@ -10,8 +10,7 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
-import os, signal
-from time import sleep
+import os
 from util.log import *
 from util.cases import *
 from util.sql import *
@@ -56,24 +55,43 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/default.json" % binPath
+        cmd = "%s -f ./taosbenchmark/json/stmt_sample_use_ts-subtable.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
-        cmd = "%s -f ./taosbenchmark/json/tmq.json &" % binPath
-        tdLog.info("%s" % cmd)
-        os.system("%s" % cmd)
-        time.sleep(5)
-        try:
-            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
-                fields = line.split()
+        tdSql.query("show db.tables")
+        tdSql.checkRows(8)
+        tdSql.query("select count(*) from db.stb")
+        tdSql.checkData(0, 0, 32)
+        tdSql.query("select * from db.stb0")
+        tdSql.checkRows(4)
+        tdSql.checkData(0, 1, 1)
+        tdSql.checkData(1, 1, 2)
+        tdSql.checkData(2, 1, 3)
+        tdSql.checkData(3, 1, None)
 
-                pid = fields[0]
+        tdSql.query("select * from db.stb3")
+        tdSql.checkRows(4)
+        tdSql.checkData(0, 1, 300)
+        tdSql.checkData(1, 1, 600)
+        tdSql.checkData(2, 1, 900)
+        tdSql.checkData(3, 1, None)
 
-                os.kill(int(pid), signal.SIGKILL)
-            print("taosBenchmark be killed on purpose")
-        except:
-            tdLog.exit("failed to kill taosBenchmark")
+        tdSql.query("select * from db.stb5")
+        tdSql.checkRows(4)
+        tdSql.checkData(0, 1, 500)
+        tdSql.checkData(1, 1, 1000)
+        tdSql.checkData(2, 1, 1500)
+        tdSql.checkData(3, 1, None)
+
+        tdSql.query("select distinct(t0) from db.stb")
+        tdSql.checkRows(2)
+
+        dbresult = tdSql.queryResult
+        if dbresult[0][0] not in (17, None):
+            tdLog.exit("result[0][0]: {}".format(dbresult[0][0]))
+        else:
+            tdLog.info("result[0][0]: {}".format(dbresult[0][0]))
 
     def stop(self):
         tdSql.close()
