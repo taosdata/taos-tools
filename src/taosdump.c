@@ -52,6 +52,22 @@
 #include <taosws.h>
 #endif
 
+#ifndef CUS_NAME
+    char cusName[] = "TDengine";
+#endif
+
+#ifndef CUS_PROMPT
+    char cusPrompt[] = "taos";
+#endif
+
+#ifndef CUS_EMAIL
+    char cusEmail[] = "<support@taosdata.com>";
+#endif
+
+#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
+#include "cus_name.h"
+#endif
+
 // get taosdump commit number version
 #ifndef TAOSDUMP_COMMIT_SHA1
 #define TAOSDUMP_COMMIT_SHA1 "unknown"
@@ -400,6 +416,8 @@ static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n"
 /* Keys for options without short-options. */
 #define OPT_ABORT 1 /* –abort */
 
+const char *              argp_program_bug_address = cusEmail;
+
 /* The options we understand. */
 static struct argp_option options[] = {
     // connection option
@@ -618,10 +636,10 @@ static void printVersion(FILE *file) {
 
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
     if (strlen(taosdump_status) == 0) {
-        fprintf(file, "taosdump version %s, commit: %s\n",
+        fprintf(file, "version %s, commit: %s\n",
                 taostools_ver, taosdump_commit);
     } else {
-        fprintf(file, "taosdump version %s, commit: %s, status:%s\n",
+        fprintf(file, "version %s, commit: %s, status:%s\n",
                 taostools_ver, taosdump_commit, taosdump_status);
     }
 

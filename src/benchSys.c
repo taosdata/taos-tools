@@ -12,6 +12,38 @@
 #include <stdlib.h>
 #include <bench.h>
 
+#ifdef LINUX
+#include <argp.h>
+#else
+#ifndef ARGP_ERR_UNKNOWN
+    #define ARGP_ERR_UNKNOWN E2BIG
+#endif
+#endif
+
+extern char version[];
+
+#ifndef CUS_NAME
+    char cusName[] = "TDengine";
+#endif
+
+#ifndef CUS_PROMPT
+    char cusPrompt[] = "taos";
+#endif
+
+#ifndef CUS_EMAIL
+    char cusEmail[] = "<support@taosdata.com>";
+#endif
+
+#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
+#include "cus_name.h"
+#endif
+
+#ifdef WINDOWS
+char      g_configDir[MAX_PATH_LEN] = {0};  // "C:\\TDengine\\cfg"};
+#else
+char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
+#endif  // WINDOWS
+
 #ifndef LINUX
 void benchPrintHelp() {
     char indent[] = "  ";
@@ -62,7 +94,7 @@ void benchPrintHelp() {
     printf("%s%s%s%s\r\n", indent, "-v,", indent, BENCH_VGROUPS);
 #endif
     printf("%s%s%s%s\r\n", indent, "-V,", indent, BENCH_VERSION);
-    printf("\r\n\r\nReport bugs to %s.\r\n", BENCH_EMAIL);
+    printf("\r\n\r\nReport bugs to %s.\r\n", cusEmail);
 }
 
 int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
@@ -134,5 +166,513 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
     }
     return 0;
 }
+#else
+const char *              argp_program_version = version;
+const char *              argp_program_bug_address = cusEmail;
+
+static struct argp_option bench_options[] = {
+    {"file", 'f', "FILE", 0, BENCH_FILE, 0},
+    {"config-dir", 'c', "CONFIG_DIR", 0, BENCH_CFG_DIR, 1},
+    {"host", 'h', "HOST", 0, BENCH_HOST},
+    {"port", 'P', "PORT", 0, BENCH_PORT},
+    {"interface", 'I', "IFACE", 0, BENCH_MODE},
+    {"user", 'u', "USER", 0, BENCH_USER},
+    {"password", 'p', "PASSWORD", 0, BENCH_PASS},
+    {"output", 'o', "FILE", 0, BENCH_OUTPUT},
+    {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
+    {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
+    {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
+    {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
+    {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
+    {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},
+    {"rec-per-req", 'r', "NUMBER", 0, BENCH_BATCH},
+    {"tables", 't', "NUMBER", 0, BENCH_TABLE},
+    {"records", 'n', "NUMBER", 0, BENCH_ROWS},
+    {"database", 'd', "DATABASE", 0, BENCH_DATABASE},
+    {"columns", 'l', "NUMBER", 0, BENCH_COLS_NUM},
+    {"partial-col-num", 'L', "NUMBER", 0, BENCH_PARTIAL_COL_NUM},
+    {"tag-type", 'A', "TAG_TYPE", 0, BENCH_TAGS},
+    {"data-type", 'b', "COL_TYPE", 0, BENCH_COLS},
+    {"binwidth", 'w', "NUMBER", 0, BENCH_WIDTH},
+    {"table-prefix", 'm', "TABLE_PREFIX", 0, BENCH_PREFIX},
+    {"escape-character", 'E', 0, 0, BENCH_ESCAPE},
+    {"chinese", 'C', 0, 0, BENCH_CHINESE},
+    {"normal-table", 'N', 0, 0, BENCH_NORMAL},
+    {"random", 'M', 0, 0, BENCH_RANDOM},
+    {"aggr-func", 'x', 0, 0, BENCH_AGGR},
+    {"answer-yes", 'y', 0, 0, BENCH_YES},
+    {"disorder-range", 'R', "NUMBER", 0, BENCH_RANGE},
+    {"disorder", 'O', "NUMBER", 0, BENCH_DISORDER},
+    {"replia", 'a', "NUMBER", 0, BENCH_REPLICA},
+    {"debug", 'g', 0, 0, BENCH_DEBUG},
+    {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
+    {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},
+#ifdef WEBSOCKET
+    {"cloud_dsn", 'W', "DSN", 0, BENCH_DSN},
+    {"timeout", 'D', "NUMBER", 0, BENCH_TIMEOUT},
+#endif
+    {"keep-trying", 'k', "NUMBER", 0, BENCH_KEEPTRYING},
+    {"trying-interval", 'z', "NUMBER", 0, BENCH_TRYING_INTERVAL},
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+    {"vgroups", 'v', "NUMBER", 0, BENCH_VGROUPS},
+#endif
+    {"version", 'V', 0, 0, BENCH_VERSION},
+    {0}
+};
+
+static error_t benchParseOpt(int key, char *arg, struct argp_state *state) {
+    return benchParseSingleOpt(key, arg);
+}
+
+static struct argp bench_argp = {bench_options, benchParseOpt, "", ""};
+
+void benchParseArgsByArgp(int argc, char *argv[]) {
+    argp_parse(&bench_argp, argc, argv, 0, 0, g_arguments);
+}
 #endif  // LINUX
+
+int32_t benchParseSingleOpt(int32_t key, char* arg) {
+    SDataBase *database = benchArrayGet(g_arguments->databases, 0);
+    SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
+    switch (key) {
+        case 'F':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "F");
+            }
+
+            g_arguments->prepared_rand = atol(arg);
+            if (g_arguments->prepared_rand <= 0) {
+                errorPrint(
+                           "Invalid -F: %s, will auto set to default(10000)\n",
+                           arg);
+                g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
+            }
+            break;
+
+        case 'f':
+            g_arguments->demo_mode = false;
+            g_arguments->metaFile = arg;
+            g_arguments->nthreads_auto = false;
+            break;
+
+        case 'h':
+            g_arguments->host = arg;
+            g_arguments->host_auto = false;
+            g_arguments->nthreads_auto = false;
+            break;
+
+        case 'P':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "P");
+            }
+            g_arguments->port = atoi(arg);
+            if (g_arguments->port <= 0) {
+                errorPrint(
+                           "Invalid -P: %s, will auto set to default(6030)\n",
+                           arg);
+                if (REST_IFACE == g_arguments->iface) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                } else {
+                    g_arguments->port = DEFAULT_PORT;
+                }
+            } else {
+                g_arguments->port_auto = false;
+            }
+            g_arguments->port_inputted = true;
+            break;
+
+        case 'I':
+            if (0 == strcasecmp(arg, "taosc")) {
+                stbInfo->iface = TAOSC_IFACE;
+            } else if (0 == strcasecmp(arg, "stmt")) {
+                stbInfo->iface = STMT_IFACE;
+            } else if (0 == strcasecmp(arg, "rest")) {
+                stbInfo->iface = REST_IFACE;
+                g_arguments->nthreads_auto = false;
+                if (false == g_arguments->port_inputted) {
+                    g_arguments->port = DEFAULT_REST_PORT;
+                }
+            } else if (0 == strcasecmp(arg, "sml")
+                    || 0 == strcasecmp(arg, "sml-line")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-telnet")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-json")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_JSON_PROTOCOL;
+            } else if (0 == strcasecmp(arg, "sml-taosjson")) {
+                stbInfo->iface = SML_IFACE;
+                stbInfo->lineProtocol = SML_JSON_TAOS_FORMAT;
+            } else if (0 == strcasecmp(arg, "sml-rest")
+                    || (0 == strcasecmp(arg, "sml-rest-line"))) {
+                stbInfo->iface = SML_REST_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
+                g_arguments->nthreads_auto = false;
+            } else if (0 == strcasecmp(arg, "sml-rest-telnet")) {
+                stbInfo->iface = SML_REST_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
+                g_arguments->nthreads_auto = false;
+            } else if (0 == strcasecmp(arg, "sml-rest-json")) {
+                stbInfo->iface = SML_REST_IFACE;
+                stbInfo->lineProtocol = TSDB_SML_JSON_PROTOCOL;
+                g_arguments->nthreads_auto = false;
+            } else if (0 == strcasecmp(arg, "sml-rest-taosjson")) {
+                stbInfo->iface = SML_REST_IFACE;
+                stbInfo->lineProtocol = SML_JSON_TAOS_FORMAT;
+                g_arguments->nthreads_auto = false;
+            } else {
+                errorPrint(
+                           "Invalid -I: %s, will auto set to default (taosc)\n",
+                           arg);
+                stbInfo->iface = TAOSC_IFACE;
+            }
+            g_arguments->iface = stbInfo->iface;
+            break;
+
+        case 'p':
+            g_arguments->password = arg;
+            break;
+
+        case 'u':
+            g_arguments->user = arg;
+            break;
+
+        case 'c':
+            tstrncpy(g_configDir, arg, TSDB_FILENAME_LEN);
+            g_arguments->cfg_inputted = true;
+            break;
+
+        case 'o':
+            g_arguments->output_file = arg;
+            break;
+
+        case 'T':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "T");
+            }
+
+            g_arguments->nthreads = atoi(arg);
+            if (g_arguments->nthreads <= 0) {
+                errorPrint(
+                           "Invalid -T: %s, will auto set to default(8)\n",
+                           arg);
+                g_arguments->nthreads = DEFAULT_NTHREADS;
+            } else {
+                g_arguments->nthreads_auto = false;
+            }
+            break;
+
+        case 'i':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "i");
+            }
+
+            stbInfo->insert_interval = atoi(arg);
+            if (stbInfo->insert_interval <= 0) {
+                errorPrint(
+                           "Invalid -i: %s, will auto set to default(0)\n",
+                           arg);
+                stbInfo->insert_interval = 0;
+            }
+            break;
+
+        case 'S':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "S");
+            }
+
+            stbInfo->timestamp_step = atol(arg);
+            if (stbInfo->timestamp_step <= 0) {
+                errorPrint(
+                           "Invalid -S: %s, will auto set to default(1)\n",
+                           arg);
+                stbInfo->timestamp_step = 1;
+            }
+            break;
+
+        case 'B':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "B");
+            }
+
+            stbInfo->interlaceRows = atoi(arg);
+            if (stbInfo->interlaceRows <= 0) {
+                errorPrint(
+                           "Invalid -B: %s, will auto set to default(0)\n",
+                           arg);
+                stbInfo->interlaceRows = 0;
+            }
+            break;
+
+        case 'r':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "r");
+            }
+
+            g_arguments->reqPerReq = atoi(arg);
+            if (g_arguments->reqPerReq <= 0 ||
+                g_arguments->reqPerReq > MAX_RECORDS_PER_REQ) {
+                errorPrint(
+                           "Invalid -r: %s, will auto set to default(30000)\n",
+                           arg);
+                g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
+            }
+            break;
+
+        case 's':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "s");
+            }
+
+            g_arguments->startTimestamp = atol(arg);
+            break;
+
+        case 'U':
+            g_arguments->supplementInsert = true;
+            g_arguments->nthreads_auto = false;
+            break;
+
+        case 't':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "t");
+            }
+
+            stbInfo->childTblCount = atoi(arg);
+            if (stbInfo->childTblCount <= 0) {
+                errorPrint(
+                           "Invalid -t: %s, will auto set to default(10000)\n",
+                           arg);
+                stbInfo->childTblCount = DEFAULT_CHILDTABLES;
+            }
+            g_arguments->totalChildTables = stbInfo->childTblCount;
+            break;
+
+        case 'n':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "n");
+            }
+
+            stbInfo->insertRows = atol(arg);
+            if (stbInfo->insertRows <= 0) {
+                errorPrint(
+                           "Invalid -n: %s, will auto set to default(10000)\n",
+                           arg);
+                stbInfo->insertRows = DEFAULT_INSERT_ROWS;
+            }
+            break;
+
+        case 'd':
+            database->dbName = arg;
+            break;
+
+        case 'l':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "l");
+            }
+
+            g_arguments->demo_mode = false;
+            g_arguments->intColumnCount = atoi(arg);
+            if (g_arguments->intColumnCount <= 0) {
+                errorPrint(
+                           "Invalid -l: %s, will auto set to default(0)\n",
+                           arg);
+                g_arguments->intColumnCount = 0;
+            }
+            break;
+
+        case 'L':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "L");
+            }
+
+            g_arguments->demo_mode = false;
+            g_arguments->partialColNum = atoi(arg);
+            break;
+
+        case 'A':
+            g_arguments->demo_mode = false;
+            parseFieldDatatype(arg, stbInfo->tags, true);
+            break;
+
+        case 'b':
+            g_arguments->demo_mode = false;
+            parseFieldDatatype(arg, stbInfo->cols, false);
+            break;
+
+        case 'k':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "k");
+            }
+
+            g_arguments->keep_trying = atoi(arg);
+            debugPrint("keep_trying: %d\n", g_arguments->keep_trying);
+            break;
+
+        case 'z':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "z");
+            }
+
+            g_arguments->trying_interval = atoi(arg);
+            debugPrint("trying_interval: %d\n", g_arguments->trying_interval);
+            break;
+
+        case 'w':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "w");
+            }
+
+            g_arguments->binwidth = atoi(arg);
+            if (g_arguments->binwidth <= 0) {
+                errorPrint(
+                        "Invalid value for w: %s, "
+                        "will auto set to default(%d)\n",
+                        arg, DEFAULT_BINWIDTH);
+                g_arguments->binwidth = DEFAULT_BINWIDTH;
+            } else if (g_arguments->binwidth >
+                (TSDB_MAX_BINARY_LEN - sizeof(int64_t) -2)) {
+                errorPrint(
+                        "-w(%d) > (TSDB_MAX_BINARY_LEN(%u"
+                        ")-(TIMESTAMP length(%zu) - extrabytes(2), "
+                        "will auto set to default(64)\n",
+                        g_arguments->binwidth,
+                        TSDB_MAX_BINARY_LEN, sizeof(int64_t));
+                g_arguments->binwidth = DEFAULT_BINWIDTH;
+            }
+            break;
+
+        case 'm':
+            stbInfo->childTblPrefix = arg;
+            break;
+
+        case 'E':
+            stbInfo->escape_character = true;
+            break;
+
+        case 'C':
+            g_arguments->chinese = true;
+            break;
+
+        case 'N':
+            g_arguments->demo_mode = false;
+            stbInfo->use_metric = false;
+            benchArrayClear(stbInfo->tags);
+            break;
+
+        case 'M':
+            g_arguments->mistMode = true;
+            g_arguments->prepared_rand = 57;
+            break;
+
+        case 'x':
+            g_arguments->aggr_func = true;
+            break;
+
+        case 'y':
+            g_arguments->answer_yes = true;
+            break;
+
+        case 'R':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "R");
+            }
+
+            stbInfo->disorderRange = atoi(arg);
+            if (stbInfo->disorderRange <= 0) {
+                errorPrint(
+                           "Invalid value for -R: %s, will auto set to "
+                           "default(1000)\n",
+                           arg);
+                stbInfo->disorderRange =
+                        DEFAULT_DISORDER_RANGE;
+            }
+            break;
+
+        case 'O':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "O");
+            }
+
+            stbInfo->disorderRatio = atoi(arg);
+            stbInfo->disRatio      = (uint8_t)atoi(arg);
+            if (stbInfo->disorderRatio <= 0) {
+                errorPrint(
+                        "Invalid value for -O: %s, "
+                        "will auto set to default(0)\n",
+                        arg);
+                stbInfo->disorderRatio = 0;
+            }
+            break;
+
+        case 'a': {
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "a");
+            }
+
+            int replica = atoi(arg);
+            if (replica <= 0) {
+                errorPrint(
+                        "Invalid value for -a: %s, "
+                        "will auto set to default(%d)\n",
+                        arg, DEFAULT_REPLICA);
+                replica = DEFAULT_REPLICA;
+            }
+            SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
+            cfg->name = benchCalloc(1, DEFAULT_CFGNAME_LEN, true);
+            snprintf(cfg->name, DEFAULT_CFGNAME_LEN, "replica");
+            cfg->valuestring = NULL;
+            cfg->valueint = replica;
+            benchArrayPush(database->cfgs, cfg);
+            break;
+        }
+        case 'g':
+            g_arguments->debug_print = true;
+            break;
+        case 'G':
+            g_arguments->performance_print = true;
+            break;
+
+#ifdef WEBSOCKET
+        case 'W':
+            g_arguments->nthreads_auto = false;
+            g_arguments->dsn = arg;
+            break;
+
+        case 'D':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "D");
+            }
+
+            g_arguments->timeout = atoi(arg);
+            break;
+#endif
+#ifdef TD_VER_COMPATIBLE_3_0_0_0
+        case 'v':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2("taosBenchmark", "v");
+            }
+            g_arguments->nthreads_auto = false;
+            g_arguments->inputted_vgroups = atoi(arg);
+            break;
+#endif
+
+        case 'V':
+            printVersion();
+            exit(0);
+        default:
+            return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+}
+
+int32_t benchParseArgs(int32_t argc, char* argv[]) {
+#ifdef LINUX
+    benchParseArgsByArgp(argc, argv);
+    return 0;
+#else
+    return benchParseArgsNoArgp(argc, argv);
+#endif
+}
 

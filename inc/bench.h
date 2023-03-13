@@ -240,7 +240,6 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_DEBUG "Debug mode, optional."
 #define BENCH_PERFORMANCE "Performance mode, optional."
 #define BENCH_PREPARE "Random data source size, default is 10000."
-#define BENCH_EMAIL   "<support@taosdata.com>"
 #define BENCH_VGROUPS "Specify Vgroups number for creating database, "    \
                         "only valid with daemon version 3.0+"
 #define BENCH_VERSION "Print program version."
