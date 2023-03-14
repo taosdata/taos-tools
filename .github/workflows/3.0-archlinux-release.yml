@@ -18,6 +18,12 @@ jobs:
       output2: ${{ steps.step2.outputs.test }}
       changedflag: ${{ steps.changedflag.outputs.changedflag }}
     steps:
+      - name: Checkout taos-tools
+        uses: actions/checkout@v3
+        with:
+          path: 'taos-tools'
+          ref: 'develop'
+
       - name: Step that prints name of pull request's base branch
         run: |
           echo "Pull request's base branch is: ${BASE_BRANCH}"
