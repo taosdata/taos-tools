@@ -99,7 +99,7 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
 
     totalRows++;
   }
-
+  free(buf);
   return totalRows;
 }
 
@@ -122,11 +122,13 @@ static void* tmqConsume(void* arg) {
         tmq_res_t msgType = tmq_get_res_type(tmqMsg);
         if (msgType == TMQ_RES_TABLE_META) {
           errorPrint("consumer id %d get TMQ_RES_TABLE_META mesg.\n", pThreadInfo->id);
+          taos_free_result(tmqMsg);
           break;
         } else if (msgType == TMQ_RES_DATA) {
           totalRows += data_msg_process(tmqMsg, pThreadInfo, totalMsgs);
         } else if (msgType == TMQ_RES_METADATA) {
           errorPrint("consumer id %d get TMQ_RES_METADATA mesg.\n", pThreadInfo->id);
+          taos_free_result(tmqMsg);
           break;
         }
 
