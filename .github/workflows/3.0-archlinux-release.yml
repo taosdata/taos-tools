@@ -18,12 +18,6 @@ jobs:
       output2: ${{ steps.step2.outputs.test }}
       changedflag: ${{ steps.changedflag.outputs.changedflag }}
     steps:
-      - name: Checkout taos-tools
-        uses: actions/checkout@v3
-        with:
-          path: 'taos-tools'
-          ref: 'develop'
-
       - name: Step that prints name of pull request's base branch
         run: |
           echo "Pull request's base branch is: ${BASE_BRANCH}"
@@ -56,8 +50,6 @@ jobs:
             src/*
             inc/*
             deps/CMakeLists.txt
-            packaging/tools/*
-            packaging/rpm/*
             .github/workflows/3.0-archlinux-release.yml
 
       - name: Run step if any of the listed files above change
@@ -161,6 +153,15 @@ jobs:
             echo "TDengine build failure"
             exit 1
           fi
+
+      - name: checkout taos-tools
+        if: |
+          (needs.check-changed.outputs.changedflag == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
 
       - name: Checkout taos-tools to PR number
         if: |
