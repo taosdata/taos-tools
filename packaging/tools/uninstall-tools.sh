@@ -50,10 +50,10 @@ function uninstall_bin() {
     ${csudo}rm -f ${bin_link_dir}/${dumpName}         || :
     ${csudo}rm -f ${bin_link_dir}/rm${toolsName}      || :
 
-    ${csudo}rm -f ${install_main_dir}/bin/${demoName}                  || :
-    ${csudo}rm -f ${install_main_dir}/bin/${benchmarkName}             || :
-    ${csudo}rm -f ${install_main_dir}/bin/${dumpName}                  || :
-    ${csudo}rm -f ${install_main_dir}/bin/uninstall-tools.sh    || :
+    ${csudo}rm -f ${install_main_dir}/bin/${demoName}               || :
+    ${csudo}rm -f ${install_main_dir}/bin/${benchmarkName}          || :
+    ${csudo}rm -f ${install_main_dir}/bin/${dumpName}               || :
+    ${csudo}rm -f "${install_main_dir}/bin/uninstall-tools.sh"      || :
 }
 
 

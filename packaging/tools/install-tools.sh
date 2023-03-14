@@ -116,7 +116,7 @@ function install_bin() {
     [[ -x ${install_main_dir}/bin/${dumpName} ]] && \
         ${csudo}ln -s ${install_main_dir}/bin/${dumpName} ${bin_link_dir}/${dumpName}                   || :
     [[ -x ${install_main_dir}/bin/uninstall-tools.sh ]] && \
-        ${csudo}ln -s ${install_main_dir}/bin/uninstall-tools.sh ${bin_link_dir}/rm${toolsName}  || :
+        ${csudo}ln -s ${install_main_dir}/bin/uninstall-tools.sh ${bin_link_dir}/rm${toolsName}         || :
 }
 
 function install_taostools() {
