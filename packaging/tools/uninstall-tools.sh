@@ -50,16 +50,16 @@ function uninstall_bin() {
     ${csudo}rm -f ${bin_link_dir}/${dumpName}         || :
     ${csudo}rm -f ${bin_link_dir}/rm${toolsName}      || :
 
-    ${csudo}rm -f ${install_main_dir}/bin/${demoName}                  || :
-    ${csudo}rm -f ${install_main_dir}/bin/${benchmarkName}             || :
-    ${csudo}rm -f ${install_main_dir}/bin/${dumpName}                  || :
-    ${csudo}rm -f ${install_main_dir}/bin/uninstall-${toolsName}.sh    || :
+    ${csudo}rm -f ${install_main_dir}/bin/${demoName}               || :
+    ${csudo}rm -f ${install_main_dir}/bin/${benchmarkName}          || :
+    ${csudo}rm -f ${install_main_dir}/bin/${dumpName}               || :
+    ${csudo}rm -f "${install_main_dir}/bin/uninstall-tools.sh"      || :
 }
 
 
 function uninstall_taostools() {
     # Start to uninstall
-    echo -e "${GREEN}Start to uninstall ${taosName} tools ...${NC}"
+    echo -e "${GREEN}Start to uninstall tools ...${NC}"
 
     kill_process ${demoName}
     kill_process ${benchmarkName}
@@ -69,7 +69,7 @@ function uninstall_taostools() {
     uninstall_libtaosws
 
     echo
-    echo -e "${GREEN}${taosName} tools is uninstalled successfully!${NC}"
+    echo -e "${GREEN}tools is uninstalled successfully!${NC}"
 }
 
 ## ==============================Main program starts from here============================

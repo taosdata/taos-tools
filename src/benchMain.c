@@ -104,7 +104,7 @@ int main(int argc, char* argv[]) {
         errorPrint("failed to open %s for save result\n",
                    g_arguments->output_file);
     }
-    infoPrint("taos client version: %s\n", taos_get_client_info());
+    infoPrint("client version: %s\n", taos_get_client_info());
 
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) {

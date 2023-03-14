@@ -179,5 +179,3 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-
-
