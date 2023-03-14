@@ -165,22 +165,23 @@ jobs:
 
       - name: Checkout taos-tools to PR number
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
+          (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
         run: |
+          git config --global --add safe.directory /__w/taos-tools/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
       - name: build taos-tools
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
+          (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
           mkdir debug ||:
           cd debug
           cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null
+          make -j8 > /dev/null && make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
