@@ -160,6 +160,7 @@ jobs:
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
+          || github.event_name == 'push'
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
@@ -179,5 +180,3 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-
-

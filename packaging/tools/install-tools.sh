@@ -105,7 +105,7 @@ function install_bin() {
 
     ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/${dumpName} ${install_main_dir}/bin/${dumpName} || echo -e "${RED}${dumpName}not installed${NC}"
     ${csudo}/usr/bin/install -c -m 755 ${script_dir}/bin/${benchmarkName} ${install_main_dir}/bin/${benchmarkName} || echo -e "${RED}${benchmarkName}not installed${NC}"
-    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/uninstall-${toolsName}.sh ${install_main_dir}/bin/uninstall-${toolsName}.sh || echo -e "${RED}uninstall-${toolsName}not installed${NC}"
+    ${csudo}/usr/bin/install -c -m 755 ${script_dir}/uninstall-tools.sh ${install_main_dir}/bin/uninstall-tools.sh || echo -e "${RED}uninstall-tools not installed${NC}"
     #Make link
     [[ -x ${install_main_dir}/bin/${benchmarkName} ]] && \
         ${csudo}ln -sf ${install_main_dir}/bin/${benchmarkName} ${install_main_dir}/bin/${demoName}     || :
@@ -115,13 +115,13 @@ function install_bin() {
         ${csudo}ln -s ${install_main_dir}/bin/${demoName} ${bin_link_dir}/${demoName}                   || :
     [[ -x ${install_main_dir}/bin/${dumpName} ]] && \
         ${csudo}ln -s ${install_main_dir}/bin/${dumpName} ${bin_link_dir}/${dumpName}                   || :
-    [[ -x ${install_main_dir}/bin/uninstall-${toolsName}.sh ]] && \
-        ${csudo}ln -s ${install_main_dir}/bin/uninstall-${toolsName}.sh ${bin_link_dir}/rm${toolsName}  || :
+    [[ -x ${install_main_dir}/bin/uninstall-tools.sh ]] && \
+        ${csudo}ln -s ${install_main_dir}/bin/uninstall-tools.sh ${bin_link_dir}/rm${toolsName}         || :
 }
 
 function install_taostools() {
     # Start to install
-    echo -e "${GREEN}Start to install ${taosName} tools ...${NC}"
+    echo -e "${GREEN}Start to install tools ...${NC}"
 
     install_main_path
 
@@ -130,7 +130,7 @@ function install_taostools() {
     install_libtaosws
 
     echo
-    echo -e "${GREEN}${taosName} tools is installed successfully!${NC}"
+    echo -e "${GREEN}tools is installed successfully!${NC}"
 }
 
 ## ==============================Main program starts from here============================
