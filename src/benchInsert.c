@@ -783,7 +783,8 @@ static void *createTable(void *sarg) {
         len = 0;
 
         int ret = 0;
-        debugPrint("creating table: %s\n", pThreadInfo->buffer);
+        debugPrint("thread[%d] creating table: %s\n", pThreadInfo->threadID,
+                   pThreadInfo->buffer);
         if (REST_IFACE == stbInfo->iface) {
             ret = queryDbExecRest(pThreadInfo->buffer,
                                   database->dbName,
@@ -823,6 +824,8 @@ static void *createTable(void *sarg) {
 
     if (0 != len) {
         int ret = 0;
+        debugPrint("thread[%d] creating table: %s\n", pThreadInfo->threadID,
+                   pThreadInfo->buffer);
         if (REST_IFACE == stbInfo->iface) {
             ret = queryDbExecRest(pThreadInfo->buffer,
                                   database->dbName,
@@ -1042,8 +1045,7 @@ void postFreeResource() {
                     tmfree(col->stmtData.is_null);
                     col->stmtData.is_null = NULL;
                 }
-                if (g_arguments->test_mode == INSERT_TEST
-                        && stbInfo->insertRows != 0) {
+                if (g_arguments->test_mode == INSERT_TEST) {
                     if (stbInfo->childTblArray) {
                         for (int64_t child = 0; child < stbInfo->childTblCount;
                                 child++) {
