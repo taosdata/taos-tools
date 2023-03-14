@@ -785,6 +785,7 @@ static void *createTable(void *sarg) {
         int ret = 0;
         debugPrint("thread[%d] creating table: %s\n", pThreadInfo->threadID,
                    pThreadInfo->buffer);
+        uint64_t startTs = toolsGetTimestampMs();
         if (REST_IFACE == stbInfo->iface) {
             ret = queryDbExecRest(pThreadInfo->buffer,
                                   database->dbName,
@@ -807,6 +808,9 @@ static void *createTable(void *sarg) {
                 }
             }
         }
+
+        uint64_t endTs = toolsGetTimestampMs();
+
         if (0 != ret) {
             g_fail = true;
             goto create_table_end;

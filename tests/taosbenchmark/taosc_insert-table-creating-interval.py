@@ -62,7 +62,7 @@ class TDTestCase:
 
         binPath = self.getPath()
         cmd = (
-            "%s -f ./taosbenchmark/json/taosc_insert_table-creating-interval.json 2>&1 | grep sleep"
+            "%s -f ./taosbenchmark/json/taosc_insert_table-creating-interval.json -g 2>&1 | grep sleep"
             % binPath
         )
         tdLog.info("%s" % cmd)
