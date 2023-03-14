@@ -165,7 +165,7 @@ jobs:
 
       - name: Checkout taos-tools to PR number
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
+          (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
@@ -173,7 +173,7 @@ jobs:
 
       - name: build taos-tools
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
+          (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
