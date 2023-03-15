@@ -12,6 +12,7 @@
 # -*- coding: utf-8 -*-
 import os
 import subprocess
+import time
 
 from util.log import *
 from util.cases import *
@@ -22,7 +23,7 @@ from util.dnodes import *
 class TDTestCase:
     def caseDescription(self):
         """
-        [TD-19985] taosBenchmark retry test cases
+        [TD-19449] taosBenchmark creating table interval test cases
         """
 
     def init(self, conn, logSql):
@@ -56,28 +57,27 @@ class TDTestCase:
         return paths[0]
 
     def run(self):
+        tdSql.query("select client_version()")
+        client_ver = "".join(tdSql.queryResult[0])
+        major_ver = client_ver.split(".")[0]
+
         binPath = self.getPath()
         cmd = (
-            "%s -f ./taosbenchmark/json/taosc_insert_retry-stb.json"
+            "%s -f ./taosbenchmark/json/taosc_insert_table-creating-interval.json -g 2>&1| grep sleep | wc -l"
             % binPath
         )
         tdLog.info("%s" % cmd)
-        os.system("%s" % cmd)
-        time.sleep(2)
-        tdDnodes.stopAll()
-        time.sleep(2)
-        tdDnodes.start(1)
-        time.sleep(2)
 
-        psCmd = "ps -ef|grep -w taosBenchmark| grep -v grep | awk '{print $2}'"
-        processID = subprocess.check_output(psCmd, shell=True)
+        sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
 
-        while processID:
-            time.sleep(1)
-            processID = subprocess.check_output(psCmd, shell=True)
+        if int(sleepTimes) != 8:
+            tdLog.exit("expected sleep times 4, actual %d" % int(sleepTimes))
 
-        tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 10)
+        if major_ver == "3":
+            tdSql.query("select count(*) from (select distinct(tbname) from test.meters)")
+        else:
+            tdSql.query("select count(tbname) from test.meters")
+        tdSql.checkData(0, 0, 20)
 
     def stop(self):
         tdSql.close()

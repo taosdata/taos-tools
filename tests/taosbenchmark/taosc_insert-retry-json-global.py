@@ -59,7 +59,6 @@ class TDTestCase:
         binPath = self.getPath()
         cmd = (
             "%s -f ./taosbenchmark/json/taosc_insert_retry-global.json"
-                #            "%s -t 1 -n 10 -i 5000 -r 1 -y &"
             % binPath
         )
         tdLog.info("%s" % cmd)

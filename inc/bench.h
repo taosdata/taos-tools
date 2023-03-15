@@ -613,9 +613,13 @@ typedef struct SSuperTable_S {
     char      *childTblSample;
     bool      childTblExists;
     uint64_t  childTblCount;
-    uint64_t  batchCreateTableNum;  // 0: no batch,  > 0: batch table number in
+    uint64_t  batchTblCreatingNum;  // 0: no batch,  > 0: batch table number in
+    char     *batchTblCreatingNumbers;  // NULL: no numbers
+    BArray   *batchTblCreatingNumbersArray;
+    char     *batchTblCreatingIntervals;  // NULL: no interval
+    BArray   *batchTblCreatingIntervalsArray;
                                    // one sql
-    bool      autoCreateTable;
+    bool      autoTblCreating;
     uint16_t  iface;  // 0: taosc, 1: rest, 2: stmt
     uint16_t  lineProtocol;
     uint64_t  childTblLimit;
@@ -940,6 +944,8 @@ typedef struct SThreadInfo_S {
     SVGroup     *vg;
 #endif
 
+    int         posOfTblCreatingBatch;
+    int         posOfTblCreatingInterval;
     // new
     uint16_t    batCols[MAX_BATCOLS];
     uint16_t    nBatCols;  // valid count for array batCols
