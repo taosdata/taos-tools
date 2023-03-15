@@ -1198,7 +1198,8 @@ TAOS *taosConnect(const char *dbName) {
     TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
             dbName, g_args.port);
     if (NULL == taos) {
-        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
+        errorPrint("Failed to connect to server %s, "
+                   "code: 0x%08x, reason: %s!\n",
                 g_args.host, taos_errno(NULL), taos_errstr(NULL));
     }
     return taos;
@@ -1212,7 +1213,7 @@ WS_TAOS *wsConnect() {
         memcpy(maskedDsn, g_args.dsn, 20);
         memcpy(maskedDsn+20, "...", 3);
         memcpy(maskedDsn+23, g_args.dsn + strlen(g_args.dsn) - 10, 10);
-        errorPrint("Failed to connect to server %s, code: %d, reason: %s!\n",
+        errorPrint("Failed to connect to server %s, code: 0x%08x, reason: %s!\n",
             maskedDsn, ws_errno(ws_taos), ws_errstr(ws_taos));
     }
     return ws_taos;
@@ -1220,7 +1221,7 @@ WS_TAOS *wsConnect() {
 
 static int cleanIfQueryFailedWS(const char *funcname, int lineno,
                               char *command, WS_RES *res) {
-    errorPrint("%s() LN%d, failed to run command <%s>. code: %d, reason: %s\n",
+    errorPrint("%s() LN%d, failed to run command <%s>. code: 0x%08x, reason: %s\n",
         funcname, lineno, command, ws_errno(res), ws_errstr(res));
     ws_free_result(res);
     free(command);
@@ -1411,7 +1412,8 @@ static int getTableRecordInfoWS(
 
 static int cleanIfQueryFailed(const char *funcname, int lineno,
                               char *command, TAOS_RES *res) {
-    errorPrint("%s() LN%d, failed to run command <%s>. code: %d, reason: %s\n",
+    errorPrint("%s() LN%d, failed to run command <%s>. "
+               "code: 0x%08x, reason: %s\n",
         funcname, lineno, command, taos_errno(res), taos_errstr(res));
     taos_free_result(res);
     free(command);
@@ -2519,7 +2521,7 @@ static int getTableTagValueWS(
         TableDes **ppTableDes) {
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
-        // if child-table have tag, V3 using select tag_value 
+        // if child-table have tag, V3 using select tag_value
         // from information_schema.ins_tag where table to get tagValue
         ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
         if (ret < 0) {
@@ -10777,7 +10779,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
         ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
         ws_code = ws_errno(ws_res);
         if (ws_code) {
-            errorPrint("invalid database %s, code: %d, reason: %s\n",
+            errorPrint("invalid database %s, code: 0x%08x, reason: %s\n",
                     dbInfo->name, ws_code, ws_errstr(ws_res));
             ws_free_result(ws_res);
             ws_res = NULL;
@@ -10793,7 +10795,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
     ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     ws_code = ws_errno(ws_res);
     if (ws_code) {
-        errorPrint("Failed to show %s\'s tables, code: %d, reason: %s!\n",
+        errorPrint("Failed to show %s\'s tables, code: 0x%08x, reason: %s!\n",
                 dbInfo->name, ws_code, ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
