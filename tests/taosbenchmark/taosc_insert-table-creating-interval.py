@@ -12,6 +12,7 @@
 # -*- coding: utf-8 -*-
 import os
 import subprocess
+import time
 
 from util.log import *
 from util.cases import *
@@ -73,10 +74,10 @@ class TDTestCase:
             tdLog.exit("expected sleep times 4, actual %d" % int(sleepTimes))
 
         if major_ver == "3":
-            tdSql.query("select count(*) from (select distinct(tbname) from test.meters")
+            tdSql.query("select count(*) from (select distinct(tbname) from test.meters)")
         else:
             tdSql.query("select count(tbname) from test.meters")
-        tdSql.checkData(0, 0, 10)
+        tdSql.checkData(0, 0, 20)
 
     def stop(self):
         tdSql.close()
