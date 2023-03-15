@@ -1365,6 +1365,27 @@ static void cleanupAndPrint(threadInfo *pThreadInfo, char *mode) {
     }
 }
 
+static int64_t getDisorderTs(SSuperTable *stbInfo) {
+    int64_t disorderTs = 0;
+    int64_t startTimestamp = stbInfo->startTimestamp;
+    int disorderRange = stbInfo->disorderRange;
+    if (stbInfo->disorderRatio > 0) {
+        int rand_num = taosRandom() % 100;
+        if (rand_num < stbInfo->disorderRatio) {
+            disorderRange--;
+            if (0 == disorderRange) {
+                disorderRange = stbInfo->disorderRange;
+            }
+            disorderTs = startTimestamp - disorderRange;
+            debugPrint("rand_num: %d, < disorderRatio: %d, "
+                       "disorderTs: %"PRId64"\n",
+                       rand_num, stbInfo->disorderRatio,
+                       disorderTs);
+        }
+    }
+    return disorderTs;
+}
+
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1383,8 +1404,6 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
-    int disorderRange = stbInfo->disorderRange;
-    int64_t startTimestamp = stbInfo->startTimestamp;
 
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
@@ -1449,21 +1468,7 @@ static void *syncWriteInterlace(void *sarg) {
                     }
 
                     for (int64_t j = 0; j < interlaceRows; j++) {
-                        int64_t disorderTs = 0;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            if (rand_num < stbInfo->disorderRatio) {
-                                disorderRange--;
-                                if (0 == disorderRange) {
-                                    disorderRange = stbInfo->disorderRange;
-                                }
-                                disorderTs = startTimestamp - disorderRange;
-                                debugPrint("rand_num: %d, < disorderRatio: %d, "
-                                           "disorderTs: %"PRId64"\n",
-                                           rand_num, stbInfo->disorderRatio,
-                                           disorderTs);
-                            }
-                        }
+                        int64_t disorderTs = getDisorderTs(stbInfo);
                         char time_string[BIGINT_BUFF_LEN];
                         snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
                                 disorderTs?disorderTs:timestamp);
@@ -1510,22 +1515,7 @@ static void *syncWriteInterlace(void *sarg) {
                 case SML_IFACE: {
                     int protocol = stbInfo->lineProtocol;
                     for (int64_t j = 0; j < interlaceRows; j++) {
-                        int64_t disorderTs = 0;
-                        if (stbInfo->disorderRatio > 0) {
-                            int rand_num = taosRandom() % 100;
-                            if (rand_num < stbInfo->disorderRatio) {
-                                disorderRange--;
-                                if (0 == disorderRange) {
-                                    disorderRange = stbInfo->disorderRange;
-                                }
-                                disorderTs = startTimestamp - disorderRange;
-                                debugPrint("rand_num: %d, < disorderRatio: %d, "
-                                            "disorderTs: %"PRId64"\n",
-                                            rand_num, stbInfo->disorderRatio,
-                                            disorderTs);
-                            }
-                        }
-
+                        int64_t disorderTs = getDisorderTs(stbInfo);
                         if (TSDB_SML_JSON_PROTOCOL == protocol) {
                             tools_cJSON *tag = tools_cJSON_Duplicate(
                                 tools_cJSON_GetArrayItem(
@@ -1866,9 +1856,9 @@ static int32_t prepareProgressDataSmlJson(
     return generated;
 }
 
-static int32_t prepareProgressDataSmlLine(
+static int32_t prepareProgressDataSmlLineOrTelnet(
     threadInfo *pThreadInfo, uint64_t tableSeq, char *sampleDataBuf,
-    int64_t *timestamp, uint64_t i, char *ttl) {
+    int64_t *timestamp, uint64_t i, char *ttl, int protocol) {
     // prepareProgressDataSmlLine
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int32_t generated = 0;
@@ -1876,49 +1866,26 @@ static int32_t prepareProgressDataSmlLine(
     int32_t pos = 0;
     for (int j = 0; (j < g_arguments->reqPerReq)
             && !g_arguments->terminate; j++) {
-        snprintf(
-                pThreadInfo->lines[j],
-                stbInfo->lenOfCols + stbInfo->lenOfTags,
-                "%s %s %" PRId64 "",
-                pThreadInfo->sml_tags[tableSeq
+        if (TSDB_SML_LINE_PROTOCOL == protocol) {
+            snprintf(
+                    pThreadInfo->lines[j],
+                    stbInfo->lenOfCols + stbInfo->lenOfTags,
+                    "%s %s %" PRId64 "",
+                    pThreadInfo->sml_tags[tableSeq
                     - pThreadInfo->start_table_from],
-                sampleDataBuf + pos * stbInfo->lenOfCols,
-                *timestamp);
-        pos++;
-        if (pos >= g_arguments->prepared_rand) {
-            pos = 0;
-        }
-        *timestamp += stbInfo->timestamp_step;
-        if (stbInfo->disorderRatio > 0) {
-            makeTimestampDisorder(timestamp, stbInfo);
-        }
-        generated++;
-        if (i + generated >= stbInfo->insertRows) {
-            break;
-        }
-    }
-    return generated;
-}
-
-static int32_t prepareProgressDataSmlTelnet(
-    threadInfo *pThreadInfo, uint64_t tableSeq, char *sampleDataBuf,
-    int64_t *timestamp, uint64_t i, char *ttl) {
-    // prepareProgressDataSmlTelnet
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
-    int32_t generated = 0;
-
-    int32_t pos = 0;
-    for (int j = 0; (j < g_arguments->reqPerReq)
-            && !g_arguments->terminate; j++) {
-        snprintf(
-                pThreadInfo->lines[j],
-                stbInfo->lenOfCols + stbInfo->lenOfTags,
-                "%s %" PRId64 " %s %s", stbInfo->stbName,
-                *timestamp,
-                sampleDataBuf
+                    sampleDataBuf + pos * stbInfo->lenOfCols,
+                    *timestamp);
+        } else {
+            snprintf(
+                    pThreadInfo->lines[j],
+                    stbInfo->lenOfCols + stbInfo->lenOfTags,
+                    "%s %" PRId64 " %s %s", stbInfo->stbName,
+                    *timestamp,
+                    sampleDataBuf
                     + pos * stbInfo->lenOfCols,
-                pThreadInfo->sml_tags[tableSeq
+                    pThreadInfo->sml_tags[tableSeq
                     -pThreadInfo->start_table_from]);
+        }
         pos++;
         if (pos >= g_arguments->prepared_rand) {
             pos = 0;
@@ -1953,18 +1920,12 @@ static int32_t prepareProgressDataSml(
     int32_t generated = -1;
     switch (protocol) {
         case TSDB_SML_LINE_PROTOCOL:
-            generated = prepareProgressDataSmlLine(
-                    pThreadInfo,
-                    tableSeq,
-                    sampleDataBuf,
-                    timestamp, i, ttl);
-            break;
         case TSDB_SML_TELNET_PROTOCOL:
-            generated = prepareProgressDataSmlTelnet(
+            generated = prepareProgressDataSmlLineOrTelnet(
                     pThreadInfo,
                     tableSeq,
                     sampleDataBuf,
-                    timestamp, i, ttl);
+                    timestamp, i, ttl, protocol);
             break;
         case TSDB_SML_JSON_PROTOCOL:
             generated = prepareProgressDataSmlJsonText(
@@ -1997,8 +1958,6 @@ static int32_t prepareProgressDataSql(
     int32_t generated = 0;
     SDataBase *database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
-    int disorderRange = stbInfo->disorderRange;
-    int64_t startTimestamp = stbInfo->startTimestamp;
     char *  pstr = pThreadInfo->buffer;
     if (stbInfo->partialColNum == stbInfo->cols->size) {
         if (stbInfo->autoTblCreating) {
@@ -2054,22 +2013,7 @@ static int32_t prepareProgressDataSql(
                          sampleDataBuf +
                          *pos * stbInfo->lenOfCols);
         } else {
-            int64_t disorderTs = 0;
-            if (stbInfo->disorderRatio > 0) {
-                int rand_num = taosRandom() % 100;
-                if (rand_num < stbInfo->disorderRatio) {
-                    disorderRange--;
-                    if (0 == disorderRange) {
-                        disorderRange = stbInfo->disorderRange;
-                    }
-                    disorderTs = startTimestamp - disorderRange;
-                    debugPrint("rand_num: %d, < disorderRatio:"
-                               " %d, disorderTs: %"PRId64"\n",
-                               rand_num,
-                               stbInfo->disorderRatio,
-                               disorderTs);
-                }
-            }
+            int64_t disorderTs = getDisorderTs(stbInfo);
             *len += snprintf(pstr + *len,
                             TSDB_MAX_ALLOWED_SQL_LEN - *len,
                             "(%" PRId64 ",%s)",
