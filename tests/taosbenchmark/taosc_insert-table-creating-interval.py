@@ -62,14 +62,14 @@ class TDTestCase:
 
         binPath = self.getPath()
         cmd = (
-            "%s -f ./taosbenchmark/json/taosc_insert_table-creating-interval.json -g 2>&1 | grep sleep"
+            "%s -f ./taosbenchmark/json/taosc_insert_table-creating-interval.json -g 2>&1| grep sleep | wc -l"
             % binPath
         )
         tdLog.info("%s" % cmd)
 
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
 
-        if int(sleepTimes) != 4:
+        if int(sleepTimes) != 8:
             tdLog.exit("expected sleep times 4, actual %d" % int(sleepTimes))
 
         if major_ver == "3":
