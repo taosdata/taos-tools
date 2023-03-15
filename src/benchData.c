@@ -114,7 +114,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
     int n;
-    if (stbInfo->autoCreateTable) {
+    if (stbInfo->autoTblCreating) {
         char ttl[SMALL_BUFF_LEN] = "";
         if (stbInfo->ttl != 0) {
             snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);

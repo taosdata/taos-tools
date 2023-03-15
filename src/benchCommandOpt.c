@@ -171,7 +171,7 @@ static void initStable() {
     stbInfo->childTblCount = DEFAULT_CHILDTABLES;
     stbInfo->childTblLimit = 0;
     stbInfo->childTblOffset = 0;
-    stbInfo->autoCreateTable = false;
+    stbInfo->autoTblCreating = false;
     stbInfo->childTblExists = false;
     stbInfo->random_data_source = true;
     stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;

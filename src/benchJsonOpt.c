@@ -469,10 +469,10 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable = benchArrayGet(database->superTbls, i);
         }
         superTable->escape_character = false;
-        superTable->autoCreateTable = false;
-        superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
-        superTable->batchCreateTblNumbers = NULL;
-        superTable->batchCreateTblIntervals = NULL;
+        superTable->autoTblCreating = false;
+        superTable->batchTblCreatingNum = DEFAULT_CREATE_BATCH;
+        superTable->batchTblCreatingNumbers = NULL;
+        superTable->batchTblCreatingIntervals = NULL;
         superTable->childTblExists = false;
         superTable->random_data_source = true;
         superTable->iface = TAOSC_IFACE;
@@ -521,32 +521,32 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "auto_create_table");
         if (tools_cJSON_IsString(autoCreateTbl)
                 && (0 == strcasecmp(autoCreateTbl->valuestring, "yes"))) {
-            superTable->autoCreateTable = true;
+            superTable->autoTblCreating = true;
         }
         tools_cJSON *batchCreateTbl =
             tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_num");
         if (tools_cJSON_IsNumber(batchCreateTbl)) {
-            superTable->batchCreateTableNum = batchCreateTbl->valueint;
+            superTable->batchTblCreatingNum = batchCreateTbl->valueint;
         }
-        tools_cJSON *batchCreateTblNumbers =
+        tools_cJSON *batchTblCreatingNumbers =
             tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_numbers");
-        if (tools_cJSON_IsString(batchCreateTblNumbers)) {
-            superTable->batchCreateTblNumbers
-                = batchCreateTblNumbers->valuestring;
-            superTable->batchCreateTblNumbersArray =
+        if (tools_cJSON_IsString(batchTblCreatingNumbers)) {
+            superTable->batchTblCreatingNumbers
+                = batchTblCreatingNumbers->valuestring;
+            superTable->batchTblCreatingNumbersArray =
                 benchArrayInit(1, sizeof(int));
-            parseStringToIntArray(superTable->batchCreateTblNumbers,
-                                  superTable->batchCreateTblNumbersArray);
+            parseStringToIntArray(superTable->batchTblCreatingNumbers,
+                                  superTable->batchTblCreatingNumbersArray);
         }
-        tools_cJSON *batchCreateTblIntervals =
+        tools_cJSON *batchTblCreatingIntervals =
             tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_intervals");
-        if (tools_cJSON_IsString(batchCreateTblIntervals)) {
-            superTable->batchCreateTblIntervals
-                = batchCreateTblIntervals->valuestring;
-            superTable->batchCreateTblIntervalsArray =
+        if (tools_cJSON_IsString(batchTblCreatingIntervals)) {
+            superTable->batchTblCreatingIntervals
+                = batchTblCreatingIntervals->valuestring;
+            superTable->batchTblCreatingIntervalsArray =
                 benchArrayInit(1, sizeof(int));
-            parseStringToIntArray(superTable->batchCreateTblIntervals,
-                                  superTable->batchCreateTblIntervalsArray);
+            parseStringToIntArray(superTable->batchTblCreatingIntervals,
+                                  superTable->batchTblCreatingIntervalsArray);
         }
         tools_cJSON *childTblExists =
             tools_cJSON_GetObjectItem(stbInfo, "child_table_exists");
@@ -554,7 +554,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 && (0 == strcasecmp(childTblExists->valuestring, "yes"))
                 && !database->drop) {
             superTable->childTblExists = true;
-            superTable->autoCreateTable = false;
+            superTable->autoTblCreating = false;
         }
 
         tools_cJSON *childTableCount =

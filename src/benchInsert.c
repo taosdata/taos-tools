@@ -14,13 +14,21 @@
 #include <benchData.h>
 #include <benchInsertMix.h>
 
-#define FREE_RESOURCE()  {\
-                           if(pThreadInfo->conn) closeBenchConn(pThreadInfo->conn); \
-                           benchArrayDestroy(pThreadInfo->delayList);  \
-                           tmfree(pids);                               \
-                           tmfree(infos);                              \
-                         }\
+#define FREE_PIDS_INFOS_RETURN_MINUS_1()            \
+    do {                                            \
+        tmfree(pids);                               \
+        tmfree(infos);                              \
+        return -1;                                  \
+    } while(0)
 
+#define FREE_RESOURCE()                             \
+    do {                                            \
+        if(pThreadInfo->conn)                       \
+            closeBenchConn(pThreadInfo->conn);      \
+        benchArrayDestroy(pThreadInfo->delayList);  \
+        tmfree(pids);                               \
+        tmfree(infos);                              \
+    } while(0)                                      \
 
 static int getSuperTableFromServerRest(
     SDataBase* database, SSuperTable* stbInfo, char *command) {
@@ -773,7 +781,7 @@ static void *createTable(void *sarg) {
             len = generateChildTblName(len, pThreadInfo->buffer,
                                        database, stbInfo, i, ttl);
             batchNum++;
-            if ((batchNum < stbInfo->batchCreateTableNum)
+            if ((batchNum < stbInfo->batchTblCreatingNum)
                 && ((TSDB_MAX_ALLOWED_SQL_LEN - len) >=
                  (stbInfo->lenOfTags + EXTRA_SQL_LEN))) {
                 continue;
@@ -888,11 +896,7 @@ static int startMultiThreadCreateChildTable(
         if (REST_IFACE == stbInfo->iface) {
             int sockfd = createSockFd();
             if (sockfd < 0) {
-                tmfree(pids);
-                pids = NULL;
-                tmfree(infos);
-                infos = NULL;
-                return -1;
+                FREE_PIDS_INFOS_RETURN_MINUS_1();
             }
             pThreadInfo->sockfd = sockfd;
         } else {
@@ -952,7 +956,7 @@ static int createChildTables() {
             for (int j = 0; (j < database->superTbls->size
                     && !g_arguments->terminate); j++) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, j);
-                if (stbInfo->autoCreateTable || stbInfo->iface == SML_IFACE
+                if (stbInfo->autoTblCreating || stbInfo->iface == SML_IFACE
                         || stbInfo->iface == SML_REST_IFACE) {
                     g_arguments->autoCreatedChildTables +=
                             stbInfo->childTblCount;
@@ -1033,8 +1037,8 @@ void postFreeResource() {
                 stbInfo->tagDataBuf = NULL;
                 tmfree(stbInfo->partialColNameBuf);
                 stbInfo->partialColNameBuf = NULL;
-                benchArrayDestroy(stbInfo->batchCreateTblNumbersArray);
-                benchArrayDestroy(stbInfo->batchCreateTblIntervalsArray);
+                benchArrayDestroy(stbInfo->batchTblCreatingNumbersArray);
+                benchArrayDestroy(stbInfo->batchTblCreatingIntervalsArray);
                 for (int k = 0; k < stbInfo->tags->size; ++k) {
                     Field * tag = benchArrayGet(stbInfo->tags, k);
                     tmfree(tag->stmtData.data);
@@ -1367,7 +1371,7 @@ static void *syncWriteInterlace(void *sarg) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
                     if (stbInfo->partialColNum == stbInfo->cols->size) {
-                        if (stbInfo->autoCreateTable) {
+                        if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
                                     tableName,
                                     " USING `",
@@ -1381,7 +1385,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     tableName, " VALUES ");
                         }
                     } else {
-                        if (stbInfo->autoCreateTable) {
+                        if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 10,
                                         tableName,
                                         " (",
@@ -1954,7 +1958,7 @@ static int32_t prepareProgressDataSql(
     int64_t startTimestamp = stbInfo->startTimestamp;
     char *  pstr = pThreadInfo->buffer;
     if (stbInfo->partialColNum == stbInfo->cols->size) {
-        if (stbInfo->autoCreateTable) {
+        if (stbInfo->autoTblCreating) {
             *len =
                 snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                          "%s %s.%s USING %s.%s "
@@ -1970,7 +1974,7 @@ static int32_t prepareProgressDataSql(
                            database->dbName, childTbl->name);
         }
     } else {
-        if (stbInfo->autoCreateTable) {
+        if (stbInfo->autoTblCreating) {
             *len = snprintf(
                     pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                     "%s %s.%s (%s) USING %s.%s "
@@ -2104,7 +2108,7 @@ void *syncWriteProgressive(void *sarg) {
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
         int32_t pos = 0;
-        if (stbInfo->iface == STMT_IFACE && stbInfo->autoCreateTable) {
+        if (stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
             if (NULL == pThreadInfo->conn->stmt) {
@@ -2634,7 +2638,7 @@ static void preProcessArgument(SSuperTable *stbInfo) {
     }
 
     if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE
-            && stbInfo->autoCreateTable) {
+            && stbInfo->autoTblCreating) {
         infoPrint("%s",
                 "not support autocreate table with interlace row in stmt "
                 "insertion, will change to progressive mode\n");
@@ -2884,9 +2888,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 }
                 int sockfd = createSockFd();
                 if (sockfd < 0) {
-                    tmfree(pids);
-                    tmfree(infos);
-                    return -1;
+                    FREE_PIDS_INFOS_RETURN_MINUS_1();
                 }
                 pThreadInfo->sockfd = sockfd;
                 break;
@@ -2894,27 +2896,25 @@ static int startMultiThreadInsertData(SDataBase* database,
             case STMT_IFACE: {
                 pThreadInfo->conn = initBenchConn();
                 if (NULL == pThreadInfo->conn) {
-                    tmfree(pids);
-                    tmfree(infos);
-                    return -1;
+                    FREE_PIDS_INFOS_RETURN_MINUS_1();
                 }
                 pThreadInfo->conn->stmt =
                     taos_stmt_init(pThreadInfo->conn->taos);
                 if (NULL == pThreadInfo->conn->stmt) {
                     errorPrint("taos_stmt_init() failed, reason: %s\n",
                                taos_errstr(NULL));
-                    FREE_RESOURCE()
+                    FREE_RESOURCE();
                     return -1;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     errorPrint("taos select database(%s) failed\n",
                             database->dbName);
-                    FREE_RESOURCE()
+                    FREE_RESOURCE();
                     return -1;
                 }
-                if (!stbInfo->autoCreateTable) {
+                if (!stbInfo->autoTblCreating) {
                     if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, 0)) {
-                        FREE_RESOURCE()
+                        FREE_RESOURCE();
                         return -1;
                     }
                 }
@@ -2952,13 +2952,13 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     errorPrint("%s() init connection failed\n", __func__);
-                    FREE_RESOURCE()
+                    FREE_RESOURCE();
                     return -1;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     errorPrint("taos select database(%s) failed\n",
                                database->dbName);
-                    FREE_RESOURCE()
+                    FREE_RESOURCE();
                     return -1;
                 }
                 pThreadInfo->max_sql_len =
@@ -3044,7 +3044,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     errorPrint("%s() failed to connect\n", __func__);
-                    FREE_RESOURCE()
+                    FREE_RESOURCE();
                     return -1;
                 }
                 char* command = benchCalloc(1,SHORT_1K_SQL_BUFF_LEN,false);
@@ -3052,7 +3052,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (queryDbExecCall(pThreadInfo->conn, command)) {
                     errorPrint("taos select database(%s) failed\n",
                                database->dbName);
-                    FREE_RESOURCE()
+                    FREE_RESOURCE();
                     tmfree(command);
                     return -1;
                 }
