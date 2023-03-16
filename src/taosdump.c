@@ -2521,7 +2521,7 @@ static int getTableTagValueWS(
         TableDes **ppTableDes) {
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
-        // if child-table have tag, V3 using select tag_value 
+        // if child-table have tag, V3 using select tag_value
         // from information_schema.ins_tag where table to get tagValue
         ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
         if (ret < 0) {
