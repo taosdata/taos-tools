@@ -75,10 +75,11 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
   // infoPrint("topic: %s\n", tmq_get_topic_name(msg));
   int32_t     vgroupId = tmq_get_vgroup_id(msg);
   const char* dbName = tmq_get_db_name(msg);
+  const char* tblName = tmq_get_table_name(msg);
 
   if (pInfo->fpOfRowsFile) {
     fprintf(pInfo->fpOfRowsFile, "consumerId: %d, msg index:%d\n", pInfo->id, msgIndex);
-    fprintf(pInfo->fpOfRowsFile, "dbName: %s, topic: %s, vgroupId: %d\n", dbName != NULL ? dbName : "invalid table",
+    fprintf(pInfo->fpOfRowsFile, "dbName: %s, tblname: %s, topic: %s, vgroupId: %d\n", dbName, tblName != NULL ? tblName : "invalid table",
                   tmq_get_topic_name(msg), vgroupId);
   }
 
@@ -120,14 +121,10 @@ static void* tmqConsume(void* arg) {
       TAOS_RES* tmqMsg = tmq_consumer_poll(pThreadInfo->tmq, consumeDelay);
       if (tmqMsg) {
         tmq_res_t msgType = tmq_get_res_type(tmqMsg);
-        if (msgType == TMQ_RES_TABLE_META) {
-          errorPrint("consumer id %d get TMQ_RES_TABLE_META mesg.\n", pThreadInfo->id);
-          taos_free_result(tmqMsg);
-          break;
-        } else if (msgType == TMQ_RES_DATA) {
+        if (msgType == TMQ_RES_DATA) {
           totalRows += data_msg_process(tmqMsg, pThreadInfo, totalMsgs);
-        } else if (msgType == TMQ_RES_METADATA) {
-          errorPrint("consumer id %d get TMQ_RES_METADATA mesg.\n", pThreadInfo->id);
+        } else {
+          errorPrint("consumer id %d get error msg type: %d.\n", pThreadInfo->id, msgType);
           taos_free_result(tmqMsg);
           break;
         }
@@ -153,10 +150,6 @@ static void* tmqConsume(void* arg) {
         infoPrint("consumer id %d no poll more msg when time over, break consume\n", pThreadInfo->id);
         break;
       }
-    }
-
-    if (0 == running) {
-      infoPrint("consumer id %d receive stop signal and not continue consume\n",  pThreadInfo->id);
     }
 
     pThreadInfo->totalMsgs = totalMsgs;

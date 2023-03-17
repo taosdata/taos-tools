@@ -20,7 +20,7 @@
         "experimental.snapshot.enable": "true",
         "msg.with.table.name": "false",
         "rows_file": "./consumed_rows1",
-        "expect_rows": -1,
+        "expect_rows": 50,
         "topic_list": [
             {"name": "tmq_topic_0", "sql": "select c0 from db.stb;"}
         ]
