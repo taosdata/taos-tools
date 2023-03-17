@@ -777,9 +777,7 @@ int queryTestProcess() {
         }
         closeBenchConn(conn);
     }
-
     uint64_t startTs = toolsGetTimestampMs();
-
     if (g_queryInfo.specifiedQueryInfo.mixed_query) {
         if (multi_thread_specified_mixed_query(g_queryInfo.iface,
                     g_queryInfo.dbName)) {
@@ -791,25 +789,22 @@ int queryTestProcess() {
             return -1;
         }
     }
-
     if (multi_thread_super_table_query(g_queryInfo.iface,
                 g_queryInfo.dbName)) {
         return -1;
     }
-
-    //  // workaround to use separate taos connection;
+    // workaround to use separate taos connection;
     uint64_t endTs = toolsGetTimestampMs();
-
-    infoPrint("Total specified queries: %" PRIu64 "\n",
+    int64_t t = endTs - startTs;
+    double  tInS = (double)t / 1000.0;
+    if (g_queryInfo.specifiedQueryInfo.totalQueried)
+        infoPrint("Total specified queries: %" PRIu64 "\n",
               g_queryInfo.specifiedQueryInfo.totalQueried);
+    if (g_queryInfo.superQueryInfo.totalQueried)
     infoPrint("Total super queries: %" PRIu64 "\n",
               g_queryInfo.superQueryInfo.totalQueried);
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried
         + g_queryInfo.superQueryInfo.totalQueried;
-
-    int64_t t = endTs - startTs;
-    double  tInS = (double)t / 1000.0;
-
     infoPrint(
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
@@ -818,6 +813,5 @@ int queryTestProcess() {
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
             tInS, totalQueried, (double)totalQueried / tInS);
-
     return 0;
 }
