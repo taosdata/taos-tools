@@ -456,7 +456,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 return -1;
             }
             uint64_t query_times = g_queryInfo.specifiedQueryInfo.queryTimes;
-            uint64_t total_query_times = query_times * nConcurrent;
+            uint64_t totalQueryTimes = query_times * nConcurrent;
             double avg_delay = 0.0;
             for (int j = 0; j < nConcurrent; j++) {
                 uint64_t    seq = i * nConcurrent + j;
@@ -470,7 +470,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 tmfree(pThreadInfo->query_delay_list);
             }
             avg_delay /= nConcurrent;
-            qsort(sql->delay_list, total_query_times,
+            qsort(sql->delay_list, g_queryInfo.specifiedQueryInfo.queryTimes,
                   sizeof(uint64_t), compare);
             infoPrintNoTimestamp("complete query with %d threads and %"PRIu64
                     " query delay "
@@ -485,14 +485,13 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                       nConcurrent, query_times,
                       avg_delay/1E6,  /* avg */
                       sql->delay_list[0]/1E6, /* min */
-                      sql->delay_list[(int32_t)
-                                 total_query_times - 1]/1E6,  /*  max */
-                      sql->delay_list[(int32_t)
-                                 (total_query_times * 0.90)]/1E6, /*  p90 */
-                      sql->delay_list[(int32_t)
-                                 (total_query_times * 0.95)]/1E6, /*  p95 */
-                      sql->delay_list[(int32_t)
-                                 (total_query_times * 0.99)]/1E6,  /* p88 */
+                      sql->delay_list[totalQueryTimes - 1]/1E6,  /*  max */
+                      /*  p90 */
+                      sql->delay_list[(uint64_t)(totalQueryTimes * 0.90)]/1E6,
+                      /*  p95 */
+                      sql->delay_list[(uint64_t)(totalQueryTimes * 0.95)]/1E6,
+                      /*  p99 */
+                      sql->delay_list[(uint64_t)(totalQueryTimes * 0.99)]/1E6,
                       sql->command);
             infoPrintNoTimestampToFile(g_arguments->fpOfInsertResult,
                     "complete query with %d threads and %"PRIu64
@@ -508,20 +507,21 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                       nConcurrent, query_times,
                       avg_delay/1E6,  /* avg */
                       sql->delay_list[0]/1E6, /* min */
-                      sql->delay_list[(int32_t)
-                                 total_query_times - 1]/1E6,  /*  max */
-                      sql->delay_list[(int32_t)
-                                 (total_query_times * 0.90)]/1E6, /*  p90 */
-                      sql->delay_list[(int32_t)
-                                 (total_query_times * 0.95)]/1E6, /*  p95 */
-                      sql->delay_list[(int32_t)
-                                 (total_query_times * 0.99)]/1E6,  /* p88 */
+                      sql->delay_list[totalQueryTimes - 1]/1E6,  /*  max */
+                      /*  p90 */
+                      sql->delay_list[(uint64_t)(totalQueryTimes * 0.90)]/1E6,
+                      /*  p95 */
+                      sql->delay_list[(uint64_t)(totalQueryTimes * 0.95)]/1E6,
+                      /*  p99 */
+                      sql->delay_list[(uint64_t)(totalQueryTimes * 0.99)]/1E6,
                       sql->command);
         }
     } else {
         return 0;
     }
 
+    g_queryInfo.specifiedQueryInfo.totalQueried =
+        g_queryInfo.specifiedQueryInfo.queryTimes * nConcurrent;
     tmfree((char *)pids);
     tmfree((char *)infos);
     for (int i = 0; i < g_queryInfo.specifiedQueryInfo.sqls->size; ++i) {
@@ -800,6 +800,10 @@ int queryTestProcess() {
     //  // workaround to use separate taos connection;
     uint64_t endTs = toolsGetTimestampMs();
 
+    infoPrint("Total specified queries: %" PRIu64 "\n",
+              g_queryInfo.specifiedQueryInfo.totalQueried);
+    infoPrint("Total super queries: %" PRIu64 "\n",
+              g_queryInfo.superQueryInfo.totalQueried);
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried
         + g_queryInfo.superQueryInfo.totalQueried;
 
