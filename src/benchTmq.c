@@ -169,7 +169,35 @@ static void* tmqConsume(void* arg) {
     return NULL;
 }
 
+void printfTmqConfigIntoFile() {
+  if (NULL == g_arguments->fpOfInsertResult) {
+      return;
+  }
+
+  infoPrintToFile(g_arguments->fpOfInsertResult, "%s\n", "============================================");
+
+  SConsumerInfo*  pConsumerInfo = &g_tmqInfo.consumerInfo;
+  infoPrintToFile(g_arguments->fpOfInsertResult, "concurrent: %d\n", pConsumerInfo->concurrent);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "pollDelay: %d\n", pConsumerInfo->pollDelay);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "groupId: %s\n", pConsumerInfo->groupId);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "clientId: %s\n", pConsumerInfo->clientId);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "autoOffsetReset: %s\n", pConsumerInfo->autoOffsetReset);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "enableAutoCommit: %s\n", pConsumerInfo->enableAutoCommit);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "autoCommitIntervalMs: %d\n", pConsumerInfo->autoCommitIntervalMs);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "enableHeartbeatBackground: %s\n", pConsumerInfo->enableHeartbeatBackground);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "snapshotEnable: %s\n", pConsumerInfo->snapshotEnable);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "msgWithTableName: %s\n", pConsumerInfo->msgWithTableName);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "rowsFile: %s\n", pConsumerInfo->rowsFile);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "expectRows: %d\n", pConsumerInfo->expectRows);
+  
+  for (int i = 0; i < pConsumerInfo->topicCount; ++i) {
+      infoPrintToFile(g_arguments->fpOfInsertResult, "topicName[%d]: %s\n", i, pConsumerInfo->topicName[i]);
+      infoPrintToFile(g_arguments->fpOfInsertResult, "topicSql[%d]: %s\n", i, pConsumerInfo->topicSql[i]);
+  }  
+}
+
 int subscribeTestProcess() {
+    printfTmqConfigIntoFile();
     int ret = 0;
     SConsumerInfo*  pConsumerInfo = &g_tmqInfo.consumerInfo;
     if (pConsumerInfo->topicCount > 0) {
@@ -184,22 +212,24 @@ int subscribeTestProcess() {
     tmqThreadInfo *infos = benchCalloc(pConsumerInfo->concurrent, sizeof(tmqThreadInfo), true);
 
     for (int i = 0; i < pConsumerInfo->concurrent; ++i) {
-        char tmpBuff[64] = {0};
+        char tmpBuff[128] = {0};
 
         tmqThreadInfo * pThreadInfo = infos + i;
         pThreadInfo->totalMsgs = 0;
         pThreadInfo->totalRows = 0;
         pThreadInfo->id = i;
 
-        memset(tmpBuff, 0, sizeof(tmpBuff));
-        snprintf(tmpBuff, 60, "%s_%d", pConsumerInfo->rowsFile, i);
-        pThreadInfo->fpOfRowsFile = fopen(pConsumerInfo->rowsFile, "a");
-        if (NULL == pThreadInfo->fpOfRowsFile) {
-            errorPrint("failed to open %s file for save rows\n", pConsumerInfo->rowsFile);
-            ret = -1;
-            goto tmq_over;
+        if (strlen(pConsumerInfo->rowsFile)) {
+            memset(tmpBuff, 0, sizeof(tmpBuff));
+            snprintf(tmpBuff, 64, "%s_%d", pConsumerInfo->rowsFile, i);
+            pThreadInfo->fpOfRowsFile = fopen(tmpBuff, "a");
+            if (NULL == pThreadInfo->fpOfRowsFile) {
+                errorPrint("failed to open %s file for save rows\n", pConsumerInfo->rowsFile);
+                ret = -1;
+                goto tmq_over;
+            }
         }
-
+		
         tmq_conf_t * conf = tmq_conf_new();
         tmq_conf_set(conf, "td.connect.user", g_arguments->user);
         tmq_conf_set(conf, "td.connect.pass", g_arguments->password);
