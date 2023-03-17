@@ -188,14 +188,14 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
     }
 
     if (stb->partialColNum == stb->cols->size) {
-      if (stb->autoCreateTable) {
+      if (stb->autoTblCreating) {
         len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
                        tableName, db->dbName, stb->stbName, stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
       } else {
         len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s VALUES ", STR_INSERT_INTO, db->dbName, tableName);
       }
     } else {
-      if (stb->autoCreateTable) {
+      if (stb->autoTblCreating) {
         len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
                        tableName, stb->partialColNameBuf, db->dbName, stb->stbName,
                        stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);

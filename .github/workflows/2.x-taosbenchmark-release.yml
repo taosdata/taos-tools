@@ -104,7 +104,7 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          if find taosbenchmark -name "*.py"|grep -q .;
+          if find taosbenchmark -name "*.py"|grep -Ev "v3"|grep -q .;
           then
             for i in `find taosbenchmark -name "*.py"|grep -Ev "v3"|sort`;            \
               do python3 ./test.py -f $i > /dev/null                                  \
