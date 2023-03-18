@@ -82,7 +82,7 @@ static int usc2utf8(char *p, int unic) {
     return ret;
 }
 
-static void rand_string(char *str, int size, bool chinese) {
+void rand_string(char *str, int size, bool chinese) {
     if (chinese) {
         char *pstr = str;
         while (size > 0) {

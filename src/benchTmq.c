@@ -11,6 +11,7 @@
  */
 #include <time.h>
 #include <bench.h>
+#include <benchData.h>
 
 typedef struct {
     tmq_t* tmq;
@@ -22,22 +23,6 @@ typedef struct {
 } tmqThreadInfo;
 
 static int running = 1;
-
-static const char g_charset[] =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-_";
-
-static void rand_string(char *str, int size) {
-    str[0] = 0;
-    if (size > 0) {
-        // --size;
-        int n;
-        for (n = 0; n < size; n++) {
-            int key = taosRandom() % (unsigned int)(sizeof(g_charset) - 1);
-            str[n] = g_charset[key];
-        }
-        str[n] = 0;
-    }
-}
 
 
 void printfTmqConfigIntoFile() {
@@ -233,7 +218,7 @@ int subscribeTestProcess() {
 	if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
 		// rand string
 		memset(groupId, 0, sizeof(groupId));
-		rand_string(groupId, sizeof(groupId) - 1);
+		rand_string(groupId, sizeof(groupId) - 1, 0);
 		infoPrint("rand generate group id: %s\n", groupId);
 	    pConsumerInfo->groupId = groupId;
 	}
