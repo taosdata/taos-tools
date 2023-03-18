@@ -10,7 +10,6 @@
     "tmq_info": {
         "concurrent": 2,
         "poll_delay": 3000,
-        "group.id": "grpId_0",
         "client.id": "clientId",
         "auto.offset.reset": "earliest",
         "enable.auto.commit": "true",

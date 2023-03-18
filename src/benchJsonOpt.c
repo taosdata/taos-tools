@@ -1752,6 +1752,12 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
         g_tmqInfo.consumerInfo.enableAutoCommit = enableAutoCommit->valuestring;
     }
 
+    tools_cJSON *enableManualCommit = tools_cJSON_GetObjectItem(
+            tmqInfo, "enable.manual.commit");
+    if (tools_cJSON_IsString(enableManualCommit)) {
+        g_tmqInfo.consumerInfo.enableManualCommit = enableManualCommit->valuestring;
+    }	
+
     tools_cJSON *enableHeartbeatBackground = tools_cJSON_GetObjectItem(
             tmqInfo, "enable.heartbeat.background");
     if (tools_cJSON_IsString(enableHeartbeatBackground)) {

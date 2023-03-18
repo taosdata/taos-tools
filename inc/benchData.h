@@ -19,6 +19,7 @@
 #include <bench.h>
 /***** Global variables ******/
 /***** Declare functions *****/
+void rand_string(char *str, int size, bool chinese);
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
         int disorderRange);
 int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,

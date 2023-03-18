@@ -810,6 +810,7 @@ typedef struct SConsumerInfo_S {
     char*       clientId;
     char*       autoOffsetReset;
 
+    char*       enableManualCommit;
     char*       enableAutoCommit;
     uint32_t    autoCommitIntervalMs;  // ms
     char*       enableHeartbeatBackground;

@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-2902-taosbenchmark-query-times'
+          ref: '3.0'
 
       - name: create debug directory
         if: |
