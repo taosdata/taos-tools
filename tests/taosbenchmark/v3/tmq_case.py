@@ -66,6 +66,14 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         time.sleep(5)
+        cmd = "%s -f ./taosbenchmark/json/tmq_basic2.json " % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        time.sleep(5)
+        cmd = "%s -f ./taosbenchmark/json/tmq_basic3.json " % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        time.sleep(5)
 #        try:
 #            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
 #                fields = line.split()
