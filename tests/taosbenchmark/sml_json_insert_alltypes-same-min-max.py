@@ -58,10 +58,6 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
-        tdSql.query("select client_version()")
-        client_ver = "".join(tdSql.queryResult[0])
-        major_ver = client_ver.split(".")[0]
-
         binPath = self.getPath()
         cmd = (
             "%s -f ./taosbenchmark/json/sml_json_insert_alltypes-same-min-max.json"

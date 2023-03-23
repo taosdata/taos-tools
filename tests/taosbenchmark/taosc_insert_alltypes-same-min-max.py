@@ -58,10 +58,6 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
-        tdSql.query("select client_version()")
-        client_ver = "".join(tdSql.queryResult[0])
-        major_ver = client_ver.split(".")[0]
-
         binPath = self.getPath()
         cmd = (
             "%s -f ./taosbenchmark/json/taosc_insert_alltypes-same-min-max.json"
@@ -70,8 +66,10 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
+        tdSql.query("select count(*) from db.t0")
+        rows = tdSql.queryResult[0]
         tdSql.query("select * from db.t0")
-        for row in range(10):
+        for row in range(rows[0]):
             tdSql.checkData(row, 1, 1)
             tdSql.checkData(row, 2, 3000000000)
             tdSql.checkData(row, 3, 1.0)

@@ -654,15 +654,16 @@ static int fillStmt(
                     if (field->min == field->max) {
                         boolTmp = (field->min)?1:0;
                     } else {
-                        boolTmp = (taosRandom() % 2)&1;
+                        boolTmp = (bool)(taosRandom() % 2)&1;
                     }
+                    infoPrint("%s\n", boolTmp ? "true" : "false");
                     if (childCol) {
                         ((bool *)childCol->stmtData.data)[k] = boolTmp;
                     } else {
                         ((bool *)field->stmtData.data)[k] = boolTmp;
                     }
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                 "%s,", boolTmp ? "true" : "false");
+                                 "%d,", boolTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
