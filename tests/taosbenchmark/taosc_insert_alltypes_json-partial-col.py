@@ -63,7 +63,10 @@ class TDTestCase:
         major_ver = client_ver.split(".")[0]
 
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/taosc_insert_alltypes-partial-col.json" % binPath
+        cmd = (
+            "%s -f ./taosbenchmark/json/taosc_insert_alltypes-partial-col.json"
+            % binPath
+        )
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("select count(*) from db.stb")
