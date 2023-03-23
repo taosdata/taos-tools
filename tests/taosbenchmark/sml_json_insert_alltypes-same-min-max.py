@@ -66,15 +66,18 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
+        tdSql.query("select count(*) from db.stb")
+        rows = tdSql.queryResult[0]
         tdSql.query("select * from db.stb")
-        for row in range(10):
+        for row in range(rows[0]):
             tdSql.checkData(row, 1, 1.0)
-            tdSql.checkData(row, 3, 1.0)
+            tdSql.checkData(row, 2, 1.0)
+            tdSql.checkData(row, 4, 1.0)
             tdSql.checkData(row, 5, 1.0)
             tdSql.checkData(row, 6, 1.0)
             tdSql.checkData(row, 7, 1.0)
-            tdSql.checkData(row, 12, 30.0)
-            tdSql.checkData(row, 13, 60000.0)
+            tdSql.checkData(row, 11, 30.0)
+            tdSql.checkData(row, 12, 60000.0)
 
     def stop(self):
         tdSql.close()
