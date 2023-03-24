@@ -73,8 +73,8 @@ class TDTestCase:
             tdSql.query("select count(*) from stb0 order by ts")
             tdSql.checkData(0, 0, 40)
             tdSql.query("select * from stb0_1 order by ts")
-            tdSql.checkData(0, 0, '2021-10-28 15:34:44.735')
-            tdSql.checkData(3, 0, '2021-10-31 15:34:44.735')
+            tdSql.checkData(0, 0, "2021-10-28 15:34:44.735")
+            tdSql.checkData(3, 0, "2021-10-31 15:34:44.735")
         tdSql.query("select * from stb1 where t1=-127")
         tdSql.checkRows(20)
         tdSql.query("select * from stb1 where t2=127")
@@ -106,7 +106,9 @@ class TDTestCase:
         tdSql.checkData(0, 0, 400)
 
         # # insert:  disorder_ratio
-        os.system("%s -f ./taosbenchmark/json/insert-disorder-stmt.json 2>&1  -y " % binPath)
+        os.system(
+            "%s -f ./taosbenchmark/json/insert-disorder-stmt.json 2>&1  -y " % binPath
+        )
         tdSql.execute("use db")
         if major_ver == "3":
             tdSql.query("select count (*) from (select distinct(tbname) from stb0)")
@@ -124,19 +126,21 @@ class TDTestCase:
         tdSql.checkData(0, 0, 10)
 
         # insert:  sample json
-        #os.system("%staosBenchmark -f 5-taos-tools/taosbenchmark/stmt/insert-sample-stmt.json -y " % binPath)
-        #tdSql.execute("use dbtest123")
-        #tdSql.query("select c2 from stb0")
-        #tdSql.checkData(0, 0, 2147483647)
-        #tdSql.query("select * from stb1 where t1=-127")
-        #tdSql.checkRows(20)
-        #tdSql.query("select * from stb1 where t2=127")
-        #tdSql.checkRows(10)
-        #tdSql.query("select * from stb1 where t2=126")
-        #tdSql.checkRows(10)
+        # os.system("%staosBenchmark -f 5-taos-tools/taosbenchmark/stmt/insert-sample-stmt.json -y " % binPath)
+        # tdSql.execute("use dbtest123")
+        # tdSql.query("select c2 from stb0")
+        # tdSql.checkData(0, 0, 2147483647)
+        # tdSql.query("select * from stb1 where t1=-127")
+        # tdSql.checkRows(20)
+        # tdSql.query("select * from stb1 where t2=127")
+        # tdSql.checkRows(10)
+        # tdSql.query("select * from stb1 where t2=126")
+        # tdSql.checkRows(10)
 
         # insert: test interlace parament
-        os.system("%s -f ./taosbenchmark/json/insert-interlace-row-stmt.json -y " % binPath)
+        os.system(
+            "%s -f ./taosbenchmark/json/insert-interlace-row-stmt.json -y " % binPath
+        )
         tdSql.execute("use db")
         if major_ver == "3":
             tdSql.query("select count (*) from (select distinct(tbname) from stb0)")
@@ -146,41 +150,70 @@ class TDTestCase:
         tdSql.query("select count (*) from stb0")
         tdSql.checkData(0, 0, 15000)
 
-
         # insert: auto_create
 
-        tdSql.execute('drop database if exists db')
-        tdSql.execute('create database db')
-        tdSql.execute('use db')
-        os.system("%s -y -f ./taosbenchmark/json/insert-drop-exist-auto-N00-stmt.json " % binPath) # drop = no, child_table_exists, auto_create_table varies
-        tdSql.execute('use db')
-        tdSql.query('show tables like \'NN123%\'')  #child_table_exists = no, auto_create_table varies = 123
+        tdSql.execute("drop database if exists db")
+        tdSql.execute("create database db")
+        tdSql.execute("use db")
+        os.system(
+            "%s -y -f ./taosbenchmark/json/insert-drop-exist-auto-N00-stmt.json "
+            % binPath
+        )  # drop = no, child_table_exists, auto_create_table varies
+        tdSql.execute("use db")
+        tdSql.query(
+            "show tables like 'NN123%'"
+        )  # child_table_exists = no, auto_create_table varies = 123
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'NNN%\'')    #child_table_exists = no, auto_create_table varies = no
+        tdSql.query(
+            "show tables like 'NNN%'"
+        )  # child_table_exists = no, auto_create_table varies = no
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'NNY%\'')    #child_table_exists = no, auto_create_table varies = yes
+        tdSql.query(
+            "show tables like 'NNY%'"
+        )  # child_table_exists = no, auto_create_table varies = yes
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'NYN%\'')    #child_table_exists = yes, auto_create_table varies = no
+        tdSql.query(
+            "show tables like 'NYN%'"
+        )  # child_table_exists = yes, auto_create_table varies = no
         tdSql.checkRows(0)
-        tdSql.query('show tables like \'NY123%\'')  #child_table_exists = yes, auto_create_table varies = 123
+        tdSql.query(
+            "show tables like 'NY123%'"
+        )  # child_table_exists = yes, auto_create_table varies = 123
         tdSql.checkRows(0)
-        tdSql.query('show tables like \'NYY%\'')    #child_table_exists = yes, auto_create_table varies = yes
+        tdSql.query(
+            "show tables like 'NYY%'"
+        )  # child_table_exists = yes, auto_create_table varies = yes
         tdSql.checkRows(0)
 
-        tdSql.execute('drop database if exists db')
-        os.system("%s -y -f ./taosbenchmark/json/insert-drop-exist-auto-Y00-stmt.json " % binPath) # drop = yes, child_table_exists, auto_create_table varies
-        tdSql.execute('use db')
-        tdSql.query('show tables like \'YN123%\'')  #child_table_exists = no, auto_create_table varies = 123
+        tdSql.execute("drop database if exists db")
+        os.system(
+            "%s -y -f ./taosbenchmark/json/insert-drop-exist-auto-Y00-stmt.json "
+            % binPath
+        )  # drop = yes, child_table_exists, auto_create_table varies
+        tdSql.execute("use db")
+        tdSql.query(
+            "show tables like 'YN123%'"
+        )  # child_table_exists = no, auto_create_table varies = 123
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'YNN%\'')    #child_table_exists = no, auto_create_table varies = no
+        tdSql.query(
+            "show tables like 'YNN%'"
+        )  # child_table_exists = no, auto_create_table varies = no
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'YNY%\'')    #child_table_exists = no, auto_create_table varies = yes
+        tdSql.query(
+            "show tables like 'YNY%'"
+        )  # child_table_exists = no, auto_create_table varies = yes
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'YYN%\'')    #child_table_exists = yes, auto_create_table varies = no
+        tdSql.query(
+            "show tables like 'YYN%'"
+        )  # child_table_exists = yes, auto_create_table varies = no
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'YY123%\'')  #child_table_exists = yes, auto_create_table varies = 123
+        tdSql.query(
+            "show tables like 'YY123%'"
+        )  # child_table_exists = yes, auto_create_table varies = 123
         tdSql.checkRows(20)
-        tdSql.query('show tables like \'YYY%\'')    #child_table_exists = yes, auto_create_table varies = yes
+        tdSql.query(
+            "show tables like 'YYY%'"
+        )  # child_table_exists = yes, auto_create_table varies = yes
         tdSql.checkRows(20)
 
         testcaseFilename = os.path.split(__file__)[-1]

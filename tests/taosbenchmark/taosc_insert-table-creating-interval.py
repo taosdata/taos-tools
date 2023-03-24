@@ -73,7 +73,9 @@ class TDTestCase:
             tdLog.exit("expected sleep times 4, actual %d" % int(sleepTimes))
 
         if major_ver == "3":
-            tdSql.query("select count(*) from (select distinct(tbname) from test.meters)")
+            tdSql.query(
+                "select count(*) from (select distinct(tbname) from test.meters)"
+            )
         else:
             tdSql.query("select count(tbname) from test.meters")
         tdSql.checkData(0, 0, 20)

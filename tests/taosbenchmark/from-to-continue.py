@@ -56,10 +56,7 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = (
-            "%s -t 4 -n 1 -y"
-            % binPath
-        )
+        cmd = "%s -t 4 -n 1 -y" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
 
@@ -70,10 +67,7 @@ class TDTestCase:
         tdSql.checkData(0, 0, 6)
 
         binPath = self.getPath()
-        cmd = (
-            "%s -t 3 -n 1 -y"
-            % binPath
-        )
+        cmd = "%s -t 3 -n 1 -y" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
@@ -86,10 +80,7 @@ class TDTestCase:
         tdSql.checkData(0, 0, 5)
 
         binPath = self.getPath()
-        cmd = (
-            "%s -t 3 -n 1 -y"
-            % binPath
-        )
+        cmd = "%s -t 3 -n 1 -y" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
@@ -100,7 +91,6 @@ class TDTestCase:
         os.system("%s" % cmd)
         tdSql.query("select count(*) from test.meters")
         tdSql.checkData(0, 0, 6)
-
 
     def stop(self):
         tdSql.close()

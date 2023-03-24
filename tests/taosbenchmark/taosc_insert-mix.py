@@ -62,7 +62,7 @@ class TDTestCase:
         binPath = self.getPath()
         # mix 1 ~ 4
         for i in range(4):
-            cmd = "%s -f ./taosbenchmark/json/case-insert-mix%d.json"% (binPath, i+1)
+            cmd = "%s -f ./taosbenchmark/json/case-insert-mix%d.json" % (binPath, i + 1)
             tdLog.info("%s" % cmd)
             os.system("%s" % cmd)
 
