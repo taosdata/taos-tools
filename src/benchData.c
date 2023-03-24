@@ -656,7 +656,6 @@ static int fillStmt(
                     } else {
                         boolTmp = (bool)(taosRandom() % 2)&1;
                     }
-                    infoPrint("%s\n", boolTmp ? "true" : "false");
                     if (childCol) {
                         ((bool *)childCol->stmtData.data)[k] = boolTmp;
                     } else {
