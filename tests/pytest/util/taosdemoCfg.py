@@ -186,7 +186,7 @@ class TDTaosdemoCfg:
         }
 
     # The following functions are import functions for different dicts and lists
-    # except import_sql, all other import functions will a dict and overwrite the origional dict
+    # except import_sql, all other import functions will a dict and overwrite the original dict
     # dict_in: the dict used to overwrite the target
     def import_insert_cfg(self, dict_in):
         self.insert_cfg = dict_in
@@ -319,7 +319,7 @@ class TDTaosdemoCfg:
             self.stb_sub_sql.append(value)
 
     def pop_sql_stb(self, target, index):
-        """for poping a sql dict from specific sql list
+        """for popping a sql dict from specific sql list
 
         Args:
             target (str): the target append list
@@ -412,8 +412,8 @@ class TDTaosdemoCfg:
         else:
             print(f"did not find {target}")
 
-    # the folloing are the file generation functions
-    """defalut document:
+    # the following are the file generation functions
+    """default document:
         generator functio for generating taosdemo json file
         will assemble the dicts and dump the final json
 

@@ -27,7 +27,7 @@ do
       DOCKER_DIR=$OPTARG
       ;;
     ?)
-      echo "unkonwn argument"
+      echo "unknown argument"
       ;;
   esac
 done

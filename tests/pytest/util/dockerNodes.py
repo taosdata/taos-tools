@@ -15,7 +15,7 @@ import os
 import taos
 
 
-class BuildDockerCluser:
+class BuildDockerCluster:
     def init(self, numOfNodes=3, dockerDir="/data"):
         self.numOfNodes = numOfNodes
         self.dockerDir = dockerDir
@@ -180,4 +180,4 @@ class BuildDockerCluser:
         self.createDondes()
 
 
-cluster = BuildDockerCluser()
+cluster = BuildDockerCluster()

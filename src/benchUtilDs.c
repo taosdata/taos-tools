@@ -14,6 +14,7 @@
 
 static dstr * ds_header(char *s)
 {
+    if (NULL == s) return NULL;
     dstr *ds = (dstr *)(s - DS_HEADER_SIZE);
 
     if (ds->magic != MAGIC_NUMBER)
@@ -29,7 +30,7 @@ char * new_ds(size_t cap)
     ds = malloc(DS_HEADER_SIZE + cap + 1);
     if (ds == NULL)
     {
-        perror("newds()->malloc()");
+        errorPrint("%s()->malloc()\n", __func__);
         exit(1);
     }
 
@@ -48,7 +49,7 @@ void free_ds(char **ps)
 
     if (ds == NULL)
     {
-        printf("freeds(): not a dynamic string");
+        debugPrint("%s(): not a dynamic string\n", __func__);
         exit(1);
     }
 
@@ -124,7 +125,7 @@ char * ds_resize(char **ps, size_t cap)
     s = realloc(s - DS_HEADER_SIZE, DS_HEADER_SIZE + cap + 1);
     if (s == NULL)
     {
-        perror("resizeds()->realloc()");
+        errorPrint("%s()->realloc()\n", __func__);
         exit(1);
     }
     s += DS_HEADER_SIZE;

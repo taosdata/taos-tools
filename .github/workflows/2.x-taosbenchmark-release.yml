@@ -1,4 +1,4 @@
-name: Ubuntu (2.x taosBenchmark native release)
+name: Ubuntu (2.x taosbenchmark native release)
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
             tests/taosbenchmark*
             packaging/tools/*
             inc/*
-            .github/workflows/*taosBenchmark*
+            .github/workflows/2.x-taosbenchmark-release.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -82,13 +82,13 @@ jobs:
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Build & Install TDengine
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y
-          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=Release -DBUILD_HTTP=false && make -j8 && sudo make install
+          sudo apt install libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y
+          cd TDengine && mkdir release && cd release && cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j8 && sudo make install
           if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
@@ -104,15 +104,23 @@ jobs:
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 
-          if find taosbenchmark -name "*.py"|grep -q .;
+          if find taosbenchmark -name "*.py"|grep -Ev "v3"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "websocket|slow-query"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"|| echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m" | tee -a ~/taosbenchmark-release-failed.txt ;done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "v3"|sort`;            \
+              do python3 ./test.py -f $i > /dev/null                                  \
+                && echo -e "\033[32m taosbenchmark-release-test/$i success! \033[0m"  \
+                            | tee -a ~/taosbenchmark-release-success.txt              \
+                || echo -e "\033[31m taosbenchmark-release-test/$i failed! \033[0m"   \
+                            | tee -a ~/taosbenchmark-release-failed.txt;              \
+                            done
           fi
 
       - name: Check Test Result
         if: steps.changed-files-specific.outputs.any_changed == 'true'
         run: |
-          if [ -f ~/taosbenchmark-release-failed.txt ];then
-            cat ~/taosbenchmark-release-failed.txt;
-            exit 1;
+          if [ -f ~/taosbenchmark-release-failed.txt ]; then
+            cat ~/taosbenchmark-release-failed.txt
+            exit 1
+          elif [ -f ~/taosbenchmark-release-success.txt ]; then
+            cat ~/taosbenchmark-release-success.txt
           fi

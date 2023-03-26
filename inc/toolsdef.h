@@ -13,22 +13,28 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __TOOLSTYPES_H_
-#define __TOOLSTYPES_H_
+#ifndef __TOOLSDEF_H_
+#define __TOOLSDEF_H_
 
 #include <stdbool.h>
+#include <time.h>
 
+#define TINY_BUFF_LEN                   8
+#define SMALL_BUFF_LEN                  20
+#define MIDDLE_BUFF_LEN                  64
+#define LARGE_BUFF_LEN                   512
 // max file name length on Linux is 255
-#define MAX_FILE_NAME_LEN 256  // max file name length on linux is 255.
+#define MAX_FILE_NAME_LEN               256  // max file name length on linux is 255.
 
 // max path length on Linux is 4095
-#define MAX_PATH_LEN      4096
+#define MAX_PATH_LEN                    4096
+#define MAX_DIR_LEN                     3808
 
 // max hostname length on Linux is 253
-#define MAX_HOSTNAME_LEN        254
+#define MAX_HOSTNAME_LEN                254
 
-#define TSDB_CODE_SUCCESS                   0
-#define TSDB_CODE_FAILED                    -1   // unknown or needn't tell detail error
+#define TSDB_CODE_SUCCESS               0
+#define TSDB_CODE_FAILED                -1   // unknown or needn't tell detail error
 
 // NULL definition
 #define TSDB_DATA_BOOL_NULL             0x02
@@ -68,27 +74,24 @@
 #define TSDB_PASS_LEN                   129
 #define SHELL_MAX_PASSWORD_LEN          TSDB_PASS_LEN
 
-#define TSDB_TIME_PRECISION_MILLI 0
-#define TSDB_TIME_PRECISION_MICRO 1
-#define TSDB_TIME_PRECISION_NANO  2
+#define TSDB_TIME_PRECISION_MILLI       0
+#define TSDB_TIME_PRECISION_MICRO       1
+#define TSDB_TIME_PRECISION_NANO        2
 
-#define TSDB_MAX_COLUMNS          4096
-#define TSDB_MIN_COLUMNS          2       //PRIMARY COLUMN(timestamp) + other columns
+#define TSDB_MAX_COLUMNS                4096
+#define TSDB_MIN_COLUMNS                2       //PRIMARY COLUMN(timestamp) + other columns
 
-#define TSDB_TABLE_NAME_LEN       193     // it is a null-terminated string
+#define TSDB_TABLE_NAME_LEN             193     // it is a null-terminated string
 
-#define TSDB_DB_NAME_LEN          65
+#define TSDB_DB_NAME_LEN                65
 
-#define TSDB_COL_NAME_LEN         65
-#define TSDB_MAX_ALLOWED_SQL_LEN  (1*1024*1024u)          // sql length should be less than 1mb
+#define TSDB_COL_NAME_LEN               65
+#define TSDB_MAX_ALLOWED_SQL_LEN        (1*1024*1024u)          // sql length should be less than 1mb
 
-#define TSDB_MAX_BYTES_PER_ROW    49151
-#define TSDB_MAX_TAGS             128
+#define TSDB_MAX_BYTES_PER_ROW          65531
+#define TSDB_MAX_TAGS                   128
 
-#define TSDB_DEFAULT_PKT_SIZE     65480  //same as RPC_MAX_UDP_SIZE
-
-#define TSDB_PAYLOAD_SIZE         TSDB_DEFAULT_PKT_SIZE
-#define TSDB_MAX_SQL_LEN          TSDB_PAYLOAD_SIZE
+#define TSDB_DEFAULT_PKT_SIZE           65480  //same as RPC_MAX_UDP_SIZE
 
 #ifdef TSKEY32
 #define TSKEY int32_t;
@@ -96,48 +99,58 @@
 #define TSKEY int64_t
 #endif
 
-#define TSDB_KEYSIZE            sizeof(TSKEY)
-#define TSDB_MAX_FIELD_LEN              16384
-#define TSDB_MAX_BINARY_LEN            (TSDB_MAX_FIELD_LEN-TSDB_KEYSIZE) // keep 16384
-#define TSDB_FILENAME_LEN         128
+#define TSDB_KEYSIZE                    sizeof(TSKEY)
+#define TSDB_MAX_FIELD_LEN              65519
+#define TSDB_MAX_BINARY_LEN             TSDB_MAX_FIELD_LEN
+#define TSDB_FILENAME_LEN               128
 
-#define TSDB_PORT_HTTP                         11
+#define TSDB_PORT_HTTP                  11
+
+#if _MSC_VER <= 1900
+    #define __func__ __FUNCTION__
+#endif
+
+#if defined(__GNUC__)
+    #define FORCE_INLINE inline __attribute__((always_inline))
+#else
+    #define FORCE_INLINE
+#endif
 
 #ifdef _TD_ARM_32
-  float  taos_align_get_float(const char* pBuf);
-  double taos_align_get_double(const char* pBuf);
+    float  taos_align_get_float(const char* pBuf);
+    double taos_align_get_double(const char* pBuf);
 
-  #define GET_FLOAT_VAL(x)        taos_align_get_float(x)
-  #define GET_DOUBLE_VAL(x)       taos_align_get_double(x)
-  #define SET_FLOAT_VAL(x, y)     { float z = (float)(y);   (*(int32_t*) x = *(int32_t*)(&z)); }
-  #define SET_DOUBLE_VAL(x, y)    { double z = (double)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
-  #define SET_TIMESTAMP_VAL(x, y) { int64_t z = (int64_t)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
-  #define SET_FLOAT_PTR(x, y)     { (*(int32_t*) x = *(int32_t*)y); }
-  #define SET_DOUBLE_PTR(x, y)    { (*(int64_t*) x = *(int64_t*)y); }
+    #define GET_FLOAT_VAL(x)        taos_align_get_float(x)
+    #define GET_DOUBLE_VAL(x)       taos_align_get_double(x)
+    #define SET_FLOAT_VAL(x, y)     { float z = (float)(y);   (*(int32_t*) x = *(int32_t*)(&z)); }
+    #define SET_DOUBLE_VAL(x, y)    { double z = (double)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
+    #define SET_TIMESTAMP_VAL(x, y) { int64_t z = (int64_t)(y); (*(int64_t*) x = *(int64_t*)(&z)); }
+    #define SET_FLOAT_PTR(x, y)     { (*(int32_t*) x = *(int32_t*)y); }
+    #define SET_DOUBLE_PTR(x, y)    { (*(int64_t*) x = *(int64_t*)y); }
 #else
-  #define GET_FLOAT_VAL(x)        (*(float *)(x))
-  #define GET_DOUBLE_VAL(x)       (*(double *)(x))
-  #define SET_FLOAT_VAL(x, y)     { (*(float *)(x))  = (float)(y);       }
-  #define SET_DOUBLE_VAL(x, y)    { (*(double *)(x)) = (double)(y);      }
-  #define SET_TIMESTAMP_VAL(x, y) { (*(int64_t *)(x)) = (int64_t)(y);    }
-  #define SET_FLOAT_PTR(x, y)     { (*(float *)(x))  = (*(float *)(y));  }
-  #define SET_DOUBLE_PTR(x, y)    { (*(double *)(x)) = (*(double *)(y)); }
+    #define GET_FLOAT_VAL(x)        (*(float *)(x))
+    #define GET_DOUBLE_VAL(x)       (*(double *)(x))
+    #define SET_FLOAT_VAL(x, y)     { (*(float *)(x))  = (float)(y);       }
+    #define SET_DOUBLE_VAL(x, y)    { (*(double *)(x)) = (double)(y);      }
+    #define SET_TIMESTAMP_VAL(x, y) { (*(int64_t *)(x)) = (int64_t)(y);    }
+    #define SET_FLOAT_PTR(x, y)     { (*(float *)(x))  = (*(float *)(y));  }
+    #define SET_DOUBLE_PTR(x, y)    { (*(double *)(x)) = (*(double *)(y)); }
 #endif
 
 #ifdef WINDOWS
 
 #ifndef PATH_MAX
-#define PATH_MAX 256
+    #define PATH_MAX 256
 #endif
 #ifndef ssize_t
-#define ssize_t int
+    #define ssize_t int
 #endif
 #ifndef F_OK
-#define F_OK 0
+    #define F_OK 0
 #endif
 
-#define strcasecmp       _stricmp
-#define strncasecmp      _strnicmp
+    #define strcasecmp       _stricmp
+    #define strncasecmp      _strnicmp
 #endif
 
 int64_t tools_strnatoi(char *num, int32_t len);
@@ -150,13 +163,16 @@ int32_t toolsParseTime(char* timestr, int64_t* time, int32_t len, int32_t timePr
 struct tm* toolsLocalTime(const time_t *timep, struct tm *result);
 int32_t toolsGetTimeOfDay(struct timeval *tv);
 int32_t toolsClockGetTime(int clock_id, struct timespec *pTS);
+int64_t toolsGetTimestampMs();
+int64_t toolsGetTimestampUs();
+int64_t toolsGetTimestampNs();
 
 #ifdef WINDOWS
 typedef struct {
-  int   we_wordc;
-  char *we_wordv[1];
-  int   we_offs;
-  char  wordPos[1025];
+    int   we_wordc;
+    char *we_wordv[1];
+    int   we_offs;
+    char  wordPos[1025];
 } wordexp_t;
 int  wordexp(char *words, wordexp_t *pwordexp, int flags);
 void wordfree(wordexp_t *pwordexp);
@@ -174,37 +190,48 @@ TdDirEntryPtr toolsReadDir(TdDirPtr pDir);
 char         *toolsGetDirEntryName(TdDirEntryPtr pDirEntry);
 int32_t       toolsCloseDir(TdDirPtr *ppDir);
 
-#define toolsGetLineFile(__pLine,__pN, __pFp)                      \
-do {                                                               \
-  *(__pLine) = malloc(1024);                                       \
-  fgets(*(__pLine), 1023, (__pFp));                                \
-  (*(__pLine))[1023] = 0;                                          \
-  *(__pN)=strlen(*(__pLine));                                      \
-} while(0)
+#define toolsGetLineFile(__pLine,__pN, __pFp)                           \
+    do {                                                                \
+        *(__pLine) = calloc(1, 1024);                                   \
+        fgets(*(__pLine), 1023, (__pFp));                               \
+        (*(__pLine))[1023] = 0;                                         \
+        *(__pN)=strlen(*(__pLine));                                     \
+    } while(0)
 
 #define tstrncpy(dst, src, size)       \
     do {                               \
-        strncpy((dst), (src), (size)); \
+        strncpy((dst), (src), (size)-1); \
         (dst)[(size)-1] = 0;           \
     } while (0)
 
 #ifdef RELEASE
-#define ASSERT(x)   do { \
-    if (!(x)) errorPrint("%s() LN%d, %s\n", \
+    #define ASSERT(x)   do { \
+        if (!(x)) errorPrint("%s() LN%d, %s\n", \
             __func__, __LINE__, "assertion");} while(0)
 #else
-#include <assert.h>
-#define ASSERT(x)   do { assert(x); } while(0)
+    #include <assert.h>
+    #define ASSERT(x)   do { assert(x); } while(0)
 #endif // RELEASE
 
 #ifdef WINDOWS
-#define SET_THREAD_NAME(name)
+    #define SET_THREAD_NAME(name)
 #elif defined(DARWIN)
-#define SET_THREAD_NAME(name)
+    #define SET_THREAD_NAME(name)
 #else
-#define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
+    #define SET_THREAD_NAME(name)  do { prctl(PR_SET_NAME, (name)); } while (0)
 #endif
 
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
+int32_t toolsGetNumberOfCores();
 
-#endif // __TOOLSTYPES_H_
+int64_t toolsGetTimestamp(int32_t precision);
+void    toolsMsleep(int32_t mseconds);
+bool    toolsIsStringNumber(char *input);
+
+void errorWrongValue(char *program, char *wrong_arg, char *wrong_value);
+void errorPrintReqArg(char *program, char *wrong_arg);
+void errorPrintReqArg2(char *program, char *wrong_arg);
+void errorPrintReqArg3(char *program, char *wrong_arg);
+int setConsoleEcho(bool on);
+
+#endif // __TOOLSDEF_H_

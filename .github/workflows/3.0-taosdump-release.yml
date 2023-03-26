@@ -49,7 +49,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/*taosdump*
+            .github/workflows/3.0-taosdump-release.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -83,7 +83,7 @@ jobs:
           || github.event_name == 'push'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: first build TDengine
         if: |
@@ -106,7 +106,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if: |
@@ -124,7 +124,7 @@ jobs:
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=Release > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null
           make -j8 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
@@ -171,10 +171,20 @@ jobs:
           echo "TEST: develop test cases"
           if find taosdump/native -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/native -name "*.py" | grep -Ev "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/native -name "*.py" | grep -Ev "Float|Double"`; \
+              do python3 ./test.py -f $i > /dev/null          \
+                && echo -e "\033[32m $i success! \033[0m"     \
+                            | tee -a ~/taosdump-success.txt   \
+                || echo -e "\033[31m $i failed! \033[0m"      \
+                            | tee -a ~/taosdump-failed.txt;   \
+                            done
           fi
 
-          for i in `find taosdump/native -name "*.py" | grep "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
+          for i in `find taosdump/native -name "*.py" | grep "Float|Double"`;   \
+            do python3 ./test.py -f $i > /dev/null        \
+              && echo -e "\033[32m $i success! \033[0m"   \
+                          || echo -e "\033[31m $i failed! \033[0m" ;  \
+                            done
 
       - name: Check Test Result
         if:
@@ -182,7 +192,9 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
-            cat ~/taosdump-failed.txt;
-            exit 1;
+          if [ -f ~/taosdump-failed.txt ]; then
+            cat ~/taosdump-failed.txt
+            exit 1
+          elif [ -f ~/taosdump-success.txt ]; then
+            cat ~/taosdump-success.txt
           fi
