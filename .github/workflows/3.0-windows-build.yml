@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/codacy-complain'
+          ref: 'fix/sangshuduo/TD-23292-taosbenchmark-same-min-max'
 
       - name: create debug directory
         if: |
