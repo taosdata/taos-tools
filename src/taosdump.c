@@ -7016,8 +7016,7 @@ static int64_t dumpInAvroDataImpl(
                 }
                 continue;
             }
-            int code = taos_stmt_execute(stmt);
-            if (0 != code) {
+            if (0 != taos_stmt_execute(stmt)) {
                 errorPrint("%s() LN%d taos_stmt_execute() failed! "
                            "reason: %s, timestamp: %"PRId64"\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
@@ -7030,7 +7029,7 @@ static int64_t dumpInAvroDataImpl(
                 success++;
             }
 #ifdef WEBSOCKET
-        )}
+        }
 #endif
         freeBindArray(bindArray, onlyCol);
 
