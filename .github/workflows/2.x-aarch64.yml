@@ -1,6 +1,6 @@
 # This is a basic workflow to help you get started with Actions
 
-name: Ubuntu (2.x non-x64 build)
+name: Ubuntu (2.x aarch64 build)
 
 # Controls when the workflow will run
 on:
@@ -27,8 +27,6 @@ jobs:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu22.04
-          - arch: armv7
             distro: ubuntu22.04
 
     steps:
@@ -80,7 +78,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/2.x-non-x64.yml
+            .github/workflows/2.x-aarch64.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -125,31 +123,6 @@ jobs:
             cd TDengine/src/kit/taos-tools
             git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
             git checkout -qf FETCH_HEAD
-
-      - name: Build TDengine on armv7
-        if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        uses: uraimo/run-on-arch-action@v2
-        with:
-          arch: armv7
-          distro: ubuntu22.04
-          run: |
-            echo "The uname output was ${{ steps.setup.outputs.uname }}"
-            apt update -y > /dev/null
-            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev zlib1g-dev pkg-config -y > /dev/null
-            cd TDengine
-            mkdir debug ||:
-            cd debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} && make
-            if [[ ! -f build/bin/taosd ]] || [[ ! -f build/bin/taosdump ]] || [[ ! -f build/bin/taosBenchmark ]]
-            then
-              echo "TDengine build failure"
-              exit 1
-            fi
-
-            cd .. && rm -rf debug
 
       - name: Build TDengine on aarch64
         if: |
@@ -210,7 +183,7 @@ jobs:
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
-          distro: ubuntu2204
+          distro: ubuntu22.04
           run: |
             if [ -f ~/taosdump-failed.txt ]; then
               cat ~/taosdump-failed.txt;
