@@ -6730,7 +6730,7 @@ static int64_t dumpInAvroDataImpl(
             avro_value_get_string(&tbname_branch,
                     (const char **)&tbName, &tbname_size);
         } else {
-            tbName = malloc(TSDB_TABLE_NAME_LEN);
+            tbName = malloc(TSDB_TABLE_NAME_LEN+1);
             ASSERT(tbName);
 
             char *dupSeq = strdup(fileName);
@@ -7016,18 +7016,21 @@ static int64_t dumpInAvroDataImpl(
                 }
                 continue;
             }
-            if (0 != taos_stmt_execute(stmt)) {
+            int code = taos_stmt_execute(stmt);
+            if (0 != code) {
                 errorPrint("%s() LN%d taos_stmt_execute() failed! "
                            "reason: %s, timestamp: %"PRId64"\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
                 failed -= stmt_count;
-                tfree(tbName);
+                if (g_dumpInLooseModeFlag) {
+                    tfree(tbName);
+                }
                 break;
             } else {
                 success++;
             }
 #ifdef WEBSOCKET
-        }
+        )}
 #endif
         freeBindArray(bindArray, onlyCol);
 
