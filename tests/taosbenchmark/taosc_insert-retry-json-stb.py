@@ -57,10 +57,7 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = (
-            "%s -f ./taosbenchmark/json/taosc_insert_retry-stb.json"
-            % binPath
-        )
+        cmd = "%s -f ./taosbenchmark/json/taosc_insert_retry-stb.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         time.sleep(2)

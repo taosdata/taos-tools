@@ -70,7 +70,7 @@ class TDTestCase:
         tdSql.execute("use db")
         tdSql.execute("create table stb (ts timestamp, c0 int)  tags (t0 int)")
         tdSql.execute("insert into stb_0 using stb tags (0) values (now, 0)")
-#        sys.exit(0)
+        #        sys.exit(0)
         cmd = "%s -f ./taosbenchmark/json/reuse-exist-stb.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)

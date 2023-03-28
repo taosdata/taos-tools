@@ -861,6 +861,9 @@ int convertTypeToLength(uint8_t type) {
 int64_t convertDatatypeToDefaultMin(uint8_t type) {
     int64_t ret = 0;
     switch (type) {
+        case TSDB_DATA_TYPE_BOOL:
+            ret = 0;
+            break;
         case TSDB_DATA_TYPE_TINYINT:
             ret = -127;
             break;
@@ -882,6 +885,9 @@ int64_t convertDatatypeToDefaultMin(uint8_t type) {
 int64_t convertDatatypeToDefaultMax(uint8_t type) {
     int64_t ret = 0;
     switch (type) {
+        case TSDB_DATA_TYPE_BOOL:
+            ret = 1;
+            break;
         case TSDB_DATA_TYPE_TINYINT:
             ret = 128;
             break;

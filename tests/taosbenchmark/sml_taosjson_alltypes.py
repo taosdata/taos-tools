@@ -46,6 +46,7 @@ def getPath(tool="taosBenchmark"):
         tdLog.info("taosBenchmark found in %s" % paths[0])
         return paths[0]
 
+
 class TDTestCase:
     def caseDescription(self):
         """
