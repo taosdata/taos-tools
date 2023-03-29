@@ -1594,7 +1594,9 @@ static void *syncWriteInterlace(void *sarg) {
                         infoPrint("sleep %" PRIu64 " ms\n",
                                      stbInfo->insert_interval - delta);
                         toolsMsleep((int32_t)(stbInfo->insert_interval - delta));
-				    }
+				    } else {
+                        infoPrint("spent time: %" PRIu64 " ms\n", delta);
+					}
                 }
                 break;
             }
