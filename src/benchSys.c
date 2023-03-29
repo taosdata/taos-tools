@@ -26,15 +26,15 @@ extern char version[];
 #include "cus_name.h"
 #else
 #ifndef CUS_NAME
-#define CUS_NAME        "TDengine";
+#define CUS_NAME        "TDengine"
 #endif
 
 #ifndef CUS_PROMPT
-#define CUS_PROMPT      "taos";
+#define CUS_PROMPT      "taos"
 #endif
 
 #ifndef CUS_EMAIL
-#define CUS_EMAIL       "<support@taosdata.com>";
+#define CUS_EMAIL       "<support@taosdata.com>"
 #endif
 #endif
 
