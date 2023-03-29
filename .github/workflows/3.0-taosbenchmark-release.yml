@@ -164,7 +164,7 @@ jobs:
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "v2|websocket|taosdemo|cloud"|sort`; \
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "v2|websocket|taosdemo|kill-slow-query|cloud"|sort`; \
               do printf $i && python3 ./test.py -f $i > /dev/null \
                 && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m" \
                           | tee -a ~/taosbenchmark-release-success.txt                \

@@ -167,7 +167,6 @@ jobs:
         if: |
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
-          || github.event_name == 'push'
         run: |
           git config --global --add safe.directory /__w/taos-tools/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
