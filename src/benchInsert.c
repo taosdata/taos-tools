@@ -1405,6 +1405,9 @@ static void *syncWriteInterlace(void *sarg) {
     uint64_t   tableSeq = pThreadInfo->start_table_from;
     int disorderRange = stbInfo->disorderRange;
 
+
+    uint64_t   intervalStartTime = startTs;
+
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
         uint32_t generated = 0;
@@ -1581,11 +1584,17 @@ static void *syncWriteInterlace(void *sarg) {
                     insertRows -= interlaceRows;
                 }
                 if (stbInfo->insert_interval > 0) {
-                    debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
+
+                    uint64_t  intervalEndTime = toolsGetTimestampMs();
+					uint64_t  delta = intervalEndTime - intervalStartTime;
+
+					if (delta < stbInfo->insert_interval) {					
+                        debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
                           __func__, __LINE__, stbInfo->insert_interval);
-                    perfPrint("sleep %" PRIu64 " ms\n",
-                                     stbInfo->insert_interval);
-                    toolsMsleep((int32_t)stbInfo->insert_interval);
+                        infoPrint("sleep %" PRIu64 " ms\n",
+                                     stbInfo->insert_interval - delta);
+                        toolsMsleep((int32_t)(stbInfo->insert_interval - delta));
+				    }
                 }
                 break;
             }
