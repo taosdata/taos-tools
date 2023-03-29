@@ -61,11 +61,13 @@ class TDTestCase:
         cmd = "%s -f ./taosbenchmark/json/default.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
+        tdSql.execute("alter database db WAL_RETENTION_PERIOD 3600000")
         tdSql.execute("reset query cache")
         cmd = "%s -f ./taosbenchmark/json/tmq_basic.json " % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         time.sleep(5)
+                
         cmd = "%s -f ./taosbenchmark/json/tmq_basic2.json " % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)

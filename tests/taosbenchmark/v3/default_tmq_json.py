@@ -61,6 +61,9 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
+        
+        tdSql.execute("alter database db WAL_RETENTION_PERIOD 3600000")
+        
         cmd = "%s -f ./taosbenchmark/json/tmq.json " % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
