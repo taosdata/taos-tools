@@ -195,6 +195,19 @@ static void* tmqConsume(void* arg) {
     pThreadInfo->totalMsgs = totalMsgs;
     pThreadInfo->totalRows = totalRows;
 
+    int32_t code;
+    //code = tmq_unsubscribe(pThreadInfo->tmq);
+    //if (code != 0) {
+    //  errorPrint("thread %d tmq_unsubscribe() fail, reason: %s\n", i, tmq_err2str(code));
+    //}
+
+    code = tmq_consumer_close(pThreadInfo->tmq);
+    if (code != 0) {
+        errorPrint("thread %d tmq_consumer_close() fail, reason: %s\n",
+                   pThreadInfo->id, tmq_err2str(code));
+    }
+    pThreadInfo->tmq = NULL;
+
     infoPrint("consumerId: %d, consume msgs: %" PRId64 ", consume rows: %" PRId64 "\n", pThreadInfo->id, totalMsgs, totalRows);
     infoPrintToFile(g_arguments->fpOfInsertResult,
             "consumerId: %d, consume msgs: %" PRId64 ", consume rows: %" PRId64 "\n", pThreadInfo->id, totalMsgs, totalRows);
@@ -298,18 +311,6 @@ int subscribeTestProcess() {
 
     for (int i = 0; i < pConsumerInfo->concurrent; i++) {
         tmqThreadInfo * pThreadInfo = infos + i;
-        int32_t code;
-        //code = tmq_unsubscribe(pThreadInfo->tmq);
-        //if (code != 0) {
-        //  errorPrint("thread %d tmq_unsubscribe() fail, reason: %s\n", i, tmq_err2str(code));
-        //}
-
-        code = tmq_consumer_close(pThreadInfo->tmq);
-        if (code != 0) {
-            errorPrint("thread %d tmq_consumer_close() fail, reason: %s\n",
-                       i, tmq_err2str(code));
-        }
-        pThreadInfo->tmq = NULL;
 
         if (pThreadInfo->fpOfRowsFile) {
             fclose(pThreadInfo->fpOfRowsFile);
