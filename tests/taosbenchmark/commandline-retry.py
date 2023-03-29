@@ -59,7 +59,7 @@ class TDTestCase:
         binPath = self.getPath()
         cmd = (
             "%s -t 1 -n 10 -i 1000 -r 1 -k 10 -z 1000 -y &"
-                #            "%s -t 1 -n 10 -i 5000 -r 1 -y &"
+            #            "%s -t 1 -n 10 -i 5000 -r 1 -y &"
             % binPath
         )
         tdLog.info("%s" % cmd)

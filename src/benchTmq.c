@@ -11,6 +11,7 @@
  */
 #include <time.h>
 #include <bench.h>
+#include <benchData.h>
 
 typedef struct {
     tmq_t* tmq;
@@ -22,6 +23,35 @@ typedef struct {
 } tmqThreadInfo;
 
 static int running = 1;
+
+
+void printfTmqConfigIntoFile() {
+  if (NULL == g_arguments->fpOfInsertResult) {
+      return;
+  }
+
+  infoPrintToFile(g_arguments->fpOfInsertResult, "%s\n", "============================================");
+
+  SConsumerInfo*  pConsumerInfo = &g_tmqInfo.consumerInfo;
+  infoPrintToFile(g_arguments->fpOfInsertResult, "concurrent: %d\n", pConsumerInfo->concurrent);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "pollDelay: %d\n", pConsumerInfo->pollDelay);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "groupId: %s\n", pConsumerInfo->groupId);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "clientId: %s\n", pConsumerInfo->clientId);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "autoOffsetReset: %s\n", pConsumerInfo->autoOffsetReset);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "enableAutoCommit: %s\n", pConsumerInfo->enableAutoCommit);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "autoCommitIntervalMs: %d\n", pConsumerInfo->autoCommitIntervalMs);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "enableHeartbeatBackground: %s\n", pConsumerInfo->enableHeartbeatBackground);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "snapshotEnable: %s\n", pConsumerInfo->snapshotEnable);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "msgWithTableName: %s\n", pConsumerInfo->msgWithTableName);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "rowsFile: %s\n", pConsumerInfo->rowsFile);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "expectRows: %d\n", pConsumerInfo->expectRows);
+  
+  for (int i = 0; i < pConsumerInfo->topicCount; ++i) {
+      infoPrintToFile(g_arguments->fpOfInsertResult, "topicName[%d]: %s\n", i, pConsumerInfo->topicName[i]);
+      infoPrintToFile(g_arguments->fpOfInsertResult, "topicSql[%d]: %s\n", i, pConsumerInfo->topicSql[i]);
+  }  
+}
+
 
 static int create_topic() {
     SBenchConn* conn = initBenchConn();
@@ -75,10 +105,11 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
   // infoPrint("topic: %s\n", tmq_get_topic_name(msg));
   int32_t     vgroupId = tmq_get_vgroup_id(msg);
   const char* dbName = tmq_get_db_name(msg);
+  const char* tblName = tmq_get_table_name(msg);
 
   if (pInfo->fpOfRowsFile) {
     fprintf(pInfo->fpOfRowsFile, "consumerId: %d, msg index:%d\n", pInfo->id, msgIndex);
-    fprintf(pInfo->fpOfRowsFile, "dbName: %s, topic: %s, vgroupId: %d\n", dbName != NULL ? dbName : "invalid table",
+    fprintf(pInfo->fpOfRowsFile, "dbName: %s, tblname: %s, topic: %s, vgroupId: %d\n", dbName, tblName != NULL ? tblName : "invalid table",
                   tmq_get_topic_name(msg), vgroupId);
   }
 
@@ -99,7 +130,7 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
 
     totalRows++;
   }
-
+  free(buf);
   return totalRows;
 }
 
@@ -108,8 +139,14 @@ static void* tmqConsume(void* arg) {
 
     int64_t totalMsgs = 0;
     int64_t totalRows = 0;
+	int32_t manualCommit = 0;
 
     infoPrint("consumer id %d start to loop pull msg\n", pThreadInfo->id);
+
+	if ((NULL != g_tmqInfo.consumerInfo.enableManualCommit) && (0 == strncmp("true", g_tmqInfo.consumerInfo.enableManualCommit, 4))) {
+        manualCommit = 1;		
+        infoPrint("consumer id %d enable manual commit\n", pThreadInfo->id);
+	}
 
     int64_t  lastTotalMsgs = 0;
     int64_t  lastTotalRows = 0;
@@ -120,16 +157,18 @@ static void* tmqConsume(void* arg) {
       TAOS_RES* tmqMsg = tmq_consumer_poll(pThreadInfo->tmq, consumeDelay);
       if (tmqMsg) {
         tmq_res_t msgType = tmq_get_res_type(tmqMsg);
-        if (msgType == TMQ_RES_TABLE_META) {
-          errorPrint("consumer id %d get TMQ_RES_TABLE_META mesg.\n", pThreadInfo->id);
-          break;
-        } else if (msgType == TMQ_RES_DATA) {
+        if (msgType == TMQ_RES_DATA) {
           totalRows += data_msg_process(tmqMsg, pThreadInfo, totalMsgs);
-        } else if (msgType == TMQ_RES_METADATA) {
-          errorPrint("consumer id %d get TMQ_RES_METADATA mesg.\n", pThreadInfo->id);
+        } else {
+          errorPrint("consumer id %d get error msg type: %d.\n", pThreadInfo->id, msgType);
+          taos_free_result(tmqMsg);
           break;
         }
 
+		if (0 != manualCommit) {
+            tmq_commit_sync(pThreadInfo->tmq, tmqMsg);
+		}
+		
         taos_free_result(tmqMsg);
 
         totalMsgs++;
@@ -153,12 +192,21 @@ static void* tmqConsume(void* arg) {
       }
     }
 
-    if (0 == running) {
-      infoPrint("consumer id %d receive stop signal and not continue consume\n",  pThreadInfo->id);
-    }
-
     pThreadInfo->totalMsgs = totalMsgs;
     pThreadInfo->totalRows = totalRows;
+
+    int32_t code;
+    //code = tmq_unsubscribe(pThreadInfo->tmq);
+    //if (code != 0) {
+    //  errorPrint("thread %d tmq_unsubscribe() fail, reason: %s\n", i, tmq_err2str(code));
+    //}
+
+    code = tmq_consumer_close(pThreadInfo->tmq);
+    if (code != 0) {
+        errorPrint("thread %d tmq_consumer_close() fail, reason: %s\n",
+                   pThreadInfo->id, tmq_err2str(code));
+    }
+    pThreadInfo->tmq = NULL;
 
     infoPrint("consumerId: %d, consume msgs: %" PRId64 ", consume rows: %" PRId64 "\n", pThreadInfo->id, totalMsgs, totalRows);
     infoPrintToFile(g_arguments->fpOfInsertResult,
@@ -168,6 +216,7 @@ static void* tmqConsume(void* arg) {
 }
 
 int subscribeTestProcess() {
+    printfTmqConfigIntoFile();
     int ret = 0;
     SConsumerInfo*  pConsumerInfo = &g_tmqInfo.consumerInfo;
     if (pConsumerInfo->topicCount > 0) {
@@ -178,26 +227,37 @@ int subscribeTestProcess() {
 
     tmq_list_t * topic_list = buildTopicList();
 
+    char groupId[16] = {0};
+	if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
+		// rand string
+		memset(groupId, 0, sizeof(groupId));
+		rand_string(groupId, sizeof(groupId) - 1, 0);
+		infoPrint("rand generate group id: %s\n", groupId);
+	    pConsumerInfo->groupId = groupId;
+	}
+
     pthread_t * pids = benchCalloc(pConsumerInfo->concurrent, sizeof(pthread_t), true);
     tmqThreadInfo *infos = benchCalloc(pConsumerInfo->concurrent, sizeof(tmqThreadInfo), true);
 
     for (int i = 0; i < pConsumerInfo->concurrent; ++i) {
-        char tmpBuff[64] = {0};
+        char tmpBuff[128] = {0};
 
         tmqThreadInfo * pThreadInfo = infos + i;
         pThreadInfo->totalMsgs = 0;
         pThreadInfo->totalRows = 0;
         pThreadInfo->id = i;
 
-        memset(tmpBuff, 0, sizeof(tmpBuff));
-        snprintf(tmpBuff, 60, "%s_%d", pConsumerInfo->rowsFile, i);
-        pThreadInfo->fpOfRowsFile = fopen(pConsumerInfo->rowsFile, "a");
-        if (NULL == pThreadInfo->fpOfRowsFile) {
-            errorPrint("failed to open %s file for save rows\n", pConsumerInfo->rowsFile);
-            ret = -1;
-            goto tmq_over;
+        if (strlen(pConsumerInfo->rowsFile)) {
+            memset(tmpBuff, 0, sizeof(tmpBuff));
+            snprintf(tmpBuff, 64, "%s_%d", pConsumerInfo->rowsFile, i);
+            pThreadInfo->fpOfRowsFile = fopen(tmpBuff, "a");
+            if (NULL == pThreadInfo->fpOfRowsFile) {
+                errorPrint("failed to open %s file for save rows\n", pConsumerInfo->rowsFile);
+                ret = -1;
+                goto tmq_over;
+            }
         }
-
+		
         tmq_conf_t * conf = tmq_conf_new();
         tmq_conf_set(conf, "td.connect.user", g_arguments->user);
         tmq_conf_set(conf, "td.connect.pass", g_arguments->password);
@@ -251,18 +311,6 @@ int subscribeTestProcess() {
 
     for (int i = 0; i < pConsumerInfo->concurrent; i++) {
         tmqThreadInfo * pThreadInfo = infos + i;
-        int32_t code;
-        code = tmq_unsubscribe(pThreadInfo->tmq);
-        if (code != 0) {
-          errorPrint("thread %d tmq_unsubscribe() fail, reason: %s\n", i, tmq_err2str(code));
-        }
-
-        code = tmq_consumer_close(pThreadInfo->tmq);
-        if (code != 0) {
-            errorPrint("thread %d tmq_consumer_close() fail, reason: %s\n",
-                       i, tmq_err2str(code));
-        }
-        pThreadInfo->tmq = NULL;
 
         if (pThreadInfo->fpOfRowsFile) {
             fclose(pThreadInfo->fpOfRowsFile);

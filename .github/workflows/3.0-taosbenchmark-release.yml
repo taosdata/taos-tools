@@ -239,6 +239,13 @@ jobs:
           path: /var/log/taos/
           retention-days: 2
 
+      - name: 'Upload taosc logs'
+        uses: actions/upload-artifact@v3
+        with:
+          name: log-v3-taosc
+          path: ~/sim/psim/log
+          retention-days: 2
+
       - name: Check Test Result
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'

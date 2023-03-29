@@ -429,6 +429,26 @@ static int get_tsma_info(tools_cJSON* stb_obj, SSuperTable* stbInfo) {
     return 0;
 }
 
+void parseStringToIntArray(char *str, BArray *arr) {
+    benchArrayClear(arr);
+    if (NULL == strstr(str, ",")) {
+        int *val = benchCalloc(1, sizeof(int), true);
+        *val = atoi(str);
+        benchArrayPush(arr, val);
+    } else {
+        char *dup_str = strdup(str);
+        char *running = dup_str;
+        char *token = strsep(&running, ",");
+        while (token) {
+            int *val = benchCalloc(1, sizeof(int), true);
+            *val = atoi(token);
+            benchArrayPush(arr, val);
+            token = strsep(&running, ",");
+        }
+        tmfree(dup_str);
+    }
+}
+
 static int getStableInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database = benchArrayGet(g_arguments->databases, index);
     tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
@@ -449,8 +469,10 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable = benchArrayGet(database->superTbls, i);
         }
         superTable->escape_character = false;
-        superTable->autoCreateTable = false;
-        superTable->batchCreateTableNum = DEFAULT_CREATE_BATCH;
+        superTable->autoTblCreating = false;
+        superTable->batchTblCreatingNum = DEFAULT_CREATE_BATCH;
+        superTable->batchTblCreatingNumbers = NULL;
+        superTable->batchTblCreatingIntervals = NULL;
         superTable->childTblExists = false;
         superTable->random_data_source = true;
         superTable->iface = TAOSC_IFACE;
@@ -491,28 +513,48 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
         tools_cJSON *escapeChar =
             tools_cJSON_GetObjectItem(stbInfo, "escape_character");
-        if (tools_cJSON_IsString(escapeChar) &&
-            (0 == strcasecmp(escapeChar->valuestring, "yes"))) {
+        if (tools_cJSON_IsString(escapeChar)
+                && (0 == strcasecmp(escapeChar->valuestring, "yes"))) {
             superTable->escape_character = true;
         }
         tools_cJSON *autoCreateTbl =
             tools_cJSON_GetObjectItem(stbInfo, "auto_create_table");
-        if (tools_cJSON_IsString(autoCreateTbl) &&
-            (0 == strcasecmp(autoCreateTbl->valuestring, "yes"))) {
-            superTable->autoCreateTable = true;
+        if (tools_cJSON_IsString(autoCreateTbl)
+                && (0 == strcasecmp(autoCreateTbl->valuestring, "yes"))) {
+            superTable->autoTblCreating = true;
         }
         tools_cJSON *batchCreateTbl =
             tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_num");
         if (tools_cJSON_IsNumber(batchCreateTbl)) {
-            superTable->batchCreateTableNum = batchCreateTbl->valueint;
+            superTable->batchTblCreatingNum = batchCreateTbl->valueint;
+        }
+        tools_cJSON *batchTblCreatingNumbers =
+            tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_numbers");
+        if (tools_cJSON_IsString(batchTblCreatingNumbers)) {
+            superTable->batchTblCreatingNumbers
+                = batchTblCreatingNumbers->valuestring;
+            superTable->batchTblCreatingNumbersArray =
+                benchArrayInit(1, sizeof(int));
+            parseStringToIntArray(superTable->batchTblCreatingNumbers,
+                                  superTable->batchTblCreatingNumbersArray);
+        }
+        tools_cJSON *batchTblCreatingIntervals =
+            tools_cJSON_GetObjectItem(stbInfo, "batch_create_tbl_intervals");
+        if (tools_cJSON_IsString(batchTblCreatingIntervals)) {
+            superTable->batchTblCreatingIntervals
+                = batchTblCreatingIntervals->valuestring;
+            superTable->batchTblCreatingIntervalsArray =
+                benchArrayInit(1, sizeof(int));
+            parseStringToIntArray(superTable->batchTblCreatingIntervals,
+                                  superTable->batchTblCreatingIntervalsArray);
         }
         tools_cJSON *childTblExists =
             tools_cJSON_GetObjectItem(stbInfo, "child_table_exists");
-        if (tools_cJSON_IsString(childTblExists) &&
-            (0 == strcasecmp(childTblExists->valuestring, "yes"))
-            && !database->drop) {
+        if (tools_cJSON_IsString(childTblExists)
+                && (0 == strcasecmp(childTblExists->valuestring, "yes"))
+                && !database->drop) {
             superTable->childTblExists = true;
-            superTable->autoCreateTable = false;
+            superTable->autoTblCreating = false;
         }
 
         tools_cJSON *childTableCount =
@@ -1709,6 +1751,12 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     if (tools_cJSON_IsString(enableAutoCommit)) {
         g_tmqInfo.consumerInfo.enableAutoCommit = enableAutoCommit->valuestring;
     }
+
+    tools_cJSON *enableManualCommit = tools_cJSON_GetObjectItem(
+            tmqInfo, "enable.manual.commit");
+    if (tools_cJSON_IsString(enableManualCommit)) {
+        g_tmqInfo.consumerInfo.enableManualCommit = enableManualCommit->valuestring;
+    }	
 
     tools_cJSON *enableHeartbeatBackground = tools_cJSON_GetObjectItem(
             tmqInfo, "enable.heartbeat.background");

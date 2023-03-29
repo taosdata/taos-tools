@@ -82,7 +82,7 @@ static int usc2utf8(char *p, int unic) {
     return ret;
 }
 
-static void rand_string(char *str, int size, bool chinese) {
+void rand_string(char *str, int size, bool chinese) {
     if (chinese) {
         char *pstr = str;
         while (size > 0) {
@@ -114,7 +114,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
     int n;
-    if (stbInfo->autoCreateTable) {
+    if (stbInfo->autoTblCreating) {
         char ttl[SMALL_BUFF_LEN] = "";
         if (stbInfo->ttl != 0) {
             snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
@@ -367,18 +367,104 @@ static int tmpStr(char *tmp, int iface, Field *field, int i) {
     return 0;
 }
 
-static float tmpFloat(Field *field, int i) {
-    float floatTmp = (float)(field->min +
-        (taosRandom() %
-        (field->max - field->min)) +
-        (taosRandom() % 1000) / 1000.0);
+FORCE_INLINE double tmpDouble(Field *field) {
+    double doubleTmp = (double)(field->min);
+    if (field->max != field->min) {
+        doubleTmp += ((taosRandom() %
+            (field->max - field->min)) +
+            taosRandom() % 1000000 / 1000000.0);
+    }
+    return doubleTmp;
+}
+
+FORCE_INLINE uint64_t tmpUint64(Field *field) {
+    uint64_t ubigintTmp = field->min;
+    if (field->max != field->min) {
+        ubigintTmp += (taosRandom() % (field->max - field->min));
+    }
+    return ubigintTmp;
+}
+
+FORCE_INLINE uint32_t tmpUint(Field *field) {
+    uint32_t uintTmp = field->min;
+    if (field->max != field->min) {
+        uintTmp += (taosRandom() % (field->max - field->min));
+    }
+    return uintTmp;
+}
+
+FORCE_INLINE bool tmpBool(Field *field) {
+    bool boolTmp;
+    if (field->min == field->max) {
+        boolTmp = (field->min)?1:0;
+    } else {
+        boolTmp = (taosRandom() % 2)&1;
+    }
+    return boolTmp;
+}
+
+FORCE_INLINE int8_t tmpInt8(Field *field) {
+    int8_t tinyint = field->min;
+    if (field->min != field->max) {
+        tinyint += (taosRandom() % (field->max - field->min));
+    }
+    return tinyint;
+}
+
+FORCE_INLINE uint8_t tmpUint8(Field *field) {
+    uint8_t utinyint = field->min;
+    if (field->min != field->max) {
+        utinyint += (taosRandom() % (field->max - field->min));
+    }
+    return utinyint;
+}
+
+FORCE_INLINE int16_t tmpInt16(Field *field) {
+    int16_t smallint = field->min;
+    if (field->min != field->max) {
+        smallint += (taosRandom() % (field->max - field->min));
+    }
+    return smallint;
+}
+
+FORCE_INLINE uint16_t tmpUint16(Field *field) {
+    uint16_t usmallintTmp = field->min;
+    if (field->max != field->min) {
+        usmallintTmp += (taosRandom() % (field->max - field->min));
+    }
+    return usmallintTmp;
+}
+
+FORCE_INLINE int64_t tmpInt64(Field *field) {
+    int64_t bigintTmp = field->min;
+    if (field->min != field->max) {
+        bigintTmp += (taosRandom() % (field->max - field->min));
+    }
+    return bigintTmp;
+}
+
+FORCE_INLINE float tmpFloat(Field *field) {
+    float floatTmp = field->min;
+    if (field->max != field->min) {
+        floatTmp += ((taosRandom() % (field->max - field->min))
+            + taosRandom() % 1000 / 1000.0);
+    }
+    return floatTmp;
+}
+
+static float tmpFloatI(Field *field, int i) {
+    float floatTmp = (float)field->min;
+    if (field->max != field->min) {
+        floatTmp += ((taosRandom() %
+                (field->max - field->min))
+            + (taosRandom() % 1000) / 1000.0);
+    }
     if (g_arguments->demo_mode && i == 0) {
-        floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10) +
-            floatTmp / 1000000000);
+        floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10)
+            + floatTmp / 1000000000);
     } else if (g_arguments->demo_mode && i == 2) {
-        floatTmp = (float)((105 + taosRandom() % 10 +
-            floatTmp / 1000000000) /
-            360);
+        floatTmp = (float)((105 + taosRandom() % 10
+            + floatTmp / 1000000000) / 360);
     }
     return floatTmp;
 }
@@ -397,14 +483,17 @@ static int tmpInt32(Field *field, int i) {
         if (field->max > (RAND_MAX >> 1)) {
             field->max = RAND_MAX >> 1;
         }
-        intTmp = field->min + (taosRandom() %
-            (field->max - field->min));
+        intTmp = field->min;
+        if (field->max != field->min) {
+            intTmp += (taosRandom() % (field->max - field->min));
+        }
     }
     return intTmp;
 }
 
 static int tmpJson(char *sampleDataBuf,
-                   int bufLen, int64_t pos, int fieldsSize, Field *field) {
+                   int bufLen, int64_t pos,
+                   int fieldsSize, Field *field) {
     int n;
     n = snprintf(sampleDataBuf + pos, bufLen - pos, "'{");
     if (n < 0 || n >= bufLen - pos) {
@@ -490,38 +579,31 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
             }
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
-                    bool rand_bool = (taosRandom() % 2) & 1;
+                    bool boolTmp = tmpBool(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                    "%s,",
-                                    rand_bool ? "true" : "false");
+                                    "%s,", boolTmp ? "true" : "false");
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    int8_t tinyint = tmpInt8(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%d,", tinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint8_t utinyint = tmpUint8(field);
                     n = snprintf(sampleDataBuf + pos,
-                                    bufLen - pos,
-                                    "%u,", utinyint);
+                                    bufLen - pos, "%u,", utinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = field->min
-                        + (taosRandom() % (field->max -field->min));
+                    int16_t smallint = tmpInt16(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", smallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint16_t usmallint = tmpUint16(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%u,", usmallint);
                     break;
@@ -533,43 +615,32 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    int64_t bigintTmp = tmpInt64(field);
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                       "%"PRId64",", bigintTmp);
+                                 bufLen - pos, "%"PRId64",", bigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    uint32_t uintTmp = tmpUint(field);
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%u,", uintTmp);
+                                 bufLen - pos, "%u,", uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    uint64_t ubigintTmp = tmpUint64(field);
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                       "%"PRIu64",", ubigintTmp);
+                                 bufLen - pos, "%"PRIu64",", ubigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloat(field, i);
+                    float floatTmp = tmpFloatI(field, i);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ =
-                        (double)(field->min +
-                                 (taosRandom() %
-                                  (field->max - field->min)) +
-                                 taosRandom() % 1000000 / 1000000.0);
+                    double double_ =  tmpDouble(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", double_);
                     break;
@@ -628,46 +699,40 @@ static int fillStmt(
             int n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
-                    bool boolTmp = (taosRandom() % 2) & 1;
+                    bool boolTmp = tmpBool(field);
                     if (childCol) {
                         ((bool *)childCol->stmtData.data)[k] = boolTmp;
                     } else {
                         ((bool *)field->stmtData.data)[k] = boolTmp;
                     }
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s,",
-                                       boolTmp ? "true" : "false");
+                                 "%d,", boolTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyintTmp =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    int8_t tinyintTmp = tmpInt8(field);
                     if (childCol) {
                         ((int8_t *)childCol->stmtData.data)[k] = tinyintTmp;
                     } else {
                         ((int8_t *)field->stmtData.data)[k] = tinyintTmp;
                     }
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%d,", tinyintTmp);
+                                 "%d,", tinyintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyintTmp = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint8_t utinyintTmp = tmpUint8(field);
                     if (childCol) {
                         ((uint8_t *)childCol->stmtData.data)[k] = utinyintTmp;
                     } else {
                         ((uint8_t *)field->stmtData.data)[k] = utinyintTmp;
                     }
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%u,", utinyintTmp);
+                                 bufLen - pos, "%u,", utinyintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallintTmp = field->min
-                        + (taosRandom() % (field->max -field->min));
+                    int16_t smallintTmp = tmpInt16(field);
                     if (childCol) {
                         ((int16_t *)childCol->stmtData.data)[k] = smallintTmp;
                     } else {
@@ -678,8 +743,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallintTmp = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint16_t usmallintTmp = tmpUint16(field);
                     if (childCol) {
                         ((uint16_t *)childCol->stmtData.data)[k] = usmallintTmp;
                     } else {
@@ -701,49 +765,41 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp;
-                    bigintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    int64_t bigintTmp = tmpInt64(field);
                     if (childCol) {
                         ((int64_t *)childCol->stmtData.data)[k] = bigintTmp;
                     } else {
                         ((int64_t *)field->stmtData.data)[k] = bigintTmp;
                     }
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                       "%"PRId64",", bigintTmp);
+                                 bufLen - pos, "%"PRId64",", bigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    uint32_t uintTmp = tmpUint(field);
                     if (childCol) {
                         ((uint32_t *)childCol->stmtData.data)[k] = uintTmp;
                     } else {
                         ((uint32_t *)field->stmtData.data)[k] = uintTmp;
                     }
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%u,", uintTmp);
+                                 bufLen - pos, "%u,", uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    uint64_t ubigintTmp = tmpUint64(field);
                     if (childCol) {
                         ((uint64_t *)childCol->stmtData.data)[k] = ubigintTmp;
                     } else {
                         ((uint64_t *)field->stmtData.data)[k] = ubigintTmp;
                     }
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                       "%"PRIu64",", ubigintTmp);
+                                 bufLen - pos, "%"PRIu64",", ubigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloat(field, i);
+                    float floatTmp = tmpFloatI(field, i);
                     if (childCol) {
                         ((float *)childCol->stmtData.data)[k] = floatTmp;
                     } else {
@@ -754,11 +810,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double doubleTmp =
-                        (double)(field->min +
-                                 (taosRandom() %
-                                  (field->max - field->min)) +
-                                 taosRandom() % 1000000 / 1000000.0);
+                    double doubleTmp = tmpDouble(field);
                     if (childCol) {
                         ((double *)childCol->stmtData.data)[k] = doubleTmp;
                     } else {
@@ -810,7 +862,6 @@ static int fillStmt(
 skip_stmt:
         *(sampleDataBuf + pos - 1) = 0;
     }
-
     return 0;
 }
 
@@ -833,7 +884,6 @@ static int generateRandDataStmtForChildTable(
                     1, loop * field->length, true);
         }
     }
-
     return fillStmt(
         stbInfo,
         sampleDataBuf,
@@ -882,28 +932,22 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
             int n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
-                    bool rand_bool = (taosRandom() % 2) & 1;
+                    bool boolTmp = tmpBool(field);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s=%s ",
-                                        field->name,
-                                        rand_bool ? "true" : "false");
+                                     "%s=%s ", field->name,
+                                        boolTmp ? "true" : "false");
                     } else {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s ",
-                                        rand_bool ? "true" : "false");
+                                        "%s ", boolTmp ? "true" : "false");
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    int8_t tinyint = tmpInt8(field);
                     if (tag) {
-                        n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%s=%di8 ",
-                                        field->name, tinyint);
+                        n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=%di8 ", field->name, tinyint);
                     } else {
                         n = snprintf(sampleDataBuf + pos,
                                      bufLen - pos, "%di8 ", tinyint);
@@ -911,44 +955,35 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint8_t utinyint = tmpUint8(field);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s=%uu8 ",
-                                        field->name, utinyint);
+                                        "%s=%uu8 ", field->name, utinyint);
                     } else {
                         n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%uu8 ", utinyint);
+                                        bufLen - pos, "%uu8 ", utinyint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = field->min
-                        + (taosRandom() % (field->max -field->min));
+                    int16_t smallint = tmpInt16(field);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s=%di16 ",
-                                        field->name, smallint);
+                                        "%s=%di16 ", field->name, smallint);
                     } else {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%di16 ",
-                                        smallint);
+                                        "%di16 ", smallint);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint16_t usmallint = tmpUint16(field);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s=%uu16 ",
-                                        field->name, usmallint);
+                                        "%s=%uu16 ", field->name, usmallint);
                     } else {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%uu16 ",
-                                        usmallint);
+                                        "%uu16 ", usmallint);
                     }
                     break;
                 }
@@ -966,23 +1001,22 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    int64_t bigintTmp = tmpInt64(field);
                     if (tag) {
-                        n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%s=%"PRId64"i64 ",
-                                        field->name, bigintTmp);
+                        n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                     "%s=%"PRId64"i64 ",
+                                     field->name, bigintTmp);
                     } else {
                         n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%"PRId64"i64 ", bigintTmp);
+                                     bufLen - pos, "%"PRId64"i64 ", bigintTmp);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    uint32_t uintTmp = field->min;
+                    if (field->max != field->min) {
+                        uintTmp += (taosRandom() % (field->max - field->min));
+                    }
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos,
@@ -997,44 +1031,33 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    uint64_t ubigintTmp = tmpUint64(field);
                     if (tag) {
-                        n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%s=%"PRIu64"u64 ",
-                                        field->name, ubigintTmp);
+                        n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                     "%s=%"PRIu64"u64 ",
+                                     field->name, ubigintTmp);
                     } else {
                         n = snprintf(sampleDataBuf + pos,
-                                     bufLen - pos,
-                                     "%"PRIu64"u64 ", ubigintTmp);
+                                     bufLen - pos, "%"PRIu64"u64 ", ubigintTmp);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloat(field, i);
+                    float floatTmp = tmpFloatI(field, i);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s=%ff32 ",
-                                        field->name, floatTmp);
+                                        "%s=%ff32 ", field->name, floatTmp);
                     } else {
                         n = snprintf(sampleDataBuf + pos,
-                                     bufLen - pos,
-                                     "%ff32 ", floatTmp);
+                                     bufLen - pos, "%ff32 ", floatTmp);
                     }
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ =
-                        (double)(field->min +
-                                 (taosRandom() %
-                                  (field->max - field->min)) +
-                                 taosRandom() % 1000000 / 1000000.0);
+                    double double_ = tmpDouble(field);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%s=%ff64 ",
-                                        field->name, double_);
+                                        "%s=%ff64 ", field->name, double_);
                     } else {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                      "%ff64 ", double_);
@@ -1121,86 +1144,68 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
             int n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
-                    bool rand_bool = (taosRandom() % 2) & 1;
+                    bool boolTmp = tmpBool(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                    "%s,",
-                                    rand_bool ? "true" : "false");
+                                    "%s,", boolTmp ? "true" : "false");
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    int8_t tinyint = tmpInt8(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", tinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint8_t utinyint = tmpUint8(field);
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%u,", utinyint);
+                                        bufLen - pos, "%u,", utinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = field->min
-                        + (taosRandom() % (field->max -field->min));
+                    int16_t smallint = tmpInt16(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", smallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint16_t usmallint = tmpUint16(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%u,", usmallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
                     int32_t intTmp = tmpInt32(field, i);
-                    n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                        "%d,", intTmp);
+                    n = snprintf(sampleDataBuf + pos,
+                                 bufLen - pos, "%d,", intTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    int64_t bigintTmp = tmpInt64(field);
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                       "%"PRId64",", bigintTmp);
+                                 bufLen - pos, "%"PRId64",", bigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    uint32_t uintTmp = tmpUint(field);
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                        "%u,", uintTmp);
+                                 bufLen - pos, "%u,", uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
+                    uint64_t ubigintTmp = tmpUint64(field);
                     n = snprintf(sampleDataBuf + pos,
-                                        bufLen - pos,
-                                       "%"PRIu64",", ubigintTmp);
+                                 bufLen - pos, "%"PRIu64",", ubigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloat(field, i);
+                    float floatTmp = tmpFloatI(field, i);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ =
-                        (double)(field->min +
-                                 (taosRandom() %
-                                  (field->max - field->min)) +
-                                 taosRandom() % 1000000 / 1000000.0);
+                    double double_ = tmpDouble(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", double_);
                     break;
@@ -1265,43 +1270,31 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
             Field * field = benchArrayGet(fields, i);
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
-                    bool rand_bool = (taosRandom() % 2) & 1;
-                    n = snprintf(sampleDataBuf + pos,
-                                    bufLen - pos,
-                                    "%s=%s,",
-                                    field->name,
-                                    rand_bool ? "true" : "false");
+                    bool boolTmp = tmpBool(field);
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos, "%s=%s,",
+                                 field->name, boolTmp ? "true" : "false");
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
-                    n = snprintf(sampleDataBuf + pos,
-                                    bufLen - pos,
-                                    "%s=%di8,",
-                                    field->name, tinyint);
+                    int8_t tinyint = tmpInt8(field);
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                    "%s=%di8,", field->name, tinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint8_t utinyint = tmpUint8(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                    "%s=%uu8,",
-                                    field->name, utinyint);
+                                    "%s=%uu8,", field->name, utinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = field->min
-                        + (taosRandom() % (field->max -field->min));
+                    int16_t smallint = tmpInt16(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                    "%s=%di16,",
-                                    field->name, smallint);
+                                    "%s=%di16,", field->name, smallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = field->min
-                        + (taosRandom() % (field->max - field->min));
+                    uint16_t usmallint = tmpUint16(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%uu16,",
                                     field->name, usmallint);
@@ -1315,48 +1308,35 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    int64_t bigintTmp = tmpInt64(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                    "%s=%"PRId64"i64,",
-                                    field->name, bigintTmp);
+                                 "%s=%"PRId64"i64,", field->name, bigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = field->min + (taosRandom()
-                        % (field->max - field->min));
+                    uint32_t uintTmp = tmpUint(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                    "%s=%uu32,",
-                                    field->name, uintTmp);
+                                    "%s=%uu32,", field->name, uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp =
-                            field->min +
-                        (taosRandom() % (field->max - field->min));
-                    n = snprintf(sampleDataBuf + pos,
-                                    bufLen - pos,
-                                    "%s=%"PRIu64"u64,",
-                                    field->name, ubigintTmp);
+                    uint64_t ubigintTmp = tmpUint64(field);
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                 "%s=%"PRIu64"u64,", field->name, ubigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloat(field, i);
+                    float floatTmp = tmpFloatI(field, i);
                     n = snprintf(sampleDataBuf + pos,
                                     bufLen - pos, "%s=%ff32,",
                                     field->name, floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ =
-                        (double)(field->min +
-                                 (taosRandom() %
-                                  (field->max - field->min)) +
-                                 taosRandom() % 1000000 / 1000000.0);
+                    double doubleTmp = tmpDouble(field);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
-                                    "%s=%ff64,",
-                                    field->name, double_);
+                                 "%s=%ff64,", field->name, doubleTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
@@ -1763,24 +1743,18 @@ void generateSmlJsonTags(tools_cJSON *tagsList,
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
         switch (tag->type) {
             case TSDB_DATA_TYPE_BOOL: {
-                tools_cJSON_AddNumberToObject(tags, tagName,
-                                              (taosRandom() % 2) & 1);
+                bool boolTmp = tmpBool(tag);
+                tools_cJSON_AddNumberToObject(tags, tagName, boolTmp);
                 break;
             }
             case TSDB_DATA_TYPE_FLOAT: {
-                tools_cJSON_AddNumberToObject(
-                        tags, tagName,
-                        (float)(tag->min +
-                            (taosRandom() % (tag->max - tag->min)) +
-                            taosRandom() % 1000 / 1000.0));
+                float floatTmp = tmpFloat(tag);
+                tools_cJSON_AddNumberToObject(tags, tagName, floatTmp);
                 break;
             }
             case TSDB_DATA_TYPE_DOUBLE: {
-                tools_cJSON_AddNumberToObject(
-                        tags, tagName,
-                        (double)(tag->min
-                            + (taosRandom() % (tag->max - tag->min))
-                            + taosRandom() % 1000000 / 1000000.0));
+                double doubleTmp = tmpDouble(tag);
+                tools_cJSON_AddNumberToObject(tags, tagName, doubleTmp);
                 break;
             }
 
@@ -1796,11 +1770,15 @@ void generateSmlJsonTags(tools_cJSON *tagsList,
                 tmfree(buf);
                 break;
             }
-            default:
+            default: {
+                int tagTmp = tag->min;
+                if (tag->max != tag->min) {
+                    tagTmp += (taosRandom() % (tag->max - tag->min));
+                }
                 tools_cJSON_AddNumberToObject(
-                        tags, tagName,
-                        tag->min + (taosRandom() % (tag->max - tag->min)));
+                        tags, tagName, tagTmp);
                 break;
+            }
         }
     }
     tools_cJSON_AddItemToArray(tagsList, tags);
@@ -1828,27 +1806,20 @@ void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
         snprintf(tagName, TSDB_MAX_TAGS, "t%d", i);
         switch (tag->type) {
             case TSDB_DATA_TYPE_BOOL: {
-                tools_cJSON_AddBoolToObject(tagObj,
-                                            "value",
-                                            (taosRandom() % 2) & 1);
+                bool boolTmp = tmpBool(tag);
+                tools_cJSON_AddBoolToObject(tagObj, "value", boolTmp);
                 tools_cJSON_AddStringToObject(tagObj, "type", "bool");
                 break;
             }
             case TSDB_DATA_TYPE_FLOAT: {
-                tools_cJSON_AddNumberToObject(
-                        tagObj, "value",
-                        (float)(tag->min +
-                            (taosRandom() % (tag->max - tag->min)) +
-                            taosRandom() % 1000 / 1000.0));
+                float floatTmp = tmpFloat(tag);
+                tools_cJSON_AddNumberToObject(tagObj, "value", floatTmp);
                 tools_cJSON_AddStringToObject(tagObj, "type", "float");
                 break;
             }
             case TSDB_DATA_TYPE_DOUBLE: {
-                tools_cJSON_AddNumberToObject(
-                        tagObj, "value",
-                        (double)(tag->min
-                                + (taosRandom() % (tag->max - tag->min))
-                                + taosRandom() % 1000000 / 1000000.0));
+                double doubleTmp = tmpDouble(tag);
+                tools_cJSON_AddNumberToObject(tagObj, "value", doubleTmp);
                 tools_cJSON_AddStringToObject(tagObj, "type", "double");
                 break;
             }
@@ -1867,13 +1838,16 @@ void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
                 tmfree(buf);
                 break;
             }
-            default:
-                tools_cJSON_AddNumberToObject(
-                        tagObj, "value",
-                        tag->min + (taosRandom() % (tag->max - tag->min)));
+            default: {
+                int64_t tagTmp = tag->min;
+                if (tag->max != tag->min) {
+                    tagTmp += (taosRandom() % (tag->max - tag->min));
+                }
+                tools_cJSON_AddNumberToObject(tagObj, "value", tagTmp);
                         tools_cJSON_AddStringToObject(tagObj, "type",
                                         convertDatatypeToString(tag->type));
                 break;
+            }
         }
         tools_cJSON_AddItemToObject(tags, tagName, tagObj);
     }
@@ -1888,28 +1862,27 @@ void generateSmlJsonValues(
     Field* col = benchArrayGet(stbInfo->cols, 0);
     int len_key = strlen("\"value\":,");
     switch (col->type) {
-        case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_BOOL: {
+            bool boolTmp = tmpBool(col);
             value_buf = benchCalloc(len_key + 6, 1, true);
             snprintf(value_buf, len_key + 6,
-                     "\"value\":%s,",
-                        ((taosRandom()%2)&1)?"true":"false");
+                     "\"value\":%s,", boolTmp?"true":"false");
             break;
-        case TSDB_DATA_TYPE_FLOAT:
+        }
+        case TSDB_DATA_TYPE_FLOAT: {
             value_buf = benchCalloc(len_key + 20, 1, true);
+            float floatTmp = tmpFloat(col);
             snprintf(value_buf, len_key + 20,
-                     "\"value\":%f,",
-                     (float)(col->min +
-                        (taosRandom() % (col->max - col->min)) +
-                        taosRandom() % 1000 / 1000.0));
+                     "\"value\":%f,", floatTmp);
             break;
-        case TSDB_DATA_TYPE_DOUBLE:
+        }
+        case TSDB_DATA_TYPE_DOUBLE: {
             value_buf = benchCalloc(len_key + 40, 1, true);
+            double doubleTmp = tmpDouble(col);
             snprintf(
-                value_buf, len_key + 40, "\"value\":%f,",
-                (double)(col->min +
-                         (taosRandom() % (col->max - col->min)) +
-                         taosRandom() % 1000000 / 1000000.0));
+                value_buf, len_key + 40, "\"value\":%f,", doubleTmp);
             break;
+        }
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
@@ -1920,16 +1893,13 @@ void generateSmlJsonValues(
             tmfree(buf);
             break;
         }
-        default:
+        default: {
             value_buf = benchCalloc(len_key + 20, 1, true);
-            snprintf(
-                    value_buf, len_key + 20,
-                    "\"value\":%f,",
-                    (double)col->min +
-                    (taosRandom() % (col->max - col->min)));
+            double doubleTmp = tmpDouble(col);
+            snprintf(value_buf, len_key + 20, "\"value\":%f,", doubleTmp);
             break;
+        }
     }
-
     sml_json_value_array[tableSeq] = value_buf;
 }
 
@@ -1940,23 +1910,21 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
     tools_cJSON_AddNumberToObject(record, "timestamp", (double)timestamp);
     Field* col = benchArrayGet(stbInfo->cols, 0);
     switch (col->type) {
-        case TSDB_DATA_TYPE_BOOL:
-            tools_cJSON_AddBoolToObject(record, "value", (taosRandom()%2)&1);
+        case TSDB_DATA_TYPE_BOOL: {
+            bool boolTmp = tmpBool(col);
+            tools_cJSON_AddBoolToObject(record, "value", boolTmp);
             break;
-        case TSDB_DATA_TYPE_FLOAT:
-            tools_cJSON_AddNumberToObject(
-                record, "value",
-                (float)(col->min +
-                        (taosRandom() % (col->max - col->min)) +
-                        taosRandom() % 1000 / 1000.0));
+        }
+        case TSDB_DATA_TYPE_FLOAT: {
+            float floatTmp = tmpFloat(col);
+            tools_cJSON_AddNumberToObject(record, "value", floatTmp);
             break;
-        case TSDB_DATA_TYPE_DOUBLE:
-            tools_cJSON_AddNumberToObject(
-                record, "value",
-                (double)(col->min +
-                         (taosRandom() % (col->max - col->min)) +
-                         taosRandom() % 1000000 / 1000000.0));
+        }
+        case TSDB_DATA_TYPE_DOUBLE: {
+            double doubleTmp = tmpDouble(col);
+            tools_cJSON_AddNumberToObject(record, "value", doubleTmp);
             break;
+        }
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
@@ -1969,12 +1937,11 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
             tmfree(buf);
             break;
         }
-        default:
-            tools_cJSON_AddNumberToObject(
-                    record, "value",
-                    (double)col->min +
-                    (taosRandom() % (col->max - col->min)));
+        default: {
+            double doubleTmp = tmpDouble(col);
+            tools_cJSON_AddNumberToObject(record, "value", doubleTmp);
             break;
+        }
     }
     tools_cJSON_AddItemToObject(record, "tags", tag);
     tools_cJSON_AddStringToObject(record, "metric", stbInfo->stbName);
@@ -1997,26 +1964,24 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
     tools_cJSON *value = tools_cJSON_CreateObject();
     Field* col = benchArrayGet(stbInfo->cols, 0);
     switch (col->type) {
-        case TSDB_DATA_TYPE_BOOL:
-            tools_cJSON_AddBoolToObject(value, "value", (taosRandom()%2)&1);
+        case TSDB_DATA_TYPE_BOOL: {
+            bool boolTmp = tmpBool(col);
+            tools_cJSON_AddBoolToObject(value, "value", boolTmp);
             tools_cJSON_AddStringToObject(value, "type", "bool");
             break;
-        case TSDB_DATA_TYPE_FLOAT:
-            tools_cJSON_AddNumberToObject(
-                value, "value",
-                (float)(col->min +
-                        (taosRandom() % (col->max - col->min)) +
-                        taosRandom() % 1000 / 1000.0));
+        }
+        case TSDB_DATA_TYPE_FLOAT: {
+            float floatTmp = tmpFloat(col);
+            tools_cJSON_AddNumberToObject(value, "value", floatTmp);
             tools_cJSON_AddStringToObject(value, "type", "float");
             break;
-        case TSDB_DATA_TYPE_DOUBLE:
-            tools_cJSON_AddNumberToObject(
-                value, "value",
-                (double)(col->min +
-                         (taosRandom() % (col->max - col->min)) +
-                         taosRandom() % 1000000 / 1000000.0));
+        }
+        case TSDB_DATA_TYPE_DOUBLE: {
+            double dblTmp = tmpDouble(col);
+            tools_cJSON_AddNumberToObject(value, "value", dblTmp);
             tools_cJSON_AddStringToObject(value, "type", "double");
             break;
+        }
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
@@ -2031,14 +1996,16 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
             tmfree(buf);
             break;
         }
-        default:
-            tools_cJSON_AddNumberToObject(
-                    value, "value",
-                    (double)col->min +
-                    (taosRandom() % (col->max - col->min)));
-            tools_cJSON_AddStringToObject(value, "type",
-                                          convertDatatypeToString(col->type));
+        default: {
+            double dblTmp = (double)col->min;
+            if (col->max != col->min) {
+                dblTmp += (double)((taosRandom() % (col->max - col->min)));
+            }
+            tools_cJSON_AddNumberToObject(value, "value", dblTmp);
+            tools_cJSON_AddStringToObject(
+                    value, "type", convertDatatypeToString(col->type));
             break;
+        }
     }
     tools_cJSON_AddItemToObject(record, "timestamp", ts);
     tools_cJSON_AddItemToObject(record, "value", value);

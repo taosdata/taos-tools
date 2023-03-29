@@ -90,7 +90,6 @@ class TDTestCase:
 
         times = 0
         with open("rest_query_super-0", "r+") as f1:
-
             for line in f1.readlines():
                 contents = line.strip()
                 if contents.find("data") != -1:
