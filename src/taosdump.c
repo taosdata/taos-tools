@@ -52,20 +52,20 @@
 #include <taosws.h>
 #endif
 
+#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
+#include "cus_name.h"
+#else
 #ifndef CUS_NAME
-    char cusName[] = "TDengine";
+    #define CUS_NAME      "TDengine"
 #endif
 
 #ifndef CUS_PROMPT
-    char cusPrompt[] = "taos";
+    #define CUS_PROMPT    "taos"
 #endif
 
 #ifndef CUS_EMAIL
-    char cusEmail[] = "<support@taosdata.com>";
+    #define CUS_EMAIL     "<support@taosdata.com>"
 #endif
-
-#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
-#include "cus_name.h"
 #endif
 
 // get taosdump commit number version
@@ -416,7 +416,7 @@ static char args_doc[] = "dbname [tbname ...]\n--databases db1,db2,... \n"
 /* Keys for options without short-options. */
 #define OPT_ABORT 1 /* –abort */
 
-const char *              argp_program_bug_address = cusEmail;
+const char *              argp_program_bug_address = CUS_EMAIL;
 
 /* The options we understand. */
 static struct argp_option options[] = {
