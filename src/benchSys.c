@@ -22,20 +22,20 @@
 
 extern char version[];
 
+#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
+#include "cus_name.h"
+#else
 #ifndef CUS_NAME
-    char cusName[] = "TDengine";
+#define CUS_NAME        "TDengine"
 #endif
 
 #ifndef CUS_PROMPT
-    char cusPrompt[] = "taos";
+#define CUS_PROMPT      "taos"
 #endif
 
 #ifndef CUS_EMAIL
-    char cusEmail[] = "<support@taosdata.com>";
+#define CUS_EMAIL       "<support@taosdata.com>"
 #endif
-
-#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
-#include "cus_name.h"
 #endif
 
 #ifdef WINDOWS
@@ -94,7 +94,7 @@ void benchPrintHelp() {
     printf("%s%s%s%s\r\n", indent, "-v,", indent, BENCH_VGROUPS);
 #endif
     printf("%s%s%s%s\r\n", indent, "-V,", indent, BENCH_VERSION);
-    printf("\r\n\r\nReport bugs to %s.\r\n", cusEmail);
+    printf("\r\n\r\nReport bugs to %s.\r\n", CUS_EMAIL);
 }
 
 int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
@@ -168,7 +168,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
 }
 #else
 const char *              argp_program_version = version;
-const char *              argp_program_bug_address = cusEmail;
+const char *              argp_program_bug_address = CUS_EMAIL;
 
 static struct argp_option bench_options[] = {
     {"file", 'f', "FILE", 0, BENCH_FILE, 0},
