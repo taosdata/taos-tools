@@ -556,6 +556,25 @@ int createDatabaseRest(SDataBase* database) {
                             false,
                             sockfd,
                             NULL);
+        int32_t trying = g_arguments->keep_trying;
+        while (code && trying) {
+            infoPrint("will sleep %"PRIu32" milliseconds then "
+                  "re-create database %s\n",
+                  g_arguments->trying_interval, database->dbName);
+            toolsMsleep(g_arguments->trying_interval);
+            code = postProceSql(command,
+                            database->dbName,
+                            database->precision,
+                            REST_IFACE,
+                            0,
+                            g_arguments->port,
+                            false,
+                            sockfd,
+                            NULL);
+            if (trying != -1) {
+                trying--;
+            }
+        }
     }
     destroySockFd(sockfd);
     return code;
@@ -664,7 +683,7 @@ int createDatabaseTaosc(SDataBase* database) {
         }
 #endif
     }
-    infoPrint("create database: <%s>\n", command);
+    infoPrint("command to create database: <%s>\n", command);
 
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if (database->superTbls) {
@@ -680,17 +699,6 @@ int createDatabaseTaosc(SDataBase* database) {
     }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
 
-/*
-#if 0
-#ifdef LINUX
-    sleep(2);
-#elif defined(DARWIN)
-    sleep(2);
-#else
-    Sleep(2);
-#endif
-#endif
-*/
     closeBenchConn(conn);
     return 0;
 }
@@ -702,6 +710,18 @@ int createDatabase(SDataBase* database) {
     } else {
         ret = createDatabaseTaosc(database);
     }
+#if 0
+#ifdef LINUX
+    infoPrint("%s() LN%d, ret: %d\n", __func__, __LINE__, ret);
+    sleep(10);
+    infoPrint("%s() LN%d, ret: %d\n", __func__, __LINE__, ret);
+#elif defined(DARWIN)
+    sleep(2);
+#else
+    Sleep(2);
+#endif
+#endif
+
     return ret;
 }
 
@@ -2071,7 +2091,7 @@ void *syncWriteProgressive(void *sarg) {
             pThreadInfo->threadID, pThreadInfo->start_table_from,
             pThreadInfo->end_table_to + 1);
 #endif
-    uint64_t   lastPrintTime = toolsGetTimestampMs();
+    uint64_t  lastPrintTime = toolsGetTimestampMs();
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
 
@@ -2723,7 +2743,8 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     preProcessArgument(stbInfo);
 
-    int64_t ntables = stbInfo->childTblCount;
+    int64_t ntables = (stbInfo->childTblLimit)?
+        stbInfo->childTblLimit:stbInfo->childTblCount;
     if (ntables == 0) {
         return 0;
     }
@@ -2827,8 +2848,8 @@ static int startMultiThreadInsertData(SDataBase* database,
         b = ntables % threads;
     }
 #endif   // TD_VER_COMPATIBLE_3_0_0_0
-    pthread_t * pids = benchCalloc(1, threads * sizeof(pthread_t), true);
-    threadInfo *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
+    pthread_t   *pids = benchCalloc(1, threads * sizeof(pthread_t), true);
+    threadInfo  *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
 
     for (int32_t i = 0; i < threads; i++) {
         threadInfo *pThreadInfo = infos + i;
@@ -3401,8 +3422,10 @@ int insertTestProcess() {
                 }
             }
             if (createDatabase(database)) {
+                errorPrint("failed to create database (%s)\n", database->dbName);
                 return -1;
             }
+            succPrint("created database (%s)\n", database->dbName);
         }
     }
     for (int i = 0; i < g_arguments->databases->size; i++) {

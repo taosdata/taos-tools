@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'chore/sangshuduo/TS-2690-cus-name'
+          ref: 'fix/sangshuduo/TS-3060-multi-threads-with-limit-offset'
 
       - name: create debug directory
         if: |
