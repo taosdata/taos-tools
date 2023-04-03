@@ -44,10 +44,10 @@ void printVersion() {
     char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
     char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
     if (0 == strlen(taosBenchmark_status)) {
-        printf("taosBenchmark version: %s\ngitinfo: %s\n",
+        printf("version: %s\ngitinfo: %s\n",
                 taosBenchmark_ver, taosBenchmark_commit);
     } else {
-        printf("taosBenchmark version: %s\ngitinfo: %s\nstatus: %s\n",
+        printf("version: %s\ngitinfo: %s\nstatus: %s\n",
                 taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
     }
 }
