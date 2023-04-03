@@ -710,7 +710,7 @@ int createDatabase(SDataBase* database) {
     } else {
         ret = createDatabaseTaosc(database);
     }
-#if 1
+#if 0
 #ifdef LINUX
     infoPrint("%s() LN%d, ret: %d\n", __func__, __LINE__, ret);
     sleep(10);
