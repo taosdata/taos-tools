@@ -103,7 +103,7 @@ static bool      g_dumpInLooseModeFlag = false;
 #ifdef WINDOWS
 static char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
 #else
-static char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+static char      g_configDir[MAX_PATH_LEN] = "/etc/"CUS_PROMPT;
 #endif
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
@@ -434,7 +434,7 @@ static struct argp_option options[] = {
     {"resultFile", 'r', "RESULTFILE",  0,
         "DumpOut/In Result file path and name.", 1},
     {"config-dir", 'c', "CONFIG_DIR",  0,
-        "Configure directory. Default is /etc/taos", 1},
+        "Configure directory. Default is /etc/"CUS_PROMPT, 1},
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,

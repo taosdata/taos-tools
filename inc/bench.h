@@ -183,8 +183,8 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_FILE              \
     "(**IMPORTANT**) Set JSON configuration file "  \
     "(all options are going to read from this JSON file), " \
-    "which is mutually exclusive with other commandline options, "  \
-    "examples are under /usr/local/taos/examples"
+    "which is mutually exclusive with other commandline options. "  \
+    "You can find examples from official repository. "
 #define BENCH_CFG_DIR "Configuration directory."
 #define BENCH_HOST                \
     "Specify FQDN to connect server, default is localhost."
