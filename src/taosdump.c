@@ -103,7 +103,7 @@ static bool      g_dumpInLooseModeFlag = false;
 #ifdef WINDOWS
 static char      g_configDir[MAX_PATH_LEN] = "C:\\TDengine\\cfg";
 #else
-static char      g_configDir[MAX_PATH_LEN] = "/etc/taos";
+static char      g_configDir[MAX_PATH_LEN] = "/etc/"CUS_PROMPT;
 #endif
 
 static char    **g_tsDumpInAvroTagsTbs = NULL;
@@ -434,7 +434,7 @@ static struct argp_option options[] = {
     {"resultFile", 'r', "RESULTFILE",  0,
         "DumpOut/In Result file path and name.", 1},
     {"config-dir", 'c', "CONFIG_DIR",  0,
-        "Configure directory. Default is /etc/taos", 1},
+        "Configure directory. Default is /etc/"CUS_PROMPT, 1},
     // dump unit options
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,
@@ -793,13 +793,13 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
         case 'P':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosdump", "P");
+                errorPrintReqArg2(CUS_PROMPT"dump", "P");
                 exit(EXIT_FAILURE);
             }
 
             uint64_t port = atoi((const char *)arg);
             if (port > 65535) {
-                errorWrongValue("taosdump", "-P or --port", arg);
+                errorWrongValue(CUS_PROMPT"dump", "-P or --port", arg);
                 exit(EXIT_FAILURE);
             }
             g_args.port = (uint16_t)port;
@@ -816,7 +816,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                         full_path.we_wordv[0]);
                 wordfree(&full_path);
             } else {
-                errorPrintReqArg3("taosdump", "-o or --outpath");
+                errorPrintReqArg3(CUS_PROMPT"dump", "-o or --outpath");
                 exit(EXIT_FAILURE);
             }
             break;
@@ -836,7 +836,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 tstrncpy(g_args.inpath, full_path.we_wordv[0], DUMP_DIR_LEN);
                 wordfree(&full_path);
             } else {
-                errorPrintReqArg3("taosdump", "-i or --inpath");
+                errorPrintReqArg3(CUS_PROMPT"dump", "-i or --inpath");
                 exit(EXIT_FAILURE);
             }
             break;
@@ -866,7 +866,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
         case 'c':
             if (0 == strlen(arg)) {
-                errorPrintReqArg3("taosdump", "-c or --config-dir");
+                errorPrintReqArg3(CUS_PROMPT"dump", "-c or --config-dir");
                 exit(EXIT_FAILURE);
             }
             if (wordexp(arg, &full_path, 0) != 0) {
@@ -7958,10 +7958,10 @@ static int generateSubDirName(
 
     char dirToCreate[MAX_PATH_LEN] = {0};
     if (g_args.loose_mode) {
-        snprintf(dirToCreate, MAX_PATH_LEN, "%staosdump.%s/%s",
+        snprintf(dirToCreate, MAX_PATH_LEN, "%s"CUS_PROMPT"dump.%s/%s",
                 g_args.outpath, dbInfo->name, subDirName);
     } else {
-        snprintf(dirToCreate, MAX_PATH_LEN, "%staosdump.%"PRIu64"/%s",
+        snprintf(dirToCreate, MAX_PATH_LEN, "%s"CUS_PROMPT"dump.%"PRIu64"/%s",
                 g_args.outpath, dbInfo->uniqueID, subDirName);
     }
 
@@ -7998,14 +7998,14 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
         switch (avroType) {
             case AVRO_TBTAGS:
                 snprintf(fileName, MAX_PATH_LEN,
-                         "%staosdump.%s/%s.%s.%"PRId64".avro-tbtags",
+                         "%s"CUS_PROMPT"dump.%s/%s.%s.%"PRId64".avro-tbtags",
                         g_args.outpath, dbInfo->name, dbInfo->name,
                         tbName, index);
                 break;
 
             case AVRO_NTB:
                 snprintf(fileName, MAX_PATH_LEN,
-                         "%staosdump.%s/%s.%s.avro-ntb",
+                         "%s"CUS_PROMPT"dump.%s/%s.%s.avro-ntb",
                         g_args.outpath, dbInfo->name, dbInfo->name, tbName);
                 break;
 
@@ -8018,7 +8018,7 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
                     }
 
                     snprintf(fileName, MAX_PATH_LEN,
-                             "%staosdump.%s/%s/%s.%s.%"PRId64".avro",
+                             "%s"CUS_PROMPT"dump.%s/%s/%s.%s.%"PRId64".avro",
                             g_args.outpath, dbInfo->name,
                             subDirName,
                             dbInfo->name,
@@ -8041,14 +8041,14 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
         switch (avroType) {
             case AVRO_TBTAGS:
                 snprintf(fileName, MAX_PATH_LEN,
-                         "%staosdump.%"PRIu64"/%s.%"PRIu64".avro-tbtags",
+                         "%s"CUS_PROMPT"dump.%"PRIu64"/%s.%"PRIu64".avro-tbtags",
                         g_args.outpath, dbInfo->uniqueID, dbInfo->name,
                         getUniqueIDFromEpoch());
                 break;
 
             case AVRO_NTB:
                 snprintf(fileName, MAX_PATH_LEN,
-                         "%staosdump.%"PRIu64"/%s.%"PRIu64".avro-ntb",
+                         "%s"CUS_PROMPT"dump.%"PRIu64"/%s.%"PRIu64".avro-ntb",
                         g_args.outpath, dbInfo->uniqueID, dbInfo->name,
                         getUniqueIDFromEpoch());
                 break;
@@ -8061,7 +8061,7 @@ static int generateFilename(AVROTYPE avroType, char *fileName,
                     }
 
                     snprintf(fileName, MAX_PATH_LEN,
-                            "%staosdump.%"PRIu64"/%s/%s.%"PRIu64".%"PRId64".avro",
+                            "%s"CUS_PROMPT"dump.%"PRIu64"/%s/%s.%"PRIu64".%"PRId64".avro",
                             g_args.outpath, dbInfo->uniqueID,
                             subDirName,
                             dbInfo->name,
@@ -9408,7 +9408,7 @@ static int checkParam() {
         if ((!g_args.all_databases)
                 && (!g_args.databases)
                 && (!g_args.isDumpIn)) {
-            errorPrint("%s", "taosdump requires parameters\n");
+            errorPrint("%s", CUS_PROMPT"dump requires parameters\n");
             return -1;
         }
     }
@@ -9683,7 +9683,7 @@ static int dumpExtraInfoHead(void *taos, FILE *fp) {
     char taostools_ver[] = TAOSDUMP_TAG;
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
 
-    snprintf(buffer, BUFFER_LEN, "#!taosdump_ver: %s_%s\n",
+    snprintf(buffer, BUFFER_LEN, "#!"CUS_PROMPT"dump_ver: %s_%s\n",
                 taostools_ver, taosdump_commit);
     len = fwrite(buffer, 1, strlen(buffer), fp);
     if (len != strlen(buffer)) {
@@ -10138,7 +10138,7 @@ static int dumpInDbs(const char *dbPath) {
     char *mark = "#!server_ver: ";
     loadFileMark(fp, mark, g_dumpInServerVer);
 
-    mark = "#!taosdump_ver: ";
+    mark = "#!"CUS_PROMPT"dump_ver: ";
     char dumpInTaosdumpVer[64] = {0};
     loadFileMark(fp, mark, dumpInTaosdumpVer);
 
@@ -10148,7 +10148,7 @@ static int dumpInDbs(const char *dbPath) {
                __func__, __LINE__, g_dumpInDataMinorVer);
 #ifdef WINDOWS
     if ((g_dumpInDataMajorVer == 2) && (g_dumpInDataMinorVer < 4)) {
-        errorPrint("%s", "The data file dumped by taosdump < 2.4 on Windows "
+        errorPrint("%s", "The data file dumped by "CUS_PROMPT"dump < 2.4 on Windows "
                    "might be corrupted. "
                    "Please use version 2.4 or up to dump again\n");
         closeTaosConnWrapper(taos_v);
@@ -10160,7 +10160,7 @@ static int dumpInDbs(const char *dbPath) {
     if ((g_dumpInDataMajorVer > 1) && (1 == taosToolsMajorVer)) {
         errorPrint("\tThe data file was generated by version %d\n"
                    "\tCannot be restored by current version: %d\n\n"
-                   "\tPlease use a correct version taosdump "
+                   "\tPlease use a correct version "CUS_PROMPT"dump "
                    "to restore them.\n\n",
                 g_dumpInDataMajorVer, taosToolsMajorVer);
         closeTaosConnWrapper(taos_v);
@@ -10243,7 +10243,7 @@ static int dumpIn() {
     if (pDir != NULL) {
         while ((pDirent = toolsReadDir(pDir)) != NULL) {
             char *entryName = toolsGetDirEntryName(pDirent);
-            if (strncmp ("taosdump.", entryName, strlen("taosdump."))
+            if (strncmp (CUS_PROMPT"dump.", entryName, strlen(CUS_PROMPT"dump."))
                     == 0) {
                 char dbPath[MAX_PATH_LEN] = {0};
                 snprintf(dbPath, MAX_PATH_LEN, "%s/%s",
@@ -10256,7 +10256,7 @@ static int dumpIn() {
 
     if (pDir != NULL) {
         while ((pDirent = readdir(pDir)) != NULL) {
-            if (strncmp ("taosdump.", pDirent->d_name, strlen("taosdump."))
+            if (strncmp (CUS_PROMPT"dump.", pDirent->d_name, strlen(CUS_PROMPT"dump."))
                     == 0) {
                 char dbPath[MAX_PATH_LEN] = {0};
                 snprintf(dbPath, MAX_PATH_LEN, "%s/%s",
@@ -11048,11 +11048,11 @@ static int64_t dumpStbAndChildTbOfDbNative(
 
 static int createDirForDbDump(SDbInfo *dbInfo) {
     if (g_args.loose_mode) {
-        snprintf(dbInfo->dirForDbDump, MAX_DIR_LEN, "%staosdump.%s",
+        snprintf(dbInfo->dirForDbDump, MAX_DIR_LEN, "%s"CUS_PROMPT"dump.%s",
                 g_args.outpath, dbInfo->name);
     } else {
         dbInfo->uniqueID = getUniqueIDFromEpoch();
-        snprintf(dbInfo->dirForDbDump, MAX_DIR_LEN, "%staosdump.%"PRId64"",
+        snprintf(dbInfo->dirForDbDump, MAX_DIR_LEN, "%s"CUS_PROMPT"dump.%"PRId64"",
                 g_args.outpath, dbInfo->uniqueID);
     }
 
@@ -11262,7 +11262,7 @@ static bool checkOutDir(char *outpath) {
     }
 
     if ((checkFileExists(outpath, "dbs.sql"))
-            || (checkFileExistsDir(outpath, "taosdump."))
+            || (checkFileExistsDir(outpath, CUS_PROMPT"dump."))
             || (checkFileExistsExt(outpath, "avro-tbstb"))
             || (checkFileExistsExt(outpath, "avro-ntb"))
             || (checkFileExistsExt(outpath, "avro"))) {
