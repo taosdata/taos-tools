@@ -2106,10 +2106,16 @@ void *syncWriteProgressive(void *sarg) {
         if (g_arguments->nthreads_auto) {
             childTbl = pThreadInfo->vg->childTblArray[tableSeq];
         } else {
-            childTbl = stbInfo->childTblArray[tableSeq];
+            childTbl = stbInfo->childTblArray[
+                stbInfo->childTblExists?
+                tableSeq:
+                stbInfo->childTblFrom + tableSeq];
         }
 #else
-        childTbl = stbInfo->childTblArray[tableSeq];
+        childTbl = stbInfo->childTblArray[
+                stbInfo->childTblExists?
+                tableSeq:
+                stbInfo->childTblFrom + tableSeq];
 #endif
         if (childTbl->useOwnSample) {
             sampleDataBuf = childTbl->sampleDataBuf;
@@ -2703,7 +2709,7 @@ static int64_t fillChildTblNameImp(SDataBase *database, SSuperTable *stbInfo) {
     int64_t ntables;
     if (stbInfo->childTblLimit) {
         ntables = fillChildTblNameByLimitOffset(database, stbInfo);
-    } else if (stbInfo->childTblFrom && stbInfo->childTblTo) {
+    } else if (stbInfo->childTblFrom || stbInfo->childTblTo) {
         ntables = fillChildTblNameByFromTo(database, stbInfo);
     } else {
         ntables = fillChildTblNameByCount(stbInfo);
@@ -2729,8 +2735,12 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
             snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
                     "%s", stbInfo->stbName);
         }
-    } else {
+    } else if ((stbInfo->iface != SML_IFACE
+                && stbInfo->iface != SML_REST_IFACE)
+            && stbInfo->childTblExists) {
         ntables = fillChildTblNameImp(database, stbInfo);
+    } else {
+        ntables = fillChildTblNameByCount(stbInfo);
     }
 
     return ntables;
