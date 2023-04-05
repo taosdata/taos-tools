@@ -51,10 +51,14 @@ class TDTestCase:
                     paths.append(os.path.join(root, tool))
                     break
         if len(paths) == 0:
-            return ""
+            tdLog.exit("taosBenchmark not found!")
         return paths[0]
 
     def run(self):
+        tdSql.query("select client_version()")
+        client_ver = "".join(tdSql.queryResult[0])
+        major_ver = client_ver.split(".")[0]
+
         binPath = self.getPath()
 
         cmd = "%s -f ./taosbenchmark/json/from-to.json" % binPath
@@ -63,14 +67,18 @@ class TDTestCase:
         tdSql.query("select count(*) from db.stb")
         tdSql.checkData(0, 0, 50)
 
-        cmd = "%s -f ./taosbenchmark/json/from-to.json" % binPath
-        for i in range(0,5):
-            tdSql.query("select count(*) from db.d%d" % i)
-            tdSql.checkData(0, 0, 0)
-        for i in range(5,10):
+        if major_ver == "3":
+            for i in range(0, 5):
+                tdSql.query("select count(*) from db.d%d" % i)
+                tdSql.checkData(0, 0, 0)
+        else:
+            for i in range(0, 5):
+                tdSql.query("select count(*) from db.d%d" % i)
+                if tdSql.queryResult != []:
+                    tdLog.exit("%s failed" % __file__)
+        for i in range(5, 10):
             tdSql.query("select count(*) from db.d%d" % i)
             tdSql.checkData(0, 0, 10)
-
 
     def stop(self):
         tdSql.close()
