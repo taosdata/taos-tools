@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-3084-taosbenchmark-disrange-dynamic'
+          ref: 'fix/sangshuduo/TD-22157-benchmark-from-to'
 
       - name: create debug directory
         if: |
