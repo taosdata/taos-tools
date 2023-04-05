@@ -97,7 +97,7 @@ jobs:
         shell: alpine.sh --root {0}
         run: |
 
-          git clone --branch chore/sangshuduo/TS-2690-cus-name --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
+          git clone --branch fix/sangshuduo/TS-3084-taosbenchmark-disrange-dynamic --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j8 && make install
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taos ]]
           then
