@@ -62,7 +62,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-22157-benchmark-from-to'
+          ref: 'fix/sangshuduo/TD-23501-taosbenchmark-tagbuf-overflow'
 
       - name: create debug directory
         if: |

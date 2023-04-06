@@ -23,7 +23,7 @@ void rand_string(char *str, int size, bool chinese);
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
         int disorderRange);
 int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-        int bufLen,
+        int64_t bufLen,
         int lenOfOneRow, BArray * fields, int64_t loop,
         bool tag, BArray *childCols);
 int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);

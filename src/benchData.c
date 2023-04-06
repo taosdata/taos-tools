@@ -542,7 +542,7 @@ static int tmpJson(char *sampleDataBuf,
 }
 
 static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
-                     int bufLen,
+                     int64_t bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
     for (int64_t k = 0; k < loop; ++k) {
@@ -868,7 +868,7 @@ skip_stmt:
 static int generateRandDataStmtForChildTable(
     SSuperTable *stbInfo,
     char *sampleDataBuf,
-    int bufLen,
+    int64_t bufLen,
     int lenOfOneRow, BArray *fields,
     int64_t loop, BArray *childCols) {
     //  generateRandDataStmtForChildTable()
@@ -895,7 +895,7 @@ static int generateRandDataStmtForChildTable(
 static int generateRandDataStmt(
     SSuperTable *stbInfo,
     char *sampleDataBuf,
-    int bufLen,
+    int64_t bufLen,
     int lenOfOneRow, BArray *fields,
     int64_t loop, bool tag) {
     // generateRandDataStmt()
@@ -1389,7 +1389,7 @@ skip_line:
 }
 
 static int generateRandDataSml(SSuperTable *stbInfo, char *sampleDataBuf,
-                     int bufLen,
+                     int64_t bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
     int     protocol = stbInfo->lineProtocol;
@@ -1410,7 +1410,7 @@ static int generateRandDataSml(SSuperTable *stbInfo, char *sampleDataBuf,
 }
 
 int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-                     int bufLen,
+                     int64_t bufLen,
                      int lenOfOneRow, BArray *fields,
                      int64_t loop,
                      bool tag, BArray *childCols) {
