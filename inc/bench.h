@@ -622,10 +622,10 @@ typedef struct SSuperTable_S {
     bool      autoTblCreating;
     uint16_t  iface;  // 0: taosc, 1: rest, 2: stmt
     uint16_t  lineProtocol;
-    uint64_t  childTblLimit;
-    uint64_t  childTblOffset;
-    uint64_t  childTblFrom;
-    uint64_t  childTblTo;
+    int64_t   childTblLimit;
+    int64_t   childTblOffset;
+    int64_t   childTblFrom;
+    int64_t   childTblTo;
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
 
     //  int          multiThreadWriteOneTbl;  // 0: no, 1: yes

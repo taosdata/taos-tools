@@ -675,7 +675,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (childTbl_from->valueint >= 0) {
                 superTable->childTblFrom = childTbl_from->valueint;
             } else {
-                warnPrint("child table from %"PRId64" is invalid, set to 0\n",
+                warnPrint("child table _from_ %"PRId64" is invalid, set to 0\n",
                           childTbl_from->valueint);
                 superTable->childTblFrom = 0;
             }
@@ -685,7 +685,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_to)) {
             superTable->childTblTo = childTbl_to->valueint;
             if (superTable->childTblTo < superTable->childTblFrom) {
-                errorPrint("child table to is invalid number,"
+                errorPrint("child table _to_ is invalid number,"
                     "%"PRId64" < %"PRId64"\n",
                     superTable->childTblTo, superTable->childTblFrom);
                 return -1;
