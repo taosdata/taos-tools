@@ -804,8 +804,9 @@ static void *createTable(void *sarg) {
     }
 
     int smallBatchCount = 0;
-    for (uint64_t i = pThreadInfo->start_table_from;
-            (i <= pThreadInfo->end_table_to && !g_arguments->terminate); i++) {
+    for (uint64_t i = pThreadInfo->start_table_from + stbInfo->childTblFrom;
+            (i <= (pThreadInfo->end_table_to + stbInfo->childTblFrom)
+             && !g_arguments->terminate); i++) {
         if (g_arguments->terminate) {
             goto create_table_end;
         }
@@ -930,9 +931,14 @@ static int startMultiThreadCreateChildTable(
         SDataBase* database, SSuperTable* stbInfo) {
     int code = -1;
     int          threads = g_arguments->table_threads;
-    int64_t      ntables = stbInfo->childTblCount;
-    pthread_t *  pids = benchCalloc(1, threads * sizeof(pthread_t), false);
-    threadInfo * infos = benchCalloc(1, threads * sizeof(threadInfo), false);
+    int64_t      ntables;
+    if (stbInfo->childTblTo > 0) {
+        ntables = stbInfo->childTblTo - stbInfo->childTblFrom;
+    } else {
+        ntables = stbInfo->childTblCount;
+    }
+    pthread_t   *pids = benchCalloc(1, threads * sizeof(pthread_t), false);
+    threadInfo  *infos = benchCalloc(1, threads * sizeof(threadInfo), false);
     uint64_t     tableFrom = 0;
     if (threads < 1) {
         threads = 1;
