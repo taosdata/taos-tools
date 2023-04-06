@@ -69,13 +69,10 @@ class TDTestCase:
 
         if major_ver == "3":
             for i in range(0, 5):
-                tdSql.query("select count(*) from db.d%d" % i)
-                tdSql.checkData(0, 0, 0)
+                tdSql.error("select count(*) from db.d%d" % i)
         else:
             for i in range(0, 5):
-                tdSql.query("select count(*) from db.d%d" % i)
-                if tdSql.queryResult != []:
-                    tdLog.exit("%s failed" % __file__)
+                tdSql.error("select count(*) from db.d%d" % i)
         for i in range(5, 10):
             tdSql.query("select count(*) from db.d%d" % i)
             tdSql.checkData(0, 0, 10)
