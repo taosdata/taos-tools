@@ -1,5 +1,7 @@
 name: CppCheck action
 on:
+  schedule:
+    - cron: "50 15 * * *"
   push:
     branches: [ develop ]
   pull_request:
