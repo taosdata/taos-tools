@@ -1,6 +1,8 @@
 name: Windows (2.x build)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:
