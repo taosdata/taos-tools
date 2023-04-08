@@ -1,6 +1,8 @@
 name: Alpine (3.0 alpine)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:

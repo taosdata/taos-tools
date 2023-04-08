@@ -1,6 +1,8 @@
 name: Ubuntu (3.0 taosbenchmark release)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:

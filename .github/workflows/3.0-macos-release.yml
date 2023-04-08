@@ -1,6 +1,8 @@
 name: macOS (3.0 Release)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:
