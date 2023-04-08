@@ -53,7 +53,7 @@
 #endif
 
 #if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
-#include "cus_name.h"
+#include <cus_name.h>
 #else
 #ifndef CUS_NAME
     #define CUS_NAME      "TDengine"
@@ -176,6 +176,11 @@ typedef struct {
 #define infoPrint(fmt, ...) \
     do { \
         fprintf(stdout, "INFO: "fmt, __VA_ARGS__); \
+    } while (0)
+
+#define freeTbNameIfLooseMode(tbName) \
+    do { \
+        if (g_dumpInLooseModeFlag) tfree(tbName);   \
     } while (0)
 
 // -------------------------- SHOW DATABASE INTERFACE-----------------------
@@ -378,7 +383,7 @@ typedef struct InspectStruct_S {
     char type[TYPE_NAME_LEN];
     bool nullable;
     bool is_array;
-    char array_type[TYPE_NAME_LEN];
+    char array_type_str[TYPE_NAME_LEN];
 } InspectStruct;
 
 typedef struct RecordSchema_S {
@@ -2117,47 +2122,38 @@ static int processFieldsValueV2(
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%d", ((((int32_t)(*((char *)value))) == 1)?1:0));
             break;
-
         case TSDB_DATA_TYPE_TINYINT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%d", *((int8_t *)value));
             break;
-
         case TSDB_DATA_TYPE_INT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%d", *((int32_t *)value));
             break;
-
         case TSDB_DATA_TYPE_BIGINT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%" PRId64 "", *((int64_t *)value));
             break;
-
         case TSDB_DATA_TYPE_UTINYINT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%u", *((uint8_t *)value));
             break;
-
         case TSDB_DATA_TYPE_SMALLINT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%d", *((int16_t *)value));
             break;
-
         case TSDB_DATA_TYPE_USMALLINT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%u", *((uint16_t *)value));
             break;
-
         case TSDB_DATA_TYPE_UINT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%u", *((uint32_t *)value));
             break;
-
         case TSDB_DATA_TYPE_UBIGINT:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%" PRIu64 "", *((uint64_t *)value));
             break;
-
         case TSDB_DATA_TYPE_FLOAT:
             {
                 char tmpFloat[LARGE_BUFF_LEN] = {0};
@@ -2188,7 +2184,6 @@ static int processFieldsValueV2(
                 }
             }
             break;
-
         case TSDB_DATA_TYPE_DOUBLE:
             {
                 char tmpDouble[LARGE_BUFF_LEN] = {0};
@@ -2220,11 +2215,9 @@ static int processFieldsValueV2(
                 }
             }
             break;
-
         case TSDB_DATA_TYPE_BINARY:
             memset(tableDes->cols[index].value, 0,
                     sizeof(tableDes->cols[index].value));
-
             if (g_args.avro) {
                 if (len < (COL_VALUEBUF_LEN - 1)) {
                     strncpy(tableDes->cols[index].value, (char *)value, len);
@@ -2321,18 +2314,15 @@ static int processFieldsValueV2(
                 }
             }
             break;
-
         case TSDB_DATA_TYPE_TIMESTAMP:
             snprintf(tableDes->cols[index].value, COL_VALUEBUF_LEN,
                      "%" PRId64 "", *(int64_t *)value);
             break;
-
         default:
             errorPrint("%s() LN%d, unknown type: %d\n",
                     __func__, __LINE__, tableDes->cols[index].type);
             break;
     }
-
     return 0;
 }
 
@@ -5765,86 +5755,72 @@ static int64_t dumpInAvroTbTagsImpl(
                                          &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_TINYINT:
                             curr_sqlstr_len = dumpInAvroTagTinyInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_SMALLINT:
                             curr_sqlstr_len = dumpInAvroTagSmallInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_INT:
                             curr_sqlstr_len = dumpInAvroTagInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_BIGINT:
                             curr_sqlstr_len = dumpInAvroTagBigInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_FLOAT:
                             curr_sqlstr_len = dumpInAvroTagFloat(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_DOUBLE:
                             curr_sqlstr_len = dumpInAvroTagDouble(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_BINARY:
                             curr_sqlstr_len = dumpInAvroTagBinary(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_NCHAR:
                         case TSDB_DATA_TYPE_JSON:
                             curr_sqlstr_len = dumpInAvroTagNChar(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_TIMESTAMP:
                             curr_sqlstr_len = dumpInAvroTagTimeStamp(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_UTINYINT:
                             curr_sqlstr_len = dumpInAvroTagUnsignedTinyInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_USMALLINT:
                             curr_sqlstr_len = dumpInAvroTagUnsignedSmallInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_UINT:
                             curr_sqlstr_len = dumpInAvroTagUnsignedInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         case TSDB_DATA_TYPE_UBIGINT:
                             curr_sqlstr_len = dumpInAvroTagUnsignedBigInt(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
                             break;
-
                         default:
                             errorPrint("%s() LN%d Unknown type: %d\n",
                                     __func__, __LINE__, field->type);
@@ -5856,16 +5832,10 @@ static int64_t dumpInAvroTbTagsImpl(
                 }
             }
         }
-
         debugPrint2("%s", "\n");
-
         curr_sqlstr_len += sprintf(sqlstr + curr_sqlstr_len-1, ")");
         debugPrint("%s() LN%d, sqlstr=\n%s\n", __func__, __LINE__, sqlstr);
-
-        if (g_dumpInLooseModeFlag) {
-            tfree(stbName);
-        }
-
+        freeTbNameIfLooseMode(stbName);
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             WS_RES *ws_res = ws_query_timeout(taos, sqlstr, g_args.ws_timeout);
@@ -6781,9 +6751,7 @@ static int64_t dumpInAvroDataImpl(
                         __func__, __LINE__,
                         escapedTbName, taos, code, ws_errstr(ws_stmt));
                 free(escapedTbName);
-                if (g_dumpInLooseModeFlag) {
-                    free(tbName);
-                }
+                freeTbNameIfLooseMode(tbName);
                 continue;
             }
             debugPrint("%s() LN%d, stmt: %p, ws_stmt_set_tbname(%s) done\n",
@@ -6801,9 +6769,7 @@ static int64_t dumpInAvroDataImpl(
                         "reason: %s\n",
                         escapedTbName, taos_stmt_errstr(stmt));
                 free(escapedTbName);
-                if (g_dumpInLooseModeFlag) {
-                    free(tbName);
-                }
+                freeTbNameIfLooseMode(tbName);
                 continue;
             }
 #ifdef WEBSOCKET
@@ -6886,62 +6852,136 @@ static int64_t dumpInAvroDataImpl(
                         &value, field->name, &field_value, NULL)) {
                 switch (tableDes->cols[i].type) {
                     case TSDB_DATA_TYPE_INT:
-                        dumpInAvroDataInt(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_INT) {
+                            warnPrint("field[%d] type is not int!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_TINYINT:
-                        dumpInAvroDataTinyInt(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_INT) {
+                            warnPrint("field[%d] type is not tinyint!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataTinyInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_SMALLINT:
-                        dumpInAvroDataSmallInt(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_INT) {
+                            warnPrint("field[%d] type is not smallint!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataSmallInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_BIGINT:
-                        dumpInAvroDataBigInt(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_BIGINT) {
+                            warnPrint("field[%d] type is not bigint!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataBigInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_TIMESTAMP:
-                        dumpInAvroDataTimeStamp(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_BIGINT) {
+                            warnPrint("field[%d] type is not timestamp!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataTimeStamp(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_FLOAT:
-                        dumpInAvroDataFloat(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_FLOAT) {
+                            warnPrint("field[%d] type is not float!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataFloat(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_DOUBLE:
-                        dumpInAvroDataDouble(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_DOUBLE) {
+                            warnPrint("field[%d] type is not double!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataDouble(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_BINARY:
-                        dumpInAvroDataBinary(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_BINARY) {
+                            warnPrint("field[%d] type is not binary!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataBinary(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_JSON:
                     case TSDB_DATA_TYPE_NCHAR:
-                        dumpInAvroDataNChar(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_NCHAR) {
+                            warnPrint("field[%d] type is not nchar/json!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataNChar(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_BOOL:
-                        dumpInAvroDataBool(field, &field_value, bind, &is_null);
+                        if (field->type != TSDB_DATA_TYPE_BOOL) {
+                            warnPrint("field[%d] type is not bool!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataBool(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_UINT:
-                        dumpInAvroDataUnsignedInt(field, &field_value, bind, &is_null);
+                        if (!field->is_array
+                                || field->array_type != TSDB_DATA_TYPE_INT) {
+                            warnPrint("field[%d] type is not uint!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataUnsignedInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_UTINYINT:
-                        dumpInAvroDataUnsignedTinyInt(field, &field_value, bind, &is_null);
+                        if (!field->is_array
+                                || field->array_type != TSDB_DATA_TYPE_INT) {
+                            warnPrint("field[%d] type is not utinyint!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataUnsignedTinyInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_USMALLINT:
-                        dumpInAvroDataUnsignedSmallInt(field, &field_value, bind, &is_null);
+                        if (!field->is_array ||
+                                field->array_type != TSDB_DATA_TYPE_INT) {
+                            warnPrint("field[%d] type is not usmallint!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataUnsignedSmallInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     case TSDB_DATA_TYPE_UBIGINT:
-                        dumpInAvroDataUnsignedBigInt(field, &field_value, bind, &is_null);
+                        if (!field->is_array
+                                || field->array_type != TSDB_DATA_TYPE_BIGINT) {
+                            warnPrint("field[%d] type is not ubigint!\n", i);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataUnsignedBigInt(field, &field_value,
+                                    bind, &is_null);
+                        }
                         break;
-
                     default:
                         errorPrint("%s() LN%d, %s's %s is not supported!\n",
                                 __func__, __LINE__,
@@ -7000,9 +7040,7 @@ static int64_t dumpInAvroDataImpl(
                             __func__, __LINE__, taos_stmt_errstr(stmt));
                 freeBindArray(bindArray, onlyCol);
                 failed++;
-                if (g_dumpInLooseModeFlag) {
-                    tfree(tbName);
-                }
+                freeTbNameIfLooseMode(tbName);
                 continue;
             }
 
@@ -7011,9 +7049,7 @@ static int64_t dumpInAvroDataImpl(
                         __func__, __LINE__, taos_stmt_errstr(stmt));
                 freeBindArray(bindArray, onlyCol);
                 failed++;
-                if (g_dumpInLooseModeFlag) {
-                    tfree(tbName);
-                }
+                freeTbNameIfLooseMode(tbName);
                 continue;
             }
             if (0 != taos_stmt_execute(stmt)) {
@@ -7021,9 +7057,7 @@ static int64_t dumpInAvroDataImpl(
                            "reason: %s, timestamp: %"PRId64"\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
                 failed -= stmt_count;
-                if (g_dumpInLooseModeFlag) {
-                    tfree(tbName);
-                }
+                freeTbNameIfLooseMode(tbName);
                 break;
             } else {
                 success++;
@@ -7032,17 +7066,11 @@ static int64_t dumpInAvroDataImpl(
         }
 #endif
         freeBindArray(bindArray, onlyCol);
-
-        if (g_dumpInLooseModeFlag) {
-            tfree(tbName);
-        }
+        freeTbNameIfLooseMode(tbName);
     }
-
     avro_value_decref(&value);
     avro_value_iface_decref(value_class);
-
     tfree(bindArray);
-
     tfree(stmtBuffer);
     freeTbDes(tableDes);
 #ifdef WEBSOCKET
@@ -7054,7 +7082,6 @@ static int64_t dumpInAvroDataImpl(
 #ifdef WEBSOCKET
     }
 #endif
-
     if (failed)
         return (-failed);
     return success;
@@ -7563,7 +7590,6 @@ static int processResultValue(
                 free(bbuf);
                 return ret;
             }
-
         case TSDB_DATA_TYPE_NCHAR:
             {
                 char *nbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
@@ -7579,24 +7605,19 @@ static int processResultValue(
                 free(nbuf);
                 return ret;
             }
-
         case TSDB_DATA_TYPE_TIMESTAMP:
             return sprintf(pstr + curr_sqlstr_len,
-                    "%" PRId64 "",
-                    *(int64_t *)value);
-
+                    "%" PRId64 "", *(int64_t *)value);
+            break;
         default:
             break;
     }
-
     return 0;
 }
 
 #ifdef WEBSOCKET
 static int64_t writeResultDebugWS(
-        WS_RES *ws_res, FILE *fp,
-        const char *dbName,
-        const char *tbName) {
+        WS_RES *ws_res, FILE *fp, const char *dbName, const char *tbName) {
     int64_t    totalRows     = 0;
 
     int32_t  sql_buf_len = g_args.max_sql_len;
@@ -12460,7 +12481,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element) {
                                                         const char *arr_type_ele_value_value_str =
                                                             json_string_value(
                                                                      arr_type_ele_value_value);
-                                                        tstrncpy(field->array_type,
+                                                        tstrncpy(field->array_type_str,
                                                                 arr_type_ele_value_value_str,
                                                                 TYPE_NAME_LEN-1);
                                                     }
@@ -12502,7 +12523,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element) {
                                         int obj_value_items = json_typeof(obj_value);
                                         if (JSON_STRING == obj_value_items) {
                                             field->is_array = true;
-                                            tstrncpy(field->array_type,
+                                            tstrncpy(field->array_type_str,
                                                     json_string_value(obj_value), TYPE_NAME_LEN-1);
                                         } else if (JSON_OBJECT == obj_value_items) {
                                             const char *item_key;
@@ -12510,7 +12531,7 @@ static RecordSchema *parse_json_for_inspect(json_t *element) {
 
                                             json_object_foreach(obj_value, item_key, item_value) {
                                                 if (JSON_STRING == json_typeof(item_value)) {
-                                                    tstrncpy(field->array_type,
+                                                    tstrncpy(field->array_type_str,
                                                             json_string_value(item_value),
                                                             TYPE_NAME_LEN-1);
                                                 }
@@ -12737,7 +12758,7 @@ int inspectAvroFile(char *filename) {
                             fprintf(stdout, "%s |\t", b?"true":"false");
                         }
                     } else if (0 == strcmp(field->type, "array")) {
-                        if (0 == strcmp(field->array_type, "int")) {
+                        if (0 == strcmp(field->array_type_str, "int")) {
                             int32_t n32 = 0;
                             if (field->nullable) {
                                 avro_value_t branch;
@@ -12787,9 +12808,8 @@ int inspectAvroFile(char *filename) {
                                     fprintf(stdout, "%u |\t", array_u32);
                                 }
                             }
-                        } else if (0 == strcmp(field->array_type, "long")) {
+                        } else if (0 == strcmp(field->array_type_str, "long")) {
                             int64_t n64 = 0;
-
                             if (field->nullable) {
                                 avro_value_t branch;
                                 avro_value_get_current_branch(&field_value,
@@ -12835,7 +12855,7 @@ int inspectAvroFile(char *filename) {
                             }
                         } else {
                             errorPrint("%s is not supported!\n",
-                                    field->array_type);
+                                    field->array_type_str);
                         }
                     }
                 }
