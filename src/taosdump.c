@@ -46,6 +46,7 @@
 #include <jansson.h>
 
 #include <taos.h>
+#include <taoserror.h>
 #include <toolsdef.h>
 
 #ifdef WEBSOCKET
@@ -6553,6 +6554,13 @@ static void dumpInAvroDataInt(FieldStruct *field,
     }
 }
 
+static void countFailureAndFree(char *bindArray,
+        int32_t onlyCol, int64_t *failed, char *tbName) {
+    freeBindArray(bindArray, onlyCol);
+    (*failed)++;
+    freeTbNameIfLooseMode(tbName);
+}
+
 static int64_t dumpInAvroDataImpl(
         void *taos,
         char *namespace,
@@ -6630,8 +6638,8 @@ static int64_t dumpInAvroDataImpl(
     debugPrint("%s() LN%d, stmt buffer: %s\n",
             __func__, __LINE__, stmtBuffer);
 
-#ifdef WEBSOCKET
     int code;
+#ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, strlen(stmtBuffer)))) {
             errorPrint("%s() LN%d, failed to execute ws_stmt_prepare()."
@@ -6646,7 +6654,7 @@ static int64_t dumpInAvroDataImpl(
         }
     } else {
 #endif
-        if (0 != taos_stmt_prepare(stmt, stmtBuffer, 0)) {
+        if (0 != (code = taos_stmt_prepare(stmt, stmtBuffer, 0))) {
             errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
                     taos_stmt_errstr(stmt));
 
@@ -6684,8 +6692,8 @@ static int64_t dumpInAvroDataImpl(
     int64_t success = 0;
     int64_t failed = 0;
     int64_t count = 0;
+    int64_t countTSOutOfRange = 0;
 
-    int stmt_count = 0;
     bool printDot = true;
     while (!avro_file_reader_read_value(reader, &value)) {
         avro_value_t tbname_value, tbname_branch;
@@ -6989,16 +6997,12 @@ static int64_t dumpInAvroDataImpl(
                                 typeToStr(field->type));
                         break;
                 }
-
                 bind->buffer_type = tableDes->cols[i].type;
                 bind->length = (int32_t *)&bind->buffer_length;
             }
-
             bind->num = 1;
         }
-
         debugPrint2("%s", "\n");
-
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             if (0 != (code = ws_stmt_bind_param_batch(ws_stmt,
@@ -7006,8 +7010,7 @@ static int64_t dumpInAvroDataImpl(
                 errorPrint("%s() LN%d ws_stmt_bind_param_batch() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
 
@@ -7015,8 +7018,7 @@ static int64_t dumpInAvroDataImpl(
                 errorPrint("%s() LN%d stmt_bind_param() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
             int32_t affected_rows;
@@ -7026,39 +7028,39 @@ static int64_t dumpInAvroDataImpl(
                             "timestamp: %"PRId64"\n",
                             __func__, __LINE__, taos, code,
                             ws_errstr(ws_stmt), ts_debug);
-                failed -= stmt_count;
-                break;
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
+                continue;
             } else {
                 success++;
             }
         } else {
 #endif
-            if (0 != taos_stmt_bind_param_batch(stmt,
-                    (TAOS_MULTI_BIND *)bindArray)) {
+            if (0 != (code = taos_stmt_bind_param_batch(stmt,
+                    (TAOS_MULTI_BIND *)bindArray))) {
                 errorPrint("%s() LN%d stmt_bind_param_batch() failed! "
                             "reason: %s\n",
                             __func__, __LINE__, taos_stmt_errstr(stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
-                freeTbNameIfLooseMode(tbName);
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
 
-            if (0 != taos_stmt_add_batch(stmt)) {
+            if (0 != (code = taos_stmt_add_batch(stmt))) {
                 errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
-                freeTbNameIfLooseMode(tbName);
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
-            if (0 != taos_stmt_execute(stmt)) {
-                errorPrint("%s() LN%d taos_stmt_execute() failed! "
-                           "reason: %s, timestamp: %"PRId64"\n",
-                        __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
-                failed -= stmt_count;
-                freeTbNameIfLooseMode(tbName);
-                break;
+            if (0 != (code = taos_stmt_execute(stmt))) {
+                if (code == TSDB_CODE_TDB_TIMESTAMP_OUT_OF_RANGE) {
+                    countTSOutOfRange++;
+                } else {
+                    errorPrint("%s() LN%d taos_stmt_execute() failed! "
+                           "code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
+                        __func__, __LINE__,
+                        code, taos_stmt_errstr(stmt), ts_debug);
+                }
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
+                continue;
             } else {
                 success++;
             }
@@ -7082,8 +7084,13 @@ static int64_t dumpInAvroDataImpl(
 #ifdef WEBSOCKET
     }
 #endif
-    if (failed)
+    if (failed) {
+        if (countTSOutOfRange) {
+            errorPrint("Total %"PRId64" record(s) ts out of range!\n",
+                    countTSOutOfRange);
+        }
         return (-failed);
+    }
     return success;
 }
 
@@ -7319,7 +7326,7 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
             switch (pThreadInfo->avroType) {
                 case AVRO_DATA:
                     atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
-                    errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
+                    warnPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
                                         pThreadInfo->threadIndex, rows,
                                         fileList[pThreadInfo->from + i]);
                     break;

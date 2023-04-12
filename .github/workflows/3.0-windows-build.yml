@@ -64,7 +64,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-3102-taosdump-in-type'
+          ref: 'fix/sangshuduo/TS-3023-taosdump-fail-continue'
 
       - name: create debug directory
         if: |
