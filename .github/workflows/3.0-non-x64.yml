@@ -4,6 +4,8 @@ name: Ubuntu (3.x non-x64 build)
 
 # Controls when the workflow will run
 on:
+  schedule:
+    - cron: "10 16 * * *"
   # Triggers the workflow on push or pull request events but only for the develop branch
   push:
     branches: [ develop ]
@@ -19,7 +21,7 @@ env:
 
 jobs:
   build_job:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
 
     # Run steps on a matrix of 3 arch/distro combinations
@@ -27,9 +29,9 @@ jobs:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu18.04
+            distro: ubuntu20.04
               #          - arch: armv7
-              #            distro: ubuntu18.04
+              #            distro: ubuntu20.04
 
     steps:
       - uses: actions/checkout@v3
@@ -102,7 +104,7 @@ jobs:
           #        uses: uraimo/run-on-arch-action@v2.1.1
           #        with:
           #          arch: armv7
-          #          distro: ubuntu18.04
+          #          distro: ubuntu20.04
           #          run: |
           #            echo "The uname output was ${{ steps.setup.outputs.uname }}"
           #            apt update -y > /dev/null
@@ -126,7 +128,7 @@ jobs:
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu20.04
           run: |
             echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null

@@ -1,6 +1,8 @@
 name: Windows (3.0 build)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:
@@ -62,7 +64,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TD-23292-taosbenchmark-same-min-max'
+          ref: 'fix/sangshuduo/TS-3102-taosdump-in-type'
 
       - name: create debug directory
         if: |

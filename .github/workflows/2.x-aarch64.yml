@@ -1,9 +1,11 @@
 # This is a basic workflow to help you get started with Actions
 
-name: Ubuntu (2.x non-x64 build)
+name: Ubuntu (2.x aarch64 build)
 
 # Controls when the workflow will run
 on:
+  schedule:
+    - cron: "10 16 * * *"
   # Triggers the workflow on push or pull request events but only for the develop branch
   push:
     branches: [ develop ]
@@ -19,7 +21,7 @@ env:
 
 jobs:
   build_job:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-22.04
     name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
 
     # Run steps on a matrix of 3 arch/distro combinations
@@ -27,13 +29,11 @@ jobs:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu18.04
-          - arch: armv7
-            distro: ubuntu18.04
+            distro: ubuntu22.04
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: uraimo/run-on-arch-action@v2.1.1
+      - uses: actions/checkout@v3
+      - uses: uraimo/run-on-arch-action@v2
         name: Run setup
         id: setup
         with:
@@ -80,7 +80,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/2.x-non-x64.yml
+            .github/workflows/2.x-aarch64.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -113,7 +113,7 @@ jobs:
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
-        uses: uraimo/run-on-arch-action@v2.1.1
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: ${{ matrix.arch }}
           distro: ${{ matrix.distro }}
@@ -126,40 +126,15 @@ jobs:
             git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
             git checkout -qf FETCH_HEAD
 
-      - name: Build TDengine on armv7
-        if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-        uses: uraimo/run-on-arch-action@v2.1.1
-        with:
-          arch: armv7
-          distro: ubuntu18.04
-          run: |
-            echo "The uname output was ${{ steps.setup.outputs.uname }}"
-            apt update -y > /dev/null
-            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
-            cd TDengine
-            mkdir debug ||:
-            cd debug
-            cmake .. -DBUILD_JDBC=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make > /dev/null
-            if [[ ! -f build/bin/taosd ]] || [[ ! -f build/bin/taosdump ]] || [[ ! -f build/bin/taosBenchmark ]]
-            then
-              echo "TDengine build failure"
-              exit 1
-            fi
-
-            cd .. && rm -rf debug
-
       - name: Build TDengine on aarch64
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: uraimo/run-on-arch-action@v2.1.1
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu22.04
           run: |
             apt update -y > /dev/null
             apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y > /dev/null
@@ -181,10 +156,10 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: uraimo/run-on-arch-action@v2.1.1
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu22.04
           run: |
             echo "TEST: old cases"
             cd TDengine/tests/pytest
@@ -207,10 +182,10 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: uraimo/run-on-arch-action@v2.1.1
+        uses: uraimo/run-on-arch-action@v2
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu22.04
           run: |
             if [ -f ~/taosdump-failed.txt ]; then
               cat ~/taosdump-failed.txt;

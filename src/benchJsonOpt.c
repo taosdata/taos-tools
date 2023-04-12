@@ -648,6 +648,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_limit)) {
             if (childTbl_limit->valueint >= 0) {
                 superTable->childTblLimit = childTbl_limit->valueint;
+                if (superTable->childTblLimit > superTable->childTblCount) {
+                    warnPrint("child table limit %"PRId64" "
+                            "is more than %"PRId64", set to %"PRId64"\n",
+                          childTbl_limit->valueint,
+                          superTable->childTblCount,
+                          superTable->childTblCount);
+                    superTable->childTblLimit = superTable->childTblCount;
+                }
             } else {
                 warnPrint("child table limit %"PRId64" is invalid, "
                           "set to %"PRId64"\n",
@@ -667,7 +675,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             if (childTbl_from->valueint >= 0) {
                 superTable->childTblFrom = childTbl_from->valueint;
             } else {
-                warnPrint("child table from %"PRId64" is invalid, set to 0\n",
+                warnPrint("child table _from_ %"PRId64" is invalid, set to 0\n",
                           childTbl_from->valueint);
                 superTable->childTblFrom = 0;
             }
@@ -677,7 +685,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_to)) {
             superTable->childTblTo = childTbl_to->valueint;
             if (superTable->childTblTo < superTable->childTblFrom) {
-                errorPrint("child table to is invalid number,"
+                errorPrint("child table _to_ is invalid number,"
                     "%"PRId64" < %"PRId64"\n",
                     superTable->childTblTo, superTable->childTblFrom);
                 return -1;
@@ -1755,8 +1763,9 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     tools_cJSON *enableManualCommit = tools_cJSON_GetObjectItem(
             tmqInfo, "enable.manual.commit");
     if (tools_cJSON_IsString(enableManualCommit)) {
-        g_tmqInfo.consumerInfo.enableManualCommit = enableManualCommit->valuestring;
-    }	
+        g_tmqInfo.consumerInfo.enableManualCommit =
+            enableManualCommit->valuestring;
+    }
 
     tools_cJSON *enableHeartbeatBackground = tools_cJSON_GetObjectItem(
             tmqInfo, "enable.heartbeat.background");

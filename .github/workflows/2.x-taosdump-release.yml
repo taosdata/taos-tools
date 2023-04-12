@@ -1,6 +1,8 @@
 name: Ubuntu (2.x taosdump Release)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:

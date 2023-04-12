@@ -22,20 +22,20 @@
 
 extern char version[];
 
+#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
+#include "cus_name.h"
+#else
 #ifndef CUS_NAME
-    char cusName[] = "TDengine";
+#define CUS_NAME        "TDengine"
 #endif
 
 #ifndef CUS_PROMPT
-    char cusPrompt[] = "taos";
+#define CUS_PROMPT      "taos"
 #endif
 
 #ifndef CUS_EMAIL
-    char cusEmail[] = "<support@taosdata.com>";
+#define CUS_EMAIL       "<support@taosdata.com>"
 #endif
-
-#if defined(CUS_NAME) || defined(CUS_PROMPT) || defined(CUS_EMAIL)
-#include "cus_name.h"
 #endif
 
 #ifdef WINDOWS
@@ -47,7 +47,7 @@ char      g_configDir[MAX_PATH_LEN] = {0};  // "/etc/taos"};
 #ifndef LINUX
 void benchPrintHelp() {
     char indent[] = "  ";
-    printf("Usage: taosBenchmark [OPTION ...] \r\n\r\n");
+    printf("Usage: "CUS_PROMPT"Benchmark [OPTION ...] \r\n\r\n");
     printf("%s%s%s%s\r\n", indent, "-f,", indent, BENCH_FILE);
     printf("%s%s%s%s\r\n", indent, "-a,", indent, BENCH_REPLICA);
     printf("%s%s%s%s\r\n", indent, "-A,", indent, BENCH_TAGS);
@@ -94,7 +94,7 @@ void benchPrintHelp() {
     printf("%s%s%s%s\r\n", indent, "-v,", indent, BENCH_VGROUPS);
 #endif
     printf("%s%s%s%s\r\n", indent, "-V,", indent, BENCH_VERSION);
-    printf("\r\n\r\nReport bugs to %s.\r\n", cusEmail);
+    printf("\r\n\r\nReport bugs to %s.\r\n", CUS_EMAIL);
 }
 
 int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
@@ -168,7 +168,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
 }
 #else
 const char *              argp_program_version = version;
-const char *              argp_program_bug_address = cusEmail;
+const char *              argp_program_bug_address = CUS_EMAIL;
 
 static struct argp_option bench_options[] = {
     {"file", 'f', "FILE", 0, BENCH_FILE, 0},
@@ -237,7 +237,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
     switch (key) {
         case 'F':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "F");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "F");
             }
 
             g_arguments->prepared_rand = atol(arg);
@@ -263,7 +263,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'P':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "P");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "P");
             }
             g_arguments->port = atoi(arg);
             if (g_arguments->port <= 0) {
@@ -350,7 +350,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'T':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "T");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "T");
             }
 
             g_arguments->nthreads = atoi(arg);
@@ -366,7 +366,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'i':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "i");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "i");
             }
 
             stbInfo->insert_interval = atoi(arg);
@@ -380,7 +380,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'S':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "S");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "S");
             }
 
             stbInfo->timestamp_step = atol(arg);
@@ -394,7 +394,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'B':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "B");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "B");
             }
 
             stbInfo->interlaceRows = atoi(arg);
@@ -408,7 +408,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'r':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "r");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "r");
             }
 
             g_arguments->reqPerReq = atoi(arg);
@@ -423,7 +423,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 's':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "s");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "s");
             }
 
             g_arguments->startTimestamp = atol(arg);
@@ -436,7 +436,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 't':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "t");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "t");
             }
 
             stbInfo->childTblCount = atoi(arg);
@@ -451,7 +451,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'n':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "n");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "n");
             }
 
             stbInfo->insertRows = atol(arg);
@@ -469,7 +469,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'l':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "l");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "l");
             }
 
             g_arguments->demo_mode = false;
@@ -484,7 +484,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'L':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "L");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "L");
             }
 
             g_arguments->demo_mode = false;
@@ -503,7 +503,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'k':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "k");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "k");
             }
 
             g_arguments->keep_trying = atoi(arg);
@@ -512,7 +512,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'z':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "z");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "z");
             }
 
             g_arguments->trying_interval = atoi(arg);
@@ -521,7 +521,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'w':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "w");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "w");
             }
 
             g_arguments->binwidth = atoi(arg);
@@ -576,7 +576,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'R':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "R");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "R");
             }
 
             stbInfo->disorderRange = atoi(arg);
@@ -592,7 +592,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'O':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "O");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "O");
             }
 
             stbInfo->disorderRatio = atoi(arg);
@@ -608,7 +608,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'a': {
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "a");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "a");
             }
 
             int replica = atoi(arg);
@@ -642,7 +642,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'D':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "D");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "D");
             }
 
             g_arguments->timeout = atoi(arg);
@@ -651,7 +651,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
         case 'v':
             if (!toolsIsStringNumber(arg)) {
-                errorPrintReqArg2("taosBenchmark", "v");
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "v");
             }
             g_arguments->nthreads_auto = false;
             g_arguments->inputted_vgroups = atoi(arg);

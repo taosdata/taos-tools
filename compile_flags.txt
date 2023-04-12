@@ -1,0 +1,4 @@
+-DLINUX
+-Iinc
+-Ideps/toolscJson/inc
+-Ideps/avro/lang/c/src
