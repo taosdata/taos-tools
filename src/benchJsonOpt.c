@@ -1774,12 +1774,6 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
             enableHeartbeatBackground->valuestring;
     }
 
-    tools_cJSON *snapshotEnable = tools_cJSON_GetObjectItem(
-            tmqInfo, "experimental.snapshot.enable");
-    if (tools_cJSON_IsString(snapshotEnable)) {
-        g_tmqInfo.consumerInfo.snapshotEnable = snapshotEnable->valuestring;
-    }
-
     tools_cJSON *msgWithTableName = tools_cJSON_GetObjectItem(
             tmqInfo, "msg.with.table.name");
     if (tools_cJSON_IsString(msgWithTableName)) {
