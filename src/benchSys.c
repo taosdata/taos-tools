@@ -548,7 +548,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             break;
 
         case 'E':
-            stbInfo->escape_character = true;
+            g_arguments->escape_character = true;
             break;
 
         case 'C':
