@@ -1355,7 +1355,7 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
             buffer, TSDB_MAX_ALLOWED_SQL_LEN,
             g_arguments->escape_character ?
                 "CREATE TABLE `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s "
-                : "%s.%s USING %s.%s TAGS (%s) %s ",
+                : "CREATE TABLE %s.%s USING %s.%s TAGS (%s) %s ",
             database->dbName, childTbl->name, database->dbName,
             stbInfo->stbName,
             stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);

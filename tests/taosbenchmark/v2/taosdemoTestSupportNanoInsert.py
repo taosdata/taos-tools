@@ -56,7 +56,7 @@ class TDTestCase:
         else:
             tdLog.info("taosBenchmark found in %s" % binPath)
 
-        # insert: create one  or mutiple tables per sql and insert multiple rows per sql
+        # insert: create one  or multiple tables per sql and insert multiple rows per sql
         # insert data from a special timestamp
         # check stable stb0
 
@@ -112,7 +112,7 @@ class TDTestCase:
         tdSql.query("describe stb0")
         tdSql.checkDataType(9, 1, "TIMESTAMP")
 
-        # insert by csv files and timetamp is long int , strings  in ts and
+        # insert by csv files and timestamp is long int , strings  in ts and
         # cols
 
         os.system(
