@@ -1745,7 +1745,7 @@ static int32_t prepareProgressDataStmt(
     char escapedTbName[TSDB_TABLE_NAME_LEN + 2] = "\0";
     if (g_arguments->escape_character) {
         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN + 2,
-                 "\"%s\"", childTbl->name);
+                 "`%s`", childTbl->name);
     } else {
         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                  childTbl->name);
