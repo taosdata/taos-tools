@@ -1,4 +1,5 @@
 -DLINUX
+-DWEBSOCKET=true
 -I/usr/include
 -Iinc
 -Ideps/toolscJson/inc

@@ -2463,7 +2463,10 @@ static int getTableTagValueWSV2(
         sqlstr += sprintf(sqlstr, ",%s%s%s ",
                 g_escapeChar, tableDes->cols[i].field, g_escapeChar);
     }
-    sqlstr += sprintf(sqlstr, "FROM %s.%s%s%s LIMIT 1",
+    sqlstr += sprintf(sqlstr,
+            g_args.db_escape_char
+            ? " FROM `%s`.%s%s%s LIMIT 1"
+            : " FROM %s.%s%s%s LIMIT 1",
             dbName, g_escapeChar, table, g_escapeChar);
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
