@@ -48,7 +48,6 @@
       "child_table_exists":"no",
       "childtable_count": 8,
       "childtable_prefix": "stb2-2_",
-      "escape_character": "yes",
       "auto_create_table": "yes",
       "batch_create_tbl_num": 10,
       "data_source": "rand",
