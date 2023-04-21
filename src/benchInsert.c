@@ -1472,13 +1472,21 @@ static void *syncWriteInterlace(void *sarg) {
             switch (stbInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE: {
+                    char escapedTbName[TSDB_TABLE_NAME_LEN+2] = "\0";
+                    if (g_arguments->escape_character) {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN+2, "`%s`",
+                                tableName);
+                    } else {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN+2, "%s",
+                                tableName);
+                    }
                     if (i == 0) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
                     if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
-                                    tableName,
+                                    escapedTbName,
                                     " USING `",
                                     stbInfo->stbName,
                                     "` TAGS (",
@@ -1487,12 +1495,12 @@ static void *syncWriteInterlace(void *sarg) {
                                     ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 2,
-                                    tableName, " VALUES ");
+                                    escapedTbName, " VALUES ");
                         }
                     } else {
                         if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 10,
-                                        tableName,
+                                        escapedTbName,
                                         " (",
                                         stbInfo->partialColNameBuf,
                                         ") USING `",
@@ -1503,7 +1511,7 @@ static void *syncWriteInterlace(void *sarg) {
                                         ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 4,
-                                        tableName,
+                                        escapedTbName,
                                         "(",
                                         stbInfo->partialColNameBuf,
                                         ") VALUES ");
@@ -1541,8 +1549,16 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
+                    char escapedTbName[TSDB_TABLE_NAME_LEN+2] = "\0";
+                    if (g_arguments->escape_character) {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN+2,
+                                "`%s`", tableName);
+                    } else {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
+                                tableName);
+                    }
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
-                                             tableName)) {
+                                             escapedTbName)) {
                         errorPrint(
                             "taos_stmt_set_tbname(%s) failed, reason: %s\n",
                             tableName,
@@ -1726,11 +1742,19 @@ static int32_t prepareProgressDataStmt(
         SChildTable *childTbl,
         int64_t *timestamp, uint64_t i, char *ttl) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    char escapedTbName[TSDB_TABLE_NAME_LEN + 2] = "\0";
+    if (g_arguments->escape_character) {
+        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN + 2,
+                 "\"%s\"", childTbl->name);
+    } else {
+        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
+                 childTbl->name);
+    }
     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
-                             childTbl->name)) {
+                             escapedTbName)) {
         errorPrint(
                 "taos_stmt_set_tbname(%s) failed,"
-                "reason: %s\n", childTbl->name,
+                "reason: %s\n", escapedTbName,
                 taos_stmt_errstr(pThreadInfo->conn->stmt));
         return -1;
     }
@@ -2011,9 +2035,8 @@ static int32_t prepareProgressDataSql(
             *len =
                 snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                         g_arguments->escape_character
-                        ? "%s `%s`.`%s` (%s) USING `%s`.`%s` "
-                        : "%s %s.%s USING %s.%s "
-                         "TAGS (%s) %s VALUES ",
+                        ? "%s `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s VALUES "
+                        : "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ",
                          STR_INSERT_INTO, database->dbName,
                          childTbl->name, database->dbName,
                          stbInfo->stbName,
@@ -2032,9 +2055,8 @@ static int32_t prepareProgressDataSql(
             *len = snprintf(
                     pstr, TSDB_MAX_ALLOWED_SQL_LEN,
                     g_arguments->escape_character
-                    ? "%s `%s`.`%s` (%s) USING `%s`.`%s` "
-                    : "%s %s.%s (%s) USING %s.%s "
-                    "TAGS (%s) %s VALUES ",
+                    ? "%s `%s`.`%s` (%s) USING `%s`.`%s` TAGS (%s) %s VALUES "
+                    : "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ",
                     STR_INSERT_INTO, database->dbName,
                     childTbl->name,
                     stbInfo->partialColNameBuf,
