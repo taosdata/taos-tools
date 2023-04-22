@@ -607,7 +607,6 @@ typedef struct SChildTable_S {
 typedef struct SSuperTable_S {
     char      *stbName;
     bool      random_data_source;  // rand_gen or sample
-    bool      escape_character;
     bool      use_metric;
     char      *childTblPrefix;
     char      *childTblSample;
@@ -890,6 +889,7 @@ typedef struct SArguments_S {
 #endif
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
     bool                mistMode;
+    bool                escape_character;
 } SArguments;
 
 typedef struct SBenchConn {
@@ -991,8 +991,8 @@ extern uint64_t       g_memoryUsage;
 /* ************ Function declares ************  */
 /* benchCommandOpt.c */
 int32_t benchParseArgs(int32_t argc, char* argv[]);
-void modify_argument();
-void init_argument();
+void modifyArgument();
+void initArgument();
 void queryAggrFunc();
 void parseFieldDatatype(char *dataType, BArray *fields, bool isTag);
 /* demoJsonOpt.c */

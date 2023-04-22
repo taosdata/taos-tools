@@ -134,7 +134,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
 
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(command, SHORT_1K_SQL_BUFF_LEN,
-             "DESCRIBE %s.`%s`", database->dbName,
+             "DESCRIBE `%s`.`%s`", database->dbName,
              stbInfo->stbName);
 
     if (REST_IFACE == stbInfo->iface) {
@@ -200,9 +200,9 @@ static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
 
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(command, sizeof(command),
-        stbInfo->escape_character?
-             "DROP TABLE %s.`%s`":
-             "DROP TABLE %s.%s",
+        g_arguments->escape_character
+            ? "DROP TABLE `%s`.`%s`"
+            : "DROP TABLE %s.%s",
              database->dbName,
              stbInfo->stbName);
 
@@ -313,8 +313,8 @@ skip:
 
     int length = snprintf(
         command, TSDB_MAX_ALLOWED_SQL_LEN,
-        stbInfo->escape_character
-            ? "CREATE TABLE %s.`%s` (ts TIMESTAMP%s) TAGS %s"
+        g_arguments->escape_character
+            ? "CREATE TABLE `%s`.`%s` (ts TIMESTAMP%s) TAGS %s"
             : "CREATE TABLE %s.%s (ts TIMESTAMP%s) TAGS %s",
         database->dbName, stbInfo->stbName, colsBuf, tagsBuf);
     tmfree(colsBuf);
@@ -397,7 +397,11 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     int     vgroups = 0;
     char    cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
 
-    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "USE %s", database->dbName);
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
+            g_arguments->escape_character
+            ? "USE `%s`"
+            : "USE %s",
+            database->dbName);
 
     int32_t   code;
     TAOS_RES *res = NULL;
@@ -459,19 +463,25 @@ int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     if (g_arguments->nthreads_auto || (-1 != g_arguments->inputted_vgroups)) {
         n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
-                            "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
+                    g_arguments->escape_character
+                        ? "CREATE DATABASE IF NOT EXISTS `%s` VGROUPS %d"
+                        : "CREATE DATABASE IF NOT EXISTS %s VGROUPS %d",
                             database->dbName,
                             (-1 != g_arguments->inputted_vgroups)?
                             g_arguments->inputted_vgroups:
                             min(remainVnodes, toolsGetNumberOfCores()));
     } else {
         n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
-                            "CREATE DATABASE IF NOT EXISTS %s",
+                    g_arguments->escape_character
+                        ? "CREATE DATABASE IF NOT EXISTS `%s`"
+                        : "CREATE DATABASE IF NOT EXISTS %s",
                             database->dbName);
     }
 #else
     n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
-                        "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
+                    g_arguments->escape_character
+                        ? "CREATE DATABASE IF NOT EXISTS `%s`"
+                        : "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
     if (n < 0 || n >= SHORT_1K_SQL_BUFF_LEN - dataLen) {
         errorPrint("%s() LN%d snprintf overflow\n",
@@ -531,7 +541,9 @@ int createDatabaseRest(SDataBase* database) {
     }
 
     snprintf(command, SHORT_1K_SQL_BUFF_LEN,
-             "DROP DATABASE IF EXISTS %s;",
+            g_arguments->escape_character
+                ? "DROP DATABASE IF EXISTS `%s`;"
+                : "DROP DATABASE IF EXISTS %s;",
              database->dbName);
     code = postProceSql(command,
                         database->dbName,
@@ -624,7 +636,10 @@ int createDatabaseTaosc(SDataBase* database) {
         }
     }
 
-    snprintf(command, SHORT_1K_SQL_BUFF_LEN, "DROP DATABASE IF EXISTS %s;",
+    snprintf(command, SHORT_1K_SQL_BUFF_LEN,
+            g_arguments->escape_character
+                ? "DROP DATABASE IF EXISTS `%s`;":
+            "DROP DATABASE IF EXISTS %s;",
              database->dbName);
     if (0 != queryDbExecCall(conn, command)) {
 #ifdef WEBSOCKET
@@ -736,10 +751,9 @@ static int generateChildTblName(int len, char *buffer, SDataBase *database,
 
     len += snprintf(
             buffer + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
-            stbInfo->escape_character ? "%s.`%s%" PRIu64
-            "` USING %s.`%s` TAGS (%s) %s "
-            : "%s.%s%" PRIu64
-            " USING %s.%s TAGS (%s) %s ",
+            g_arguments->escape_character
+            ? "`%s`.`%s%" PRIu64 "` USING `%s`.`%s` TAGS (%s) %s "
+            : "%s.%s%" PRIu64 " USING %s.%s TAGS (%s) %s ",
             database->dbName, stbInfo->childTblPrefix, i, database->dbName,
             stbInfo->stbName,
             stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
@@ -813,14 +827,16 @@ static void *createTable(void *sarg) {
         if (!stbInfo->use_metric || stbInfo->tags->size == 0) {
             if (stbInfo->childTblCount == 1) {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
-                         stbInfo->escape_character
-                         ? "CREATE TABLE %s.`%s` %s;"
+                         g_arguments->escape_character
+                         ? "CREATE TABLE `%s`.`%s` %s;"
                          : "CREATE TABLE %s.%s %s;",
                          database->dbName, stbInfo->stbName,
                          stbInfo->colsOfCreateChildTable);
             } else {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
-                         "CREATE TABLE %s.%s %s;",
+                         g_arguments->escape_character
+                         ? "CREATE TABLE `%s`.`%s` %s;"
+                         : "CREATE TABLE %s.%s %s;",
                          database->dbName,
                          stbInfo->childTblArray[i]->name,
                          stbInfo->colsOfCreateChildTable);
@@ -1337,9 +1353,9 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
         benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
     snprintf(
             buffer, TSDB_MAX_ALLOWED_SQL_LEN,
-            stbInfo->escape_character ?
-            "CREATE TABLE %s.%s USING %s.`%s` TAGS (%s) %s "
-            : "%s.%s USING %s.%s TAGS (%s) %s ",
+            g_arguments->escape_character ?
+                "CREATE TABLE `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s "
+                : "CREATE TABLE %s.%s USING %s.%s TAGS (%s) %s ",
             database->dbName, childTbl->name, database->dbName,
             stbInfo->stbName,
             stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
@@ -1456,13 +1472,21 @@ static void *syncWriteInterlace(void *sarg) {
             switch (stbInfo->iface) {
                 case REST_IFACE:
                 case TAOSC_IFACE: {
+                    char escapedTbName[TSDB_TABLE_NAME_LEN+2] = "\0";
+                    if (g_arguments->escape_character) {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN+2, "`%s`",
+                                tableName);
+                    } else {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN+2, "%s",
+                                tableName);
+                    }
                     if (i == 0) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
                     if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
-                                    tableName,
+                                    escapedTbName,
                                     " USING `",
                                     stbInfo->stbName,
                                     "` TAGS (",
@@ -1471,12 +1495,12 @@ static void *syncWriteInterlace(void *sarg) {
                                     ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 2,
-                                    tableName, " VALUES ");
+                                    escapedTbName, " VALUES ");
                         }
                     } else {
                         if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 10,
-                                        tableName,
+                                        escapedTbName,
                                         " (",
                                         stbInfo->partialColNameBuf,
                                         ") USING `",
@@ -1487,7 +1511,7 @@ static void *syncWriteInterlace(void *sarg) {
                                         ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 4,
-                                        tableName,
+                                        escapedTbName,
                                         "(",
                                         stbInfo->partialColNameBuf,
                                         ") VALUES ");
@@ -1525,8 +1549,16 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
                 case STMT_IFACE: {
+                    char escapedTbName[TSDB_TABLE_NAME_LEN+2] = "\0";
+                    if (g_arguments->escape_character) {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN+2,
+                                "`%s`", tableName);
+                    } else {
+                        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
+                                tableName);
+                    }
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
-                                             tableName)) {
+                                             escapedTbName)) {
                         errorPrint(
                             "taos_stmt_set_tbname(%s) failed, reason: %s\n",
                             tableName,
@@ -1710,11 +1742,19 @@ static int32_t prepareProgressDataStmt(
         SChildTable *childTbl,
         int64_t *timestamp, uint64_t i, char *ttl) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    char escapedTbName[TSDB_TABLE_NAME_LEN + 2] = "\0";
+    if (g_arguments->escape_character) {
+        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN + 2,
+                 "`%s`", childTbl->name);
+    } else {
+        snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
+                 childTbl->name);
+    }
     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
-                             childTbl->name)) {
+                             escapedTbName)) {
         errorPrint(
                 "taos_stmt_set_tbname(%s) failed,"
-                "reason: %s\n", childTbl->name,
+                "reason: %s\n", escapedTbName,
                 taos_stmt_errstr(pThreadInfo->conn->stmt));
         return -1;
     }
@@ -1994,8 +2034,9 @@ static int32_t prepareProgressDataSql(
         if (stbInfo->autoTblCreating) {
             *len =
                 snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                         "%s %s.%s USING %s.%s "
-                         "TAGS (%s) %s VALUES ",
+                        g_arguments->escape_character
+                        ? "%s `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s VALUES "
+                        : "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ",
                          STR_INSERT_INTO, database->dbName,
                          childTbl->name, database->dbName,
                          stbInfo->stbName,
@@ -2003,15 +2044,19 @@ static int32_t prepareProgressDataSql(
                          stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                           "%s %s.%s VALUES ", STR_INSERT_INTO,
+                    g_arguments->escape_character
+                           ? "%s `%s`.`%s` VALUES "
+                           : "%s %s.%s VALUES ",
+                           STR_INSERT_INTO,
                            database->dbName, childTbl->name);
         }
     } else {
         if (stbInfo->autoTblCreating) {
             *len = snprintf(
                     pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                    "%s %s.%s (%s) USING %s.%s "
-                    "TAGS (%s) %s VALUES ",
+                    g_arguments->escape_character
+                    ? "%s `%s`.`%s` (%s) USING `%s`.`%s` TAGS (%s) %s VALUES "
+                    : "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ",
                     STR_INSERT_INTO, database->dbName,
                     childTbl->name,
                     stbInfo->partialColNameBuf,
@@ -2020,10 +2065,12 @@ static int32_t prepareProgressDataSql(
                     stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                           "%s %s.%s (%s) VALUES ",
-                           STR_INSERT_INTO, database->dbName,
-                           childTbl->name,
-                           stbInfo->partialColNameBuf);
+                    g_arguments->escape_character
+                    ? "%s `%s`.`%s` (%s) VALUES "
+                    : "%s %s.%s (%s) VALUES ",
+                    STR_INSERT_INTO, database->dbName,
+                    childTbl->name,
+                    stbInfo->partialColNameBuf);
         }
     }
 
@@ -2077,7 +2124,7 @@ void *syncWriteProgressive(void *sarg) {
 
     // special deal flow for TAOSC_IFACE
     if (insertDataMix(pThreadInfo, database, stbInfo)) {
-        // request be dealed by this function , so return
+        // request be dealt by this function , so return
         return NULL;
     }
 
@@ -2562,8 +2609,6 @@ static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
         snprintf(stbInfo->childTblArray[i]->name,
                  TSDB_TABLE_NAME_LEN,
-                 stbInfo->escape_character?
-                 "`%s%" PRIu64 "`":
                  "%s%" PRIu64 "",
                  stbInfo->childTblPrefix, i);
         debugPrint("%s(): %s\n", __func__,
@@ -2576,15 +2621,10 @@ static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
 static int64_t fillChildTblNameByFromTo(SDataBase *database,
         SSuperTable* stbInfo) {
     for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
-        if (stbInfo->escape_character) {
-            snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->name,
-                     TSDB_TABLE_NAME_LEN,
-                     "`%s%" PRIu64 "`", stbInfo->childTblPrefix, i);
-        } else {
-            snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->name,
-                     TSDB_TABLE_NAME_LEN,
-                     "%s%" PRIu64 "", stbInfo->childTblPrefix, i);
-        }
+        snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->name,
+                TSDB_TABLE_NAME_LEN,
+                "%s%" PRIu64 "",
+                stbInfo->childTblPrefix, i);
     }
 
     return (stbInfo->childTblTo-stbInfo->childTblFrom);
@@ -2622,10 +2662,8 @@ static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         int *lengths = taos_fetch_lengths(res);
-        stbInfo->childTblArray[count]->name[0] = '`';
-        strncpy(stbInfo->childTblArray[count]->name +1, row[0], lengths[0]);
-        stbInfo->childTblArray[count]->name[lengths[0] + 1] = '`';
-        stbInfo->childTblArray[count]->name[lengths[0] + 2] = '\0';
+        strncpy(stbInfo->childTblArray[count]->name, row[0], lengths[0]);
+        stbInfo->childTblArray[count]->name[lengths[0] + 1] = '\0';
         debugPrint("stbInfo->childTblArray[%" PRId64 "]->name: %s\n",
                    count, stbInfo->childTblArray[count]->name);
         count++;
@@ -2734,13 +2772,8 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
 
     if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         // Normal table
-        if (stbInfo->escape_character) {
-            snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
-                    "`%s`", stbInfo->stbName);
-        } else {
-            snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
+        snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
                     "%s", stbInfo->stbName);
-        }
     } else if ((stbInfo->iface != SML_IFACE
                 && stbInfo->iface != SML_REST_IFACE)
             && stbInfo->childTblExists) {
@@ -3083,7 +3116,10 @@ static int startMultiThreadInsertData(SDataBase* database,
                     return -1;
                 }
                 char* command = benchCalloc(1, SHORT_1K_SQL_BUFF_LEN, false);
-                snprintf(command, SHORT_1K_SQL_BUFF_LEN, "USE %s",
+                snprintf(command, SHORT_1K_SQL_BUFF_LEN,
+                        g_arguments->escape_character
+                        ? "USE `%s`"
+                        : "USE %s",
                         database->dbName);
                 if (queryDbExecCall(pThreadInfo->conn, command)) {
                     errorPrint("taos select database(%s) failed\n",

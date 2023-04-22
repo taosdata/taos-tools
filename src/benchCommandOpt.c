@@ -113,7 +113,6 @@ static void initStable() {
     stbInfo->iface = TAOSC_IFACE;
     stbInfo->stbName = "meters";
     stbInfo->childTblPrefix = DEFAULT_TB_PREFIX;
-    stbInfo->escape_character = 0;
     stbInfo->use_metric = 1;
     stbInfo->max_sql_len = TSDB_MAX_ALLOWED_SQL_LEN;
     stbInfo->cols = benchArrayInit(3, sizeof(Field));
@@ -197,7 +196,7 @@ static void initDatabase() {
     database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
 }
 
-void init_argument() {
+void initArgument() {
     g_arguments = benchCalloc(1, sizeof(SArguments), true);
     if (taos_get_client_info()[0] == '3') {
         g_arguments->taosc_version = 3;
@@ -253,7 +252,7 @@ void init_argument() {
     g_arguments->streams = benchArrayInit(1, sizeof(SSTREAM));
 }
 
-void modify_argument() {
+void modifyArgument() {
     SDataBase * database = benchArrayGet(g_arguments->databases, 0);
     SSuperTable *superTable = benchArrayGet(database->superTbls, 0);
 #ifdef WEBSOCKET
@@ -483,21 +482,15 @@ static void *queryNtableAggrFunc(void *sarg) {
         double   totalT = 0;
         uint64_t count = 0;
         for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-            if (stbInfo->escape_character) {
-                snprintf(command,
-                         TSDB_MAX_ALLOWED_SQL_LEN,
-                        "SELECT %s FROM %s.`%s%" PRId64 "` WHERE ts>= %" PRIu64,
-                        aggreFunc[j],
-                        database->dbName,
-                        stbInfo->childTblPrefix, i,
-                        (uint64_t) DEFAULT_START_TIME);
-            } else {
-                snprintf(
-                    command, TSDB_MAX_ALLOWED_SQL_LEN,
-                        "SELECT %s FROM %s.%s%" PRId64 " WHERE ts>= %" PRIu64,
-                    aggreFunc[j], database->dbName, stbInfo->childTblPrefix, i,
-                    (uint64_t)DEFAULT_START_TIME);
-            }
+            snprintf(command,
+                    TSDB_MAX_ALLOWED_SQL_LEN,
+                    g_arguments->escape_character
+                    ? "SELECT %s FROM `%s`.`%s%" PRId64 "` WHERE ts>= %" PRIu64 
+                    : "SELECT %s FROM %s.%s%" PRId64 " WHERE ts>= %" PRIu64 ,
+                    aggreFunc[j],
+                    database->dbName,
+                    stbInfo->childTblPrefix, i,
+                    (uint64_t) DEFAULT_START_TIME);
             double    t = (double)toolsGetTimestampUs();
             int32_t code = -1;
             if (REST_IFACE == g_arguments->iface) {
