@@ -150,6 +150,10 @@ static int queryDbExec(SDataBase *database,
                        SSuperTable *stbInfo, char *command) {
     int ret = 0;
     if (REST_IFACE == stbInfo->iface) {
+        if (0 != convertServAddr(stbInfo->iface, false, 1)) {
+            errorPrint("%s", "Failed to convert server address\n");
+            return -1;
+        }
         int sockfd = createSockFd();
         if (sockfd < 0) {
             ret = -1;
