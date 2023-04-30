@@ -140,8 +140,7 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null
-          pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
+          pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
 
       - name: taosdump old Test
         if:
