@@ -96,7 +96,7 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-          pip3 install numpy fabric2 psutil pandas faker toml taospy > /dev/null
+          pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
 
       - name: taosBenchmark Test
         if: steps.changed-files-specific.outputs.any_changed == 'true'
