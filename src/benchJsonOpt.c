@@ -322,7 +322,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
             SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
             cfg->name = cfg_object->string;
 
-            // get duration vallue
+            // get duration value
             if (0 == strcasecmp(cfg_object->string, "duration")) {
                 database->durMinute = getDurationVal(cfg_object);
             }
@@ -707,7 +707,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->startTimestamp =
                     toolsGetTimestamp(database->precision);
                 superTable->useNow = true;
-                //  fill time with now conflict wih check_sql
+                //  fill time with now conflict with check_sql
                 g_arguments->check_sql = false;
             } else {
                 if (toolsParseTime(ts->valuestring,

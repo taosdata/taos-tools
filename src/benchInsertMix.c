@@ -48,13 +48,13 @@ typedef struct {
   // need generate count , calc from stb->insertRows * ratio
   uint64_t genCnt[MCNT];
 
-  // status aleady done count
+  // status already done count
   uint64_t doneCnt[MCNT];
 
   // task out from batch to list buffer
   TSKEY* buf[MCNT];
 
-  // bufer cnt
+  // buffer cnt
   uint64_t capacity[MCNT]; // capacity size for buf
   uint64_t bufCnt[MCNT];   // current valid cnt in buf
 
@@ -124,7 +124,7 @@ void mixRatioExit(SMixRatio* mix) {
 //  --------------------- util ----------------
 //
 
-// return true can do execute delelte sql
+// return true can do execute delete sql
 bool needExecDel(SMixRatio* mix) {
   if (mix->genCnt[MDEL] == 0 || mix->doneCnt[MDEL] >= mix->genCnt[MDEL]) {
     return false;
@@ -708,7 +708,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
     return false;
   }
   if (count != calcCount) {
-    errorPrint("checkCorrect query count unexpect, tbname=%s query=%" PRId64 " expect=%" PRId64, tbName, count,
+    errorPrint("checkCorrect query count unexpected, tbname=%s query=%" PRId64 " expect=%" PRId64, tbName, count,
                calcCount);
 
     return false;
@@ -735,7 +735,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 
   // check count correct
   if (ts != lastTs) {
-    errorPrint("checkCorrect query last unexpect, tbname=%s query last=%" PRId64 " expect=%" PRId64, tbName, ts,
+    errorPrint("checkCorrect query last unexpected, tbname=%s query last=%" PRId64 " expect=%" PRId64, tbName, ts,
                lastTs);
     return false;
   }
