@@ -64,7 +64,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'fix/sangshuduo/TS-3102-taosdump-in-type'
+          ref: 'main'
 
       - name: create debug directory
         if: |
@@ -141,8 +141,7 @@ jobs:
           #      - name: Func Test
           #        run: |
           #          cd TDengine/tests/pytest
-          #          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
-          #  pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
+          #          pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
           #          sudo pkill -9 taosadapter || :
           #          sudo pkill -9 taosd || :
           #

@@ -51,7 +51,7 @@ void* benchCancelHandler(void* arg) {
 int main(int argc, char* argv[]) {
     int ret = 0;
 
-    init_argument();
+    initArgument();
     srand(time(NULL)%1000000);
 
     snprintf(g_client_info, CLIENT_INFO_LEN, "%s", taos_get_client_info());
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
         g_arguments->totalChildTables = 0;
         if (getInfoFromJsonFile()) exit(EXIT_FAILURE);
     } else {
-        modify_argument();
+        modifyArgument();
     }
 
     g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");

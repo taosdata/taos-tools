@@ -97,8 +97,7 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null
-          pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
+          pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
 

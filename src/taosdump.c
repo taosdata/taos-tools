@@ -46,6 +46,7 @@
 #include <jansson.h>
 
 #include <taos.h>
+#include <taoserror.h>
 #include <toolsdef.h>
 
 #ifdef WEBSOCKET
@@ -444,6 +445,7 @@ static struct argp_option options[] = {
     {"all-databases", 'A', 0, 0,  "Dump all databases.", 2},
     {"databases", 'D', "DATABASES", 0,
         "Dump listed databases. Use comma to separate databases names.", 2},
+    {"escape-character",   'e', 0, 0,  "Use escaped character for database name", 2},
     {"allow-sys",   'a', 0, 0,  "Allow to dump system database (2.0 only)", 2},
     // dump format options
     {"schemaonly", 's', 0, 0,  "Only dump table schemas.", 2},
@@ -526,6 +528,7 @@ typedef struct arguments {
     int32_t  max_sql_len;
     bool     allow_sys;
     bool     escape_char;
+    bool     db_escape_char;
     bool     loose_mode;
     bool     inspect;
     // other options
@@ -590,6 +593,7 @@ struct arguments g_args = {
     TSDB_DEFAULT_PKT_SIZE,   // max_sql_len
     false,      // allow_sys
     true,       // escape_char
+    false,      // db_escape_char
     false,      // loose_mode
     false,      // inspect
     // other options
@@ -899,6 +903,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
         case 'S':
             // parse time here.
+            break;
+
+        case 'e':
+            g_args.db_escape_char = true;
             break;
 
         case 'E':
@@ -1252,7 +1260,11 @@ static int getTableRecordInfoImplWS(
         return -1;
     }
 
-    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "USE %s", dbName);
+    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+            g_args.db_escape_char
+            ? "USE `%s`"
+            : "USE %s",
+            dbName);
     ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
     code = ws_errno(ws_res);
     if (code != 0) {
@@ -1269,12 +1281,14 @@ static int getTableRecordInfoImplWS(
         if (tryStable) {
             snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
                     "SELECT STABLE_NAME FROM information_schema.ins_stables "
-                    "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
+                    "WHERE db_name='%s' AND stable_name='%s'",
+                    dbName, table);
         } else {
             snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
                     "SELECT TABLE_NAME,STABLE_NAME FROM "
                     "information_schema.ins_tables "
-                    "WHERE db_name='%s' AND table_name='%s'", dbName, table);
+                    "WHERE db_name='%s' AND table_name='%s'",
+                    dbName, table);
         }
     } else {
         if (tryStable) {
@@ -1448,7 +1462,11 @@ static int getTableRecordInfoImplNative(
         return -1;
     }
 
-    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "USE %s", dbName);
+    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+            g_args.db_escape_char
+            ? "USE `%s`"
+            : "USE %s",
+            dbName);
     res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
@@ -1465,12 +1483,14 @@ static int getTableRecordInfoImplNative(
         if (tryStable) {
             snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
                     "SELECT STABLE_NAME FROM information_schema.ins_stables "
-                    "WHERE db_name='%s' AND stable_name='%s'", dbName, table);
+                    "WHERE db_name='%s' AND stable_name='%s'",
+                    dbName, table);
         } else {
             snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
                     "SELECT TABLE_NAME,STABLE_NAME FROM "
                     "information_schema.ins_tables "
-                    "WHERE db_name='%s' AND table_name='%s'", dbName, table);
+                    "WHERE db_name='%s' AND table_name='%s'",
+                    dbName, table);
         }
     } else {
         if (tryStable) {
@@ -1808,7 +1828,9 @@ static int dumpCreateMTableClause(
     pstr = tmpBuf;
 
     pstr += snprintf(tmpBuf, TSDB_DEFAULT_PKT_SIZE,
-            "CREATE TABLE IF NOT EXISTS %s.%s%s%s USING %s.%s%s%s TAGS(",
+            g_args.db_escape_char
+            ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s USING `%s`.%s%s%s TAGS("
+            : "CREATE TABLE IF NOT EXISTS %s.%s%s%s USING %s.%s%s%s TAGS(",
             dbName, g_escapeChar, tableDes->name, g_escapeChar,
             dbName, g_escapeChar, stable, g_escapeChar);
 
@@ -2441,7 +2463,10 @@ static int getTableTagValueWSV2(
         sqlstr += sprintf(sqlstr, ",%s%s%s ",
                 g_escapeChar, tableDes->cols[i].field, g_escapeChar);
     }
-    sqlstr += sprintf(sqlstr, "FROM %s.%s%s%s LIMIT 1",
+    sqlstr += sprintf(sqlstr,
+            g_args.db_escape_char
+            ? " FROM `%s`.%s%s%s LIMIT 1"
+            : " FROM %s.%s%s%s LIMIT 1",
             dbName, g_escapeChar, table, g_escapeChar);
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
@@ -2552,7 +2577,10 @@ static int getTableDesWS(
         return -1;
     }
 
-    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "DESCRIBE %s.%s%s%s",
+    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+            g_args.db_escape_char
+            ? "DESCRIBE `%s`.%s%s%s"
+            : "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
@@ -2737,7 +2765,10 @@ static int getTableTagValueNativeV2(
         sqlstr += sprintf(sqlstr, ",%s%s%s",
                 g_escapeChar, tableDes->cols[i].field, g_escapeChar);
     }
-    sqlstr += sprintf(sqlstr, " FROM %s.%s%s%s LIMIT 1",
+    sqlstr += sprintf(sqlstr,
+            g_args.db_escape_char
+            ? " FROM `%s`.%s%s%s LIMIT 1"
+            : " FROM %s.%s%s%s LIMIT 1",
             dbName, g_escapeChar, table, g_escapeChar);
 
     TAOS_RES *res = taos_query(taos, command);
@@ -2832,7 +2863,10 @@ static int getTableDesNative(
         return -1;
     }
 
-    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "DESCRIBE %s.%s%s%s",
+    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+            g_args.db_escape_char
+            ? "DESCRIBE `%s`.%s%s%s"
+            : "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
     res = taos_query(taos, command);
@@ -2897,7 +2931,10 @@ static int convertTableDesToSql(
 
     char* pstr = *buffer;
 
-    pstr += sprintf(pstr, "CREATE TABLE IF NOT EXISTS %s.%s%s%s",
+    pstr += sprintf(pstr,
+            g_args.db_escape_char
+            ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s"
+            : "CREATE TABLE IF NOT EXISTS %s.%s%s%s",
             dbName, g_escapeChar, tableDes->name, g_escapeChar);
 
     for (; counter < tableDes->columns; counter++) {
@@ -3375,7 +3412,11 @@ static void dumpCreateDbClause(
     dumpExtraInfo(taos, fp);
 
     char *pstr = sqlstr;
-    pstr += sprintf(pstr, "CREATE DATABASE IF NOT EXISTS %s ", dbInfo->name);
+    pstr += sprintf(pstr,
+            g_args.db_escape_char
+            ? "CREATE DATABASE IF NOT EXISTS `%s` "
+            : "CREATE DATABASE IF NOT EXISTS %s ",
+            dbInfo->name);
     if (isDumpProperty) {
         char strict[STRICT_LEN] = "";
         if (0 == strcmp(dbInfo->strict, "strict")) {
@@ -4375,7 +4416,10 @@ int64_t queryDbForDumpOutCount(
     int64_t endTime = getEndTime(precision);
 
     snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-            "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+            g_args.db_escape_char
+            ? "SELECT COUNT(*) FROM `%s`.%s%s%s WHERE _c0 >= %" PRId64 " "
+            "AND _c0 <= %" PRId64 ""
+            : "SELECT COUNT(*) FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
             "AND _c0 <= %" PRId64 "",
             dbName, g_escapeChar, tbName, g_escapeChar,
             startTime, endTime);
@@ -4438,13 +4482,20 @@ void *queryDbForDumpOutOffset(
 
     if (-1 == limit) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                g_args.db_escape_char
+                ? "SELECT * FROM `%s`.%s%s%s WHERE _c0 >= %" PRId64 " "
+                "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC ;"
+                : "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
                 "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC ;",
                 dbName, g_escapeChar, tbName, g_escapeChar,
                 start_time, end_time);
     } else {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+                g_args.db_escape_char
+                ? "SELECT * FROM `%s`.%s%s%s WHERE _c0 >= %" PRId64 " "
+                "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " "
+                "OFFSET %" PRId64 ";"
+                : "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
                 "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC LIMIT %" PRId64 " "
                 "OFFSET %" PRId64 ";",
                 dbName, g_escapeChar, tbName, g_escapeChar,
@@ -5738,7 +5789,9 @@ static int64_t dumpInAvroTbTagsImpl(
                         (const char **)&tbName, &size);
 
                 curr_sqlstr_len = snprintf(sqlstr, TSDB_MAX_ALLOWED_SQL_LEN,
-                        "CREATE TABLE %s.%s%s%s USING %s.%s%s%s TAGS(",
+                        g_args.db_escape_char
+                        ? "CREATE TABLE `%s`.%s%s%s USING `%s`.%s%s%s TAGS("
+                        : "CREATE TABLE %s.%s%s%s USING %s.%s%s%s TAGS(",
                         namespace, g_escapeChar, tbName, g_escapeChar,
                         namespace, g_escapeChar, stbName, g_escapeChar);
 
@@ -6553,6 +6606,13 @@ static void dumpInAvroDataInt(FieldStruct *field,
     }
 }
 
+static void countFailureAndFree(char *bindArray,
+        int32_t onlyCol, int64_t *failed, char *tbName) {
+    freeBindArray(bindArray, onlyCol);
+    (*failed)++;
+    freeTbNameIfLooseMode(tbName);
+}
+
 static int64_t dumpInAvroDataImpl(
         void *taos,
         char *namespace,
@@ -6630,8 +6690,8 @@ static int64_t dumpInAvroDataImpl(
     debugPrint("%s() LN%d, stmt buffer: %s\n",
             __func__, __LINE__, stmtBuffer);
 
-#ifdef WEBSOCKET
     int code;
+#ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         if (0 != (code = ws_stmt_prepare(ws_stmt, stmtBuffer, strlen(stmtBuffer)))) {
             errorPrint("%s() LN%d, failed to execute ws_stmt_prepare()."
@@ -6646,7 +6706,7 @@ static int64_t dumpInAvroDataImpl(
         }
     } else {
 #endif
-        if (0 != taos_stmt_prepare(stmt, stmtBuffer, 0)) {
+        if (0 != (code = taos_stmt_prepare(stmt, stmtBuffer, 0))) {
             errorPrint("Failed to execute taos_stmt_prepare(). reason: %s\n",
                     taos_stmt_errstr(stmt));
 
@@ -6684,8 +6744,8 @@ static int64_t dumpInAvroDataImpl(
     int64_t success = 0;
     int64_t failed = 0;
     int64_t count = 0;
+    int64_t countTSOutOfRange = 0;
 
-    int stmt_count = 0;
     bool printDot = true;
     while (!avro_file_reader_read_value(reader, &value)) {
         avro_value_t tbname_value, tbname_branch;
@@ -6989,16 +7049,12 @@ static int64_t dumpInAvroDataImpl(
                                 typeToStr(field->type));
                         break;
                 }
-
                 bind->buffer_type = tableDes->cols[i].type;
                 bind->length = (int32_t *)&bind->buffer_length;
             }
-
             bind->num = 1;
         }
-
         debugPrint2("%s", "\n");
-
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             if (0 != (code = ws_stmt_bind_param_batch(ws_stmt,
@@ -7006,8 +7062,7 @@ static int64_t dumpInAvroDataImpl(
                 errorPrint("%s() LN%d ws_stmt_bind_param_batch() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
 
@@ -7015,8 +7070,7 @@ static int64_t dumpInAvroDataImpl(
                 errorPrint("%s() LN%d stmt_bind_param() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
             int32_t affected_rows;
@@ -7026,39 +7080,39 @@ static int64_t dumpInAvroDataImpl(
                             "timestamp: %"PRId64"\n",
                             __func__, __LINE__, taos, code,
                             ws_errstr(ws_stmt), ts_debug);
-                failed -= stmt_count;
-                break;
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
+                continue;
             } else {
                 success++;
             }
         } else {
 #endif
-            if (0 != taos_stmt_bind_param_batch(stmt,
-                    (TAOS_MULTI_BIND *)bindArray)) {
+            if (0 != (code = taos_stmt_bind_param_batch(stmt,
+                    (TAOS_MULTI_BIND *)bindArray))) {
                 errorPrint("%s() LN%d stmt_bind_param_batch() failed! "
                             "reason: %s\n",
                             __func__, __LINE__, taos_stmt_errstr(stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
-                freeTbNameIfLooseMode(tbName);
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
 
-            if (0 != taos_stmt_add_batch(stmt)) {
+            if (0 != (code = taos_stmt_add_batch(stmt))) {
                 errorPrint("%s() LN%d stmt_bind_param() failed! reason: %s\n",
                         __func__, __LINE__, taos_stmt_errstr(stmt));
-                freeBindArray(bindArray, onlyCol);
-                failed++;
-                freeTbNameIfLooseMode(tbName);
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
-            if (0 != taos_stmt_execute(stmt)) {
-                errorPrint("%s() LN%d taos_stmt_execute() failed! "
-                           "reason: %s, timestamp: %"PRId64"\n",
-                        __func__, __LINE__, taos_stmt_errstr(stmt), ts_debug);
-                failed -= stmt_count;
-                freeTbNameIfLooseMode(tbName);
-                break;
+            if (0 != (code = taos_stmt_execute(stmt))) {
+                if (code == TSDB_CODE_TDB_TIMESTAMP_OUT_OF_RANGE) {
+                    countTSOutOfRange++;
+                } else {
+                    errorPrint("%s() LN%d taos_stmt_execute() failed! "
+                           "code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
+                        __func__, __LINE__,
+                        code, taos_stmt_errstr(stmt), ts_debug);
+                }
+                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
+                continue;
             } else {
                 success++;
             }
@@ -7082,8 +7136,13 @@ static int64_t dumpInAvroDataImpl(
 #ifdef WEBSOCKET
     }
 #endif
-    if (failed)
+    if (failed) {
+        if (countTSOutOfRange) {
+            errorPrint("Total %"PRId64" record(s) ts out of range!\n",
+                    countTSOutOfRange);
+        }
         return (-failed);
+    }
     return success;
 }
 
@@ -7319,7 +7378,7 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
             switch (pThreadInfo->avroType) {
                 case AVRO_DATA:
                     atomic_add_fetch_64(&g_totalDumpInRecFailed, rows);
-                    errorPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
+                    warnPrint("[%d] %"PRId64" row(s) of file(%s) failed to dumped in!\n",
                                         pThreadInfo->threadIndex, rows,
                                         fileList[pThreadInfo->from + i]);
                     break;
@@ -7841,7 +7900,10 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
     }
 
     snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+            g_args.db_escape_char
+            ? "SELECT * FROM `%s`.%s%s%s WHERE _c0 >= %" PRId64 " "
+            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;"
+            : "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
             "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
@@ -7871,7 +7933,10 @@ TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
     }
 
     snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-            "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
+            g_args.db_escape_char
+            ? "SELECT * FROM `%s`.%s%s%s WHERE _c0 >= %" PRId64 " "
+            "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;"
+            : "SELECT * FROM %s.%s%s%s WHERE _c0 >= %" PRId64 " "
             "AND _c0 <= %" PRId64 " ORDER BY _c0 ASC;",
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
@@ -9077,12 +9142,17 @@ static int64_t fillTbNameArr(
 
     if (3 == g_majorVersionOfClient) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                 "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
+                g_args.db_escape_char
+                ? "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
+                 "FROM `%s`.%s%s%s)"
+                : "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
                  "FROM %s.%s%s%s)",
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     } else {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                 "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+                g_args.db_escape_char
+                ? "SELECT COUNT(TBNAME) FROM `%s`.%s%s%s"
+                : "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     }
 
@@ -9122,11 +9192,15 @@ static int64_t fillTbNameArr(
 
     if (3 == g_majorVersionOfClient) {
         snprintf(command2, TSDB_MAX_ALLOWED_SQL_LEN,
-                "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
+                g_args.db_escape_char
+                ? "SELECT DISTINCT(TBNAME) FROM `%s`.%s%s%s "
+                : "SELECT DISTINCT(TBNAME) FROM %s.%s%s%s ",
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     } else {
         snprintf(command2, TSDB_MAX_ALLOWED_SQL_LEN,
-                "SELECT TBNAME FROM %s.%s%s%s",
+                g_args.db_escape_char
+                ? "SELECT TBNAME FROM `%s`.%s%s%s"
+                : "SELECT TBNAME FROM %s.%s%s%s",
                 dbInfo->name, g_escapeChar, stable, g_escapeChar);
     }
 
@@ -10467,12 +10541,17 @@ static int64_t dumpNtbOfStbByThreads(
 
     if (3 == g_majorVersionOfClient) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                 "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
+                g_args.db_escape_char
+                ? "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
+                "from `%s`.%s%s%s)"
+                : "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
                 "from %s.%s%s%s)",
                 dbInfo->name, g_escapeChar, stbName, g_escapeChar);
     } else {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                 "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+                g_args.db_escape_char
+                ? "SELECT COUNT(TBNAME) FROM `%s`.%s%s%s"
+                : "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
                 dbInfo->name, g_escapeChar, stbName, g_escapeChar);
     }
 
@@ -10696,7 +10775,11 @@ static int64_t dumpStbAndChildTbOfDbWS(
         return -1;
     }
 
-    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "USE %s", dbInfo->name);
+    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+            g_args.db_escape_char
+            ? "USE `%s`"
+            : "USE %s",
+            dbInfo->name);
     WS_RES *ws_res;
     int32_t ws_code;
 
@@ -10794,11 +10877,15 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
 
     if (3 == g_majorVersionOfClient) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                 "SELECT TABLE_NAME,STABLE_NAME FROM "
+                "SELECT TABLE_NAME,STABLE_NAME FROM "
                 "information_schema.ins_tables WHERE db_name='%s'",
                 dbInfo->name);
     } else {
-        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "USE %s", dbInfo->name);
+        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+                g_args.db_escape_char
+                ? "USE `%s`"
+                : "USE %s",
+                dbInfo->name);
         ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
         ws_code = ws_errno(ws_res);
         if (ws_code) {
@@ -10925,11 +11012,15 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
 
     if (3 == g_majorVersionOfClient) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                 "SELECT TABLE_NAME,STABLE_NAME "
+                "SELECT TABLE_NAME,STABLE_NAME "
                 " FROM information_schema.ins_tables WHERE db_name='%s'",
                 dbInfo->name);
     } else {
-        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "USE %s", dbInfo->name);
+        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+                g_args.db_escape_char
+                ? "USE `%s`"
+                : "USE %s",
+                dbInfo->name);
         res = taos_query(taos, command);
         code = taos_errno(res);
         if (code != 0) {
@@ -11008,7 +11099,11 @@ static int64_t dumpStbAndChildTbOfDbNative(
         return -1;
     }
 
-    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "USE %s", dbInfo->name);
+    snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+            g_args.db_escape_char
+            ? "USE `%s`"
+            : "USE %s",
+            dbInfo->name);
     TAOS_RES *res;
     int32_t code;
 
@@ -11631,8 +11726,9 @@ static int fillDbExtraInfoV3WS(
         return -1;
     }
     snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-             "SELECT COUNT(table_name) FROM "
-            "information_schema.ins_tables WHERE db_name='%s'", dbName);
+            "SELECT COUNT(table_name) FROM "
+            "information_schema.ins_tables WHERE db_name='%s'",
+            dbName);
 
     infoPrint("Getting table(s) count of db (%s) ...\n", dbName);
 
@@ -11834,7 +11930,7 @@ static int fillDbExtraInfoV3Native(
         return -1;
     }
     snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-             "SELECT COUNT(table_name) FROM "
+            "SELECT COUNT(table_name) FROM "
             "information_schema.ins_tables WHERE db_name='%s'",
             dbName);
 
@@ -11983,7 +12079,7 @@ static int dumpOut() {
             __func__, __LINE__, g_args.dumpDbCount);
 
     if (g_args.dumpDbCount <= 0) {
-        errorPrint("%d databases valid to dump\n", g_args.dumpDbCount);
+        errorPrint("%d database(s) valid to dump\n", g_args.dumpDbCount);
         fclose(fp);
         return -1;
     }
@@ -12035,7 +12131,7 @@ static int dumpOut() {
 #endif
 
     if (dbCount <= 0) {
-        errorPrint("%d databases valid to dump\n", dbCount);
+        errorPrint("%d database(s) valid to dump\n", dbCount);
         ret = -1;
         goto _exit_failure;
     }

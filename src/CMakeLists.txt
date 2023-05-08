@@ -46,9 +46,21 @@ IF(GIT_FOUND)
             OUTPUT_VARIABLE TAOSDUMP_FULLTAG
             )
         EXECUTE_PROCESS(
+            COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 HEAD"
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
+            )
+        EXECUTE_PROCESS(
             COMMAND grep "^taosbenchmark" "${CMAKE_CURRENT_LIST_DIR}/../VERSION"
             RESULT_VARIABLE RESULT
             OUTPUT_VARIABLE TAOSBENCHMARK_FULLTAG
+            )
+        EXECUTE_PROCESS(
+            COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 HEAD"
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSBENCHMARK_COMMIT_SHA1
             )
     ELSE ()
         MESSAGE("Use git tag")
@@ -59,29 +71,29 @@ IF(GIT_FOUND)
             OUTPUT_VARIABLE TAOSDUMP_FULLTAG
             )
         EXECUTE_PROCESS(
+            COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${TAOSDUMP_FULLTAG}"
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
+            )
+        EXECUTE_PROCESS(
             COMMAND sh -c "git for-each-ref --sort=taggerdate --format '%(tag)' refs/tags|grep taosbenchmark|tail -1"
             WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
             RESULT_VARIABLE TAG_RESULT
             OUTPUT_VARIABLE TAOSBENCHMARK_FULLTAG
             )
+        EXECUTE_PROCESS(
+            COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${TAOSBENCHMARK_FULLTAG}"
+            WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSBENCHMARK_COMMIT_SHA1
+            )
     ENDIF ()
-    EXECUTE_PROCESS(
-        COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${TAOSDUMP_FULLTAG}"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSDUMP_COMMIT_SHA1
-        )
     EXECUTE_PROCESS(
         COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. status -z -s ${CMAKE_CURRENT_LIST_DIR}/taosdump.c"
         RESULT_VARIABLE RESULT
         OUTPUT_VARIABLE TAOSDUMP_STATUS
         ERROR_QUIET
-        )
-    EXECUTE_PROCESS(
-        COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. log --pretty=oneline -n 1 ${TAOSBENCHMARK_FULLTAG}"
-        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSBENCHMARK_COMMIT_SHA1
         )
     EXECUTE_PROCESS(
         COMMAND sh "-c" "echo '${TAOSDUMP_FULLTAG}' | awk -F '-' '{print $2}'"

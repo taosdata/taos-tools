@@ -322,7 +322,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
             SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
             cfg->name = cfg_object->string;
 
-            // get duration vallue
+            // get duration value
             if (0 == strcasecmp(cfg_object->string, "duration")) {
                 database->durMinute = getDurationVal(cfg_object);
             }
@@ -468,7 +468,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         } else {
             superTable = benchArrayGet(database->superTbls, i);
         }
-        superTable->escape_character = false;
         superTable->autoTblCreating = false;
         superTable->batchTblCreatingNum = DEFAULT_CREATE_BATCH;
         superTable->batchTblCreatingNumbers = NULL;
@@ -510,12 +509,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "childtable_sample_file");
         if (tools_cJSON_IsString(childTbleSample)) {
             superTable->childTblSample = childTbleSample->valuestring;
-        }
-        tools_cJSON *escapeChar =
-            tools_cJSON_GetObjectItem(stbInfo, "escape_character");
-        if (tools_cJSON_IsString(escapeChar)
-                && (0 == strcasecmp(escapeChar->valuestring, "yes"))) {
-            superTable->escape_character = true;
         }
         tools_cJSON *autoCreateTbl =
             tools_cJSON_GetObjectItem(stbInfo, "auto_create_table");
@@ -714,7 +707,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->startTimestamp =
                     toolsGetTimestamp(database->precision);
                 superTable->useNow = true;
-                //  fill time with now conflict wih check_sql
+                //  fill time with now conflict with check_sql
                 g_arguments->check_sql = false;
             } else {
                 if (toolsParseTime(ts->valuestring,
@@ -1198,6 +1191,15 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
             && chineseOpt->valuestring != NULL) {
         if (0 == strncasecmp(chineseOpt->valuestring, "yes", 3)) {
             g_arguments->chinese = true;
+        }
+    }
+
+    tools_cJSON *escapeChar =
+        tools_cJSON_GetObjectItem(json, "escape_character");  // yes, no,
+    if (escapeChar && escapeChar->type == tools_cJSON_String
+            && escapeChar->valuestring != NULL) {
+        if (0 == strncasecmp(escapeChar->valuestring, "yes", 3)) {
+            g_arguments->escape_character = true;
         }
     }
 

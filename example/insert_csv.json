@@ -11,6 +11,7 @@
     "confirm_parameter_prompt": "no",
     "prepared_rand": 10000,
     "chinese": "no",
+    "escape_character": "yes",
     "insert_interval": 0,
     "num_of_records_per_req": 10,
     "databases": [{
@@ -29,7 +30,6 @@
             "child_table_exists":"no",
             "childtable_count": 10000,
             "childtable_prefix": "d",
-            "escape_character": "yes",
             "auto_create_table": "no",
             "batch_create_tbl_num": 10,
             "data_source": "sample",
