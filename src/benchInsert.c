@@ -1523,11 +1523,10 @@ static void *syncWriteInterlace(void *sarg) {
                     }
 
                     for (int64_t j = 0; j < interlaceRows; j++) {
-                        int64_t disorderTs = getDisorderTs(stbInfo,
-                                &disorderRange);
+                        //int64_t disorderTs = getDisorderTs(stbInfo, &disorderRange);
                         char time_string[BIGINT_BUFF_LEN];
-                        snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
-                                disorderTs?disorderTs:timestamp);
+                        //snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"", disorderTs?disorderTs:timestamp);
+                        snprintf(time_string, BIGINT_BUFF_LEN, "%s", "now");
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
@@ -2032,7 +2031,7 @@ static int32_t prepareProgressDataSql(
     SDataBase *database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     char *  pstr = pThreadInfo->buffer;
-    int disorderRange = stbInfo->disorderRange;
+    //int disorderRange = stbInfo->disorderRange;
 
     if (stbInfo->partialColNum == stbInfo->cols->size) {
         if (stbInfo->autoTblCreating) {
@@ -2095,11 +2094,17 @@ static int32_t prepareProgressDataSql(
                          sampleDataBuf +
                          *pos * stbInfo->lenOfCols);
         } else {
+			/*
             int64_t disorderTs = getDisorderTs(stbInfo, &disorderRange);
             *len += snprintf(pstr + *len,
                             TSDB_MAX_ALLOWED_SQL_LEN - *len,
                             "(%" PRId64 ",%s)",
                             disorderTs?disorderTs:*timestamp,
+                            ownSampleDataBuf +
+                            *pos * stbInfo->lenOfCols); */
+            *len += snprintf(pstr + *len,
+                            TSDB_MAX_ALLOWED_SQL_LEN - *len,
+                            "(now,%s)",
                             ownSampleDataBuf +
                             *pos * stbInfo->lenOfCols);
         }
