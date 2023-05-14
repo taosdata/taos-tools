@@ -108,7 +108,12 @@ jobs:
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          sudo apt update > /dev/null
+          sudo apt install libgflags2.2 libgflags-dev -y > /dev/null
+          cd TDengine && mkdir debug && cd debug \
+            && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null \
+            && make -j8 > /dev/null && sudo make install > /dev/null \
+            && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
