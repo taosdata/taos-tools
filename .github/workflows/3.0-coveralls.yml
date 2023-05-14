@@ -66,6 +66,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -77,6 +78,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
@@ -115,6 +117,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           whoami
           sudo apt update > /dev/null
@@ -132,8 +135,10 @@ jobs:
 
       - name: show TDengine's taosws commit
         if: |
-          steps.changed-files-specific.outputs.any_changed == 'true' &&
-          github.event_name == 'pull_request'
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd TDengine/tools/taosws-rs
           git log --oneline | head -1
@@ -143,6 +148,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo apt update > /dev/null
           sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config lcov expect -y > /dev/null
@@ -160,6 +166,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           mkdir debug ||:
           cd debug
@@ -177,6 +184,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           echo "TEST: taodump -p"
           cd tests/taosdump
@@ -187,6 +195,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -221,6 +230,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -265,6 +275,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -332,6 +343,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -355,6 +367,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -385,6 +398,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -429,6 +443,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -451,6 +466,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -496,6 +512,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -528,6 +545,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -574,6 +592,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -595,6 +614,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd tests
           sudo pkill -9 taosadapter || :
@@ -613,6 +633,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd tests
           sudo pkill -9 taosadapter || :
@@ -630,6 +651,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -653,6 +675,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -670,6 +693,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo pkill -9 taosadapter || :
           sudo pkill -9 taosd || :
@@ -688,6 +712,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd tests
 
@@ -705,6 +730,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd tests
 
@@ -718,6 +744,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           topdir=`pwd`
           cd debug
@@ -741,6 +768,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
