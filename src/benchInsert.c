@@ -1447,6 +1447,7 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t pos = 0;
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
+    uint64_t   lastTotalInsertRows = 0;
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
@@ -1731,9 +1732,11 @@ static void *syncWriteInterlace(void *sarg) {
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
             infoPrint(
                     "thread[%d] has currently inserted rows: %" PRIu64
-                    "\n",
-                    pThreadInfo->threadID, pThreadInfo->totalInsertRows);
+                    ", peroid insert rate: %.3f rows/s \n",
+                    pThreadInfo->threadID, pThreadInfo->totalInsertRows, 
+                    (double)(pThreadInfo->totalInsertRows - lastTotalInsertRows) * 1000.0/(currentPrintTime - lastPrintTime));
             lastPrintTime = currentPrintTime;
+	    lastTotalInsertRows = pThreadInfo->totalInsertRows;
         }
     }
 free_of_interlace:
@@ -2152,6 +2155,7 @@ void *syncWriteProgressive(void *sarg) {
             pThreadInfo->end_table_to + 1);
 #endif
     uint64_t  lastPrintTime = toolsGetTimestampMs();
+    uint64_t  lastTotalInsertRows = 0;
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
 
@@ -2354,9 +2358,11 @@ void *syncWriteProgressive(void *sarg) {
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
                 infoPrint(
                         "thread[%d] has currently inserted rows: "
-                        "%" PRId64 "\n",
-                        pThreadInfo->threadID, pThreadInfo->totalInsertRows);
+                        "%" PRId64 ", peroid insert rate: %.3f rows/s \n",
+                        pThreadInfo->threadID, pThreadInfo->totalInsertRows,
+                        (double)(pThreadInfo->totalInsertRows - lastTotalInsertRows) * 1000.0/(currentPrintTime - lastPrintTime));
                 lastPrintTime = currentPrintTime;
+                lastTotalInsertRows = pThreadInfo->totalInsertRows;
             }
             if (i >= stbInfo->insertRows) {
                 break;
