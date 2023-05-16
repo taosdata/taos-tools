@@ -41,6 +41,7 @@ void printfTmqConfigIntoFile() {
   infoPrintToFile(g_arguments->fpOfInsertResult, "enableAutoCommit: %s\n", pConsumerInfo->enableAutoCommit);
   infoPrintToFile(g_arguments->fpOfInsertResult, "autoCommitIntervalMs: %d\n", pConsumerInfo->autoCommitIntervalMs);
   infoPrintToFile(g_arguments->fpOfInsertResult, "enableHeartbeatBackground: %s\n", pConsumerInfo->enableHeartbeatBackground);
+  infoPrintToFile(g_arguments->fpOfInsertResult, "snapshotEnable: %s\n", pConsumerInfo->snapshotEnable);
   infoPrintToFile(g_arguments->fpOfInsertResult, "msgWithTableName: %s\n", pConsumerInfo->msgWithTableName);
   infoPrintToFile(g_arguments->fpOfInsertResult, "rowsFile: %s\n", pConsumerInfo->rowsFile);
   infoPrintToFile(g_arguments->fpOfInsertResult, "expectRows: %d\n", pConsumerInfo->expectRows);
@@ -280,6 +281,7 @@ int subscribeTestProcess() {
         tmq_conf_set(conf, "auto.commit.interval.ms", tmpBuff);
 
         tmq_conf_set(conf, "enable.heartbeat.background", pConsumerInfo->enableHeartbeatBackground);
+        tmq_conf_set(conf, "experimental.snapshot.enable", pConsumerInfo->snapshotEnable);
         tmq_conf_set(conf, "msg.with.table.name", pConsumerInfo->msgWithTableName);
 
         pThreadInfo->tmq = tmq_consumer_new(conf, NULL, 0);
