@@ -156,7 +156,7 @@ jobs:
           pacman -Sy --noconfirm gcc make cmake gcc-libs gflags pkg-config python3 python-pip snappy zlib > /dev/null
           gcc --version
           python3 -m pip install --upgrade pip > /dev/null 2>&1
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && make install > /dev/null
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true && make -j2 > /dev/null && make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"

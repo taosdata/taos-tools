@@ -103,7 +103,7 @@ jobs:
         run: |
 
           git clone --branch main --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j8 && make install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j2 && make install
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taos ]]
           then
             echo "TDengien build failure"

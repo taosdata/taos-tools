@@ -126,7 +126,7 @@ jobs:
           mkdir debug ||:
           cd debug
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          make -j2 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
