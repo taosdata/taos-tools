@@ -83,8 +83,8 @@ jobs:
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
-          steps.changed-files-specific.outputs.any_changed == 'true' &&
-          github.event_name == 'pull_request'
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
         run: |
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge

@@ -57,6 +57,7 @@ jobs:
         env:
           BASE_BRANCH: ${{ github.base_ref }}
         if: github.event_name == 'pull_request'
+          || github.event_name == 'schedule'
 
       - uses: actions/checkout@v3
         with:
@@ -125,6 +126,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: aarch64
@@ -142,7 +144,7 @@ jobs:
             cd TDengine || exit 1
             mkdir debug ||:
             cd debug || exit 1
-            cmake .. > /dev/null && make -j8 > /dev/null && make install > /dev/null
+            cmake .. > /dev/null && make -j2 > /dev/null && make install > /dev/null
             if [[ ! -f /usr/local/taos/bin/taosd ]]
             then
               echo "TDengine build failure"
@@ -160,7 +162,7 @@ jobs:
 
             mkdir debug ||:
             cd debug
-            cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make -j8 > /dev/null && make install > /dev/null
+            cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make -j2 > /dev/null && make install > /dev/null
             if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
             then
               echo "taos-tools build failure"

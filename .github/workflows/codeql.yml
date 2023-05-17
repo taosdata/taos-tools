@@ -67,7 +67,7 @@ jobs:
         cd TDengine || exit 1
         mkdir debug || exit 1
         cd debug || exit 1
-        cmake .. > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+        cmake .. > /dev/null && make -j2 > /dev/null && sudo make install > /dev/null
         if [[ ! -f /usr/local/taos/bin/taosd ]]
         then
           echo "TDengine build failure"
@@ -80,7 +80,7 @@ jobs:
 
         mkdir debug || exit 1
         cd debug || exit 1
-        cmake .. > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
+        cmake .. > /dev/null && make -j2 > /dev/null && sudo make install > /dev/null
         if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
         then
           echo "taos-tools build failure"

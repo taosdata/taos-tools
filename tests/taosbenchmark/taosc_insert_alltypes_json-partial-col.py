@@ -58,10 +58,6 @@ class TDTestCase:
             return paths[0]
 
     def run(self):
-        tdSql.query("select client_version()")
-        client_ver = "".join(tdSql.queryResult[0])
-        major_ver = client_ver.split(".")[0]
-
         binPath = self.getPath()
         cmd = (
             "%s -f ./taosbenchmark/json/taosc_insert_alltypes-partial-col.json"
@@ -114,7 +110,7 @@ class TDTestCase:
         tdSql.query("select c0,c1,c2 from db.stb limit 1")
         dbresult = tdSql.queryResult
         for i in range(len(dbresult[0])):
-            if i in (0, 1) and dbresult[0][i] == None:
+            if i in (0, 1) and dbresult[0][i] is None:
                 tdLog.exit("result[0][%d] is NULL, which should not be" % i)
             else:
                 tdLog.info("result[0][{0}] is {1}".format(i, dbresult[0][i]))

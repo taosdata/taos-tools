@@ -11,7 +11,6 @@
 
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 from util.log import *
 from util.cases import *
@@ -216,7 +215,6 @@ class TDTestCase:
         )  # child_table_exists = yes, auto_create_table varies = yes
         tdSql.checkRows(20)
 
-        testcaseFilename = os.path.split(__file__)[-1]
         os.system("rm -rf ./insert_res.txt")
 
     def stop(self):

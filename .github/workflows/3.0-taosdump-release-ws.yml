@@ -63,6 +63,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -74,6 +75,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
@@ -83,6 +85,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/setup-go@v3
         with:
           go-version: 1.17
@@ -92,6 +95,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: stable
@@ -118,12 +122,13 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd TDengine
           mkdir debug
           cd debug
           cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          make -j2 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -143,6 +148,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
@@ -158,11 +164,12 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           mkdir debug ||:
           cd debug
           cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null
+          make -j2 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
@@ -174,6 +181,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
 
@@ -182,6 +190,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd tests
           sudo pkill -9 taosadapter || :
@@ -203,6 +212,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd debug
           ./build/bin/taosdump -C https://not-exist.com:80/cloud -D test ||:
@@ -214,6 +224,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           if [ -f ~/taosdump-failed.txt ]; then
             if [ -f ~/taosa.log ]; then

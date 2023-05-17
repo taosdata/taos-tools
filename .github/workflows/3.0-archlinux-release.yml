@@ -82,6 +82,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           pacman -Syu --noconfirm > /dev/null
           pacman -Sy git --noconfirm > /dev/null
@@ -91,6 +92,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -103,6 +105,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           echo "disable timezone changing"
           #timedatectl set-timezone Asia/Shanghai
@@ -113,6 +116,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/setup-go@v3
         with:
           go-version: 1.17
@@ -122,6 +126,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -131,6 +136,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         id: cache-rust
         with:
           path: |
@@ -145,11 +151,12 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
-          pacman -Sy --noconfirm gcc make cmake zlib snappy gcc-libs pkg-config python3 python-pip > /dev/null
+          pacman -Sy --noconfirm gcc make cmake gcc-libs gflags pkg-config python3 python-pip snappy zlib > /dev/null
           gcc --version
           python3 -m pip install --upgrade pip > /dev/null 2>&1
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && make install > /dev/null
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true && make -j2 > /dev/null && make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -161,6 +168,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v3
         with:
           fetch-depth: 0  # OR "2" -> To retrieve the preceding commit.
@@ -179,6 +187,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           mkdir debug ||:
           cd debug
