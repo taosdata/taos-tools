@@ -1002,7 +1002,7 @@ static int startMultiThreadCreateChildTable(
         pthread_create(pids + i, NULL, createTable, pThreadInfo);
     }
 
-    for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
+    for (int i = 0; (i < threads && pids[i] !=0); i++) {
         pthread_join(pids[i], NULL);
     }
 
@@ -3179,8 +3179,13 @@ static int startMultiThreadInsertData(SDataBase* database,
     int64_t start = toolsGetTimestampUs();
 
     // wait threads
-    for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
-        pthread_join(pids[i], NULL);
+    for (int i = 0; (i < threads); i++) {
+        if(pids[i] != 0) {
+            infoPrint(" pthread_join %d ...\n", i);
+            pthread_join(pids[i], NULL);
+        } else {
+            infoPrint(" pthread_join %d is null , not wait.\n", i);
+        }
     }
 
     int64_t end = toolsGetTimestampUs()+1;
