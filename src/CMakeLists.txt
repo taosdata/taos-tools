@@ -317,7 +317,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
                 INCLUDE_DIRECTORIES(/opt/homebrew/opt/argp-standalone/include/)
             ELSE ()
                 SET_PROPERTY(TARGET argp PROPERTY IMPORTED_LOCATION "/usr/local/lib/libargp.a")
-                INCLUDE_DIRECTORIES(/usr/local/include/include/)
+                INCLUDE_DIRECTORIES(/usr/local/include/)
             ENDIF ()
             TARGET_LINK_LIBRARIES(taosBenchmark taos pthread toolscJson argp ${WEBSOCKET_LINK_FLAGS})
         ElSE ()
