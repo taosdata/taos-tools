@@ -15,17 +15,13 @@
     "num_of_records_per_req": 100,
     "prepared_rand": 10000,
     "chinese": "no",
+    "escape_character": "yes",
     "databases": [
         {
             "dbinfo": {
                 "name": "test",
                 "drop": "yes",
-                "replica": 1,
-                "precision": "ms",
-                "keep": 3650,
-                "minRows": 100,
-                "maxRows": 4096,
-                "comp": 2
+                "precision": "ms"
             },
             "super_tables": [
                 {
@@ -33,7 +29,6 @@
                     "child_table_exists": "no",
                     "childtable_count": 10000,
                     "childtable_prefix": "d",
-                    "escape_character": "yes",
                     "auto_create_table": "no",
                     "batch_create_tbl_num": 5,
                     "data_source": "rand",

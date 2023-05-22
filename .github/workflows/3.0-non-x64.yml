@@ -4,6 +4,8 @@ name: Ubuntu (3.x non-x64 build)
 
 # Controls when the workflow will run
 on:
+  schedule:
+    - cron: "10 16 * * *"
   # Triggers the workflow on push or pull request events but only for the develop branch
   push:
     branches: [ develop ]
@@ -19,7 +21,7 @@ env:
 
 jobs:
   build_job:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
     name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
 
     # Run steps on a matrix of 3 arch/distro combinations
@@ -27,9 +29,9 @@ jobs:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu18.04
+            distro: ubuntu20.04
               #          - arch: armv7
-              #            distro: ubuntu18.04
+              #            distro: ubuntu20.04
 
     steps:
       - uses: actions/checkout@v3
@@ -55,6 +57,7 @@ jobs:
         env:
           BASE_BRANCH: ${{ github.base_ref }}
         if: github.event_name == 'pull_request'
+          || github.event_name == 'schedule'
 
       - uses: actions/checkout@v3
         with:
@@ -102,11 +105,11 @@ jobs:
           #        uses: uraimo/run-on-arch-action@v2.1.1
           #        with:
           #          arch: armv7
-          #          distro: ubuntu18.04
+          #          distro: ubuntu20.04
           #          run: |
           #            echo "The uname output was ${{ steps.setup.outputs.uname }}"
           #            apt update -y > /dev/null
-          #            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config -y > /dev/null
+          #            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y > /dev/null
           #            cd TDengine
           #            mkdir armv7-debug ||:
           #            cd armv7-debug
@@ -123,23 +126,25 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: uraimo/run-on-arch-action@v2.1.1
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu20.04
           run: |
             echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
-            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config libssl-dev > /dev/null
+            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
 
             echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
+
             git clone --branch 3.0 --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
 
             echo "build TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
             cd TDengine || exit 1
             mkdir debug ||:
             cd debug || exit 1
-            cmake .. > /dev/null && make -j8 > /dev/null && make install > /dev/null
+            cmake .. > /dev/null && make -j2 > /dev/null && make install > /dev/null
             if [[ ! -f /usr/local/taos/bin/taosd ]]
             then
               echo "TDengine build failure"
@@ -157,7 +162,7 @@ jobs:
 
             mkdir debug ||:
             cd debug
-            cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make -j8 > /dev/null && make install > /dev/null
+            cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} > /dev/null && make -j2 > /dev/null && make install > /dev/null
             if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
             then
               echo "taos-tools build failure"
@@ -169,13 +174,13 @@ jobs:
 
             apt install python3 python3-pip -y > /dev/null
             pip3 install --upgrade pip > /dev/null
-            pip3 install numpy psutil pandas faker toml > /dev/null
+            pip3 install decorator numpy psutil pandas faker toml > /dev/null
             pip3 install taospy > /dev/null
             pip3 install fabric2 > /dev/null
 
             python3 ./test.py -f taosdump/old/taosdumpTest.py && echo -e "\033[32m taosdumpTest.py success! \033[0m" || echo -e "\033[31m taosdumpTest.py failed! \033[0m" | tee -a ~/taosdump-failed.txt
 
-            if [ -f ~/taosdump-failed.txt ];then
+            if [ -f ~/taosdump-failed.txt ]; then
               cat ~/taosdump-failed.txt;
               exit 1;
             fi

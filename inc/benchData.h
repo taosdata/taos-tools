@@ -13,22 +13,37 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __DEMODATA__
-#define __DEMODATA__
+#ifndef INC_BENCHDATA_H_
+#define INC_BENCHDATA_H_
 
-#include "bench.h"
+#include <bench.h>
 /***** Global variables ******/
 /***** Declare functions *****/
+void rand_string(char *str, int size, bool chinese);
 int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
-                      int disorderRange);
+        int disorderRange);
 int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
-                         int lenOfOneRow, BArray * fields, int64_t loop,
-                         bool tag);
-int     prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);
-uint32_t bindParamBatch(threadInfo *pThreadInfo, uint32_t batch, int64_t startTime);
+        int64_t bufLen,
+        int lenOfOneRow, BArray * fields, int64_t loop,
+        bool tag, BArray *childCols);
+int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq);
+uint32_t bindParamBatch(threadInfo *pThreadInfo,
+        uint32_t batch, int64_t startTime, SChildTable *childTbl);
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo);
-void generateSmlJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
-                            uint64_t start_table_from, int tbSeq);
-void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag, SSuperTable *stbInfo,
-                            uint32_t time_precision, int64_t timestamp);
-#endif
+void generateSmlJsonTags(tools_cJSON *tagsList,
+        char **sml_tags_json_array,
+        SSuperTable *stbInfo,
+        uint64_t start_table_from, int tbSeq);
+void generateSmlJsonCols(tools_cJSON *array,
+        tools_cJSON *tag, SSuperTable *stbInfo,
+        uint32_t time_precision, int64_t timestamp);
+void generateSmlTaosJsonTags(tools_cJSON *tagsList,
+        SSuperTable *stbInfo,
+        uint64_t start_table_from, int tbSeq);
+void generateSmlTaosJsonCols(tools_cJSON *array,
+        tools_cJSON *tag, SSuperTable *stbInfo,
+        uint32_t time_precision, int64_t timestamp);
+uint32_t accumulateRowLen(BArray *fields, int iface);
+void generateSmlJsonValues(
+        char **sml_tags_json_array, SSuperTable *stbInfo, int tableSeq);
+#endif  // INC_BENCHDATA_H_

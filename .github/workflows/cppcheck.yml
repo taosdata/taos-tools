@@ -1,5 +1,7 @@
 name: CppCheck action
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:
@@ -51,6 +53,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo apt update -y > /dev/null
           sudo apt install -y cppcheck
@@ -60,5 +63,6 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           for f in `find src inc -type f -name "*.[c,h]" ! -path "src/benchUtilDs.c"`; do cppcheck $f || exit $?; done

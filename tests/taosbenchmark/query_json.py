@@ -39,11 +39,14 @@ class TDTestCase:
             projPath = selfPath[: selfPath.find("src")]
         elif "/tools/" in selfPath:
             projPath = selfPath[: selfPath.find("/tools/")]
+        elif "/tests/" in selfPath:
+            projPath = selfPath[: selfPath.find("/tests/")]
         else:
-            projPath = selfPath[: selfPath.find("tests")]
+            tdLog.info("Cannot find %s in path: %s" % (tool, selfPath))
+            projPath = "/usr/local/taos/bin/"
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:
@@ -87,7 +90,6 @@ class TDTestCase:
 
         times = 0
         with open("rest_query_super-0", "r+") as f1:
-
             for line in f1.readlines():
                 contents = line.strip()
                 if contents.find("data") != -1:

@@ -1,6 +1,8 @@
 name: Windows (2.x build)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:
@@ -46,7 +48,7 @@ jobs:
             inc/*
             deps/CMakeLists.txt
             packaging/tools/*
-            .github/workflows/windows.yml
+            .github/workflows/2.x-windows-build.yml
 
       - name: Run step if any of the listed files above change
         if: steps.changed-files-specific.outputs.any_changed == 'true'
@@ -54,7 +56,11 @@ jobs:
           echo "One or more files listed above has changed."
 
       - name: Checkout TDengine 2.6
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -64,8 +70,8 @@ jobs:
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
+          (github.event_name == 'pull_request'
+          && steps.changed-files-specific.outputs.any_changed == 'true')
         run: |
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
@@ -73,16 +79,20 @@ jobs:
 
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build & Install TDengine
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
-          choco install jom
-          cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
+          choco install jom gawk grep -y
+          #cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_JDBC=false -DBUILD_TOOLS=true && jom && jom install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_JDBC=false -G "NMake Makefiles JOM" && jom && jom install
 
           #      - name: Func Test
           #        run: |
           #          cd TDengine/tests/pytest
-          #          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null 2>&1
-          #  pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
+          #          pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
           #          sudo pkill -9 taosadapter || :
           #          sudo pkill -9 taosd || :
           #
@@ -124,11 +134,11 @@ jobs:
           #            fi
           #          fi
           #
-          #          if [ -f taosdump-failed.txt ];then
+          #          if [ -f taosdump-failed.txt ]; then
           #            cat taosdump-failed.txt;
           #            exit 1;
           #          fi
-          #          if [ -f taosbenchmark-failed.txt ];then
+          #          if [ -f taosbenchmark-failed.txt ]; then
           #            cat taosbenchmark-failed.txt;
           #            exit 1;
           #          fi

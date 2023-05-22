@@ -11,7 +11,6 @@
 
 # -*- coding: utf-8 -*-
 import os
-import subprocess
 
 from util.log import *
 from util.cases import *
@@ -45,7 +44,7 @@ class TDTestCase:
             projPath = "/usr/local/taos/bin/"
 
         paths = []
-        for root, dirs, files in os.walk(projPath):
+        for root, dummy, files in os.walk(projPath):
             if (tool) in files:
                 rootRealPath = os.path.dirname(os.path.realpath(root))
                 if "packaging" not in rootRealPath:
@@ -64,7 +63,7 @@ class TDTestCase:
         tdSql.query("select * from test.meters")
         dbresult = tdSql.queryResult
         for i in range(len(dbresult[0])):
-            if i in (1, 2) and dbresult[0][i] == None:
+            if i in (1, 2) and dbresult[0][i] is None:
                 tdLog.exit("result[0][%d] is NULL, which should not be" % i)
             else:
                 tdLog.info("result[0][{0}] is {1}".format(i, dbresult[0][i]))

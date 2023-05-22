@@ -1,6 +1,8 @@
 name: Ubuntu (3.0 taosdump WebSocket)
 
 on:
+  schedule:
+    - cron: "10 16 * * *"
   push:
     branches: [ develop ]
   pull_request:
@@ -61,6 +63,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           repository: 'taosdata/TDengine'
@@ -72,6 +75,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           sudo timedatectl set-timezone Asia/Shanghai
           sudo date
@@ -81,16 +85,18 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/setup-go@v3
         with:
-          go-version: 1.14
+          go-version: 1.17
 
       - name: Set up Rust
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        uses: actions-rs/toolchain@v1
+          || github.event_name == 'schedule'
+        uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: stable
 
@@ -116,12 +122,13 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd TDengine
           mkdir debug
           cd debug
           cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          make -j2 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -141,7 +148,8 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
-        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev libsnappy-dev pkg-config lcov expect -y > /dev/null
+          || github.event_name == 'schedule'
+        run: sudo apt-get install lzma-dev liblzma-dev libjansson-dev libz-dev zlib1g libsnappy-dev pkg-config lcov expect -y > /dev/null
 
       - name: Checkout taos-tools to PR number
         if: |
@@ -156,11 +164,12 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           mkdir debug ||:
           cd debug
-          cmake .. -DTOOLS_BUILD_TYPE=Release -DWEBSOCKET=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null
+          cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true > /dev/null
+          make -j2 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
@@ -172,15 +181,16 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
-          pip3 install numpy fabric2 psutil pandas faker toml > /dev/null
-          pip3 install git+https://github.com/taosdata/taos-connector-python > /dev/null
+          pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
 
       - name: taosdump Develop Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd tests
           sudo pkill -9 taosadapter || :
@@ -188,16 +198,21 @@ jobs:
 
           if find taosdump/ws3 -name "*.py"|grep -q .;
           then
-            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test:$i success! \033[0m"|| echo -e "\033[31m develop-test:$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
+            for i in `find taosdump/ws3 -name "*.py"|grep -Ev "Float|Double"`;  \
+              do printf $i && python3 ./test.py -f $i > /dev/null               \
+                && echo -e " \033[32m develop-test:$i success! \033[0m"         \
+                            | tee -a ~/taosdump-success.txt                     \
+                || echo -e " \033[31m develop-test:$i failed! \033[0m"          \
+                            | tee -a ~/taosdump-failed.txt ;                    \
+                            done
           fi
-
-          for i in `find taosdump/ws3 -name "*.py" | grep "Float|Double"`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
 
       - name: taosdump Cmd line Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cd debug
           ./build/bin/taosdump -C https://not-exist.com:80/cloud -D test ||:
@@ -209,8 +224,9 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
-          if [ -f ~/taosdump-failed.txt ];then
+          if [ -f ~/taosdump-failed.txt ]; then
             if [ -f ~/taosa.log ]; then
               cat ~/taosa.log
             else
@@ -220,4 +236,6 @@ jobs:
             cat ~/taosdump-failed.txt
 
             exit 1
+          elif [ -f ~/taosdump-success.txt ]; then
+            cat ~/taosdump-success.txt
           fi
