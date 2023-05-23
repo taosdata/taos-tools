@@ -497,7 +497,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
            // need exit in loop
            if (g_fail || g_arguments->terminate) {
                 // free BArray
-                benchArrayDestroy(pThreadInfo->query_delay_list);
+                tmfree(pThreadInfo->query_delay_list);
                 pThreadInfo->query_delay_list = NULL;
            }
         }
@@ -524,7 +524,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
            }
 
            // free BArray
-           benchArrayDestroy(pThreadInfo->query_delay_list);
+           tmfree(pThreadInfo->query_delay_list);
            pThreadInfo->query_delay_list = NULL;
         }
         avg_delay /= nConcurrent;
