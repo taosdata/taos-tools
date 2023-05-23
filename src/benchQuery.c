@@ -480,7 +480,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
         }
 
         // wait threads execute finished one by one
-        for (int j = 0; j < nConcurrent && pids + j > 0 ; j++) {
+        for (int j = 0; (j < nConcurrent && pids[j] > 0) ; j++) {
            pthread_join(pids[j], NULL);
            threadInfo *pThreadInfo = infos + j;
            if (iface == REST_IFACE) {
