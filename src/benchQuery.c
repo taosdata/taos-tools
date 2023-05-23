@@ -492,6 +492,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
 #endif
            } else {
                 closeBenchConn(pThreadInfo->conn);
+                pThreadInfo->conn = NULL;
            }
 
            // need exit in loop
