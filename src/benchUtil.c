@@ -1166,6 +1166,11 @@ static void closeSockFd(int sockfd) {
 }
 
 void destroySockFd(int sockfd) {
+    // check valid
+    if (sockfd < 0) {
+        return;
+    }
+    
     // shutdown the connection since no more data will be sent
     int result;
     result = shutdown(sockfd, SHUT_WR);
