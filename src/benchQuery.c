@@ -426,7 +426,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
     // check invaid
     if(nSqlCount == 0 || nConcurrent == 0 ) {
         if(nSqlCount == 0)
-           errorPrint(" query sql count is %d.  must set query sqls. \n", nSqlCount);
+           errorPrint(" query sql count is %ld.  must set query sqls. \n", nSqlCount);
         if(nConcurrent == 0)
            errorPrint(" concurrent is %d , specified_table_query->concurrent must not zero. \n", nConcurrent);
         return -1;
@@ -448,8 +448,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
         // create threads
         for (int j = 0; j < nConcurrent; j++) {
            threadInfo *pThreadInfo = infos + j;
-           uint64_t    seq = i * nConcurrent + j;
-           pThreadInfo->threadID = (int)seq;
+           pThreadInfo->threadID = i * nConcurrent + j;
            pThreadInfo->querySeq = i;
            if (iface == REST_IFACE) {
                 int sockfd = createSockFd();
@@ -470,7 +469,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 }
            }
 
-           pthread_create(pids + seq, NULL, specifiedTableQuery, pThreadInfo);
+           pthread_create(pids + j, NULL, specifiedTableQuery, pThreadInfo);
         }
 
         // if failed, set termainte flag true like ctrl+c exit
