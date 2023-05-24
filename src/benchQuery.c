@@ -426,7 +426,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
     // check invaid
     if(nSqlCount == 0 || nConcurrent == 0 ) {
         if(nSqlCount == 0)
-           errorPrint(" query sql count is %ld.  must set query sqls. \n", nSqlCount);
+           errorPrint(" query sql count is %" PRIu64 ".  must set query sqls. \n", nSqlCount);
         if(nConcurrent == 0)
            errorPrint(" concurrent is %d , specified_table_query->concurrent must not zero. \n", nConcurrent);
         return -1;
@@ -474,7 +474,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
 
         // if failed, set termainte flag true like ctrl+c exit
         if (exeError) {
-            errorPrint(" i=%ld create thread occur error, so wait exit ...\n", i);
+            errorPrint(" i=%" PRIu64 " create thread occur error, so wait exit ...\n", i);
             g_arguments->terminate = true;
         }
 
