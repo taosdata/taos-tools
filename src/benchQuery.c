@@ -426,10 +426,10 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
     // check invaid
     if(nSqlCount == 0 || nConcurrent == 0 ) {
         if(nSqlCount == 0)
-           errorPrint(" query sql count is %" PRIu64 ".  must set query sqls. \n", nSqlCount);
+           infoPrint(" query sql count is %" PRIu64 ".  must set query sqls. \n", nSqlCount);
         if(nConcurrent == 0)
-           errorPrint(" concurrent is %d , specified_table_query->concurrent must not zero. \n", nConcurrent);
-        return -1;
+           infoPrint(" concurrent is %d , specified_table_query->concurrent must not zero. \n", nConcurrent);
+        return 0;
     }
 
     // malloc funciton global memory
