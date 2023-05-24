@@ -474,7 +474,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
 
         // if failed, set termainte flag true like ctrl+c exit
         if (exeError) {
-            errorPrint(" i=%d create thread occur error, so wait exit ...\n", i);
+            errorPrint(" i=%ld create thread occur error, so wait exit ...\n", i);
             g_arguments->terminate = true;
         }
 
