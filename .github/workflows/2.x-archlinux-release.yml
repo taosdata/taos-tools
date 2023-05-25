@@ -83,6 +83,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           pacman -Syu --noconfirm > /dev/null
           pacman -Sy git --noconfirm > /dev/null
@@ -92,6 +93,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -104,6 +106,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           echo "disable timezone changing"
           #timedatectl set-timezone Asia/Shanghai
@@ -123,6 +126,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/setup-go@v3
         with:
           go-version: 1.17
@@ -132,6 +136,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -141,6 +146,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         id: cache-rust
         with:
           path: |
@@ -155,6 +161,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           pacman -Sy --noconfirm gcc make cmake zlib snappy gcc-libs pkg-config python3 python-pip > /dev/null
           gcc --version
@@ -171,6 +178,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           pip3 install decorator numpy fabric2 psutil pandas faker toml > /dev/null
           pip3 install taospy > /dev/null
@@ -187,6 +195,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           if [ -f ~/taosdump-failed.txt ]; then
             cat ~/taosdump-failed.txt;

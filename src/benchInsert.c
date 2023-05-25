@@ -1002,7 +1002,7 @@ static int startMultiThreadCreateChildTable(
         pthread_create(pids + i, NULL, createTable, pThreadInfo);
     }
 
-    for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
+    for (int i = 0; (i < threads && pids[i] !=0); i++) {
         pthread_join(pids[i], NULL);
     }
 
@@ -1447,6 +1447,7 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t pos = 0;
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
+    uint64_t   lastTotalInsertRows = 0;
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
@@ -1731,9 +1732,11 @@ static void *syncWriteInterlace(void *sarg) {
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
             infoPrint(
                     "thread[%d] has currently inserted rows: %" PRIu64
-                    "\n",
-                    pThreadInfo->threadID, pThreadInfo->totalInsertRows);
+                    ", peroid insert rate: %.3f rows/s \n",
+                    pThreadInfo->threadID, pThreadInfo->totalInsertRows, 
+                    (double)(pThreadInfo->totalInsertRows - lastTotalInsertRows) * 1000.0/(currentPrintTime - lastPrintTime));
             lastPrintTime = currentPrintTime;
+	    lastTotalInsertRows = pThreadInfo->totalInsertRows;
         }
     }
 free_of_interlace:
@@ -2152,6 +2155,7 @@ void *syncWriteProgressive(void *sarg) {
             pThreadInfo->end_table_to + 1);
 #endif
     uint64_t  lastPrintTime = toolsGetTimestampMs();
+    uint64_t  lastTotalInsertRows = 0;
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
 
@@ -2354,9 +2358,11 @@ void *syncWriteProgressive(void *sarg) {
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
                 infoPrint(
                         "thread[%d] has currently inserted rows: "
-                        "%" PRId64 "\n",
-                        pThreadInfo->threadID, pThreadInfo->totalInsertRows);
+                        "%" PRId64 ", peroid insert rate: %.3f rows/s \n",
+                        pThreadInfo->threadID, pThreadInfo->totalInsertRows,
+                        (double)(pThreadInfo->totalInsertRows - lastTotalInsertRows) * 1000.0/(currentPrintTime - lastPrintTime));
                 lastPrintTime = currentPrintTime;
+                lastTotalInsertRows = pThreadInfo->totalInsertRows;
             }
             if (i >= stbInfo->insertRows) {
                 break;
@@ -3173,8 +3179,13 @@ static int startMultiThreadInsertData(SDataBase* database,
     int64_t start = toolsGetTimestampUs();
 
     // wait threads
-    for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
-        pthread_join(pids[i], NULL);
+    for (int i = 0; (i < threads); i++) {
+        if(pids[i] != 0) {
+            infoPrint(" pthread_join %d ...\n", i);
+            pthread_join(pids[i], NULL);
+        } else {
+            infoPrint(" pthread_join %d is null , not wait.\n", i);
+        }
     }
 
     int64_t end = toolsGetTimestampUs()+1;

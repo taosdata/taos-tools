@@ -310,12 +310,17 @@ SBenchConn* initBenchConn() {
 }
 
 void closeBenchConn(SBenchConn* conn) {
+    if(conn == NULL)
+       return ;
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
         ws_close(conn->taos_ws);
     } else {
 #endif
-        taos_close(conn->taos);
+        if(conn->taos) {
+            taos_close(conn->taos);
+            conn->taos = NULL;
+        }        
         if (conn->ctaos) {
             taos_close(conn->ctaos);
             conn->ctaos = NULL;
@@ -1166,6 +1171,11 @@ static void closeSockFd(int sockfd) {
 }
 
 void destroySockFd(int sockfd) {
+    // check valid
+    if (sockfd < 0) {
+        return;
+    }
+    
     // shutdown the connection since no more data will be sent
     int result;
     result = shutdown(sockfd, SHUT_WR);

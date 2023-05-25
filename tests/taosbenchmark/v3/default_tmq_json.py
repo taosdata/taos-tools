@@ -10,7 +10,8 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
-import os, signal
+# import os, signal
+import os
 from time import sleep
 from util.log import *
 from util.cases import *
@@ -61,24 +62,25 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
-        
+
         tdSql.execute("alter database db WAL_RETENTION_PERIOD 3600000")
-        
+
         cmd = "%s -f ./taosbenchmark/json/tmq.json " % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        time.sleep(15)
-#        try:
-#            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
-#                fields = line.split()
+        sleep(15)
 
-#                pid = fields[0]
+    #        try:
+    #            for line in os.popen("ps ax | grep taosBenchmark | grep -v grep"):
+    #                fields = line.split()
 
-#                os.kill(int(pid), signal.SIGINT)
-#                time.sleep(3)
-#            print("taosBenchmark be killed on purpose")
-#        except:
-#            tdLog.exit("failed to kill taosBenchmark")
+    #                pid = fields[0]
+
+    #                os.kill(int(pid), signal.SIGINT)
+    #                time.sleep(3)
+    #            print("taosBenchmark be killed on purpose")
+    #        except:
+    #            tdLog.exit("failed to kill taosBenchmark")
 
     def stop(self):
         tdSql.close()

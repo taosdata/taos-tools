@@ -60,6 +60,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -69,8 +70,8 @@ jobs:
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
+          (github.event_name == 'pull_request'
+          && steps.changed-files-specific.outputs.any_changed == 'true')
         run: |
           cd TDengine/src/kit/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
@@ -82,6 +83,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           choco install jom gawk grep -y
           #cd TDengine && mkdir debug && cd debug && cmake .. -G "NMake Makefiles JOM" -DBUILD_JDBC=false -DBUILD_TOOLS=true && jom && jom install

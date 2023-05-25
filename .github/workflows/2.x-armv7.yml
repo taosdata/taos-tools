@@ -92,6 +92,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: actions/checkout@v2
         with:
           submodules: recursive
@@ -104,6 +105,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           echo "The uname output was ${{ steps.setup.outputs.uname }}"
           sudo timedatectl set-timezone Asia/Shanghai
@@ -131,6 +133,7 @@ jobs:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: armv7

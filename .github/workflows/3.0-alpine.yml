@@ -78,6 +78,7 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         uses: jirutka/setup-alpine@v1
 
 
@@ -86,9 +87,10 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           cat /etc/alpine-release
-          apk add argp-standalone bash curl cmake gcc make g++ git go procps lsof valgrind linux-headers libunwind libunwind-dev tzdata wget jansson-dev snappy-dev xz-dev zlib-dev
+          apk add argp-standalone bash curl cmake gcc g++ geos-dev git go procps lsof make valgrind linux-headers libunwind libunwind-dev tzdata wget jansson-dev snappy-dev xz-dev zlib-dev
         shell: alpine.sh --root {0}
 
       - name: Build & Install TDengine
@@ -96,11 +98,12 @@ jobs:
           (needs.check-changed.outputs.changedflag == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
+          || github.event_name == 'schedule'
         shell: alpine.sh --root {0}
         run: |
 
           git clone --branch main --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j8 && make install
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j2 && make install
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taos ]]
           then
             echo "TDengien build failure"

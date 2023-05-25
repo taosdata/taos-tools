@@ -10,9 +10,7 @@
 ###################################################################
 
 # -*- coding: utf-8 -*-
-import ast
 import os
-import re
 
 from util.log import *
 from util.cases import *
