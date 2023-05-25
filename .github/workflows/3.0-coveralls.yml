@@ -121,7 +121,7 @@ jobs:
         run: |
           whoami
           sudo apt update > /dev/null
-          sudo apt install libgflags2.2 libgflags-dev -y > /dev/null
+          sudo apt install libgflags2.2 libgflags-dev libgeos-dev -y > /dev/null
           cd TDengine
           mkdir debug ||:
           cd debug

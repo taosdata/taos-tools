@@ -87,7 +87,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           brew update
-          brew install argp-standalone pkg-config
+          brew install argp-standalone pkg-config geos
           brew info argp-standalone
 
       - name: Set up Go

@@ -90,7 +90,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           cat /etc/alpine-release
-          apk add argp-standalone bash curl cmake gcc make g++ git go procps lsof valgrind linux-headers libunwind libunwind-dev tzdata wget jansson-dev snappy-dev xz-dev zlib-dev
+          apk add argp-standalone bash curl cmake gcc g++ geos-dev git go procps lsof make valgrind linux-headers libunwind libunwind-dev tzdata wget jansson-dev snappy-dev xz-dev zlib-dev
         shell: alpine.sh --root {0}
 
       - name: Build & Install TDengine
