@@ -113,7 +113,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           sudo apt update > /dev/null
-          sudo apt install libgflags2.2 libgflags-dev -y > /dev/null
+          sudo apt install libgeos-dev libgflags2.2 libgflags-dev -y > /dev/null
           cd TDengine && mkdir debug && cd debug \
             && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null \
             && make -j2 > /dev/null && sudo make install > /dev/null \

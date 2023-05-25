@@ -57,6 +57,7 @@ jobs:
       run: |
         sudo apt update -y > /dev/null
         sudo apt install -y cmake build-essential git \
+          libgeos-dev libgflags2.2 libgflags-dev \
           libjansson-dev libsnappy-dev liblzma-dev libz-dev pkg-config \
           libssl-dev > /dev/null
 

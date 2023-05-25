@@ -135,6 +135,7 @@ jobs:
             echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
             apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
+            apt install libgeos-dev libgflags2.2 libgflags-dev -y > /dev/null
 
             echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
 
