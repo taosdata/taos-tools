@@ -1182,7 +1182,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         }
 
         if (g_arguments->reqPerReq > 32768) {
-            errorPrint(" num_of_records_per_req item in json config need less than 10000. current = %d\n", g_arguments->reqPerReq);
+            errorPrint(" num_of_records_per_req item in json config need less than 32768. current = %d\n", g_arguments->reqPerReq);
             goto PARSE_OVER;
         }
 
