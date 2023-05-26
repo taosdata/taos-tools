@@ -78,6 +78,7 @@ static int create_topic() {
         }
 
         infoPrint("successfully create topic: %s\n", pConsumerInfo->topicName[i]);
+        taos_free_result(res);
     }
     closeBenchConn(conn);
     return 0;
