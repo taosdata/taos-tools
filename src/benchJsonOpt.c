@@ -1176,7 +1176,16 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         tools_cJSON_GetObjectItem(json, "num_of_records_per_req");
     if (numRecPerReq && numRecPerReq->type == tools_cJSON_Number) {
         g_arguments->reqPerReq = (uint32_t)numRecPerReq->valueint;
-        if (g_arguments->reqPerReq <= 0) goto PARSE_OVER;
+        if ((int32_t)g_arguments->reqPerReq <= 0) {
+            errorPrint(" num_of_records_per_req item in json config must over zero. current = %d\n", g_arguments->reqPerReq);
+            goto PARSE_OVER;
+        }
+
+        if (g_arguments->reqPerReq > 32768) {
+            errorPrint(" num_of_records_per_req item in json config need less than 32768. current = %d\n", g_arguments->reqPerReq);
+            goto PARSE_OVER;
+        }
+
     }
 
     tools_cJSON *prepareRand =
