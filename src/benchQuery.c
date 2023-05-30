@@ -43,6 +43,7 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
             TAOS_RES *res = taos_query(taos, command);
             int code = taos_errno(res);
             if (res == NULL || code) {
+                taos_free_result(res);
                 if (YES_IF_FAILED == g_arguments->continueIfFail) {
                     warnPrint("failed to execute sql:%s, "
                               "code: 0x%08x, reason:%s\n",
@@ -112,6 +113,7 @@ static void *mixedQuery(void *sarg) {
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos,
                                            sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
+                    taos_free_result(res);
                     if (YES_IF_FAILED == g_arguments->continueIfFail) {
                         warnPrint(
                                 "thread[%d]: failed to execute sql :%s, "
