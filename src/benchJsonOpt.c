@@ -1177,13 +1177,13 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (numRecPerReq && numRecPerReq->type == tools_cJSON_Number) {
         g_arguments->reqPerReq = (uint32_t)numRecPerReq->valueint;
         if ((int32_t)g_arguments->reqPerReq <= 0) {
-            errorPrint(" num_of_records_per_req item in json config must over zero. current = %d\n", g_arguments->reqPerReq);
-            goto PARSE_OVER;
+            infoPrint("waring: num_of_records_per_req item in json config must over zero, current = %d. now reset to default. \n", g_arguments->reqPerReq);
+            g_arguments = DEFAULT_REQ_PER_REQ;
         }
 
         if (g_arguments->reqPerReq > 32768) {
-            errorPrint(" num_of_records_per_req item in json config need less than 32768. current = %d\n", g_arguments->reqPerReq);
-            goto PARSE_OVER;
+            infoPrint("warning: num_of_records_per_req item in json config need less than 32768. current = %d. now reset to default.\n", g_arguments->reqPerReq);
+            g_arguments = DEFAULT_REQ_PER_REQ;
         }
 
     }

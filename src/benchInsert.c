@@ -977,6 +977,7 @@ static int startMultiThreadCreateChildTable(
     }
     int64_t b = ntables % threads;
 
+    int threadCnt = 0;
     for (uint32_t i = 0; (i < threads && !g_arguments->terminate); i++) {
         threadInfo *pThreadInfo = infos + i;
         pThreadInfo->threadID = i;
@@ -1000,9 +1001,10 @@ static int startMultiThreadCreateChildTable(
         tableFrom = pThreadInfo->end_table_to + 1;
         pThreadInfo->tables_created = 0;
         pthread_create(pids + i, NULL, createTable, pThreadInfo);
+        threadCnt ++;
     }
 
-    for (int i = 0; (i < threads && pids[i] !=0); i++) {
+    for (int i = 0; i < threadCnt; i++) {
         pthread_join(pids[i], NULL);
     }
 
