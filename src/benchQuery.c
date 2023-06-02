@@ -446,6 +446,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
         SSQL *sql = benchArrayGet(g_queryInfo.specifiedQueryInfo.sqls, i);
 
         // create threads
+        int threadCnt = 0;
         for (int j = 0; j < nConcurrent; j++) {
            threadInfo *pThreadInfo = infos + j;
            pThreadInfo->threadID = i * nConcurrent + j;
@@ -470,6 +471,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
            }
 
            pthread_create(pids + j, NULL, specifiedTableQuery, pThreadInfo);
+           threadCnt++;
         }
 
         // if failed, set termainte flag true like ctrl+c exit
@@ -479,7 +481,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
         }
 
         // wait threads execute finished one by one
-        for (int j = 0; (j < nConcurrent && pids[j] > 0) ; j++) {
+        for (int j = 0; j < threadCnt ; j++) {
            pthread_join(pids[j], NULL);
            threadInfo *pThreadInfo = infos + j;
            if (iface == REST_IFACE) {
