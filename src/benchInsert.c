@@ -2808,7 +2808,7 @@ static int startMultiThreadInsertData(SDataBase* database,
     int64_t ntables;
     if (stbInfo->childTblTo > 0) {
         ntables = stbInfo->childTblTo - stbInfo->childTblFrom;
-    } else if (stbInfo->childTblLimit) {
+    } else if (stbInfo->childTblLimit > 0 && stbInfo->childTblExists) {
         ntables = stbInfo->childTblLimit;
     } else {
         ntables = stbInfo->childTblCount;
