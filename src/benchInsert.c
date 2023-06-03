@@ -1010,7 +1010,7 @@ static int startMultiThreadCreateChildTable(
 
     if (g_arguments->terminate)  toolsMsleep(100);
 
-    for (int i = 0; i < threads; i++) {
+    for (int i = 0; i < threadCnt; i++) {
         threadInfo *pThreadInfo = infos + i;
         g_arguments->actualChildTables += pThreadInfo->tables_created;
 
@@ -3167,6 +3167,7 @@ static int startMultiThreadInsertData(SDataBase* database,
     prompt(0);
 
     // create threads
+    int threadCnt = 0;
     for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
         threadInfo *pThreadInfo = infos + i;
         if (stbInfo->interlaceRows > 0) {
@@ -3176,18 +3177,15 @@ static int startMultiThreadInsertData(SDataBase* database,
             pthread_create(pids + i, NULL,
                            syncWriteProgressive, pThreadInfo);
         }
+        threadCnt ++;
     }
 
     int64_t start = toolsGetTimestampUs();
 
     // wait threads
-    for (int i = 0; (i < threads); i++) {
-        if(pids[i] != 0) {
-            infoPrint(" pthread_join %d ...\n", i);
-            pthread_join(pids[i], NULL);
-        } else {
-            infoPrint(" pthread_join %d is null , not wait.\n", i);
-        }
+    for (int i = 0; i < threadCnt; i++) {
+        infoPrint(" pthread_join %d ...\n", i);
+        pthread_join(pids[i], NULL);
     }
 
     int64_t end = toolsGetTimestampUs()+1;
