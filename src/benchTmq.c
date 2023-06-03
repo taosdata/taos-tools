@@ -73,6 +73,7 @@ static int create_topic() {
         if (taos_errno(res) != 0) {
             errorPrint("failed to create topic: %s, reason: %s\n",
                      pConsumerInfo->topicName[i], taos_errstr(res));
+            taos_free_result(res);
             closeBenchConn(conn);
             return -1;
         }

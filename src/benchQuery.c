@@ -128,9 +128,11 @@ static void *mixedQuery(void *sarg) {
                                 taos_errno(res), taos_errstr(res));
                         if (TSDB_CODE_RPC_NETWORK_UNAVAIL ==
                                 taos_errno(res)) {
+                            taos_free_result(res);
                             return NULL;
                         }
                     }
+                    taos_free_result(res);
                     continue;
                 }
                 taos_free_result(res);
