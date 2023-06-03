@@ -3167,7 +3167,7 @@ static int startMultiThreadInsertData(SDataBase* database,
     prompt(0);
 
     // create threads
-    int threadCnt = 0
+    int threadCnt = 0;
     for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
         threadInfo *pThreadInfo = infos + i;
         if (stbInfo->interlaceRows > 0) {
