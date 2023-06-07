@@ -16,8 +16,6 @@ jobs:
   check-changed:
     runs-on: ubuntu-latest
     outputs:
-      output1: ${{ steps.step1.outputs.test }}
-      output2: ${{ steps.step2.outputs.test }}
       changedflag: ${{ steps.changedflag.outputs.changedflag }}
     steps:
       - name: Step that prints name of pull request's base branch

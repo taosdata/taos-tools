@@ -4,9 +4,15 @@ on:
   schedule:
     - cron: "10 16 * * *"
   push:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
   pull_request:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
 
 env:
   TOOLS_BUILD_TYPE: Debug
@@ -55,7 +61,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine 3.0
+      - name: Checkout TDengine
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -65,7 +71,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'main'
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: create debug directory
         if: |
