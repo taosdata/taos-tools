@@ -514,7 +514,6 @@ typedef struct arguments {
     // dump format option
     bool     schemaonly;
     bool     with_property;
-    bool     answer_yes;
     bool     avro;
     int      avro_codec;
     int64_t  start_time;
@@ -580,7 +579,6 @@ struct arguments g_args = {
     // dump format option
     false,      // schemaonly
     true,       // with_property
-    false,      // answer_yes
     true,       // avro
     AVRO_CODEC_SNAPPY,    // avro_codec
     DEFAULT_START_TIME,   // start_time
@@ -895,10 +893,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
         case 'N':
             g_args.with_property = false;
-            break;
-
-        case 'y':
-            g_args.answer_yes = true;
             break;
 
         case 'S':
@@ -9421,7 +9415,6 @@ static void printArgs(FILE *file) {
     fprintf(file, "databasesSeq: %s\n", g_args.databasesSeq);
     fprintf(file, "schemaonly: %s\n", g_args.schemaonly?"true":"false");
     fprintf(file, "with_property: %s\n", g_args.with_property?"true":"false");
-    fprintf(file, "answer_yes: %s\n", g_args.answer_yes?"true":"false");
     fprintf(file, "avro codec: %s\n", g_avro_codec[g_args.avro_codec]);
 
     if (strlen(g_args.humanStartTime)) {

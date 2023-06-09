@@ -8,9 +8,15 @@ on:
     - cron: "10 16 * * *"
   # Triggers the workflow on push or pull request events but only for the develop branch
   push:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
   pull_request:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -135,11 +141,11 @@ jobs:
             echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
             apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
-            apt install libgeos-dev libgflags2.2 libgflags-dev -y > /dev/null
+            apt install libgflags2.2 libgflags-dev -y > /dev/null
 
-            echo "clone TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
+            echo "clone TDengine ${{ github.event.pull_request.base.ref }} on ${{ steps.setup.outputs.uname }}"
 
-            git clone --branch 3.0 --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
+            git clone --branch ${{ github.event.pull_request.base.ref }} --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
 
             echo "build TDengine 3.0 on ${{ steps.setup.outputs.uname }}"
             cd TDengine || exit 1
