@@ -1,9 +1,15 @@
 name: Coveralls (3.0)
 on:
   push:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
   pull_request:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
 
 env:
   TOOLS_BUILD_TYPE: Debug
@@ -61,7 +67,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine 3.0
+      - name: Checkout TDengine
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -71,7 +77,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: '3.0'
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: Change time zone
         if:
@@ -112,7 +118,7 @@ jobs:
             TDengine/tools/taosws-rs/target/
           key: ${{ runner.os }}-cargo-target-${{ steps.setup-rust.outputs.rustc_hash }}
 
-      - name: first build TDengine 3.0
+      - name: first build TDengine
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -121,7 +127,7 @@ jobs:
         run: |
           whoami
           sudo apt update > /dev/null
-          sudo apt install libgflags2.2 libgflags-dev libgeos-dev -y > /dev/null
+          sudo apt install libgflags2.2 libgflags-dev -y > /dev/null
           cd TDengine
           mkdir debug ||:
           cd debug

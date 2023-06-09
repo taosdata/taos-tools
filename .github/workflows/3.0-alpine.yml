@@ -4,9 +4,15 @@ on:
   schedule:
     - cron: "10 16 * * *"
   push:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
   pull_request:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
 
 env:
   TOOLS_BUILD_TYPE: Release
@@ -90,7 +96,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           cat /etc/alpine-release
-          apk add argp-standalone bash curl cmake gcc g++ geos-dev git go procps lsof make valgrind linux-headers libunwind libunwind-dev tzdata wget jansson-dev snappy-dev xz-dev zlib-dev
+          apk add argp-standalone bash curl cmake gcc g++ git go procps lsof make valgrind linux-headers libunwind libunwind-dev tzdata wget jansson-dev snappy-dev xz-dev zlib-dev
         shell: alpine.sh --root {0}
 
       - name: Build & Install TDengine
@@ -101,8 +107,7 @@ jobs:
           || github.event_name == 'schedule'
         shell: alpine.sh --root {0}
         run: |
-
-          git clone --branch main --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
+          git clone --branch ${{ github.event.pull_request.base.ref }} --depth 1 https://github.com/taosdata/TDengine > /dev/null || exit 1
           cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_HTTP=false && make -j2 && make install
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taos ]]
           then

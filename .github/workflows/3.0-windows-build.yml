@@ -4,9 +4,15 @@ on:
   schedule:
     - cron: "10 16 * * *"
   push:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
   pull_request:
-    branches: [ develop ]
+    branches:
+      - develop
+      - 3.0
+      - main
 
 env:
   TOOLS_BUILD_TYPE: Debug
@@ -55,7 +61,7 @@ jobs:
         run: |
           echo "One or more files listed above has changed."
 
-      - name: Checkout TDengine 3.0
+      - name: Checkout TDengine
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -65,7 +71,7 @@ jobs:
         with:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
-          ref: 'main'
+          ref: ${{ github.event.pull_request.base.ref }}
 
       - name: create debug directory
         if: |
@@ -79,6 +85,7 @@ jobs:
           mkdir debug
 
       - uses: ilammy/msvc-dev-cmd@v1
+
       - name: cmake first TDengine
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
@@ -86,8 +93,9 @@ jobs:
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
+          cl.exe
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} && jom -j 8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 2
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
@@ -115,6 +123,7 @@ jobs:
           toolchain: stable
 
       - uses: ilammy/msvc-dev-cmd@v1
+
       - name: Build & Install TDengine
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
@@ -122,8 +131,10 @@ jobs:
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
+          cl.exe
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true && jom -j8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 2 && jom install
+          #cmake .. -G "NMake Makefiles" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && nmake && nmake install
 
           #      - name: taosdump codec Test
           #        if:
