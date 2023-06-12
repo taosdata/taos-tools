@@ -9916,6 +9916,8 @@ bool convertDbClauseForV3(char **cmd) {
             pos += sprintf(*cmd + pos, "DURATION %dm ", atoi(sub_str)*24*60);
         } else if (0 == strcmp(sub_str, "CACHE")) {
             sub_str = strsep(&running, " ");
+        } else if (0 == strcmp(sub_str, "UPDATE")) {
+            sub_str = strsep(&running, " ");
         } else if (0 == strcmp(sub_str, "BLOCKS")) {
             sub_str = strsep(&running, " ");
         } else if (0 == strcmp(sub_str, "FSYNC")) {
