@@ -9909,6 +9909,11 @@ bool convertDbClauseForV3(char **cmd) {
 
     int pos = 0;
     while (sub_str) {
+        if ((0 == strncmp(sub_str, "UPDATE1", strlen("UPDATE1")))
+                || (0 == strncmp(sub_str, "UPDATE2", strlen("UPDATE2")))) {
+            sub_str += strlen("UPDATE1");
+        }
+
         if (0 == strcmp(sub_str, "QUORUM")) {
             sub_str = strsep(&running, " ");
         } else if (0 == strcmp(sub_str, "DAYS")) {
