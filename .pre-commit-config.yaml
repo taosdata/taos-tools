@@ -29,3 +29,9 @@ repos:
     rev: v1.13.6
     hooks:
       - id: typos-src
+
+repos:
+  - repo: https://github.com/TomWright/dasel
+    rev: v2.3.4
+    hooks:
+      - id: dasel-validate
