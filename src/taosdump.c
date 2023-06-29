@@ -904,18 +904,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             break;
 
         case 'E':
-            break;
-
         case 's':
-            break;
-
         case 'L':
-            break;
-
         case 'I':
-            break;
-
         case 'n':
+        case 'y':
             break;
 
         case 'B':
