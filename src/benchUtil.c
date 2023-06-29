@@ -665,6 +665,14 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                                 rest_port,
                                 tcp, sockfd, filePath, responseBuf,
                                 response_length);
+    // compatibility 2.6
+    if (-1 == g_arguments->rest_server_ver_major) {
+        // confirm version is 2.x according to "succ"
+        if (NULL != strstr(responseBuf, succMessage) && iface == REST_IFACE) {
+            g_arguments->rest_server_ver_major = 2;
+        }
+    }
+
     if (NULL != strstr(responseBuf, resHttpOk) && iface == REST_IFACE) {
         // if taosd is not starting , rest_server_ver_major can't be got by 'select server_version()' , so is -1
         if (-1 == g_arguments->rest_server_ver_major || 3 <= g_arguments->rest_server_ver_major) {
