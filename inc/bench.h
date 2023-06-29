@@ -809,6 +809,9 @@ typedef struct SConsumerInfo_S {
     char*       clientId;
     char*       autoOffsetReset;
 
+	char*       createMode;
+	char*       groupMode;
+
     char*       enableManualCommit;
     char*       enableAutoCommit;
     uint32_t    autoCommitIntervalMs;  // ms

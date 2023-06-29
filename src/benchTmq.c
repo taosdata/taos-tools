@@ -136,8 +136,86 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
   return totalRows;
 }
 
+int buildConsumerAndSubscribe(tmqThreadInfo * pThreadInfo, char* groupId) {
+    int ret = 0;
+    char tmpBuff[128] = {0};
+
+    SConsumerInfo*  pConsumerInfo = &g_tmqInfo.consumerInfo;
+
+    tmq_list_t * topic_list = buildTopicList();
+	
+    tmq_conf_t * conf = tmq_conf_new();
+	
+    tmq_conf_set(conf, "td.connect.user", g_arguments->user);
+    tmq_conf_set(conf, "td.connect.pass", g_arguments->password);
+    tmq_conf_set(conf, "td.connect.ip", g_arguments->host);
+
+    memset(tmpBuff, 0, sizeof(tmpBuff));
+    snprintf(tmpBuff, 16, "%d", g_arguments->port);
+    tmq_conf_set(conf, "td.connect.port", tmpBuff);
+
+    tmq_conf_set(conf, "group.id", groupId);
+
+    memset(tmpBuff, 0, sizeof(tmpBuff));
+    snprintf(tmpBuff, 16, "%s_%d", pConsumerInfo->clientId, pThreadInfo->id);
+    tmq_conf_set(conf, "client.id", tmpBuff);
+
+    tmq_conf_set(conf, "auto.offset.reset", pConsumerInfo->autoOffsetReset);
+    tmq_conf_set(conf, "enable.auto.commit", pConsumerInfo->enableAutoCommit);
+
+    memset(tmpBuff, 0, sizeof(tmpBuff));
+    snprintf(tmpBuff, 16, "%d", pConsumerInfo->autoCommitIntervalMs);
+    tmq_conf_set(conf, "auto.commit.interval.ms", tmpBuff);
+
+    tmq_conf_set(conf, "enable.heartbeat.background", pConsumerInfo->enableHeartbeatBackground);
+    tmq_conf_set(conf, "experimental.snapshot.enable", pConsumerInfo->snapshotEnable);
+    tmq_conf_set(conf, "msg.with.table.name", pConsumerInfo->msgWithTableName);
+
+    pThreadInfo->tmq = tmq_consumer_new(conf, NULL, 0);
+    tmq_conf_destroy(conf);
+    if (pThreadInfo->tmq == NULL) {
+        errorPrint("%s", "failed to execute tmq_consumer_new\n");
+        ret = -1;
+	    tmq_list_destroy(topic_list);
+        return ret;
+    }
+    infoPrint("thread[%d]: successfully create consumer\n", pThreadInfo->id);
+
+	int32_t code = tmq_subscribe(pThreadInfo->tmq, topic_list);
+    if (code) {
+        errorPrint("failed to execute tmq_subscribe, reason: %s\n", tmq_err2str(code));
+        ret = -1;
+	    tmq_list_destroy(topic_list);
+        return ret;
+    }
+    infoPrint("thread[%d]: successfully subscribe topics\n", pThreadInfo->id);
+	tmq_list_destroy(topic_list);
+
+    return ret;
+}
+
 static void* tmqConsume(void* arg) {
-    tmqThreadInfo *pThreadInfo = (tmqThreadInfo*)arg;
+    tmqThreadInfo* pThreadInfo = (tmqThreadInfo*)arg;
+	SConsumerInfo* pConsumerInfo = &g_tmqInfo.consumerInfo;
+	
+	// "sequential" or "parallel"
+	if (0 != strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
+
+	    // "share" or "independent"
+		char groupId[16] = {0};
+	    if (0 != strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
+
+			if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
+				// rand string
+				memset(groupId, 0, sizeof(groupId));
+				rand_string(groupId, sizeof(groupId) - 1, 0);
+				infoPrint("consumer id: %d generate rand group id: %s\n", pThreadInfo->id, groupId);
+			    //pConsumerInfo->groupId = groupId;
+			}
+	    }
+
+		buildConsumerAndSubscribe(pThreadInfo, groupId);
+	}	
 
     int64_t totalMsgs = 0;
     int64_t totalRows = 0;
@@ -145,7 +223,7 @@ static void* tmqConsume(void* arg) {
 
     infoPrint("consumer id %d start to loop pull msg\n", pThreadInfo->id);
 
-	if ((NULL != g_tmqInfo.consumerInfo.enableManualCommit) && (0 == strncmp("true", g_tmqInfo.consumerInfo.enableManualCommit, 4))) {
+	if ((NULL != pConsumerInfo->enableManualCommit) && (0 == strncmp("true", pConsumerInfo->enableManualCommit, 4))) {
         manualCommit = 1;		
         infoPrint("consumer id %d enable manual commit\n", pThreadInfo->id);
 	}
@@ -154,7 +232,7 @@ static void* tmqConsume(void* arg) {
     int64_t  lastTotalRows = 0;
     uint64_t lastPrintTime = toolsGetTimestampMs();
 
-    int32_t consumeDelay = g_tmqInfo.consumerInfo.pollDelay == -1 ? -1 : g_tmqInfo.consumerInfo.pollDelay;
+    int32_t consumeDelay = pConsumerInfo->pollDelay == -1 ? -1 : pConsumerInfo->pollDelay;
     while (running) {
       TAOS_RES* tmqMsg = tmq_consumer_poll(pThreadInfo->tmq, consumeDelay);
       if (tmqMsg) {
@@ -184,8 +262,8 @@ static void* tmqConsume(void* arg) {
           lastTotalRows = totalRows;
         }
 
-        if ((g_tmqInfo.consumerInfo.expectRows > 0) && (totalRows > g_tmqInfo.consumerInfo.expectRows)) {
-            infoPrint("consumer id %d consumed rows: %" PRId64 " over than expect rows: %d, exit consume\n", pThreadInfo->id, totalRows, g_tmqInfo.consumerInfo.expectRows);
+        if ((pConsumerInfo->expectRows > 0) && (totalRows > pConsumerInfo->expectRows)) {
+            infoPrint("consumer id %d consumed rows: %" PRId64 " over than expect rows: %d, exit consume\n", pThreadInfo->id, totalRows, pConsumerInfo->expectRows);
             break;
         }
       } else {
@@ -217,6 +295,7 @@ static void* tmqConsume(void* arg) {
     return NULL;
 }
 
+
 int subscribeTestProcess() {
     printfTmqConfigIntoFile();
     int ret = 0;
@@ -227,17 +306,18 @@ int subscribeTestProcess() {
         }
     }
 
-    tmq_list_t * topic_list = buildTopicList();
-
-    char groupId[16] = {0};
-	if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
-		// rand string
-		memset(groupId, 0, sizeof(groupId));
-		rand_string(groupId, sizeof(groupId) - 1, 0);
-		infoPrint("rand generate group id: %s\n", groupId);
-	    pConsumerInfo->groupId = groupId;
-	}
-
+    // "share" or "independent"
+    if (0 == strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
+		char groupId[16] = {0};
+		if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
+			// rand string
+			memset(groupId, 0, sizeof(groupId));
+			rand_string(groupId, sizeof(groupId) - 1, 0);
+			infoPrint("rand generate group id: %s\n", groupId);
+		    pConsumerInfo->groupId = groupId;
+		}
+    }
+	
     pthread_t * pids = benchCalloc(pConsumerInfo->concurrent, sizeof(pthread_t), true);
     tmqThreadInfo *infos = benchCalloc(pConsumerInfo->concurrent, sizeof(tmqThreadInfo), true);
 
@@ -259,48 +339,11 @@ int subscribeTestProcess() {
                 goto tmq_over;
             }
         }
-		
-        tmq_conf_t * conf = tmq_conf_new();
-        tmq_conf_set(conf, "td.connect.user", g_arguments->user);
-        tmq_conf_set(conf, "td.connect.pass", g_arguments->password);
-        tmq_conf_set(conf, "td.connect.ip", g_arguments->host);
 
-        memset(tmpBuff, 0, sizeof(tmpBuff));
-        snprintf(tmpBuff, 16, "%d", g_arguments->port);
-        tmq_conf_set(conf, "td.connect.port", tmpBuff);
-
-        tmq_conf_set(conf, "group.id", pConsumerInfo->groupId);
-
-        memset(tmpBuff, 0, sizeof(tmpBuff));
-        snprintf(tmpBuff, 16, "%s_%d", pConsumerInfo->clientId, i);
-        tmq_conf_set(conf, "client.id", tmpBuff);
-
-        tmq_conf_set(conf, "auto.offset.reset", pConsumerInfo->autoOffsetReset);
-        tmq_conf_set(conf, "enable.auto.commit", pConsumerInfo->enableAutoCommit);
-
-        memset(tmpBuff, 0, sizeof(tmpBuff));
-        snprintf(tmpBuff, 16, "%d", pConsumerInfo->autoCommitIntervalMs);
-        tmq_conf_set(conf, "auto.commit.interval.ms", tmpBuff);
-
-        tmq_conf_set(conf, "enable.heartbeat.background", pConsumerInfo->enableHeartbeatBackground);
-        tmq_conf_set(conf, "experimental.snapshot.enable", pConsumerInfo->snapshotEnable);
-        tmq_conf_set(conf, "msg.with.table.name", pConsumerInfo->msgWithTableName);
-
-        pThreadInfo->tmq = tmq_consumer_new(conf, NULL, 0);
-        tmq_conf_destroy(conf);
-        if (pThreadInfo->tmq == NULL) {
-            errorPrint("%s", "failed to execute tmq_consumer_new\n");
-            ret = -1;
-            goto tmq_over;
-        }
-        infoPrint("thread[%d]: successfully create consumer\n", i);
-        int32_t code = tmq_subscribe(pThreadInfo->tmq, topic_list);
-        if (code) {
-            errorPrint("failed to execute tmq_subscribe, reason: %s\n", tmq_err2str(code));
-            ret = -1;
-            goto tmq_over;
-        }
-        infoPrint("thread[%d]: successfully subscribe topics\n", i);
+        // "sequential" or "parallel"
+		if (0 == strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
+            buildConsumerAndSubscribe(pThreadInfo, pConsumerInfo->groupId);
+		}
         pthread_create(pids + i, NULL, tmqConsume, pThreadInfo);
     }
 
@@ -332,6 +375,5 @@ int subscribeTestProcess() {
 tmq_over:
     free(pids);
     free(infos);
-    tmq_list_destroy(topic_list);
     return ret;
 }
