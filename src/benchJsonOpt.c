@@ -1737,6 +1737,19 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
         g_tmqInfo.consumerInfo.concurrent = (uint32_t)concurrent->valueint;
     }
 
+    // sequential,	parallel
+    tools_cJSON *createMode = tools_cJSON_GetObjectItem(tmqInfo, "create_mode");
+    if (tools_cJSON_IsString(createMode)) {
+        g_tmqInfo.consumerInfo.createMode = createMode->valuestring;
+    }
+
+    // share, independent
+    tools_cJSON *groupMode = tools_cJSON_GetObjectItem(tmqInfo, "group_mode");
+    if (tools_cJSON_IsString(groupMode)) {
+        g_tmqInfo.consumerInfo.groupMode = groupMode->valuestring;
+    }
+	
+
     tools_cJSON *pollDelay = tools_cJSON_GetObjectItem(tmqInfo, "poll_delay");
     if (tools_cJSON_IsNumber(pollDelay)) {
         g_tmqInfo.consumerInfo.pollDelay = (uint32_t)pollDelay->valueint;

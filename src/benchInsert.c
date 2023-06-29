@@ -356,11 +356,14 @@ skip:
                 " WATERMARK %s", stbInfo->watermark);
     }
 
+    // not support ttl in super table
+    /*
     if (stbInfo->ttl != 0) {
         length += snprintf(command + length,
                            TSDB_MAX_ALLOWED_SQL_LEN - length,
                 " TTL %d", stbInfo->ttl);
     }
+    */
 
     bool first_sma = true;
     for (int i = 0; i < stbInfo->cols->size; i++) {
