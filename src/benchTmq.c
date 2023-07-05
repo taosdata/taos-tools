@@ -213,7 +213,8 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
 			fprintf(g_arguments->fpOfInsertResult, "insert ts:%" PRId64 ", current ts: %" PRId64 "\n", insertTs, currentTs); 
 		}
 		*/
-		int32_t delayOfTmq = (int32_t)((currentTs - insertTs)/1000000);
+		int32_t delayOfTmq = (int32_t)((currentTs - insertTs)/1000);
+		infoPrint("delay: %d us, insert ts:%" PRId64 ", current ts: %" PRId64 "\n", delayOfTmq, insertTs, currentTs); 
 		pInfo->totalDelay += delayOfTmq;
 		pInfo->delayItemCnt++;
 
@@ -231,13 +232,17 @@ static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msg
 			fprintf(g_arguments->fpOfInsertResult, "==insert ts:%" PRId64 ", current ts: %" PRId64 "\n", insertTs, currentTs); 
 		}
 		*/
+            //infoPrint("====consumer id: %d, cosnume delay : %.3f us, max: %.3f us, min: %.3f us\n", 
+            //           pInfo->id, delayOfTmq/1000.0, pInfo->maxDelay/1000.0, pInfo->minDelay/1000.0);
+            infoPrint("====consumer id: %d, cosnume delay : %d us, max: %d us, min: %d us\n", 
+                       pInfo->id, delayOfTmq, pInfo->maxDelay, pInfo->minDelay);
 
         uint64_t currentPrintTime = toolsGetTimestampMs();;
         if (currentPrintTime - pInfo->lastDelayPrintTime > 10 * 1000) {
 		    if (pInfo->delayItemCnt > 0) {
-		        pInfo->avgDelayOfTmq = (float)pInfo->totalDelay / pInfo->delayItemCnt / 1000.0;
+		        pInfo->avgDelayOfTmq = (float)pInfo->totalDelay / pInfo->delayItemCnt;
 		    }
-            infoPrint("consumer id: %d, cosnume delay avg: %.3f s, max: %d ms, min: %d ms\n", 
+            infoPrint("consumer id: %d, cosnume delay avg: %.3f us, max: %d us, min: %d us\n", 
                        pInfo->id, pInfo->avgDelayOfTmq, pInfo->maxDelay, pInfo->minDelay);
             pInfo->lastDelayPrintTime = currentPrintTime;
         }
