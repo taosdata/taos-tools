@@ -96,7 +96,7 @@ static tmq_list_t * buildTopicList() {
 }
 
 static int32_t data_msg_process(TAOS_RES* msg, tmqThreadInfo* pInfo, int32_t msgIndex) {
-  char* buf = (char*)calloc(1, 16*1024);
+  char* buf = (char*)calloc(1, 64*1024+8);
   if (NULL == buf) {
       errorPrint("consumer id %d calloc memory fail.\n", pInfo->id);
       return 0;
