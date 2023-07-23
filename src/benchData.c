@@ -513,14 +513,14 @@ static float tmpFloatI(Field *field, int i) {
 
 static int tmpInt32Impl(Field *field, int i, int angle) {
     int intTmp;
-    if ((g_arguments->demo_mode) && (i == 0)) {
+    if (field->funType != FUNTYPE_NONE) {
+        // calc from function
+        intTmp = calc_expr_value(field, angle);
+    } else if ((g_arguments->demo_mode) && (i == 0)) {
         unsigned int tmpRand = taosRandom();
         intTmp = tmpRand % 10 + 1;
     } else if ((g_arguments->demo_mode) && (i == 1)) {
         intTmp = 105 + taosRandom() % 10;
-    } else if (field->funType != FUNTYPE_NONE) {
-        // calc from function
-        intTmp = calc_expr_value(field, angle);
     } else {
         if (field->min < (-1 * (RAND_MAX >> 1))) {
             field->min = -1 * (RAND_MAX >> 1);
