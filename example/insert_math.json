@@ -13,7 +13,7 @@
     "insert_interval": 0,
     "interlace_rows": 100,
     "num_of_records_per_req": 100,
-    "prepared_rand": 10000,
+    "prepared_rand": 3600,
     "chinese": "no",
     "escape_character": "yes",
     "databases": [
@@ -27,7 +27,7 @@
                 {
                     "name": "meters",
                     "child_table_exists": "no",
-                    "childtable_count": 10000,
+                    "childtable_count": 100,
                     "childtable_prefix": "d",
                     "auto_create_table": "no",
                     "batch_create_tbl_num": 5,
@@ -57,8 +57,8 @@
                             "max": 12,
                             "min": 8
                         },
-                        { "type": "INT", "name": "voltage", "max": 225, "min": 215, "fun": "10*sin(x)+100"},
-                        { "type": "FLOAT", "name": "phase", "max": 1, "min": 0 }
+                        { "type": "INT", "name": "voltage", "max": 225, "min": 215, "fun": "1000*sin(x)+100"},
+                        { "type": "FLOAT", "name": "phase", "max": 1, "min": 0, "fun": "100*sin(x)+20"}
                     ],
                     "tags": [
                         {

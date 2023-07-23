@@ -45,7 +45,13 @@ const char* locations_sml[] = {
 // calc expression value like 10*sin(x) + 100
 float calc_expr_value(Field *field, int32_t angle) {
     float radian = ATOR(angle);
-    float val    = sin(radian);
+    float funVal = 0;
+    if (field->funType == FUNTYPE_SIN)
+       funVal = sin(radian);
+    else if (field->funType == FUNTYPE_COS)
+       funVal = cos(radian);
+
+    float val = field->multiple * funVal + field->addend;   
     return val;
 }
 
