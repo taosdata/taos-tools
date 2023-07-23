@@ -68,7 +68,7 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
     // random
     char* key4 = strstr(key3, "*");
     if(key4) {
-        *random = aoti(key4 + 1);
+        *random = atoi(key4 + 1);
     }
 
     return funType;
@@ -187,7 +187,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->funType  = funType;
             col->multiple = multiple;
             col->addend   = addend;
-            col->radom    = random;
+            col->random   = random;
 
             if (customName) {
                 if (n >= 1) {
