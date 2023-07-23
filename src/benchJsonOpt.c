@@ -47,7 +47,7 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend) {
     for(int i=0; i < FUNTYPE_CNT; i++) {
         key2 = strstr(key1, funsName[i]);
         if(key2) {
-            funType = i;
+            funType = i + 1;
             key2 += strlen(funsName[i]);
             break;
         }
