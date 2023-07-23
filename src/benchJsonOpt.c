@@ -18,7 +18,7 @@ extern char      g_configDir[MAX_PATH_LEN];
 char funsName [FUNTYPE_CNT] [32] = {
     "sin(",
     "cos("
-}
+};
 
 uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend) {
     // check valid

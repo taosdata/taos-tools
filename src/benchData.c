@@ -475,7 +475,7 @@ FORCE_INLINE float tmpFloat(Field *field) {
     return floatTmp;
 }
 
-static float tmpFloatImpl(Field *field, int i) {
+static float tmpFloatImpl(Field *field, int i, int32_t angle) {
     float floatTmp = (float)field->min;
     if(field->funType != FUNTYPE_NONE) {
         floatTmp = calc_expr_value(field, angle);
