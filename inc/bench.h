@@ -553,6 +553,15 @@ typedef struct SChildField {
     StmtData stmtData;
 } ChildField;
 
+#define PI  3.141592654
+#define ATOR(x)  (x*3.141592654/180)
+
+#define FUNTYPE_NONE  0
+#define FUNTYPE_SIN   1
+#define FUNTYPE_COS   2
+
+#define FUNTYPE_CNT   2
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -563,6 +572,13 @@ typedef struct SField {
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
+
+    // fun
+    uint8_t  funType;
+    float    multiple;
+    int32_t  addend;
+    int32_t  random;
+
     bool     sma;
 } Field;
 
