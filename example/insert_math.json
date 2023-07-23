@@ -27,7 +27,7 @@
                 {
                     "name": "meters",
                     "child_table_exists": "no",
-                    "childtable_count": 100,
+                    "childtable_count": 10,
                     "childtable_prefix": "d",
                     "auto_create_table": "no",
                     "batch_create_tbl_num": 5,
@@ -57,8 +57,8 @@
                             "max": 12,
                             "min": 8
                         },
-                        { "type": "INT", "name": "voltage", "max": 225, "min": 215, "fun": "1000*sin(x)+100"},
-                        { "type": "FLOAT", "name": "phase", "max": 1, "min": 0, "fun": "100*sin(x)+20"}
+                        { "type": "INT", "name": "voltage", "max": 225, "min": 215, "fun": "1000*sin(x)+100*random(10)"},
+                        { "type": "FLOAT", "name": "phase", "max": 1, "min": 0, "fun": "10*sin(x)+1*random(5)"}
                     ],
                     "tags": [
                         {

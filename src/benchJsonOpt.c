@@ -20,7 +20,7 @@ char funsName [FUNTYPE_CNT] [32] = {
     "cos("
 };
 
-uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend) {
+uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* random) {
     // check valid
     if (funValue == NULL || multiple == NULL || addend == NULL) {
         return FUNTYPE_NONE;
@@ -30,7 +30,7 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend) {
         return FUNTYPE_NONE;
     }
 
-    //parse format 10*sin(x) + 100
+    //parse format 10*sin(x) + 100 * random(5)
     char value[128];
     strcpy(value, funValue);
 
@@ -63,6 +63,13 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend) {
         if(key3)
            *addend = atoi(key3 + 1) * -1;
     }
+    key3 += 1;
+
+    // random
+    char* key4 = strstr(key3, "*");
+    if(key4) {
+        *random = aoti(key4 + 1);
+    }
 
     return funType;
 }
@@ -94,6 +101,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         uint8_t funType = FUNTYPE_NONE;
         float   multiple = 0;
         int32_t addend   = 0;
+        int32_t random   = 0;
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -136,7 +144,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // fun
         tools_cJSON *fun = tools_cJSON_GetObjectItem(column, "fun");
         if (tools_cJSON_IsString(fun)) {
-            funType = parseFuns(fun->valuestring, &multiple, &addend);
+            funType = parseFuns(fun->valuestring, &multiple, &addend, &random);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
@@ -179,6 +187,8 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->funType  = funType;
             col->multiple = multiple;
             col->addend   = addend;
+            col->radom    = random;
+
             if (customName) {
                 if (n >= 1) {
                     snprintf(col->name, TSDB_COL_NAME_LEN,

@@ -577,6 +577,7 @@ typedef struct SField {
     uint8_t  funType;
     float    multiple;
     int32_t  addend;
+    int32_t  random;
 
     bool     sma;
 } Field;

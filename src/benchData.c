@@ -51,7 +51,12 @@ float calc_expr_value(Field *field, int32_t angle) {
     else if (field->funType == FUNTYPE_COS)
        funVal = cos(radian);
 
-    float val = field->multiple * funVal + field->addend;   
+    float val = field->multiple * funVal + field->addend;
+    if (field->random >0) {
+        float rate = taosRandom() % field->random;
+        val += field->addend * (rate/100);
+    }
+
     return val;
 }
 
