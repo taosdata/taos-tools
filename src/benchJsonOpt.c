@@ -66,9 +66,9 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
     key3 += 1;
 
     // random
-    char* key4 = strstr(key3, "*");
+    char* key4 = strstr(key3, "*random(");
     if(key4) {
-        *random = atoi(key4 + 1);
+        *random = atoi(key4 + 8);
     }
 
     return funType;
