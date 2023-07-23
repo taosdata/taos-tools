@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include <math.h>
 #include <benchData.h>
 
 const char charset[] =
@@ -40,6 +41,14 @@ const char* locations_sml[] = {
 #else
     #include "benchLocations.h"
 #endif
+
+// calc expression value like 10*sin(x) + 100
+float calc_expr_value(Field *field, int32_t angle) {
+    float radian = ATOR(angle);
+    float val    = sin(radian);
+    return val;
+}
+
 
 static int usc2utf8(char *p, int unic) {
     int ret = 0;
@@ -367,15 +376,23 @@ static int tmpStr(char *tmp, int iface, Field *field, int i) {
     return 0;
 }
 
-FORCE_INLINE double tmpDouble(Field *field) {
+FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle) {
     double doubleTmp = (double)(field->min);
-    if (field->max != field->min) {
+
+    if(field->funType != FUNTYPE_NONE) {
+        doubleTmp = calc_expr_value(field, angle);
+    } else if (field->max != field->min) {
         doubleTmp += ((taosRandom() %
             (field->max - field->min)) +
             taosRandom() % 1000000 / 1000000.0);
     }
     return doubleTmp;
 }
+
+FORCE_INLINE double tmpDouble(Field *field) {
+    return tmpDoubleImpl(field, 0);
+}
+
 
 FORCE_INLINE uint64_t tmpUint64(Field *field) {
     uint64_t ubigintTmp = field->min;
@@ -435,12 +452,18 @@ FORCE_INLINE uint16_t tmpUint16(Field *field) {
     return usmallintTmp;
 }
 
-FORCE_INLINE int64_t tmpInt64(Field *field) {
+FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle) {
     int64_t bigintTmp = field->min;
-    if (field->min != field->max) {
+    if(field->funType != FUNTYPE_NONE) {
+        bigintTmp = calc_expr_value(field, angle);
+    } else if (field->min != field->max) {
         bigintTmp += (taosRandom() % (field->max - field->min));
     }
     return bigintTmp;
+}
+
+FORCE_INLINE int64_t tmpInt64(Field *field) {
+    return tmpInt64Impl(field, 0);
 }
 
 FORCE_INLINE float tmpFloat(Field *field) {
@@ -452,30 +475,41 @@ FORCE_INLINE float tmpFloat(Field *field) {
     return floatTmp;
 }
 
-static float tmpFloatI(Field *field, int i) {
+static float tmpFloatImpl(Field *field, int i) {
     float floatTmp = (float)field->min;
-    if (field->max != field->min) {
-        floatTmp += ((taosRandom() %
-                (field->max - field->min))
-            + (taosRandom() % 1000) / 1000.0);
-    }
-    if (g_arguments->demo_mode && i == 0) {
-        floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10)
-            + floatTmp / 1000000000);
-    } else if (g_arguments->demo_mode && i == 2) {
-        floatTmp = (float)((105 + taosRandom() % 10
-            + floatTmp / 1000000000) / 360);
+    if(field->funType != FUNTYPE_NONE) {
+        floatTmp = calc_expr_value(field, angle);
+    } else {
+        if (field->max != field->min) {
+            floatTmp += ((taosRandom() %
+                    (field->max - field->min))
+                + (taosRandom() % 1000) / 1000.0);
+        }
+        if (g_arguments->demo_mode && i == 0) {
+            floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10)
+                + floatTmp / 1000000000);
+        } else if (g_arguments->demo_mode && i == 2) {
+            floatTmp = (float)((105 + taosRandom() % 10
+                + floatTmp / 1000000000) / 360);
+        }
     }
     return floatTmp;
 }
 
-static int tmpInt32(Field *field, int i) {
+static float tmpFloatI(Field *field, int i) {
+    return tmpFloatImpl(field, i, 0);
+}
+
+static int tmpInt32Impl(Field *field, int i, int angle) {
     int intTmp;
     if ((g_arguments->demo_mode) && (i == 0)) {
         unsigned int tmpRand = taosRandom();
         intTmp = tmpRand % 10 + 1;
     } else if ((g_arguments->demo_mode) && (i == 1)) {
         intTmp = 105 + taosRandom() % 10;
+    } else if (field->funType != FUNTYPE_NONE) {
+        // calc from function
+        intTmp = calc_expr_value(field, angle);
     } else {
         if (field->min < (-1 * (RAND_MAX >> 1))) {
             field->min = -1 * (RAND_MAX >> 1);
@@ -489,6 +523,10 @@ static int tmpInt32(Field *field, int i) {
         }
     }
     return intTmp;
+}
+
+static int tmpInt32(Field *field, int i) {
+    return tmpInt32Impl(field, i, 0);
 }
 
 static int tmpJson(char *sampleDataBuf,
@@ -545,6 +583,8 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                      int64_t bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
+
+    int angle = 0; // 0 ~ 360                    
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int fieldsSize = fields->size;
@@ -609,13 +649,13 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32(field, i);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", intTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = tmpInt64(field);
+                    int64_t bigintTmp = tmpInt64Impl(field, angle);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%"PRId64",", bigintTmp);
                     break;
@@ -634,13 +674,13 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatI(field, i);
+                    float floatTmp = tmpFloatImpl(field, i, angle);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ =  tmpDouble(field);
+                    double double_ =  tmpDoubleImpl(field, angle);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", double_);
                     break;
@@ -675,7 +715,12 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
         }
 skip_sql:
         *(sampleDataBuf + pos - 1) = 0;
-    }
+        angle += 1;
+        if (angle > 360) {
+            // 360 is a circle
+            angle = 0;
+        }
+}
 
     return 0;
 }

@@ -10,9 +10,62 @@
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stdlib.h>
 #include <bench.h>
 
 extern char      g_configDir[MAX_PATH_LEN];
+
+char funsName [FUNTYPE_CNT] [32] = {
+    "sin(",
+    "cos("
+}
+
+uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend) {
+    // check valid
+    if (funValue == NULL || multiple == NULL || addend == NULL) {
+        return FUNTYPE_NONE;
+    }
+
+    if(strlen(funValue) > 100) {
+        return FUNTYPE_NONE;
+    }
+
+    //parse format 10*sin(x) + 100
+    char value[128];
+    strcpy(value, funValue);
+
+    // multiple
+    char* key1 = strstr(value, "*");
+    if(key1 == NULL) return FUNTYPE_NONE;
+    *key1 = 0;
+    * multiple = atof(value);
+    key1 += 1;
+
+    // funType
+    uint8_t funType = FUNTYPE_NONE;
+    char* key2 = NULL;
+    for(int i=0; i < FUNTYPE_CNT; i++) {
+        key2 = strstr(key1, funsName[i]);
+        if(key2) {
+            funType = i;
+            key2 += strlen(funsName[i]);
+            break;
+        }
+    }
+    if (key2 == NULL)
+        return FUNTYPE_NONE;
+
+    char* key3 = strstr(key2, "+");
+    if(key3) {
+        *addend = atoi(key3 + 1);
+    } else {
+        key3 = strstr(key2, "-");
+        if(key3)
+           *addend = atoi(key3 + 1) * -1;
+    }
+
+    return funType;
+}
 
 static int getColumnAndTagTypeFromInsertJsonFile(
     tools_cJSON * superTblObj, SSuperTable *stbInfo) {
@@ -37,6 +90,10 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int64_t max = RAND_MAX >> 1;
         int64_t min = 0;
         int32_t length = 4;
+        // fun type
+        uint8_t funType = FUNTYPE_NONE;
+        float   multiple = 0;
+        int32_t addend   = 0;
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -76,6 +133,12 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             min = convertDatatypeToDefaultMin(type);
         }
 
+        // fun
+        tools_cJSON *fun = tools_cJSON_GetObjectItem(column, "fun");
+        if (tools_cJSON_IsString(fun)) {
+            funType = parseFuns(fun->valuestring, &multiple, &addend);
+        }
+
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
 
         if (g_arguments->taosc_version == 3) {
@@ -112,6 +175,10 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->max = max;
             col->min = min;
             col->values = dataValues;
+            // fun
+            col->funType  = funType;
+            col->multiple = multiple;
+            col->addend   = addend;
             if (customName) {
                 if (n >= 1) {
                     snprintf(col->name, TSDB_COL_NAME_LEN,
