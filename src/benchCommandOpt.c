@@ -366,7 +366,7 @@ void modifyArgument() {
 
     if (g_arguments->demo_mode && TAOSC_IFACE == g_arguments->iface) {
         g_arguments->mistMode = true;
-        g_arguments->prepared_rand = 57;
+        g_arguments->prepared_rand = 360;
     }
 }
 
