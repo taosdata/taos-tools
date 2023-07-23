@@ -27,7 +27,7 @@
                 {
                     "name": "meters",
                     "child_table_exists": "no",
-                    "childtable_count": 10,
+                    "childtable_count": 1000,
                     "childtable_prefix": "d",
                     "auto_create_table": "no",
                     "batch_create_tbl_num": 5,
@@ -35,7 +35,7 @@
                     "insert_mode": "taosc",
                     "non_stop_mode": "no",
                     "line_protocol": "line",
-                    "insert_rows": 10000,
+                    "insert_rows": 1000,
                     "childtable_limit": 10,
                     "childtable_offset": 100,
                     "interlace_rows": 0,
@@ -50,15 +50,9 @@
                     "use_sample_ts": "no",
                     "tags_file": "",
                     "columns": [
-                        {
-                            "type": "FLOAT",
-                            "name": "current",
-                            "count": 1,
-                            "max": 12,
-                            "min": 8
-                        },
-                        { "type": "INT", "name": "voltage", "max": 225, "min": 215, "fun": "1000*sin(x)+100*random(10)"},
-                        { "type": "FLOAT", "name": "phase", "max": 1, "min": 0, "fun": "10*sin(x)+1*random(5)"}
+                        { "type": "FLOAT", "name": "current", "fun": "1*sin(x)+10*random(15)"},
+                        { "type": "INT",   "name": "voltage", "fun": "40*sin(x)+200*random(10)"},
+                        { "type": "FLOAT", "name": "phase",   "fun": "1*sin(x)+1*random(3)"}
                     ],
                     "tags": [
                         {
