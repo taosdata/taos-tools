@@ -182,6 +182,7 @@ static struct argp_option bench_options[] = {
     {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
     {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
     {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
+    {"angle-step", 'H', "NUMBER", 0, ANGLE_STEP},
     {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
     {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
     {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},

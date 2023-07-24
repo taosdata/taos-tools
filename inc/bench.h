@@ -201,6 +201,7 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_INTERVAL            \
     "Insert interval for interlace mode in milliseconds, default is 0."
 #define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
+#define ANGLE_STEP  "Angle step in milliseconds, default is 1."
 #define BENCH_SUPPLEMENT          \
     "Supplementally insert data without create "  \
     "database and table, optional, default is off."
