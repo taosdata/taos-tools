@@ -392,6 +392,21 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             }
             break;
 
+        // angle step
+        case 'A':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "A");
+            }
+
+            stbInfo->angle_step = atol(arg);
+            if (stbInfo->angle_step <= 0) {
+                errorPrint(
+                           "Invalid -A: %s, will auto set to default(1)\n",
+                           arg);
+                stbInfo->angle_step = 1;
+            }
+            break;            
+
         case 'B':
             if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2(CUS_PROMPT"Benchmark", "B");

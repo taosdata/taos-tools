@@ -726,7 +726,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
         }
 skip_sql:
         *(sampleDataBuf + pos - 1) = 0;
-        angle += stbInfo->timestamp_step;
+        angle += stbInfo->timestamp_step/stbInfo->angle_step;
         if (angle > 360) {
             angle -= 360;
         }

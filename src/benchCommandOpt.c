@@ -183,6 +183,7 @@ static void initStable() {
 
     stbInfo->insert_interval = 0;
     stbInfo->timestamp_step = 1;
+    stbInfo->angle_step = 1;
     stbInfo->interlaceRows = 0;
     stbInfo->childTblCount = DEFAULT_CHILDTABLES;
     stbInfo->childTblLimit = 0;

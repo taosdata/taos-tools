@@ -564,6 +564,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->tcpTransfer = false;
         superTable->childTblOffset = 0;
         superTable->timestamp_step = 1;
+        superTable->angle_step = 1;
         superTable->useSampleTs = false;
         superTable->non_stop = false;
         superTable->insertRows = 0;
@@ -817,6 +818,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "timestamp_step");
         if (tools_cJSON_IsNumber(timestampStep)) {
             superTable->timestamp_step = timestampStep->valueint;
+        }
+
+        tools_cJSON *angleStep =
+            tools_cJSON_GetObjectItem(stbInfo, "angle_step");
+        if (tools_cJSON_IsNumber(angleStep)) {
+            superTable->angle_step = timestampStep->valueint;
         }
 
         tools_cJSON *keepTrying =

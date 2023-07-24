@@ -682,6 +682,7 @@ typedef struct SSuperTable_S {
     uint64_t  insert_interval;
     uint64_t  insertRows;
     uint64_t  timestamp_step;
+    uint64_t  angle_step;
     int64_t   startTimestamp;
     int64_t   specifiedColumns;
     char      sampleFile[MAX_FILE_NAME_LEN];
