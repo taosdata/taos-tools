@@ -595,7 +595,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
 
-    int angle = 0; // 0 ~ 360                    
+    int angle = stbInfo->startTimestamp % 360; // 0 ~ 360
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int fieldsSize = fields->size;
@@ -726,10 +726,9 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
         }
 skip_sql:
         *(sampleDataBuf + pos - 1) = 0;
-        angle += 1;
+        angle += stbInfo->timestamp_step;
         if (angle > 360) {
-            // 360 is a circle
-            angle = 0;
+            angle -= 360;
         }
 }
 
