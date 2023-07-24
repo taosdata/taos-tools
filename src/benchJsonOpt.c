@@ -26,13 +26,21 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
         return FUNTYPE_NONE;
     }
 
-    if(strlen(funValue) > 100) {
+    size_t len = strlen(funValue); 
+    if(len > 100) {
         return FUNTYPE_NONE;
     }
 
     //parse format 10*sin(x) + 100 * random(5)
     char value[128];
-    strcpy(value, funValue);
+    size_t n = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (funValue[i] != ' ') {
+            value[n++] = funValue[i];
+        }
+    }
+    // set end
+    value[n] = 0;
 
     // multiple
     char* key1 = strstr(value, "*");
