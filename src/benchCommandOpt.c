@@ -138,10 +138,10 @@ static void initStable() {
 
     c1->min = 9;
     c1->max = 10;    
-    // fun = "1*sin(x)+10*random(15)"
+    // fun = "3*sin(x)+10*random(2)"
     c1->funType  = FUNTYPE_SIN;
-    c1->multiple = 1;
-    c1->random   = 15;
+    c1->multiple = 3;
+    c1->random   = 2;
     c1->addend   = 10;
 
     c2->min = 110;
@@ -183,6 +183,7 @@ static void initStable() {
 
     stbInfo->insert_interval = 0;
     stbInfo->timestamp_step = 1;
+    stbInfo->angle_step = 1;
     stbInfo->interlaceRows = 0;
     stbInfo->childTblCount = DEFAULT_CHILDTABLES;
     stbInfo->childTblLimit = 0;
