@@ -5034,7 +5034,7 @@ static int64_t writeResultToAvroNative(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            infoPrint("[%" PRId64 "/%" PRId64 "] write avro %d%% of %s\n", g_tableDone, g_tableCount, currentPercent, tbName);
+            infoPrint("[%" PRId64 "/%" PRId64 "] write avro %d%% of %s\n", g_tableDone + 1, g_tableCount, currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
