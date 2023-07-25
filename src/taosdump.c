@@ -10654,6 +10654,7 @@ static int64_t dumpNtbOfStbByThreads(
     ASSERT(pids);
     ASSERT(infos);
 
+    infoPrint("create %d thread(s) and connect to server...\n", threads);
     threadInfo *pThreadInfo;
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
@@ -10723,6 +10724,7 @@ static int64_t dumpNtbOfStbByThreads(
         }
     }
 
+    infoPrint("close taos connections...\n");
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
         taos_close(pThreadInfo->taos);
