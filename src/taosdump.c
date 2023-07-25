@@ -10654,7 +10654,7 @@ static int64_t dumpNtbOfStbByThreads(
     ASSERT(pids);
     ASSERT(infos);
 
-    infoPrint("create %d thread(s) and connect to server...\n", threads);
+    infoPrint("create %d thread(s) to export data ...\n", threads);
     threadInfo *pThreadInfo;
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
