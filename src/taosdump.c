@@ -10724,7 +10724,7 @@ static int64_t dumpNtbOfStbByThreads(
         }
     }
 
-    infoPrint("close taos connections...\n");
+    infoPrint("%s\n","close taos connections...");
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
         taos_close(pThreadInfo->taos);
