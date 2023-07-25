@@ -118,6 +118,10 @@ static int       g_majorVersionOfClient = 0;
 static int      g_maxFilesPerDir = 100000;
 volatile int64_t g_countOfDataFile = 0;
 
+// progress
+static int64_t   g_tableCount = 0;
+static int64_t   g_tableDone  = 0;
+
 static void print_json_aux(json_t *element, int indent);
 
 // for tstrncpy buffer overflow
@@ -5030,7 +5034,7 @@ static int64_t writeResultToAvroNative(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            infoPrint("%d%% of %s\n", currentPercent, tbName);
+            infoPrint("[%" PRId64 "/%" PRId64 "] write avro %d%% of %s\n", g_tableDone, g_tableCount, currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
@@ -10470,6 +10474,9 @@ static void dumpNormalTablesOfStbNative(
                     fp);
         }
 
+        // update progress
+        atomic_add_fetch_64(&g_tableDone, 1);
+
         if (count < 0) {
             break;
         } else {
@@ -10567,6 +10574,10 @@ static int64_t dumpNtbOfStbByThreads(
 #ifdef WEBSOCKET
     }
 #endif
+
+    // set progress to global
+    g_tableCount = ntbCount;
+    g_tableDone  = 0;
 
     infoPrint("%s() LN%d, %s's %s's total normal table count: %"PRId64"\n",
             __func__, __LINE__, dbInfo->name, stbName, ntbCount);
