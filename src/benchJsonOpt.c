@@ -823,7 +823,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         tools_cJSON *angleStep =
             tools_cJSON_GetObjectItem(stbInfo, "angle_step");
         if (tools_cJSON_IsNumber(angleStep)) {
-            superTable->angle_step = timestampStep->valueint;
+            superTable->angle_step = angleStep->valueint;
         }
 
         tools_cJSON *keepTrying =
