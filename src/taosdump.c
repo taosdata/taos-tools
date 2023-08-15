@@ -3872,7 +3872,7 @@ static int convertTbDesToJsonImpl(
         TableDes *tableDes,
         char **jsonSchema, bool isColumn) {
 
-    char* outName = tbName
+    char* outName = tbName;
     char tableName[TSDB_TABLE_NAME_LEN + 1];
     if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
         outName = tableName;
@@ -4983,7 +4983,7 @@ static int64_t writeResultToAvroNative(
         return 0;
     }
 
-    char* outName = tbName
+    char* outName = tbName;
     char tableName[TSDB_TABLE_NAME_LEN + 1];
     if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
         outName = tableName;
@@ -8615,7 +8615,7 @@ static int createMTableAvroHeadImp(
         }
 
         avro_value_set_branch(&value, 1, &branch);
-        char* outSName = stable
+        char* outSName = stable;
         char stableName[TSDB_TABLE_NAME_LEN + 1];
         if(g_args.dotReplace && replaceCopy(stableName, (char*)stable)) {
             outSName = stableName;
@@ -8632,7 +8632,7 @@ static int createMTableAvroHeadImp(
 
     avro_value_set_branch(&value, 1, &branch);
 
-    char* outName = tbName
+    char* outName = tbName;
     char tableName[TSDB_TABLE_NAME_LEN + 1];
     if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
         outName = tableName;
