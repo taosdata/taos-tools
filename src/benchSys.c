@@ -218,7 +218,7 @@ static struct argp_option bench_options[] = {
     {"vgroups", 'v', "NUMBER", 0, BENCH_VGROUPS},
 #endif
     {"version", 'V', 0, 0, BENCH_VERSION},
-    {"nodrop", 'Z', 0, 0, BENCH_NODROP},
+    {"nodrop", 'Q', 0, 0, BENCH_NODROP},
     {0}
 };
 
