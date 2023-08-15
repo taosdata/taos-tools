@@ -1797,6 +1797,21 @@ static int getDumpDbCount() {
     return count;
 }
 
+bool replaceCopy(char *des, char *src) {
+    size_t len = strlen(src);
+    bool replace = false;
+    for (size_t i = 0; i <= len; i++) {
+        if (src[i] == '.') {
+            des[i] = '_';
+            replace = true;
+        } else {
+            des[i] = src[i];
+        }
+    }
+
+    return replace;
+}
+
 static int dumpCreateMTableClause(
         const char* dbName,
         const char *stable,
@@ -1817,11 +1832,18 @@ static int dumpCreateMTableClause(
     char *pstr = NULL;
     pstr = tmpBuf;
 
+    // outName is output to file table name
+    char * outName = tableDes->name;
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    if(replaceCopy(tableName, tableDes->name)) {
+        outName = tableName;
+    }
+
     pstr += snprintf(tmpBuf, TSDB_DEFAULT_PKT_SIZE,
             g_args.db_escape_char
             ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s USING `%s`.%s%s%s TAGS("
             : "CREATE TABLE IF NOT EXISTS %s.%s%s%s USING %s.%s%s%s TAGS(",
-            dbName, g_escapeChar, tableDes->name, g_escapeChar,
+            dbName, g_escapeChar, outName, g_escapeChar,
             dbName, g_escapeChar, stable, g_escapeChar);
 
     for (; counter < numColsAndTags; counter++) {
@@ -2921,11 +2943,18 @@ static int convertTableDesToSql(
 
     char* pstr = *buffer;
 
+    // outName is output to file table name
+    char * outName = tableDes->name;
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    if(replaceCopy(tableName, tableDes->name)) {
+        outName = tableName;
+    }
+
     pstr += sprintf(pstr,
             g_args.db_escape_char
             ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s"
             : "CREATE TABLE IF NOT EXISTS %s.%s%s%s",
-            dbName, g_escapeChar, tableDes->name, g_escapeChar);
+            dbName, g_escapeChar, outName, g_escapeChar);
 
     for (; counter < tableDes->columns; counter++) {
         if (tableDes->cols[counter].note[0] != '\0') break;
@@ -3311,7 +3340,9 @@ static int dumpCreateTableClauseAvro(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, tableDes->name);
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    replaceCopy(tableName, tableDes->name);
+    avro_value_set_string(&branch, tableName);
 
     if (0 != avro_value_get_by_name(
                 &record, "sql", &value, NULL)) {
@@ -3829,12 +3860,16 @@ static int convertTbDesToJsonImpl(
         const char *tbName,
         TableDes *tableDes,
         char **jsonSchema, bool isColumn) {
+
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    replaceCopy(tableName, (char*) tbName);
+    
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
             namespace,
-            (isColumn)?(g_args.loose_mode?tbName:"_record")
-            :(g_args.loose_mode?tbName:"_stb"));
+            (isColumn)?(g_args.loose_mode?tableName:"_record")
+            :(g_args.loose_mode?tableName:"_stb"));
 
     int iterate = 0;
     if (g_args.loose_mode) {
@@ -4934,6 +4969,9 @@ static int64_t writeResultToAvroNative(
         return 0;
     }
 
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    replaceCopy(tableName, (char*) tbName);
+
     avro_schema_t schema;
     RecordSchema *recordSchema;
     avro_file_writer_t db;
@@ -4997,7 +5035,7 @@ static int64_t writeResultToAvroNative(
                     break;
                 }
                 avro_value_set_branch(&avro_value, 1, &branch);
-                avro_value_set_string(&branch, tbName);
+                avro_value_set_string(&branch, tableName);
             }
 
             for (int32_t col = 0; col < numFields; col++) {
@@ -8560,7 +8598,9 @@ static int createMTableAvroHeadImp(
         }
 
         avro_value_set_branch(&value, 1, &branch);
-        avro_value_set_string(&branch, stable);
+        char stableName[TSDB_TABLE_NAME_LEN + 1];
+        replaceCopy(stableName, (char *)stable);
+        avro_value_set_string(&branch, stableName);
     }
 
     if (0 != avro_value_get_by_name(
@@ -8571,7 +8611,9 @@ static int createMTableAvroHeadImp(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, tbName);
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    replaceCopy(tableName, (char*)tbName);
+    avro_value_set_string(&branch, tableName);
 
     TableDes *subTableDes = (TableDes *) calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * (stbTableDes->columns + stbTableDes->tags));
@@ -13062,3 +13104,4 @@ int main(int argc, char *argv[]) {
     }
     return ret;
 }
+
