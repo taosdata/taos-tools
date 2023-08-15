@@ -493,6 +493,7 @@ static struct argp_option options[] = {
                  "websocket to interact."},
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
+    {"dot-replace", 'R', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
     {0}
 };
 
@@ -543,6 +544,7 @@ typedef struct arguments {
     bool     debug_print;
     bool     verbose_print;
     bool     performance_print;
+    bool     dotReplace;
 
     int      dumpDbCount;
 
@@ -1060,6 +1062,11 @@ static void parse_args(
         } else if ((strcmp(argv[i], "-L") == 0)
                 || (0 == strcmp(argv[i], "--lose-mode"))) {
             g_args.loose_mode = true;
+            strcpy(argv[i], "");
+        // dot replace    
+        } else if ((strcmp(argv[i], "-R") == 0)
+                || (0 == strcmp(argv[i], "--dot-replace"))) {
+            g_args.dotReplace = true;
             strcpy(argv[i], "");
         } else if (strcmp(argv[i], "-gg") == 0) {
             arguments->verbose_print = true;
@@ -1797,6 +1804,21 @@ static int getDumpDbCount() {
     return count;
 }
 
+bool replaceCopy(char *des, char *src) {
+    size_t len = strlen(src);
+    bool replace = false;
+    for (size_t i = 0; i <= len; i++) {
+        if (src[i] == '.') {
+            des[i] = '_';
+            replace = true;
+        } else {
+            des[i] = src[i];
+        }
+    }
+
+    return replace;
+}
+
 static int dumpCreateMTableClause(
         const char* dbName,
         const char *stable,
@@ -1817,11 +1839,18 @@ static int dumpCreateMTableClause(
     char *pstr = NULL;
     pstr = tmpBuf;
 
+    // outName is output to file table name
+    char * outName = tableDes->name;
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
+        outName = tableName;
+    }
+
     pstr += snprintf(tmpBuf, TSDB_DEFAULT_PKT_SIZE,
             g_args.db_escape_char
             ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s USING `%s`.%s%s%s TAGS("
             : "CREATE TABLE IF NOT EXISTS %s.%s%s%s USING %s.%s%s%s TAGS(",
-            dbName, g_escapeChar, tableDes->name, g_escapeChar,
+            dbName, g_escapeChar, outName, g_escapeChar,
             dbName, g_escapeChar, stable, g_escapeChar);
 
     for (; counter < numColsAndTags; counter++) {
@@ -2921,11 +2950,18 @@ static int convertTableDesToSql(
 
     char* pstr = *buffer;
 
+    // outName is output to file table name
+    char * outName = tableDes->name;
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
+        outName = tableName;
+    }
+
     pstr += sprintf(pstr,
             g_args.db_escape_char
             ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s"
             : "CREATE TABLE IF NOT EXISTS %s.%s%s%s",
-            dbName, g_escapeChar, tableDes->name, g_escapeChar);
+            dbName, g_escapeChar, outName, g_escapeChar);
 
     for (; counter < tableDes->columns; counter++) {
         if (tableDes->cols[counter].note[0] != '\0') break;
@@ -3311,7 +3347,13 @@ static int dumpCreateTableClauseAvro(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, tableDes->name);
+    if(g_args.dotReplace) {
+        char tableName[TSDB_TABLE_NAME_LEN+1];
+        replaceCopy(tableName, tableDes->name);
+        avro_value_set_string(&branch, tableName);
+    } else {
+        avro_value_set_string(&branch, tableDes->name);
+    }
 
     if (0 != avro_value_get_by_name(
                 &record, "sql", &value, NULL)) {
@@ -3829,12 +3871,19 @@ static int convertTbDesToJsonImpl(
         const char *tbName,
         TableDes *tableDes,
         char **jsonSchema, bool isColumn) {
+
+    char* outName = (char*)tbName;
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
+    
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
             namespace,
-            (isColumn)?(g_args.loose_mode?tbName:"_record")
-            :(g_args.loose_mode?tbName:"_stb"));
+            (isColumn)?(g_args.loose_mode?outName:"_record")
+            :(g_args.loose_mode?outName:"_stb"));
 
     int iterate = 0;
     if (g_args.loose_mode) {
@@ -4934,6 +4983,12 @@ static int64_t writeResultToAvroNative(
         return 0;
     }
 
+    char* outName = (char*)tbName;
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
+
     avro_schema_t schema;
     RecordSchema *recordSchema;
     avro_file_writer_t db;
@@ -4997,7 +5052,7 @@ static int64_t writeResultToAvroNative(
                     break;
                 }
                 avro_value_set_branch(&avro_value, 1, &branch);
-                avro_value_set_string(&branch, tbName);
+                avro_value_set_string(&branch, outName);
             }
 
             for (int32_t col = 0; col < numFields; col++) {
@@ -8560,7 +8615,12 @@ static int createMTableAvroHeadImp(
         }
 
         avro_value_set_branch(&value, 1, &branch);
-        avro_value_set_string(&branch, stable);
+        char* outSName = (char*)stable;
+        char stableName[TSDB_TABLE_NAME_LEN + 1];
+        if(g_args.dotReplace && replaceCopy(stableName, (char*)stable)) {
+            outSName = stableName;
+        }
+        avro_value_set_string(&branch, outSName);
     }
 
     if (0 != avro_value_get_by_name(
@@ -8571,7 +8631,13 @@ static int createMTableAvroHeadImp(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, tbName);
+
+    char* outName = (char*)tbName;
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
+    avro_value_set_string(&branch, outName);
 
     TableDes *subTableDes = (TableDes *) calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * (stbTableDes->columns + stbTableDes->tags));
@@ -13062,3 +13128,4 @@ int main(int argc, char *argv[]) {
     }
     return ret;
 }
+
