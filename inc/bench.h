@@ -249,6 +249,7 @@ typedef unsigned __int32 uint32_t;
     "Specify interval between keep trying insert. " \
     "Valid value is a positive number. Only valid " \
     "when keep trying be enabled."
+#define BENCH_NODROP "Do not drop database."
 
 #ifdef WEBSOCKET
 #define BENCH_DSN "The dsn to connect the cloud service."
