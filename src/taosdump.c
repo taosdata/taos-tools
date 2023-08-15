@@ -1842,7 +1842,7 @@ static int dumpCreateMTableClause(
     // outName is output to file table name
     char * outName = tableDes->name;
     char tableName[TSDB_TABLE_NAME_LEN+1];
-    if(replaceCopy(tableName, tableDes->name)) {
+    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
         outName = tableName;
     }
 
@@ -2953,7 +2953,7 @@ static int convertTableDesToSql(
     // outName is output to file table name
     char * outName = tableDes->name;
     char tableName[TSDB_TABLE_NAME_LEN+1];
-    if(replaceCopy(tableName, tableDes->name)) {
+    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
         outName = tableName;
     }
 
@@ -3347,9 +3347,13 @@ static int dumpCreateTableClauseAvro(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    char tableName[TSDB_TABLE_NAME_LEN+1];
-    replaceCopy(tableName, tableDes->name);
-    avro_value_set_string(&branch, tableName);
+    if(g_args.dotReplace) {
+        char tableName[TSDB_TABLE_NAME_LEN+1];
+        replaceCopy(tableName, tableDes->name);
+        avro_value_set_string(&branch, tableName);
+    } else {
+        avro_value_set_string(&branch, tableDes->name);
+    }
 
     if (0 != avro_value_get_by_name(
                 &record, "sql", &value, NULL)) {
@@ -3868,15 +3872,18 @@ static int convertTbDesToJsonImpl(
         TableDes *tableDes,
         char **jsonSchema, bool isColumn) {
 
+    char* outName = tbName
     char tableName[TSDB_TABLE_NAME_LEN + 1];
-    replaceCopy(tableName, (char*) tbName);
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
     
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
             namespace,
-            (isColumn)?(g_args.loose_mode?tableName:"_record")
-            :(g_args.loose_mode?tableName:"_stb"));
+            (isColumn)?(g_args.loose_mode?outName:"_record")
+            :(g_args.loose_mode?outName:"_stb"));
 
     int iterate = 0;
     if (g_args.loose_mode) {
@@ -4976,8 +4983,11 @@ static int64_t writeResultToAvroNative(
         return 0;
     }
 
+    char* outName = tbName
     char tableName[TSDB_TABLE_NAME_LEN + 1];
-    replaceCopy(tableName, (char*) tbName);
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
 
     avro_schema_t schema;
     RecordSchema *recordSchema;
@@ -5042,7 +5052,7 @@ static int64_t writeResultToAvroNative(
                     break;
                 }
                 avro_value_set_branch(&avro_value, 1, &branch);
-                avro_value_set_string(&branch, tableName);
+                avro_value_set_string(&branch, outName);
             }
 
             for (int32_t col = 0; col < numFields; col++) {
@@ -8605,9 +8615,12 @@ static int createMTableAvroHeadImp(
         }
 
         avro_value_set_branch(&value, 1, &branch);
+        char* outSName = stable
         char stableName[TSDB_TABLE_NAME_LEN + 1];
-        replaceCopy(stableName, (char *)stable);
-        avro_value_set_string(&branch, stableName);
+        if(g_args.dotReplace && replaceCopy(stableName, (char*)stable)) {
+            outSName = stableName;
+        }
+        avro_value_set_string(&branch, outSName);
     }
 
     if (0 != avro_value_get_by_name(
@@ -8618,9 +8631,13 @@ static int createMTableAvroHeadImp(
     }
 
     avro_value_set_branch(&value, 1, &branch);
+
+    char* outName = tbName
     char tableName[TSDB_TABLE_NAME_LEN + 1];
-    replaceCopy(tableName, (char*)tbName);
-    avro_value_set_string(&branch, tableName);
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
+    avro_value_set_string(&branch, outName);
 
     TableDes *subTableDes = (TableDes *) calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * (stbTableDes->columns + stbTableDes->tags));
