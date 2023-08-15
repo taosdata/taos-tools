@@ -609,6 +609,7 @@ struct arguments g_args = {
     false,      // debug_print
     false,      // verbose_print
     false,      // performance_print
+    false,      // dotRepalce
         0,      // dumpDbCount
 #ifdef WEBSOCKET
     false,      // restful
