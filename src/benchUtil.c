@@ -583,17 +583,20 @@ static int getServerVersionRestImpl(int16_t rest_port, int sockfd) {
         }
         tools_cJSON* dataObj = tools_cJSON_GetObjectItem(resObj, "data");
         if (!tools_cJSON_IsArray(dataObj)) {
-            errorPrint("Invalid or miss 'data' key in json: %s\n",
-                       tools_cJSON_Print(resObj));
+            char* pstr = tools_cJSON_Print(resObj);
+            errorPrint("Invalid or miss 'data' key in json: %s\n", pstr ? pstr : "null");
+            tmfree(pstr);
             tools_cJSON_Delete(resObj);
             goto free_of_getversion;
         }
         tools_cJSON *versionObj = tools_cJSON_GetArrayItem(dataObj, 0);
         tools_cJSON *versionStrObj = tools_cJSON_GetArrayItem(versionObj, 0);
         server_ver = atoi(versionStrObj->valuestring);
+        char* pstr = tools_cJSON_Print(versionStrObj);        
         debugPrint("versionStrObj: %s, version: %s, server_ver: %d\n",
-                   tools_cJSON_Print(versionStrObj),
+                   pstr ? pstr : "null",
                    versionStrObj->valuestring, server_ver);
+        tmfree(pstr);
         tools_cJSON_Delete(resObj);
     }
 free_of_getversion:
@@ -627,8 +630,9 @@ static int getCodeFromResp(char *responseBuf) {
     }
     tools_cJSON* codeObj = tools_cJSON_GetObjectItem(resObj, "code");
     if (!tools_cJSON_IsNumber(codeObj)) {
-        errorPrint("Invalid or miss 'code' key in json: %s\n",
-                   tools_cJSON_Print(resObj));
+        char* pstr = tools_cJSON_Print(resObj);
+        errorPrint("Invalid or miss 'code' key in json: %s\n", pstr ? pstr : "null");
+        tmfree(pstr);
         tools_cJSON_Delete(resObj);
         return -1;
     }
@@ -638,8 +642,9 @@ static int getCodeFromResp(char *responseBuf) {
     if (codeObj->valueint != 0) {
         tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
         if (!tools_cJSON_IsString(desc)) {
-            errorPrint("Invalid or miss 'desc' key in json: %s\n",
-                       tools_cJSON_Print(resObj));
+            char* pstr = tools_cJSON_Print(resObj);
+            errorPrint("Invalid or miss 'desc' key in json: %s\n", pstr ? pstr : "null");
+            tmfree(pstr);
             return -1;
         }
         errorPrint("response, code: %d, reason: %s\n",
@@ -732,8 +737,9 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                 && (TSDB_SML_JSON_PROTOCOL != protocol)
                 && (SML_JSON_TAOS_FORMAT != protocol)
                 ) {
-            errorPrint("Invalid or miss 'code' key in json: %s\n",
-                       tools_cJSON_Print(resObj));
+            char* pstr = tools_cJSON_Print(resObj);
+            errorPrint("Invalid or miss 'code' key in json: %s\n", pstr ? pstr : "null");
+            tmfree(pstr);
             tools_cJSON_Delete(resObj);
             goto free_of_post;
         }
@@ -751,8 +757,9 @@ int postProceSql(char *sqlstr, char* dbName, int precision, int iface,
                 && (codeObj->valueint != 0) && (codeObj->valueint != 200)) {
             tools_cJSON* desc = tools_cJSON_GetObjectItem(resObj, "desc");
             if (!tools_cJSON_IsString(desc)) {
-                errorPrint("Invalid or miss 'desc' key in json: %s\n",
-                           tools_cJSON_Print(resObj));
+                char* pstr = tools_cJSON_Print(resObj);
+                errorPrint("Invalid or miss 'desc' key in json: %s\n", pstr ? pstr : "null");
+                tmfree(pstr);
             } else {
                 errorPrint("insert mode response, code: %d, reason: %s\n",
                        (int)codeObj->valueint, desc->valuestring);
