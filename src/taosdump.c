@@ -493,7 +493,7 @@ static struct argp_option options[] = {
                  "websocket to interact."},
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
-    {"dot-replace", 'R', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
+    {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
     {0}
 };
 
@@ -1065,7 +1065,7 @@ static void parse_args(
             g_args.loose_mode = true;
             strcpy(argv[i], "");
         // dot replace    
-        } else if ((strcmp(argv[i], "-R") == 0)
+        } else if ((strcmp(argv[i], "-Q") == 0)
                 || (0 == strcmp(argv[i], "--dot-replace"))) {
             g_args.dotReplace = true;
             strcpy(argv[i], "");
