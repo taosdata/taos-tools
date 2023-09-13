@@ -494,11 +494,19 @@ static struct argp_option options[] = {
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
+    {"rename-dbname", 'W', 0, 0,  "rename database name with new name. format demo: db1=newDB1|db2=newDB2", 10},
     {0}
 };
 
 #define HUMAN_TIME_LEN      28
 #define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
+
+// rename db 
+typedef struct SRenameDB {
+    char* old;
+    char* new;
+    SRenameDB* next;
+}
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {
@@ -545,9 +553,7 @@ typedef struct arguments {
     bool     verbose_print;
     bool     performance_print;
     bool     dotReplace;
-
     int      dumpDbCount;
-
 #ifdef WEBSOCKET
     bool     restful;
     bool     cloud;
@@ -557,6 +563,10 @@ typedef struct arguments {
     int      cloudPort;
     char     cloudHost[MAX_HOSTNAME_LEN];
 #endif
+
+    // put rename db string
+    char      * renameBuf;
+    SRenameDB * renameHead;
 } SArguments;
 
 static resultStatistics g_resultStatistics = {0};
@@ -611,6 +621,7 @@ struct arguments g_args = {
     false,      // performance_print
     false,      // dotRepalce
         0,      // dumpDbCount
+        
 #ifdef WEBSOCKET
     false,      // restful
     false,      // cloud
@@ -620,6 +631,9 @@ struct arguments g_args = {
     0,          // cloudPort
     {0},        // cloudHost
 #endif  // WEBSOCKET
+
+    NULL,       // renameBuf
+    NULL        // renameHead
 };
 
 
@@ -779,6 +793,71 @@ int64_t getEndTime(int precision) {
     }
 
     return end_time;
+}
+
+SRenameDB* newNode(char* first, SRenameDB* prev) {
+    SRenameDB* node = (SRenameDB*) malloc(sizeof(SRenameDB));
+    memset(node, 0, sizeof(SRenameDB));
+    node->old = first;
+    // link to list
+    if(prev) {
+        prev->next = node;
+    }
+
+    return node;
+}
+
+void setRenameDbs(char* arg) {
+    // malloc new
+    int len = strlen(arg);
+    if(len <= 2) {
+        return ;
+    }
+    len += 1; // include \0
+
+    // malloc
+    char* p = malloc(len);
+    int j = 0; // j is p pos
+    for (int i = 0; i < len; i++) {
+        if (arg[i] == ' ') {
+            // do nothing
+        } else if (arg[i] == '=' || arg[i] == '|') {
+            // set zero
+            p[j++] = 0;
+        } else {
+            // copy
+            p[j++] = arg[i];
+        }
+    }
+
+    // splite
+    SRenameDB* node = newNode(p);
+    g_args.renameHead = node;
+    for (int k = 0; k < j; k++) {
+        if(p[k] == 0 && k + 1 != j && k > 0) {
+            // string end and not last end
+            char* name = p + (k - 1);
+            if (node->new == NULL) {
+                node->new = name;
+            } else {
+                node = newNode(name, node);
+            }
+        }
+    }
+
+    // end
+    g_args.renameBuf = p;
+}
+
+// find newName
+char* findNewName(char* oldName) {
+    SRenameDB* node = g_args.renameHead;
+    while(node) {
+        if (strcmp(node->old, oldName) == 0) {
+            return node->new;
+        }
+        node = node->next;
+    }
 }
 
 /* Parse a single option. */
@@ -966,6 +1045,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
                 g_args.arg_list_len = state->argc - state->next + 1;
             }
             state->next             = state->argc;
+            break;
+        case 'W':
+            setRenameDbs(arg);
             break;
 
         default:
@@ -7320,6 +7402,13 @@ static int64_t dumpInOneAvroFile(
     }
 
     const char *namespace = avro_schema_namespace((const avro_schema_t)schema);
+    if(g_args.renameHead) {
+        char* newDbName = findNewName(namespace);
+        if(newDbName) {
+            infoPrint(" ------- rename DB Name %s to %s ------\n", namespace, newDbName);
+            namespace = newDbName;
+        }
+    }
     debugPrint("%s() LN%d, Namespace: %s\n",
             __func__, __LINE__, namespace);
 
@@ -10012,6 +10101,71 @@ bool convertDbClauseForV3(char **cmd) {
     return true;
 }
 
+// repalce old name with new
+char * replaceNewName(char* cmd, int len) {
+    // database name left char and right char
+    int nLeftSql = len;
+    char left = cmd[len];
+    char right = "." ;
+    if(left == '`') {
+        right = left;
+        nLeftSql += 1;
+    } else {
+        right = ".";
+    }
+
+    // get old database name
+    char oldName[TSDB_DB_NAME_LEN];
+    char* s = &cmd[len + 1];
+    char* e = strstr(s, right);
+    if(e == NULL) {
+        return NULL;
+    }
+
+    int oldLen = e - s;
+    if(oldLen + 1 > TSDB_DB_NAME_LEN) {
+        return NULL;
+    }
+    memcpy(oldName, s, oldLen);
+    oldName[oldLen] = 0;
+
+    // macth new database
+    char* newName = findNewName(oldName);
+    if(newName == NULL){
+        return NULL;
+    }
+
+    // malloc new buff put new sql with new name
+    int newLen = strlen(cmd) + (strlen(newName) - oldLen) + 1;
+    char* newCmd = (char *)malloc(newLen);
+    memset(newCmd, 0, newLen);
+
+    // copy left + newName + right from cmd
+    memcpy(newCmd, cmd, nLeftSql); // left sql
+    strcat(newCmd, newName); // newName
+    strcat(newCmd, e); // right sql
+
+    return newCmd;
+}
+
+// if have database name rename, return new sql with new database name
+// retrn value need call free() to free memory
+char * afterRenameSql(char *cmd) {
+    // match pattern
+    const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
+    const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
+
+    char* pres[] = {CREATE_DB, CREATE_TB};
+    for (int i = 0; i < sizeof(pres); i++ ) {
+        int len = strlen(pres[i])
+        if (strncmp(cmd, pres[i], len) == 0) {
+            // found
+            return replaceNewName(cmd, len);
+        }
+    }
+    return NULL;
+}
+
 // dumpIn support multi threads functions
 static int64_t dumpInOneDebugFile(
         void* taos, FILE* fp,
@@ -10090,7 +10244,19 @@ static int64_t dumpInOneDebugFile(
             ret = queryDbImplWS(taos, cmd);
         } else {
 #endif
+        if(g_args.renameHead) {
+            // have rename database options
+            char *newSql = afterRenameSql(cmd);
+            if(newSql) {
+               ret = queryDbImplNative(taos, newSql);
+               free(newSql);
+            } else {
+                ret = queryDbImplNative(taos, cmd);
+            }
+        } else {
             ret = queryDbImplNative(taos, cmd);
+        }
+
 #ifdef WEBSOCKET
         }
 #endif
@@ -13127,6 +13293,24 @@ int main(int argc, char *argv[]) {
     } else {
         ret = dumpEntry();
     }
+
+    // free buf
+    if (arguments.renameBuf) {
+        free(arguments.renameBuf);
+        arguments.renameBuf = NULL;
+    }
+
+    // free node
+    SRenameDB* node = arguments.renameHead;
+    arguments.renameHead = NULL;
+    while(node) {
+        SRenameDB* next = node->next;
+        free(node);
+        node = next;
+    }
+
+
+
     return ret;
 }
 
