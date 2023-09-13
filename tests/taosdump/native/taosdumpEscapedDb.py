@@ -112,7 +112,7 @@ class TDTestCase:
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, "st")
 
-        tdSql.query("select count(*) from `Db`.st")
+        tdSql.query("select count(*) from `NewDb`.st")
         tdSql.checkData(0, 0, 1)
 
     def stop(self):
