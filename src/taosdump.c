@@ -437,7 +437,7 @@ static struct argp_option options[] = {
         "Server host from which to dump data. Default is localhost.", 0},
     {"user", 'u', "USER",    0,
         "User name used to connect to server. Default is root.", 0},
-    {"password", 'p', 0,    0,
+    {"password", 'p', "PASS", 0,
         "User password to connect to server. Default is taosdata.", 0},
     {"port", 'P', "PORT",        0,  "Port to connect", 0},
     // input/output file
@@ -494,7 +494,7 @@ static struct argp_option options[] = {
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
-    {"rename-dbname", 'W', "rename", 0,  "rename database name with new name. format demo: db1=newDB1|db2=newDB2", 10},
+    {"rename-dbname", 'W', "rename", 0,  "rename database name with new name. format demo: -W \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
     {0}
 };
 
