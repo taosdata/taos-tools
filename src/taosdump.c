@@ -437,7 +437,7 @@ static struct argp_option options[] = {
         "Server host from which to dump data. Default is localhost.", 0},
     {"user", 'u', "USER",    0,
         "User name used to connect to server. Default is root.", 0},
-    {"password", 'p', "PASS", 0,
+    {"password", 'p', 0, 0,
         "User password to connect to server. Default is taosdata.", 0},
     {"port", 'P', "PORT",        0,  "Port to connect", 0},
     // input/output file
