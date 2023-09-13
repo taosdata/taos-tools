@@ -6092,6 +6092,13 @@ static int64_t dumpInAvroNtbImpl(
                         __func__, __LINE__);
                 continue;
             }
+
+            char* newBuf = afterRenameSql(buf);
+            if(newBuf) {
+                infoPrint(" rename database name for create normal table sql: \n  old=%s\n new=%s\n", buf, newBuf);
+                buf = newBuf;
+            }
+
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
                 WS_RES *ws_res = ws_query_timeout(taos, buf, g_args.ws_timeout);
@@ -6111,6 +6118,9 @@ static int64_t dumpInAvroNtbImpl(
             } else {
 #endif
                 TAOS_RES *res = taos_query(taos, buf);
+                if(newBuf) {
+                    free(newBuf);
+                }
                 int code = taos_errno(res);
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
@@ -10119,8 +10129,15 @@ char * replaceNewName(char* cmd, int len) {
     char oldName[TSDB_DB_NAME_LEN];
     char* s = &cmd[nLeftSql];
     char* e = strchr(s, right);
-    if(e == NULL) {
+    char* e1 = strchr(s, ' ');
+    if(e == NULL && e1 == NULL) {
         return NULL;
+    } else if(e == NULL && e1) {
+        e = e1;
+    } else if(e && e1 ) {
+        if (e > e1) {
+            e = e1;
+        }
     }
 
     int oldLen = e - s;
