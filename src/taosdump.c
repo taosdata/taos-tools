@@ -10255,24 +10255,22 @@ static int64_t dumpInOneDebugFile(
         }
 
         int ret;
+        char *newSql = NULL;
+
+        if(g_args.renameHead) {
+            // have rename database options
+            newSql = afterRenameSql(cmd);
+        }
 
         debugPrint("%s() LN%d, cmd: %s\n", __func__, __LINE__, cmd);
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            ret = queryDbImplWS(taos, cmd);
+            ret = queryDbImplWS(taos, newSql?newSql:cmd);
         } else {
 #endif
-        if(g_args.renameHead) {
-            // have rename database options
-            char *newSql = afterRenameSql(cmd);
-            if(newSql) {
-               ret = queryDbImplNative(taos, newSql);
-               free(newSql);
-            } else {
-                ret = queryDbImplNative(taos, cmd);
-            }
-        } else {
-            ret = queryDbImplNative(taos, cmd);
+        ret = queryDbImplNative(taos, newSql?newSql:cmd);
+        if(newSql) {
+            free(newSql);
         }
 
 #ifdef WEBSOCKET
