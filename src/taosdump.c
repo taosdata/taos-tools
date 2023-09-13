@@ -1905,6 +1905,24 @@ bool replaceCopy(char *des, char *src) {
     return replace;
 }
 
+// if have database name rename, return new sql with new database name
+// retrn value need call free() to free memory
+char * afterRenameSql(char *cmd) {
+    // match pattern
+    const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
+    const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
+
+    const char* pres[] = {CREATE_DB, CREATE_TB};
+    for (int i = 0; i < sizeof(pres); i++ ) {
+        int len = strlen(pres[i]);
+        if (strncmp(cmd, pres[i], len) == 0) {
+            // found
+            return replaceNewName(cmd, len);
+        }
+    }
+    return NULL;
+}
+
 static int dumpCreateMTableClause(
         const char* dbName,
         const char *stable,
@@ -10164,24 +10182,6 @@ char * replaceNewName(char* cmd, int len) {
     strcat(newCmd, e); // right sql
 
     return newCmd;
-}
-
-// if have database name rename, return new sql with new database name
-// retrn value need call free() to free memory
-char * afterRenameSql(char *cmd) {
-    // match pattern
-    const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
-    const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
-
-    const char* pres[] = {CREATE_DB, CREATE_TB};
-    for (int i = 0; i < sizeof(pres); i++ ) {
-        int len = strlen(pres[i]);
-        if (strncmp(cmd, pres[i], len) == 0) {
-            // found
-            return replaceNewName(cmd, len);
-        }
-    }
-    return NULL;
 }
 
 // dumpIn support multi threads functions
