@@ -10117,7 +10117,7 @@ char * replaceNewName(char* cmd, int len) {
 
     // get old database name
     char oldName[TSDB_DB_NAME_LEN];
-    char* s = &cmd[len + 1];
+    char* s = &cmd[nLeftSql];
     char* e = strchr(s, right);
     if(e == NULL) {
         return NULL;
