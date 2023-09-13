@@ -502,11 +502,12 @@ static struct argp_option options[] = {
 #define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
 
 // rename db 
+struct SRenameDB;
 typedef struct SRenameDB {
     char* old;
     char* new;
-    SRenameDB* next;
-}
+    void* next;
+}SRenameDB;
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {
@@ -831,7 +832,7 @@ void setRenameDbs(char* arg) {
     }
 
     // splite
-    SRenameDB* node = newNode(p);
+    SRenameDB* node = newNode(p, NULL);
     g_args.renameHead = node;
     for (int k = 0; k < j; k++) {
         if(p[k] == 0 && k + 1 != j && k > 0) {
@@ -857,7 +858,7 @@ char* findNewName(char* oldName) {
             return node->new;
         }
         node = node->next;
-    }
+    };
 }
 
 /* Parse a single option. */
@@ -7403,7 +7404,7 @@ static int64_t dumpInOneAvroFile(
 
     const char *namespace = avro_schema_namespace((const avro_schema_t)schema);
     if(g_args.renameHead) {
-        char* newDbName = findNewName(namespace);
+        char* newDbName = findNewName((char *)namespace);
         if(newDbName) {
             infoPrint(" ------- rename DB Name %s to %s ------\n", namespace, newDbName);
             namespace = newDbName;
@@ -10106,18 +10107,16 @@ char * replaceNewName(char* cmd, int len) {
     // database name left char and right char
     int nLeftSql = len;
     char left = cmd[len];
-    char right = "." ;
+    char right = '.';
     if(left == '`') {
         right = left;
         nLeftSql += 1;
-    } else {
-        right = ".";
     }
 
     // get old database name
     char oldName[TSDB_DB_NAME_LEN];
     char* s = &cmd[len + 1];
-    char* e = strstr(s, right);
+    char* e = strchr(s, right);
     if(e == NULL) {
         return NULL;
     }
@@ -10155,9 +10154,9 @@ char * afterRenameSql(char *cmd) {
     const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
     const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
 
-    char* pres[] = {CREATE_DB, CREATE_TB};
+    const char* pres[] = {CREATE_DB, CREATE_TB};
     for (int i = 0; i < sizeof(pres); i++ ) {
-        int len = strlen(pres[i])
+        int len = strlen(pres[i]);
         if (strncmp(cmd, pres[i], len) == 0) {
             // found
             return replaceNewName(cmd, len);
