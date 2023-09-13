@@ -857,7 +857,7 @@ char* findNewName(char* oldName) {
         if (strcmp(node->old, oldName) == 0) {
             return node->new;
         }
-        node = node->next;
+        node = (SRenameDB* )node->next;
     };
 }
 
@@ -13294,16 +13294,16 @@ int main(int argc, char *argv[]) {
     }
 
     // free buf
-    if (arguments.renameBuf) {
-        free(arguments.renameBuf);
-        arguments.renameBuf = NULL;
+    if (g_args.renameBuf) {
+        free(g_args.renameBuf);
+        g_args.renameBuf = NULL;
     }
 
     // free node
-    SRenameDB* node = arguments.renameHead;
-    arguments.renameHead = NULL;
+    SRenameDB* node = g_args.renameHead;
+    g_args.renameHead = NULL;
     while(node) {
-        SRenameDB* next = node->next;
+        SRenameDB* next = (SRenameDB*)node->next;
         free(node);
         node = next;
     }
