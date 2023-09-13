@@ -858,7 +858,8 @@ char* findNewName(char* oldName) {
             return node->new;
         }
         node = (SRenameDB* )node->next;
-    };
+    }
+    return NULL;
 }
 
 /* Parse a single option. */
