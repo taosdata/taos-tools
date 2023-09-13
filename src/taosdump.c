@@ -494,7 +494,7 @@ static struct argp_option options[] = {
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
-    {"rename-dbname", 'W', "rename", 0,  "rename database name with new name. format demo: -W \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
+    {"rename", 'W', "RENAME-LIST", 0, "Rename database name with new name during importing data. RENAME-LIST: \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
     {0}
 };
 
