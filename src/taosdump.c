@@ -838,7 +838,7 @@ void setRenameDbs(char* arg) {
     for (int k = 0; k < j; k++) {
         if(p[k] == 0 && k + 1 != j && k > 0) {
             // string end and not last end
-            char* name = p + (k - 1);
+            char* name = &p[k] + 1;
             if (node->new == NULL) {
                 node->new = name;
             } else {
