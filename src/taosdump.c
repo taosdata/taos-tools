@@ -863,6 +863,91 @@ char* findNewName(char* oldName) {
     return NULL;
 }
 
+bool replaceCopy(char *des, char *src) {
+    size_t len = strlen(src);
+    bool replace = false;
+    for (size_t i = 0; i <= len; i++) {
+        if (src[i] == '.') {
+            des[i] = '_';
+            replace = true;
+        } else {
+            des[i] = src[i];
+        }
+    }
+
+    return replace;
+}
+
+// repalce old name with new
+char * replaceNewName(char* cmd, int len) {
+    // database name left char and right char
+    int nLeftSql = len;
+    char left = cmd[len];
+    char right = '.';
+    if(left == '`') {
+        right = left;
+        nLeftSql += 1;
+    }
+
+    // get old database name
+    char oldName[TSDB_DB_NAME_LEN];
+    char* s = &cmd[nLeftSql];
+    char* e = strchr(s, right);
+    char* e1 = strchr(s, ' ');
+    if(e == NULL && e1 == NULL) {
+        return NULL;
+    } else if(e == NULL && e1) {
+        e = e1;
+    } else if(e && e1 ) {
+        if (e > e1) {
+            e = e1;
+        }
+    }
+
+    int oldLen = e - s;
+    if(oldLen + 1 > TSDB_DB_NAME_LEN) {
+        return NULL;
+    }
+    memcpy(oldName, s, oldLen);
+    oldName[oldLen] = 0;
+
+    // macth new database
+    char* newName = findNewName(oldName);
+    if(newName == NULL){
+        return NULL;
+    }
+
+    // malloc new buff put new sql with new name
+    int newLen = strlen(cmd) + (strlen(newName) - oldLen) + 1;
+    char* newCmd = (char *)malloc(newLen);
+    memset(newCmd, 0, newLen);
+
+    // copy left + newName + right from cmd
+    memcpy(newCmd, cmd, nLeftSql); // left sql
+    strcat(newCmd, newName); // newName
+    strcat(newCmd, e); // right sql
+
+    return newCmd;
+}
+
+// if have database name rename, return new sql with new database name
+// retrn value need call free() to free memory
+char * afterRenameSql(char *cmd) {
+    // match pattern
+    const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
+    const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
+
+    const char* pres[] = {CREATE_DB, CREATE_TB};
+    for (int i = 0; i < sizeof(pres); i++ ) {
+        int len = strlen(pres[i]);
+        if (strncmp(cmd, pres[i], len) == 0) {
+            // found
+            return replaceNewName(cmd, len);
+        }
+    }
+    return NULL;
+}
+
 /* Parse a single option. */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     /* Get the input argument from argp_parse, which we
@@ -1888,39 +1973,6 @@ static int getDumpDbCount() {
 
     free(command);
     return count;
-}
-
-bool replaceCopy(char *des, char *src) {
-    size_t len = strlen(src);
-    bool replace = false;
-    for (size_t i = 0; i <= len; i++) {
-        if (src[i] == '.') {
-            des[i] = '_';
-            replace = true;
-        } else {
-            des[i] = src[i];
-        }
-    }
-
-    return replace;
-}
-
-// if have database name rename, return new sql with new database name
-// retrn value need call free() to free memory
-char * afterRenameSql(char *cmd) {
-    // match pattern
-    const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
-    const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
-
-    const char* pres[] = {CREATE_DB, CREATE_TB};
-    for (int i = 0; i < sizeof(pres); i++ ) {
-        int len = strlen(pres[i]);
-        if (strncmp(cmd, pres[i], len) == 0) {
-            // found
-            return replaceNewName(cmd, len);
-        }
-    }
-    return NULL;
 }
 
 static int dumpCreateMTableClause(
@@ -10130,58 +10182,6 @@ bool convertDbClauseForV3(char **cmd) {
 
     free(dup_str);
     return true;
-}
-
-// repalce old name with new
-char * replaceNewName(char* cmd, int len) {
-    // database name left char and right char
-    int nLeftSql = len;
-    char left = cmd[len];
-    char right = '.';
-    if(left == '`') {
-        right = left;
-        nLeftSql += 1;
-    }
-
-    // get old database name
-    char oldName[TSDB_DB_NAME_LEN];
-    char* s = &cmd[nLeftSql];
-    char* e = strchr(s, right);
-    char* e1 = strchr(s, ' ');
-    if(e == NULL && e1 == NULL) {
-        return NULL;
-    } else if(e == NULL && e1) {
-        e = e1;
-    } else if(e && e1 ) {
-        if (e > e1) {
-            e = e1;
-        }
-    }
-
-    int oldLen = e - s;
-    if(oldLen + 1 > TSDB_DB_NAME_LEN) {
-        return NULL;
-    }
-    memcpy(oldName, s, oldLen);
-    oldName[oldLen] = 0;
-
-    // macth new database
-    char* newName = findNewName(oldName);
-    if(newName == NULL){
-        return NULL;
-    }
-
-    // malloc new buff put new sql with new name
-    int newLen = strlen(cmd) + (strlen(newName) - oldLen) + 1;
-    char* newCmd = (char *)malloc(newLen);
-    memset(newCmd, 0, newLen);
-
-    // copy left + newName + right from cmd
-    memcpy(newCmd, cmd, nLeftSql); // left sql
-    strcat(newCmd, newName); // newName
-    strcat(newCmd, e); // right sql
-
-    return newCmd;
 }
 
 // dumpIn support multi threads functions
