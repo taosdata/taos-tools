@@ -780,7 +780,8 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
-                case TSDB_DATA_TYPE_NCHAR: {
+                case TSDB_DATA_TYPE_NCHAR:
+                case TSDB_DATA_TYPE_GEOMETRY: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
