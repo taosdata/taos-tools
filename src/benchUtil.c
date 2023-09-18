@@ -1101,7 +1101,7 @@ void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
 
     void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
     memcpy(dst, pData, pArray->elemSize * elems);
-    tmfree(pData);
+    tmfree(pData); // TODO remove this
     pArray->size += elems;
     return dst;
 }
