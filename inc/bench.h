@@ -201,6 +201,7 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_INTERVAL            \
     "Insert interval for interlace mode in milliseconds, default is 0."
 #define BENCH_STEP  "Timestamp step in milliseconds, default is 1."
+#define ANGLE_STEP  "Angle step in milliseconds, default is 1."
 #define BENCH_SUPPLEMENT          \
     "Supplementally insert data without create "  \
     "database and table, optional, default is off."
@@ -248,6 +249,7 @@ typedef unsigned __int32 uint32_t;
     "Specify interval between keep trying insert. " \
     "Valid value is a positive number. Only valid " \
     "when keep trying be enabled."
+#define BENCH_NODROP "Do not drop database."
 
 #ifdef WEBSOCKET
 #define BENCH_DSN "The dsn to connect the cloud service."
@@ -553,6 +555,15 @@ typedef struct SChildField {
     StmtData stmtData;
 } ChildField;
 
+#define PI  3.141592654
+#define ATOR(x)  (x*3.141592654/180)
+
+#define FUNTYPE_NONE  0
+#define FUNTYPE_SIN   1
+#define FUNTYPE_COS   2
+
+#define FUNTYPE_CNT   2
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -563,6 +574,13 @@ typedef struct SField {
     int64_t  max;
     int64_t  min;
     tools_cJSON *  values;
+
+    // fun
+    uint8_t  funType;
+    float    multiple;
+    int32_t  addend;
+    int32_t  random;
+
     bool     sma;
 } Field;
 
@@ -666,6 +684,7 @@ typedef struct SSuperTable_S {
     uint64_t  insert_interval;
     uint64_t  insertRows;
     uint64_t  timestamp_step;
+    uint64_t  angle_step;
     int64_t   startTimestamp;
     int64_t   specifiedColumns;
     char      sampleFile[MAX_FILE_NAME_LEN];

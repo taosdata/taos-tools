@@ -118,6 +118,12 @@ static int       g_majorVersionOfClient = 0;
 static int      g_maxFilesPerDir = 100000;
 volatile int64_t g_countOfDataFile = 0;
 
+// progress
+static int64_t   g_tableCount = 0;
+static int64_t   g_tableDone  = 0;
+static char      g_dbName[TSDB_DB_NAME_LEN]= "";
+static char      g_stbName[TSDB_TABLE_NAME_LEN] = "";
+
 static void print_json_aux(json_t *element, int indent);
 
 // for tstrncpy buffer overflow
@@ -431,7 +437,7 @@ static struct argp_option options[] = {
         "Server host from which to dump data. Default is localhost.", 0},
     {"user", 'u', "USER",    0,
         "User name used to connect to server. Default is root.", 0},
-    {"password", 'p', 0,    0,
+    {"password", 'p', 0, 0,
         "User password to connect to server. Default is taosdata.", 0},
     {"port", 'P', "PORT",        0,  "Port to connect", 0},
     // input/output file
@@ -487,11 +493,21 @@ static struct argp_option options[] = {
                  "websocket to interact."},
 #endif
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
+    {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
+    {"rename", 'W', "RENAME-LIST", 0, "Rename database name with new name during importing data. RENAME-LIST: \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
     {0}
 };
 
 #define HUMAN_TIME_LEN      28
 #define DUMP_DIR_LEN        (MAX_DIR_LEN - (TSDB_DB_NAME_LEN + 10))
+
+// rename db 
+struct SRenameDB;
+typedef struct SRenameDB {
+    char* old;
+    char* new;
+    void* next;
+}SRenameDB;
 
 /* Used by main to communicate with parse_opt. */
 typedef struct arguments {
@@ -537,9 +553,8 @@ typedef struct arguments {
     bool     debug_print;
     bool     verbose_print;
     bool     performance_print;
-
+    bool     dotReplace;
     int      dumpDbCount;
-
 #ifdef WEBSOCKET
     bool     restful;
     bool     cloud;
@@ -549,6 +564,10 @@ typedef struct arguments {
     int      cloudPort;
     char     cloudHost[MAX_HOSTNAME_LEN];
 #endif
+
+    // put rename db string
+    char      * renameBuf;
+    SRenameDB * renameHead;
 } SArguments;
 
 static resultStatistics g_resultStatistics = {0};
@@ -601,7 +620,9 @@ struct arguments g_args = {
     false,      // debug_print
     false,      // verbose_print
     false,      // performance_print
+    false,      // dotRepalce
         0,      // dumpDbCount
+        
 #ifdef WEBSOCKET
     false,      // restful
     false,      // cloud
@@ -611,6 +632,9 @@ struct arguments g_args = {
     0,          // cloudPort
     {0},        // cloudHost
 #endif  // WEBSOCKET
+
+    NULL,       // renameBuf
+    NULL        // renameHead
 };
 
 
@@ -770,6 +794,158 @@ int64_t getEndTime(int precision) {
     }
 
     return end_time;
+}
+
+SRenameDB* newNode(char* first, SRenameDB* prev) {
+    SRenameDB* node = (SRenameDB*) malloc(sizeof(SRenameDB));
+    memset(node, 0, sizeof(SRenameDB));
+    node->old = first;
+    // link to list
+    if(prev) {
+        prev->next = node;
+    }
+
+    return node;
+}
+
+void setRenameDbs(char* arg) {
+    if (arg == NULL) return ;
+    // malloc new
+    int len = strlen(arg);
+    if(len <= 2) {
+        return ;
+    }
+    len += 1; // include \0
+
+    // malloc
+    char* p = malloc(len);
+    int j = 0; // j is p pos
+    for (int i = 0; i < len; i++) {
+        if (arg[i] == ' ') {
+            // do nothing
+        } else if (arg[i] == '=' || arg[i] == '|') {
+            // set zero
+            p[j++] = 0;
+        } else {
+            // copy
+            p[j++] = arg[i];
+        }
+    }
+
+    // splite
+    SRenameDB* node = newNode(p, NULL);
+    g_args.renameHead = node;
+    for (int k = 0; k < j; k++) {
+        if(p[k] == 0 && k + 1 != j && k > 0) {
+            // string end and not last end
+            char* name = &p[k] + 1;
+            if (node->new == NULL) {
+                node->new = name;
+            } else {
+                node = newNode(name, node);
+            }
+        }
+    }
+
+    // end
+    g_args.renameBuf = p;
+}
+
+// find newName
+char* findNewName(char* oldName) {
+    SRenameDB* node = g_args.renameHead;
+    while(node) {
+        if (strcmp(node->old, oldName) == 0) {
+            return node->new;
+        }
+        node = (SRenameDB* )node->next;
+    }
+    return NULL;
+}
+
+bool replaceCopy(char *des, char *src) {
+    size_t len = strlen(src);
+    bool replace = false;
+    for (size_t i = 0; i <= len; i++) {
+        if (src[i] == '.') {
+            des[i] = '_';
+            replace = true;
+        } else {
+            des[i] = src[i];
+        }
+    }
+
+    return replace;
+}
+
+// repalce old name with new
+char * replaceNewName(char* cmd, int len) {
+    // database name left char and right char
+    int nLeftSql = len;
+    char left = cmd[len];
+    char right = '.';
+    if(left == '`') {
+        right = left;
+        nLeftSql += 1;
+    }
+
+    // get old database name
+    char oldName[TSDB_DB_NAME_LEN];
+    char* s = &cmd[nLeftSql];
+    char* e = strchr(s, right);
+    char* e1 = strchr(s, ' ');
+    if(e == NULL && e1 == NULL) {
+        return NULL;
+    } else if(e == NULL && e1) {
+        e = e1;
+    } else if(e && e1 ) {
+        if (e > e1) {
+            e = e1;
+        }
+    }
+
+    int oldLen = e - s;
+    if(oldLen + 1 > TSDB_DB_NAME_LEN) {
+        return NULL;
+    }
+    memcpy(oldName, s, oldLen);
+    oldName[oldLen] = 0;
+
+    // macth new database
+    char* newName = findNewName(oldName);
+    if(newName == NULL){
+        return NULL;
+    }
+
+    // malloc new buff put new sql with new name
+    int newLen = strlen(cmd) + (strlen(newName) - oldLen) + 1;
+    char* newCmd = (char *)malloc(newLen);
+    memset(newCmd, 0, newLen);
+
+    // copy left + newName + right from cmd
+    memcpy(newCmd, cmd, nLeftSql); // left sql
+    strcat(newCmd, newName); // newName
+    strcat(newCmd, e); // right sql
+
+    return newCmd;
+}
+
+// if have database name rename, return new sql with new database name
+// retrn value need call free() to free memory
+char * afterRenameSql(char *cmd) {
+    // match pattern
+    const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
+    const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
+
+    const char* pres[] = {CREATE_DB, CREATE_TB};
+    for (int i = 0; i < sizeof(pres); i++ ) {
+        int len = strlen(pres[i]);
+        if (strncmp(cmd, pres[i], len) == 0) {
+            // found
+            return replaceNewName(cmd, len);
+        }
+    }
+    return NULL;
 }
 
 /* Parse a single option. */
@@ -958,6 +1134,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
             }
             state->next             = state->argc;
             break;
+        case 'W':
+            setRenameDbs(arg);
+            break;
 
         default:
             return ARGP_ERR_UNKNOWN;
@@ -1054,6 +1233,11 @@ static void parse_args(
         } else if ((strcmp(argv[i], "-L") == 0)
                 || (0 == strcmp(argv[i], "--lose-mode"))) {
             g_args.loose_mode = true;
+            strcpy(argv[i], "");
+        // dot replace    
+        } else if ((strcmp(argv[i], "-Q") == 0)
+                || (0 == strcmp(argv[i], "--dot-replace"))) {
+            g_args.dotReplace = true;
             strcpy(argv[i], "");
         } else if (strcmp(argv[i], "-gg") == 0) {
             arguments->verbose_print = true;
@@ -1811,11 +1995,18 @@ static int dumpCreateMTableClause(
     char *pstr = NULL;
     pstr = tmpBuf;
 
+    // outName is output to file table name
+    char * outName = tableDes->name;
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
+        outName = tableName;
+    }
+
     pstr += snprintf(tmpBuf, TSDB_DEFAULT_PKT_SIZE,
             g_args.db_escape_char
             ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s USING `%s`.%s%s%s TAGS("
             : "CREATE TABLE IF NOT EXISTS %s.%s%s%s USING %s.%s%s%s TAGS(",
-            dbName, g_escapeChar, tableDes->name, g_escapeChar,
+            dbName, g_escapeChar, outName, g_escapeChar,
             dbName, g_escapeChar, stable, g_escapeChar);
 
     for (; counter < numColsAndTags; counter++) {
@@ -2915,11 +3106,18 @@ static int convertTableDesToSql(
 
     char* pstr = *buffer;
 
+    // outName is output to file table name
+    char * outName = tableDes->name;
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
+        outName = tableName;
+    }
+
     pstr += sprintf(pstr,
             g_args.db_escape_char
             ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s"
             : "CREATE TABLE IF NOT EXISTS %s.%s%s%s",
-            dbName, g_escapeChar, tableDes->name, g_escapeChar);
+            dbName, g_escapeChar, outName, g_escapeChar);
 
     for (; counter < tableDes->columns; counter++) {
         if (tableDes->cols[counter].note[0] != '\0') break;
@@ -3305,7 +3503,13 @@ static int dumpCreateTableClauseAvro(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, tableDes->name);
+    if(g_args.dotReplace) {
+        char tableName[TSDB_TABLE_NAME_LEN+1];
+        replaceCopy(tableName, tableDes->name);
+        avro_value_set_string(&branch, tableName);
+    } else {
+        avro_value_set_string(&branch, tableDes->name);
+    }
 
     if (0 != avro_value_get_by_name(
                 &record, "sql", &value, NULL)) {
@@ -3823,12 +4027,19 @@ static int convertTbDesToJsonImpl(
         const char *tbName,
         TableDes *tableDes,
         char **jsonSchema, bool isColumn) {
+
+    char* outName = (char*)tbName;
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
+    
     char *pstr = *jsonSchema;
     pstr += sprintf(pstr,
             "{\"type\":\"record\",\"name\":\"%s.%s\",\"fields\":[",
             namespace,
-            (isColumn)?(g_args.loose_mode?tbName:"_record")
-            :(g_args.loose_mode?tbName:"_stb"));
+            (isColumn)?(g_args.loose_mode?outName:"_record")
+            :(g_args.loose_mode?outName:"_stb"));
 
     int iterate = 0;
     if (g_args.loose_mode) {
@@ -4928,6 +5139,12 @@ static int64_t writeResultToAvroNative(
         return 0;
     }
 
+    char* outName = (char*)tbName;
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
+
     avro_schema_t schema;
     RecordSchema *recordSchema;
     avro_file_writer_t db;
@@ -4991,7 +5208,7 @@ static int64_t writeResultToAvroNative(
                     break;
                 }
                 avro_value_set_branch(&avro_value, 1, &branch);
-                avro_value_set_string(&branch, tbName);
+                avro_value_set_string(&branch, outName);
             }
 
             for (int32_t col = 0; col < numFields; col++) {
@@ -5030,7 +5247,7 @@ static int64_t writeResultToAvroNative(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            infoPrint("%d%% of %s\n", currentPercent, tbName);
+            infoPrint("%s.%s [%" PRId64 "/%" PRId64 "] write avro %d%% of %s\n", g_dbName, g_stbName ,g_tableDone + 1, g_tableCount, currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
@@ -5945,6 +6162,13 @@ static int64_t dumpInAvroNtbImpl(
                         __func__, __LINE__);
                 continue;
             }
+
+            char* newBuf = afterRenameSql(buf);
+            if(newBuf) {
+                infoPrint(" rename database name for create normal table sql: \n  old=%s\n new=%s\n", buf, newBuf);
+                buf = newBuf;
+            }
+
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
                 WS_RES *ws_res = ws_query_timeout(taos, buf, g_args.ws_timeout);
@@ -5964,6 +6188,9 @@ static int64_t dumpInAvroNtbImpl(
             } else {
 #endif
                 TAOS_RES *res = taos_query(taos, buf);
+                if(newBuf) {
+                    free(newBuf);
+                }
                 int code = taos_errno(res);
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
@@ -7258,6 +7485,13 @@ static int64_t dumpInOneAvroFile(
     }
 
     const char *namespace = avro_schema_namespace((const avro_schema_t)schema);
+    if(g_args.renameHead) {
+        char* newDbName = findNewName((char *)namespace);
+        if(newDbName) {
+            infoPrint(" ------- rename DB Name %s to %s ------\n", namespace, newDbName);
+            namespace = newDbName;
+        }
+    }
     debugPrint("%s() LN%d, Namespace: %s\n",
             __func__, __LINE__, namespace);
 
@@ -8554,7 +8788,12 @@ static int createMTableAvroHeadImp(
         }
 
         avro_value_set_branch(&value, 1, &branch);
-        avro_value_set_string(&branch, stable);
+        char* outSName = (char*)stable;
+        char stableName[TSDB_TABLE_NAME_LEN + 1];
+        if(g_args.dotReplace && replaceCopy(stableName, (char*)stable)) {
+            outSName = stableName;
+        }
+        avro_value_set_string(&branch, outSName);
     }
 
     if (0 != avro_value_get_by_name(
@@ -8565,7 +8804,13 @@ static int createMTableAvroHeadImp(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, tbName);
+
+    char* outName = (char*)tbName;
+    char tableName[TSDB_TABLE_NAME_LEN + 1];
+    if(g_args.dotReplace && replaceCopy(tableName, (char*)tbName)) {
+        outName = tableName;
+    }
+    avro_value_set_string(&branch, outName);
 
     TableDes *subTableDes = (TableDes *) calloc(1, sizeof(TableDes)
             + sizeof(ColDes) * (stbTableDes->columns + stbTableDes->tags));
@@ -10010,14 +10255,24 @@ static int64_t dumpInOneDebugFile(
         }
 
         int ret;
+        char *newSql = NULL;
+
+        if(g_args.renameHead) {
+            // have rename database options
+            newSql = afterRenameSql(cmd);
+        }
 
         debugPrint("%s() LN%d, cmd: %s\n", __func__, __LINE__, cmd);
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            ret = queryDbImplWS(taos, cmd);
+            ret = queryDbImplWS(taos, newSql?newSql:cmd);
         } else {
 #endif
-            ret = queryDbImplNative(taos, cmd);
+        ret = queryDbImplNative(taos, newSql?newSql:cmd);
+        if(newSql) {
+            free(newSql);
+        }
+
 #ifdef WEBSOCKET
         }
 #endif
@@ -10470,6 +10725,9 @@ static void dumpNormalTablesOfStbNative(
                     fp);
         }
 
+        // update progress
+        atomic_add_fetch_64(&g_tableDone, 1);
+
         if (count < 0) {
             break;
         } else {
@@ -10568,6 +10826,12 @@ static int64_t dumpNtbOfStbByThreads(
     }
 #endif
 
+    // set progress to global
+    g_tableCount = ntbCount;
+    g_tableDone  = 0;
+    strcpy(g_dbName,  dbInfo->name);
+    strcpy(g_stbName, stbName);
+
     infoPrint("%s() LN%d, %s's %s's total normal table count: %"PRId64"\n",
             __func__, __LINE__, dbInfo->name, stbName, ntbCount);
     if (ntbCount <= 0) {
@@ -10643,6 +10907,7 @@ static int64_t dumpNtbOfStbByThreads(
     ASSERT(pids);
     ASSERT(infos);
 
+    infoPrint("create %d thread(s) to export data ...\n", threads);
     threadInfo *pThreadInfo;
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
@@ -10712,6 +10977,7 @@ static int64_t dumpNtbOfStbByThreads(
         }
     }
 
+    infoPrint("%s\n","close taos connections...");
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
         taos_close(pThreadInfo->taos);
@@ -13043,5 +13309,24 @@ int main(int argc, char *argv[]) {
     } else {
         ret = dumpEntry();
     }
+
+    // free buf
+    if (g_args.renameBuf) {
+        free(g_args.renameBuf);
+        g_args.renameBuf = NULL;
+    }
+
+    // free node
+    SRenameDB* node = g_args.renameHead;
+    g_args.renameHead = NULL;
+    while(node) {
+        SRenameDB* next = (SRenameDB*)node->next;
+        free(node);
+        node = next;
+    }
+
+
+
     return ret;
 }
+

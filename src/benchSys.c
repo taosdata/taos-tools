@@ -182,6 +182,7 @@ static struct argp_option bench_options[] = {
     {"threads", 'T', "NUMBER", 0, BENCH_THREAD},
     {"insert-interval", 'i', "NUMBER", 0, BENCH_INTERVAL},
     {"time-step", 'S', "NUMBER", 0, BENCH_STEP},
+    {"angle-step", 'H', "NUMBER", 0, ANGLE_STEP},
     {"start-timestamp", 's', "NUMBER", 0, BENCH_START_TIMESTAMP},
     {"supplement-insert", 'U', 0, 0, BENCH_SUPPLEMENT},
     {"interlace-rows", 'B', "NUMBER", 0, BENCH_INTERLACE},
@@ -216,7 +217,8 @@ static struct argp_option bench_options[] = {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     {"vgroups", 'v', "NUMBER", 0, BENCH_VGROUPS},
 #endif
-    {"version", 'V', 0, 0, BENCH_VERSION},
+//      {"version", 'V', 0, 0, BENCH_VERSION},
+    {"nodrop", 'Q', 0, 0, BENCH_NODROP},
     {0}
 };
 
@@ -391,6 +393,21 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 stbInfo->timestamp_step = 1;
             }
             break;
+
+        // angle step
+        case 'H':
+            if (!toolsIsStringNumber(arg)) {
+                errorPrintReqArg2(CUS_PROMPT"Benchmark", "H");
+            }
+
+            stbInfo->angle_step = atol(arg);
+            if (stbInfo->angle_step <= 0) {
+                errorPrint(
+                           "Invalid -H: %s, will auto set to default(1)\n",
+                           arg);
+                stbInfo->angle_step = 1;
+            }
+            break;            
 
         case 'B':
             if (!toolsIsStringNumber(arg)) {
@@ -657,7 +674,9 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             g_arguments->inputted_vgroups = atoi(arg);
             break;
 #endif
-
+        case 'Q':
+            database->drop = false;
+            break;
         case 'V':
             printVersion();
             exit(0);

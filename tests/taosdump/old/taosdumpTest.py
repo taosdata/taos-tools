@@ -107,10 +107,10 @@ class TDTestCase:
         tdSql.query("select * from information_schema.ins_databases")
         tdSql.checkRows(2)
 
-        os.system("%s -i ./taosdumptest/tmp1" % binPath)
-        os.system("%s -i ./taosdumptest/tmp2" % binPath)
+        os.system("%s -W db=newdb -i ./taosdumptest/tmp1" % binPath)
+        os.system("%s -W \"db=newdb|db1=newdb1\" -i ./taosdumptest/tmp2" % binPath)
 
-        tdSql.execute("use db")
+        tdSql.execute("use newdb")
         tdSql.query("select * from information_schema.ins_databases")
         tdSql.checkRows(4)
         dbresult = tdSql.queryResult
@@ -119,7 +119,7 @@ class TDTestCase:
         isCommunity = self.checkCommunity()
         print("iscommunity: %d" % isCommunity)
         for i in range(len(dbresult)):
-            if dbresult[i][0] == "db":
+            if dbresult[i][0] == "newdb":
                 print(dbresult[i])
                 print(type(dbresult[i][6]))
                 print(type(dbresult[i][7]))
@@ -127,7 +127,7 @@ class TDTestCase:
                 assert dbresult[i][6] == "15840m"
                 print((dbresult[i][7]))
                 assert dbresult[i][7] == "5254560m,5254560m,5254560m"
-            if dbresult[i][0] == "db1":
+            if dbresult[i][0] == "newdb1":
                 print((dbresult[i][6]))
                 assert dbresult[i][6] == "17280m"
                 print((dbresult[i][7]))
@@ -158,8 +158,8 @@ class TDTestCase:
 
         # drop all databases，boundary value testing.
         # length(databasename)<=32;length(tablesname)<=192
-        tdSql.execute("drop database db")
-        tdSql.execute("drop database db1")
+        tdSql.execute("drop database newdb")
+        tdSql.execute("drop database newdb1")
         os.system("rm -rf ./taosdumptest/tmp1")
         os.system("rm -rf ./taosdumptest/tmp2")
         os.makedirs("./taosdumptest/tmp1")
@@ -194,8 +194,8 @@ class TDTestCase:
             % binPath
         )
         tdSql.execute("drop database db12312313231231321312312312_323")
-        os.system("%s -i ./taosdumptest/tmp1" % binPath)
-        tdSql.execute("use db12312313231231321312312312_323")
+        os.system("%s -W db12312313231231321312312312_323=db12312313231231321312312312_323abc -i ./taosdumptest/tmp1" % binPath)
+        tdSql.execute("use db12312313231231321312312312_323abc")
         tdSql.query("show stables")
         tdSql.checkRows(2)
         os.system("rm -rf ./taosdumptest/tmp1")

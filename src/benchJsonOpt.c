@@ -10,9 +10,77 @@
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include <stdlib.h>
 #include <bench.h>
 
 extern char      g_configDir[MAX_PATH_LEN];
+
+char funsName [FUNTYPE_CNT] [32] = {
+    "sin(",
+    "cos("
+};
+
+uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* random) {
+    // check valid
+    if (funValue == NULL || multiple == NULL || addend == NULL) {
+        return FUNTYPE_NONE;
+    }
+
+    size_t len = strlen(funValue); 
+    if(len > 100) {
+        return FUNTYPE_NONE;
+    }
+
+    //parse format 10*sin(x) + 100 * random(5)
+    char value[128];
+    size_t n = 0;
+    for (size_t i = 0; i < len; i++) {
+        if (funValue[i] != ' ') {
+            value[n++] = funValue[i];
+        }
+    }
+    // set end
+    value[n] = 0;
+
+    // multiple
+    char* key1 = strstr(value, "*");
+    if(key1 == NULL) return FUNTYPE_NONE;
+    *key1 = 0;
+    * multiple = atof(value);
+    key1 += 1;
+
+    // funType
+    uint8_t funType = FUNTYPE_NONE;
+    char* key2 = NULL;
+    for(int i=0; i < FUNTYPE_CNT; i++) {
+        key2 = strstr(key1, funsName[i]);
+        if(key2) {
+            funType = i + 1;
+            key2 += strlen(funsName[i]);
+            break;
+        }
+    }
+    if (key2 == NULL)
+        return FUNTYPE_NONE;
+
+    char* key3 = strstr(key2, "+");
+    if(key3) {
+        *addend = atoi(key3 + 1);
+    } else {
+        key3 = strstr(key2, "-");
+        if(key3)
+           *addend = atoi(key3 + 1) * -1;
+    }
+    key3 += 1;
+
+    // random
+    char* key4 = strstr(key3, "*random(");
+    if(key4) {
+        *random = atoi(key4 + 8);
+    }
+
+    return funType;
+}
 
 static int getColumnAndTagTypeFromInsertJsonFile(
     tools_cJSON * superTblObj, SSuperTable *stbInfo) {
@@ -37,6 +105,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int64_t max = RAND_MAX >> 1;
         int64_t min = 0;
         int32_t length = 4;
+        // fun type
+        uint8_t funType = FUNTYPE_NONE;
+        float   multiple = 0;
+        int32_t addend   = 0;
+        int32_t random   = 0;
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -76,6 +149,12 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             min = convertDatatypeToDefaultMin(type);
         }
 
+        // fun
+        tools_cJSON *fun = tools_cJSON_GetObjectItem(column, "fun");
+        if (tools_cJSON_IsString(fun)) {
+            funType = parseFuns(fun->valuestring, &multiple, &addend, &random);
+        }
+
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
 
         if (g_arguments->taosc_version == 3) {
@@ -112,6 +191,12 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->max = max;
             col->min = min;
             col->values = dataValues;
+            // fun
+            col->funType  = funType;
+            col->multiple = multiple;
+            col->addend   = addend;
+            col->random   = random;
+
             if (customName) {
                 if (n >= 1) {
                     snprintf(col->name, TSDB_COL_NAME_LEN,
@@ -479,6 +564,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->tcpTransfer = false;
         superTable->childTblOffset = 0;
         superTable->timestamp_step = 1;
+        superTable->angle_step = 1;
         superTable->useSampleTs = false;
         superTable->non_stop = false;
         superTable->insertRows = 0;
@@ -732,6 +818,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "timestamp_step");
         if (tools_cJSON_IsNumber(timestampStep)) {
             superTable->timestamp_step = timestampStep->valueint;
+        }
+
+        tools_cJSON *angleStep =
+            tools_cJSON_GetObjectItem(stbInfo, "angle_step");
+        if (tools_cJSON_IsNumber(angleStep)) {
+            superTable->angle_step = angleStep->valueint;
         }
 
         tools_cJSON *keepTrying =

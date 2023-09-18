@@ -109,7 +109,7 @@ class TDTestCase:
         tdSql.execute("drop database db")
         #        sys.exit(1)
 
-        os.system("%s -i %s -T 1" % (binPath, self.tmpdir))
+        os.system("%s -i %s -T 1 -W db=newdb" % (binPath, self.tmpdir))
 
         tdSql.query("show databases")
         dbresult = tdSql.queryResult
@@ -117,13 +117,13 @@ class TDTestCase:
         found = False
         for i in range(len(dbresult)):
             print("Found db: %s" % dbresult[i][0])
-            if dbresult[i][0] == "db":
+            if dbresult[i][0] == "newdb":
                 found = True
                 break
 
         assert found == True
 
-        tdSql.execute("use db")
+        tdSql.execute("use newdb")
         tdSql.query("show stables")
         tdSql.checkRows(1)
         tdSql.checkData(0, 0, "st")
