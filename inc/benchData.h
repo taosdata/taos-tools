@@ -20,8 +20,10 @@
 /***** Global variables ******/
 /***** Declare functions *****/
 void rand_string(char *str, int size, bool chinese);
-int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
-        int disorderRange);
+void rand_geometry(char *str, int fieldLen, int maxType);
+int      geoCalcBufferSize(int fieldLen);
+int      getGeoMaxType(int fieldLen);
+int64_t  getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio, int disorderRange);
 int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         int64_t bufLen,
         int lenOfOneRow, BArray * fields, int64_t loop,

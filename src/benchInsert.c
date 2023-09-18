@@ -236,6 +236,11 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
             n = snprintf(colsBuf + len, col_buffer_len - len,
                     ",%s %s(%d)", col->name,
                     convertDatatypeToString(col->type), col->length);
+            if (col->type == TSDB_DATA_TYPE_GEOMETRY && col->length < 21) {
+                errorPrint("%s() LN%d, geometry filed len must be greater than 21 on %d\n", __func__, __LINE__,
+                           colIndex);
+                return -1;
+            }
         } else {
             n = snprintf(colsBuf + len, col_buffer_len - len,
                     ",%s %s", col->name,
@@ -288,6 +293,11 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
             n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s %s(%d),", tag->name,
                     convertDatatypeToString(tag->type), tag->length);
+            if (tag->type == TSDB_DATA_TYPE_GEOMETRY && tag->length < 21) {
+                errorPrint("%s() LN%d, geometry filed len must be greater than 21 on %d\n", __func__, __LINE__,
+                           tagIndex);
+                return -1;
+            }
         } else if (tag->type == TSDB_DATA_TYPE_JSON) {
             n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s json", tag->name);
