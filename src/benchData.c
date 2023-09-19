@@ -300,6 +300,7 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
         switch (field->type) {
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
+            case TSDB_DATA_TYPE_GEOMETRY:
                 len += field->length + 3;
                 break;
             case TSDB_DATA_TYPE_INT:
@@ -383,6 +384,28 @@ static int tmpStr(char *tmp, int iface, Field *field, int i) {
     } else {
         rand_string(tmp, field->length,
                     g_arguments->chinese);
+    }
+    return 0;
+}
+
+static int tmpGeometry(char *tmp, int iface, Field *field, int i) {
+    if (g_arguments->demo_mode) {
+        // TODO
+    } else if (field->values) {
+        int arraySize = tools_cJSON_GetArraySize(field->values);
+        if (arraySize) {
+            tools_cJSON *buf = tools_cJSON_GetArrayItem(field->values, taosRandom() % arraySize);
+            snprintf(tmp, field->length, "%s", buf->valuestring);
+        } else {
+            errorPrint(
+                "%s() cannot read correct value "
+                "from json file. array size: %d\n",
+                __func__, arraySize);
+            return -1;
+        }
+    } else {
+        int maxType = getGeoMaxType(field->length);
+        rand_geometry(tmp, field->length, maxType);
     }
     return 0;
 }
@@ -705,6 +728,17 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     }
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "'%s',", tmp);
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_GEOMETRY: {
+                    int   bufferSize = geoCalcBufferSize(field->length);
+                    char *tmp = benchCalloc(1, bufferSize, false);
+                    if (0 != tmpGeometry(tmp, stbInfo->iface, field, i)) {
+                        free(tmp);
+                        return -1;
+                    }
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos, "'%s',", tmp);
                     tmfree(tmp);
                     break;
                 }

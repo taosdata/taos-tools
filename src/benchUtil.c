@@ -320,7 +320,7 @@ void closeBenchConn(SBenchConn* conn) {
         if(conn->taos) {
             taos_close(conn->taos);
             conn->taos = NULL;
-        }        
+        }
         if (conn->ctaos) {
             taos_close(conn->ctaos);
             conn->ctaos = NULL;
@@ -840,6 +840,8 @@ char *convertDatatypeToString(int type) {
             return "double";
         case TSDB_DATA_TYPE_JSON:
             return "json";
+        case TSDB_DATA_TYPE_GEOMETRY:
+            return "geometry";
         default:
             break;
     }
@@ -972,6 +974,8 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_JSON;
         } else if (0 == strcasecmp(type, "varchar")) {
             return TSDB_DATA_TYPE_BINARY;
+        } else if (0 == strcasecmp(type, "geometry")) {
+            return TSDB_DATA_TYPE_GEOMETRY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
@@ -1009,6 +1013,8 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_JSON;
         } else if (0 == strncasecmp(type, "varchar", length)) {
             return TSDB_DATA_TYPE_BINARY;
+        } else if (0 == strcasecmp(type, "geometry")) {
+            return TSDB_DATA_TYPE_GEOMETRY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
@@ -1065,7 +1071,7 @@ void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
 
     void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
     memcpy(dst, pData, pArray->elemSize * elems);
-    tmfree(pData);
+    tmfree(pData); // TODO remove this
     pArray->size += elems;
     return dst;
 }
@@ -1191,7 +1197,7 @@ void destroySockFd(int sockfd) {
     if (sockfd < 0) {
         return;
     }
-    
+
     // shutdown the connection since no more data will be sent
     int result;
     result = shutdown(sockfd, SHUT_WR);
