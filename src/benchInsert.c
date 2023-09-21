@@ -3530,8 +3530,8 @@ int insertTestProcess() {
                 }
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
-                    errorPrint(" fill child table is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
-                    return -1;
+                    infoPrint(" warning fill child table is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
+                    return 0;
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
