@@ -5203,8 +5203,8 @@ static int64_t writeResultToAvroNative(
                 if (0 != avro_value_get_by_name(
                             &record, "tbname", &avro_value, NULL)) {
                     errorPrint("%s() LN%d, avro_value_get_by_name(tbname) "
-                            "failed\n",
-                            __func__, __LINE__);
+                            "failed dbName=%s tbName=%s\n",
+                            __func__, __LINE__, dbName, tbName);
                     break;
                 }
                 avro_value_set_branch(&avro_value, 1, &branch);
@@ -5224,9 +5224,9 @@ static int64_t writeResultToAvroNative(
 
             if (0 != avro_file_writer_append_value(db, &record)) {
                 errorPrint("%s() LN%d, "
-                        "Unable to write record to file. Message: %s\n",
+                        "Unable to write record to file. Message: %s dbName=%s tbName=%s\n",
                         __func__, __LINE__,
-                        avro_strerror());
+                        avro_strerror(), dbName, tbName);
                 failed--;
             } else {
                 success++;
@@ -5237,9 +5237,9 @@ static int64_t writeResultToAvroNative(
         }
 
         if (countInBatch != limit) {
-            errorPrint("%s() LN%d, actual dump out: %d, batch %" PRId64 "\n",
+            errorPrint("%s() LN%d, table rows is zero. actual dump out: %d, batch %" PRId64 " dbName=%s tbName=%s\n",
                     __func__, __LINE__,
-                    countInBatch, limit);
+                    countInBatch, limit, dbName, tbName);
         }
         taos_free_result(res);
         printDotOrX(offset, &printDot);
