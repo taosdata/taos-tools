@@ -1532,8 +1532,12 @@ static void *syncWriteInterlace(void *sarg) {
                         int64_t disorderTs = getDisorderTs(stbInfo,
                                 &disorderRange);
                         char time_string[BIGINT_BUFF_LEN];
-                        snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
-                                disorderTs?disorderTs:timestamp);
+                        if(stbInfo->useNow) {
+                            snprintf(time_string, BIGINT_BUFF_LEN, "now");
+                        } else {
+                            snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
+                                    disorderTs?disorderTs:timestamp);
+                        }
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
