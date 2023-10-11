@@ -18,10 +18,11 @@
     "databases": [
         {
             "dbinfo": {
-                "name": "alive",
+                "name": "smart",
                 "drop": "yes",
                 "vgroups": 4,
-                "duration": 3650,
+                "duration": "10d",
+                "keep": "100d",
                 "pages": 512,
                 "minrows":5000,
                 "maxrows":10000,
@@ -45,7 +46,7 @@
                     "line_protocol": "line",
                     "insert_rows": 900000000000000,
                     "interlace_rows": 1,
-                    "insert_interval": 10000,
+                    "insert_interval": 1000,
                     "start_timestamp": "now",
                     "sample_format": "csv",
                     "sample_file": "./sample.csv",
