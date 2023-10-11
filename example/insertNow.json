@@ -6,22 +6,30 @@
     "user": "root",
     "password": "taosdata",
     "connection_pool_size": 8,
-    "thread_count": 4,
+    "thread_count": 5,
     "create_table_thread_count": 7,
     "result_file": "./insert_res.txt",
     "confirm_parameter_prompt": "no",
     "insert_interval": 0,
-    "num_of_records_per_req": 10000,
+    "num_of_records_per_req": 2000,
     "prepared_rand": 10000,
     "chinese": "no",
     "escape_character": "yes",
     "databases": [
         {
             "dbinfo": {
-                "name": "test",
+                "name": "alive",
                 "drop": "yes",
-                "precision": "ms",
-                "wal_retention_period": "60"
+                "vgroups": 4,
+                "duration": 3650,
+                "pages": 512,
+                "minrows":5000,
+                "maxrows":10000,
+		        "stt_trigger":10,
+                "wal_retention_period": 10,
+                "wal_retention_size": 100,
+		        "cachemodel": "'both'",
+                "precision": "ms"
             },
             "super_tables": [
                 {
@@ -37,7 +45,7 @@
                     "line_protocol": "line",
                     "insert_rows": 900000000000000,
                     "interlace_rows": 1,
-                    "insert_interval": 1000,
+                    "insert_interval": 10000,
                     "start_timestamp": "now",
                     "sample_format": "csv",
                     "sample_file": "./sample.csv",
