@@ -889,11 +889,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->interlaceRows = (uint32_t)stbInterlaceRows->valueint;
         }
 
-        // force set 
-        if(superTable->useNow) {
-            superTable->interlaceRows = 1;
-        }
-
         // disorder
         tools_cJSON *disorderRatio =
             tools_cJSON_GetObjectItem(stbInfo, "disorder_ratio");
