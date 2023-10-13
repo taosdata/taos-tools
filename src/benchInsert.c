@@ -1544,8 +1544,12 @@ static void *syncWriteInterlace(void *sarg) {
                         int64_t disorderTs = getDisorderTs(stbInfo,
                                 &disorderRange);
                         char time_string[BIGINT_BUFF_LEN];
-                        snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
-                                disorderTs?disorderTs:timestamp);
+                        if(stbInfo->useNow && stbInfo->interlaceRows == 1) {
+                            snprintf(time_string, BIGINT_BUFF_LEN, "now");
+                        } else {
+                            snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
+                                    disorderTs?disorderTs:timestamp);
+                        }
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
@@ -3542,8 +3546,7 @@ int insertTestProcess() {
                 }
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
-                    errorPrint(" fill child table is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
-                    return -1;
+                    infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
