@@ -1532,7 +1532,7 @@ static void *syncWriteInterlace(void *sarg) {
                         int64_t disorderTs = getDisorderTs(stbInfo,
                                 &disorderRange);
                         char time_string[BIGINT_BUFF_LEN];
-                        if(stbInfo->useNow) {
+                        if(stbInfo->useNow && stbInfo->interlaceRows == 1) {
                             snprintf(time_string, BIGINT_BUFF_LEN, "now");
                         } else {
                             snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
