@@ -17,16 +17,67 @@ extern char      g_configDir[MAX_PATH_LEN];
 
 char funsName [FUNTYPE_CNT] [32] = {
     "sin(",
-    "cos("
+    "cos(",
+    "count(",
+    "saw(",
+    "square(",
+    "tri(",
 };
 
-uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* random) {
+bool parseFunArgs(char* value, uint8_t funType, int32_t* min ,int32_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
+    char* buf = strdup(value);
+    char* p[4] = {NULL};
+    int i = 0; 
+    // find ")" fun end brance
+    char* end = strstr(buf,")");
+    if(end) {
+        *end = 0;
+    }
+
+    // find first
+    char* token = strtok(buf, ",");
+    if(token == NULL) {
+        free(buf);
+        return false;
+    }
+    p[i++] = token; 
+
+    // find others
+    while(token = strtok(NULL, ",") && i < 4) {
+        p[i++] = token; 
+    }
+
+    if(i != 4) {
+        // must 4 params
+        free(buf);
+        return false;
+    }
+
+    // parse fun
+    if(funType == FUNTYPE_COUNT) {
+        *min    = atoi(p[1]);
+        *max    = atoi(p[2]);
+        *step   = atoi(p[3]);
+        *offset = atoi(p[4]);
+    } else {
+        *min    = atoi(p[1]);
+        *max    = atoi(p[2]);
+        *period = atoi(p[3]);
+        *offset = atoi(p[4]);
+    }
+
+    free(buf)
+    return true;
+}
+
+uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random, 
+            int32_t* min ,int32_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
     // check valid
-    if (funValue == NULL || multiple == NULL || addend == NULL) {
+    if (expr == NULL || multiple == NULL || addend == NULL) {
         return FUNTYPE_NONE;
     }
 
-    size_t len = strlen(funValue); 
+    size_t len = strlen(expr); 
     if(len > 100) {
         return FUNTYPE_NONE;
     }
@@ -34,9 +85,10 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
     //parse format 10*sin(x) + 100 * random(5)
     char value[128];
     size_t n = 0;
+    // remove blank
     for (size_t i = 0; i < len; i++) {
-        if (funValue[i] != ' ') {
-            value[n++] = funValue[i];
+        if (expr[i] != ' ') {
+            value[n++] = expr[i];
         }
     }
     // set end
@@ -44,10 +96,13 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
 
     // multiple
     char* key1 = strstr(value, "*");
-    if(key1 == NULL) return FUNTYPE_NONE;
-    *key1 = 0;
-    * multiple = atof(value);
-    key1 += 1;
+    if(key1) {
+        *key1 = 0;
+        *multiple = atof(value);
+        key1 += 1;
+    } else {
+        key1 = value;
+    }
 
     // funType
     uint8_t funType = FUNTYPE_NONE;
@@ -57,6 +112,10 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
         if(key2) {
             funType = i + 1;
             key2 += strlen(funsName[i]);
+            if(!parseFunArgs(key2, funType, min, max, step, period, offset)){
+                return FUNTYPE_NONE;
+            }
+
             break;
         }
     }
@@ -110,6 +169,10 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         float   multiple = 0;
         int32_t addend   = 0;
         int32_t random   = 0;
+        int32_t step     = 0;
+        int32_t period   = 0;
+        int32_t offset   = 0;
+
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -152,7 +215,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // fun
         tools_cJSON *fun = tools_cJSON_GetObjectItem(column, "fun");
         if (tools_cJSON_IsString(fun)) {
-            funType = parseFuns(fun->valuestring, &multiple, &addend, &random);
+            funType = parseFuns(fun->valuestring, &multiple, &addend, &random, &min, &max, &step, &period, &offset);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
@@ -196,6 +259,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->multiple = multiple;
             col->addend   = addend;
             col->random   = random;
+            col->step     = step;
+            col->period   = period;
+            col->offset   = offset;
 
             if (customName) {
                 if (n >= 1) {

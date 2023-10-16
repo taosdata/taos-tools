@@ -561,8 +561,12 @@ typedef struct SChildField {
 #define FUNTYPE_NONE  0
 #define FUNTYPE_SIN   1
 #define FUNTYPE_COS   2
+#define FUNTYPE_COUNT 3
+#define FUNTYPE_SAW   4
+#define FUNTYPE_SQUARE 5
+#define FUNTYPE_TRI    6
 
-#define FUNTYPE_CNT   2
+#define FUNTYPE_CNT   7
 
 typedef struct SField {
     uint8_t  type;
@@ -580,6 +584,11 @@ typedef struct SField {
     float    multiple;
     int32_t  addend;
     int32_t  random;
+
+    int32_t    period;
+    int32_t    offset;
+    int32_t    step;
+
 
     bool     sma;
 } Field;
