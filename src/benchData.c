@@ -71,16 +71,16 @@ int32_t funTriAngle(int32_t min, int32_t max, int32_t period, int32_t loop) {
     int32_t step = range / period;
     int32_t cnt = 0;    
     if(change)
-       cnt = loop % period;
+       cnt = period - loop % period;
     else
-       cnt = period - 1 - loop % period;
+       cnt = loop % period;
 
     return min + cnt * step;
 }
 
 
 // calc expression value like 10*sin(x) + 100
-float calc_expr_value(Field *field, int32_t angle, int32_t loop) {
+float funValueFloat(Field *field, int32_t angle, int32_t loop) {
     float radian = ATOR(angle);
     float funVal = 0;
 
@@ -96,6 +96,37 @@ float calc_expr_value(Field *field, int32_t angle, int32_t loop) {
        funVal = (float)funSquare(field->min, field->max, field->period, loop + field->offset);
     else if (field->funType == FUNTYPE_TRI)
        funVal = (float)funTriAngle(field->min, field->max, field->period, loop + field->offset);
+
+    if(field->multiple != 0)
+       funVal *= field->multiple;
+    
+    if ( field->addend !=0 && field->random > 0 ) {
+        float rate = taosRandom() % field->random;
+        funVal += field->addend * (rate/100);
+    } else if(field->addend !=0 ) {
+        funVal += field->addend;
+    }
+
+    return funVal;
+}
+
+// calc expression value like 10*sin(x) + 100
+int32_t funValueInt32(Field *field, int32_t angle, int32_t loop) {
+    float radian = ATOR(angle);
+    int32_t funVal = 0;
+
+    if (field->funType == FUNTYPE_SIN)
+       funVal = (int32_t)sin(radian);
+    else if (field->funType == FUNTYPE_COS)
+       funVal = (int32_t)cos(radian);
+    else if (field->funType == FUNTYPE_COUNT)
+       funVal = funCount(field->min, field->max, field->step, loop);
+    else if (field->funType == FUNTYPE_SAW)
+       funVal = funSaw(field->min, field->max, field->period, loop + field->offset );
+    else if (field->funType == FUNTYPE_SQUARE)
+       funVal = funSquare(field->min, field->max, field->period, loop + field->offset);
+    else if (field->funType == FUNTYPE_TRI)
+       funVal = funTriAngle(field->min, field->max, field->period, loop + field->offset);
 
     if(field->multiple != 0)
        funVal *= field->multiple;
@@ -441,7 +472,7 @@ FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle, int32_t loop) {
     double doubleTmp = (double)(field->min);
 
     if(field->funType != FUNTYPE_NONE) {
-        doubleTmp = calc_expr_value(field, angle, loop);
+        doubleTmp = funValueFloat(field, angle, loop);
     } else if (field->max != field->min) {
         doubleTmp += ((taosRandom() %
             (field->max - field->min)) +
@@ -451,7 +482,7 @@ FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle, int32_t loop) {
 }
 
 FORCE_INLINE double tmpDouble(Field *field) {
-    return tmpDoubleImpl(field, 0);
+    return tmpDoubleImpl(field, 0, 0);
 }
 
 
@@ -516,7 +547,7 @@ FORCE_INLINE uint16_t tmpUint16(Field *field) {
 FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t loop) {
     int64_t bigintTmp = field->min;
     if(field->funType != FUNTYPE_NONE) {
-        bigintTmp = calc_expr_value(field, angle, loop);
+        bigintTmp = funValueInt32(field, angle, loop);
     } else if (field->min != field->max) {
         bigintTmp += (taosRandom() % (field->max - field->min));
     }
@@ -524,7 +555,7 @@ FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t loop) {
 }
 
 FORCE_INLINE int64_t tmpInt64(Field *field) {
-    return tmpInt64Impl(field, 0);
+    return tmpInt64Impl(field, 0, 0);
 }
 
 FORCE_INLINE float tmpFloat(Field *field) {
@@ -539,7 +570,7 @@ FORCE_INLINE float tmpFloat(Field *field) {
 static float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t loop) {
     float floatTmp = (float)field->min;
     if(field->funType != FUNTYPE_NONE) {
-        floatTmp = calc_expr_value(field, angle, loop);
+        floatTmp = funValueFloat(field, angle, loop);
     } else {
         if (field->max != field->min) {
             floatTmp += ((taosRandom() %
@@ -558,14 +589,14 @@ static float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t loop) {
 }
 
 static float tmpFloatI(Field *field, int i) {
-    return tmpFloatImpl(field, i, 0);
+    return tmpFloatImpl(field, i, 0, 0);
 }
 
 static int tmpInt32Impl(Field *field, int i, int angle, int32_t loop) {
     int intTmp;
     if (field->funType != FUNTYPE_NONE) {
         // calc from function
-        intTmp = calc_expr_value(field, angle, loop);
+        intTmp = funValueInt32(field, angle, loop);
     } else if ((g_arguments->demo_mode) && (i == 0)) {
         unsigned int tmpRand = taosRandom();
         intTmp = tmpRand % 10 + 1;
@@ -587,7 +618,7 @@ static int tmpInt32Impl(Field *field, int i, int angle, int32_t loop) {
 }
 
 static int tmpInt32(Field *field, int i) {
-    return tmpInt32Impl(field, i, 0);
+    return tmpInt32Impl(field, i, 0, 0);
 }
 
 static int tmpJson(char *sampleDataBuf,

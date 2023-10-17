@@ -24,54 +24,55 @@ char funsName [FUNTYPE_CNT] [32] = {
     "tri(",
 };
 
-bool parseFunArgs(char* value, uint8_t funType, int32_t* min ,int32_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
+int32_t parseFunArgs(char* value, uint8_t funType, int64_t* min ,int64_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
     char* buf = strdup(value);
     char* p[4] = {NULL};
-    int i = 0; 
+    int32_t i = 0; 
     // find ")" fun end brance
     char* end = strstr(buf,")");
     if(end) {
         *end = 0;
     }
+    int32_t argsLen = strlen(buf) + 1;
 
     // find first
     char* token = strtok(buf, ",");
     if(token == NULL) {
         free(buf);
-        return false;
+        return 0;
     }
     p[i++] = token; 
 
     // find others
-    while(token = strtok(NULL, ",") && i < 4) {
+    while((token = strtok(NULL, ",")) && i < 4) {
         p[i++] = token; 
     }
 
     if(i != 4) {
         // must 4 params
         free(buf);
-        return false;
+        return 0;
     }
 
     // parse fun
     if(funType == FUNTYPE_COUNT) {
-        *min    = atoi(p[1]);
-        *max    = atoi(p[2]);
-        *step   = atoi(p[3]);
-        *offset = atoi(p[4]);
+        *min    = atoi(p[0]);
+        *max    = atoi(p[1]);
+        *step   = atoi(p[2]);
+        *offset = atoi(p[3]);
     } else {
-        *min    = atoi(p[1]);
-        *max    = atoi(p[2]);
-        *period = atoi(p[3]);
-        *offset = atoi(p[4]);
+        *min    = atoi(p[0]);
+        *max    = atoi(p[1]);
+        *period = atoi(p[2]);
+        *offset = atoi(p[3]);
     }
 
-    free(buf)
-    return true;
+    free(buf);
+    return argsLen;
 }
 
 uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random, 
-            int32_t* min ,int32_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
+            int64_t* min ,int64_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
     // check valid
     if (expr == NULL || multiple == NULL || addend == NULL) {
         return FUNTYPE_NONE;
@@ -112,9 +113,11 @@ uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random,
         if(key2) {
             funType = i + 1;
             key2 += strlen(funsName[i]);
-            if(!parseFunArgs(key2, funType, min, max, step, period, offset)){
+            int32_t argsLen = parseFunArgs(key2, funType, min, max, step, period, offset);
+            if(len <= 0){
                 return FUNTYPE_NONE;
             }
+            key2 += argsLen;
 
             break;
         }
@@ -125,17 +128,22 @@ uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random,
     char* key3 = strstr(key2, "+");
     if(key3) {
         *addend = atoi(key3 + 1);
+        key3 += 1;
     } else {
         key3 = strstr(key2, "-");
-        if(key3)
+        if(key3) {
            *addend = atoi(key3 + 1) * -1;
+           key3 += 1;
+        }
     }
-    key3 += 1;
+    
 
     // random
-    char* key4 = strstr(key3, "*random(");
-    if(key4) {
-        *random = atoi(key4 + 8);
+    if(key3) {
+        char* key4 = strstr(key3, "*random(");
+        if(key4) {
+            *random = atoi(key4 + 8);
+        }
     }
 
     return funType;

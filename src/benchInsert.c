@@ -1449,7 +1449,6 @@ static void *syncWriteInterlace(void *sarg) {
 
     int64_t insertRows = stbInfo->insertRows;
     int32_t interlaceRows = stbInfo->interlaceRows;
-    int64_t pos = 0;
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     uint64_t   lastTotalInsertRows = 0;
@@ -1469,6 +1468,7 @@ static void *syncWriteInterlace(void *sarg) {
                 goto free_of_interlace;
             }
             int64_t timestamp = pThreadInfo->start_time;
+            int64_t pos       = pThreadInfo->pos;
             SChildTable *childTbl = stbInfo->childTblArray[tableSeq];
             char *  tableName =
                 stbInfo->childTblArray[tableSeq]->name;
@@ -1555,6 +1555,7 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                         generated++;
                         pos++;
+                        //printf(" interlace pos=%" PRId64 " j=%" PRId64" timestamp=%"PRId64" tableName=%s tableSeq=%"PRIu64" \n", pos, j, timestamp, tableName, tableSeq);
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
@@ -1646,12 +1647,16 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
             }
+
+            // move to next table in one batch
             tableSeq++;
             tmp_total_insert_rows += interlaceRows;
             if (tableSeq > pThreadInfo->end_table_to) {
+                // one tables loop timestamp and pos add 
                 tableSeq = pThreadInfo->start_table_from;
                 pThreadInfo->start_time +=
                     interlaceRows * stbInfo->timestamp_step;
+                pThreadInfo->pos += interlaceRows;    
                 if (!stbInfo->non_stop) {
                     insertRows -= interlaceRows;
                 }
@@ -2934,6 +2939,7 @@ static int startMultiThreadInsertData(SDataBase* database,
         pThreadInfo->dbInfo = database;
         pThreadInfo->stbInfo = stbInfo;
         pThreadInfo->start_time = stbInfo->startTimestamp;
+        pThreadInfo->pos  = 0;
         pThreadInfo->totalInsertRows = 0;
         pThreadInfo->samplePos = 0;
 #ifdef TD_VER_COMPATIBLE_3_0_0_0

@@ -966,6 +966,7 @@ typedef struct SThreadInfo_S {
     char        **sml_tags_json_array;
     char        **sml_json_value_array;
     uint64_t    start_time;
+    uint64_t    pos; // point for sampleDataBuff
     uint64_t    max_sql_len;
     FILE        *fp;
     char        filePath[MAX_PATH_LEN];
