@@ -71,10 +71,10 @@ int32_t parseFunArgs(char* value, uint8_t funType, int64_t* min ,int64_t* max, i
     return argsLen;
 }
 
-uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random, 
+uint8_t parseFuns(char* expr, float* multiple, float* addend, float* base, int32_t* random, 
             int64_t* min ,int64_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
     // check valid
-    if (expr == NULL || multiple == NULL || addend == NULL) {
+    if (expr == NULL || multiple == NULL || addend == NULL || base == NULL) {
         return FUNTYPE_NONE;
     }
 
@@ -98,9 +98,22 @@ uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random,
     // multiple
     char* key1 = strstr(value, "*");
     if(key1) {
-        *key1 = 0;
-        *multiple = atof(value);
-        key1 += 1;
+        // excpet tri(-20,40,20,5)+20+50*random(12)
+        bool found = true;
+        char* p1 = strstr(value+1, "+");
+        char* p2 = strstr(value+1, "-");
+        if(p1 && key1 > p1 ) 
+           found = false;
+        if(p2 && key1 > p2 ) 
+           found = false;
+
+        if(found) {
+            *key1 = 0;
+            *multiple = atof(value);
+            key1 += 1;
+        } else {
+            key1 = value;
+        }
     } else {
         key1 = value;
     }
@@ -108,7 +121,7 @@ uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random,
     // funType
     uint8_t funType = FUNTYPE_NONE;
     char* key2 = NULL;
-    for(int i=0; i < FUNTYPE_CNT; i++) {
+    for (int i = 0; i < FUNTYPE_CNT - 1; i++) {
         key2 = strstr(key1, funsName[i]);
         if(key2) {
             funType = i + 1;
@@ -127,12 +140,12 @@ uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random,
 
     char* key3 = strstr(key2, "+");
     if(key3) {
-        *addend = atoi(key3 + 1);
+        *addend = atof(key3 + 1);
         key3 += 1;
     } else {
         key3 = strstr(key2, "-");
         if(key3) {
-           *addend = atoi(key3 + 1) * -1;
+           *addend = atof(key3 + 1) * -1;
            key3 += 1;
         }
     }
@@ -143,6 +156,19 @@ uint8_t parseFuns(char* expr, float* multiple, int32_t* addend, int32_t* random,
         char* key4 = strstr(key3, "*random(");
         if(key4) {
             *random = atoi(key4 + 8);
+            key3 += 9;
+        }
+    }
+
+    // base
+    if(key3) {
+        char* key5 = strstr(key3, "+");
+        if(key5){
+            *base = atof(key5+1);
+        } else {
+            key5 = strstr(key3, "-");
+            if(key5)
+              *base = atof(key5+1) * -1;
         }
     }
 
@@ -175,7 +201,8 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // fun type
         uint8_t funType = FUNTYPE_NONE;
         float   multiple = 0;
-        int32_t addend   = 0;
+        float   addend   = 0;
+        float   base     = 0;
         int32_t random   = 0;
         int32_t step     = 0;
         int32_t period   = 0;
@@ -223,7 +250,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // fun
         tools_cJSON *fun = tools_cJSON_GetObjectItem(column, "fun");
         if (tools_cJSON_IsString(fun)) {
-            funType = parseFuns(fun->valuestring, &multiple, &addend, &random, &min, &max, &step, &period, &offset);
+            funType = parseFuns(fun->valuestring, &multiple, &addend, &base, &random, &min, &max, &step, &period, &offset);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
@@ -266,6 +293,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->funType  = funType;
             col->multiple = multiple;
             col->addend   = addend;
+            col->base     = base;
             col->random   = random;
             col->step     = step;
             col->period   = period;

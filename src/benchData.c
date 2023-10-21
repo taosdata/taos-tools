@@ -107,6 +107,7 @@ float funValueFloat(Field *field, int32_t angle, int32_t loop) {
         funVal += field->addend;
     }
 
+    funVal += field->base;
     return funVal;
 }
 
@@ -137,6 +138,8 @@ int32_t funValueInt32(Field *field, int32_t angle, int32_t loop) {
     } else if(field->addend !=0 ) {
         funVal += field->addend;
     }
+
+    funVal += field->base;
 
     return funVal;
 }

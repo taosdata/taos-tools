@@ -582,7 +582,8 @@ typedef struct SField {
     // fun
     uint8_t  funType;
     float    multiple;
-    int32_t  addend;
+    float    addend;
+    float    base;
     int32_t  random;
 
     int32_t    period;

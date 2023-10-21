@@ -1656,7 +1656,8 @@ static void *syncWriteInterlace(void *sarg) {
                 tableSeq = pThreadInfo->start_table_from;
                 pThreadInfo->start_time +=
                     interlaceRows * stbInfo->timestamp_step;
-                pThreadInfo->pos += interlaceRows;    
+                // save    
+                pThreadInfo->pos = pos;    
                 if (!stbInfo->non_stop) {
                     insertRows -= interlaceRows;
                 }
@@ -2229,7 +2230,7 @@ void *syncWriteProgressive(void *sarg) {
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE:
-                    generated = prepareProgressDataSql(
+                    generated = b(
                             pThreadInfo,
                             childTbl,
                             tableSeq,
