@@ -700,6 +700,7 @@ typedef struct SSuperTable_S {
     char      sampleFile[MAX_FILE_NAME_LEN];
     char      tagsFile[MAX_FILE_NAME_LEN];
     uint32_t  partialColNum;
+    uint32_t  partialColFrom;
     char      *partialColNameBuf;
     BArray    *cols;
     BArray    *tags;

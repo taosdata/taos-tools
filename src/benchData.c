@@ -1598,9 +1598,17 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     if (stbInfo->partialColNum != 0
             && ((stbInfo->iface == TAOSC_IFACE
                 || stbInfo->iface == REST_IFACE))) {
-        if (stbInfo->partialColNum > stbInfo->cols->size) {
-            stbInfo->partialColNum = stbInfo->cols->size;
-        } else {
+        // check valid
+        if(stbInfo->partialColFrom >= stbInfo->cols->size) {
+            stbInfo->partialColFrom = 0;
+            infoPrint("stbInfo->partialColFrom(%d) is large than stbInfo->cols->size(%d) \n ",stbInfo->partialColFrom,stbInfo->cols->size);
+        }
+
+        if (stbInfo->partialColFrom + stbInfo->partialColNum > stbInfo->cols->size) {
+            stbInfo->partialColNum = stbInfo->cols->size - stbInfo->partialColFrom ;
+        }
+
+        if(stbInfo->partialColNum < stbInfo->cols->size)
             stbInfo->partialColNameBuf =
                     benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
             int pos = 0;
@@ -1614,7 +1622,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             } else {
                 pos += n;
             }
-            for (int i = 0; i < stbInfo->partialColNum; ++i) {
+            for (int i = stbInfo->partialColFrom; i < stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 n = snprintf(stbInfo->partialColNameBuf+pos,
                                 TSDB_MAX_ALLOWED_SQL_LEN - pos,
@@ -1626,8 +1634,13 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                     pos += n;
                 }
             }
-                for (int i = 0; i < stbInfo->partialColNum; ++i) {
+            
+            // first part set noen
+            for (int i = 0; i < =stbInfo->partialColFrom; ++i) {
+                Field * col = benchArrayGet(stbInfo->cols, i);
+                col->none = true;
             }
+            // last part set none
             for (int i = stbInfo->partialColNum; i < stbInfo->cols->size; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 col->none = true;

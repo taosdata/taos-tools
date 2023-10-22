@@ -676,6 +676,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->insert_interval = g_arguments->insert_interval;
         superTable->max_sql_len = TSDB_MAX_ALLOWED_SQL_LEN;
         superTable->partialColNum = 0;
+        superTable->partialColFrom = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
         superTable->file_factor = -1;
@@ -1085,6 +1086,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
         if (tools_cJSON_IsNumber(pPartialColNum)) {
             superTable->partialColNum = pPartialColNum->valueint;
+        }
+
+        tools_cJSON *pPartialColFrom =
+            tools_cJSON_GetObjectItem(stbInfo, "partial_col_from");
+        if (tools_cJSON_IsNumber(pPartialColFrom)) {
+            superTable->partialColFrom = pPartialColFrom->valueint;
         }
 
         if (g_arguments->taosc_version == 3) {

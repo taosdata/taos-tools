@@ -2230,7 +2230,7 @@ void *syncWriteProgressive(void *sarg) {
             switch (stbInfo->iface) {
                 case TAOSC_IFACE:
                 case REST_IFACE:
-                    generated = b(
+                    generated = prepareProgressDataSql(
                             pThreadInfo,
                             childTbl,
                             tableSeq,

@@ -219,10 +219,19 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
 
   // new mix rule
   int32_t max = stb->cols->size > MAX_BATCOLS ? MAX_BATCOLS : stb->cols->size;
-  info->nBatCols = RD(max) + 1;
 
-  // random select cnt elements from max
-  randomFillCols(info->batCols, max, info->nBatCols);
+  if(stb->partialColNum > 0 && stb->partialColNum < MAX_BATCOLS) {
+    info->nBatCols = stb->partialColNum;
+    int j = 0;
+    for (int i = stb->partialColFrom; i < stb->partialColFrom + stb->partialColNum; i++) {
+      info->batCols[j++] = i;
+    }
+  } else {
+    info->nBatCols = RD(max) + 1;
+    // random select cnt elements from max
+    randomFillCols(info->batCols, max, info->nBatCols);
+  }
+  
   char * colNames = genBatColsNames(info, stb);
   len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName, colNames);
   free(colNames);
