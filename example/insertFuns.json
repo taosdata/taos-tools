@@ -60,8 +60,8 @@
                         { "type": "FLOAT", "name": "phase",   "fun": "1*sin(x)+1*random(3)"},
                         { "type": "INT",   "name": "c1",      "fun": "count(0,100,1,0) + 100"},
                         { "type": "INT",   "name": "c2",      "fun": "saw(-100,100,20,0) + 1000"},
-                        { "type": "float", "name": "c3",      "fun":    "square(0,50,10,3)+20+ 80"},
-                        { "type": "INT",   "name": "c4",      "fun":    "tri(-20,40,20,5)+50*random(12)+ 10000"}                    ],
+                        { "type": "float", "name": "c3",      "fun": "square(0,50,10,3)+20+ 80"},
+                        { "type": "INT",   "name": "c4",      "fun": "tri(-20,40,20,5)+50*random(12)+ 10000"}                    ],
                     "tags": [
                         {
                             "type": "TINYINT",
