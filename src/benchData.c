@@ -1636,7 +1636,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             }
             
             // first part set noen
-            for (uint32_t i = 0; i <= stbInfo->partialColFrom; ++i) {
+            for (uint32_t i = 0; i < stbInfo->partialColFrom; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 col->none = true;
             }
