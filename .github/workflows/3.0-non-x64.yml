@@ -9,12 +9,10 @@ on:
   # Triggers the workflow on push or pull request events but only for the develop branch
   push:
     branches:
-      - develop
       - 3.0
       - main
   pull_request:
     branches:
-      - develop
       - 3.0
       - main
 
@@ -140,7 +138,7 @@ jobs:
           run: |
             echo "Install packages on ${{ steps.setup.outputs.uname }}"
             apt update -y > /dev/null
-            apt install -y cmake build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
+            apt install -y cmake libexpat1-dev build-essential git libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config libssl-dev > /dev/null
             apt install libgflags2.2 libgflags-dev -y > /dev/null
 
             echo "clone TDengine ${{ github.event.pull_request.base.ref }} on ${{ steps.setup.outputs.uname }}"

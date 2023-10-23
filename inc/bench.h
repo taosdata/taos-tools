@@ -561,8 +561,12 @@ typedef struct SChildField {
 #define FUNTYPE_NONE  0
 #define FUNTYPE_SIN   1
 #define FUNTYPE_COS   2
+#define FUNTYPE_COUNT 3
+#define FUNTYPE_SAW   4
+#define FUNTYPE_SQUARE 5
+#define FUNTYPE_TRI    6
 
-#define FUNTYPE_CNT   2
+#define FUNTYPE_CNT   7
 
 typedef struct SField {
     uint8_t  type;
@@ -578,8 +582,14 @@ typedef struct SField {
     // fun
     uint8_t  funType;
     float    multiple;
-    int32_t  addend;
+    float    addend;
+    float    base;
     int32_t  random;
+
+    int32_t    period;
+    int32_t    offset;
+    int32_t    step;
+
 
     bool     sma;
 } Field;
@@ -690,6 +700,7 @@ typedef struct SSuperTable_S {
     char      sampleFile[MAX_FILE_NAME_LEN];
     char      tagsFile[MAX_FILE_NAME_LEN];
     uint32_t  partialColNum;
+    uint32_t  partialColFrom;
     char      *partialColNameBuf;
     BArray    *cols;
     BArray    *tags;
@@ -957,6 +968,7 @@ typedef struct SThreadInfo_S {
     char        **sml_tags_json_array;
     char        **sml_json_value_array;
     uint64_t    start_time;
+    uint64_t    pos; // point for sampleDataBuff
     uint64_t    max_sql_len;
     FILE        *fp;
     char        filePath[MAX_PATH_LEN];

@@ -42,22 +42,106 @@ const char* locations_sml[] = {
     #include "benchLocations.h"
 #endif
 
+int32_t funCount(int32_t min, int32_t max, int32_t step, int32_t loop) {
+    int32_t range = abs(max - min);
+    int32_t maxCnt = range / step;
+    int32_t val = min + (loop % maxCnt) * step ;
+
+    return val;
+}
+
+int32_t funSaw(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    int32_t range = abs(max - min);
+    int32_t step = range / period;
+    int32_t val = min + (loop % period) * step ;
+    return val;
+}
+
+int32_t funSquare(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    int32_t change = (loop/period) % 2;
+    if (change)
+       return min;
+    else
+       return max;
+}
+
+int32_t funTriAngle(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    int32_t range = abs(max - min);
+    int32_t change = (loop/period) % 2;
+    int32_t step = range / period;
+    int32_t cnt = 0;    
+    if(change)
+       cnt = period - loop % period;
+    else
+       cnt = loop % period;
+
+    return min + cnt * step;
+}
+
+
 // calc expression value like 10*sin(x) + 100
-float calc_expr_value(Field *field, int32_t angle) {
+float funValueFloat(Field *field, int32_t angle, int32_t loop) {
     float radian = ATOR(angle);
     float funVal = 0;
+
     if (field->funType == FUNTYPE_SIN)
        funVal = sin(radian);
     else if (field->funType == FUNTYPE_COS)
        funVal = cos(radian);
+    else if (field->funType == FUNTYPE_COUNT)
+       funVal = (float)funCount(field->min, field->max, field->step, loop);
+    else if (field->funType == FUNTYPE_SAW)
+       funVal = (float)funSaw(field->min, field->max, field->period, loop + field->offset );
+    else if (field->funType == FUNTYPE_SQUARE)
+       funVal = (float)funSquare(field->min, field->max, field->period, loop + field->offset);
+    else if (field->funType == FUNTYPE_TRI)
+       funVal = (float)funTriAngle(field->min, field->max, field->period, loop + field->offset);
 
-    float val = field->multiple * funVal + field->addend;
-    if (field->random >0) {
+    if(field->multiple != 0)
+       funVal *= field->multiple;
+    
+    if ( field->addend !=0 && field->random > 0 ) {
         float rate = taosRandom() % field->random;
-        val += field->addend * (rate/100);
+        funVal += field->addend * (rate/100);
+    } else if(field->addend !=0 ) {
+        funVal += field->addend;
     }
 
-    return val;
+    funVal += field->base;
+    return funVal;
+}
+
+// calc expression value like 10*sin(x) + 100
+int32_t funValueInt32(Field *field, int32_t angle, int32_t loop) {
+    float radian = ATOR(angle);
+    int32_t funVal = 0;
+
+    if (field->funType == FUNTYPE_SIN)
+       funVal = (int32_t)sin(radian);
+    else if (field->funType == FUNTYPE_COS)
+       funVal = (int32_t)cos(radian);
+    else if (field->funType == FUNTYPE_COUNT)
+       funVal = funCount(field->min, field->max, field->step, loop);
+    else if (field->funType == FUNTYPE_SAW)
+       funVal = funSaw(field->min, field->max, field->period, loop + field->offset );
+    else if (field->funType == FUNTYPE_SQUARE)
+       funVal = funSquare(field->min, field->max, field->period, loop + field->offset);
+    else if (field->funType == FUNTYPE_TRI)
+       funVal = funTriAngle(field->min, field->max, field->period, loop + field->offset);
+
+    if(field->multiple != 0)
+       funVal *= field->multiple;
+    
+    if ( field->addend !=0 && field->random > 0 ) {
+        float rate = taosRandom() % field->random;
+        funVal += field->addend * (rate/100);
+    } else if(field->addend !=0 ) {
+        funVal += field->addend;
+    }
+
+    funVal += field->base;
+
+    return funVal;
 }
 
 
@@ -387,11 +471,11 @@ static int tmpStr(char *tmp, int iface, Field *field, int i) {
     return 0;
 }
 
-FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle) {
+FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle, int32_t loop) {
     double doubleTmp = (double)(field->min);
 
     if(field->funType != FUNTYPE_NONE) {
-        doubleTmp = calc_expr_value(field, angle);
+        doubleTmp = funValueFloat(field, angle, loop);
     } else if (field->max != field->min) {
         doubleTmp += ((taosRandom() %
             (field->max - field->min)) +
@@ -401,7 +485,7 @@ FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle) {
 }
 
 FORCE_INLINE double tmpDouble(Field *field) {
-    return tmpDoubleImpl(field, 0);
+    return tmpDoubleImpl(field, 0, 0);
 }
 
 
@@ -463,10 +547,10 @@ FORCE_INLINE uint16_t tmpUint16(Field *field) {
     return usmallintTmp;
 }
 
-FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle) {
+FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t loop) {
     int64_t bigintTmp = field->min;
     if(field->funType != FUNTYPE_NONE) {
-        bigintTmp = calc_expr_value(field, angle);
+        bigintTmp = funValueInt32(field, angle, loop);
     } else if (field->min != field->max) {
         bigintTmp += (taosRandom() % (field->max - field->min));
     }
@@ -474,7 +558,7 @@ FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle) {
 }
 
 FORCE_INLINE int64_t tmpInt64(Field *field) {
-    return tmpInt64Impl(field, 0);
+    return tmpInt64Impl(field, 0, 0);
 }
 
 FORCE_INLINE float tmpFloat(Field *field) {
@@ -486,10 +570,10 @@ FORCE_INLINE float tmpFloat(Field *field) {
     return floatTmp;
 }
 
-static float tmpFloatImpl(Field *field, int i, int32_t angle) {
+static float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t loop) {
     float floatTmp = (float)field->min;
     if(field->funType != FUNTYPE_NONE) {
-        floatTmp = calc_expr_value(field, angle);
+        floatTmp = funValueFloat(field, angle, loop);
     } else {
         if (field->max != field->min) {
             floatTmp += ((taosRandom() %
@@ -508,14 +592,14 @@ static float tmpFloatImpl(Field *field, int i, int32_t angle) {
 }
 
 static float tmpFloatI(Field *field, int i) {
-    return tmpFloatImpl(field, i, 0);
+    return tmpFloatImpl(field, i, 0, 0);
 }
 
-static int tmpInt32Impl(Field *field, int i, int angle) {
+static int tmpInt32Impl(Field *field, int i, int angle, int32_t loop) {
     int intTmp;
     if (field->funType != FUNTYPE_NONE) {
         // calc from function
-        intTmp = calc_expr_value(field, angle);
+        intTmp = funValueInt32(field, angle, loop);
     } else if ((g_arguments->demo_mode) && (i == 0)) {
         unsigned int tmpRand = taosRandom();
         intTmp = tmpRand % 10 + 1;
@@ -537,7 +621,7 @@ static int tmpInt32Impl(Field *field, int i, int angle) {
 }
 
 static int tmpInt32(Field *field, int i) {
-    return tmpInt32Impl(field, i, 0);
+    return tmpInt32Impl(field, i, 0, 0);
 }
 
 static int tmpJson(char *sampleDataBuf,
@@ -660,13 +744,13 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32Impl(field, i, angle);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", intTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = tmpInt64Impl(field, angle);
+                    int64_t bigintTmp = tmpInt64Impl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%"PRId64",", bigintTmp);
                     break;
@@ -685,13 +769,13 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatImpl(field, i, angle);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ =  tmpDoubleImpl(field, angle);
+                    double double_ =  tmpDoubleImpl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", double_);
                     break;
@@ -1514,9 +1598,17 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
     if (stbInfo->partialColNum != 0
             && ((stbInfo->iface == TAOSC_IFACE
                 || stbInfo->iface == REST_IFACE))) {
-        if (stbInfo->partialColNum > stbInfo->cols->size) {
-            stbInfo->partialColNum = stbInfo->cols->size;
-        } else {
+        // check valid
+        if(stbInfo->partialColFrom >= stbInfo->cols->size) {
+            stbInfo->partialColFrom = 0;
+            infoPrint("stbInfo->partialColFrom(%d) is large than stbInfo->cols->size(%"PRIu64") \n ",stbInfo->partialColFrom,stbInfo->cols->size);
+        }
+
+        if (stbInfo->partialColFrom + stbInfo->partialColNum > stbInfo->cols->size) {
+            stbInfo->partialColNum = stbInfo->cols->size - stbInfo->partialColFrom ;
+        }
+
+        if(stbInfo->partialColNum < stbInfo->cols->size) {
             stbInfo->partialColNameBuf =
                     benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
             int pos = 0;
@@ -1530,7 +1622,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             } else {
                 pos += n;
             }
-            for (int i = 0; i < stbInfo->partialColNum; ++i) {
+            for (int i = stbInfo->partialColFrom; i < stbInfo->partialColFrom + stbInfo->partialColNum; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 n = snprintf(stbInfo->partialColNameBuf+pos,
                                 TSDB_MAX_ALLOWED_SQL_LEN - pos,
@@ -1542,9 +1634,14 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                     pos += n;
                 }
             }
-                for (int i = 0; i < stbInfo->partialColNum; ++i) {
+            
+            // first part set noen
+            for (uint32_t i = 0; i < stbInfo->partialColFrom; ++i) {
+                Field * col = benchArrayGet(stbInfo->cols, i);
+                col->none = true;
             }
-            for (int i = stbInfo->partialColNum; i < stbInfo->cols->size; ++i) {
+            // last part set none
+            for (uint32_t i = stbInfo->partialColFrom + stbInfo->partialColNum; i < stbInfo->cols->size; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);
                 col->none = true;
             }

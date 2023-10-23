@@ -140,7 +140,7 @@ jobs:
           distro: ubuntu22.04
           run: |
             apt update -y > /dev/null
-            apt install git cmake build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y > /dev/null
+            apt install git cmake build-essential libexpat1-dev libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config -y > /dev/null
 
             cd TDengine
             mkdir debug ||:

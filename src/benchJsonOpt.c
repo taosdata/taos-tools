@@ -17,16 +17,68 @@ extern char      g_configDir[MAX_PATH_LEN];
 
 char funsName [FUNTYPE_CNT] [32] = {
     "sin(",
-    "cos("
+    "cos(",
+    "count(",
+    "saw(",
+    "square(",
+    "tri(",
 };
 
-uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* random) {
+int32_t parseFunArgs(char* value, uint8_t funType, int64_t* min ,int64_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
+    char* buf = strdup(value);
+    char* p[4] = {NULL};
+    int32_t i = 0; 
+    // find ")" fun end brance
+    char* end = strstr(buf,")");
+    if(end) {
+        *end = 0;
+    }
+    int32_t argsLen = strlen(buf) + 1;
+
+    // find first
+    char* token = strtok(buf, ",");
+    if(token == NULL) {
+        free(buf);
+        return 0;
+    }
+    p[i++] = token; 
+
+    // find others
+    while((token = strtok(NULL, ",")) && i < 4) {
+        p[i++] = token; 
+    }
+
+    if(i != 4) {
+        // must 4 params
+        free(buf);
+        return 0;
+    }
+
+    // parse fun
+    if(funType == FUNTYPE_COUNT) {
+        *min    = atoi(p[0]);
+        *max    = atoi(p[1]);
+        *step   = atoi(p[2]);
+        *offset = atoi(p[3]);
+    } else {
+        *min    = atoi(p[0]);
+        *max    = atoi(p[1]);
+        *period = atoi(p[2]);
+        *offset = atoi(p[3]);
+    }
+
+    free(buf);
+    return argsLen;
+}
+
+uint8_t parseFuns(char* expr, float* multiple, float* addend, float* base, int32_t* random, 
+            int64_t* min ,int64_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
     // check valid
-    if (funValue == NULL || multiple == NULL || addend == NULL) {
+    if (expr == NULL || multiple == NULL || addend == NULL || base == NULL) {
         return FUNTYPE_NONE;
     }
 
-    size_t len = strlen(funValue); 
+    size_t len = strlen(expr); 
     if(len > 100) {
         return FUNTYPE_NONE;
     }
@@ -34,9 +86,10 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
     //parse format 10*sin(x) + 100 * random(5)
     char value[128];
     size_t n = 0;
+    // remove blank
     for (size_t i = 0; i < len; i++) {
-        if (funValue[i] != ' ') {
-            value[n++] = funValue[i];
+        if (expr[i] != ' ') {
+            value[n++] = expr[i];
         }
     }
     // set end
@@ -44,19 +97,41 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
 
     // multiple
     char* key1 = strstr(value, "*");
-    if(key1 == NULL) return FUNTYPE_NONE;
-    *key1 = 0;
-    * multiple = atof(value);
-    key1 += 1;
+    if(key1) {
+        // excpet tri(-20,40,20,5)+20+50*random(12)
+        bool found = true;
+        char* p1 = strstr(value+1, "+");
+        char* p2 = strstr(value+1, "-");
+        if(p1 && key1 > p1 ) 
+           found = false;
+        if(p2 && key1 > p2 ) 
+           found = false;
+
+        if(found) {
+            *key1 = 0;
+            *multiple = atof(value);
+            key1 += 1;
+        } else {
+            key1 = value;
+        }
+    } else {
+        key1 = value;
+    }
 
     // funType
     uint8_t funType = FUNTYPE_NONE;
     char* key2 = NULL;
-    for(int i=0; i < FUNTYPE_CNT; i++) {
+    for (int i = 0; i < FUNTYPE_CNT - 1; i++) {
         key2 = strstr(key1, funsName[i]);
         if(key2) {
             funType = i + 1;
             key2 += strlen(funsName[i]);
+            int32_t argsLen = parseFunArgs(key2, funType, min, max, step, period, offset);
+            if(len <= 0){
+                return FUNTYPE_NONE;
+            }
+            key2 += argsLen;
+
             break;
         }
     }
@@ -65,18 +140,36 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
 
     char* key3 = strstr(key2, "+");
     if(key3) {
-        *addend = atoi(key3 + 1);
+        *addend = atof(key3 + 1);
+        key3 += 1;
     } else {
         key3 = strstr(key2, "-");
-        if(key3)
-           *addend = atoi(key3 + 1) * -1;
+        if(key3) {
+           *addend = atof(key3 + 1) * -1;
+           key3 += 1;
+        }
     }
-    key3 += 1;
+    
 
     // random
-    char* key4 = strstr(key3, "*random(");
-    if(key4) {
-        *random = atoi(key4 + 8);
+    if(key3) {
+        char* key4 = strstr(key3, "*random(");
+        if(key4) {
+            *random = atoi(key4 + 8);
+            key3 += 9;
+        }
+    }
+
+    // base
+    if(key3) {
+        char* key5 = strstr(key3, "+");
+        if(key5){
+            *base = atof(key5+1);
+        } else {
+            key5 = strstr(key3, "-");
+            if(key5)
+              *base = atof(key5+1) * -1;
+        }
     }
 
     return funType;
@@ -108,8 +201,13 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // fun type
         uint8_t funType = FUNTYPE_NONE;
         float   multiple = 0;
-        int32_t addend   = 0;
+        float   addend   = 0;
+        float   base     = 0;
         int32_t random   = 0;
+        int32_t step     = 0;
+        int32_t period   = 0;
+        int32_t offset   = 0;
+
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -152,7 +250,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // fun
         tools_cJSON *fun = tools_cJSON_GetObjectItem(column, "fun");
         if (tools_cJSON_IsString(fun)) {
-            funType = parseFuns(fun->valuestring, &multiple, &addend, &random);
+            funType = parseFuns(fun->valuestring, &multiple, &addend, &base, &random, &min, &max, &step, &period, &offset);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
@@ -195,7 +293,11 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->funType  = funType;
             col->multiple = multiple;
             col->addend   = addend;
+            col->base     = base;
             col->random   = random;
+            col->step     = step;
+            col->period   = period;
+            col->offset   = offset;
 
             if (customName) {
                 if (n >= 1) {
@@ -574,6 +676,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->insert_interval = g_arguments->insert_interval;
         superTable->max_sql_len = TSDB_MAX_ALLOWED_SQL_LEN;
         superTable->partialColNum = 0;
+        superTable->partialColFrom = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
         superTable->file_factor = -1;
@@ -983,6 +1086,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             tools_cJSON_GetObjectItem(stbInfo, "partial_col_num");
         if (tools_cJSON_IsNumber(pPartialColNum)) {
             superTable->partialColNum = pPartialColNum->valueint;
+        }
+
+        tools_cJSON *pPartialColFrom =
+            tools_cJSON_GetObjectItem(stbInfo, "partial_col_from");
+        if (tools_cJSON_IsNumber(pPartialColFrom)) {
+            superTable->partialColFrom = pPartialColFrom->valueint;
         }
 
         if (g_arguments->taosc_version == 3) {
