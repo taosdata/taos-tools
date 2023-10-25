@@ -167,7 +167,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
     return 0;
 }
 #else
-const char *              argp_program_version = version;
+//const char *              argp_program_version = version;
 const char *              argp_program_bug_address = CUS_EMAIL;
 
 static struct argp_option bench_options[] = {
@@ -217,7 +217,7 @@ static struct argp_option bench_options[] = {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     {"vgroups", 'v', "NUMBER", 0, BENCH_VGROUPS},
 #endif
-//      {"version", 'V', 0, 0, BENCH_VERSION},
+    {"version", 'V', 0, 0, BENCH_VERSION},
     {"nodrop", 'Q', 0, 0, BENCH_NODROP},
     {0}
 };
