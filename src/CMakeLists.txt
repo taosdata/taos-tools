@@ -95,16 +95,29 @@ IF(GIT_FOUND)
         OUTPUT_VARIABLE TAOSDUMP_STATUS
         ERROR_QUIET
         )
-    EXECUTE_PROCESS(
-        COMMAND sh "-c" "echo '${TAOSDUMP_FULLTAG}' | awk -F '-' '{print $2}'"
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSDUMP_TAG
-        )
-    EXECUTE_PROCESS(
-        COMMAND sh "-c" "echo '${TAOSBENCHMARK_FULLTAG}' | awk -F '-' '{print $2}'"
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSBENCHMARK_TAG
-        )
+
+    # version    
+    IF (DEFINED TD_VER_NUMBER)
+        # use tdengine version
+        SET(TAOSBENCHMARK_TAG ${TD_VER_NUMBER})   
+        SET(TAOSDUMP_TAG ${TD_VER_NUMBER})
+        MESSAGE(STATUS "use TD_VER_NUMBER version: " ${TD_VER_NUMBER})
+    ELSE ()    
+        # use internal version
+        EXECUTE_PROCESS(
+            COMMAND sh "-c" "echo '${TAOSDUMP_FULLTAG}' | awk -F '-' '{print $2}'"
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDUMP_TAG
+            )
+        MESSAGE(STATUS "taosdump use origin version: " ${TAOSDUMP_TAG})    
+        EXECUTE_PROCESS(
+            COMMAND sh "-c" "echo '${TAOSBENCHMARK_FULLTAG}' | awk -F '-' '{print $2}'"
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSBENCHMARK_TAG
+            )
+        MESSAGE(STATUS "taosBenchmark use origin version: " ${TAOSBENCHMARK_TAG})        
+    ENDIF ()
+
     EXECUTE_PROCESS(
         COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. status -z -s ${CMAKE_CURRENT_LIST_DIR}/bench*.c"
         RESULT_VARIABLE RESULT
