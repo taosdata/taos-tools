@@ -908,7 +908,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         }
 
         // start_timestamp
-        *ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
+        ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
         if (tools_cJSON_IsString(ts)) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =
