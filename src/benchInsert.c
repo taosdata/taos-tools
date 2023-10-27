@@ -1462,7 +1462,7 @@ static void *syncWriteInterlace(void *sarg) {
     if(stbInfo->useNow && stbInfo->startFillbackTime) {
         fillBack = true;
         pThreadInfo->start_time = stbInfo->startFillbackTime;
-        infoPrint("start time change to startFillbackTime = %"PRId64" ", pThreadInfo->start_time);
+        infoPrint("start time change to startFillbackTime = %"PRId64" \n", pThreadInfo->start_time);
     }
 
     while (insertRows > 0) {
@@ -1545,9 +1545,10 @@ static void *syncWriteInterlace(void *sarg) {
 
                         // change fillBack mode with condition
                         if(fillBack) {
-                            if(timestamp >= toolsGetTimestamp(database->precision)){
+                            int64_t tsnow = toolsGetTimestamp(database->precision);
+                            if(timestamp >= tsnow){
                                 fillBack = false;
-                                infoPrint("fillBack mode set false because timestamp(%"PRId64") > now\n", timestamp);
+                                infoPrint("fillBack mode set false. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
                             }
                         }
 
