@@ -46,9 +46,12 @@ void printVersion() {
     char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
     char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
     char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
+
     // version
-    printf("version: %s\ngitinfo: %s\nbuildInfo: %s\n ",
-                taosBenchmark_ver, taosBenchmark_commit, buildinfo);            
+    printf("version: %s\ngitinfo: %s\n", taosBenchmark_ver, taosBenchmark_commit);
+#ifdef LINUX
+    printf("buildInfo: %s\n ", buildinfo);
+#endif
     if (strlen(taosBenchmark_status) > 0) {
         printf("status: %s\n", taosBenchmark_status);
     } 
