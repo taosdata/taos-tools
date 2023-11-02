@@ -48,6 +48,8 @@
                     "interlace_rows": 1,
                     "insert_interval": 1000,
                     "start_timestamp": "now",
+                    "start_fillback_time": "2023-10-27 15:00:00",
+                    "timestamp_step": 1000,
                     "sample_format": "csv",
                     "sample_file": "./sample.csv",
                     "use_sample_ts": "no",

@@ -890,7 +890,25 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             }
         }
 
-        tools_cJSON *ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
+        // start_fillback_time
+        superTable->startFillbackTime = 0;
+        tools_cJSON *ts = tools_cJSON_GetObjectItem(stbInfo, "start_fillback_time");
+        if (tools_cJSON_IsString(ts)) {
+            if (toolsParseTime(ts->valuestring,
+                                &(superTable->startFillbackTime),
+                                (int32_t)strlen(ts->valuestring),
+                                database->precision, 0)) {
+                errorPrint("failed to parse time %s\n", ts->valuestring);
+                return -1;
+            }
+        } else {
+            if (tools_cJSON_IsNumber(ts)) {
+                superTable->startFillbackTime = ts->valueint;
+            }
+        }
+
+        // start_timestamp
+        ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
         if (tools_cJSON_IsString(ts)) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =

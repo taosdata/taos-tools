@@ -1457,6 +1457,14 @@ static void *syncWriteInterlace(void *sarg) {
     uint64_t   tableSeq = pThreadInfo->start_table_from;
     int disorderRange = stbInfo->disorderRange;
 
+    // check if filling back mode
+    bool fillBack = false;
+    if(stbInfo->useNow && stbInfo->startFillbackTime) {
+        fillBack = true;
+        pThreadInfo->start_time = stbInfo->startFillbackTime;
+        infoPrint("start time change to startFillbackTime = %"PRId64" \n", pThreadInfo->start_time);
+    }
+
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
         uint32_t generated = 0;
@@ -1493,6 +1501,8 @@ static void *syncWriteInterlace(void *sarg) {
                     if (i == 0) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
+
+                    // create child table
                     if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
@@ -1528,16 +1538,30 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                     }
 
+                    // write child data with interlaceRows
                     for (int64_t j = 0; j < interlaceRows; j++) {
                         int64_t disorderTs = getDisorderTs(stbInfo,
                                 &disorderRange);
+
+                        // change fillBack mode with condition
+                        if(fillBack) {
+                            int64_t tsnow = toolsGetTimestamp(database->precision);
+                            if(timestamp >= tsnow){
+                                fillBack = false;
+                                infoPrint("fillBack mode set false. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
+                            }
+                        }
+
+                        // timestamp         
                         char time_string[BIGINT_BUFF_LEN];
-                        if(stbInfo->useNow && stbInfo->interlaceRows == 1) {
+                        if(stbInfo->useNow && stbInfo->interlaceRows == 1 && !fillBack) {
                             snprintf(time_string, BIGINT_BUFF_LEN, "now");
                         } else {
                             snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
                                     disorderTs?disorderTs:timestamp);
                         }
+
+                        // combine rows timestamp | other cols = sampleDataBuf[pos]
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
@@ -1553,6 +1577,8 @@ static void *syncWriteInterlace(void *sarg) {
                                     stbInfo->max_sql_len);
                             goto free_of_interlace;
                         }
+
+                        // move next
                         generated++;
                         pos++;
                         //printf(" interlace pos=%" PRId64 " j=%" PRId64" timestamp=%"PRId64" tableName=%s tableSeq=%"PRIu64" \n", pos, j, timestamp, tableName, tableSeq);
@@ -1661,7 +1687,9 @@ static void *syncWriteInterlace(void *sarg) {
                 if (!stbInfo->non_stop) {
                     insertRows -= interlaceRows;
                 }
-                if (stbInfo->insert_interval > 0) {
+
+                // if fillBack mode , can't sleep
+                if (stbInfo->insert_interval > 0 && !fillBack) {
                     debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
                           __func__, __LINE__, stbInfo->insert_interval);
                     perfPrint("sleep %" PRIu64 " ms\n",

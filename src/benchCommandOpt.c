@@ -28,6 +28,9 @@ extern char      g_configDir[MAX_PATH_LEN];
 #define TAOSBENCHMARK_STATUS "unknown"
 #endif
 
+// libtaos.so
+extern char buildinfo[];
+
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
                            "avg(current)",
@@ -43,13 +46,15 @@ void printVersion() {
     char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
     char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
     char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
-    if (0 == strlen(taosBenchmark_status)) {
-        printf("version: %s\ngitinfo: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit);
-    } else {
-        printf("version: %s\ngitinfo: %s\nstatus: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
-    }
+
+    // version
+    printf("version: %s\ngitinfo: %s\n", taosBenchmark_ver, taosBenchmark_commit);
+#ifdef LINUX
+    printf("buildInfo: %s\n ", buildinfo);
+#endif
+    if (strlen(taosBenchmark_status) > 0) {
+        printf("status: %s\n", taosBenchmark_status);
+    } 
 }
 
 void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
