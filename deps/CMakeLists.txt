@@ -96,6 +96,7 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         COMMAND cmake -E copy ${PROJECT_SOURCE_DIR}/deps/jansson-value.c ${PROJECT_SOURCE_DIR}/deps/jansson/src/value.c
         )
 
+    MESSAGE(STATUS "deps' cmake detected BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
     ExternalProject_Add(
         deps-libargp
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/libargp/
@@ -114,7 +115,7 @@ ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
         deps-snappy
         PREFIX ${CMAKE_CURRENT_BINARY_DIR}/snappy
         SOURCE_DIR ${PROJECT_SOURCE_DIR}/deps/snappy
-        CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" -DCMAKE_MAKE_PROGRAM=jom -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -S ${PROJECT_SOURCE_DIR}/deps/snappy
+        CONFIGURE_COMMAND cmake -G "NMake Makefiles JOM" -DCMAKE_MAKE_PROGRAM=jom -DBUILD_SHARED_LIBS=OFF -DSNAPPY_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/build/ -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -S ${PROJECT_SOURCE_DIR}/deps/snappy
         )
 
     IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
