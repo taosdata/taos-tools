@@ -79,7 +79,7 @@
 #ifdef WINDOWS
 #define _CRT_RAND_S
 #include <windows.h>
-#include <winsoc
+#include <winsock2.h>
 #define SHUT_WR   SD_SEND
 
 typedef unsigned __int32 uint32_t;
