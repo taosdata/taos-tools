@@ -1548,7 +1548,7 @@ static void *syncWriteInterlace(void *sarg) {
                             int64_t tsnow = toolsGetTimestamp(database->precision);
                             if(timestamp >= tsnow){
                                 fillBack = false;
-                                infoPrint("fillBack mode set false. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
+                                infoPrint("fillBack mode set end. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
                             }
                         }
 
@@ -2868,7 +2868,7 @@ static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
 
     stbInfo->startFillbackTime = *(int64_t*)row[0];
     toolsFormatTimestamp(lastTs, stbInfo->startFillbackTime, database->precision);
-    infoPrint("fillBackTime get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
+    infoPrint("fillBackTime: get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
     
     taos_free_result(res);
     closeBenchConn(conn);
