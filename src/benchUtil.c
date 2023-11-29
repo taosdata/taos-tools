@@ -318,7 +318,7 @@ SBenchConn* initBenchConn() {
     int32_t keep_trying = 0;
     while(1) {
         conn = initBenchConnImpl();
-        if(conn || ++keep_trying > g_arguments->keep_trying ) {
+        if(conn || ++keep_trying > g_arguments->keep_trying  || g_arguments->terminate) {
             break;
         }
 
