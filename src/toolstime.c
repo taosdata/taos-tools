@@ -818,11 +818,6 @@ FORCE_INLINE void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 struct tm *taosLocalTime(const time_t *timep, struct tm *result, char *buf);
 
 char *toolsFormatTimestamp(char *buf, int64_t val, int32_t precision) {
-  if (shell.args.is_raw_time) {
-    sprintf(buf, "%" PRId64, val);
-    return buf;
-  }
-
   time_t  tt;
   int32_t ms = 0;
   if (precision == TSDB_TIME_PRECISION_NANO) {
