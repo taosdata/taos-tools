@@ -2855,8 +2855,6 @@ static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
         return false;
     }
 
-    char lastTs[128];
-    memset(lastTs, 0, sizeof(lastTs));
     TAOS_ROW row = taos_fetch_row(res);
     if(row == NULL) {
         taos_free_result(res);
@@ -2865,19 +2863,12 @@ static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
     }
     
     bool ret = false;
-    int *lengths = taos_fetch_lengths(res);
-    if(lengths) {
-        strncpy(lastTs, row[0], lengths[0]);
-        if (toolsParseTime(lastTs, &(stbInfo->startFillbackTime), 
-            (int32_t)strlen(lastTs), database->precision, 0) == 0 ) {
-                ret = true;
-                infoPrint("fillBackTime get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
-        } else {
-            errorPrint("fillBackTime toolsParseTime error.  %s.%s  ts=%s\n", database->dbName, stbInfo->stbName, lastTs);
-        }
-    } else {
-        errorPrint("fillBackTime get lengths is NULL. %s.%s \n", database->dbName, stbInfo->stbName);
-    }
+    char lastTs[128];
+    memset(lastTs, 0, sizeof(lastTs));
+
+    stbInfo->startFillbackTime = *(int64_t*)row[0];
+    toolsFormatTimestamp(lastTs, stbInfo->startFillbackTime, database->precision);
+    infoPrint("fillBackTime get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
     
     taos_free_result(res);
     closeBenchConn(conn);
