@@ -2869,7 +2869,7 @@ static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
     int *lengths = taos_fetch_lengths(res);
     if(lengths) {
         strncpy(lastTs, row[0], lengths[0]);
-        if (toolsParseTime(lastTs, &(superTable->startFillbackTime), 
+        if (toolsParseTime(lastTs, &(stbInfo->startFillbackTime), 
             (int32_t)strlen(lastTs), database->precision, 0) == 0 ) {
                 ret = true;
                 infoPrint("fillBackTime get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
