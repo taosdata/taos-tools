@@ -716,6 +716,7 @@ typedef struct SSuperTable_S {
     char      *tagDataBuf;
     bool      tcpTransfer;
     bool      non_stop;
+    bool      autoFillback; // "start_fillback_time" item set "auto"
     char      *comment;
     int       delay;
     int       file_factor;

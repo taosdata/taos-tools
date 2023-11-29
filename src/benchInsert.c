@@ -1548,7 +1548,7 @@ static void *syncWriteInterlace(void *sarg) {
                             int64_t tsnow = toolsGetTimestamp(database->precision);
                             if(timestamp >= tsnow){
                                 fillBack = false;
-                                infoPrint("fillBack mode set false. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
+                                infoPrint("fillBack mode set end. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
                             }
                         }
 
@@ -2838,6 +2838,45 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
     return ntables;
 }
 
+static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
+    SBenchConn* conn = initBenchConn();
+    if (NULL == conn) {
+        return false;
+    }
+    char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "select last(ts) from %s.`%s`", database->dbName, stbInfo->stbName);
+
+    infoPrint("fillBackTime: %s\n", cmd);
+    TAOS_RES *res = taos_query(conn->taos, cmd);
+    int32_t   code = taos_errno(res);
+    if (code) {
+        printErrCmdCodeStr(cmd, code, res);
+        closeBenchConn(conn);
+        return false;
+    }
+
+    TAOS_ROW row = taos_fetch_row(res);
+    if(row == NULL) {
+        taos_free_result(res);
+        closeBenchConn(conn);
+        return false;
+    }
+    
+    bool ret = false;
+    char lastTs[128];
+    memset(lastTs, 0, sizeof(lastTs));
+
+    stbInfo->startFillbackTime = *(int64_t*)row[0];
+    toolsFormatTimestamp(lastTs, stbInfo->startFillbackTime, database->precision);
+    infoPrint("fillBackTime: get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
+    
+    taos_free_result(res);
+    closeBenchConn(conn);
+
+    return ret;
+}
+
+
 static int startMultiThreadInsertData(SDataBase* database,
         SSuperTable* stbInfo) {
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE)
@@ -3567,6 +3606,11 @@ int insertTestProcess() {
                         }
                     }
                 }
+                // fill last ts from super table
+                if(stbInfo->autoFillback && stbInfo->childTblExists) {
+                    fillSTableLastTs(database, stbInfo);
+                }
+
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
                     infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);

@@ -234,4 +234,6 @@ void errorPrintReqArg2(char *program, char *wrong_arg);
 void errorPrintReqArg3(char *program, char *wrong_arg);
 int setConsoleEcho(bool on);
 
+char *toolsFormatTimestamp(char *buf, int64_t val, int32_t precision);
+
 #endif // __TOOLSDEF_H_

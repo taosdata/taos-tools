@@ -814,3 +814,47 @@ FORCE_INLINE int64_t toolsGetTimestampNs() {
 }
 
 FORCE_INLINE void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
+
+struct tm *taosLocalTime(const time_t *timep, struct tm *result, char *buf);
+
+char *toolsFormatTimestamp(char *buf, int64_t val, int32_t precision) {
+  time_t  tt;
+  int32_t ms = 0;
+  if (precision == TSDB_TIME_PRECISION_NANO) {
+    tt = (time_t)(val / 1000000000);
+    ms = val % 1000000000;
+  } else if (precision == TSDB_TIME_PRECISION_MICRO) {
+    tt = (time_t)(val / 1000000);
+    ms = val % 1000000;
+  } else {
+    tt = (time_t)(val / 1000);
+    ms = val % 1000;
+  }
+
+  if (tt <= 0 && ms < 0) {
+    tt--;
+    if (precision == TSDB_TIME_PRECISION_NANO) {
+      ms += 1000000000;
+    } else if (precision == TSDB_TIME_PRECISION_MICRO) {
+      ms += 1000000;
+    } else {
+      ms += 1000;
+    }
+  }
+
+  struct tm ptm = {0};
+  if (taosLocalTime(&tt, &ptm, buf) == NULL) {
+    return buf;
+  }
+  size_t pos = strftime(buf, 35, "%Y-%m-%d %H:%M:%S", &ptm);
+
+  if (precision == TSDB_TIME_PRECISION_NANO) {
+    sprintf(buf + pos, ".%09d", ms);
+  } else if (precision == TSDB_TIME_PRECISION_MICRO) {
+    sprintf(buf + pos, ".%06d", ms);
+  } else {
+    sprintf(buf + pos, ".%03d", ms);
+  }
+
+  return buf;
+}

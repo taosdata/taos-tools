@@ -7,7 +7,7 @@
     "password": "taosdata",
     "connection_pool_size": 8,
     "thread_count": 5,
-    "create_table_thread_count": 7,
+    "create_table_thread_count": 8,
     "result_file": "./insert_res.txt",
     "confirm_parameter_prompt": "no",
     "insert_interval": 0,
@@ -15,21 +15,20 @@
     "prepared_rand": 10000,
     "chinese": "no",
     "escape_character": "yes",
+	"keep_trying":	    10000,
+	"trying_interval":	10000,
     "databases": [
         {
             "dbinfo": {
                 "name": "dmeters",
-                "drop": "yes",
+                "drop": "no",
                 "vgroups": 4,
                 "duration": "5d",
                 "keep": "30d",
                 "pages": 512,
-                "minrows":5000,
-                "maxrows":10000,
-		        "stt_trigger":1,
                 "wal_retention_period": 1,
                 "wal_retention_size": 10,
-		        "cachemodel": "'both'",
+		"cachemodel": "'both'",
                 "precision": "ms"
             },
             "super_tables": [
@@ -44,24 +43,18 @@
                     "insert_mode": "taosc",
                     "non_stop_mode": "no",
                     "line_protocol": "line",
-                    "insert_rows": 900000000000000,
+                    "insert_rows": 99999999999999,
                     "interlace_rows": 1,
-                    "insert_interval": 1000,
+                    "insert_interval": 10000,
                     "start_timestamp": "now",
-                    "start_fillback_time": "auto",
-                    "timestamp_step": 1000,
                     "sample_format": "csv",
                     "sample_file": "./sample.csv",
                     "use_sample_ts": "no",
                     "tags_file": "",
                     "columns": [
-                        { "type": "FLOAT", "name": "current", "fun": "3*sin(x)+10*random(2)"},
-                        { "type": "INT",   "name": "voltage", "fun": "40*sin(x)+200*random(10)"},
-                        { "type": "FLOAT", "name": "phase",   "fun": "1*sin(x)+1*random(3)"},
-                        { "type": "INT",   "name": "c1",   "fun":    "count(0,100,1,0)"},
-                        { "type": "INT",   "name": "c2",   "fun":    "saw(-100,100,20,0)"},
-                        { "type": "INT",   "name": "c3",   "fun":    "square(0,60,20,10)"},
-                        { "type": "INT",   "name": "c4",   "fun":    "tri(-20,100,30,10)"}
+                        { "type": "FLOAT", "name": "current", "fun": "4*sin(x)+10*random(5)+10"},
+                        { "type": "INT",   "name": "voltage", "fun": "1*square(0,60,50,0)+100*random(20)+120"},
+                        { "type": "FLOAT", "name": "phase",   "fun": "1*saw(0,40,40,0)+50*random(10)+30"}
                     ],
                     "tags": [
                         {

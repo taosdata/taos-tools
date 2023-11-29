@@ -894,7 +894,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->startFillbackTime = 0;
         tools_cJSON *ts = tools_cJSON_GetObjectItem(stbInfo, "start_fillback_time");
         if (tools_cJSON_IsString(ts)) {
-            if (toolsParseTime(ts->valuestring,
+            if(0 == strcasecmp(ts->valuestring, "auto")) {
+                superTable->autoFillback = true;
+                superTable->startFillbackTime = 0;
+            }
+            else if (toolsParseTime(ts->valuestring,
                                 &(superTable->startFillbackTime),
                                 (int32_t)strlen(ts->valuestring),
                                 database->precision, 0)) {
