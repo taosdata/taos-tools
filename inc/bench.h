@@ -79,7 +79,7 @@
 #ifdef WINDOWS
 #define _CRT_RAND_S
 #include <windows.h>
-#include <winsock2.h>
+#include <winsoc
 #define SHUT_WR   SD_SEND
 
 typedef unsigned __int32 uint32_t;
@@ -716,6 +716,7 @@ typedef struct SSuperTable_S {
     char      *tagDataBuf;
     bool      tcpTransfer;
     bool      non_stop;
+    bool      autoFillback; // "start_fillback_time" item set "auto"
     char      *comment;
     int       delay;
     int       file_factor;

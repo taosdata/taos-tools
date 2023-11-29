@@ -2838,6 +2838,55 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
     return ntables;
 }
 
+static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
+    SBenchConn* conn = initBenchConn();
+    if (NULL == conn) {
+        return false;
+    }
+    char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "select last(ts) from %s.`%s`", database->dbName, stbInfo->stbName);
+
+    infoPrint("fillBackTime: %s\n", cmd);
+    TAOS_RES *res = taos_query(conn->taos, cmd);
+    int32_t   code = taos_errno(res);
+    int64_t   count = 0;
+    if (code) {
+        printErrCmdCodeStr(cmd, code, res);
+        closeBenchConn(conn);
+        return false;
+    }
+
+    char lastTs[128];
+    memset(lastTs, 0, sizeof(lastTs));
+    TAOS_ROW row = taos_fetch_row(res);
+    if(row == NULL) {
+        taos_free_result(res);
+        closeBenchConn(conn);
+        return false;
+    }
+    
+    bool ret = false;
+    int *lengths = taos_fetch_lengths(res);
+    if(lengths) {
+        strncpy(lastTs, row[0], lengths[0]);
+        if (toolsParseTime(lastTs, &(superTable->startFillbackTime), 
+            (int32_t)strlen(lastTs), database->precision, 0) == 0 ) {
+                ret = true;
+                infoPrint("fillBackTime get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
+        } else {
+            errorPrint("fillBackTime toolsParseTime error.  %s.%s  ts=%s\n", database->dbName, stbInfo->stbName, lastTs);
+        }
+    } else {
+        errorPrint("fillBackTime get lengths is NULL. %s.%s \n", database->dbName, stbInfo->stbName);
+    }
+    
+    taos_free_result(res);
+    closeBenchConn(conn);
+
+    return ret;
+}
+
+
 static int startMultiThreadInsertData(SDataBase* database,
         SSuperTable* stbInfo) {
     if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE)
@@ -3567,6 +3616,11 @@ int insertTestProcess() {
                         }
                     }
                 }
+                // fill last ts from super table
+                if(stbInfo->autoFillback && stbInfo->childTblExists) {
+                    fillSTableLastTs(database, stbInfo);
+                }
+
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
                     infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
