@@ -815,7 +815,7 @@ FORCE_INLINE int64_t toolsGetTimestampNs() {
 
 FORCE_INLINE void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
 
-struct tm *toolsLocalTime(const time_t *timep, struct tm *result, char *buf) {
+struct tm *tLocalTime(const time_t *timep, struct tm *result, char *buf) {
   struct tm *res = NULL;
   if (timep == NULL) {
     return NULL;
@@ -895,7 +895,7 @@ char *toolsFormatTimestamp(char *buf, int64_t val, int32_t precision) {
   }
 
   struct tm ptm = {0};
-  if (toolsLocalTime(&tt, &ptm, buf) == NULL) {
+  if (tLocalTime(&tt, &ptm, buf) == NULL) {
     return buf;
   }
   size_t pos = strftime(buf, 35, "%Y-%m-%d %H:%M:%S", &ptm);
