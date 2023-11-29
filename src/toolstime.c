@@ -846,7 +846,7 @@ struct tm *tLocalTime(const time_t *timep, struct tm *result, char *buf) {
     }
     return NULL;
   }
-  offset.QuadPart = TIMEEPOCH1900;
+  offset.QuadPart = ((uint64_t)116445024000000000ULL);
   offset.QuadPart += *timep * 10000000;
   f.dwLowDateTime = offset.QuadPart & 0xffffffff;
   f.dwHighDateTime = (offset.QuadPart >> 32) & 0xffffffff;
