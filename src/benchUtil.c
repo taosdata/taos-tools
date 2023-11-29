@@ -267,7 +267,10 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-SBenchConn* initBenchConn() {
+
+
+
+SBenchConn* initBenchConnImpl() {
     SBenchConn* conn = benchCalloc(1, sizeof(SBenchConn), true);
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
@@ -306,6 +309,25 @@ SBenchConn* initBenchConn() {
 #ifdef WEBSOCKET
     }
 #endif
+    return conn;
+}
+
+SBenchConn* initBenchConn() {
+
+    SBenchConn* conn = NULL;
+    int32_t keep_trying = 0;
+    while(1) {
+        conn = initBenchConnImpl();
+        if(conn || ++keep_trying > g_arguments->keep_trying ) {
+            break;
+        }
+
+        infoPrint("sleep %dms and try to connect... %d  \n", g_arguments->trying_interval, keep_trying);
+        if(g_arguments->trying_interval > 0) {
+            toolsMsleep(g_arguments->trying_interval);
+        }        
+    } 
+
     return conn;
 }
 
