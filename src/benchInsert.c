@@ -2849,7 +2849,6 @@ static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
     infoPrint("fillBackTime: %s\n", cmd);
     TAOS_RES *res = taos_query(conn->taos, cmd);
     int32_t   code = taos_errno(res);
-    int64_t   count = 0;
     if (code) {
         printErrCmdCodeStr(cmd, code, res);
         closeBenchConn(conn);
