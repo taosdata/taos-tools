@@ -2769,11 +2769,12 @@ static int printTotalDelay(SDataBase *database,
                             int threads,
                             int64_t totalInsertRows,
                             int64_t start, int64_t end) {
-    succPrint("Spent %.6f seconds to insert rows: %" PRIu64
-              " with %d thread(s) into %s %.2f records/second\n",
-              (end - start)/1E6, totalInsertRows, threads,
+    succPrint("Spent %.6f (real %.6f) seconds to insert rows: %" PRIu64
+              " with %d thread(s) into %s %.2f (real %.2f) records/second\n",
+              (end - start)/1E6, totalDelay/threads/1E6, totalInsertRows, threads,
               database->dbName,
-              (double)(totalInsertRows / ((end - start)/1E6)));
+              (double)(totalInsertRows / ((end - start)/1E6)),
+              (double)(totalInsertRows / (totalDelay/threads/1E6)));
     if (!total_delay_list->size) {
         return -1;
     }
