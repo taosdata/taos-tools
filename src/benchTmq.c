@@ -334,7 +334,7 @@ int subscribeTestProcess() {
         pThreadInfo->totalRows = 0;
         pThreadInfo->id = i;
 
-        if (strlen(pConsumerInfo->rowsFile)) {
+        if ( pConsumerInfo->rowsFile && strlen(pConsumerInfo->rowsFile)) {
             memset(tmpBuff, 0, sizeof(tmpBuff));
             snprintf(tmpBuff, 64, "%s_%d", pConsumerInfo->rowsFile, i);
             pThreadInfo->fpOfRowsFile = fopen(tmpBuff, "a");
