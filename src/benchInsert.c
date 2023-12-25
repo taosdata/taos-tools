@@ -2839,6 +2839,7 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
     return ntables;
 }
 
+// last ts fill to filllBackTime
 static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
     SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
@@ -2863,7 +2864,6 @@ static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
         return false;
     }
     
-    bool ret = false;
     char lastTs[128];
     memset(lastTs, 0, sizeof(lastTs));
 
@@ -2874,9 +2874,46 @@ static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
     taos_free_result(res);
     closeBenchConn(conn);
 
-    return ret;
+    return true;
 }
 
+// calcNow expression fill to timestamp_start
+static bool calcExprFromServer(SDataBase *database, SSuperTable *stbInfo) {
+    SBenchConn* conn = initBenchConn();
+    if (NULL == conn) {
+        return false;
+    }
+    char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "select %s", stbInfo->calcNow);
+
+    infoPrint("calcExprFromServer: %s\n", cmd);
+    TAOS_RES *res = taos_query(conn->taos, cmd);
+    int32_t   code = taos_errno(res);
+    if (code) {
+        printErrCmdCodeStr(cmd, code, res);
+        closeBenchConn(conn);
+        return false;
+    }
+
+    TAOS_ROW row = taos_fetch_row(res);
+    if(row == NULL) {
+        taos_free_result(res);
+        closeBenchConn(conn);
+        return false;
+    }
+    
+    char ts[128];
+    memset(ts, 0, sizeof(ts));
+
+    stbInfo->startTimestamp = *(int64_t*)row[0];
+    toolsFormatTimestamp(ts, stbInfo->startTimestamp, database->precision);
+    infoPrint("calcExprFromServer: get ok.  %s = %s \n", stbInfo->calcNow, ts);
+    
+    taos_free_result(res);
+    closeBenchConn(conn);
+
+    return true;
+}
 
 static int startMultiThreadInsertData(SDataBase* database,
         SSuperTable* stbInfo) {
@@ -3559,6 +3596,7 @@ int insertTestProcess() {
     prompt(0);
 
     encodeAuthBase64();
+    //loop create database 
     for (int i = 0; i < g_arguments->databases->size; i++) {
         if (REST_IFACE == g_arguments->iface) {
             if (0 != convertServAddr(g_arguments->iface,
@@ -3588,6 +3626,8 @@ int insertTestProcess() {
             succPrint("created database (%s)\n", database->dbName);
         }
     }
+
+    // fill table and prepareSampleData
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         if (database->superTbls) {
@@ -3612,6 +3652,11 @@ int insertTestProcess() {
                     fillSTableLastTs(database, stbInfo);
                 }
 
+                // calc now 
+                if(stbInfo->calcNow) {
+                    calcExprFromServer(database, stbInfo);
+                }
+
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
                     infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
@@ -3623,6 +3668,7 @@ int insertTestProcess() {
         }
     }
 
+    // create threads 
     if (g_arguments->taosc_version == 3) {
         for (int i = 0; i < g_arguments->databases->size; i++) {
             SDataBase* database = benchArrayGet(g_arguments->databases, i);

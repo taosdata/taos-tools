@@ -920,6 +920,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->useNow = true;
                 //  fill time with now conflict with check_sql
                 g_arguments->check_sql = false;
+            } else if (0 == strncasecmp(ts->valuestring, "now", 3)) {
+                // like now - 7d expression
+                superTable->calcNow = ts->valuestring;
             } else {
                 if (toolsParseTime(ts->valuestring,
                                    &(superTable->startTimestamp),
