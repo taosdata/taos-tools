@@ -717,6 +717,7 @@ typedef struct SSuperTable_S {
     bool      tcpTransfer;
     bool      non_stop;
     bool      autoFillback; // "start_fillback_time" item set "auto"
+    char      *calcNow;      // need calculate now timestamp expression
     char      *comment;
     int       delay;
     int       file_factor;
