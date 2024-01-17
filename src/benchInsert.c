@@ -318,8 +318,8 @@ skip:
     int length = snprintf(
         command, TSDB_MAX_ALLOWED_SQL_LEN,
         g_arguments->escape_character
-            ? "CREATE TABLE `%s`.`%s` (ts TIMESTAMP%s) TAGS %s"
-            : "CREATE TABLE %s.%s (ts TIMESTAMP%s) TAGS %s",
+            ? "CREATE TABLE IF NOT EXISTS `%s`.`%s` (ts TIMESTAMP%s) TAGS %s"
+            : "CREATE TABLE IF NOT EXISTS %s.%s (ts TIMESTAMP%s) TAGS %s",
         database->dbName, stbInfo->stbName, colsBuf, tagsBuf);
     tmfree(colsBuf);
     tmfree(tagsBuf);
@@ -753,7 +753,7 @@ static int generateChildTblName(int len, char *buffer, SDataBase *database,
     if (0 == len) {
         memset(buffer, 0, TSDB_MAX_ALLOWED_SQL_LEN);
         len += snprintf(buffer + len,
-                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE ");
+                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE IF NOT EXISTS ");
     }
 
     len += snprintf(
@@ -835,15 +835,15 @@ static void *createTable(void *sarg) {
             if (stbInfo->childTblCount == 1) {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
                          g_arguments->escape_character
-                         ? "CREATE TABLE `%s`.`%s` %s;"
-                         : "CREATE TABLE %s.%s %s;",
+                         ? "CREATE TABLE IF NOT EXISTS `%s`.`%s` %s;"
+                         : "CREATE TABLE IF NOT EXISTS %s.%s %s;",
                          database->dbName, stbInfo->stbName,
                          stbInfo->colsOfCreateChildTable);
             } else {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
                          g_arguments->escape_character
-                         ? "CREATE TABLE `%s`.`%s` %s;"
-                         : "CREATE TABLE %s.%s %s;",
+                         ? "CREATE TABLE IF NOT EXISTS `%s`.`%s` %s;"
+                         : "CREATE TABLE IF NOT EXISTS %s.%s %s;",
                          database->dbName,
                          stbInfo->childTblArray[i]->name,
                          stbInfo->colsOfCreateChildTable);
@@ -1363,8 +1363,8 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
     snprintf(
             buffer, TSDB_MAX_ALLOWED_SQL_LEN,
             g_arguments->escape_character ?
-                "CREATE TABLE `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s "
-                : "CREATE TABLE %s.%s USING %s.%s TAGS (%s) %s ",
+                "CREATE TABLE IF NOT EXISTS `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s "
+                : "CREATE TABLE IF NOT EXISTS %s.%s USING %s.%s TAGS (%s) %s ",
             database->dbName, childTbl->name, database->dbName,
             stbInfo->stbName,
             stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
@@ -3022,6 +3022,15 @@ static int startMultiThreadInsertData(SDataBase* database,
         if (threads != 0) {
             b = ntables % threads;
         }
+    }
+
+    // valid check
+    if(threads < = 0) {
+        errorPrint("threads num is invalid. threads=%d\n",
+                    database->dbName,
+                    threads);
+        closeBenchConn(conn);
+        return -1;
     }
 
     int32_t vgFrom = 0;
