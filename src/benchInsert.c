@@ -3644,7 +3644,7 @@ int insertTestProcess() {
                     return -1;
                 }
                 closeBenchConn(conn);
-                succPrint("database (%s) exist, get vgroups from server is %d\n", database->dbName, vgroups);
+                succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
             }
             #endif  // TD_VER_COMPATIBLE_3_0_0_0
         }
