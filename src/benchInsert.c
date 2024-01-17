@@ -3025,11 +3025,10 @@ static int startMultiThreadInsertData(SDataBase* database,
     }
 
     // valid check
-    if(threads < = 0) {
-        errorPrint("threads num is invalid. threads=%d\n",
+    if(threads <= 0) {
+        errorPrint("db: %s threads num is invalid. threads=%d\n",
                     database->dbName,
                     threads);
-        closeBenchConn(conn);
         return -1;
     }
 
@@ -3633,6 +3632,21 @@ int insertTestProcess() {
                 return -1;
             }
             succPrint("created database (%s)\n", database->dbName);
+        } else {
+            // database already exist, get vgroups from server
+            #ifdef TD_VER_COMPATIBLE_3_0_0_0
+            if (database->superTbls) {
+                SBenchConn* conn = initBenchConn();
+                int32_t vgroups = getVgroupsOfDb(conn, database);
+                if (vgroups <=0) {
+                    closeBenchConn(conn);
+                    errorPrint("Database %s's vgroups is zero.\n", database->dbName);
+                    return -1;
+                }
+                closeBenchConn(conn);
+                succPrint("database (%s) exist, get vgroups from server is %d\n", database->dbName, vgroups);
+            }
+            #endif  // TD_VER_COMPATIBLE_3_0_0_0
         }
     }
 

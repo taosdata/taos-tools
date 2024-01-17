@@ -217,9 +217,6 @@ static void initDatabase() {
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
     database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-    database->vgroups = 2;
-#endif
 }
 
 void initArgument() {
