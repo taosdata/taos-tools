@@ -309,9 +309,9 @@ void modifyArgument() {
     }
 
     if (superTable->iface == STMT_IFACE) {
-        if (g_arguments->reqPerReq > INT16_MAX) {
-            g_arguments->reqPerReq = INT16_MAX;
-        }
+        //if (g_arguments->reqPerReq > INT16_MAX) {
+        //    g_arguments->reqPerReq = INT16_MAX;
+        //}
         if (g_arguments->prepared_rand > g_arguments->reqPerReq) {
             g_arguments->prepared_rand = g_arguments->reqPerReq;
         }

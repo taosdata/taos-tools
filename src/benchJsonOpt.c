@@ -763,9 +763,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->iface = REST_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                 superTable->iface = STMT_IFACE;
-                if (g_arguments->reqPerReq > INT16_MAX) {
-                    g_arguments->reqPerReq = INT16_MAX;
-                }
+                //if (g_arguments->reqPerReq > INT16_MAX) {
+                //    g_arguments->reqPerReq = INT16_MAX;
+                //}
                 if (g_arguments->reqPerReq > g_arguments->prepared_rand) {
                     g_arguments->prepared_rand = g_arguments->reqPerReq;
                 }
@@ -1407,7 +1407,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
             g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
         }
 
-        if (g_arguments->reqPerReq > 32768) {
+        if (g_arguments->reqPerReq > INT32_MAX) {
             infoPrint("warning: num_of_records_per_req item in json config need less than 32768. current = %d. now reset to default.\n", g_arguments->reqPerReq);
             g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
         }
