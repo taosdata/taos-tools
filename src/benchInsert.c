@@ -1696,6 +1696,7 @@ static void *syncWriteInterlace(void *sarg) {
                                      stbInfo->insert_interval);
                     toolsMsleep((int32_t)stbInfo->insert_interval);
                 }
+                break;
             }
         }
 
