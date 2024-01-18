@@ -822,7 +822,7 @@ skip_sql:
 static int fillStmt(
     SSuperTable *stbInfo,
     char *sampleDataBuf,
-    int bufLen,
+    int64_t bufLen,
     int lenOfOneRow, BArray *fields,
     int64_t loop, bool tag, BArray *childCols) {
     // fillStmt()
@@ -835,7 +835,7 @@ static int fillStmt(
             if (childCols) {
                 childCol = benchArrayGet(childCols, i);
             }
-            int n = 0;
+            int64_t n = 0;
             switch (field->type) {
                 case TSDB_DATA_TYPE_BOOL: {
                     bool boolTmp = tmpBool(field);
