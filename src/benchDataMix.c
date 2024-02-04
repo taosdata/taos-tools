@@ -98,15 +98,17 @@ uint32_t genRadomString(char* val, uint32_t len, char* prefix) {
 // these define on benchData.c
 bool     tmpBool  (Field *field);
 int8_t   tmpInt8  (Field *field);
-uint8_t  tmpUint8 (Field *field);
 int16_t  tmpInt16 (Field *field);
 uint16_t tmpUint16(Field *field);
 int      tmpInt32 (Field *field, int i);
 int64_t  tmpInt64 (Field *field);
+int64_t  tmpInt64 (Field *field);
+uint8_t  tmpUint8 (Field *field);
 uint32_t tmpUint  (Field *field);
+uint64_t tmpUint64(Field *field);
 float    tmpFloat (Field *field);
 double   tmpDouble(Field *field);
-int64_t  tmpInt64 (Field *field);
+
 uint64_t tmpUint64(Field *field);
 
 // data row generate by randowm
@@ -137,7 +139,7 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
         sprintf(val, "%d", tmpInt32(fd, 0));
         break;
     case TSDB_DATA_TYPE_BIGINT:
-        sprintf(val, "%"PRId64, tmpint64(fd));
+        sprintf(val, "%"PRId64, tmpInt64(fd));
         break;
     // unsigned    
     case TSDB_DATA_TYPE_UTINYINT:
