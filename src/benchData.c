@@ -620,7 +620,7 @@ static int tmpInt32Impl(Field *field, int i, int angle, int32_t loop) {
     return intTmp;
 }
 
-static int tmpInt32(Field *field, int i) {
+int tmpInt32(Field *field, int i) {
     return tmpInt32Impl(field, i, 0, 0);
 }
 
