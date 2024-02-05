@@ -471,7 +471,7 @@ static int tmpStr(char *tmp, int iface, Field *field, int i) {
     return 0;
 }
 
-FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle, int32_t loop) {
+double tmpDoubleImpl(Field *field, int32_t angle, int32_t loop) {
     double doubleTmp = (double)(field->min);
 
     if(field->funType != FUNTYPE_NONE) {
@@ -484,12 +484,12 @@ FORCE_INLINE double tmpDoubleImpl(Field *field, int32_t angle, int32_t loop) {
     return doubleTmp;
 }
 
-FORCE_INLINE double tmpDouble(Field *field) {
+double tmpDouble(Field *field) {
     return tmpDoubleImpl(field, 0, 0);
 }
 
 
-FORCE_INLINE uint64_t tmpUint64(Field *field) {
+uint64_t tmpUint64(Field *field) {
     uint64_t ubigintTmp = field->min;
     if (field->max != field->min) {
         ubigintTmp += (taosRandom() % (field->max - field->min));
@@ -497,7 +497,7 @@ FORCE_INLINE uint64_t tmpUint64(Field *field) {
     return ubigintTmp;
 }
 
-FORCE_INLINE uint32_t tmpUint(Field *field) {
+uint32_t tmpUint(Field *field) {
     uint32_t uintTmp = field->min;
     if (field->max != field->min) {
         uintTmp += (taosRandom() % (field->max - field->min));
@@ -505,7 +505,7 @@ FORCE_INLINE uint32_t tmpUint(Field *field) {
     return uintTmp;
 }
 
-FORCE_INLINE bool tmpBool(Field *field) {
+bool tmpBool(Field *field) {
     bool boolTmp;
     if (field->min == field->max) {
         boolTmp = (field->min)?1:0;
@@ -515,7 +515,7 @@ FORCE_INLINE bool tmpBool(Field *field) {
     return boolTmp;
 }
 
-FORCE_INLINE int8_t tmpInt8(Field *field) {
+int8_t tmpInt8(Field *field) {
     int8_t tinyint = field->min;
     if (field->min != field->max) {
         tinyint += (taosRandom() % (field->max - field->min));
@@ -523,7 +523,7 @@ FORCE_INLINE int8_t tmpInt8(Field *field) {
     return tinyint;
 }
 
-FORCE_INLINE uint8_t tmpUint8(Field *field) {
+uint8_t tmpUint8(Field *field) {
     uint8_t utinyint = field->min;
     if (field->min != field->max) {
         utinyint += (taosRandom() % (field->max - field->min));
@@ -531,7 +531,7 @@ FORCE_INLINE uint8_t tmpUint8(Field *field) {
     return utinyint;
 }
 
-FORCE_INLINE int16_t tmpInt16(Field *field) {
+int16_t tmpInt16(Field *field) {
     int16_t smallint = field->min;
     if (field->min != field->max) {
         smallint += (taosRandom() % (field->max - field->min));
@@ -539,7 +539,7 @@ FORCE_INLINE int16_t tmpInt16(Field *field) {
     return smallint;
 }
 
-FORCE_INLINE uint16_t tmpUint16(Field *field) {
+uint16_t tmpUint16(Field *field) {
     uint16_t usmallintTmp = field->min;
     if (field->max != field->min) {
         usmallintTmp += (taosRandom() % (field->max - field->min));
@@ -547,7 +547,7 @@ FORCE_INLINE uint16_t tmpUint16(Field *field) {
     return usmallintTmp;
 }
 
-FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t loop) {
+int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t loop) {
     int64_t bigintTmp = field->min;
     if(field->funType != FUNTYPE_NONE) {
         bigintTmp = funValueInt32(field, angle, loop);
@@ -557,11 +557,11 @@ FORCE_INLINE int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t loop) {
     return bigintTmp;
 }
 
-FORCE_INLINE int64_t tmpInt64(Field *field) {
+int64_t tmpInt64(Field *field) {
     return tmpInt64Impl(field, 0, 0);
 }
 
-FORCE_INLINE float tmpFloat(Field *field) {
+float tmpFloat(Field *field) {
     float floatTmp = field->min;
     if (field->max != field->min) {
         floatTmp += ((taosRandom() % (field->max - field->min))
@@ -620,7 +620,7 @@ static int tmpInt32Impl(Field *field, int i, int angle, int32_t loop) {
     return intTmp;
 }
 
-static int tmpInt32(Field *field, int i) {
+int tmpInt32(Field *field, int i) {
     return tmpInt32Impl(field, i, 0, 0);
 }
 
