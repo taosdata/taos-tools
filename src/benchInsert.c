@@ -2339,6 +2339,18 @@ void *syncWriteProgressive(void *sarg) {
                 toolsMsleep((int32_t)stbInfo->insert_interval);
             }
 
+            // flush
+            if (db->flush) {
+                char sql[260] = "";
+                sprintf(sql, "flush database %s", db->dbName);
+                int32_t code = executeSql(info->conn->taos,sql);
+                if (code != 0) {
+                  perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+                } else {
+                   perfPrint(" %s ok.\n", sql);
+                }
+            }
+
             pThreadInfo->totalInsertRows += generated;
 
             if (g_arguments->terminate) {
