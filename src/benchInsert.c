@@ -2340,10 +2340,10 @@ void *syncWriteProgressive(void *sarg) {
             }
 
             // flush
-            if (db->flush) {
+            if (database->flush) {
                 char sql[260] = "";
-                sprintf(sql, "flush database %s", db->dbName);
-                int32_t code = executeSql(info->conn->taos,sql);
+                sprintf(sql, "flush database %s", database->dbName);
+                code = executeSql(pThreadInfo->conn->taos,sql);
                 if (code != 0) {
                   perfPrint(" %s failed. error code = 0x%x\n", sql, code);
                 } else {
