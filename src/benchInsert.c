@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "wrapDb.h"
 #include <benchData.h>
 #include <benchInsertMix.h>
 
