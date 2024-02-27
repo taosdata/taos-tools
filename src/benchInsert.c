@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "wrapDb.h"
 #include <benchData.h>
 #include <benchInsertMix.h>
 
@@ -2337,6 +2338,18 @@ void *syncWriteProgressive(void *sarg) {
                 perfPrint("sleep %" PRIu64 " ms\n",
                               stbInfo->insert_interval);
                 toolsMsleep((int32_t)stbInfo->insert_interval);
+            }
+
+            // flush
+            if (database->flush) {
+                char sql[260] = "";
+                sprintf(sql, "flush database %s", database->dbName);
+                code = executeSql(pThreadInfo->conn->taos,sql);
+                if (code != 0) {
+                  perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+                } else {
+                   perfPrint(" %s ok.\n", sql);
+                }
             }
 
             pThreadInfo->totalInsertRows += generated;
