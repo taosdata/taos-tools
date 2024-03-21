@@ -796,38 +796,47 @@ free_of_post:
     return code;
 }
 
+// fetch result fo file or nothing
 void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
-    TAOS_ROW    row = NULL;
-    int         num_rows = 0;
-    int         num_fields = taos_field_count(res);
-    TAOS_FIELD *fields = taos_fetch_fields(res);
+    TAOS_ROW    row        = NULL;
+    int         num_fields = 0;
+    int64_t     totalLen   = 0;
+    TAOS_FIELD *fields     = 0;
+    char       *databuf    = NULL;
+    bool        toFile     = strlen(pThreadInfo->filePath) > 0;
 
-    char *databuf = (char *)benchCalloc(1, FETCH_BUFFER_SIZE, true);
-
-    int64_t totalLen = 0;
+    if(toFile) {
+        num_fields = taos_field_count(res);
+        fields     = taos_fetch_fields(res);
+        databuf    = (char *)benchCalloc(1, FETCH_BUFFER_SIZE, true);
+    }
 
     // fetch the records row by row
     while ((row = taos_fetch_row(res))) {
-        if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
-            if (strlen(pThreadInfo->filePath) > 0) {
+        if (toFile) {
+            if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
+                // buff is full
                 appendResultBufToFile(databuf, pThreadInfo->filePath);
+                totalLen = 0;
+                memset(databuf, 0, FETCH_BUFFER_SIZE);
             }
-            totalLen = 0;
-            memset(databuf, 0, FETCH_BUFFER_SIZE);
+
+            // format row
+            char temp[HEAD_BUFF_LEN] = {0};
+            int  len = taos_print_row(temp, row, fields, num_fields);
+            len += snprintf(temp + len, HEAD_BUFF_LEN - len, "\n");
+            debugPrint("query result:%s\n", temp);
+            memcpy(databuf + totalLen, temp, len);
+            totalLen += len;
         }
-        num_rows++;
-        char temp[HEAD_BUFF_LEN] = {0};
-        int  len = taos_print_row(temp, row, fields, num_fields);
-        len += snprintf(temp + len, HEAD_BUFF_LEN - len, "\n");
-        debugPrint("query result:%s\n", temp);
-        memcpy(databuf + totalLen, temp, len);
-        totalLen += len;
+        //if not toFile , only loop call taos_fetch_row
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
+    // end
+    if (toFile) {
         appendResultBufToFile(databuf, pThreadInfo->filePath);
+        free(databuf);
     }
-    free(databuf);
 }
 
 char *convertDatatypeToString(int type) {
