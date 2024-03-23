@@ -177,7 +177,7 @@ char* genBatColsNames(threadInfo* info, SSuperTable* stb) {
 //
 // generate head
 //
-uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tableName, uint64_t tableSeq, char* pstr) {
+uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tableName, char* tagData, uint64_t tableSeq, char* pstr) {
   uint32_t len = 0;
 
   if (stb->genRowRule == RULE_OLD || stb->genRowRule == RULE_MIX_RANDOM) {
@@ -190,7 +190,7 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
     if (stb->partialColNum == stb->cols->size) {
       if (stb->autoTblCreating) {
         len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
-                       tableName, db->dbName, stb->stbName, stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
+                       tableName, db->dbName, stb->stbName, tagData + stb->lenOfTags * tableSeq, ttl);
       } else {
         len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s VALUES ", STR_INSERT_INTO, db->dbName, tableName);
       }
@@ -198,7 +198,7 @@ uint32_t genInsertPreSql(threadInfo* info, SDataBase* db, SSuperTable* stb, char
       if (stb->autoTblCreating) {
         len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s (%s) USING %s.%s TAGS (%s) %s VALUES ", STR_INSERT_INTO, db->dbName,
                        tableName, stb->partialColNameBuf, db->dbName, stb->stbName,
-                       stb->tagDataBuf + stb->lenOfTags * tableSeq, ttl);
+                       tagData + stb->lenOfTags * tableSeq, ttl);
       } else {
         len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN, "%s %s.%s (%s) VALUES ", STR_INSERT_INTO, db->dbName, tableName,
                        stb->partialColNameBuf);
@@ -770,6 +770,15 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     return false;
   }
 
+  FILE* csvFile = NULL;
+  char* tagData = NULL;
+  bool  acreate = (stb->genRowRule == RULE_OLD || stb->genRowRule == RULE_MIX_RANDOM) && stbInfo->autoTblCreating;
+  int   w       = 0;
+  if (acreate) {
+      csvFile = openTagCsv(stb);
+      tagData = benchCalloc(TAG_BATCH_COUNT, stb->lenOfTags);
+  }
+
   // debug
   //g_arguments->debug_print = true;
 
@@ -795,8 +804,26 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
         break;
       }
 
+      if(acreate) {
+          // generator
+          if (w == 0) {
+              if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                  g_fail = true;
+                  goto free_of_progressive;
+              }
+          }
+      }   
+
       // generate pre sql  like "insert into tbname ( part column names) values  "
-      uint32_t len = genInsertPreSql(info, db, stb, tbName, tbIdx, info->buffer);
+      uint32_t len = genInsertPreSql(info, db, stb, tbName, tagData, tbIdx, info->buffer);
+
+      if(acreate) {
+          // move next
+          if (++w >= TAG_BATCH_COUNT) {
+              // reset for gen again
+              w = 0;
+          } 
+      }
 
       // batch create sql values
       STotal batTotal;
@@ -968,5 +995,12 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
             total.ordRows, total.disRows, total.updRows, total.delRows);
 
   //g_arguments->debug_print = false;
+
+  // free
+  if(csvFile) {
+      fclose(csvFile);
+  }
+  tmfree(tagData);
+
   return true;
 }

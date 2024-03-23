@@ -214,7 +214,7 @@ void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
+int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, char* tagData, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
     int n;
@@ -227,7 +227,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
                        TSDB_MAX_ALLOWED_SQL_LEN - len,
                        "INSERT INTO ? USING `%s` TAGS (%s) %s VALUES(?",
                        stbInfo->stbName,
-                       stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
+                       tagData + stbInfo->lenOfTags * tableSeq,
                        ttl);
     } else {
         n = snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
@@ -290,18 +290,12 @@ static bool getSampleFileNameByPattern(char *filePath,
 }
 
 static int generateSampleFromCsv(char *buffer,
-                                 char *file, int32_t length,
+                                 FILE* fp, int32_t length,
                                  int64_t size) {
     size_t  n = 0;
     char *  line = NULL;
     int     getRows = 0;
 
-    FILE *fp = fopen(file, "r");
-    if (fp == NULL) {
-        errorPrint("Failed to open sample file: %s, reason:%s\n", file,
-                   strerror(errno));
-        return -1;
-    }
     while (1) {
         ssize_t readLen = 0;
 #if defined(WIN32) || defined(WIN64)
@@ -345,7 +339,6 @@ static int generateSampleFromCsv(char *buffer,
         }
     }
 
-    fclose(fp);
     tmfree(line);
     return 0;
 }
@@ -1751,35 +1744,6 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
         }
     }
 
-    if (stbInfo->tags->size != 0) {
-        stbInfo->tagDataBuf =
-                benchCalloc(
-                    1, stbInfo->childTblCount*stbInfo->lenOfTags, true);
-        infoPrint(
-                  "generate stable<%s> tags data with lenOfTags<%u> * "
-                  "childTblCount<%" PRIu64 ">\n",
-                  stbInfo->stbName, stbInfo->lenOfTags,
-                  stbInfo->childTblCount);
-        if (stbInfo->tagsFile[0] != 0) {
-            if (generateSampleFromCsv(
-                    stbInfo->tagDataBuf, stbInfo->tagsFile,
-                    stbInfo->lenOfTags,
-                    stbInfo->childTblCount)) {
-                return -1;
-            }
-        } else {
-            if (generateRandData(stbInfo,
-                                 stbInfo->tagDataBuf,
-                                 stbInfo->childTblCount*stbInfo->lenOfTags,
-                                 stbInfo->lenOfTags,
-                                 stbInfo->tags,
-                                 stbInfo->childTblCount, true, NULL)) {
-                return -1;
-            }
-        }
-        debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
-    }
-
     if (0 != convertServAddr(
             stbInfo->iface,
             stbInfo->tcpTransfer,
@@ -2164,4 +2128,28 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
     tools_cJSON_AddItemToObject(record, "tags", tag);
     tools_cJSON_AddStringToObject(record, "metric", stbInfo->stbName);
     tools_cJSON_AddItemToArray(array, record);
+}
+
+// generateTag data from random or csv file
+bool generateTagData(SSuperTable *stbInfo, char *buf, int64_t cnt, FILE* csv) {
+    if(csv) {
+        if (generateSampleFromCsv(
+                buf, csv,
+                stbInfo->lenOfTags,
+                cnt)) {
+            return false;
+        }
+    } else {
+        if (generateRandData(stbInfo,
+                            buf,
+                            cnt * stbInfo->lenOfTags,
+                            stbInfo->lenOfTags,
+                            stbInfo->tags,
+                            cnt, true, NULL)) {
+            errorPrint("Generate Tag Rand Data Failed. stb=%s\n", stbInfo->stbName);
+            return false;
+        }
+    }
+
+    return true;
 }

@@ -749,7 +749,7 @@ int createDatabase(SDataBase* database) {
 }
 
 static int generateChildTblName(int len, char *buffer, SDataBase *database,
-                                SSuperTable *stbInfo, uint64_t i,
+                                SSuperTable *stbInfo, char* tagData, uint64_t i,
                                 char *ttl) {
     if (0 == len) {
         memset(buffer, 0, TSDB_MAX_ALLOWED_SQL_LEN);
@@ -764,7 +764,7 @@ static int generateChildTblName(int len, char *buffer, SDataBase *database,
             : "%s.%s%" PRIu64 " USING %s.%s TAGS (%s) %s ",
             database->dbName, stbInfo->childTblPrefix, i, database->dbName,
             stbInfo->stbName,
-            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+            tagData + i * stbInfo->lenOfTags, ttl);
 
     return len;
 }
@@ -799,6 +799,19 @@ static int getIntervalOfTblCreating(threadInfo *pThreadInfo,
     return 0;
 }
 
+// open tag from csv file
+FILE* openTagCsv(SSuperTable* stbInfo) {
+    FILE* csvFile = NULL;
+    if (stbInfo->tagsFile[0] != 0) {
+        csvFile = fopen(stbInfo->tagsFile, "r");
+        if (csvFile == NULL) {
+            errorPrint("Failed to open sample file: %s, reason:%s\n", stbInfo->tagsFile, strerror(errno));
+            return NULL;
+        }
+    }
+    return csvFile;
+}
+
 static void *createTable(void *sarg) {
     if (g_arguments->supplementInsert) {
         return NULL;
@@ -824,6 +837,12 @@ static void *createTable(void *sarg) {
     if (stbInfo->ttl != 0) {
         snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
     }
+
+    // tag read from csv
+    FILE *csvFile = openTagCsv(stbInfo);
+    // malloc
+    char* tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
+    int         w = 0; // record tagData
 
     int smallBatchCount = 0;
     for (uint64_t i = pThreadInfo->start_table_from + stbInfo->childTblFrom;
@@ -854,8 +873,20 @@ static void *createTable(void *sarg) {
             if (0 == len) {
                 batchNum = 0;
             }
+            // generator
+            if (w == 0) {
+                if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                    goto create_table_end;
+                }
+            }
+
             len = generateChildTblName(len, pThreadInfo->buffer,
-                                       database, stbInfo, i, ttl);
+                                       database, stbInfo, w, ttl);
+            // move next
+            if (++w >= TAG_BATCH_COUNT) {
+                // reset for gen again
+                w = 0;
+            }                           
 
             batchNum++;
             smallBatchCount++;
@@ -946,8 +977,13 @@ static void *createTable(void *sarg) {
                    pThreadInfo->threadID, pThreadInfo->tables_created);
     }
 create_table_end:
+    // free
+    tmfree(tagData);
     tmfree(pThreadInfo->buffer);
     pThreadInfo->buffer = NULL;
+    if(csvFile) {
+        fclose(csvFile);
+    }
     return NULL;
 }
 
@@ -1128,8 +1164,6 @@ void postFreeResource() {
                 stbInfo->colsOfCreateChildTable = NULL;
                 tmfree(stbInfo->sampleDataBuf);
                 stbInfo->sampleDataBuf = NULL;
-                tmfree(stbInfo->tagDataBuf);
-                stbInfo->tagDataBuf = NULL;
                 tmfree(stbInfo->partialColNameBuf);
                 stbInfo->partialColNameBuf = NULL;
                 benchArrayDestroy(stbInfo->batchTblCreatingNumbersArray);
@@ -1355,6 +1389,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
 static int smartContinueIfFail(threadInfo *pThreadInfo,
                                SChildTable *childTbl,
+                               char *tagData,
                                int64_t i,
                                char *ttl) {
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1368,7 +1403,7 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
                 : "CREATE TABLE IF NOT EXISTS %s.%s USING %s.%s TAGS (%s) %s ",
             database->dbName, childTbl->name, database->dbName,
             stbInfo->stbName,
-            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+            tagData + i * stbInfo->lenOfTags, ttl);
     debugPrint("creating table: %s\n", buffer);
     int ret;
     if (REST_IFACE == stbInfo->iface) {
@@ -1466,6 +1501,14 @@ static void *syncWriteInterlace(void *sarg) {
         infoPrint("start time change to startFillbackTime = %"PRId64" \n", pThreadInfo->start_time);
     }
 
+    FILE* csvFile = NULL;
+    char* tagData = NULL;
+    int   w       = 0;
+    if (stbInfo->autoTblCreating) {
+        csvFile = openTagCsv(stbInfo);
+        tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags);
+    }    
+
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
         uint32_t generated = 0;
@@ -1503,6 +1546,13 @@ static void *syncWriteInterlace(void *sarg) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
 
+                    // generator
+                    if (stbInfo->autoTblCreating && w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            goto create_table_end;
+                        }
+                    }
+
                     // create child table
                     if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoTblCreating) {
@@ -1511,8 +1561,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     " USING `",
                                     stbInfo->stbName,
                                     "` TAGS (",
-                                    stbInfo->tagDataBuf
-                                        + stbInfo->lenOfTags * tableSeq,
+                                    tagData + stbInfo->lenOfTags * w,
                                     ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 2,
@@ -1527,8 +1576,7 @@ static void *syncWriteInterlace(void *sarg) {
                                         ") USING `",
                                         stbInfo->stbName,
                                         "` TAGS (",
-                                        stbInfo->tagDataBuf
-                                        + stbInfo->lenOfTags * tableSeq,
+                                        tagData + stbInfo->lenOfTags * w,
                                         ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 4,
@@ -1538,6 +1586,12 @@ static void *syncWriteInterlace(void *sarg) {
                                         ") VALUES ");
                         }
                     }
+
+                    // move next
+                    if (stbInfo->autoTblCreating && ++w >= TAG_BATCH_COUNT) {
+                        // reset for gen again
+                        w = 0;
+                    }  
 
                     // write child data with interlaceRows
                     for (int64_t j = 0; j < interlaceRows; j++) {
@@ -1785,6 +1839,10 @@ static void *syncWriteInterlace(void *sarg) {
     }
 free_of_interlace:
     cleanupAndPrint(pThreadInfo, "interlace");
+    if(csvFile) {
+        fclose(csvFile);
+    }
+    tmfree(tagData);    
     return NULL;
 }
 
@@ -2069,11 +2127,13 @@ static int32_t prepareProgressDataSml(
 }
 
 static int32_t prepareProgressDataSql(
-    threadInfo *pThreadInfo,
-    SChildTable *childTbl, uint64_t tableSeq,
-    char *sampleDataBuf,
-    int64_t *timestamp, uint64_t i, char *ttl,
-    int32_t *pos, uint64_t *len) {
+                    threadInfo *pThreadInfo,
+                    SChildTable *childTbl, 
+                    char* tagData,
+                    uint64_t tableSeq,
+                    char *sampleDataBuf,
+                    int64_t *timestamp, uint64_t i, char *ttl,
+                    int32_t *pos, uint64_t *len) {
     // prepareProgressDataSql
     int32_t generated = 0;
     SDataBase *database = pThreadInfo->dbInfo;
@@ -2091,7 +2151,7 @@ static int32_t prepareProgressDataSql(
                          STR_INSERT_INTO, database->dbName,
                          childTbl->name, database->dbName,
                          stbInfo->stbName,
-                         stbInfo->tagDataBuf +
+                         tagData +
                          stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
@@ -2112,7 +2172,7 @@ static int32_t prepareProgressDataSql(
                     childTbl->name,
                     stbInfo->partialColNameBuf,
                     database->dbName, stbInfo->stbName,
-                    stbInfo->tagDataBuf +
+                    tagData +
                     stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
@@ -2165,6 +2225,12 @@ static int32_t prepareProgressDataSql(
         }
     }
 
+    // free
+    if(csvFile) {
+        fclose(csvFile);
+    }
+    tmfree(tagData);      
+
     return generated;
 }
 
@@ -2203,6 +2269,17 @@ void *syncWriteProgressive(void *sarg) {
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
 
+    FILE* csvFile = NULL;
+    char* tagData = NULL;
+    bool  stmt    = stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating;
+    bool  smart   = SMART_IF_FAILED == stbInfo->continueIfFail;
+    bool  acreate = (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE) && stbInfo->autoTblCreating;
+    int   w       = 0;
+    if (stmt || smart || acreate) {
+        csvFile = openTagCsv(stbInfo);
+        tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags);
+    }
+    
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
             tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
         char *sampleDataBuf;
@@ -2231,7 +2308,7 @@ void *syncWriteProgressive(void *sarg) {
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
         int32_t pos = 0;
-        if (stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating) {
+        if (stmt) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
             if (NULL == pThreadInfo->conn->stmt) {
@@ -2240,11 +2317,31 @@ void *syncWriteProgressive(void *sarg) {
                 g_fail = true;
                 goto free_of_progressive;
             }
+        }
 
-            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tableSeq)) {
+        if(stmt || smart || acreate) {
+            // generator
+            if (w == 0) {
+                if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                    g_fail = true;
+                    goto free_of_progressive;
+                }
+            }
+        }   
+        
+        if (stmt) {
+            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
+        }
+
+        if(stmt || smart || acreate) {
+            // move next
+            if (++w >= TAG_BATCH_COUNT) {
+                // reset for gen again
+                w = 0;
+            } 
         }
 
         char ttl[SMALL_BUFF_LEN] = "";
@@ -2262,7 +2359,8 @@ void *syncWriteProgressive(void *sarg) {
                     generated = prepareProgressDataSql(
                             pThreadInfo,
                             childTbl,
-                            tableSeq,
+                            tagData,
+                            w,
                             sampleDataBuf,
                             &timestamp, i, ttl, &pos, &len);
                     break;
@@ -2304,17 +2402,32 @@ void *syncWriteProgressive(void *sarg) {
                               "continueIfFail: %d, "
                               "will continue to insert ..\n",
                               stbInfo->continueIfFail);
-                } else if (SMART_IF_FAILED == stbInfo->continueIfFail) {
+                } else if (smart) {
                     warnPrint("The super table parameter "
                               "continueIfFail: %d, will create table "
                               "then insert ..\n",
                               stbInfo->continueIfFail);
+
+                    // generator
+                    if (w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            g_fail = true;
+                            goto free_of_progressive;
+                        }
+                    }
+
                     int ret = smartContinueIfFail(
                             pThreadInfo,
-                            childTbl, i, ttl);
+                            childTbl, tagData, w, ttl);
                     if (0 != ret) {
                         g_fail = true;
                         goto free_of_progressive;
+                    }
+
+                    // move next
+                    if (++w >= TAG_BATCH_COUNT) {
+                        // reset for gen again
+                        w = 0;
                     }
 
                     code = execInsert(pThreadInfo, generated);
@@ -2427,6 +2540,10 @@ void *syncWriteProgressive(void *sarg) {
     }      // tableSeq
 free_of_progressive:
     cleanupAndPrint(pThreadInfo, "progressive");
+    if(csvFile) {
+        fclose(csvFile);
+    }
+    tmfree(tagData);
     return NULL;
 }
 
@@ -3057,6 +3174,16 @@ static int startMultiThreadInsertData(SDataBase* database,
         b = ntables % threads;
     }
 #endif   // TD_VER_COMPATIBLE_3_0_0_0
+
+    FILE* csvFile = NULL;
+    char* tagData = NULL;
+    bool  stmtN   = (stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating == false);
+    int   w       = 0;
+    if (stmtN) {
+        csvFile = openTagCsv(stbInfo);
+        tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags);
+    }
+
     pthread_t   *pids = benchCalloc(1, threads * sizeof(pthread_t), true);
     threadInfo  *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
 
@@ -3132,11 +3259,33 @@ static int startMultiThreadInsertData(SDataBase* database,
                     FREE_RESOURCE();
                     return -1;
                 }
-                if (!stbInfo->autoTblCreating) {
-                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, 0)) {
+                if (stmtN) {
+                    // generator
+                    if (w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            if(csvFile){
+                                fclose(csvFile);
+                            }
+                            tmfree(tagData);
+                            FREE_RESOURCE();
+                            return -1;
+                        }
+                    }
+
+                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                        if(csvFile){
+                            fclose(csvFile);
+                        }
+                        tmfree(tagData);
                         FREE_RESOURCE();
                         return -1;
                     }
+
+                    // move next
+                    if (++w >= TAG_BATCH_COUNT) {
+                        // reset for gen again
+                        w = 0;
+                    } 
                 }
 
                 pThreadInfo->bind_ts = benchCalloc(1, sizeof(int64_t), true);
@@ -3301,6 +3450,11 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
         }
     }
+
+    if (csvFile) {
+        fclose(csvFile);
+    }
+    tmfree(tagData);
 
     infoPrint("Estimate memory usage: %.2fMB\n",
               (double)g_memoryUsage / 1048576);
