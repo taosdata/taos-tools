@@ -772,11 +772,11 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
   FILE* csvFile = NULL;
   char* tagData = NULL;
-  bool  acreate = (stb->genRowRule == RULE_OLD || stb->genRowRule == RULE_MIX_RANDOM) && stbInfo->autoTblCreating;
+  bool  acreate = (stb->genRowRule == RULE_OLD || stb->genRowRule == RULE_MIX_RANDOM) && stb->autoTblCreating;
   int   w       = 0;
   if (acreate) {
       csvFile = openTagCsv(stb);
-      tagData = benchCalloc(TAG_BATCH_COUNT, stb->lenOfTags);
+      tagData = benchCalloc(TAG_BATCH_COUNT, stb->lenOfTags, false);
   }
 
   // debug
@@ -807,9 +807,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       if(acreate) {
           // generator
           if (w == 0) {
-              if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
-                  g_fail = true;
-                  goto free_of_progressive;
+              if(!generateTagData(stb, tagData, TAG_BATCH_COUNT, csvFile)) {
+                 FAILED_BREAK()                
               }
           }
       }   

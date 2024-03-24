@@ -49,5 +49,6 @@ void generateSmlJsonValues(
 
 // generateTag data from random or csv file, cnt is get count for each
 bool generateTagData(SSuperTable *stbInfo, char *buf, int64_t cnt, FILE* csv);
-
+// get tag from csv file
+FILE* openTagCsv(SSuperTable* stbInfo);
 #endif  // INC_BENCHDATA_H_

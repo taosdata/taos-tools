@@ -289,12 +289,16 @@ static bool getSampleFileNameByPattern(char *filePath,
     return true;
 }
 
-static int generateSampleFromCsv(char *buffer,
-                                 FILE* fp, int32_t length,
-                                 int64_t size) {
+static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t length, int64_t size) {
     size_t  n = 0;
     char *  line = NULL;
     int     getRows = 0;
+    bool    needClose = false;
+
+    if (file != NULL && fp == NULL) {
+        fp = fopen(file, "r");
+        needClose = true;
+    }
 
     while (1) {
         ssize_t readLen = 0;
@@ -307,8 +311,7 @@ static int generateSampleFromCsv(char *buffer,
         if (-1 == readLen) {
 #endif
             if (0 != fseek(fp, 0, SEEK_SET)) {
-                errorPrint("Failed to fseek file: %s, reason:%s\n",
-                        file, strerror(errno));
+                errorPrint("Failed to fseek , reason:%s\n", strerror(errno));
                 fclose(fp);
                 return -1;
             }
@@ -337,6 +340,10 @@ static int generateSampleFromCsv(char *buffer,
         if (getRows == size) {
             break;
         }
+    }
+
+    if(needClose) {
+        fclose(fp);
     }
 
     tmfree(line);
@@ -1692,7 +1699,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             }
         }
         if (generateSampleFromCsv(stbInfo->sampleDataBuf,
-                                        stbInfo->sampleFile, stbInfo->lenOfCols,
+                                        stbInfo->sampleFile, NULL, stbInfo->lenOfCols,
                                         g_arguments->prepared_rand)) {
             errorPrint("Failed to generate sample from csv file %s\n",
                     stbInfo->sampleFile);
@@ -1728,6 +1735,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                 if (generateSampleFromCsv(
                             childTbl->sampleDataBuf,
                             sampleFilePath,
+                            NULL,
                             stbInfo->lenOfCols,
                             g_arguments->prepared_rand)) {
                     errorPrint("Failed to generate sample from file "
@@ -2134,7 +2142,7 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
 bool generateTagData(SSuperTable *stbInfo, char *buf, int64_t cnt, FILE* csv) {
     if(csv) {
         if (generateSampleFromCsv(
-                buf, csv,
+                buf, NULL, csv,
                 stbInfo->lenOfTags,
                 cnt)) {
             return false;
@@ -2152,4 +2160,17 @@ bool generateTagData(SSuperTable *stbInfo, char *buf, int64_t cnt, FILE* csv) {
     }
 
     return true;
+}
+
+// open tag from csv file
+FILE* openTagCsv(SSuperTable* stbInfo) {
+    FILE* csvFile = NULL;
+    if (stbInfo->tagsFile[0] != 0) {
+        csvFile = fopen(stbInfo->tagsFile, "r");
+        if (csvFile == NULL) {
+            errorPrint("Failed to open sample file: %s, reason:%s\n", stbInfo->tagsFile, strerror(errno));
+            return NULL;
+        }
+    }
+    return csvFile;
 }
