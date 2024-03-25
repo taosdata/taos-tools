@@ -2831,7 +2831,7 @@ static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         int *lengths = taos_fetch_lengths(res);
-        char * childName = benchCalloc(0, lengths[0] + 1);
+        char * childName = benchCalloc(1, lengths[0] + 1, true);
         strncpy(childName, row[0], lengths[0]);
         childName[lengths[0] + 1] = '\0';
         stbInfo->childTblArray[count]->name = childName;
