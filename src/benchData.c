@@ -312,7 +312,8 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
 #endif
             if (0 != fseek(fp, 0, SEEK_SET)) {
                 errorPrint("Failed to fseek , reason:%s\n", strerror(errno));
-                fclose(fp);
+                if(needClose)
+                    fclose(fp);
                 return -1;
             }
             continue;
