@@ -1175,6 +1175,7 @@ void postFreeResource() {
                                 child++) {
                             SChildTable *childTbl =
                                 stbInfo->childTblArray[child];
+                            tmfree(childTbl->name);
                             if (childTbl) {
                                 freeChildTable(childTbl, stbInfo->cols->size);
                             }
@@ -2771,10 +2772,12 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
 
 static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        snprintf(stbInfo->childTblArray[i]->name,
+        char childName[TSDB_TABLE_NAME_LEN]={0};
+        snprintf(childName,
                  TSDB_TABLE_NAME_LEN,
                  "%s%" PRIu64 "",
                  stbInfo->childTblPrefix, i);
+        stbInfo->childTblArray[i]->name = strdup(childName);
         debugPrint("%s(): %s\n", __func__,
                   stbInfo->childTblArray[i]->name);
     }
@@ -2785,10 +2788,12 @@ static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
 static int64_t fillChildTblNameByFromTo(SDataBase *database,
         SSuperTable* stbInfo) {
     for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
-        snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->name,
+        char childName[TSDB_TABLE_NAME_LEN]={0};
+        snprintf(childName,
                 TSDB_TABLE_NAME_LEN,
                 "%s%" PRIu64 "",
                 stbInfo->childTblPrefix, i);
+        stbInfo->childTblArray[i-stbInfo->childTblFrom]->name = strdup(childName);
     }
 
     return (stbInfo->childTblTo-stbInfo->childTblFrom);
@@ -2826,8 +2831,10 @@ static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         int *lengths = taos_fetch_lengths(res);
-        strncpy(stbInfo->childTblArray[count]->name, row[0], lengths[0]);
-        stbInfo->childTblArray[count]->name[lengths[0] + 1] = '\0';
+        char * childName = benchCalloc(0, lengths[0] + 1);
+        strncpy(childName, row[0], lengths[0]);
+        childName[lengths[0] + 1] = '\0';
+        stbInfo->childTblArray[count]->name = childName;
         debugPrint("stbInfo->childTblArray[%" PRId64 "]->name: %s\n",
                    count, stbInfo->childTblArray[count]->name);
         count++;
@@ -2937,8 +2944,10 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
 
     if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         // Normal table
-        snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
+        char childName[TSDB_TABLE_NAME_LEN]={0};
+        snprintf(childName, TSDB_TABLE_NAME_LEN,
                     "%s", stbInfo->stbName);
+        stbInfo->childTblArray[0]->name = strdup(childName);
     } else if ((stbInfo->iface != SML_IFACE
                 && stbInfo->iface != SML_REST_IFACE)
             && stbInfo->childTblExists) {

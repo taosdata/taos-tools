@@ -627,7 +627,7 @@ enum CONTINUE_IF_FAIL_MODE {
 };
 
 typedef struct SChildTable_S {
-    char      name[TSDB_TABLE_NAME_LEN];
+    char*     name;
     bool      useOwnSample;
     char      *sampleDataBuf;
     uint64_t  insertRows;
