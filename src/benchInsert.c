@@ -1128,6 +1128,7 @@ static void freeChildTable(SChildTable *childTbl, int colsSize) {
 }
 
 void postFreeResource() {
+    infoPrint("%s\n", "free resource and exit ...");
     if (!g_arguments->terminate) {
         tmfclose(g_arguments->fpOfInsertResult);
     }
@@ -2887,6 +2888,11 @@ static int printTotalDelay(SDataBase *database,
                             int threads,
                             int64_t totalInsertRows,
                             int64_t start, int64_t end) {
+    // zero check
+    if (total_delay_list->size == 0 || (end - start) == 0 || threads == 0) {
+        return -1;
+    }
+
     succPrint("Spent %.6f (real %.6f) seconds to insert rows: %" PRIu64
               " with %d thread(s) into %s %.2f (real %.2f) records/second\n",
               (end - start)/1E6, totalDelay/threads/1E6, totalInsertRows, threads,
