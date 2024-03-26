@@ -568,6 +568,8 @@ typedef struct SChildField {
 
 #define FUNTYPE_CNT   7
 
+#define TAG_BATCH_COUNT 100
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -625,7 +627,7 @@ enum CONTINUE_IF_FAIL_MODE {
 };
 
 typedef struct SChildTable_S {
-    char      name[TSDB_TABLE_NAME_LEN];
+    char*     name;
     bool      useOwnSample;
     char      *sampleDataBuf;
     uint64_t  insertRows;
@@ -713,7 +715,6 @@ typedef struct SSuperTable_S {
 
     char      *sampleDataBuf;
     bool      useSampleTs;
-    char      *tagDataBuf;
     bool      tcpTransfer;
     bool      non_stop;
     bool      autoFillback; // "start_fillback_time" item set "auto"

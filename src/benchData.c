@@ -214,7 +214,7 @@ void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
+int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, char* tagData, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
     int n;
@@ -227,7 +227,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, uint64_t tableSeq) {
                        TSDB_MAX_ALLOWED_SQL_LEN - len,
                        "INSERT INTO ? USING `%s` TAGS (%s) %s VALUES(?",
                        stbInfo->stbName,
-                       stbInfo->tagDataBuf + stbInfo->lenOfTags * tableSeq,
+                       tagData + stbInfo->lenOfTags * tableSeq,
                        ttl);
     } else {
         n = snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
@@ -289,19 +289,17 @@ static bool getSampleFileNameByPattern(char *filePath,
     return true;
 }
 
-static int generateSampleFromCsv(char *buffer,
-                                 char *file, int32_t length,
-                                 int64_t size) {
+static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t length, int64_t size) {
     size_t  n = 0;
     char *  line = NULL;
     int     getRows = 0;
+    bool    needClose = false;
 
-    FILE *fp = fopen(file, "r");
-    if (fp == NULL) {
-        errorPrint("Failed to open sample file: %s, reason:%s\n", file,
-                   strerror(errno));
-        return -1;
+    if (file != NULL && fp == NULL) {
+        fp = fopen(file, "r");
+        needClose = true;
     }
+
     while (1) {
         ssize_t readLen = 0;
 #if defined(WIN32) || defined(WIN64)
@@ -313,9 +311,9 @@ static int generateSampleFromCsv(char *buffer,
         if (-1 == readLen) {
 #endif
             if (0 != fseek(fp, 0, SEEK_SET)) {
-                errorPrint("Failed to fseek file: %s, reason:%s\n",
-                        file, strerror(errno));
-                fclose(fp);
+                errorPrint("Failed to fseek , reason:%s\n", strerror(errno));
+                if(needClose)
+                    fclose(fp);
                 return -1;
             }
             continue;
@@ -345,7 +343,10 @@ static int generateSampleFromCsv(char *buffer,
         }
     }
 
-    fclose(fp);
+    if(needClose) {
+        fclose(fp);
+    }
+
     tmfree(line);
     return 0;
 }
@@ -1699,7 +1700,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
             }
         }
         if (generateSampleFromCsv(stbInfo->sampleDataBuf,
-                                        stbInfo->sampleFile, stbInfo->lenOfCols,
+                                        stbInfo->sampleFile, NULL, stbInfo->lenOfCols,
                                         g_arguments->prepared_rand)) {
             errorPrint("Failed to generate sample from csv file %s\n",
                     stbInfo->sampleFile);
@@ -1735,6 +1736,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                 if (generateSampleFromCsv(
                             childTbl->sampleDataBuf,
                             sampleFilePath,
+                            NULL,
                             stbInfo->lenOfCols,
                             g_arguments->prepared_rand)) {
                     errorPrint("Failed to generate sample from file "
@@ -1749,35 +1751,6 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                 debugPrint("sampleDataBuf: %s\n", childTbl->sampleDataBuf);
             }
         }
-    }
-
-    if (stbInfo->tags->size != 0) {
-        stbInfo->tagDataBuf =
-                benchCalloc(
-                    1, stbInfo->childTblCount*stbInfo->lenOfTags, true);
-        infoPrint(
-                  "generate stable<%s> tags data with lenOfTags<%u> * "
-                  "childTblCount<%" PRIu64 ">\n",
-                  stbInfo->stbName, stbInfo->lenOfTags,
-                  stbInfo->childTblCount);
-        if (stbInfo->tagsFile[0] != 0) {
-            if (generateSampleFromCsv(
-                    stbInfo->tagDataBuf, stbInfo->tagsFile,
-                    stbInfo->lenOfTags,
-                    stbInfo->childTblCount)) {
-                return -1;
-            }
-        } else {
-            if (generateRandData(stbInfo,
-                                 stbInfo->tagDataBuf,
-                                 stbInfo->childTblCount*stbInfo->lenOfTags,
-                                 stbInfo->lenOfTags,
-                                 stbInfo->tags,
-                                 stbInfo->childTblCount, true, NULL)) {
-                return -1;
-            }
-        }
-        debugPrint("tagDataBuf: %s\n", stbInfo->tagDataBuf);
     }
 
     if (0 != convertServAddr(
@@ -2164,4 +2137,41 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
     tools_cJSON_AddItemToObject(record, "tags", tag);
     tools_cJSON_AddStringToObject(record, "metric", stbInfo->stbName);
     tools_cJSON_AddItemToArray(array, record);
+}
+
+// generateTag data from random or csv file
+bool generateTagData(SSuperTable *stbInfo, char *buf, int64_t cnt, FILE* csv) {
+    if(csv) {
+        if (generateSampleFromCsv(
+                buf, NULL, csv,
+                stbInfo->lenOfTags,
+                cnt)) {
+            return false;
+        }
+    } else {
+        if (generateRandData(stbInfo,
+                            buf,
+                            cnt * stbInfo->lenOfTags,
+                            stbInfo->lenOfTags,
+                            stbInfo->tags,
+                            cnt, true, NULL)) {
+            errorPrint("Generate Tag Rand Data Failed. stb=%s\n", stbInfo->stbName);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// open tag from csv file
+FILE* openTagCsv(SSuperTable* stbInfo) {
+    FILE* csvFile = NULL;
+    if (stbInfo->tagsFile[0] != 0) {
+        csvFile = fopen(stbInfo->tagsFile, "r");
+        if (csvFile == NULL) {
+            errorPrint("Failed to open sample file: %s, reason:%s\n", stbInfo->tagsFile, strerror(errno));
+            return NULL;
+        }
+    }
+    return csvFile;
 }

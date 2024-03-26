@@ -41,7 +41,6 @@ FORCE_INLINE void tmfclose(FILE *fp) {
 FORCE_INLINE void tmfree(void *buf) {
     if (NULL != buf) {
         free(buf);
-        buf = NULL;
     }
 }
 
