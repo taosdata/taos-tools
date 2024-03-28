@@ -3394,7 +3394,7 @@ static avro_value_iface_t* prepareAvroWface(
         char *jsonSchema,
         avro_schema_t *schema,
         RecordSchema **recordSchema,
-        avro_file_writer_t *db) {
+        avro_file_writer_t *writer) {
     ASSERT(avroFilename);
     if (avro_schema_from_json_length(jsonSchema, strlen(jsonSchema), schema)) {
         errorPrint("%s() LN%d, Unable to parse:\n%s \nto schema\n"
@@ -3424,7 +3424,7 @@ static avro_value_iface_t* prepareAvroWface(
     }
 
     int rval = avro_file_writer_create_with_codec
-        (avroFilename, *schema, db, g_avro_codec[g_args.avro_codec], 70*1024);
+        (avroFilename, *schema, writer, g_avro_codec[g_args.avro_codec], 70*1024);
     if (rval) {
         errorPrint("There was an error creating %s. reason: %s\n",
                 avroFilename, avro_strerror());
@@ -8793,7 +8793,7 @@ static int createMTableAvroHeadImp(
         const char *stable,
         const TableDes *stbTableDes,
         const char *tbName,
-        avro_file_writer_t db,
+        avro_file_writer_t writer,
         avro_value_iface_t *wface) {
     if (0 == strlen(tbName)) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
@@ -9181,7 +9181,7 @@ static int createMTableAvroHeadImp(
         }
     }
 
-    if (0 != avro_file_writer_append_value(db, &record)) {
+    if (0 != avro_file_writer_append_value(writer, &record)) {
         errorPrint("%s() LN%d, Unable to write record to file. Message: %s\n",
                 __func__, __LINE__,
                 avro_strerror());
@@ -9528,11 +9528,11 @@ static int createMTableAvroHead(
 
     avro_schema_t schema;
     RecordSchema *recordSchema;
-    avro_file_writer_t db;
+    avro_file_writer_t avroWriter;
 
     avro_value_iface_t *wface = prepareAvroWface(
             dumpFilename,
-            jsonTagsSchema, &schema, &recordSchema, &db);
+            jsonTagsSchema, &schema, &recordSchema, &avroWriter);
 
     infoPrint("connection: %p is dumping out schema of "
             "sub-table(s) of %s \n",
@@ -9547,7 +9547,7 @@ static int createMTableAvroHead(
         }
         avro_value_iface_decref(wface);
         freeRecordSchema(recordSchema);
-        avro_file_writer_close(db);
+        avro_file_writer_close(avroWriter);
         avro_schema_decref(schema);
         tfree(jsonTagsSchema);
         return -1;
@@ -9566,7 +9566,7 @@ static int createMTableAvroHead(
                 stable,
                 tableDes,
                 *tbNameArr + tb*TSDB_TABLE_NAME_LEN,
-                db, wface);
+                avroWriter, wface);
 
         currentPercent = ((tb+1) * 100 / ntbCount);
 
@@ -9587,7 +9587,7 @@ static int createMTableAvroHead(
 
     avro_value_iface_decref(wface);
     freeRecordSchema(recordSchema);
-    avro_file_writer_close(db);
+    avro_file_writer_close(avroWriter);
     avro_schema_decref(schema);
 
     tfree(jsonTagsSchema);
@@ -10813,7 +10813,8 @@ static void *dumpNormalTablesOfStb(void *arg) {
     return NULL;
 }
 
-static int64_t dumpNtbOfStbByThreads(
+// dump stable meta and data by threads
+static int64_t dumpStable(
         void *taos_v,
         SDbInfo *dbInfo,
         const char *stbName) {
@@ -11042,7 +11043,7 @@ static int64_t dumpStbAndChildTb(
             fpDbs);
 
     if (ret >= 0) {
-        ret = dumpNtbOfStbByThreads(
+        ret = dumpStable(
                 taos_v,
                 dbInfo,
                 stable);
