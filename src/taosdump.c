@@ -9726,9 +9726,8 @@ static int writeTagsToAvro(
                         free(bytes);
                     } else {
                         avro_value_set_bytes(&branch,
-                                tbDes->cols[tbDes->columns + tag].value,
-                                strlen(tbDes->cols[tbDes->columns
-                                    + tag].value));
+                                (void *)tbDes->cols[tbDes->columns + tag].value,
+                                strlen(tbDes->cols[tbDes->columns + tag].value));
                     }
                 }
                 break;
@@ -9891,7 +9890,7 @@ int readNextTableDes(void* res, TableDes* tbDes) {
     // tbname, tagName , tagValue
     TAOS_ROW row;
     int index = tbDes->columns;
-    while(row = taos_fetch_row(res)) {
+    while( NULL != (row = taos_fetch_row(res))) {
         // tbname changed check
         int* lengths = taos_fetch_lengths(res);
         if(tbDes->name[0] == 0) {
@@ -9917,7 +9916,7 @@ int readNextTableDes(void* res, TableDes* tbDes) {
         if (NULL == row[2]) {
             strcpy(tbDes->cols[index].value, "NULL");
             strcpy(tbDes->cols[index].note , "NUL");
-        } else if (0 != processFieldsValueV3(index, tbDes, row[2], length[2])) {
+        } else if (0 != processFieldsValueV3(index, tbDes, row[2], lengths[2])) {
             errorPrint("%s() LN%d, call processFieldsValueV3 tag_value: %p\n",
                     __func__, __LINE__, row[1]);
             return -1;
@@ -9932,10 +9931,11 @@ int readNextTableDes(void* res, TableDes* tbDes) {
 static int dumpStableMeta(
         void *taos,
         const SDbInfo *dbInfo,
-        const char *stable,
-        TableDes **pTableDes,
-        char **tbNameArr) {
-    // valid        
+        TableDes *stbDes,
+        char **tbNameArr,
+        int64_t *tbCount) {
+    // valid
+    char * stable = stbDes->name;        
     if (0 == stable[0]) {
         errorPrint("%s() LN%d, pass wrong tbname\n", __func__, __LINE__);
         return -1;
@@ -9949,9 +9949,6 @@ static int dumpStableMeta(
     }
     debugPrint("%s() LN%d dumpFilename: %s\n",
             __func__, __LINE__, dumpFilename);
-
-    // des
-    TableDes *stbDes = *pTableDes;
 
     char *jsonTagsSchema = NULL;
     if (0 != convertTbTagsDesToJsonWrap(
@@ -9988,9 +9985,6 @@ static int dumpStableMeta(
         return -1;
     }
 
-    int currentPercent = 0;
-    int percentComplete = 0;
-
     // loop read tables des
     int size = sizeof(TableDes) + sizeof(ColDes) * stbDes->tags;
     TableDes *tbDes = calloc(1, size);
@@ -10023,9 +10017,10 @@ static int dumpStableMeta(
 
         // sucess print 
         tb++;
-        infoPrint("connection %p is dumping out schema: %"PRId64" from %s\n", taos, tb, stable);
+        infoPrint("connection %p is dumping out schema: %"PRId64" from %s.%s\n", taos, tb, stable, tbDes->name);
     }
     okPrint("total %"PRId64" table(s) of stable: %s schema dumped.\n", tb, stable);
+    *tbCount = tb;
 
     // free
     closeQuery(tagsRes);
@@ -11311,9 +11306,8 @@ static int64_t dumpStable(
         int ret = dumpStableMeta(
                 taos_v,
                 dbInfo,
-                stbName,
-                &stbDes,
-                &tbNameArr
+                stbDes,
+                &tbNameArr,
                 &tbCount);
         if (-1 == ret) {
             errorPrint("%s() LN%d, failed to dump table\n",
@@ -11332,10 +11326,10 @@ static int64_t dumpStable(
         if (tbNameArr) {
             free(tbNameArr);
         }
-        freeTbDes(stbDes);
+        freeTbDes(stbDes, true);
 
         if (tbCount == 0) {
-            infoPrint("super table (%s) no child table, skip dump out.\n", stbName, tbCount);
+            infoPrint("super table (%s) no child table, skip dump out.\n", stbName);
             return 0;
         } else {
             infoPrint("super table (%s) get child count failed.\n", stbName);
@@ -11344,7 +11338,7 @@ static int64_t dumpStable(
     }
 
     // show progress
-    infoPrint("super table (%s) %d child tables meta dump out ok.\n", stbName, tbCount);
+    infoPrint("super table (%s) %"PRId64" child tables meta dump out ok.\n", stbName, tbCount);
 
     // set progress to global
     g_tableCount = tbCount;
@@ -11397,7 +11391,7 @@ static int64_t dumpStable(
                 if (tbNameArr) {
                     free(tbNameArr);
                 }
-                freeTbDes(stbDes);
+                freeTbDes(stbDes, true);
                 free(pids);
                 free(infos);
                 return -1;
@@ -11441,7 +11435,7 @@ static int64_t dumpStable(
         }
     }
 
-    infoPrint("super table (%s) dump %d child data ok. close taos connections...\n",
+    infoPrint("super table (%s) dump %"PRId64" child data ok. close taos connections...\n",
             stbName, tbCount);
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
