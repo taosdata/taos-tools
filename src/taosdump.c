@@ -11225,6 +11225,96 @@ static void *dumpTablesOfStbThread(void *arg) {
     return NULL;
 }
 
+int dumpSTableData(SDbInfo* dbInfo, TableDes* stbDes, char** tbNameArr, int64_t tbCount) {
+    int threads = g_args.thread_num;
+    int64_t batch = tbCount / threads;
+    if (batch < 1) {
+        threads = tbCount;
+        batch = 1;
+    }
+
+    ASSERT(threads);
+    int64_t mod = tbCount % threads;
+
+    pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
+    threadInfo *infos = calloc(1, threads * sizeof(threadInfo));
+    ASSERT(pids);
+    ASSERT(infos);
+
+    infoPrint("create %d thread(s) to export data ...\n", threads);
+    threadInfo *pThreadInfo;
+    for (int32_t i = 0; i < threads; i++) {
+        pThreadInfo = infos + i;
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            if (NULL == (pThreadInfo->taos = wsConnect())) {
+                errorPrint("%s() LN%d, Failed to connect to server, "
+                        "reason: %s\n",
+                        __func__,
+                        __LINE__,
+                        ws_errstr(NULL));
+                free(pids);
+                free(infos);
+                return -1;
+            }
+        } else {
+#endif  // WEBSOCKET
+            if (NULL == (pThreadInfo->taos = taosConnect(dbInfo->name))) {
+                free(pids);
+                free(infos);
+                return -1;
+            }
+#ifdef WEBSOCKET
+        }
+#endif
+
+        pThreadInfo->threadIndex = i;
+        pThreadInfo->count = (i < mod) ? batch+1 : batch;
+        pThreadInfo->from = (i == 0)?0:
+            ((threadInfo *)(infos + i - 1))->from +
+            ((threadInfo *)(infos + i - 1))->count;
+        pThreadInfo->dbInfo = dbInfo;
+        pThreadInfo->precision = getPrecisionByString(dbInfo->precision);
+        if (-1 == pThreadInfo->precision) {
+            errorPrint("%s() LN%d, get precision error\n", __func__, __LINE__);
+            exit(EXIT_FAILURE);
+        }
+
+        strcpy(pThreadInfo->stbName, stbDes->name);
+        pThreadInfo->stbTableDes = stbDes;
+        pThreadInfo->tbNameArr = (char **)tbNameArr;
+        if (pthread_create(pids + i, NULL,
+                    dumpTablesOfStbThread, pThreadInfo) != 0) {
+            errorPrint("%s() LN%d, thread[%d] failed to start. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    pThreadInfo->threadIndex, errno, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    for (int32_t i = 0; i < threads; i++) {
+        if (pthread_join(pids[i], NULL) != 0) {
+            errorPrint("%s() LN%d, thread[%d] failed to join. "
+                    "The errno is %d. Reason: %s\n",
+                    __func__, __LINE__,
+                    i, errno, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    infoPrint("super table (%s) dump %"PRId64" child data ok. close taos connections...\n",
+            stbDes->name, tbCount);
+    for (int32_t i = 0; i < threads; i++) {
+        pThreadInfo = infos + i;
+        taos_close(pThreadInfo->taos);
+    }
+
+    free(pids);
+    free(infos);
+    return 0;
+}
+
 // free names
 void freeTbNameArr(char ** tbNameArr, int64_t tbCount) {
     for (int64_t i = 0; i < tbCount; i++) {
@@ -11241,11 +11331,12 @@ static int64_t dumpStable(
         SDbInfo *dbInfo,
         const char *stbName) {
     // show progress
+    int ret = -1;
     infoPrint("start dump out super table data (%s) ...\n", stbName);
 
-//
-// get super table meta
-//
+    //
+    // get super table meta
+    //
 
     // malloc stable des
     TableDes *stbDes = (TableDes *)calloc(1, sizeof(TableDes)
@@ -11296,13 +11387,18 @@ static int64_t dumpStable(
     }
     // show progress
     infoPrint("The number of tables of %s is %"PRId64"!\n", stbName, tbCount);
+    // set progress to global
+    g_tableCount = tbCount;
+    g_tableDone  = 0;
+    strcpy(g_dbName,  dbInfo->name);
+    strcpy(g_stbName, stbName);
 
-//
-//  dump super table and childs meta
-//
+    //
+    //  dump meta
+    //
     char** tbNameArr = (char**)calloc(tbCount, sizeof(char*));
     if (g_args.avro) {
-        int ret = dumpStableMeta(
+        ret = dumpStableMeta(
                 taos_v,
                 dbInfo,
                 stbDes,
@@ -11318,7 +11414,6 @@ static int64_t dumpStable(
     } else {
         fillTbNameArr(taos_v, tbNameArr, dbInfo, stbName, tbCount);
     }
-
 
     if(tbCount <= 0) {
         freeTbNameArr((char **)tbNameArr, tbCount);
@@ -11336,109 +11431,13 @@ static int64_t dumpStable(
     // show progress
     infoPrint("super table (%s) %"PRId64" child tables meta dump out ok.\n", stbName, tbCount);
 
-    // set progress to global
-    g_tableCount = tbCount;
-    g_tableDone  = 0;
-    strcpy(g_dbName,  dbInfo->name);
-    strcpy(g_stbName, stbName);
-
-//
-//  dump child tables data belong to stable
-//    
-
-    int threads = g_args.thread_num;
-    int64_t batch = tbCount / threads;
-    if (batch < 1) {
-        threads = tbCount;
-        batch = 1;
-    }
-
-    ASSERT(threads);
-    int64_t mod = tbCount % threads;
-
-    pthread_t *pids = calloc(1, threads * sizeof(pthread_t));
-    threadInfo *infos = calloc(1, threads * sizeof(threadInfo));
-    ASSERT(pids);
-    ASSERT(infos);
-
-    infoPrint("create %d thread(s) to export data ...\n", threads);
-    threadInfo *pThreadInfo;
-    for (int32_t i = 0; i < threads; i++) {
-        pThreadInfo = infos + i;
-#ifdef WEBSOCKET
-        if (g_args.cloud || g_args.restful) {
-            if (NULL == (pThreadInfo->taos = wsConnect())) {
-                errorPrint("%s() LN%d, Failed to connect to server, "
-                        "reason: %s\n",
-                        __func__,
-                        __LINE__,
-                        ws_errstr(NULL));
-                freeTbNameArr((char **)tbNameArr, tbCount);
-                freeTbDes(stbTableDes, true);
-                free(pids);
-                free(infos);
-                return -1;
-            }
-        } else {
-#endif  // WEBSOCKET
-            if (NULL == (pThreadInfo->taos = taosConnect(dbInfo->name))) {
-                freeTbNameArr((char **)tbNameArr, tbCount);
-                freeTbDes(stbDes, true);
-                free(pids);
-                free(infos);
-                return -1;
-            }
-#ifdef WEBSOCKET
-        }
-#endif
-
-        pThreadInfo->threadIndex = i;
-        pThreadInfo->count = (i < mod) ? batch+1 : batch;
-        pThreadInfo->from = (i == 0)?0:
-            ((threadInfo *)(infos + i - 1))->from +
-            ((threadInfo *)(infos + i - 1))->count;
-        pThreadInfo->dbInfo = dbInfo;
-        pThreadInfo->precision = getPrecisionByString(dbInfo->precision);
-        if (-1 == pThreadInfo->precision) {
-            errorPrint("%s() LN%d, get precision error\n", __func__, __LINE__);
-            exit(EXIT_FAILURE);
-        }
-
-        strcpy(pThreadInfo->stbName, stbName);
-        pThreadInfo->stbTableDes = stbDes;
-        pThreadInfo->tbNameArr = (char **)tbNameArr;
-        if (pthread_create(pids + i, NULL,
-                    dumpTablesOfStbThread, pThreadInfo) != 0) {
-            errorPrint("%s() LN%d, thread[%d] failed to start. "
-                    "The errno is %d. Reason: %s\n",
-                    __func__, __LINE__,
-                    pThreadInfo->threadIndex, errno, strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    for (int32_t i = 0; i < threads; i++) {
-        if (pthread_join(pids[i], NULL) != 0) {
-            errorPrint("%s() LN%d, thread[%d] failed to join. "
-                    "The errno is %d. Reason: %s\n",
-                    __func__, __LINE__,
-                    i, errno, strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    infoPrint("super table (%s) dump %"PRId64" child data ok. close taos connections...\n",
-            stbName, tbCount);
-    for (int32_t i = 0; i < threads; i++) {
-        pThreadInfo = infos + i;
-        taos_close(pThreadInfo->taos);
-    }
-
-    freeTbNameArr((char **)tbNameArr, tbCount);
+    //
+    //  dump data
+    //    
+    ret = dumpSTableData(dbInfo, stbDes, tbNameArr, tbCount);
+    freeTbNameArr(tbNameArr, tbCount);
     freeTbDes(stbDes, true);
-    free(pids);
-    free(infos);
-    return 0;
+    return ret;
 }
 
 static int64_t dumpStbAndChildTb(
