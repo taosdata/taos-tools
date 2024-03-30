@@ -331,7 +331,7 @@ typedef struct {
     SDbInfo   *dbInfo;
     char      stbName[TSDB_TABLE_NAME_LEN];
     TableDes  *stbTableDes;
-    char      *tbNameArr;
+    char      **tbNameArr;
     int       precision;
     void      *taos;
     uint64_t  count;
@@ -2123,19 +2123,41 @@ static int64_t getNtbCountOfStbWS(char *command) {
 }
 #endif  // WEBSOCKET
 
-static int64_t getNtbCountOfStbNative(
-        const char *dbName, const char *stbName, char *command) {
+static int64_t getTbCountOfStbNative(const char *dbName, const char *stbName) {
     TAOS *taos;
     if (NULL == (taos = taosConnect(dbName))) {
-        free(command);
         return -1;
     }
+
+    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
+    if (NULL == command) {
+        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
+        return -1;
+    }
+
+    if (3 == g_majorVersionOfClient) {
+        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+                g_args.db_escape_char
+                ? "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
+                 "FROM `%s`.%s%s%s)"
+                : "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
+                 "FROM %s.%s%s%s)",
+                dbName, g_escapeChar, stbName, g_escapeChar);
+    } else {
+        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
+                g_args.db_escape_char
+                ? "SELECT COUNT(TBNAME) FROM `%s`.%s%s%s"
+                : "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
+                dbName, g_escapeChar, stbName, g_escapeChar);
+    }
+    debugPrint("get stable child count %s", command);
 
     int64_t count = 0;
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
         cleanIfQueryFailed(__func__, __LINE__, command, res);
+        free(command);
         taos_close(taos);
         return -1;
     }
@@ -2146,8 +2168,7 @@ static int64_t getNtbCountOfStbNative(
         count = *(int64_t*)row[TSDB_SHOW_TABLES_NAME_INDEX];
     }
 
-    debugPrint("%s() LN%d, COUNT(TBNAME): %"PRId64"\n",
-            __func__, __LINE__, count);
+    infoPrint("Get super table (%s) child tables (%"PRId64") ok\n", stbName, count);
 
     taos_free_result(res);
     taos_close(taos);
@@ -9343,7 +9364,7 @@ static int64_t fillTbNameArrWS(
 static int64_t fillTbNameArrNative(
         TAOS *taos,
         char *command,
-        char *tbNameArr,
+        char **tbNameArr,
         const char *stable,
         const int64_t preCount) {
     TAOS_RES *res = taos_query(taos, command);
@@ -9353,30 +9374,32 @@ static int64_t fillTbNameArrNative(
     }
 
     TAOS_ROW row = NULL;
-    int64_t ntbCount = 0;
+    int64_t  n = 0;
 
     int currentPercent = 0;
     int percentComplete = 0;
 
     while ((row = taos_fetch_row(res)) != NULL) {
         int32_t *lengths = taos_fetch_lengths(res);
-        if (lengths[TSDB_SHOW_TABLES_NAME_INDEX] <= 0) {
+        // calc name len
+        int32_t len = lengths[TSDB_SHOW_TABLES_NAME_INDEX];
+        if (len <= 0) {
             errorPrint("%s() LN%d, fetch_row() get %d length!\n",
-                    __func__, __LINE__, lengths[TSDB_SHOW_TABLES_NAME_INDEX]);
+                    __func__, __LINE__, len);
             continue;
         }
+        // malloc and copy
+        tbNameArr[n] = calloc(len + 1, 1); // add string end
+        strncpy(tbNameArr[n], (char *)row[TSDB_SHOW_TABLES_NAME_INDEX], len);
 
-        strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                (char *)row[TSDB_SHOW_TABLES_NAME_INDEX],
-                min(TSDB_TABLE_NAME_LEN-1,
-                    lengths[TSDB_SHOW_TABLES_NAME_INDEX]));
+        debugPrint("child table name: %s. %"PRId64" of stable: %s\n",
+                tbNameArr[n], n, stable);
+        // tb count add and check 
+        if(++n == preCount) {
+            break;
+        }
 
-        debugPrint("sub table name: %s. %"PRId64" of stable: %s\n",
-                tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                ntbCount, stable);
-        ++ntbCount;
-
-        currentPercent = (ntbCount * 100 / preCount);
+        currentPercent = (n * 100 / preCount);
 
         if (currentPercent > percentComplete) {
             infoPrint("connection %p fetched %d%% of %s' tbname\n",
@@ -9385,76 +9408,26 @@ static int64_t fillTbNameArrNative(
         }
     }
 
-    if ((preCount > 0) && (percentComplete < 100)) {
-        errorPrint("%d%% - total %"PRId64" sub-table's names of stable: %s fetched\n",
-            percentComplete, ntbCount, stable);
+    if (preCount == n) {
+        okPrint("total %"PRId64" sub-table's name of stable: %s fetched\n", n, stable);
     } else {
-        okPrint("total %"PRId64" sub-table's name of stable: %s fetched\n",
-            ntbCount, stable);
+        errorPrint("%d%% - total %"PRId64" sub-table's names of stable: %s fetched\n",
+            percentComplete, n, stable);
     }
 
     taos_free_result(res);
-    free(command);
-    return ntbCount;
+    return n;
 }
 
 static int64_t fillTbNameArr(
         void *taos, char **tbNameArr,
         const SDbInfo *dbInfo,
-        const char *stable) {
-    char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
-    if (NULL == command) {
-        errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
-        return -1;
-    }
-
-    if (3 == g_majorVersionOfClient) {
-        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                g_args.db_escape_char
-                ? "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
-                 "FROM `%s`.%s%s%s)"
-                : "SELECT COUNT(*) FROM (SELECT DISTINCT(TBNAME) "
-                 "FROM %s.%s%s%s)",
-                dbInfo->name, g_escapeChar, stable, g_escapeChar);
-    } else {
-        snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
-                g_args.db_escape_char
-                ? "SELECT COUNT(TBNAME) FROM `%s`.%s%s%s"
-                : "SELECT COUNT(TBNAME) FROM %s.%s%s%s",
-                dbInfo->name, g_escapeChar, stable, g_escapeChar);
-    }
-
-    infoPrint("Getting tables' number of super table (%s) ...\n", stable);
-
-    int64_t preCount = 0;
-#ifdef WEBSOCKET
-    if (g_args.cloud || g_args.restful) {
-        preCount = getNtbCountOfStbWS(command);
-    } else {
-#endif
-        preCount = getNtbCountOfStbNative(dbInfo->name, stable, command);
-#ifdef WEBSOCKET
-    }
-#endif
-
-    if (0 == preCount) {
-        infoPrint("%s() Tables number is ZERO!\n", __func__);
-    } else if (0 > preCount) {
-        errorPrint("Failed to get count of normal table of %s!\n", stable);
-    }
-    infoPrint("The number of tables of %s is %"PRId64"!\n", stable, preCount);
-
+        const char *stable,
+        int64_t preCount) {
+    //         
     char *command2 = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command2) {
         errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
-        return -1;
-    }
-
-    *tbNameArr = calloc(preCount, TSDB_TABLE_NAME_LEN);
-    if (NULL == *tbNameArr) {
-        errorPrint("%s() LN%d, memory allocation failed!\n",
-                __func__, __LINE__);
-        free(command2);
         return -1;
     }
 
@@ -9484,13 +9457,14 @@ static int64_t fillTbNameArr(
     } else {
 #endif
         ntbCount = fillTbNameArrNative(
-                taos, command2, *tbNameArr, stable, preCount);
+                taos, command2, tbNameArr, stable, preCount);
 #ifdef WEBSOCKET
     }
 #endif
     infoPrint("The number of tables of %s be filled is %"PRId64"!\n",
             stable, ntbCount);
 
+    free(command2);
     return ntbCount;
 }
 
@@ -9890,7 +9864,7 @@ int readNextTableDes(void* res, TableDes* tbDes) {
     // tbname, tagName , tagValue
     TAOS_ROW row;
     int index = tbDes->columns;
-    while( NULL != (row = taos_fetch_row(res))) {
+    while( index < tbDes->columns + tbDes->tags && NULL != (row = taos_fetch_row(res))) {
         // tbname changed check
         int* lengths = taos_fetch_lengths(res);
         if(tbDes->name[0] == 0) {
@@ -9905,13 +9879,6 @@ int readNextTableDes(void* res, TableDes* tbDes) {
             }
         }
 
-        // check tags count corrent
-        if(index >= tbDes->tags) {
-            errorPrint("child table %s tags count:%d over super table tags %d.", 
-                       tbDes->name, index, tbDes->tags);
-            return -1;
-        }
-
         // copy tagname
         if (NULL == row[2]) {
             strcpy(tbDes->cols[index].value, "NULL");
@@ -9924,6 +9891,13 @@ int readNextTableDes(void* res, TableDes* tbDes) {
         index++;
     }
 
+    // check tags count corrent
+    if(row && index != tbDes->tags) {
+        errorPrint("child table %s read tags(%d) not equal stable tags (%d).", 
+                    tbDes->name, index, tbDes->tags);
+        return -1;
+    }
+
     return index;
 }
 
@@ -9933,7 +9907,7 @@ static int dumpStableMeta(
         const SDbInfo *dbInfo,
         TableDes *stbDes,
         char **tbNameArr,
-        int64_t *tbCount) {
+        int64_t tbCount) {
     // valid
     char * stable = stbDes->name;        
     if (0 == stable[0]) {
@@ -9989,11 +9963,12 @@ static int dumpStableMeta(
     int size = sizeof(TableDes) + sizeof(ColDes) * stbDes->tags;
     TableDes *tbDes = calloc(1, size);
     int64_t tb = 0;
-    while (1) {
+    while (tb <= tbCount) {
         // read tags
-        freeTbDes(tbDes, false); // free cols
+        freeTbDes(tbDes, false); // free cols values
         memset(tbDes->name, 0, sizeof(tbDes->name)); // reset zero
         tbDes->tags = stbDes->tags; // stable tags same with child table
+        memcpy(tbDes->cols, &stbDes->cols[stbDes->columns], sizeof(ColDes)* stbDes->tags); // copy tag info
         int ret = readNextTableDes(tagsRes, tbDes);
         if(ret < 0){
             // read error
@@ -10003,6 +9978,9 @@ static int dumpStableMeta(
             // read end , break
             break;
         }
+
+        // dump tbname to array
+        tbNameArr[tb] = strdup(tbDes->name);
 
         // write tags to avro
         ret = writeTagsToAvro(
@@ -10020,7 +9998,6 @@ static int dumpStableMeta(
         infoPrint("connection %p is dumping out schema: %"PRId64" from %s.%s\n", taos, tb, stable, tbDes->name);
     }
     okPrint("total %"PRId64" table(s) of stable: %s schema dumped.\n", tb, stable);
-    *tbCount = tb;
 
     // free
     closeQuery(tagsRes);
@@ -11148,16 +11125,13 @@ static void dumpNormalTablesOfStbWS(
 }
 #endif
 
-static void dumpNormalTablesOfStbNative(
+static void dumpTablesOfStbNative(
         threadInfo *pThreadInfo,
         FILE *fp,
         char *dumpFilename) {
     for (int64_t i = pThreadInfo->from;
             i < pThreadInfo->from + pThreadInfo->count; i++) {
-        char tbName[TSDB_TABLE_NAME_LEN] = {0};
-        tstrncpy(tbName,
-                pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
-                TSDB_TABLE_NAME_LEN);
+        char* tbName = pThreadInfo->tbNameArr[i];
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
                 pThreadInfo->threadIndex, i, tbName);
@@ -11202,7 +11176,7 @@ static void dumpNormalTablesOfStbNative(
     return;
 }
 
-static void *dumpNormalTablesOfStb(void *arg) {
+static void *dumpTablesOfStbThread(void *arg) {
     threadInfo *pThreadInfo = (threadInfo *)arg;
 
     debugPrint("dump table from = \t%"PRId64"\n", pThreadInfo->from);
@@ -11240,7 +11214,7 @@ static void *dumpNormalTablesOfStb(void *arg) {
         dumpNormalTablesOfStbWS(pThreadInfo, fp, dumpFilename);
     } else {
 #endif
-        dumpNormalTablesOfStbNative(pThreadInfo, fp, dumpFilename);
+        dumpTablesOfStbNative(pThreadInfo, fp, dumpFilename);
 #ifdef WEBSOCKET
     }
 #endif
@@ -11249,6 +11223,16 @@ static void *dumpNormalTablesOfStb(void *arg) {
     }
 
     return NULL;
+}
+
+// free names
+void freeTbNameArr(char ** tbNameArr, int64_t tbCount) {
+    for (int64_t i = 0; i < tbCount; i++) {
+        if (tbNameArr[i]) {
+            free(tbNameArr[i]);
+        }
+    }
+    free(tbNameArr);
 }
 
 // dump stable meta and data by threads
@@ -11288,44 +11272,56 @@ static int64_t dumpStable(
     if (colCount < 0) {
         errorPrint("%s() LN%d, failed to get stable[%s] schema\n",
                __func__, __LINE__, stbName);
-        if (stbDes) {
-            freeTbDes(stbDes, true);
-        }
+        freeTbDes(stbDes, true);
         exit(-1);
     }
     // show progress
     infoPrint("start dump super table meta (%s) col:%d tags:%d ...\n", 
                 stbName, stbDes->columns, stbDes->tags);
 
+    // get stable child count
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        int64_t tbCount = getNtbCountOfStbWS(command);
+    } else {
+#endif
+        int64_t tbCount = getTbCountOfStbNative(dbInfo->name, stbName);
+#ifdef WEBSOCKET
+    }
+#endif
+    if(tbCount < 0 ) {        
+        errorPrint("get stable %s failed.", stbName);
+        freeTbDes(stbDes, true);
+        exit(-1);
+    }
+    // show progress
+    infoPrint("The number of tables of %s is %"PRId64"!\n", stbName, tbCount);
+
 //
 //  dump super table and childs meta
 //
-    char *tbNameArr = NULL;
-    int64_t tbCount = 0;
+    char** tbNameArr = (char**)calloc(tbCount, sizeof(char*));
     if (g_args.avro) {
         int ret = dumpStableMeta(
                 taos_v,
                 dbInfo,
                 stbDes,
-                &tbNameArr,
-                &tbCount);
+                tbNameArr,
+                tbCount);
         if (-1 == ret) {
             errorPrint("%s() LN%d, failed to dump table\n",
                     __func__, __LINE__);
-            if (tbNameArr) {
-                free(tbNameArr);
-            }
+            freeTbNameArr((char **)tbNameArr, tbCount);
             freeTbDes(stbDes, true);
             return -1;
         }
     } else {
-        tbCount = fillTbNameArr(taos_v, &tbNameArr, dbInfo, stbName);
+        fillTbNameArr(taos_v, tbNameArr, dbInfo, stbName, tbCount);
     }
 
+
     if(tbCount <= 0) {
-        if (tbNameArr) {
-            free(tbNameArr);
-        }
+        freeTbNameArr((char **)tbNameArr, tbCount);
         freeTbDes(stbDes, true);
 
         if (tbCount == 0) {
@@ -11377,9 +11373,7 @@ static int64_t dumpStable(
                         __func__,
                         __LINE__,
                         ws_errstr(NULL));
-                if (tbNameArr) {
-                    free(tbNameArr);
-                }
+                freeTbNameArr((char **)tbNameArr, tbCount);
                 freeTbDes(stbTableDes, true);
                 free(pids);
                 free(infos);
@@ -11388,9 +11382,7 @@ static int64_t dumpStable(
         } else {
 #endif  // WEBSOCKET
             if (NULL == (pThreadInfo->taos = taosConnect(dbInfo->name))) {
-                if (tbNameArr) {
-                    free(tbNameArr);
-                }
+                freeTbNameArr((char **)tbNameArr, tbCount);
                 freeTbDes(stbDes, true);
                 free(pids);
                 free(infos);
@@ -11414,9 +11406,9 @@ static int64_t dumpStable(
 
         strcpy(pThreadInfo->stbName, stbName);
         pThreadInfo->stbTableDes = stbDes;
-        pThreadInfo->tbNameArr = tbNameArr;
+        pThreadInfo->tbNameArr = (char **)tbNameArr;
         if (pthread_create(pids + i, NULL,
-                    dumpNormalTablesOfStb, pThreadInfo) != 0) {
+                    dumpTablesOfStbThread, pThreadInfo) != 0) {
             errorPrint("%s() LN%d, thread[%d] failed to start. "
                     "The errno is %d. Reason: %s\n",
                     __func__, __LINE__,
@@ -11442,9 +11434,7 @@ static int64_t dumpStable(
         taos_close(pThreadInfo->taos);
     }
 
-    if (tbNameArr) {
-        free(tbNameArr);
-    }
+    freeTbNameArr((char **)tbNameArr, tbCount);
     freeTbDes(stbDes, true);
     free(pids);
     free(infos);
