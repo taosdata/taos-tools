@@ -2067,10 +2067,9 @@ static int dumpCreateMTableClause(
 }
 
 #ifdef WEBSOCKET
-static int64_t getNtbCountOfStbWS() {
+static int64_t getNtbCountOfStbWS(char* dbName, const char* stbName) {
     WS_TAOS *ws_taos;
     if (NULL == (ws_taos = wsConnect())) {
-        free(command);
         return -1;
     }
 
@@ -4949,7 +4948,7 @@ static int processValueToAvro(
                 avro_value_set_double(&branch, GET_DOUBLE_VAL(value));
             }
             break;
-
+–
         case TSDB_DATA_TYPE_BINARY:
             if (NULL == value) {
                 avro_value_set_branch(&avro_value, 0, &branch);
@@ -8725,7 +8724,7 @@ static int64_t dumpNormalTable(
                     numColsAndTags = getTableDesFromStbWS(
                             (WS_TAOS*)taos,
                             dbInfo->name,
-                            stbTableDes,
+                            stbDes,
                             tbName, &tableDes);
 
                 } else {
@@ -9311,7 +9310,7 @@ static int createMTableAvroHeadSpecified(
 static int64_t fillTbNameArrWS(
         WS_TAOS *ws_taos,
         char *command,
-        char *tbNameArr,
+        char **tbNameArr,
         const char *stable,
         const int64_t preCount) {
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
@@ -9354,12 +9353,13 @@ static int64_t fillTbNameArrWS(
                 debugPrint("%s() LN%d, ws_get_value_in_blocK() return %s. len: %d\n",
                         __func__, __LINE__, (char *)value0, len);
             }
-            strncpy(tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
-                    (char*)value0, min(TSDB_TABLE_NAME_LEN, len));
+
+            tbNameArr[ntbCount] = calloc(len+1, 1);
+            strncpy(tbNameArr[ntbCount], (char*)value0, len);
 
             debugPrint("%s() LN%d, sub table name: %s %"PRId64" of stable: %s\n",
                     __func__, __LINE__,
-                    tbNameArr + ntbCount * TSDB_TABLE_NAME_LEN,
+                    tbNameArr[ntbCount],
                     ntbCount, stable);
             ++ntbCount;
 
@@ -9479,7 +9479,7 @@ static int64_t fillTbNameArr(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         ntbCount = fillTbNameArrWS(
-                taos, command2, *tbNameArr, stable, preCount);
+                taos, command2, tbNameArr, stable, preCount);
     } else {
 #endif
         ntbCount = fillTbNameArrNative(
@@ -9859,10 +9859,11 @@ static int writeTagsToAvro(
 // open query with native or websocket
 void* openQuery(void* taos , const char * sql) {
 #ifdef WEBSOCKET
-    WS_RES  ws_res = ws_query_timeout(taos, sql, g_args.ws_timeout);
+    WS_RES  *ws_res = ws_query_timeout(taos, sql, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
-        return cleanIfQueryFailedWS(__func__, __LINE__, sql, ws_res);
+        cleanIfQueryFailedWS(__func__, __LINE__, (char *)sql, ws_res);
+        return NULL;
     }
     return ws_res;
 #else
@@ -9881,7 +9882,7 @@ void* openQuery(void* taos , const char * sql) {
 void closeQuery(void* res) {
 #ifdef WEBSOCKET
     if(res) {
-        ws_free_result(ws_res);
+        ws_free_result(res);
     }
 #else
     if(res) {
@@ -9895,8 +9896,8 @@ void closeQuery(void* res) {
 int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
     // tbname, tagName , tagValue
     int index = 0;
-    int type  = 0;
-    int len   = 0;
+    uint8_t type  = 0;
+    uint32_t len   = 0;
     while( index < tbDes->tags) {
         // get block
         if(*idx >= *cnt || *cnt == 0) {
@@ -9904,15 +9905,22 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
             int ws_code = ws_fetch_block(ws_res, &data, cnt);
             if (ws_code !=0 ) {
                 // read to end
+                errorPrint("read next ws_fetch_block failed, err code=%d  idx=%d index=%d\n", ws_code, *idx, index);
+                return -1;
+            }
+
+            if(*cnt == 0) {
+                infoPrint("read schema over. tag columns %d.\n", tbDes->tags);
                 break;
             }
             *idx = 0;
+
         }
 
         // read first column tbname
         const void *val = ws_get_value_in_block(ws_res, *idx, 0, &type, &len);
         if(val == NULL) {
-            errorPrint("read tbname failed, idx=%d cnt=%d", *idx, *cnt);
+            errorPrint("read tbname failed, idx=%d cnt=%d \n", *idx, *cnt);
             return -1;
         }
 
@@ -9937,7 +9945,7 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
             strcpy(tbDes->cols[index].note , "NUL");
         } else if (0 != processFieldsValueV3(index, tbDes, val, len)) {
             errorPrint("%s() LN%d, call processFieldsValueV3 tag_value: %p\n",
-                    __func__, __LINE__, row[1]);
+                    __func__, __LINE__, val);
             return -1;
         }
         
@@ -9949,8 +9957,8 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
     }
 
     // check tags count corrent
-    if(row && index != tbDes->tags) {
-        errorPrint("child table %s read tags(%d) not equal stable tags (%d).", 
+    if(*cnt && index != tbDes->tags) {
+        errorPrint("child table %s read tags(%d) not equal stable tags (%d).\n", 
                     tbDes->name, index, tbDes->tags);
         return -1;
     }
@@ -11188,10 +11196,7 @@ static void dumpNormalTablesOfStbWS(
         char *dumpFilename) {
     for (int64_t i = pThreadInfo->from;
             i < (pThreadInfo->from + pThreadInfo->count); i++ ) {
-        char tbName[TSDB_TABLE_NAME_LEN] = {0};
-        tstrncpy(tbName,
-                pThreadInfo->tbNameArr + i * TSDB_TABLE_NAME_LEN,
-                TSDB_TABLE_NAME_LEN);
+        char* tbName = pThreadInfo->tbNameArr[i];
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
                 pThreadInfo->threadIndex, i,
@@ -11462,7 +11467,7 @@ static int64_t dumpStable(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         colCount = getTableDesWS(taos_v, dbInfo->name,
-            stbName, stbTableDes, true);
+            stbName, stbDes, true);
     } else {
 #endif
         colCount = getTableDesNative(taos_v, dbInfo->name,
@@ -11481,12 +11486,13 @@ static int64_t dumpStable(
                 stbName, stbDes->columns, stbDes->tags);
 
     // get stable child count
+    int64_t tbCount = 0;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        int64_t tbCount = getNtbCountOfStbWS();
+        tbCount = getNtbCountOfStbWS(dbInfo->name, stbName);
     } else {
 #endif
-        int64_t tbCount = getTbCountOfStbNative(dbInfo->name, stbName);
+        tbCount = getTbCountOfStbNative(dbInfo->name, stbName);
 #ifdef WEBSOCKET
     }
 #endif
@@ -11517,7 +11523,7 @@ static int64_t dumpStable(
         if (-1 == ret) {
             errorPrint("%s() LN%d, failed to dump table\n",
                     __func__, __LINE__);
-            freeTbNameArr((char **)tbNameArr, tbCount);
+            freeTbNameArr(tbNameArr, tbCount);
             freeTbDes(stbDes, true);
             return -1;
         }
@@ -11526,7 +11532,7 @@ static int64_t dumpStable(
     }
 
     if(tbCount <= 0) {
-        freeTbNameArr((char **)tbNameArr, tbCount);
+        freeTbNameArr(tbNameArr, tbCount);
         freeTbDes(stbDes, true);
 
         if (tbCount == 0) {
@@ -11537,9 +11543,6 @@ static int64_t dumpStable(
             return -1;
         }
     }
-
-    // show progress
-    infoPrint("super table (%s) %"PRId64" child tables meta dump out ok.\n", stbName, tbCount);
 
     //
     //  dump data
