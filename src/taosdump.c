@@ -4948,7 +4948,6 @@ static int processValueToAvro(
                 avro_value_set_double(&branch, GET_DOUBLE_VAL(value));
             }
             break;
-–
         case TSDB_DATA_TYPE_BINARY:
             if (NULL == value) {
                 avro_value_set_branch(&avro_value, 0, &branch);
@@ -5155,7 +5154,7 @@ static int64_t writeResultToAvroWS(
 
         currentPercent = ((offset) * 100 / queryCount);
         if (currentPercent > percentComplete) {
-            infoPrint("%d%% of %s\n", currentPercent, tbName);
+            //infoPrint("%d%% of %s\n", currentPercent, tbName);
             percentComplete = currentPercent;
         }
     } while (offset < queryCount);
@@ -7686,7 +7685,7 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
                 case AVRO_TBTAGS:
                     atomic_add_fetch_64(&g_totalDumpInStbFailed, rows);
                     errorPrint("[%d] %"PRId64""
-                                        "table(s) belong stb from the file(%s) failed to dumped in!\n",
+                                        " table(s) belong stb from the file(%s) failed to dumped in!\n",
                                         pThreadInfo->threadIndex, rows,
                                         fileList[pThreadInfo->from + i]);
                     break;
@@ -7694,7 +7693,7 @@ static void* dumpInAvroWorkThreadFp(void *arg) {
                 case AVRO_NTB:
                     atomic_add_fetch_64(&g_totalDumpInNtbFailed, rows);
                     errorPrint("[%d] %"PRId64" "
-                                        "normal tables from (%s) failed to dumped in!\n",
+                                        " normal tables from (%s) failed to dumped in!\n",
                                         pThreadInfo->threadIndex, rows,
                                         fileList[pThreadInfo->from + i]);
                     break;
@@ -11229,6 +11228,10 @@ static void dumpNormalTablesOfStbWS(
                     fp);
         }
 
+        // show progress
+        atomic_add_fetch_64(&g_tableDone, 1);
+        infoPrint("%s.%s %"PRId64"/%"PRId64" %s dump data ok.\n",
+                  g_dbName, g_stbName, g_tableDone, g_tableCount, tbName);
         if (count < 0) {
             break;
         } else {
