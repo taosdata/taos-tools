@@ -230,7 +230,7 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_CHINESE   \
     "Nchar and binary are basic unicode chinese characters, optional."
 #define BENCH_NORMAL  "Only create normal table without super table, optional."
-#define BENCH_RANDOM  "Data source is randomly generated, optional."
+#define BENCH_RANDOM  "Each child table generates different random data, this option need much memory. ( all memory = childs count * prepared_rand)"
 #define BENCH_AGGR  "Query aggregation function after insertion, optional."
 #define BENCH_YES "Pass confirmation prompt to continue, optional."
 #define BENCH_RANGE "Range of disordered timestamp, default is 1000."
@@ -1111,7 +1111,6 @@ void printVersion();
 int32_t benchParseSingleOpt(int32_t key, char* arg);
 
 void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
-void printWarnCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
 
 #ifndef LINUX
 int32_t benchParseArgsNoArgp(int argc, char* argv[]);

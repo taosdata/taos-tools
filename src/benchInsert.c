@@ -73,7 +73,6 @@ static int getSuperTableFromServerTaosc(
     res = taos_query(conn->taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        printWarnCmdCodeStr(command, code, res);
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
         closeBenchConn(conn);

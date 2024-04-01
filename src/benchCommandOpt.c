@@ -369,11 +369,6 @@ void modifyArgument() {
         g_arguments->rest_server_ver_major =
             getServerVersionRest(g_arguments->port);
     }
-
-    if (g_arguments->demo_mode && TAOSC_IFACE == g_arguments->iface) {
-        g_arguments->mistMode = true;
-        g_arguments->prepared_rand = 360;
-    }
 }
 
 static void *queryStableAggrFunc(void *sarg) {

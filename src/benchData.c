@@ -1661,6 +1661,10 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
               stbInfo->stbName, stbInfo->lenOfCols, g_arguments->prepared_rand);
     if (stbInfo->random_data_source) {
         if (g_arguments->mistMode) {
+            infoPrint("Each child table using different random prepare data pattern. need "
+            "all memory(%d M) = childs(%"PRId64") * prepared_rand(%"PRId64") * lenOfCols(%d) \n",
+            (int32_t)(stbInfo->childTblCount*g_arguments->prepared_rand*stbInfo->lenOfCols/1024/1024),
+            stbInfo->childTblCount, g_arguments->prepared_rand, stbInfo->lenOfCols);
             for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
                 SChildTable *childTbl = stbInfo->childTblArray[child];
                 if (STMT_IFACE == stbInfo->iface) {

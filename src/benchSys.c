@@ -580,7 +580,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'M':
             g_arguments->mistMode = true;
-            g_arguments->prepared_rand = 57;
             break;
 
         case 'x':
