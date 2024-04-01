@@ -9861,7 +9861,7 @@ void* openQuery(void* taos , const char * sql) {
     WS_RES  *ws_res = ws_query_timeout(taos, sql, g_args.ws_timeout);
     int32_t code = ws_errno(ws_res);
     if (code != 0) {
-        cleanIfQueryFailedWS(__func__, __LINE__, (char *)sql, ws_res);
+        errorPrint("exe sql:%s failed. error code =%d\n", sql, code);
         return NULL;
     }
     return ws_res;
