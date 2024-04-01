@@ -1253,8 +1253,3 @@ FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
     taos_free_result(res);
 }
 
-FORCE_INLINE void printWarnCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
-    warnPrint("failed to run command %s, code: 0x%08x, reason: %s\n",
-               cmd, code, taos_errstr(res));
-    taos_free_result(res);
-}
