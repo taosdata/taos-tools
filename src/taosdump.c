@@ -9858,37 +9858,45 @@ static int writeTagsToAvro(
 // open query with native or websocket
 void* openQuery(void* taos , const char * sql) {
 #ifdef WEBSOCKET
-    WS_RES  *ws_res = ws_query_timeout(taos, sql, g_args.ws_timeout);
-    int32_t code = ws_errno(ws_res);
-    if (code != 0) {
-        errorPrint("exe sql:%s failed. error code =%d\n", sql, code);
-        return NULL;
+    if (g_args.cloud || g_args.restful) {
+        WS_RES  *ws_res = ws_query_timeout(taos, sql, g_args.ws_timeout);
+        int32_t code = ws_errno(ws_res);
+        if (code != 0) {
+            errorPrint("exe sql:%s failed. error code =%d\n", sql, code);
+            return NULL;
+        }
+        return ws_res;
+    } else {
+#endif
+        TAOS_RES* res = taos_query(taos, sql);
+        int err = taos_errno(res);
+        if (err != 0) {
+            taos_free_result(res);
+            errorPrint("open query: %s execute failed. errcode=%d\n", sql, err);
+            return NULL;
+        }
+        return res;
+#ifdef WEBSOCKET
     }
-    return ws_res;
-#else
-    TAOS_RES* res = taos_query(taos, sql);
-    int err = taos_errno(res);
-    if (err != 0) {
-        taos_free_result(res);
-        errorPrint("open query: %s execute failed. errcode=%d\n", sql, err);
-        return NULL;
-    }
-    return res;
 #endif
 }
 
 // close query and free result
 void closeQuery(void* res) {
 #ifdef WEBSOCKET
-    if(res) {
-        ws_free_result(res);
-    }
-#else
-    if(res) {
-        taos_free_result(res);
-    }
+   if (g_args.cloud || g_args.restful) {
+        if(res) {
+            ws_free_result(res);
+        }
+        return ;
+   } else {
 #endif
-
+        if(res) {
+            taos_free_result(res);
+        }
+#ifdef WEBSOCKET
+    }    
+#endif
 }
 
 #ifdef WEBSOCKET
@@ -10082,11 +10090,17 @@ static int dumpStableMeta(
         memset(tbDes->name, 0, sizeof(tbDes->name)); // reset zero
         tbDes->tags = stbDes->tags; // stable tags same with child table
         memcpy(tbDes->cols, &stbDes->cols[stbDes->columns], sizeof(ColDes)* stbDes->tags); // copy tag info
+        int ret;
 #ifdef WEBSOCKET
-        int ret = readNextTableDesWS(tagsRes, tbDes, &idx, &cnt);
-#else        
-        int ret = readNextTableDesNative(tagsRes, tbDes);
-#endif        
+       if (g_args.cloud || g_args.restful) {
+            ret = readNextTableDesWS(tagsRes, tbDes, &idx, &cnt);
+       } else {
+#endif
+            ret = readNextTableDesNative(tagsRes, tbDes);
+#ifdef WEBSOCKET
+       }
+#endif
+
         if(ret < 0){
             // read error
             freeTbDes(tbDes, true);
