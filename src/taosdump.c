@@ -2098,11 +2098,11 @@ static int64_t getNtbCountOfStbWS(char* dbName, const char* stbName) {
 
 
     WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    tfree(command);
     int32_t ws_code = ws_errno(ws_res);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
+    tfree(command);
 
     while (true) {
         int rows = 0;
@@ -2140,7 +2140,6 @@ static int64_t getNtbCountOfStbWS(char* dbName, const char* stbName) {
 
     ws_free_result(ws_res);
     ws_close(ws_taos);
-    free(command);
     return count;
 }
 #endif  // WEBSOCKET
