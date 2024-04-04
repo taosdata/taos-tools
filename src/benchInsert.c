@@ -243,7 +243,8 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
 
         // primary key
         if(stbInfo->primary_key && colIndex == 0) {
-            n += snprintf(colsBuf + len, " %s", PRIMARY_KEY);
+            len += n;
+            n = snprintf(colsBuf + len, col_buffer_len - len, " %s", PRIMARY_KEY);
         }
 
         if (n < 0 || n >= col_buffer_len - len) {
@@ -1200,7 +1201,7 @@ void postFreeResource() {
                         free(*sqls);
                         sqls++;
                     }
-                    tfree(stbInfo->sqls);
+                    tmfree(stbInfo->sqls);
                 }
 
 
@@ -1528,8 +1529,7 @@ static void *syncWriteInterlace(void *sarg) {
             int64_t timestamp = pThreadInfo->start_time;
             int64_t pos       = pThreadInfo->pos;
             SChildTable *childTbl = stbInfo->childTblArray[tableSeq];
-            char *  tableName =
-                stbInfo->childTblArray[tableSeq]->name;
+            char *  tableName   = childTbl->name;
             char *sampleDataBuf = childTbl->useOwnSample?
                                         childTbl->sampleDataBuf:
                                         stbInfo->sampleDataBuf;
@@ -1646,7 +1646,11 @@ static void *syncWriteInterlace(void *sarg) {
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
-                        timestamp += stbInfo->timestamp_step;
+
+                        // primary key
+                        if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
+                            timestamp += stbInfo->timestamp_step;
+                        }                        
                     }
                     break;
                 }
@@ -1668,9 +1672,10 @@ static void *syncWriteInterlace(void *sarg) {
                         g_fail = true;
                         goto free_of_interlace;
                     }
-                    generated =
-                        bindParamBatch(pThreadInfo, interlaceRows,
-                                       timestamp, childTbl, &childTbl->pkCur);
+                    int32_t n = 0;
+                    generated = bindParamBatch(pThreadInfo, interlaceRows,
+                                       timestamp, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n);
+                    timestamp += stbInfo->timestamp_step * n;
                     break;
                 }
                 case SML_REST_IFACE:
@@ -1723,7 +1728,10 @@ static void *syncWriteInterlace(void *sarg) {
                                                pThreadInfo->start_table_from]);
                         }
                         generated++;
-                        timestamp += stbInfo->timestamp_step;
+                        // primary key
+                        if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
+                            timestamp += stbInfo->timestamp_step;
+                        }
                     }
                     if (TSDB_SML_JSON_PROTOCOL == protocol
                             || SML_JSON_TAOS_FORMAT == protocol) {
@@ -1855,7 +1863,7 @@ free_of_interlace:
 static int32_t prepareProgressDataStmt(
         threadInfo *pThreadInfo,
         SChildTable *childTbl,
-        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur) {
+        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     char escapedTbName[TSDB_TABLE_NAME_LEN + 2] = "\0";
     if (g_arguments->escape_character) {
@@ -1873,13 +1881,14 @@ static int32_t prepareProgressDataStmt(
                 taos_stmt_errstr(pThreadInfo->conn->stmt));
         return -1;
     }
+    int32_t n =0;
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
-            *timestamp, childTbl, pkCur);
-    *timestamp += generated * stbInfo->timestamp_step;
+            *timestamp, childTbl, pkCur, pkCnt, &n);
+    *timestamp += n * stbInfo->timestamp_step;
     return generated;
 }
 
@@ -1905,7 +1914,7 @@ static void makeTimestampDisorder(
 static int32_t prepareProgressDataSmlJsonText(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
-    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur) {
+    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSmlJsonText
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int32_t generated = 0;
@@ -1968,7 +1977,7 @@ static int32_t prepareProgressDataSmlJsonText(
         }
 
         // primay key repeat ts count
-        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur)) {
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
             *timestamp += stbInfo->timestamp_step;
         }
 
@@ -1994,7 +2003,7 @@ static int32_t prepareProgressDataSmlJsonText(
 static int32_t prepareProgressDataSmlJson(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
-    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur) {
+    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSmlJson
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -2026,7 +2035,7 @@ static int32_t prepareProgressDataSmlJson(
         }
 
         // primay key repeat ts count
-        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur)) {
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
             *timestamp += stbInfo->timestamp_step;
         }
 
@@ -2052,7 +2061,7 @@ static int32_t prepareProgressDataSmlJson(
 
 static int32_t prepareProgressDataSmlLineOrTelnet(
     threadInfo *pThreadInfo, uint64_t tableSeq, char *sampleDataBuf,
-    int64_t *timestamp, uint64_t i, char *ttl, int protocol, int32_t *pkCur) {
+    int64_t *timestamp, uint64_t i, char *ttl, int protocol, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSmlLine
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int32_t generated = 0;
@@ -2085,7 +2094,7 @@ static int32_t prepareProgressDataSmlLineOrTelnet(
             pos = 0;
         }
         // primay key repeat ts count
-        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur)) {
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
             *timestamp += stbInfo->timestamp_step;
         }
         
@@ -2104,7 +2113,7 @@ static int32_t prepareProgressDataSml(
     threadInfo *pThreadInfo,
     SChildTable *childTbl,
     uint64_t tableSeq,
-    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur) {
+    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSml
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
 
@@ -2123,19 +2132,19 @@ static int32_t prepareProgressDataSml(
                     pThreadInfo,
                     tableSeq,
                     sampleDataBuf,
-                    timestamp, i, ttl, protocol, pkCur);
+                    timestamp, i, ttl, protocol, pkCur, pkCnt);
             break;
         case TSDB_SML_JSON_PROTOCOL:
             generated = prepareProgressDataSmlJsonText(
                     pThreadInfo,
                     tableSeq - pThreadInfo->start_table_from,
-                timestamp, i, ttl, pkCur);
+                timestamp, i, ttl, pkCur, pkCnt);
             break;
         case SML_JSON_TAOS_FORMAT:
             generated = prepareProgressDataSmlJson(
                     pThreadInfo,
                     tableSeq,
-                    timestamp, i, ttl, pkCur);
+                    timestamp, i, ttl, pkCur, pkCnt);
             break;
         default:
             errorPrint("%s() LN%d: unknown protcolor: %d\n",
@@ -2147,27 +2156,30 @@ static int32_t prepareProgressDataSml(
 }
 
 // if return true, timestmap must add timestap_step, else timestamp no need changed
-bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur) {
-    int32_t cnt = 0; 
-    if (stbInfo->repeat_ts_min >= stbInfo->repeat_ts_max) {
-        // fixed count value is max
-        if (stbInfo->repeat_ts_max == 0){
-            return true;
-        }
+bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt) {
+    // check need generate cnt
+    if(*pkCnt == 0) {
+        if (stbInfo->repeat_ts_min >= stbInfo->repeat_ts_max) {
+            // fixed count value is max
+            if (stbInfo->repeat_ts_max == 0){
+                return true;
+            }
 
-        cnt = stbInfo->repeat_ts_max;
-    } else {
-        // random range
-        cnt = RD(stbInfo->repeat_ts_max + 1);
-        if(cnt < stbInfo->repeat_ts_min) {
-            cnt = (cnt + stbInfo->repeat_ts_min) % stbInfo->repeat_ts_max;
+            *pkCnt = stbInfo->repeat_ts_max;
+        } else {
+            // random range
+            *pkCnt = RD(stbInfo->repeat_ts_max + 1);
+            if(*pkCnt < stbInfo->repeat_ts_min) {
+                *pkCnt = (*pkCnt + stbInfo->repeat_ts_min) % stbInfo->repeat_ts_max;
+            }
         }
     }
 
     // compare with current value
-    if(*pkCur >= cnt) {
+    if(*pkCur >= *pkCnt) {
         // reset zero
         *pkCur = 0;
+        *pkCnt = 0;
         return true;
     } else {
         // add one
@@ -2183,7 +2195,7 @@ static int32_t prepareProgressDataSql(
                     uint64_t tableSeq,
                     char *sampleDataBuf,
                     int64_t *timestamp, uint64_t i, char *ttl,
-                    int32_t *pos, uint64_t *len, int32_t* pkCur) {
+                    int32_t *pos, uint64_t *len, int32_t* pkCur, int32_t* pkCnt) {
     // prepareProgressDataSql
     int32_t generated = 0;
     SDataBase *database = pThreadInfo->dbInfo;
@@ -2265,7 +2277,7 @@ static int32_t prepareProgressDataSql(
             *pos = 0;
         }
         // primary key
-        if(!stbInfo->primary_key || needChangeTs(stbInfo, pkCur)) {
+        if(!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
             *timestamp += stbInfo->timestamp_step;
         }
    
@@ -2356,7 +2368,8 @@ void *syncWriteProgressive(void *sarg) {
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
         int32_t pos = 0;
-        int32_t pkCur = 0; // record generate same timestamp count
+        int32_t pkCur = 0; // record generate same timestamp current count
+        int32_t pkCnt = 0; // record generate same timestamp count
         if (stmt) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
@@ -2411,12 +2424,12 @@ void *syncWriteProgressive(void *sarg) {
                             tagData,
                             w,
                             sampleDataBuf,
-                            &timestamp, i, ttl, &pos, &len, &pkCur);
+                            &timestamp, i, ttl, &pos, &len, &pkCur, &pkCnt);
                     break;
                 case STMT_IFACE: {
                     generated = prepareProgressDataStmt(
                             pThreadInfo,
-                            childTbl, &timestamp, i, ttl, &pkCur);
+                            childTbl, &timestamp, i, ttl, &pkCur, &pkCnt);
                     break;
                 }
                 case SML_REST_IFACE:
@@ -2424,7 +2437,7 @@ void *syncWriteProgressive(void *sarg) {
                     generated = prepareProgressDataSml(
                             pThreadInfo,
                             childTbl,
-                            tableSeq, &timestamp, i, ttl, &pkCur);
+                            tableSeq, &timestamp, i, ttl, &pkCur, &pkCnt);
                     break;
                 default:
                     break;

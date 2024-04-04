@@ -1780,7 +1780,7 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
                         uint32_t batch, int64_t startTime,
-                        SChildTable *childTbl, int32_t *pkCur) {
+                        SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n) {
     TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
@@ -1823,22 +1823,20 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     }
 
     // set ts array values
-    uint32_t n = 0; // timestamp_step add count
     for (uint32_t k = 0; k < batch; k++) {
         /* columnCount + 1 (ts) */
         if (stbInfo->disorderRatio) {
             *(pThreadInfo->bind_ts_array + k) =
-                startTime + getTSRandTail(stbInfo->timestamp_step, n,
+                startTime + getTSRandTail(stbInfo->timestamp_step, *n,
                                           stbInfo->disorderRatio,
                                           stbInfo->disorderRange);
         } else {
-            *(pThreadInfo->bind_ts_array + k) =
-                startTime + stbInfo->timestamp_step * n;
+            *(pThreadInfo->bind_ts_array + k) = startTime + stbInfo->timestamp_step * (*n);
         }
 
         // check n need add
-        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur)) {
-            n++;
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+            *n = *n + 1;
         }
     }
 

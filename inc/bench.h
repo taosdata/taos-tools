@@ -632,7 +632,8 @@ typedef struct SChildTable_S {
     char      *sampleDataBuf;
     uint64_t  insertRows;
     BArray    *childCols;
-    int32_t   pkCur; // repeat ts count for primary key
+    int32_t   pkCur;
+    int32_t   pkCnt;
 } SChildTable;
 
 #define PRIMARY_KEY "PRIMARY KEY"
@@ -1127,7 +1128,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 
 int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 // if return true, timestmap must add timestap_step, else timestamp no need changed
-bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur);
+bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt);
 
 
 #endif   // INC_BENCH_H_
