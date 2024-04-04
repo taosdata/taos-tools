@@ -483,7 +483,8 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
 //
 // generate  insert batch body, return rows in batch
 //
-uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t* pStartTime, char* pstr, uint32_t slen, STotal* pBatT) {
+uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t* pStartTime, char* pstr, 
+                     uint32_t slen, STotal* pBatT, int32_t *pkCur) {
   int32_t genRows = 0;
   int64_t  ts = *pStartTime;
   int64_t  startTime = *pStartTime;
@@ -584,7 +585,9 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
     } // if RULE_
 
     // move next ts
-    ts += timestamp_step;
+    if (!stb->primary_key || needChangeTs(stb, pkCur)) {
+      ts += timestamp_step;
+    }
 
     // check over TSDB_MAX_ALLOWED_SQL_LENGTH
     if (len > (TSDB_MAX_ALLOWED_SQL_LEN - stb->lenOfCols - 320)) {
@@ -795,6 +798,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     SMixRatio mixRatio;
     mixRatioInit(&mixRatio, stb);
     int64_t batStartTime = stb->startTimestamp;
+    int32_t pkCur = 0; // primary key repeat ts count 
     STotal tbTotal;
     memset(&tbTotal, 0 , sizeof(STotal));
 
@@ -827,7 +831,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // batch create sql values
       STotal batTotal;
       memset(&batTotal, 0 , sizeof(STotal));
-      uint32_t batchRows = genBatchSql(info, stb, &mixRatio, &batStartTime, info->buffer, len, &batTotal);
+      uint32_t batchRows = genBatchSql(info, stb, &mixRatio, &batStartTime, info->buffer, len, &batTotal, &pkCur);
 
       // execute insert sql
       int64_t startTs = toolsGetTimestampUs();

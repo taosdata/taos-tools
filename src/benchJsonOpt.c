@@ -1161,6 +1161,39 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {
             return -1;
         }
+
+        // primary key
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "primary_key");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            stbInfo->primary_key = itemObj->valueint == 1;
+        }
+        // repeat_ts_min
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "repeat_ts_min");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            stbInfo->repeat_ts_min = (int)itemObj->valueint;
+        }
+        // repeat_ts_max
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "repeat_ts_max");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            stbInfo->repeat_ts_max = (int)itemObj->valueint;
+        }
+
+        // sqls
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "sqls");
+        if (tools_cJSON_IsArray(itemObj)) {
+            int cnt = tools_cJSON_GetArraySize(itemObj);
+            if(cnt > 0) {
+                char ** sqls = benchCalloc(cnt + 1, sizeof(char *)); // +1 add end
+                stbInfo->sqls = sqls;
+                for(int i=0; i < cnt; i++) {
+                    tools_cJSON *sqlObj = tools_cJSON_GetArrayItem(itemObj);
+                    if(sqlObj && tools_cJSON_IsString(sqlObj)) {
+                        *sqls = strdup(sqlObj->valuestring);
+                        sqls++;
+                    }
+                }
+            }
+        }
     }
     return 0;
 }

@@ -77,7 +77,7 @@ void benchPrintHelp() {
     printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
     printf("%s%s%s%s\r\n", indent, "-R,", indent, BENCH_RANGE);
     printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
-    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
+    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_START_TIMESTAMP);
     printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
     printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
     printf("%s%s%s%s\r\n", indent, "-u,", indent, BENCH_USER);

@@ -632,8 +632,10 @@ typedef struct SChildTable_S {
     char      *sampleDataBuf;
     uint64_t  insertRows;
     BArray    *childCols;
+    int32_t   pkCur; // repeat ts count for primary key
 } SChildTable;
 
+#define PRIMARY_KEY "PRIMARY KEY"
 typedef struct SSuperTable_S {
     char      *stbName;
     bool      random_data_source;  // rand_gen or sample
@@ -728,6 +730,13 @@ typedef struct SSuperTable_S {
     int       ttl;
     int32_t   keep_trying;
     uint32_t  trying_interval;
+    // primary key
+    bool primary_key;
+    int  repeat_ts_min;
+    int  repeat_ts_max;
+
+    // execute sqls after create super table
+    char **sqls;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -1117,5 +1126,8 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
 
 int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
+// if return true, timestmap must add timestap_step, else timestamp no need changed
+bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur);
+
 
 #endif   // INC_BENCH_H_
