@@ -3879,14 +3879,16 @@ int insertTestProcess() {
             #ifdef TD_VER_COMPATIBLE_3_0_0_0
             if (database->superTbls) {
                 SBenchConn* conn = initBenchConn();
-                int32_t vgroups = getVgroupsOfDb(conn, database);
-                if (vgroups <=0) {
+                if (conn) {
+                    int32_t vgroups = getVgroupsOfDb(conn, database);
+                    if (vgroups <=0) {
+                        closeBenchConn(conn);
+                        errorPrint("Database %s's vgroups is zero.\n", database->dbName);
+                        return -1;
+                    }
                     closeBenchConn(conn);
-                    errorPrint("Database %s's vgroups is zero.\n", database->dbName);
-                    return -1;
+                    succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
                 }
-                closeBenchConn(conn);
-                succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
             }
             #endif  // TD_VER_COMPATIBLE_3_0_0_0
         }
