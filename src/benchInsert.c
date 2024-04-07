@@ -2913,7 +2913,7 @@ static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
         int *lengths = taos_fetch_lengths(res);
         char * childName = benchCalloc(1, lengths[0] + 1, true);
         strncpy(childName, row[0], lengths[0]);
-        childName[lengths[0] + 1] = '\0';
+        childName[lengths[0]] = '\0';
         stbInfo->childTblArray[count]->name = childName;
         debugPrint("stbInfo->childTblArray[%" PRId64 "]->name: %s\n",
                    count, stbInfo->childTblArray[count]->name);
