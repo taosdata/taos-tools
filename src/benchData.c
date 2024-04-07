@@ -1000,7 +1000,8 @@ static int fillStmt(
             }
         }
 skip_stmt:
-        *(sampleDataBuf + pos - 1) = 0;
+        if (pos > 0)
+            *(sampleDataBuf + pos - 1) = 0;
     }
     return 0;
 }
