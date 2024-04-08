@@ -1000,7 +1000,8 @@ static int fillStmt(
             }
         }
 skip_stmt:
-        *(sampleDataBuf + pos - 1) = 0;
+        if (pos > 0)
+            *(sampleDataBuf + pos - 1) = 0;
     }
     return 0;
 }
@@ -1780,7 +1781,7 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
                         uint32_t batch, int64_t startTime,
-                        SChildTable *childTbl) {
+                        SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n) {
     TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
@@ -1822,16 +1823,21 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         param->num = batch;
     }
 
+    // set ts array values
     for (uint32_t k = 0; k < batch; k++) {
         /* columnCount + 1 (ts) */
         if (stbInfo->disorderRatio) {
             *(pThreadInfo->bind_ts_array + k) =
-                startTime + getTSRandTail(stbInfo->timestamp_step, k,
+                startTime + getTSRandTail(stbInfo->timestamp_step, *n,
                                           stbInfo->disorderRatio,
                                           stbInfo->disorderRange);
         } else {
-            *(pThreadInfo->bind_ts_array + k) =
-                startTime + stbInfo->timestamp_step * k;
+            *(pThreadInfo->bind_ts_array + k) = startTime + stbInfo->timestamp_step * (*n);
+        }
+
+        // check n need add
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+            *n = *n + 1;
         }
     }
 
