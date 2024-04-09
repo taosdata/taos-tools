@@ -15,8 +15,8 @@
             "dbinfo": {
                 "name": "primary",
                 "drop": "yes",
-                "vgroups": 6,
-                "replica": 3,
+                "vgroups": 2,
+                "replica": 1,
                 "precision": "ms"
             },
             "super_tables": [
@@ -31,10 +31,10 @@
                     "timestamp_step": 10,
                     "start_timestamp":1500000000000,
                     "primary_key":1,
-                    "repeat_ts_min": 0,
+                    "repeat_ts_min": 5,
                     "repeat_ts_max": 10,
                     "columns": [
-                        { "type": "int",         "name": "pk", "max": 100, "min": 0 },
+                        { "type": "int",         "name": "pk", "max": 10000000, "min": 0 },
                         { "type": "bool",        "name": "bc"},
                         { "type": "float",       "name": "fc",  "max": 1, "min": 0 },
                         { "type": "double",      "name": "dc",  "max": 1, "min": 0 },
@@ -58,9 +58,8 @@
                         }
                     ],
                     "sqls" : [
-                        "select count(*) from primary.meters",
-                        "select max(pk) from primary.meters",
-                        "create topic tp1 as * from primary.meters"
+                        "create tmsa tmsa1 on test.meters ...",
+                        "create recursive tsma tmsa2 on test.tmsa1 ..."
                     ]
                 }
             ]

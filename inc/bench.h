@@ -632,6 +632,7 @@ typedef struct SChildTable_S {
     char      *sampleDataBuf;
     uint64_t  insertRows;
     BArray    *childCols;
+    int64_t   ts;  // record child table ts
     int32_t   pkCur;
     int32_t   pkCnt;
 } SChildTable;
