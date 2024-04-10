@@ -570,6 +570,23 @@ typedef struct SChildField {
 
 #define TAG_BATCH_COUNT 100
 
+#define GEN_RANDOM  0
+#define GEN_ORDER   1
+
+#define COL_GEN (field->gen == GEN_ORDER ? k : taosRandom())
+
+#define tmpInt8(field)    tmpInt8Impl(field, 0)
+#define tmpUint8(field)   tmpUint8Impl(field, 0)
+#define tmpInt16(field)   tmpInt16Impl(field, 0)
+#define tmpUint16(field)  tmpUint16Impl(field, 0)
+
+#define tmpInt32(field)   tmpInt32Impl(field, 0, 0)
+#define tmpUint32(field)  tmpUint32Impl(field, 0, 0)
+#define tmpInt64(field)   tmpInt64Impl(field, 0, 0)
+#define tmpUint64(field)  tmpUint64Impl(field, 0, 0)
+#define tmpFloat(field)   tmpFloatImpl(field, 0, 0)
+#define tmpDouble(field)  tmpDoubleImpl(field, 0, 0)
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -592,8 +609,9 @@ typedef struct SField {
     int32_t    offset;
     int32_t    step;
 
-
     bool     sma;
+    uint8_t   gen; // see GEN_ define
+    int32_t   order; // record current order
 } Field;
 
 typedef struct STSMA {

@@ -95,21 +95,6 @@ uint32_t genRadomString(char* val, uint32_t len, char* prefix) {
   return size;
 }
 
-// these define on benchData.c
-bool     tmpBool  (Field *field);
-int8_t   tmpInt8  (Field *field);
-int16_t  tmpInt16 (Field *field);
-uint16_t tmpUint16(Field *field);
-int      tmpInt32 (Field *field, int i);
-int64_t  tmpInt64 (Field *field);
-int64_t  tmpInt64 (Field *field);
-uint8_t  tmpUint8 (Field *field);
-uint32_t tmpUint  (Field *field);
-uint64_t tmpUint64(Field *field);
-float    tmpFloat (Field *field);
-double   tmpDouble(Field *field);
-
-uint64_t tmpUint64(Field *field);
 
 // data row generate by randowm
 uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
@@ -119,6 +104,8 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
         size = sprintf(pstr + len, ",%s", VAL_NULL);
         return size;
     }
+    // order ++
+    fd->order += 1
 
     switch (fd->type) {    
     case TSDB_DATA_TYPE_BOOL:
@@ -130,36 +117,36 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
         break;
     // signed    
     case TSDB_DATA_TYPE_TINYINT:
-        sprintf(val, "%d", tmpInt8(fd));
+        sprintf(val, "%d", tmpInt8Impl(fd, fd->order));
         break;        
     case TSDB_DATA_TYPE_SMALLINT:
-        sprintf(val, "%d", tmpInt16(fd));
+        sprintf(val, "%d", tmpInt16Impl(fd,fd->order));
         break;
     case TSDB_DATA_TYPE_INT:
-        sprintf(val, "%d", tmpInt32(fd, 0));
+        sprintf(val, "%d", tmpInt32Impl(fd, 0, fd->order));
         break;
     case TSDB_DATA_TYPE_BIGINT:
-        sprintf(val, "%"PRId64, tmpInt64(fd));
+        sprintf(val, "%"PRId64, tmpInt64Impl(fd, 0, fd->order));
         break;
     // unsigned    
     case TSDB_DATA_TYPE_UTINYINT:
-        sprintf(val, "%u", tmpUint8(fd));
+        sprintf(val, "%u", tmpUint8Impl(fd, fd->order));
         break;
     case TSDB_DATA_TYPE_USMALLINT:
-        sprintf(val, "%u", tmpUint16(fd));
+        sprintf(val, "%u", tmpUint16Impl(fd, fd->order));
         break;
     case TSDB_DATA_TYPE_UINT:
-        sprintf(val, "%u", tmpUint(fd));
+        sprintf(val, "%u", tmpUint32Impl(fd, 0, fd->order));
         break;
     case TSDB_DATA_TYPE_UBIGINT:
-        sprintf(val, "%"PRIu64, tmpUint64(fd));
+        sprintf(val, "%"PRIu64, tmpUint64Impl(fd, 0, fd->order));
         break;
     // float double
     case TSDB_DATA_TYPE_FLOAT:
-        sprintf(val, "%f", tmpFloat(fd));
+        sprintf(val, "%f", tmpFloatImpl(fd, 0, fd->order));
         break;
     case TSDB_DATA_TYPE_DOUBLE:
-        sprintf(val, "%f", tmpDouble(fd));
+        sprintf(val, "%f", tmpDoubleImpl(fd, 0, fd->order));
         break;
     // binary nchar
     case TSDB_DATA_TYPE_BINARY:

@@ -1612,7 +1612,7 @@ static void *syncWriteInterlace(void *sarg) {
                             int64_t tsnow = toolsGetTimestamp(database->precision);
                             if(childTbl->ts >= tsnow){
                                 fillBack = false;
-                                infoPrint("fillBack mode set end. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
+                                infoPrint("fillBack mode set end. because timestamp(%"PRId64") >= now(%"PRId64")\n", childTbl->ts, tsnow);
                             }
                         }
 
@@ -1632,6 +1632,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     ",",
                                     sampleDataBuf + pos * stbInfo->lenOfCols,
                                     ") ");
+                        // check buffer enough
                         if (ds_len(pThreadInfo->buffer)
                                 > stbInfo->max_sql_len) {
                             errorPrint("sql buffer length (%"PRIu64") "
@@ -1645,15 +1646,17 @@ static void *syncWriteInterlace(void *sarg) {
                         // move next
                         generated++;
                         pos++;
-                        //printf(" interlace pos=%" PRId64 " j=%" PRId64" timestamp=%"PRId64" tableName=%s tableSeq=%"PRIu64" \n", pos, j, timestamp, tableName, tableSeq);
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
+                        infoPrint("add child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
 
                         // primary key
                         if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
                             childTbl->ts += stbInfo->timestamp_step;
-                        }                        
+                            infoPrint("changedTs child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
+                        }
+                        
                     }
                     break;
                 }
