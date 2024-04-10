@@ -518,7 +518,7 @@ uint16_t tmpUint16Impl(Field *field, int64_t k) {
     return usmallintTmp;
 }
 
-static int tmpInt32Impl(Field *field, int i, int angle, int32_t k) {
+int tmpInt32Impl(Field *field, int i, int angle, int32_t k) {
     int intTmp;
     if (field->funType != FUNTYPE_NONE) {
         // calc from function
@@ -588,14 +588,14 @@ uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k) {
     return bigintTmp;
 }
 
-static float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k) {
+float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k) {
     float floatTmp = (float)field->min;
     if(field->funType != FUNTYPE_NONE) {
         floatTmp = funValueFloat(field, angle, k);
     } else {
         if (field->max != field->min) {
             if (field->gen == GEN_ORDER) {
-                floatTmp += (k % (field->max - field->min))
+                floatTmp += (k % (field->max - field->min));
             } else {
                 floatTmp += ((taosRandom() %
                         (field->max - field->min))
@@ -1353,7 +1353,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatI(field, angle, k);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", floatTmp);
                     break;

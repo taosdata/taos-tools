@@ -250,7 +250,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // gen
         tools_cJSON *dataGen = tools_cJSON_GetObjectItem(column, "gen");
         if (tools_cJSON_IsString(dataGen)) {
-            if (stricmp(dataGen->valuestring, "order")) {
+            if (strcasecmp(dataGen->valuestring, "order")) {
                 gen = GEN_ORDER;
             }
         }
