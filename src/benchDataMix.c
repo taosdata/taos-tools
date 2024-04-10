@@ -105,7 +105,7 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
         return size;
     }
     // order ++
-    fd->order += 1
+    fd->order += 1;
 
     switch (fd->type) {    
     case TSDB_DATA_TYPE_BOOL:
