@@ -14,7 +14,7 @@
     "databases": [
         {
             "dbinfo": {
-                "name": "primary",
+                "name": "primarydb",
                 "drop": "yes",
                 "vgroups": 2,
                 "replica": 1,
