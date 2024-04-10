@@ -123,7 +123,7 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
         sprintf(val, "%d", tmpInt16Impl(fd,fd->order));
         break;
     case TSDB_DATA_TYPE_INT:
-        sprintf(val, "%d", tmpInt32Impl(fd, 0, fd->order));
+        sprintf(val, "%d", tmpInt32Impl(fd, 0, 0, fd->order));
         break;
     case TSDB_DATA_TYPE_BIGINT:
         sprintf(val, "%"PRId64, tmpInt64Impl(fd, 0, fd->order));
@@ -136,14 +136,14 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
         sprintf(val, "%u", tmpUint16Impl(fd, fd->order));
         break;
     case TSDB_DATA_TYPE_UINT:
-        sprintf(val, "%u", tmpUint32Impl(fd, 0, fd->order));
+        sprintf(val, "%u", tmpUint32Impl(fd, 0, 0, fd->order));
         break;
     case TSDB_DATA_TYPE_UBIGINT:
         sprintf(val, "%"PRIu64, tmpUint64Impl(fd, 0, fd->order));
         break;
     // float double
     case TSDB_DATA_TYPE_FLOAT:
-        sprintf(val, "%f", tmpFloatImpl(fd, 0, fd->order));
+        sprintf(val, "%f", tmpFloatImpl(fd, 0, 0, fd->order));
         break;
     case TSDB_DATA_TYPE_DOUBLE:
         sprintf(val, "%f", tmpDoubleImpl(fd, 0, fd->order));

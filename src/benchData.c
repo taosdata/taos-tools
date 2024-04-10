@@ -468,7 +468,7 @@ static int tmpStr(char *tmp, int iface, Field *field, int i, int64_t k) {
         }
     } else {
         if(field->gen == GEN_ORDER) {
-            snprintf(tmp, field->length, "%"PRId64, buf->valuestring);
+            snprintf(tmp, field->length, "%"PRId64, k);
         } else {
             rand_string(tmp, field->length, g_arguments->chinese);
         }
@@ -543,7 +543,7 @@ static int tmpInt32Impl(Field *field, int i, int angle, int32_t k) {
     return intTmp;
 }
 
-uint32_t tmpUint32Impl(Field *field, int angle, int64_t k) {
+uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k) {
     uint32_t intTmp;
     if (field->funType != FUNTYPE_NONE) {
         // calc from function
@@ -588,10 +588,10 @@ uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k) {
     return bigintTmp;
 }
 
-static float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t loop) {
+static float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k) {
     float floatTmp = (float)field->min;
     if(field->funType != FUNTYPE_NONE) {
-        floatTmp = funValueFloat(field, angle, loop);
+        floatTmp = funValueFloat(field, angle, k);
     } else {
         if (field->max != field->min) {
             if (field->gen == GEN_ORDER) {
@@ -761,7 +761,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint32Impl(field, angle, k);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%u,", uintTmp);
                     break;
@@ -898,7 +898,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32Impl(field, k);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     if (childCol) {
                         ((int32_t *)childCol->stmtData.data)[k] = intTmp;
                     } else {
@@ -920,7 +920,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint32Impl(field, angle, k);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     if (childCol) {
                         ((uint32_t *)childCol->stmtData.data)[k] = uintTmp;
                     } else {
@@ -943,7 +943,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatImpl(field, angle, k);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     if (childCol) {
                         ((float *)childCol->stmtData.data)[k] = floatTmp;
                     } else {
@@ -1139,7 +1139,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32Impl(field, angle, k);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%di32 ",
@@ -1164,7 +1164,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint32Impl(field, angle, k);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos,
@@ -1191,7 +1191,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatImpl(field, angle, k);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%ff32 ", field->name, floatTmp);
@@ -1328,7 +1328,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32Impl(field, angle, k);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%d,", intTmp);
                     break;
@@ -1340,7 +1340,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint32Impl(field, angle, k);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%u,", uintTmp);
                     break;
@@ -1460,7 +1460,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32Impl(field, angle, k);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%di32,",
                                     field->name, intTmp);
@@ -1473,7 +1473,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint32Impl(field, angle, k);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%uu32,", field->name, uintTmp);
                     break;
@@ -1486,7 +1486,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatImpl(field, angle, k);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                     bufLen - pos, "%s=%ff32,",
                                     field->name, floatTmp);

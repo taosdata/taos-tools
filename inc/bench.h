@@ -580,12 +580,12 @@ typedef struct SChildField {
 #define tmpInt16(field)   tmpInt16Impl(field, 0)
 #define tmpUint16(field)  tmpUint16Impl(field, 0)
 
-#define tmpInt32(field)   tmpInt32Impl(field, 0, 0)
-#define tmpUint32(field)  tmpUint32Impl(field, 0, 0)
-#define tmpInt64(field)   tmpInt64Impl(field, 0, 0)
-#define tmpUint64(field)  tmpUint64Impl(field, 0, 0)
-#define tmpFloat(field)   tmpFloatImpl(field, 0, 0)
-#define tmpDouble(field)  tmpDoubleImpl(field, 0, 0)
+#define tmpInt32(field)   tmpInt32Impl (field,0,0,0)
+#define tmpUint32(field)  tmpUint32Impl(field,0,0,0)
+#define tmpInt64(field)   tmpInt64Impl (field,0,0)
+#define tmpUint64(field)  tmpUint64Impl(field,0,0)
+#define tmpFloat(field)   tmpFloatImpl (field,0,0,0)
+#define tmpDouble(field)  tmpDoubleImpl(field,0,0)
 
 typedef struct SField {
     uint8_t  type;
