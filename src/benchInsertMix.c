@@ -285,7 +285,7 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
 }
 
 #define GET_IDX(i) info->batCols[i]
-uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
+uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts, int64_t* k) {
   uint32_t size = 0;
   // first col is ts
   if (stb->useNow) {
@@ -317,7 +317,7 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
       }
     }
 
-    size += dataGenByField(fd, pstr, len + size, prefix);
+    size += dataGenByField(fd, pstr, len + size, prefix, k);
   }
 
   // end
@@ -345,12 +345,12 @@ uint32_t genRowTsCalc(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
 
 
 // create columns data
-uint32_t createColsData(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts) {
+uint32_t createColsData(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts, int64_t* k) {
   uint32_t size = 0;
 
   // gen row data
   if (stb->genRowRule == RULE_MIX_ALL) {
-    size = genRowMixAll(info, stb, pstr, len, ts);
+    size = genRowMixAll(info, stb, pstr, len, ts, k);
   } else if (stb->genRowRule == RULE_MIX_TS_CALC) {
     size = genRowTsCalc(info, stb, pstr, len, ts);
   } else {  // random
@@ -362,6 +362,9 @@ uint32_t createColsData(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t
   if(info->csql) {
     info->clen += snprintf(info->csql + info->clen, TSDB_MAX_ALLOWED_SQL_LEN - info->clen, "%" PRId64 ",", ts);
   }
+
+  //record counter
+  *k = *k + 1;
 
   return size;
 }
@@ -392,7 +395,8 @@ bool takeRowOutToBuf(SMixRatio* mix, uint8_t type, int64_t ts) {
 // row rule mix , global info put into mix
 //
 #define MIN_COMMIT_ROWS 10000
-uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char* pstr, uint32_t len, int64_t ts, uint32_t* pGenRows) {
+uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, char* pstr, 
+                        uint32_t len, int64_t ts, uint32_t* pGenRows, int64_t *k) {
     uint32_t size = 0;
     // remain need generate rows
     bool forceDis = FORCE_TAKEOUT(MDIS);
@@ -407,7 +411,7 @@ uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, ch
     }
 
     // gen col data
-    size = createColsData(info, stb, pstr, len, ts);
+    size = createColsData(info, stb, pstr, len, ts, k);
     if(size > 0) {
       *pGenRows += 1;
       debugPrint("    row ord ts=%" PRId64 " \n", ts);
@@ -424,7 +428,8 @@ uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, ch
 //
 // fill update rows from mix
 //
-uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t startTime, char* pstr, uint32_t len, uint32_t* pGenRows, uint8_t type, uint32_t maxFill, bool force) {
+uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t startTime, char* pstr, 
+                uint32_t len, uint32_t* pGenRows, uint8_t type, uint32_t maxFill, bool force, int64_t *k) {
     uint32_t size = 0;
     if (maxFill == 0) return 0;
 
@@ -465,7 +470,7 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
         }
 
         // generate row by ts
-        size += createColsData(info, stb, pstr, len + size, ts);
+        size += createColsData(info, stb, pstr, len + size, ts, k);
         *pGenRows += 1;
         selCnt ++;
         debugPrint("    row %s ts=%" PRId64 " \n", type == MDIS ? "dis" : "upd", ts);
@@ -484,7 +489,7 @@ uint32_t fillBatchWithBuf(threadInfo* info, SSuperTable* stb, SMixRatio* mix, in
 // generate  insert batch body, return rows in batch
 //
 uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t* pStartTime, char* pstr, 
-                     uint32_t slen, STotal* pBatT, int32_t *pkCur, int32_t *pkCnt) {
+                     uint32_t slen, STotal* pBatT, int32_t *pkCur, int32_t *pkCnt, int64_t *k) {
   int32_t genRows = 0;
   int64_t  ts = *pStartTime;
   int64_t  startTime = *pStartTime;
@@ -515,7 +520,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
             infoPrint("   ord found duplicate ts=%" PRId64 " rows=%" PRId64 "\n", ts, pBatT->ordRows);
           }
 
-          len += appendRowRuleMix(info, stb, mix, pstr, len, ts, &ordRows);
+          len += appendRowRuleMix(info, stb, mix, pstr, len, ts, &ordRows, k);
           if (ordRows > 0) {
             genRows += ordRows;
             pBatT->ordRows += ordRows;
@@ -546,7 +551,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
               }
 
               uint32_t updRows = 0;
-              len += fillBatchWithBuf(info, stb, mix, startTime, pstr, len, &updRows, MUPD, maxFill, forceUpd);
+              len += fillBatchWithBuf(info, stb, mix, startTime, pstr, len, &updRows, MUPD, maxFill, forceUpd, k);
               if (updRows > 0) {
                 genRows += updRows;
                 pBatT->updRows += updRows;
@@ -574,7 +579,7 @@ uint32_t genBatchSql(threadInfo* info, SSuperTable* stb, SMixRatio* mix, int64_t
               }
 
               uint32_t disRows = 0;
-              len += fillBatchWithBuf(info, stb, mix, startTime, pstr, len, &disRows, MDIS, maxFill, forceDis);
+              len += fillBatchWithBuf(info, stb, mix, startTime, pstr, len, &disRows, MDIS, maxFill, forceDis, k);
               if (disRows > 0) {
                 genRows += disRows;
                 pBatT->disRows += disRows;
@@ -802,6 +807,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     int32_t pkCnt = 0; // primary key repeat ts count  
     STotal tbTotal;
     memset(&tbTotal, 0 , sizeof(STotal));
+    int64_t k = 0; // position
 
     while (mixRatio.insertedRows < mixRatio.insertRows) {
       // check terminate
@@ -832,7 +838,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       // batch create sql values
       STotal batTotal;
       memset(&batTotal, 0 , sizeof(STotal));
-      uint32_t batchRows = genBatchSql(info, stb, &mixRatio, &batStartTime, info->buffer, len, &batTotal, &pkCur, &pkCnt);
+      uint32_t batchRows = genBatchSql(info, stb, &mixRatio, &batStartTime, info->buffer, len, &batTotal, &pkCur, &pkCnt, &k);
 
       // execute insert sql
       int64_t startTs = toolsGetTimestampUs();

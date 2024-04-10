@@ -208,6 +208,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int32_t period   = 0;
         int32_t offset   = 0;
         uint8_t gen      = GEN_RANDOM;
+        bool    fillNull = true;
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -250,8 +251,15 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // gen
         tools_cJSON *dataGen = tools_cJSON_GetObjectItem(column, "gen");
         if (tools_cJSON_IsString(dataGen)) {
-            if (strcasecmp(dataGen->valuestring, "order")) {
+            if (strcasecmp(dataGen->valuestring, "order") == 0) {
                 gen = GEN_ORDER;
+            }
+        }
+        // gen
+        tools_cJSON *dataGen = tools_cJSON_GetObjectItem(column, "fillNull");
+        if (tools_cJSON_IsString(dataGen)) {
+            if (strcasecmp(dataGen->valuestring, "false") == 0) {
+                fillNull = false;
             }
         }
 
@@ -297,6 +305,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->max = max;
             col->min = min;
             col->gen = gen;
+            col->fillNull = fillNull;
             col->values = dataValues;
             // fun
             col->funType  = funType;

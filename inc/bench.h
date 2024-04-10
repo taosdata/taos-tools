@@ -587,17 +587,6 @@ typedef struct SChildField {
 #define tmpFloat(field)   tmpFloatImpl (field,0,0,0)
 #define tmpDouble(field)  tmpDoubleImpl(field,0,0)
 
-bool tmpBool(Field *field);
-int8_t tmpInt8Impl(Field *field, int64_t k);
-uint8_t tmpUint8Impl(Field *field, int64_t k);
-int16_t tmpInt16Impl(Field *field, int64_t k);
-uint16_t tmpUint16Impl(Field *field, int64_t k);
-int tmpInt32Impl(Field *field, int i, int angle, int32_t k);
-uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k);
-int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t k);
-uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k);
-float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
-double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 
 typedef struct SField {
     uint8_t  type;
@@ -622,8 +611,9 @@ typedef struct SField {
     int32_t    step;
 
     bool     sma;
+    bool     fillNull;
     uint8_t   gen; // see GEN_ define
-    int32_t   order; // record current order
+
 } Field;
 
 typedef struct STSMA {
@@ -1161,5 +1151,17 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 // if return true, timestmap must add timestap_step, else timestamp no need changed
 bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt);
 
+// tmp function
+bool tmpBool(Field *field);
+int8_t tmpInt8Impl(Field *field, int64_t k);
+uint8_t tmpUint8Impl(Field *field, int64_t k);
+int16_t tmpInt16Impl(Field *field, int64_t k);
+uint16_t tmpUint16Impl(Field *field, int64_t k);
+int tmpInt32Impl(Field *field, int i, int angle, int32_t k);
+uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k);
+int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t k);
+uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k);
+float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
+double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 
 #endif   // INC_BENCH_H_

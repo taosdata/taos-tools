@@ -1128,7 +1128,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = tmpUint16Impl(field, angle, k);
+                    uint16_t usmallint = tmpUint16Impl(field, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%uu16 ", field->name, usmallint);
