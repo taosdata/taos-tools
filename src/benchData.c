@@ -439,7 +439,7 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
 }
 
 
-static int tmpStr(char *tmp, int iface, Field *field, int i, int64_t k) {
+int tmpStr(char *tmp, int iface, Field *field, int64_t k) {
     if (g_arguments->demo_mode) {
         unsigned int tmpRand = taosRandom();
         if (g_arguments->chinese) {
@@ -788,7 +788,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i, k)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -967,7 +967,7 @@ static int fillStmt(
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i, k)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -1215,7 +1215,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i, k)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -1367,7 +1367,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i, k)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -1501,7 +1501,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i, k)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }

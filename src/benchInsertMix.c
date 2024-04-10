@@ -363,9 +363,6 @@ uint32_t createColsData(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t
     info->clen += snprintf(info->csql + info->clen, TSDB_MAX_ALLOWED_SQL_LEN - info->clen, "%" PRId64 ",", ts);
   }
 
-  //record counter
-  *k = *k + 1;
-
   return size;
 }
 
@@ -413,8 +410,10 @@ uint32_t appendRowRuleMix(threadInfo* info, SSuperTable* stb, SMixRatio* mix, ch
     // gen col data
     size = createColsData(info, stb, pstr, len, ts, k);
     if(size > 0) {
+      //record counter
+      *k += 1;
       *pGenRows += 1;
-      debugPrint("    row ord ts=%" PRId64 " \n", ts);
+      debugPrint("    row ord ts=%" PRId64 " k=%"PRId64"\n", ts, *k);
     }
 
     // update

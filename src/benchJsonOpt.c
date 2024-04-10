@@ -256,9 +256,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             }
         }
         // gen
-        tools_cJSON *dataGen = tools_cJSON_GetObjectItem(column, "fillNull");
-        if (tools_cJSON_IsString(dataGen)) {
-            if (strcasecmp(dataGen->valuestring, "false") == 0) {
+        tools_cJSON *dataNull = tools_cJSON_GetObjectItem(column, "fillNull");
+        if (tools_cJSON_IsString(dataNull)) {
+            if (strcasecmp(dataNull->valuestring, "false") == 0) {
                 fillNull = false;
             }
         }

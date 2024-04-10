@@ -104,8 +104,6 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
         size = sprintf(pstr + len, ",%s", VAL_NULL);
         return size;
     }
-    // order ++
-    *k += 1;
 
     switch (fd->type) {    
     case TSDB_DATA_TYPE_BOOL:
@@ -149,11 +147,13 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
         sprintf(val, "%f", tmpDoubleImpl(fd, 0, *k));
         break;
     // binary nchar
-    case TSDB_DATA_TYPE_BINARY:
-        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
-        break;
     case TSDB_DATA_TYPE_NCHAR:
-        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
+    case TSDB_DATA_TYPE_BINARY:
+        if(fd->gen == GEN_ORDER) {
+            tmpStr(val, 0, fd, *k);
+        } else {
+            genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
+        }
         break;
     default:
         break;

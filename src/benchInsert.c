@@ -1649,12 +1649,14 @@ static void *syncWriteInterlace(void *sarg) {
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
-                        infoPrint("add child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
+                        if(stbInfo->primary_key)
+                            debugPrint("add child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
 
                         // primary key
                         if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
                             childTbl->ts += stbInfo->timestamp_step;
-                            infoPrint("changedTs child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
+                            if(stbInfo->primary_key)
+                                debugPrint("changedTs child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
                         }
                         
                     }
