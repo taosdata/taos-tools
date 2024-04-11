@@ -570,6 +570,24 @@ typedef struct SChildField {
 
 #define TAG_BATCH_COUNT 100
 
+#define GEN_RANDOM  0
+#define GEN_ORDER   1
+
+#define COL_GEN (field->gen == GEN_ORDER ? k : taosRandom())
+
+#define tmpInt8(field)    tmpInt8Impl(field, 0)
+#define tmpUint8(field)   tmpUint8Impl(field, 0)
+#define tmpInt16(field)   tmpInt16Impl(field, 0)
+#define tmpUint16(field)  tmpUint16Impl(field, 0)
+
+#define tmpInt32(field)   tmpInt32Impl (field,0,0,0)
+#define tmpUint32(field)  tmpUint32Impl(field,0,0,0)
+#define tmpInt64(field)   tmpInt64Impl (field,0,0)
+#define tmpUint64(field)  tmpUint64Impl(field,0,0)
+#define tmpFloat(field)   tmpFloatImpl (field,0,0,0)
+#define tmpDouble(field)  tmpDoubleImpl(field,0,0)
+
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -592,8 +610,10 @@ typedef struct SField {
     int32_t    offset;
     int32_t    step;
 
-
     bool     sma;
+    bool     fillNull;
+    uint8_t   gen; // see GEN_ define
+
 } Field;
 
 typedef struct STSMA {
@@ -632,6 +652,7 @@ typedef struct SChildTable_S {
     char      *sampleDataBuf;
     uint64_t  insertRows;
     BArray    *childCols;
+    int64_t   ts;  // record child table ts
     int32_t   pkCur;
     int32_t   pkCnt;
 } SChildTable;
@@ -1130,5 +1151,18 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
 // if return true, timestmap must add timestap_step, else timestamp no need changed
 bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt);
 
+// tmp function
+bool tmpBool(Field *field);
+int8_t tmpInt8Impl(Field *field, int64_t k);
+uint8_t tmpUint8Impl(Field *field, int64_t k);
+int16_t tmpInt16Impl(Field *field, int64_t k);
+uint16_t tmpUint16Impl(Field *field, int64_t k);
+int tmpInt32Impl(Field *field, int i, int angle, int32_t k);
+uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k);
+int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t k);
+uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k);
+float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
+double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
+int tmpStr(char *tmp, int iface, Field *field, int64_t k);
 
 #endif   // INC_BENCH_H_

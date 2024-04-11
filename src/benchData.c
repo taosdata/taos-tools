@@ -438,7 +438,8 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
     return len;
 }
 
-static int tmpStr(char *tmp, int iface, Field *field, int i) {
+
+int tmpStr(char *tmp, int iface, Field *field, int64_t k) {
     if (g_arguments->demo_mode) {
         unsigned int tmpRand = taosRandom();
         if (g_arguments->chinese) {
@@ -466,44 +467,13 @@ static int tmpStr(char *tmp, int iface, Field *field, int i) {
             return -1;
         }
     } else {
-        rand_string(tmp, field->length,
-                    g_arguments->chinese);
+        if(field->gen == GEN_ORDER) {
+            snprintf(tmp, field->length, "%"PRId64, k);
+        } else {
+            rand_string(tmp, field->length, g_arguments->chinese);
+        }
     }
     return 0;
-}
-
-double tmpDoubleImpl(Field *field, int32_t angle, int32_t loop) {
-    double doubleTmp = (double)(field->min);
-
-    if(field->funType != FUNTYPE_NONE) {
-        doubleTmp = funValueFloat(field, angle, loop);
-    } else if (field->max != field->min) {
-        doubleTmp += ((taosRandom() %
-            (field->max - field->min)) +
-            taosRandom() % 1000000 / 1000000.0);
-    }
-    return doubleTmp;
-}
-
-double tmpDouble(Field *field) {
-    return tmpDoubleImpl(field, 0, 0);
-}
-
-
-uint64_t tmpUint64(Field *field) {
-    uint64_t ubigintTmp = field->min;
-    if (field->max != field->min) {
-        ubigintTmp += (taosRandom() % (field->max - field->min));
-    }
-    return ubigintTmp;
-}
-
-uint32_t tmpUint(Field *field) {
-    uint32_t uintTmp = field->min;
-    if (field->max != field->min) {
-        uintTmp += (taosRandom() % (field->max - field->min));
-    }
-    return uintTmp;
 }
 
 bool tmpBool(Field *field) {
@@ -516,91 +486,43 @@ bool tmpBool(Field *field) {
     return boolTmp;
 }
 
-int8_t tmpInt8(Field *field) {
+int8_t tmpInt8Impl(Field *field, int64_t k) {
     int8_t tinyint = field->min;
     if (field->min != field->max) {
-        tinyint += (taosRandom() % (field->max - field->min));
+        tinyint += COL_GEN % (field->max - field->min);
     }
     return tinyint;
 }
 
-uint8_t tmpUint8(Field *field) {
+uint8_t tmpUint8Impl(Field *field, int64_t k) {
     uint8_t utinyint = field->min;
     if (field->min != field->max) {
-        utinyint += (taosRandom() % (field->max - field->min));
+        utinyint += (COL_GEN % (field->max - field->min));
     }
     return utinyint;
 }
 
-int16_t tmpInt16(Field *field) {
+int16_t tmpInt16Impl(Field *field, int64_t k) {
     int16_t smallint = field->min;
     if (field->min != field->max) {
-        smallint += (taosRandom() % (field->max - field->min));
+        smallint += (COL_GEN % (field->max - field->min));
     }
     return smallint;
 }
 
-uint16_t tmpUint16(Field *field) {
+uint16_t tmpUint16Impl(Field *field, int64_t k) {
     uint16_t usmallintTmp = field->min;
     if (field->max != field->min) {
-        usmallintTmp += (taosRandom() % (field->max - field->min));
+        usmallintTmp += (COL_GEN % (field->max - field->min));
     }
     return usmallintTmp;
 }
 
-int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t loop) {
-    int64_t bigintTmp = field->min;
-    if(field->funType != FUNTYPE_NONE) {
-        bigintTmp = funValueInt32(field, angle, loop);
-    } else if (field->min != field->max) {
-        bigintTmp += (taosRandom() % (field->max - field->min));
-    }
-    return bigintTmp;
-}
-
-int64_t tmpInt64(Field *field) {
-    return tmpInt64Impl(field, 0, 0);
-}
-
-float tmpFloat(Field *field) {
-    float floatTmp = field->min;
-    if (field->max != field->min) {
-        floatTmp += ((taosRandom() % (field->max - field->min))
-            + taosRandom() % 1000 / 1000.0);
-    }
-    return floatTmp;
-}
-
-static float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t loop) {
-    float floatTmp = (float)field->min;
-    if(field->funType != FUNTYPE_NONE) {
-        floatTmp = funValueFloat(field, angle, loop);
-    } else {
-        if (field->max != field->min) {
-            floatTmp += ((taosRandom() %
-                    (field->max - field->min))
-                + (taosRandom() % 1000) / 1000.0);
-        }
-        if (g_arguments->demo_mode && i == 0) {
-            floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10)
-                + floatTmp / 1000000000);
-        } else if (g_arguments->demo_mode && i == 2) {
-            floatTmp = (float)((105 + taosRandom() % 10
-                + floatTmp / 1000000000) / 360);
-        }
-    }
-    return floatTmp;
-}
-
-static float tmpFloatI(Field *field, int i) {
-    return tmpFloatImpl(field, i, 0, 0);
-}
-
-static int tmpInt32Impl(Field *field, int i, int angle, int32_t loop) {
+int tmpInt32Impl(Field *field, int i, int angle, int32_t k) {
     int intTmp;
     if (field->funType != FUNTYPE_NONE) {
         // calc from function
-        intTmp = funValueInt32(field, angle, loop);
+        intTmp = funValueInt32(field, angle, k);
     } else if ((g_arguments->demo_mode) && (i == 0)) {
         unsigned int tmpRand = taosRandom();
         intTmp = tmpRand % 10 + 1;
@@ -615,14 +537,90 @@ static int tmpInt32Impl(Field *field, int i, int angle, int32_t loop) {
         }
         intTmp = field->min;
         if (field->max != field->min) {
-            intTmp += (taosRandom() % (field->max - field->min));
+            intTmp += (COL_GEN % (field->max - field->min));
         }
     }
     return intTmp;
 }
 
-int tmpInt32(Field *field, int i) {
-    return tmpInt32Impl(field, i, 0, 0);
+uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k) {
+    uint32_t intTmp;
+    if (field->funType != FUNTYPE_NONE) {
+        // calc from function
+        intTmp = funValueInt32(field, angle, k);
+    } else if ((g_arguments->demo_mode) && (i == 0)) {
+        unsigned int tmpRand = taosRandom();
+        intTmp = tmpRand % 10 + 1;
+    } else if ((g_arguments->demo_mode) && (i == 1)) {
+        intTmp = 105 + taosRandom() % 10;
+    } else {
+        intTmp = field->min;
+        if (field->max != field->min) {
+            intTmp += (COL_GEN % (field->max - field->min));
+        }
+    }
+    return intTmp;
+}
+
+int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t k) {
+    int64_t bigintTmp = field->min;
+    if(field->funType != FUNTYPE_NONE) {
+        bigintTmp = funValueInt32(field, angle, k);
+    } else if (field->min != field->max) {
+        bigintTmp += (COL_GEN % (field->max - field->min));
+    }
+    return bigintTmp;
+}
+
+uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k) {
+    uint64_t bigintTmp = field->min;
+    if(field->funType != FUNTYPE_NONE) {
+        bigintTmp = funValueInt32(field, angle, k);
+    } else if (field->min != field->max) {
+        bigintTmp += (COL_GEN % (field->max - field->min));
+    }
+    return bigintTmp;
+}
+
+float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k) {
+    float floatTmp = (float)field->min;
+    if(field->funType != FUNTYPE_NONE) {
+        floatTmp = funValueFloat(field, angle, k);
+    } else {
+        if (field->max != field->min) {
+            if (field->gen == GEN_ORDER) {
+                floatTmp += (k % (field->max - field->min));
+            } else {
+                floatTmp += ((taosRandom() %
+                        (field->max - field->min))
+                    + (taosRandom() % 1000) / 1000.0);
+            }
+        }
+        if (g_arguments->demo_mode && i == 0) {
+            floatTmp = (float)(9.8 + 0.04 * (taosRandom() % 10)
+                + floatTmp / 1000000000);
+        } else if (g_arguments->demo_mode && i == 2) {
+            floatTmp = (float)((105 + taosRandom() % 10
+                + floatTmp / 1000000000) / 360);
+        }
+    }
+    return floatTmp;
+}
+
+double tmpDoubleImpl(Field *field, int32_t angle, int32_t k) {
+    double doubleTmp = (double)(field->min);
+    if(field->funType != FUNTYPE_NONE) {
+        doubleTmp = funValueFloat(field, angle, k);
+    } else if (field->max != field->min) {
+        if(field->gen == GEN_ORDER) {
+            doubleTmp += k % (field->max - field->min);
+        } else {
+            doubleTmp += ((taosRandom() %
+                (field->max - field->min)) +
+                taosRandom() % 1000000 / 1000000.0);
+        }
+    }
+    return doubleTmp;
 }
 
 static int tmpJson(char *sampleDataBuf,
@@ -721,25 +719,25 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint = tmpInt8(field);
+                    int8_t tinyint = tmpInt8Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%d,", tinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = tmpUint8(field);
+                    uint8_t utinyint = tmpUint8Impl(field, k);
                     n = snprintf(sampleDataBuf + pos,
                                     bufLen - pos, "%u,", utinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = tmpInt16(field);
+                    int16_t smallint = tmpInt16Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", smallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = tmpUint16(field);
+                    uint16_t usmallint = tmpUint16Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%u,", usmallint);
                     break;
@@ -757,14 +755,14 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint(field);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%u,", uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp = tmpUint64(field);
+                    uint64_t ubigintTmp = tmpUint64Impl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%"PRIu64",", ubigintTmp);
                     break;
@@ -784,7 +782,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -826,7 +824,7 @@ static int fillStmt(
     int64_t bufLen,
     int lenOfOneRow, BArray *fields,
     int64_t loop, bool tag, BArray *childCols) {
-    // fillStmt()
+    int angle = stbInfo->startTimestamp % 360; // 0 ~ 360
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int fieldsSize = fields->size;
@@ -850,7 +848,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyintTmp = tmpInt8(field);
+                    int8_t tinyintTmp = tmpInt8Impl(field, k);
                     if (childCol) {
                         ((int8_t *)childCol->stmtData.data)[k] = tinyintTmp;
                     } else {
@@ -861,7 +859,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyintTmp = tmpUint8(field);
+                    uint8_t utinyintTmp = tmpUint8Impl(field, k);
                     if (childCol) {
                         ((uint8_t *)childCol->stmtData.data)[k] = utinyintTmp;
                     } else {
@@ -872,7 +870,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallintTmp = tmpInt16(field);
+                    int16_t smallintTmp = tmpInt16Impl(field, k);
                     if (childCol) {
                         ((int16_t *)childCol->stmtData.data)[k] = smallintTmp;
                     } else {
@@ -883,7 +881,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallintTmp = tmpUint16(field);
+                    uint16_t usmallintTmp = tmpUint16Impl(field, k);
                     if (childCol) {
                         ((uint16_t *)childCol->stmtData.data)[k] = usmallintTmp;
                     } else {
@@ -894,7 +892,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32(field, i);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     if (childCol) {
                         ((int32_t *)childCol->stmtData.data)[k] = intTmp;
                     } else {
@@ -905,7 +903,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = tmpInt64(field);
+                    int64_t bigintTmp = tmpInt64Impl(field, angle, k);
                     if (childCol) {
                         ((int64_t *)childCol->stmtData.data)[k] = bigintTmp;
                     } else {
@@ -916,7 +914,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint(field);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     if (childCol) {
                         ((uint32_t *)childCol->stmtData.data)[k] = uintTmp;
                     } else {
@@ -928,7 +926,7 @@ static int fillStmt(
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp = tmpUint64(field);
+                    uint64_t ubigintTmp = tmpUint64Impl(field, angle, k);
                     if (childCol) {
                         ((uint64_t *)childCol->stmtData.data)[k] = ubigintTmp;
                     } else {
@@ -939,7 +937,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatI(field, i);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     if (childCol) {
                         ((float *)childCol->stmtData.data)[k] = floatTmp;
                     } else {
@@ -950,7 +948,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double doubleTmp = tmpDouble(field);
+                    double doubleTmp = tmpDoubleImpl(field, angle, k);
                     if (childCol) {
                         ((double *)childCol->stmtData.data)[k] = doubleTmp;
                     } else {
@@ -963,7 +961,7 @@ static int fillStmt(
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -1002,6 +1000,11 @@ static int fillStmt(
 skip_stmt:
         if (pos > 0)
             *(sampleDataBuf + pos - 1) = 0;
+        angle += stbInfo->timestamp_step/stbInfo->angle_step;
+        if (angle > 360) {
+            angle -= 360;
+        }
+
     }
     return 0;
 }
@@ -1062,6 +1065,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                      int bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
+    int angle = stbInfo->startTimestamp % 360; // 0 ~ 360
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int fieldsSize = fields->size;
@@ -1085,7 +1089,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint = tmpInt8(field);
+                    int8_t tinyint = tmpInt8Impl(field, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%di8 ", field->name, tinyint);
@@ -1096,7 +1100,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = tmpUint8(field);
+                    uint8_t utinyint = tmpUint8Impl(field, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%uu8 ", field->name, utinyint);
@@ -1107,7 +1111,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = tmpInt16(field);
+                    int16_t smallint = tmpInt16Impl(field, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%di16 ", field->name, smallint);
@@ -1118,7 +1122,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = tmpUint16(field);
+                    uint16_t usmallint = tmpUint16Impl(field, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%uu16 ", field->name, usmallint);
@@ -1129,7 +1133,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32(field, i);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%di32 ",
@@ -1142,7 +1146,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = tmpInt64(field);
+                    int64_t bigintTmp = tmpInt64Impl(field, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                      "%s=%"PRId64"i64 ",
@@ -1154,10 +1158,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = field->min;
-                    if (field->max != field->min) {
-                        uintTmp += (taosRandom() % (field->max - field->min));
-                    }
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos,
@@ -1172,7 +1173,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp = tmpUint64(field);
+                    uint64_t ubigintTmp = tmpUint64Impl(field, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                      "%s=%"PRIu64"u64 ",
@@ -1184,7 +1185,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatI(field, i);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%ff32 ", field->name, floatTmp);
@@ -1195,7 +1196,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ = tmpDouble(field);
+                    double double_ = tmpDoubleImpl(field, angle, k);
                     if (tag) {
                         n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%s=%ff64 ", field->name, double_);
@@ -1208,7 +1209,7 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -1268,6 +1269,11 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
         }
 skip_telnet:
         *(sampleDataBuf + pos - 1) = 0;
+        angle += stbInfo->timestamp_step/stbInfo->angle_step;
+        if (angle > 360) {
+            angle -= 360;
+        }
+
     }
 
     return 0;
@@ -1277,6 +1283,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                      int bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
+    int angle = stbInfo->startTimestamp % 360; // 0 ~ 360
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int fieldsSize = fields->size;
@@ -1291,62 +1298,62 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint = tmpInt8(field);
+                    int8_t tinyint = tmpInt8Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", tinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = tmpUint8(field);
+                    uint8_t utinyint = tmpUint8Impl(field, k);
                     n = snprintf(sampleDataBuf + pos,
                                         bufLen - pos, "%u,", utinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = tmpInt16(field);
+                    int16_t smallint = tmpInt16Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%d,", smallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = tmpUint16(field);
+                    uint16_t usmallint = tmpUint16Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%u,", usmallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32(field, i);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%d,", intTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = tmpInt64(field);
+                    int64_t bigintTmp = tmpInt64Impl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%"PRId64",", bigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint(field);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%u,", uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp = tmpUint64(field);
+                    uint64_t ubigintTmp = tmpUint64Impl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                  bufLen - pos, "%"PRIu64",", ubigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatI(field, i);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double double_ = tmpDouble(field);
+                    double double_ = tmpDoubleImpl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "%f,", double_);
                     break;
@@ -1354,7 +1361,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -1381,6 +1388,10 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
         }
 skip_json:
         *(sampleDataBuf + pos - 1) = 0;
+        angle += stbInfo->timestamp_step/stbInfo->angle_step;
+        if (angle > 360) {
+            angle -= 360;
+        }
     }
 
     return 0;
@@ -1390,6 +1401,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                      int bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
+    int angle = stbInfo->startTimestamp % 360; // 0 ~ 360                    
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int n = 0;
@@ -1417,65 +1429,65 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_TINYINT: {
-                    int8_t tinyint = tmpInt8(field);
+                    int8_t tinyint = tmpInt8Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%di8,", field->name, tinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_UTINYINT: {
-                    uint8_t utinyint = tmpUint8(field);
+                    uint8_t utinyint = tmpUint8Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%uu8,", field->name, utinyint);
                     break;
                 }
                 case TSDB_DATA_TYPE_SMALLINT: {
-                    int16_t smallint = tmpInt16(field);
+                    int16_t smallint = tmpInt16Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%di16,", field->name, smallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_USMALLINT: {
-                    uint16_t usmallint = tmpUint16(field);
+                    uint16_t usmallint = tmpUint16Impl(field, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%uu16,",
                                     field->name, usmallint);
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32(field, i);
+                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%di32,",
                                     field->name, intTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_BIGINT: {
-                    int64_t bigintTmp = tmpInt64(field);
+                    int64_t bigintTmp = tmpInt64Impl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                  "%s=%"PRId64"i64,", field->name, bigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UINT: {
-                    uint32_t uintTmp = tmpUint(field);
+                    uint32_t uintTmp = tmpUint32Impl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%uu32,", field->name, uintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_UBIGINT:
                 case TSDB_DATA_TYPE_TIMESTAMP: {
-                    uint64_t ubigintTmp = tmpUint64(field);
+                    uint64_t ubigintTmp = tmpUint64Impl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                  "%s=%"PRIu64"u64,", field->name, ubigintTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_FLOAT: {
-                    float floatTmp = tmpFloatI(field, i);
+                    float floatTmp = tmpFloatImpl(field, i, angle, k);
                     n = snprintf(sampleDataBuf + pos,
                                     bufLen - pos, "%s=%ff32,",
                                     field->name, floatTmp);
                     break;
                 }
                 case TSDB_DATA_TYPE_DOUBLE: {
-                    double doubleTmp = tmpDouble(field);
+                    double doubleTmp = tmpDoubleImpl(field, angle, k);
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                  "%s=%ff64,", field->name, doubleTmp);
                     break;
@@ -1483,7 +1495,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                 case TSDB_DATA_TYPE_BINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
-                    if (0 != tmpStr(tmp, stbInfo->iface, field, i)) {
+                    if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
@@ -1524,6 +1536,11 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
         }
 skip_line:
         *(sampleDataBuf + pos - 1) = 0;
+        angle += stbInfo->timestamp_step/stbInfo->angle_step;
+        if (angle > 360) {
+            angle -= 360;
+        }
+
     }
 
     return 0;

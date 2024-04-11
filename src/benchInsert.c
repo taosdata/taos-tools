@@ -1526,13 +1526,16 @@ static void *syncWriteInterlace(void *sarg) {
             if (g_arguments->terminate) {
                 goto free_of_interlace;
             }
-            int64_t timestamp = pThreadInfo->start_time;
             int64_t pos       = pThreadInfo->pos;
             SChildTable *childTbl = stbInfo->childTblArray[tableSeq];
             char *  tableName   = childTbl->name;
             char *sampleDataBuf = childTbl->useOwnSample?
                                         childTbl->sampleDataBuf:
                                         stbInfo->sampleDataBuf;
+            // init ts
+            if(childTbl->ts == 0) {
+               childTbl->ts = pThreadInfo->start_time;
+            }
             char ttl[SMALL_BUFF_LEN] = "";
             if (stbInfo->ttl != 0) {
                 snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
@@ -1607,9 +1610,9 @@ static void *syncWriteInterlace(void *sarg) {
                         // change fillBack mode with condition
                         if(fillBack) {
                             int64_t tsnow = toolsGetTimestamp(database->precision);
-                            if(timestamp >= tsnow){
+                            if(childTbl->ts >= tsnow){
                                 fillBack = false;
-                                infoPrint("fillBack mode set end. because timestamp(%"PRId64") >= now(%"PRId64")\n", timestamp, tsnow);
+                                infoPrint("fillBack mode set end. because timestamp(%"PRId64") >= now(%"PRId64")\n", childTbl->ts, tsnow);
                             }
                         }
 
@@ -1619,7 +1622,7 @@ static void *syncWriteInterlace(void *sarg) {
                             snprintf(time_string, BIGINT_BUFF_LEN, "now");
                         } else {
                             snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
-                                    disorderTs?disorderTs:timestamp);
+                                    disorderTs?disorderTs:childTbl->ts);
                         }
 
                         // combine rows timestamp | other cols = sampleDataBuf[pos]
@@ -1629,6 +1632,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     ",",
                                     sampleDataBuf + pos * stbInfo->lenOfCols,
                                     ") ");
+                        // check buffer enough
                         if (ds_len(pThreadInfo->buffer)
                                 > stbInfo->max_sql_len) {
                             errorPrint("sql buffer length (%"PRIu64") "
@@ -1642,15 +1646,19 @@ static void *syncWriteInterlace(void *sarg) {
                         // move next
                         generated++;
                         pos++;
-                        //printf(" interlace pos=%" PRId64 " j=%" PRId64" timestamp=%"PRId64" tableName=%s tableSeq=%"PRIu64" \n", pos, j, timestamp, tableName, tableSeq);
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
+                        if(stbInfo->primary_key)
+                            debugPrint("add child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
 
                         // primary key
                         if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
-                            timestamp += stbInfo->timestamp_step;
-                        }                        
+                            childTbl->ts += stbInfo->timestamp_step;
+                            if(stbInfo->primary_key)
+                                debugPrint("changedTs child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
+                        }
+                        
                     }
                     break;
                 }
@@ -1674,8 +1682,8 @@ static void *syncWriteInterlace(void *sarg) {
                     }
                     int32_t n = 0;
                     generated = bindParamBatch(pThreadInfo, interlaceRows,
-                                       timestamp, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n);
-                    timestamp += stbInfo->timestamp_step * n;
+                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n);
+                    childTbl->ts += stbInfo->timestamp_step * n;
                     break;
                 }
                 case SML_REST_IFACE:
@@ -1694,7 +1702,7 @@ static void *syncWriteInterlace(void *sarg) {
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
                                 database->sml_precision,
-                                    disorderTs?disorderTs:timestamp);
+                                    disorderTs?disorderTs:childTbl->ts);
                         } else if (SML_JSON_TAOS_FORMAT == protocol) {
                             tools_cJSON *tag = tools_cJSON_Duplicate(
                                 tools_cJSON_GetArrayItem(
@@ -1705,7 +1713,7 @@ static void *syncWriteInterlace(void *sarg) {
                             generateSmlTaosJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
                                 database->sml_precision,
-                                disorderTs?disorderTs:timestamp);
+                                disorderTs?disorderTs:childTbl->ts);
                         } else if (TSDB_SML_LINE_PROTOCOL == protocol) {
                             snprintf(
                                 pThreadInfo->lines[generated],
@@ -1715,13 +1723,13 @@ static void *syncWriteInterlace(void *sarg) {
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
                                     sampleDataBuf + pos * stbInfo->lenOfCols,
-                                disorderTs?disorderTs:timestamp);
+                                disorderTs?disorderTs:childTbl->ts);
                         } else {
                             snprintf(
                                 pThreadInfo->lines[generated],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                                 "%s %" PRId64 " %s %s", stbInfo->stbName,
-                                disorderTs?disorderTs:timestamp,
+                                disorderTs?disorderTs:childTbl->ts,
                                     sampleDataBuf + pos * stbInfo->lenOfCols,
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
@@ -1730,7 +1738,7 @@ static void *syncWriteInterlace(void *sarg) {
                         generated++;
                         // primary key
                         if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
-                            timestamp += stbInfo->timestamp_step;
+                            childTbl->ts += stbInfo->timestamp_step;
                         }
                     }
                     if (TSDB_SML_JSON_PROTOCOL == protocol
@@ -1749,8 +1757,6 @@ static void *syncWriteInterlace(void *sarg) {
             if (tableSeq > pThreadInfo->end_table_to) {
                 // one tables loop timestamp and pos add 
                 tableSeq = pThreadInfo->start_table_from;
-                pThreadInfo->start_time +=
-                    interlaceRows * stbInfo->timestamp_step;
                 // save    
                 pThreadInfo->pos = pos;    
                 if (!stbInfo->non_stop) {
@@ -2176,6 +2182,7 @@ bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt) {
     }
 
     // compare with current value
+    *pkCur = *pkCur + 1;
     if(*pkCur >= *pkCnt) {
         // reset zero
         *pkCur = 0;
@@ -2183,7 +2190,6 @@ bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt) {
         return true;
     } else {
         // add one
-        *pkCur = *pkCur + 1;
         return false;
     }
 }
