@@ -554,12 +554,6 @@ uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k) {
     } else if ((g_arguments->demo_mode) && (i == 1)) {
         intTmp = 105 + taosRandom() % 10;
     } else {
-        if (field->min < (-1 * (RAND_MAX >> 1))) {
-            field->min = -1 * (RAND_MAX >> 1);
-        }
-        if (field->max > (RAND_MAX >> 1)) {
-            field->max = RAND_MAX >> 1;
-        }
         intTmp = field->min;
         if (field->max != field->min) {
             intTmp += (COL_GEN % (field->max - field->min));
