@@ -237,7 +237,7 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         return 0;
     }
 
-    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->cols->size;
+    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15 + COMP_NAME_LEN*3) * stbInfo->cols->size;
     char         *colsBuf = benchCalloc(1, col_buffer_len, false);
     char*         command = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
     int          len = 0;

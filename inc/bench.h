@@ -616,7 +616,7 @@ typedef struct SField {
     uint8_t   gen; // see GEN_ define
 
     // compress
-    char     decode[COMP_NAME_LEN];
+    char     encode[COMP_NAME_LEN];
     char     compress[COMP_NAME_LEN];
     char     level[COMP_NAME_LEN];
 
