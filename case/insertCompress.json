@@ -14,7 +14,7 @@
     "databases": [
         {
             "dbinfo": {
-                "name": "mix",
+                "name": "test",
                 "drop": "yes",
                 "vgroups": 3,
                 "replica": 1,
@@ -42,15 +42,15 @@
                         { "type": "float",       "name": "fc", "encode":"delta-d", "compress":"zlib", "level":"medium", "max": 100, "min": 0 },
                         { "type": "double",      "name": "dc", "encode":"delta-d", "compress":"xz", "level":"low", "max": 100, "min": 0 },
                         { "type": "tinyint",     "name": "ti", "encode":"delta-i", "compress":"zstd", "level":"high", "max": 100, "min": 0 },
-                        { "type": "smallint",    "name": "si",  "max": 100, "min": 0 },
-                        { "type": "int",         "name": "ic",  "max": 100, "min": 0 },
-                        { "type": "bigint",      "name": "bi",  "max": 100, "min": 0 },
-                        { "type": "utinyint",    "name": "uti", "max": 100, "min": 0 },
-                        { "type": "usmallint",   "name": "usi", "max": 100, "min": 0 },
-                        { "type": "uint",        "name": "ui",  "max": 100, "min": 0 },
-                        { "type": "ubigint",     "name": "ubi", "max": 100, "min": 0 },
-                        { "type": "binary",      "name": "bin", "len": 32},
-                        { "type": "nchar",       "name": "nch", "len": 64}
+                        { "type": "smallint",    "name": "si",  "max": 100, "min": 0, "compress":"zlib" },
+                        { "type": "int",         "name": "ic",  "max": 100, "min": 0, "compress":"zstd" },
+                        { "type": "bigint",      "name": "bi",  "max": 100, "min": 0, "encode":"delta-i" },
+                        { "type": "utinyint",    "name": "uti", "max": 100, "min": 0, "level":"high" },
+                        { "type": "usmallint",   "name": "usi", "max": 100, "min": 0, "level":"medium" },
+                        { "type": "uint",        "name": "ui",  "max": 100, "min": 0, "level":"low" },
+                        { "type": "ubigint",     "name": "ubi", "max": 100, "min": 0, "compress":"xz", "level":"medium" },
+                        { "type": "binary",      "name": "bin", "len": 32, "compress":"zstd"},
+                        { "type": "nchar",       "name": "nch", "len": 64, "compress":"xz"}
                     ],
                     "tags": [
                         {"type": "tinyint", "name": "groupid","max": 10,"min": 1},
