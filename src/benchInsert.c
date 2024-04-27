@@ -217,12 +217,27 @@ static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
 }
 #endif  // WEBSOCKET
 
+int getCompressStr(Field* col, char* buf) {
+    int pos = 0;
+    if(strlen(col->encode) > 0) {
+        pos +=sprintf(buf + pos, "encode \'%s\' ", col->encode);
+    }
+    if(strlen(col->compress) > 0) {
+        pos +=sprintf(buf + pos, "compress \'%s\' ", col->compress);
+    }
+    if(strlen(col->level) > 0) {
+        pos +=sprintf(buf + pos, "level \'%s\' ", col->level);
+    }
+
+    return pos;
+}
+
 static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (g_arguments->supplementInsert) {
         return 0;
     }
 
-    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->cols->size;
+    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15 + COMP_NAME_LEN*3) * stbInfo->cols->size;
     char         *colsBuf = benchCalloc(1, col_buffer_len, false);
     char*         command = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
     int          len = 0;
@@ -245,6 +260,13 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         if(stbInfo->primary_key && colIndex == 0) {
             len += n;
             n = snprintf(colsBuf + len, col_buffer_len - len, " %s", PRIMARY_KEY);
+        }
+
+        // compress key
+        char keys[COMP_NAME_LEN*3] = "";
+        if (getCompressStr(col, keys) > 0) {
+            len += n;
+            n = snprintf(colsBuf + len, col_buffer_len - len, " %s", keys);
         }
 
         if (n < 0 || n >= col_buffer_len - len) {
