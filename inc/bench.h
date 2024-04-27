@@ -587,6 +587,7 @@ typedef struct SChildField {
 #define tmpFloat(field)   tmpFloatImpl (field,0,0,0)
 #define tmpDouble(field)  tmpDoubleImpl(field,0,0)
 
+#define COMP_NAME_LEN 32
 
 typedef struct SField {
     uint8_t  type;
@@ -613,6 +614,11 @@ typedef struct SField {
     bool     sma;
     bool     fillNull;
     uint8_t   gen; // see GEN_ define
+
+    // compress
+    char     decode[COMP_NAME_LEN];
+    char     compress[COMP_NAME_LEN];
+    char     level[COMP_NAME_LEN];
 
 } Field;
 

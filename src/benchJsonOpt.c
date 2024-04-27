@@ -209,6 +209,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int32_t offset   = 0;
         uint8_t gen      = GEN_RANDOM;
         bool    fillNull = true;
+        char*   encode   = NULL;
+        char*   compress = NULL;
+        char*   level    = NULL;
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -255,12 +258,28 @@ static int getColumnAndTagTypeFromInsertJsonFile(
                 gen = GEN_ORDER;
             }
         }
-        // gen
+        // fillNull
         tools_cJSON *dataNull = tools_cJSON_GetObjectItem(column, "fillNull");
         if (tools_cJSON_IsString(dataNull)) {
             if (strcasecmp(dataNull->valuestring, "false") == 0) {
                 fillNull = false;
             }
+        }
+
+        // encode
+        tools_cJSON *dataEncode = tools_cJSON_GetObjectItem(column, "encode");
+        if (tools_cJSON_IsString(dataEncode)) {
+            encode = dataEncode->valuestring;
+        }
+        // compress
+        tools_cJSON *dataCompress = tools_cJSON_GetObjectItem(column, "compress");
+        if (tools_cJSON_IsString(dataCompress)) {
+            compress = dataCompress->valuestring;
+        }
+        // level
+        tools_cJSON *dataLevel = tools_cJSON_GetObjectItem(column, "level");
+        if (tools_cJSON_IsString(dataLevel)) {
+            level = dataLevel->valuestring;
         }
 
         // fun
@@ -328,6 +347,32 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             } else {
                 snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", index);
             }
+
+            // encode
+            if(encode) {
+                if (strlen(encode) < COMP_NAME_LEN) {
+                    strcpy(col->encode, encode);
+                } else {
+                    errorPrint("encode name length over (%d) bytes, ignore. name=%s", COMP_NAME_LEN, encode);
+                }
+            }
+            // compress
+            if(compress) {
+                if (strlen(compress) < COMP_NAME_LEN) {
+                    strcpy(col->compress, compress);
+                } else {
+                    errorPrint("compress name length over (%d) bytes, ignore. name=%s", COMP_NAME_LEN, compress);
+                }
+            }
+            // level
+            if(level) {
+                if (strlen(level) < COMP_NAME_LEN) {
+                    strcpy(col->level, level);
+                } else {
+                    errorPrint("level name length over (%d) bytes, ignore. name=%s", COMP_NAME_LEN, level);
+                }
+            }
+
             index++;
         }
     }
