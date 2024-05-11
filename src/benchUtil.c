@@ -795,14 +795,33 @@ free_of_post:
     return code;
 }
 
+// wsfetch result fo file or nothing
+void wsFetchResult(WS_RES *res) {
+    WS_ROW row = NULL;
+    int code = 0;
+    
+    uint64_t st = toolsGetTimestampMs();
+    do {
+        code = ws_fetch_row(res, &row); 
+    } while(code == 0 && row != NULL );
+    
+    uint64_t et = toolsGetTimestampMs();
+    int64_t delay = et - st;
+    debugPrint("%s() LN%d, wsFetchResult delay: %"PRId64"\n", __func__, __LINE__, delay);            
+    
+    if (code != 0) {
+        errorPrint("failed to ws fetch result: code: 0x%08x, reason:%s\n", code, taos_errstr(res));
+    }   
+}
+
 // fetch result fo file or nothing
-void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
+void fetchResult(TAOS_RES *res, char *filePath) {
     TAOS_ROW    row        = NULL;
     int         num_fields = 0;
     int64_t     totalLen   = 0;
     TAOS_FIELD *fields     = 0;
     char       *databuf    = NULL;
-    bool        toFile     = strlen(pThreadInfo->filePath) > 0;
+    bool        toFile     = strlen(filePath) > 0;
 
     if(toFile) {
         num_fields = taos_field_count(res);
@@ -811,6 +830,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     }
 
     // fetch the records row by row
+    uint64_t st = toolsGetTimestampMs();
     while ((row = taos_fetch_row(res))) {
         if (toFile) {
             if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
@@ -831,9 +851,20 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         //if not toFile , only loop call taos_fetch_row
     }
 
+    uint64_t et = toolsGetTimestampMs();
+    int64_t delay = et - st;
+    infoPrint("%s() LN%d, wsFetchResult delay: %"PRId64"\n", __func__, __LINE__, delay);
+
+    int code = taos_errno(res);
+    if (code != 0) {
+        errorPrint("failed to fetch result: code: 0x%08x, reason:%s\n", code, taos_errstr(res));
+    }
+
     // end
     if (toFile) {
-        appendResultBufToFile(databuf, pThreadInfo->filePath);
+        if (code == 0) {
+            appendResultBufToFile(databuf, pThreadInfo->filePath);
+        }     
         free(databuf);
     }
 }
