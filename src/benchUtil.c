@@ -835,7 +835,7 @@ void fetchResult(TAOS_RES *res, char *filePath) {
         if (toFile) {
             if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
                 // buff is full
-                appendResultBufToFile(databuf, pThreadInfo->filePath);
+                appendResultBufToFile(databuf, filePath);
                 totalLen = 0;
                 memset(databuf, 0, FETCH_BUFFER_SIZE);
             }
@@ -863,7 +863,7 @@ void fetchResult(TAOS_RES *res, char *filePath) {
     // end
     if (toFile) {
         if (code == 0) {
-            appendResultBufToFile(databuf, pThreadInfo->filePath);
+            appendResultBufToFile(databuf, filePath);
         }     
         free(databuf);
     }
