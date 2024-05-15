@@ -99,11 +99,17 @@ int main(int argc, char* argv[]) {
         modifyArgument();
     }
 
-    g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
-    if (NULL == g_arguments->fpOfInsertResult) {
-        errorPrint("failed to open %s for save result\n",
-                   g_arguments->output_file);
+    if(_arguments->output_file[0] == 0) {
+        infoPrint("%s","result_file is empty, ignore output.");
+        g_arguments->fpOfInsertResult = NULL;
+    } else {
+        g_arguments->fpOfInsertResult = fopen(g_arguments->output_file, "a");
+        if (NULL == g_arguments->fpOfInsertResult) {
+            errorPrint("failed to open %s for save result\n",
+                    g_arguments->output_file);
+        }
     }
+
     infoPrint("client version: %s\n", taos_get_client_info());
 
     if (g_arguments->test_mode == INSERT_TEST) {

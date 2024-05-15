@@ -1798,7 +1798,7 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
                         uint32_t batch, int64_t startTime,
-                        SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n) {
+                        SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n, int64_t *delay2, int64_t *delay3) {
     TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
@@ -1858,12 +1858,14 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         }
     }
 
+    int64_t start = toolsGetTimestampUs();
     if (taos_stmt_bind_param_batch(
             stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
         errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
         return 0;
     }
+    *delay2 += toolsGetTimestampUs() - start;
 
     for (int c = 0; c < stbInfo->cols->size + 1; c++) {
         TAOS_MULTI_BIND *param =
@@ -1873,11 +1875,13 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     }
 
     // if msg > 3MB, break
+    start = toolsGetTimestampUs();
     if (taos_stmt_add_batch(stmt)) {
         errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
                    taos_stmt_errstr(stmt));
         return 0;
     }
+    *delay3 += toolsGetTimestampUs() - start;
     return batch;
 }
 
