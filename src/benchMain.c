@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
         modifyArgument();
     }
 
-    if(_arguments->output_file[0] == 0) {
+    if(g_arguments->output_file[0] == 0) {
         infoPrint("%s","result_file is empty, ignore output.");
         g_arguments->fpOfInsertResult = NULL;
     } else {
