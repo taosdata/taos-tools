@@ -1536,7 +1536,10 @@ static void *syncWriteInterlace(void *sarg) {
     if (stbInfo->autoTblCreating) {
         csvFile = openTagCsv(stbInfo);
         tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
-    }    
+    }
+    int64_t delay1 = 0;
+    int64_t delay2 = 0;
+    int64_t delay3 = 0;
 
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
@@ -1693,6 +1696,7 @@ static void *syncWriteInterlace(void *sarg) {
                         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                                 tableName);
                     }
+                    int64_t start = toolsGetTimestampUs();
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                              escapedTbName)) {
                         errorPrint(
@@ -1702,9 +1706,12 @@ static void *syncWriteInterlace(void *sarg) {
                         g_fail = true;
                         goto free_of_interlace;
                     }
+                    delay1 += toolsGetTimestampUs() - start;
+
                     int32_t n = 0;
                     generated = bindParamBatch(pThreadInfo, interlaceRows,
-                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n);
+                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
+                    
                     childTbl->ts += stbInfo->timestamp_step * n;
                     break;
                 }
@@ -1852,7 +1859,8 @@ static void *syncWriteInterlace(void *sarg) {
                 break;
         }
 
-        int64_t delay = endTs - startTs;
+        int64_t delay4 = endTs - startTs;
+        int64_t delay = delay1 + delay2 + delay3 + delay4;
         if (delay <=0) {
             debugPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
                        pThreadInfo->threadID, startTs, endTs);
@@ -1866,7 +1874,11 @@ static void *syncWriteInterlace(void *sarg) {
                 tmfree(pdelay);
             }
             pThreadInfo->totalDelay += delay;
+            pThreadInfo->totalDelay1 += delay1;
+            pThreadInfo->totalDelay2 += delay2;
+            pThreadInfo->totalDelay3 += delay3;
         }
+        delay1 = delay2 = delay3 = 0;
 
         int64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -1876,7 +1888,7 @@ static void *syncWriteInterlace(void *sarg) {
                     pThreadInfo->threadID, pThreadInfo->totalInsertRows, 
                     (double)(pThreadInfo->totalInsertRows - lastTotalInsertRows) * 1000.0/(currentPrintTime - lastPrintTime));
             lastPrintTime = currentPrintTime;
-	    lastTotalInsertRows = pThreadInfo->totalInsertRows;
+	        lastTotalInsertRows = pThreadInfo->totalInsertRows;
         }
     }
 free_of_interlace:
@@ -1891,7 +1903,7 @@ free_of_interlace:
 static int32_t prepareProgressDataStmt(
         threadInfo *pThreadInfo,
         SChildTable *childTbl,
-        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
+        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1, int64_t *delay2, int64_t *delay3) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     char escapedTbName[TSDB_TABLE_NAME_LEN + 2] = "\0";
     if (g_arguments->escape_character) {
@@ -1901,6 +1913,7 @@ static int32_t prepareProgressDataStmt(
         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                  childTbl->name);
     }
+    int64_t start = toolsGetTimestampUs();
     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                              escapedTbName)) {
         errorPrint(
@@ -1909,13 +1922,14 @@ static int32_t prepareProgressDataStmt(
                 taos_stmt_errstr(pThreadInfo->conn->stmt));
         return -1;
     }
+    *delay1 = toolsGetTimestampUs() - start;
     int32_t n =0;
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
-            *timestamp, childTbl, pkCur, pkCnt, &n);
+            *timestamp, childTbl, pkCur, pkCnt, &n, delay2, delay3);
     *timestamp += n * stbInfo->timestamp_step;
     return generated;
 }
@@ -2398,6 +2412,9 @@ void *syncWriteProgressive(void *sarg) {
         int32_t pos = 0;
         int32_t pkCur = 0; // record generate same timestamp current count
         int32_t pkCnt = 0; // record generate same timestamp count
+        int64_t delay1 = 0;
+        int64_t delay2 = 0;
+        int64_t delay3 = 0;
         if (stmt) {
             taos_stmt_close(pThreadInfo->conn->stmt);
             pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
@@ -2457,7 +2474,7 @@ void *syncWriteProgressive(void *sarg) {
                 case STMT_IFACE: {
                     generated = prepareProgressDataStmt(
                             pThreadInfo,
-                            childTbl, &timestamp, i, ttl, &pkCur, &pkCnt);
+                            childTbl, &timestamp, i, ttl, &pkCur, &pkCnt, &delay1, &delay2, &delay3);
                     break;
                 }
                 case SML_REST_IFACE:
@@ -2597,7 +2614,8 @@ void *syncWriteProgressive(void *sarg) {
                     break;
             }
 
-            int64_t delay = endTs - startTs;
+            int64_t delay4 = endTs - startTs;
+            int64_t delay = delay1 + delay2 + delay3 + delay4;
             if (delay <= 0) {
                 debugPrint("thread[%d]: startTs: %"PRId64", endTs: %"PRId64"\n",
                         pThreadInfo->threadID, startTs, endTs);
@@ -2611,7 +2629,11 @@ void *syncWriteProgressive(void *sarg) {
                     tmfree(pDelay);
                 }
                 pThreadInfo->totalDelay += delay;
+                pThreadInfo->totalDelay1 += delay1;
+                pThreadInfo->totalDelay2 += delay2;
+                pThreadInfo->totalDelay3 += delay3;
             }
+            delay1 = delay2 = delay3 = 0;
 
             int64_t currentPrintTime = toolsGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -2991,6 +3013,9 @@ static void preProcessArgument(SSuperTable *stbInfo) {
 
 static int printTotalDelay(SDataBase *database,
                            int64_t totalDelay,
+                           int64_t totalDelay1,
+                           int64_t totalDelay2,
+                           int64_t totalDelay3,
                            BArray *total_delay_list,
                             int threads,
                             int64_t totalInsertRows,
@@ -3000,9 +3025,17 @@ static int printTotalDelay(SDataBase *database,
         return -1;
     }
 
-    succPrint("Spent %.6f (real %.6f) seconds to insert rows: %" PRIu64
+    char subDelay[128] = "";
+    if(totalDelay1 + totalDelay2 + totalDelay3 > 0) {
+        sprintf(subDelay, "delay1=%.2f delay2=%.2f delay3=%.2f",
+                totalDelay1/threads/1E6,
+                totalDelay2/threads/1E6,
+                totalDelay3/threads/1E6);
+    }
+
+    succPrint("Spent %.6f ( real %.6f %s) seconds to insert rows: %" PRIu64
               " with %d thread(s) into %s %.2f (real %.2f) records/second\n",
-              (end - start)/1E6, totalDelay/threads/1E6, totalInsertRows, threads,
+              (end - start)/1E6, totalDelay/threads/1E6, subDelay, totalInsertRows, threads,
               database->dbName,
               (double)(totalInsertRows / ((end - start)/1E6)),
               (double)(totalInsertRows / (totalDelay/threads/1E6)));
@@ -3591,6 +3624,9 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t   totalDelay = 0;
+    int64_t   totalDelay1 = 0;
+    int64_t   totalDelay2 = 0;
+    int64_t   totalDelay3 = 0;
     uint64_t  totalInsertRows = 0;
 
     // free threads resource
@@ -3682,6 +3718,9 @@ static int startMultiThreadInsertData(SDataBase* database,
         }
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
+        totalDelay1 += pThreadInfo->totalDelay1;
+        totalDelay2 += pThreadInfo->totalDelay2;
+        totalDelay3 += pThreadInfo->totalDelay3;
         benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData,
                 pThreadInfo->delayList->size);
         tmfree(pThreadInfo->delayList);
@@ -3702,9 +3741,8 @@ static int startMultiThreadInsertData(SDataBase* database,
     free(pids);
     free(infos);
 
-    int ret = printTotalDelay(database, totalDelay,
-                              total_delay_list, threads,
-                    totalInsertRows, start, end);
+    int ret = printTotalDelay(database, totalDelay, totalDelay1, totalDelay2, totalDelay3,
+                              total_delay_list, threads, totalInsertRows, start, end);
     benchArrayDestroy(total_delay_list);
     if (g_fail || ret) {
         return -1;

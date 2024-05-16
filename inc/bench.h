@@ -996,6 +996,9 @@ typedef struct SThreadInfo_S {
     uint64_t    totalInsertRows;
     uint64_t    totalQueried;
     int64_t     totalDelay;
+    int64_t     totalDelay1;
+    int64_t     totalDelay2;
+    int64_t     totalDelay3;
     uint64_t    querySeq;
     TAOS_SUB    *tsub;
     char **     lines;
