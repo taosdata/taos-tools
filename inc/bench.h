@@ -964,6 +964,7 @@ typedef struct SArguments_S {
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
     bool                mistMode;
     bool                escape_character;
+    bool                pre_load_tb_meta;
 } SArguments;
 
 typedef struct SBenchConn {

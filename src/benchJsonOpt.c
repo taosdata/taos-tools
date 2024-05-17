@@ -1448,6 +1448,14 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         }
     }
 
+    g_arguments->pre_load_tb_meta = false;
+    tools_cJSON *preLoad = tools_cJSON_GetObjectItem(json, "pre_load_tb_meta");
+    if (tools_cJSON_IsString(preLoad)) {
+        if (0 == strcasecmp(preLoad->valuestring, "yes")) {
+            g_arguments->pre_load_tb_meta = true;
+        }
+    }
+
     tools_cJSON *resultfile = tools_cJSON_GetObjectItem(json, "result_file");
     if (resultfile && resultfile->type == tools_cJSON_String
             && resultfile->valuestring != NULL) {

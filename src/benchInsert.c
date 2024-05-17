@@ -1502,6 +1502,38 @@ static int64_t getDisorderTs(SSuperTable *stbInfo, int *disorderRange) {
     return disorderTs;
 }
 
+void loadChildTableInfo(threadInfo* pThreadInfo) {
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    if(!g_arguments->pre_load_tb_meta) {
+        return ;
+    }
+    if(pThreadInfo->conn == NULL) {
+        return ;
+    }
+
+    char *db    = pThreadInfo->dbInfo->dbName;
+    int64_t cnt = pThreadInfo->end_table_to - pThreadInfo->start_table_from;
+
+    // 100k
+    int   bufLen = 100 * 1024;
+    char *buf    = benchCalloc(1, bufLen, false);
+    int   pos    = 0;
+    infoPrint("start load child tables(%"PRId64") info...\n", cnt);
+    int64_t start = toolsGetTimestampUs();
+    for(int64_t i = pThreadInfo->start_table_from; i < pThreadInfo->end_table_to; i++) {
+        SChildTable *childTbl = stbInfo->childTblArray[i];
+        pos += sprintf(buf + pos, ",%s.%s", db, childTbl->name);
+
+        if(pos >= bufLen - 256 || i + 1 == pThreadInfo->end_table_to) {
+            taos_load_table_info(pThreadInfo->conn, buf);
+            pos = 0;
+        }
+    }
+    infoPrint("end load child tables info. delay=%.2fs\n", (toolsGetTimestampUs() - start)/1E6);
+
+    tmfree(buf);
+}
+
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1522,6 +1554,7 @@ static void *syncWriteInterlace(void *sarg) {
     uint64_t   tableSeq = pThreadInfo->start_table_from;
     int disorderRange = stbInfo->disorderRange;
 
+    loadChildTableInfo(pThreadInfo);
     // check if filling back mode
     bool fillBack = false;
     if(stbInfo->useNow && stbInfo->startFillbackTime) {
@@ -2341,6 +2374,8 @@ void *syncWriteProgressive(void *sarg) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
 
+    loadChildTableInfo(pThreadInfo);
+
     // special deal flow for TAOSC_IFACE
     if (insertDataMix(pThreadInfo, database, stbInfo)) {
         // request be dealt by this function , so return
@@ -3027,18 +3062,18 @@ static int printTotalDelay(SDataBase *database,
 
     char subDelay[128] = "";
     if(totalDelay1 + totalDelay2 + totalDelay3 > 0) {
-        sprintf(subDelay, "delay1=%.2f delay2=%.2f delay3=%.2f",
+        sprintf(subDelay, " stmt delay1=%.2fs delay2=%.2fs delay3=%.2fs",
                 totalDelay1/threads/1E6,
                 totalDelay2/threads/1E6,
                 totalDelay3/threads/1E6);
     }
 
-    succPrint("Spent %.6f ( real %.6f %s) seconds to insert rows: %" PRIu64
-              " with %d thread(s) into %s %.2f (real %.2f) records/second\n",
-              (end - start)/1E6, totalDelay/threads/1E6, subDelay, totalInsertRows, threads,
+    succPrint("Spent %.6f (real %.6f) seconds to insert rows: %" PRIu64
+              " with %d thread(s) into %s %.2f (real %.2f) records/second%s\n",
+              (end - start)/1E6, totalDelay/threads/1E6, totalInsertRows, threads,
               database->dbName,
               (double)(totalInsertRows / ((end - start)/1E6)),
-              (double)(totalInsertRows / (totalDelay/threads/1E6)));
+              (double)(totalInsertRows / (totalDelay/threads/1E6)), subDelay);
     if (!total_delay_list->size) {
         return -1;
     }
