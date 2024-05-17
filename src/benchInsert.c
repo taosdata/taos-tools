@@ -1504,9 +1504,13 @@ static int64_t getDisorderTs(SSuperTable *stbInfo, int *disorderRange) {
 
 void loadChildTableInfo(threadInfo* pThreadInfo) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    if(!g_arguments->pre_load_tb_meta) {
+        return ;
+    }
     if(pThreadInfo->conn == NULL) {
         return ;
     }
+
     char *db    = pThreadInfo->dbInfo->dbName;
     int64_t cnt = pThreadInfo->end_table_to - pThreadInfo->start_table_from;
 
