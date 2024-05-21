@@ -1,0 +1,44 @@
+{
+    "filetype": "csv",
+    "csvDir": "/root/csv/",
+    "databases": [
+        {
+            "dbinfo": {
+                "name": "exportCsv"
+            },
+            "super_tables": [
+                {
+                    "name": "meters",
+                    "childtable_count": 100,
+                    "insert_rows": 100000,
+                    "childtable_prefix": "d",
+                    "timestamp_step": 10,
+                    "start_timestamp":1600000000000,
+                    "columns": [
+                        { "type": "bool",        "name": "bc"},
+                        { "type": "float",       "name": "fc", "min": 1},
+                        { "type": "double",      "name": "dc", "min":10},
+                        { "type": "tinyint",     "name": "ti"},
+                        { "type": "smallint",    "name": "si"},
+                        { "type": "int",         "name": "ic", "fillNull":"false"},
+                        { "type": "bigint",      "name": "bi"},
+                        { "type": "utinyint",    "name": "uti"},
+                        { "type": "usmallint",   "name": "usi"},
+                        { "type": "uint",        "name": "ui"},
+                        { "type": "ubigint",     "name": "ubi"},
+                        { "type": "binary",      "name": "bin", "len": 32},
+                        { "type": "nchar",       "name": "nch", "len": 64}
+                    ],
+                    "tags": [
+                        {"type": "tinyint", "name": "groupid","max": 10,"min": 1},
+                        {"type": "binary",  "name": "location", "len": 16,
+                            "values": ["San Francisco", "Los Angles", "San Diego",
+                                "San Jose", "Palo Alto", "Campbell", "Mountain View",
+                                "Sunnyvale", "Santa Clara", "Cupertino"]
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

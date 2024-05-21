@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include <benchCsv.h>
 #include <toolsdef.h>
 
 SArguments*    g_arguments;
@@ -115,6 +116,11 @@ int main(int argc, char* argv[]) {
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) {
             errorPrint("%s", "insert test process failed\n");
+            ret = -1;
+        }
+    } else if (g_arguments->test_mode == CSVFILE_TEST) {
+        if (csvTestProcess()) {
+            errorPrint("%s", "query test process failed\n");
             ret = -1;
         }
     } else if (g_arguments->test_mode == QUERY_TEST) {

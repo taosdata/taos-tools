@@ -1425,6 +1425,19 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
         }
     }
 
+    g_arguments->csvPath[0] = 0;
+    tools_cJSON *csv = tools_cJSON_GetObjectItem(json, "csvPath");
+    if (csvPath && (csv->type == tools_cJSON_String)
+            && (csv->valuestring != NULL)) {
+        tstrncpy(g_arguments->csvPath, csv->valuestring, MAX_FILE_NAME_LEN);
+    }
+
+    if(g_arguments->csvPath[0] == 0) {
+        // set default with current path
+        strcpy(g_arguments->csvPath, "./output");
+        mkdir(_arguments->csvPath, 0775);
+    }
+
     code = 0;
     return code;
 }
@@ -2230,6 +2243,8 @@ int getInfoFromJsonFile() {
             g_arguments->test_mode = QUERY_TEST;
         } else if (0 == strcasecmp("subscribe", filetype->valuestring)) {
             g_arguments->test_mode = SUBSCRIBE_TEST;
+        } else if (0 == strcasecmp("csvfile", filetype->valuestring)) {
+            g_arguments->test_mode = CSVFILE_TEST;
         } else {
             errorPrint("%s",
                        "failed to read json, filetype not support\n");
@@ -2241,7 +2256,7 @@ int getInfoFromJsonFile() {
 
     // read common item
     code = getMetaFromCommonJsonFile(root);
-    if (INSERT_TEST == g_arguments->test_mode) {
+    if (INSERT_TEST == g_arguments->test_mode || CSVFILE_TEST == g_arguments->test_mode) {
         code = getMetaFromInsertJsonFile(root);
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     } else if (QUERY_TEST == g_arguments->test_mode) {

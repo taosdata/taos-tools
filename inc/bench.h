@@ -470,6 +470,7 @@ enum TEST_MODE {
     INSERT_TEST,     // 0
     QUERY_TEST,      // 1
     SUBSCRIBE_TEST,  // 2
+    CSVFILE_TEST     // 3
 };
 
 enum enumSYNC_MODE { SYNC_MODE, ASYNC_MODE, MODE_BUT };
@@ -965,6 +966,7 @@ typedef struct SArguments_S {
     bool                mistMode;
     bool                escape_character;
     bool                pre_load_tb_meta;
+    char                csvPath[MAX_FILE_NAME_LEN];
 } SArguments;
 
 typedef struct SBenchConn {
