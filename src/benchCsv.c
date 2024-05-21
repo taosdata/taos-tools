@@ -71,7 +71,7 @@ int genWithSTable(SDataBase* db, SSuperTable* stb, char* outDir) {
     }
 
     tmfree(buf);
-    close(fs);
+    fclose(fs);
 
     return ret;
 }
@@ -97,6 +97,7 @@ int batchWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int bufL
     int cnt    = 0;
     int pos    = 0;
     int64_t n  = 0; // already inserted rows for one child table
+    int64_t tk = 0;
 
     int    tagDataLen = stb->lenOfTags + stb->tags->size + 256;
     char * tagData    = (char *) benchCalloc(1, tagDataLen, true);    
@@ -106,11 +107,12 @@ int batchWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int bufL
     // gen child name
     for (int64_t i = 0; i < stb->childTblCount; i++) {
         int64_t ts = stb->startTimestamp;
+        int64_t ck = 0;
         // tags
-        genTagData(tagData, stb, i);
+        genTagData(tagData, stb, i, &tk);
         // insert child column data
-        for(int64_t j=0; j< stb->insertRows; j++) {
-            genColumnData(colData, ts, i, j);
+        for(int64_t j = 0; j < stb->insertRows; j++) {
+            genColumnData(colData, ts, db->precision, &ck);
             // combine
             pos += sprintf(buf + pos, "%s,%s\n", tagData, colData);
             if (bufLen - pos < minRemain ) {
@@ -160,7 +162,7 @@ int interlaceWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int 
             }
 
             for (int64_t j = 0; j < needInserts; j++) {
-                genColumnData(colData, ts, i, j, &ck, db->precision);
+                genColumnData(colData, ts, db->precision, &ck);
                 // combine tags,cols
                 pos += sprintf(buf + pos, "%s,%s\n", tagDatas[i], colData);
                 if (bufLen - pos <  ) {
@@ -206,7 +208,7 @@ char * genTagData(char* buf, SSuperTable* stb, int64_t i, int64_t *k) {
 
     int pos = 0;
     // tbname
-    pos += sprintf(tagData + pos, "%s%d", stb->childTblPrefix);
+    pos += sprintf(tagData, "%s%"PRId64, stb->childTblPrefix, i);
     // tags
     pos += genRowByField(tagData + pos, stb->tags, stb->tags->size, stb->binaryPrefex, stb->ncharPrefex, k);
 
@@ -214,7 +216,7 @@ char * genTagData(char* buf, SSuperTable* stb, int64_t i, int64_t *k) {
 }
 
 // gen column data 
-char * genColumnData(char* colData, SSuperTable* stb, int64_t ts, int64_t i, int32_t precision, int64_t *k) {
+char * genColumnData(char* colData, SSuperTable* stb, int64_t ts, int32_t precision, int64_t *k) {
     int  pos = 0;
     char str[128] = "";
     toolsFormatTimestamp(colData, ts, precision);

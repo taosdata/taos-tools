@@ -111,7 +111,8 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
         break;
     // timestamp    
     case TSDB_DATA_TYPE_TIMESTAMP:
-        strcpy(val, "now");
+        int64_t nowts = toolsGetTimestampMs();
+        toolsFormatTimestamp(val, nowts, TSDB_TIME_PRECISION_MILLI);
         break;
     // signed    
     case TSDB_DATA_TYPE_TINYINT:

@@ -26,7 +26,7 @@ void csvWriteThread(void* param);
 
 char * genTagData(char* buf, SSuperTable* stb, int64_t i, int64_t *k);
 
-char * genColumnData(char* buf, SSuperTable* stb, int64_t i, int precision, int64_t *k)
+char * genColumnData(char* colData, SSuperTable* stb, int64_t ts, int32_t precision, int64_t *k);
 
 int32_t genRowByField(char* buf, int32_t pos1, BArray* fields, int16_t fieldCnt, char* binanryPrefix, char* ncharPrefix, int64_t *k);
 
