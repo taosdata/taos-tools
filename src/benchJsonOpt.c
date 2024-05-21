@@ -11,6 +11,7 @@
  */
 
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <bench.h>
 
 extern char      g_configDir[MAX_PATH_LEN];
@@ -1435,7 +1436,7 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
     if(g_arguments->csvPath[0] == 0) {
         // set default with current path
         strcpy(g_arguments->csvPath, "./output");
-        mkdir(_arguments->csvPath, 0775);
+        mkdir(g_arguments->csvPath, 0775);
     }
 
     code = 0;
