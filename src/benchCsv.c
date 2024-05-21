@@ -149,7 +149,7 @@ int batchWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int bufL
 
             // print show
             if (++show % SHOW_CNT == 0) {
-                infoPrint("batch write child table cnt = %"PRId64 " all rows = %" PRId64 "\n", i, show);
+                infoPrint("batch write child table cnt = %"PRId64 " all rows = %" PRId64 "\n", i+1, show);
             }
 
         }
@@ -220,7 +220,7 @@ int interlaceWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int 
 
                 // print show
                 if (++show % SHOW_CNT == 0) {
-                    infoPrint("interlace write child table index = %"PRId64 " all rows = %"PRId64 "\n", i, show);
+                    infoPrint("interlace write child table index = %"PRId64 " all rows = %"PRId64 "\n", i+1, show);
                 }
             }
 
