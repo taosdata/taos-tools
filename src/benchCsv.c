@@ -19,6 +19,8 @@
 // main etry
 //
 
+#define SHOW_CNT 100000
+
 static void *csvWriteThread(void *param) {
     // write thread 
     for (int i = 0; i < g_arguments->databases->size; i++) {
@@ -30,9 +32,9 @@ static void *csvWriteThread(void *param) {
             // gen csv
             int ret = genWithSTable(db, stb, g_arguments->csvPath);
             if(ret != 0) {
-                errorPrint("failed generate to csv. db=%s stb=%s error code=%d", db->dbName, stb->stbName, ret);
+                errorPrint("failed generate to csv. db=%s stb=%s error code=%d \n", db->dbName, stb->stbName, ret);
                 return NULL;
-            }
+            }      
         }
     }
     return NULL;
@@ -42,10 +44,16 @@ int csvTestProcess() {
     pthread_t handle;
     int ret = pthread_create(&handle, NULL, csvWriteThread, NULL);
     if (ret != 0) {
-        errorPrint("pthread_create failed. error code =%d", ret);
+        errorPrint("pthread_create failed. error code =%d \n", ret);
         return -1;
     }
+
+    infoPrint("start output to csv %s ...\n", g_arguments->csvPath);
+    int64_t start = toolsGetTimestampMs();
     pthread_join(handle, NULL);
+    int64_t delay = toolsGetTimestampMs() -  start;
+    infoPrint("output to csv %s finished. delay:%"PRId64"s \n", g_arguments->csvPath, delay/1000);
+
     return 0;
 }
 
@@ -56,13 +64,15 @@ int genWithSTable(SDataBase* db, SSuperTable* stb, char* outDir) {
     obtainCsvFile(outFile, db, stb, outDir);
     FILE * fs = fopen(outFile, "w");
     if(fs == NULL) {
-        errorPrint("failed create csv file. file=%s, last errno=%d strerror=%s", outFile, errno, strerror(errno));
+        errorPrint("failed create csv file. file=%s, last errno=%d strerror=%s \n", outFile, errno, strerror(errno));
         return -1;
     }
 
     int rowLen = TSDB_TABLE_NAME_LEN + stb->lenOfTags + stb->lenOfCols + stb->tags->size + stb->cols->size;
     int bufLen = rowLen * g_arguments->reqPerReq;
     char* buf  = benchCalloc(1, bufLen, true);
+
+    infoPrint("start write csv file: %s \n", outFile);
 
     if (stb->interlaceRows > 0) {
         // interlace mode
@@ -75,6 +85,7 @@ int genWithSTable(SDataBase* db, SSuperTable* stb, char* outDir) {
     tmfree(buf);
     fclose(fs);
 
+    succPrint("end write csv file: %s \n", outFile);
     return ret;
 }
 
@@ -88,7 +99,7 @@ void obtainCsvFile(char * outFile, SDataBase* db, SSuperTable* stb, char* outDir
 int32_t writeCsvFile(FILE* f, char * buf, int32_t len) {
     size_t size = fwrite(buf, 1, len, f);
     if(size != len) {
-        errorPrint("failed to write csv file. expect write length:%d real write length:%d", len, (int32_t)size);
+        errorPrint("failed to write csv file. expect write length:%d real write length:%d \n", len, (int32_t)size);
         return -1;
     }
     return 0;
@@ -98,6 +109,7 @@ int batchWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int bufL
     int ret    = 0;
     int pos    = 0;
     int64_t tk = 0;
+    int64_t show = 0;
 
     int    tagDataLen = stb->lenOfTags + stb->tags->size + 256;
     char * tagData    = (char *) benchCalloc(1, tagDataLen, true);    
@@ -127,6 +139,19 @@ int batchWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int bufL
 
             // ts move next
             ts += stb->timestamp_step;
+
+            // check cancel
+            if(g_arguments->terminate) {
+                infoPrint("%s", "You are cancel, exiting ...\n");
+                ret = -1;
+                goto END;
+            }
+
+            // print show
+            if (++show % SHOW_CNT == 0) {
+                infoPrint("batch write child table cnt = %"PRId64 " all rows = %" PRId64 "\n", i, show);
+            }
+
         }
     }
 
@@ -147,6 +172,7 @@ int interlaceWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int 
     int pos    = 0;
     int64_t n  = 0; // already inserted rows for one child table
     int64_t tk = 0;
+    int64_t show = 0;
 
     char **tagDatas   = (char **)benchCalloc(stb->childTblCount, sizeof(char *), true);
     int    colDataLen = stb->lenOfCols + stb->cols->size + 256;
@@ -184,6 +210,18 @@ int interlaceWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int 
 
                 // ts move next
                 ts += stb->timestamp_step;
+
+                // check cancel
+                if(g_arguments->terminate) {
+                    infoPrint("%s", "You are cancel, exiting ... \n");
+                    ret = -1;
+                    goto END;
+                }
+
+                // print show
+                if (++show % SHOW_CNT == 0) {
+                    infoPrint("interlace write child table index = %"PRId64 " all rows = %"PRId64 "\n", i, show);
+                }
             }
 
             // if last child table
