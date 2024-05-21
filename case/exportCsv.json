@@ -1,6 +1,6 @@
 {
-    "filetype": "csv",
-    "csvDir": "/root/csv/",
+    "filetype": "csvfile",
+    "csvPath": "/root/csv/",
     "databases": [
         {
             "dbinfo": {
