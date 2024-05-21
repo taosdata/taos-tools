@@ -1,6 +1,7 @@
 {
     "filetype": "csvfile",
     "csvPath": "/root/csv/",
+    "num_of_records_per_req": 10000,
     "databases": [
         {
             "dbinfo": {
