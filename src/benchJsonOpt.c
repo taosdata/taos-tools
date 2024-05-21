@@ -1427,7 +1427,7 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
 
     g_arguments->csvPath[0] = 0;
     tools_cJSON *csv = tools_cJSON_GetObjectItem(json, "csvPath");
-    if (csvPath && (csv->type == tools_cJSON_String)
+    if (csv && (csv->type == tools_cJSON_String)
             && (csv->valuestring != NULL)) {
         tstrncpy(g_arguments->csvPath, csv->valuestring, MAX_FILE_NAME_LEN);
     }
