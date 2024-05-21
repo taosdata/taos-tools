@@ -105,6 +105,8 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
         return size;
     }
 
+    const char * format = ",%s";
+
     switch (fd->type) {    
     case TSDB_DATA_TYPE_BOOL:
         sprintf(val, "%d", tmpBool(fd));
@@ -112,7 +114,9 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
     // timestamp    
     case TSDB_DATA_TYPE_TIMESTAMP:
         int64_t nowts = toolsGetTimestampMs();
+        strcpy(val, "\'");
         toolsFormatTimestamp(val, nowts, TSDB_TIME_PRECISION_MILLI);
+        strcat(val, "\'");
         break;
     // signed    
     case TSDB_DATA_TYPE_TINYINT:
@@ -150,17 +154,14 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
     // binary nchar
     case TSDB_DATA_TYPE_NCHAR:
     case TSDB_DATA_TYPE_BINARY:
-        if(fd->gen == GEN_ORDER) {
-            tmpStr(val, 0, fd, *k);
-        } else {
-            genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
-        }
+        format = ",\'%s\'";
+        tmpStr(val, 0, fd, *k);
         break;
     default:
         break;
     }
 
-    size += sprintf(pstr + len, ",%s", val);
+    size += sprintf(pstr + len, format, val);
     return size;
 }
 

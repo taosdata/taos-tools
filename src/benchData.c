@@ -440,19 +440,7 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
 
 
 int tmpStr(char *tmp, int iface, Field *field, int64_t k) {
-    if (g_arguments->demo_mode) {
-        unsigned int tmpRand = taosRandom();
-        if (g_arguments->chinese) {
-            snprintf(tmp, field->length, "%s",
-                     locations_chinese[tmpRand % 10]);
-        } else if (SML_IFACE == iface) {
-            snprintf(tmp, field->length, "%s",
-                     locations_sml[tmpRand % 10]);
-        } else {
-            snprintf(tmp, field->length, "%s",
-                     locations[tmpRand % 10]);
-        }
-    } else if (field->values) {
+    if (field->values) {
         int arraySize = tools_cJSON_GetArraySize(field->values);
         if (arraySize) {
             tools_cJSON *buf = tools_cJSON_GetArrayItem(
@@ -466,11 +454,23 @@ int tmpStr(char *tmp, int iface, Field *field, int64_t k) {
                        __func__, arraySize);
             return -1;
         }
+    } else if (g_arguments->demo_mode) {
+        unsigned int tmpRand = taosRandom();
+        if (g_arguments->chinese) {
+            snprintf(tmp, field->length, "%s",
+                     locations_chinese[tmpRand % 10]);
+        } else if (SML_IFACE == iface) {
+            snprintf(tmp, field->length, "%s",
+                     locations_sml[tmpRand % 10]);
+        } else {
+            snprintf(tmp, field->length, "%s",
+                     locations[tmpRand % 10]);
+        }
     } else {
         if(field->gen == GEN_ORDER) {
             snprintf(tmp, field->length, "%"PRId64, k);
         } else {
-            rand_string(tmp, field->length, g_arguments->chinese);
+            rand_string(tmp, taosRandom() % field->length, g_arguments->chinese);
         }
     }
     return 0;
