@@ -91,10 +91,8 @@ int genWithSTable(SDataBase* db, SSuperTable* stb, char* outDir) {
 
 
 void obtainCsvFile(char * outFile, SDataBase* db, SSuperTable* stb, char* outDir) {
-    sprintf(outFile, "%s//%s-%s.csv", outDir, db->dbName, stb->stbName);
+    sprintf(outFile, "%s%s-%s.csv", outDir, db->dbName, stb->stbName);
 }
-
-
 
 int32_t writeCsvFile(FILE* f, char * buf, int32_t len) {
     size_t size = fwrite(buf, 1, len, f);

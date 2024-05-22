@@ -1433,9 +1433,17 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
         tstrncpy(g_arguments->csvPath, csv->valuestring, MAX_FILE_NAME_LEN);
     }
 
-    if(g_arguments->csvPath[0] == 0) {
+    size_t len = strlen(g_arguments->csvPath);
+
+    if(len == 0) {
         // set default with current path
-        strcpy(g_arguments->csvPath, "./output");
+        strcpy(g_arguments->csvPath, "./output/");
+        mkdir(g_arguments->csvPath, 0775);
+    } else {
+        // append end
+        if (g_arguments->csvPath[len-1] != '/' ) {
+            strcat(g_arguments->csvPath, "/");
+        }
         mkdir(g_arguments->csvPath, 0775);
     }
 
