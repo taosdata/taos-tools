@@ -285,6 +285,8 @@ uint32_t appendRowRuleOld(SSuperTable* stb, char* pstr, uint32_t len, int64_t ti
 }
 
 #define GET_IDX(i) info->batCols[i]
+#define VAL_NULL "NULL"
+
 uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t len, int64_t ts, int64_t* k) {
   uint32_t size = 0;
   // first col is ts
@@ -317,7 +319,7 @@ uint32_t genRowMixAll(threadInfo* info, SSuperTable* stb, char* pstr, uint32_t l
       }
     }
 
-    size += dataGenByField(fd, pstr, len + size, prefix, k);
+    size += dataGenByField(fd, pstr, len + size, prefix, k, VAL_NULL);
   }
 
   // end

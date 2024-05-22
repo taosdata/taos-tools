@@ -14,8 +14,6 @@
 #include "benchDataMix.h"
 #include <float.h>
 
-#define VAL_NULL "NULL"
-
 #define VBOOL_CNT 3
 
 int32_t inul = 20; // interval null count
@@ -97,11 +95,11 @@ uint32_t genRadomString(char* val, uint32_t len, char* prefix) {
 
 
 // data row generate by randowm
-uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64_t *k) {
+uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64_t *k, char* nullVal) {
     uint32_t size = 0;
-    char val[512] = VAL_NULL;
+    char val[512] = {0};
     if( fd->fillNull && RD(inul) == 0 ) {
-        size = sprintf(pstr + len, ",%s", VAL_NULL);
+        size = sprintf(pstr + len, ",%s", nullVal);
         return size;
     }
 
