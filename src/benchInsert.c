@@ -1256,6 +1256,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
     TAOS_RES *   res = NULL;
     int32_t      code = 0;
     uint16_t     iface = stbInfo->iface;
+    int64_t      start = 0;
 
     int32_t trying = (stbInfo->keep_trying)?
         stbInfo->keep_trying:g_arguments->keep_trying;
@@ -1310,7 +1311,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
 
         case STMT_IFACE:
             // add batch
-            int64_t start = toolsGetTimestampUs();
+            start = toolsGetTimestampUs();
             if (taos_stmt_add_batch(pThreadInfo->conn->stmt) != 0) {
                 errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
                         taos_stmt_errstr(pThreadInfo->conn->stmt));
