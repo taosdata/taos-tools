@@ -647,6 +647,8 @@ typedef struct STSMA {
 #define SUIT_DATAPOS_MUL_FILE  4
 #define SUIT_DATAPOS_MIX       5
 
+#define VAL_NULL "NULL"
+
 enum CONTINUE_IF_FAIL_MODE {
     NO_IF_FAILED,     // 0
     YES_IF_FAILED,    // 1
