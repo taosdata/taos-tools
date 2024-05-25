@@ -384,6 +384,8 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
         Field *field = benchArrayGet(fields, i);
         switch (field->type) {
             case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_VARBINARY:
+            case TSDB_DATA_TYPE_GEOMETRY:
             case TSDB_DATA_TYPE_NCHAR:
                 len += field->length + 3;
                 break;
@@ -780,6 +782,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
@@ -959,6 +962,7 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
@@ -1207,13 +1211,14 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
                         return -1;
                     }
-                    if (field->type == TSDB_DATA_TYPE_BINARY) {
+                    if (field->type == TSDB_DATA_TYPE_BINARY || field->type == TSDB_DATA_TYPE_VARBINARY) {
                         if (tag) {
                             n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                             "%s=L\"%s\" ",
@@ -1359,6 +1364,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
@@ -1493,6 +1499,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
@@ -1915,10 +1922,11 @@ void generateSmlJsonTags(tools_cJSON *tagsList,
             }
 
             case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_VARBINARY:
             case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)benchCalloc(tag->length + 1, 1, false);
                 rand_string(buf, tag->length, g_arguments->chinese);
-                if (tag->type == TSDB_DATA_TYPE_BINARY) {
+                if (tag->type == TSDB_DATA_TYPE_BINARY || tag->type == TSDB_DATA_TYPE_VARBINARY) {
                     tools_cJSON_AddStringToObject(tags, tagName, buf);
                 } else {
                     tools_cJSON_AddStringToObject(tags, tagName, buf);
@@ -1981,10 +1989,11 @@ void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
             }
 
             case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_VARBINARY:
             case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)benchCalloc(tag->length + 1, 1, false);
                 rand_string(buf, tag->length, g_arguments->chinese);
-                if (tag->type == TSDB_DATA_TYPE_BINARY) {
+                if (tag->type == TSDB_DATA_TYPE_BINARY || tag->type == TSDB_DATA_TYPE_VARBINARY) {
                     tools_cJSON_AddStringToObject(tagObj, "value", buf);
                     tools_cJSON_AddStringToObject(tagObj, "type", "binary");
                 } else {
@@ -2040,6 +2049,7 @@ void generateSmlJsonValues(
             break;
         }
         case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
             rand_string(buf, col->length, g_arguments->chinese);
@@ -2082,6 +2092,7 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
             break;
         }
         case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
             rand_string(buf, col->length, g_arguments->chinese);
@@ -2139,10 +2150,11 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
             break;
         }
         case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
             rand_string(buf, col->length, g_arguments->chinese);
-            if (col->type == TSDB_DATA_TYPE_BINARY) {
+            if (col->type == TSDB_DATA_TYPE_BINARY || col->type == TSDB_DATA_TYPE_VARBINARY) {
                 tools_cJSON_AddStringToObject(value, "value", buf);
                 tools_cJSON_AddStringToObject(value, "type", "binary");
             } else {

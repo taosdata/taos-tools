@@ -1002,6 +1002,8 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_JSON;
         } else if (0 == strcasecmp(type, "varchar")) {
             return TSDB_DATA_TYPE_BINARY;
+        } else if (0 == strcasecmp(type, "varbinary")) {
+            return TSDB_DATA_TYPE_VARBINARY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
@@ -1039,6 +1041,8 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_JSON;
         } else if (0 == strncasecmp(type, "varchar", length)) {
             return TSDB_DATA_TYPE_BINARY;
+        } else if (0 == strcnasecmp(type, "varbinary"), length) {
+            return TSDB_DATA_TYPE_VARBINARY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);

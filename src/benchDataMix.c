@@ -153,6 +153,7 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
     // binary nchar
     case TSDB_DATA_TYPE_NCHAR:
     case TSDB_DATA_TYPE_BINARY:
+    case TSDB_DATA_TYPE_VARBINARY:
         format = ",\'%s\'";
         tmpStr(val, 0, fd, *k);
         break;
@@ -203,6 +204,7 @@ uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts) {
         break;
     // binary nchar
     case TSDB_DATA_TYPE_BINARY:
+    case TSDB_DATA_TYPE_VARBINARY:
     case TSDB_DATA_TYPE_NCHAR:
         sprintf(val, "%" PRId64, ts);
         break;
