@@ -97,6 +97,7 @@ uint32_t genRadomString(char* val, uint32_t len, char* prefix) {
 // data row generate by randowm
 uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64_t *k, char* nullVal) {
     uint32_t size = 0;
+    int64_t  nowts= 0;
     char val[512] = {0};
     if( fd->fillNull && RD(inul) == 0 ) {
         size = sprintf(pstr + len, ",%s", nullVal);
@@ -111,7 +112,7 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
         break;
     // timestamp    
     case TSDB_DATA_TYPE_TIMESTAMP:
-        int64_t nowts = toolsGetTimestampMs();
+        nowts = toolsGetTimestampMs();
         strcpy(val, "\'");
         toolsFormatTimestamp(val, nowts, TSDB_TIME_PRECISION_MILLI);
         strcat(val, "\'");
