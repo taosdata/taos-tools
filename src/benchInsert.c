@@ -3729,7 +3729,8 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
     int32_t ret = initInsertThread(database, stbInfo, nthreads, infos, div, mod);
     if( ret != 0) {
         errorPrint("init insert thread failed. %s.%s\n", database->dbName, stbInfo->stbName);
-        FREE_RESOURCE();
+        tmfree(pids);
+        tmfree(infos);
         return ret;
     }
 
