@@ -1489,6 +1489,13 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         g_arguments->nthreads = (uint32_t)threads->valueint;
     }
 
+    tools_cJSON *bindVGroup = tools_cJSON_GetObjectItem(json, "thread_bind_vgroup");
+    if (tools_cJSON_IsString(bindVGroup)) {
+        if (0 == strcasecmp(bindVGroup->valuestring, "yes")) {
+            g_arguments->bind_vgroup = true;
+        }
+    }
+
     tools_cJSON *keepTrying = tools_cJSON_GetObjectItem(json, "keep_trying");
     if (keepTrying && keepTrying->type == tools_cJSON_Number) {
         g_arguments->keep_trying = (int32_t)keepTrying->valueint;

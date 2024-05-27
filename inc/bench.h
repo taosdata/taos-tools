@@ -791,14 +791,12 @@ typedef struct SSTREAM_S {
     bool drop;
 } SSTREAM;
 
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
 typedef struct SVGroup_S {
     int32_t       vgId;
     uint64_t      tbCountPerVgId;
     SChildTable   **childTblArray;
     uint64_t      tbOffset;  // internal use
 } SVGroup;
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
         //
 typedef struct SDataBase_S {
     char *      dbName;
@@ -969,6 +967,8 @@ typedef struct SArguments_S {
     bool                escape_character;
     bool                pre_load_tb_meta;
     char                csvPath[MAX_FILE_NAME_LEN];
+
+    bool                bind_vgroup;
 } SArguments;
 
 typedef struct SBenchConn {
