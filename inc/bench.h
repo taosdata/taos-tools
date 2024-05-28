@@ -1161,7 +1161,7 @@ void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
 int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
 
-int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t* delay3);
 // if return true, timestmap must add timestap_step, else timestamp no need changed
 bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt);
 

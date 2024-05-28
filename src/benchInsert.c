@@ -1238,12 +1238,13 @@ void postFreeResource() {
     tools_cJSON_Delete(root);
 }
 
-int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     TAOS_RES *   res = NULL;
     int32_t      code = 0;
     uint16_t     iface = stbInfo->iface;
+    int64_t      start = 0;
 
     int32_t trying = (stbInfo->keep_trying)?
         stbInfo->keep_trying:g_arguments->keep_trying;
@@ -1297,6 +1298,18 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
 
         case STMT_IFACE:
+            // add batch
+            start = toolsGetTimestampUs();
+            if (taos_stmt_add_batch(pThreadInfo->conn->stmt) != 0) {
+                errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
+                        taos_stmt_errstr(pThreadInfo->conn->stmt));
+                return -1;
+            }
+            if(delay3) {
+                *delay3 += toolsGetTimestampUs() - start;
+            }
+            
+            // execute 
             code = taos_stmt_execute(pThreadInfo->conn->stmt);
             if (code) {
                 errorPrint(
@@ -1742,7 +1755,7 @@ static void *syncWriteInterlace(void *sarg) {
 
                     int32_t n = 0;
                     generated = bindParamBatch(pThreadInfo, interlaceRows,
-                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
+                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2);
                     
                     childTbl->ts += stbInfo->timestamp_step * n;
                     break;
@@ -1837,7 +1850,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         startTs = toolsGetTimestampUs();
-        if (execInsert(pThreadInfo, generated)) {
+        if (execInsert(pThreadInfo, generated, &delay3)) {
             g_fail = true;
             goto free_of_interlace;
         }
@@ -1962,7 +1975,7 @@ static int32_t prepareProgressDataStmt(
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
-            *timestamp, childTbl, pkCur, pkCnt, &n, delay2, delay3);
+            *timestamp, childTbl, pkCur, pkCnt, &n, delay2);
     *timestamp += n * stbInfo->timestamp_step;
     return generated;
 }
@@ -2526,7 +2539,7 @@ void *syncWriteProgressive(void *sarg) {
             }
             // only measure insert
             startTs = toolsGetTimestampUs();
-            int code = execInsert(pThreadInfo, generated);
+            int code = execInsert(pThreadInfo, generated, &delay3);
             if (code) {
                 if (NO_IF_FAILED == stbInfo->continueIfFail) {
                     warnPrint("The super table parameter "
@@ -2567,7 +2580,7 @@ void *syncWriteProgressive(void *sarg) {
                         w = 0;
                     }
 
-                    code = execInsert(pThreadInfo, generated);
+                    code = execInsert(pThreadInfo, generated, &delay3);
                     if (code) {
                         g_fail = true;
                         goto free_of_progressive;
