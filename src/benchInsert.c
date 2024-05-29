@@ -956,9 +956,9 @@ static void *createTable(void *sarg) {
         batchNum = 0;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
-            float rate = (pThreadInfo->tables_created - lastTotalCreate) * 1000 / (currentPrintTime - lastPrintTime);
-            infoPrint("thread[%d] already created %" PRId64 " tables, peroid rate: %.0f tables/s\n",
-                       pThreadInfo->threadID, pThreadInfo->tables_created, rate);
+            float speed = (pThreadInfo->tables_created - lastTotalCreate) * 1000 / (currentPrintTime - lastPrintTime);
+            infoPrint("thread[%d] already created %" PRId64 " tables, peroid speed: %.0f tables/s\n",
+                       pThreadInfo->threadID, pThreadInfo->tables_created, speed);
             lastPrintTime   = currentPrintTime;
             lastTotalCreate = pThreadInfo->tables_created;
         }
@@ -1123,7 +1123,7 @@ static int createChildTables() {
     double end = (double)toolsGetTimestampMs();
     succPrint(
             "Spent %.4f seconds to create %" PRId64
-            " table(s) with %d thread(s) rate: %.0f tables/s, already exist %" PRId64
+            " table(s) with %d thread(s) speed: %.0f tables/s, already exist %" PRId64
             " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
             " table(s) will be auto created\n",
             (end - start) / 1000.0,
