@@ -820,28 +820,30 @@ static int getIntervalOfTblCreating(threadInfo *pThreadInfo,
     return 0;
 }
 
+// table create thread
 static void *createTable(void *sarg) {
     if (g_arguments->supplementInsert) {
         return NULL;
     }
 
-    threadInfo * pThreadInfo = (threadInfo *)sarg;
-    SDataBase *  database = pThreadInfo->dbInfo;
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    threadInfo  *pThreadInfo    = (threadInfo *)sarg;
+    SDataBase   *database       = pThreadInfo->dbInfo;
+    SSuperTable *stbInfo        = pThreadInfo->stbInfo;
+    uint64_t    lastTotalCreate = 0;
+    uint64_t    lastPrintTime   = toolsGetTimestampMs();
+    int32_t     len             = 0;
+    int32_t     batchNum        = 0;
+    char ttl[SMALL_BUFF_LEN]    = "";
+
 #ifdef LINUX
     prctl(PR_SET_NAME, "createTable");
 #endif
-    uint64_t lastPrintTime = toolsGetTimestampMs();
     pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
-    int len = 0;
-    int batchNum = 0;
     infoPrint(
               "thread[%d] start creating table from %" PRIu64 " to %" PRIu64
               "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-
-    char ttl[SMALL_BUFF_LEN] = "";
     if (stbInfo->ttl != 0) {
         snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
     }
@@ -954,10 +956,11 @@ static void *createTable(void *sarg) {
         batchNum = 0;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
-            infoPrint(
-                       "thread[%d] already created %" PRId64 " tables\n",
-                       pThreadInfo->threadID, pThreadInfo->tables_created);
-            lastPrintTime = currentPrintTime;
+            float rate = (pThreadInfo->tables_created - lastTotalCreate) * 1000 / (currentPrintTime - lastPrintTime);
+            infoPrint("thread[%d] already created %" PRId64 " tables, peroid rate: %.0f tables/s\n",
+                       pThreadInfo->threadID, pThreadInfo->tables_created, rate);
+            lastPrintTime   = currentPrintTime;
+            lastTotalCreate = pThreadInfo->tables_created;
         }
     }
 
@@ -1120,11 +1123,14 @@ static int createChildTables() {
     double end = (double)toolsGetTimestampMs();
     succPrint(
             "Spent %.4f seconds to create %" PRId64
-            " table(s) with %d thread(s), already exist %" PRId64
+            " table(s) with %d thread(s) rate: %.0f tables/s, already exist %" PRId64
             " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
             " table(s) will be auto created\n",
-            (end - start) / 1000.0, g_arguments->totalChildTables,
-            g_arguments->table_threads, g_arguments->existedChildTables,
+            (end - start) / 1000.0,
+            g_arguments->totalChildTables,
+            g_arguments->table_threads,
+            g_arguments->actualChildTables * 1000 / (end - start),
+            g_arguments->existedChildTables,
             g_arguments->actualChildTables,
             g_arguments->autoCreatedChildTables);
     return 0;
@@ -1530,7 +1536,9 @@ void loadChildTableInfo(threadInfo* pThreadInfo) {
             pos = 0;
         }
     }
-    infoPrint("end load child tables info. delay=%.2fs\n", (toolsGetTimestampUs() - start)/1E6);
+    int64_t delay = toolsGetTimestampUs() - start;
+    infoPrint("end load child tables info. delay=%.2fs\n", delay/1E6);
+    pThreadInfo->totalDelay += delay;
 
     tmfree(buf);
 }
