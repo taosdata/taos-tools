@@ -1799,7 +1799,6 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
                         uint32_t batch, int64_t startTime,
                         SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n) {
-    TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
     memset(pThreadInfo->bindParams, 0,

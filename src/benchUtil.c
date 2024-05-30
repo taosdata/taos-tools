@@ -334,10 +334,10 @@ void initStmt(SBenchConn* conn) {
 
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        conn.stmt_ws = ws_stmt_init(conn->taos_ws);
+        conn->stmt_ws = ws_stmt_init(conn->taos_ws);
     } else {
 #endif
-        conn.stmt = taos_stmt_init(pThreadInfo->conn->taos);
+        conn->stmt = taos_stmt_init(conn->taos);
 
 #ifdef WEBSOCKET
     }
@@ -400,7 +400,8 @@ int addBatchStmt(SBenchConn* conn) {
 int closeStmt(SBenchConn* conn) {
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        return ws_stmt_close(conn->stmt_ws);
+        ws_stmt_close(conn->stmt_ws);
+        return 0;
     }
 #endif
     return taos_stmt_close(conn->stmt);   
@@ -410,7 +411,7 @@ int closeStmt(SBenchConn* conn) {
 char * getStmtErrorStr(SBenchConn* conn) {
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        return ws_stmt_errstr(conn.stmt_ws)
+        return ws_stmt_errstr(conn->stmt_ws);
     } else {
 #endif
         return taos_stmt_errstr(conn->stmt);
