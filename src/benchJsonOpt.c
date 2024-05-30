@@ -930,7 +930,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_to)) {
             superTable->childTblTo = childTbl_to->valueint;
             if (superTable->childTblTo < superTable->childTblFrom) {
-                errorPrint("child table _to_ is invalid number,"
+                errorPrint("json config invalid. child table _to_ is invalid number,"
                     "%"PRId64" < %"PRId64"\n",
                     superTable->childTblTo, superTable->childTblFrom);
                 return -1;
@@ -939,11 +939,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
 
         // check childtable_from and childtable_to valid
         if (superTable->childTblFrom >= superTable->childTblCount) {
-            errorPrint("childtable_from(%"PRId64") is equal or large than childtable_count(%"PRId64")\n", superTable->childTblFrom, superTable->childTblCount);
+            errorPrint("json config invalid. childtable_from(%"PRId64") is equal or large than childtable_count(%"PRId64")\n", superTable->childTblFrom, superTable->childTblCount);
             return -1;
         }  
         if (superTable->childTblTo > superTable->childTblCount) {
-            errorPrint("childtable_to(%"PRId64") is large than childtable_count(%"PRId64")\n", superTable->childTblTo, superTable->childTblCount);
+            errorPrint("json config invalid. childtable_to(%"PRId64") is large than childtable_count(%"PRId64")\n", superTable->childTblTo, superTable->childTblCount);
             return -1;
         }
 
