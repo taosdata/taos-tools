@@ -1110,6 +1110,16 @@ void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems);
 
+//stmt
+void initStmt(SBenchConn* conn);
+int stmtPrepare(SBenchConn* conn, const char *sql, unsigned long length);
+int executeStmt(SBenchConn* conn);
+int setStmtTbname(SBenchConn* conn, const char *escapedTbName);
+int bindStmtParamBatch(SBenchConn* conn, TAOS_MULTI_BIND *bind, int columnCount);
+int addBatchStmt(SBenchConn* conn);
+int closeStmt(SBenchConn* conn);
+char * getStmtErrorStr(SBenchConn* conn);
+
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
 void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp);

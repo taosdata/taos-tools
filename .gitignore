@@ -2,6 +2,7 @@ build/
 debug/
 release/
 target/
+.vscode/
 *.swp
 *.swo
 *.bak

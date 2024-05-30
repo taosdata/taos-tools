@@ -1309,11 +1309,12 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
 
         case STMT_IFACE:
-            code = taos_stmt_execute(pThreadInfo->conn->stmt);
+            code = executeStmt(pThreadInfo->conn);
             if (code) {
                 errorPrint(
-                           "failed to execute insert statement. reason: %s\n",
-                           taos_stmt_errstr(pThreadInfo->conn->stmt));
+                    "failed to execute insert statement. reason: %s\n",
+                    getStmtErrorStr(pThreadInfo->conn));
+
                 code = -1;
             }
             break;
@@ -1693,12 +1694,11 @@ static void *syncWriteInterlace(void *sarg) {
                         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                                 tableName);
                     }
-                    if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
-                                             escapedTbName)) {
+                    if (setStmtTbname(pThreadInfo->conn, escapedTbName)) {
                         errorPrint(
                             "taos_stmt_set_tbname(%s) failed, reason: %s\n",
                             tableName,
-                                taos_stmt_errstr(pThreadInfo->conn->stmt));
+                                getStmtErrorStr(pThreadInfo->conn));
                         g_fail = true;
                         goto free_of_interlace;
                     }
@@ -1901,12 +1901,12 @@ static int32_t prepareProgressDataStmt(
         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                  childTbl->name);
     }
-    if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
+    if (setStmtTbname(pThreadInfo->conn,
                              escapedTbName)) {
         errorPrint(
                 "taos_stmt_set_tbname(%s) failed,"
                 "reason: %s\n", escapedTbName,
-                taos_stmt_errstr(pThreadInfo->conn->stmt));
+                getStmtErrorStr(pThreadInfo->conn));
         return -1;
     }
     int32_t n =0;
@@ -2399,14 +2399,28 @@ void *syncWriteProgressive(void *sarg) {
         int32_t pkCur = 0; // record generate same timestamp current count
         int32_t pkCnt = 0; // record generate same timestamp count
         if (stmt) {
-            taos_stmt_close(pThreadInfo->conn->stmt);
-            pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
-            if (NULL == pThreadInfo->conn->stmt) {
-                errorPrint("taos_stmt_init() failed, reason: %s\n",
-                        taos_errstr(NULL));
-                g_fail = true;
-                goto free_of_progressive;
+            closeStmt(pThreadInfo->conn);
+            initStmt(pThreadInfo->conn);
+            #ifdef WEBSOCKET
+            if (g_arguments->websocket) {
+                if (NULL == pThreadInfo->conn->stmt_ws) {
+                    errorPrint("ws_stmt_init() failed, reason: %s\n",
+                            ws_stmt_errstr(NULL));
+                    g_fail = true;
+                    goto free_of_progressive;
+                }
+            } else {
+            #endif
+                if (NULL == pThreadInfo->conn->stmt) {
+                    errorPrint("taos_stmt_init() failed, reason: %s\n",
+                            taos_errstr(NULL));
+                    g_fail = true;
+                    goto free_of_progressive;
+                }
+            #ifdef WEBSOCKET
             }
+            #endif
+
         }
 
         if(stmt || smart || acreate) {
@@ -2420,7 +2434,7 @@ void *syncWriteProgressive(void *sarg) {
         }   
         
         if (stmt) {
-            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+            if (prepareStmt(stbInfo, pThreadInfo->conn, tagData, w)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
@@ -3348,20 +3362,40 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (NULL == pThreadInfo->conn) {
                     FREE_PIDS_INFOS_RETURN_MINUS_1();
                 }
-                pThreadInfo->conn->stmt =
-                    taos_stmt_init(pThreadInfo->conn->taos);
-                if (NULL == pThreadInfo->conn->stmt) {
-                    errorPrint("taos_stmt_init() failed, reason: %s\n",
-                               taos_errstr(NULL));
-                    FREE_RESOURCE();
-                    return -1;
+
+                initStmt(pThreadInfo->conn);
+                #ifdef WEBSOCKET
+                if (g_arguments->websocket) {
+                    if (NULL == pThreadInfo->conn->stmt_ws) {
+                        errorPrint("ws_stmt_init() failed, reason: %s\n",
+                                ws_stmt_errstr(NULL));
+                        FREE_RESOURCE();
+                        return -1;
+                    }
+                    if (ws_select_db(pThreadInfo->conn->taos_ws, database->dbName)) {
+                        errorPrint("taos select database(%s) failed\n",
+                                database->dbName);
+                        FREE_RESOURCE();
+                        return -1;                        
+                    }
+                } else {
+                #endif
+                    if (NULL == pThreadInfo->conn->stmt) {
+                        errorPrint("taos_stmt_init() failed, reason: %s\n",
+                                taos_errstr(NULL));
+                        FREE_RESOURCE();
+                        return -1;
+                    }
+                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                        errorPrint("taos select database(%s) failed\n",
+                                database->dbName);
+                        FREE_RESOURCE();
+                        return -1;
+                    }                    
+                #ifdef WEBSOCKET
                 }
-                if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                    errorPrint("taos select database(%s) failed\n",
-                            database->dbName);
-                    FREE_RESOURCE();
-                    return -1;
-                }
+                #endif
+
                 if (stmtN) {
                     // generator
                     if (w == 0) {
@@ -3375,7 +3409,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                         }
                     }
 
-                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                    if (prepareStmt(stbInfo, pThreadInfo->conn, tagData, w)) {
                         if(csvFile){
                             fclose(csvFile);
                         }
@@ -3661,7 +3695,7 @@ static int startMultiThreadInsertData(SDataBase* database,
                 break;
 
             case STMT_IFACE:
-                taos_stmt_close(pThreadInfo->conn->stmt);
+                closeStmt(pThreadInfo->conn);
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);

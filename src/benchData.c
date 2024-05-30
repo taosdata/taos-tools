@@ -214,7 +214,7 @@ void rand_string(char *str, int size, bool chinese) {
     }
 }
 
-int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, char* tagData, uint64_t tableSeq) {
+int prepareStmt(SSuperTable *stbInfo, SBenchConn  *conn, char* tagData, uint64_t tableSeq) {
     int   len = 0;
     char *prepare = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
     int n;
@@ -263,7 +263,7 @@ int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, char* tagData, uint64_t t
                   g_arguments->prepared_rand);
         g_arguments->reqPerReq = g_arguments->prepared_rand;
     }
-    if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
+    if (stmtPrepare(conn, prepare, strlen(prepare))) {
         errorPrint("taos_stmt_prepare(%s) failed\n", prepare);
         tmfree(prepare);
         return -1;
@@ -1858,10 +1858,10 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         }
     }
 
-    if (taos_stmt_bind_param_batch(
-            stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
+    if (bindStmtParamBatch(
+            pThreadInfo->conn, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
         errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
-                   taos_stmt_errstr(stmt));
+                   getStmtErrorStr(pThreadInfo->conn));
         return 0;
     }
 
@@ -1873,9 +1873,9 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     }
 
     // if msg > 3MB, break
-    if (taos_stmt_add_batch(stmt)) {
+    if (addBatchStmt(pThreadInfo->conn)) {
         errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
-                   taos_stmt_errstr(stmt));
+                   getStmtErrorStr(pThreadInfo->conn));
         return 0;
     }
     return batch;

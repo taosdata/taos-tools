@@ -330,6 +330,96 @@ SBenchConn* initBenchConn() {
     return conn;
 }
 
+void initStmt(SBenchConn* conn) {
+
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        conn.stmt_ws = ws_stmt_init(conn->taos_ws);
+    } else {
+#endif
+        conn.stmt = taos_stmt_init(pThreadInfo->conn->taos);
+
+#ifdef WEBSOCKET
+    }
+#endif
+ 
+}
+
+int stmtPrepare(SBenchConn* conn, const char *sql, unsigned long length) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) { 
+        return ws_stmt_prepare(conn->stmt_ws, sql, length);
+    }
+#endif
+    return taos_stmt_prepare(conn->stmt, sql, length);
+}
+
+int executeStmt(SBenchConn* conn) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        int32_t affected_rows = 0;
+        return ws_stmt_execute(conn->stmt_ws, &affected_rows);
+    } else {
+#endif
+        return taos_stmt_execute(conn->stmt);
+
+#ifdef WEBSOCKET
+    }
+#endif   
+}
+
+int setStmtTbname(SBenchConn* conn, const char *escapedTbName) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) { 
+        return ws_stmt_set_tbname(conn->stmt_ws, escapedTbName);
+    }
+#endif
+    return taos_stmt_set_tbname(conn->stmt, escapedTbName);
+}
+
+
+int bindStmtParamBatch(SBenchConn* conn, TAOS_MULTI_BIND *bind, int columnCount) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        WS_MULTI_BIND * wsBind = (WS_MULTI_BIND *)bind;
+        return ws_stmt_bind_param_batch(conn->stmt_ws, wsBind, columnCount);
+    }
+#endif
+    return taos_stmt_bind_param_batch(conn->stmt, bind);
+}
+
+int addBatchStmt(SBenchConn* conn) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        return ws_stmt_add_batch(conn->stmt_ws);
+    }
+#endif
+    return taos_stmt_add_batch(conn->stmt);
+}
+
+int closeStmt(SBenchConn* conn) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        return ws_stmt_close(conn->stmt_ws);
+    }
+#endif
+    return taos_stmt_close(conn->stmt);   
+}
+
+
+char * getStmtErrorStr(SBenchConn* conn) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        return ws_stmt_errstr(conn.stmt_ws)
+    } else {
+#endif
+        return taos_stmt_errstr(conn->stmt);
+
+#ifdef WEBSOCKET
+    }
+#endif 
+}
+
 void closeBenchConn(SBenchConn* conn) {
     if(conn == NULL)
        return ;
