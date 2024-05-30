@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include <cstddef>
 
 char resEncodingChunk[] = "Encoding: chunked";
 char succMessage[] = "succ";
@@ -411,7 +412,7 @@ int closeStmt(SBenchConn* conn) {
 char * getStmtErrorStr(SBenchConn* conn) {
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        return ws_stmt_errstr(conn->stmt_ws);
+        return (char*)(ws_stmt_errstr(conn->stmt_ws));
     } else {
 #endif
         return taos_stmt_errstr(conn->stmt);
