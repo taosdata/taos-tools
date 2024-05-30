@@ -1859,7 +1859,7 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     }
 
     if (bindStmtParamBatch(
-            pThreadInfo->conn, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
+            pThreadInfo->conn, (TAOS_MULTI_BIND *)pThreadInfo->bindParams, columnCount)) {
         errorPrint("taos_stmt_bind_param_batch() failed! reason: %s\n",
                    getStmtErrorStr(pThreadInfo->conn));
         return 0;

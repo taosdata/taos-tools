@@ -888,19 +888,19 @@ free_of_post:
 // wsfetch result fo file or nothing
 void wsFetchResult(WS_RES *res) {
     WS_ROW row = NULL;
-    int code = 0;
-    
+
     uint64_t st = toolsGetTimestampMs();
     do {
-        code = ws_fetch_row(res, &row); 
-    } while(code == 0 && row != NULL );
-    
+        row = ws_fetch_row(res);
+    } while(row != NULL );
+
     uint64_t et = toolsGetTimestampMs();
     int64_t delay = et - st;
-    debugPrint("%s() LN%d, wsFetchResult delay: %"PRId64"\n", __func__, __LINE__, delay);            
-    
+    infoPrint("%s() LN%d, wsFetchResult delay: %"PRId64"\n", __func__, __LINE__, delay);
+
+    int code = ws_errno(res);
     if (code != 0) {
-        errorPrint("failed to ws fetch result: code: 0x%08x, reason:%s\n", code, taos_errstr(res));
+        errorPrint("failed to ws fetch result: code: 0x%08x, reason:%s\n", code, ws_errstr(res));
     }   
 }
 

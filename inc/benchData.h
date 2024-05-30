@@ -26,7 +26,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         int64_t bufLen,
         int lenOfOneRow, BArray * fields, int64_t loop,
         bool tag, BArray *childCols);
-int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, char* tagData, uint64_t tableSeq);
+int prepareStmt(SSuperTable *stbInfo, SBenchConn  *conn, char* tagData, uint64_t tableSeq);
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
         uint32_t batch, int64_t startTime, SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n);
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo);
