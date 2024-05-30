@@ -937,6 +937,16 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             }
         }
 
+        // check childtable_from and childtable_to valid
+        if (superTable->childTblFrom >= superTable->childTblCount) {
+            errorPrint("childtable_from(%"PRId64") is equal or large than childtable_count(%"PRId64")\n", superTable->childTblFrom, superTable->childTblCount);
+            return -1;
+        }  
+        if (superTable->childTblTo > superTable->childTblCount) {
+            errorPrint("childtable_to(%"PRId64") is large than childtable_count(%"PRId64")\n", superTable->childTblTo, superTable->childTblCount);
+            return -1;
+        }
+
         tools_cJSON *continueIfFail =
             tools_cJSON_GetObjectItem(stbInfo, "continue_if_fail");  // yes, no,
         if (tools_cJSON_IsString(continueIfFail)) {
