@@ -1089,7 +1089,7 @@ static int createChildTables() {
                   "start creating %" PRId64 " table(s) with %d thread(s)\n",
                   g_arguments->totalChildTables, g_arguments->table_threads);
     }
-    double start = (double)toolsGetTimestampMs();
+    int64_t start = (double)toolsGetTimestampMs();
 
     for (int i = 0; (i < g_arguments->databases->size
             && !g_arguments->terminate); i++) {
@@ -1120,16 +1120,19 @@ static int createChildTables() {
         }
     }
 
-    double end = (double)toolsGetTimestampMs();
+    int64_t end = toolsGetTimestampMs();
+    if(end == start) {
+        end += 1;
+    }
     succPrint(
             "Spent %.4f seconds to create %" PRId64
             " table(s) with %d thread(s) speed: %.0f tables/s, already exist %" PRId64
             " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
             " table(s) will be auto created\n",
-            (end - start) / 1000.0,
+            (float)(end - start) / 1000.0,
             g_arguments->totalChildTables,
             g_arguments->table_threads,
-            g_arguments->actualChildTables * 1000 / (end - start),
+            g_arguments->actualChildTables * 1000 / (float)(end - start),
             g_arguments->existedChildTables,
             g_arguments->actualChildTables,
             g_arguments->autoCreatedChildTables);
