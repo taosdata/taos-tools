@@ -855,9 +855,9 @@ static void *createTable(void *sarg) {
     int         w = 0; // record tagData
 
     int smallBatchCount = 0;
-    for (uint64_t i = pThreadInfo->start_table_from + stbInfo->childTblFrom;
-            (i <= (pThreadInfo->end_table_to + stbInfo->childTblFrom)
-             && !g_arguments->terminate); i++) {
+    for (uint64_t i = pThreadInfo->start_table_from;
+                  i <= pThreadInfo->end_table_to && !g_arguments->terminate;
+                  i++) {
         if (g_arguments->terminate) {
             goto create_table_end;
         }
@@ -998,35 +998,34 @@ create_table_end:
     return NULL;
 }
 
-static int startMultiThreadCreateChildTable(
-        SDataBase* database, SSuperTable* stbInfo) {
-    int code = -1;
-    int          threads = g_arguments->table_threads;
-    int64_t      ntables;
+static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* stbInfo) {
+    int32_t code    = -1;
+    int32_t threads = g_arguments->table_threads;
+    int64_t ntables;
     if (stbInfo->childTblTo > 0) {
-        ntables = stbInfo->childTblTo - stbInfo->childTblFrom;
+        ntables = stbInfo->childTblTo - stbInfo->childTblFrom + 1;
+    } else if(stbInfo->childTblFrom > 0) {
+        ntables = stbInfo->childTblCount - stbInfo->childTblFrom;
     } else {
         ntables = stbInfo->childTblCount;
     }
     pthread_t   *pids = benchCalloc(1, threads * sizeof(pthread_t), false);
     threadInfo  *infos = benchCalloc(1, threads * sizeof(threadInfo), false);
-    uint64_t     tableFrom = 0;
+    uint64_t     tableFrom = stbInfo->childTblFrom;
     if (threads < 1) {
         threads = 1;
     }
-
-    int64_t a = ntables / threads;
-    if (a < 1) {
-        threads = (int)ntables;
-        a = 1;
-    }
-
     if (ntables == 0) {
-        errorPrint("failed to create child table, childTblCount: %"PRId64"\n",
-                ntables);
+        errorPrint("failed to create child table, childTblCount: %"PRId64"\n", ntables);
         goto over;
     }
-    int64_t b = ntables % threads;
+
+    int64_t div = ntables / threads;
+    if (div < 1) {
+        threads = (int)ntables;
+        div = 1;
+    }
+    int64_t mod = ntables % threads;
 
     int threadCnt = 0;
     for (uint32_t i = 0; (i < threads && !g_arguments->terminate); i++) {
@@ -1047,10 +1046,12 @@ static int startMultiThreadCreateChildTable(
             }
         }
         pThreadInfo->start_table_from = tableFrom;
-        pThreadInfo->ntables = i < b ? a + 1 : a;
-        pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
+        pThreadInfo->ntables          = i < mod ? div + 1 : div;
+        pThreadInfo->end_table_to     = i < mod ? tableFrom + div : tableFrom + div - 1;
         tableFrom = pThreadInfo->end_table_to + 1;
         pThreadInfo->tables_created = 0;
+        debugPrint("div table by thread. i=%d from=%"PRId64" to=%"PRId64" ntable=%"PRId64"\n", i, pThreadInfo->start_table_from,
+                                        pThreadInfo->end_table_to, pThreadInfo->ntables);
         pthread_create(pids + i, NULL, createTable, pThreadInfo);
         threadCnt ++;
     }
