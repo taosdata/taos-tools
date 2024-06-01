@@ -766,6 +766,7 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 //
 bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
   int64_t lastPrintTime = 0;
+  infoPrint("insert mode is mix. generate_row_rule=%d\n", stb->genRowRule);
 
   // check interface
   if (stb->iface != TAOSC_IFACE) {
@@ -797,7 +798,14 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
 
   // loop insert child tables
   for (uint64_t tbIdx = info->start_table_from; tbIdx <= info->end_table_to; ++tbIdx) {
-    char* tbName = stb->childTblArray[tbIdx]->name;
+    // get child table
+    SChildTable *childTbl;
+    if (g_arguments->bind_vgroup) {
+        childTbl = pThreadInfo->vg->childTblArray[tbIdx];
+    } else {
+        childTbl = stb->childTblArray[tbIdx];
+    }
+    char* tbName = childTbl->name;
 
     SMixRatio mixRatio;
     mixRatioInit(&mixRatio, stb);

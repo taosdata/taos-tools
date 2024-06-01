@@ -88,7 +88,7 @@ class TDTestCase:
         tdSql.query("select count(*) from test.meters")
         tdSql.checkData(0, 0, 1)
 
-        cmd = "%s -N -I sml -y" % binPath
+        cmd = "%s -I sml -y" % binPath
         tdLog.info("%s" % cmd)
         assert os.system("%s" % cmd) != 0
 
