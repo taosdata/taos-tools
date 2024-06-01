@@ -766,8 +766,6 @@ bool checkCorrect(threadInfo* info, SDataBase* db, SSuperTable* stb, char* tbNam
 //
 bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
   int64_t lastPrintTime = 0;
-  infoPrint("insert mode is mix. generate_row_rule=%d\n", stb->genRowRule);
-
   // check interface
   if (stb->iface != TAOSC_IFACE) {
     return false;
@@ -777,6 +775,8 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
   if(stb->genRowRule == RULE_OLD)   {
     return false;
   }
+
+  infoPrint("insert mode is mix. generate_row_rule=%d\n", stb->genRowRule);
 
   FILE* csvFile = NULL;
   char* tagData = NULL;

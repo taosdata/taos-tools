@@ -1003,7 +1003,7 @@ static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* st
     int32_t threads = g_arguments->table_threads;
     int64_t ntables;
     if (stbInfo->childTblTo > 0) {
-        ntables = stbInfo->childTblTo - stbInfo->childTblFrom + 1;
+        ntables = stbInfo->childTblTo - stbInfo->childTblFrom;
     } else if(stbInfo->childTblFrom > 0) {
         ntables = stbInfo->childTblCount - stbInfo->childTblFrom;
     } else {
@@ -1604,10 +1604,7 @@ static void *syncWriteInterlace(void *sarg) {
             if (g_arguments->bind_vgroup) {
                 childTbl = pThreadInfo->vg->childTblArray[tableSeq];
             } else {
-                childTbl = stbInfo->childTblArray[
-                    stbInfo->childTblExists?
-                    tableSeq:
-                    stbInfo->childTblFrom + tableSeq];
+                childTbl = stbInfo->childTblArray[tableSeq];
             }
 
             char *  tableName   = childTbl->name;
@@ -2437,11 +2434,9 @@ void *syncWriteProgressive(void *sarg) {
         if (g_arguments->bind_vgroup) {
             childTbl = pThreadInfo->vg->childTblArray[tableSeq];
         } else {
-            childTbl = stbInfo->childTblArray[
-                stbInfo->childTblExists?
-                tableSeq:
-                stbInfo->childTblFrom + tableSeq];
+            childTbl = stbInfo->childTblArray[tableSeq];
         }
+        debugPrint("tableSeq=%"PRId64" childTbl->name=%s\n", tableSeq, childTbl->name);
 
         if (childTbl->useOwnSample) {
             sampleDataBuf = childTbl->sampleDataBuf;
