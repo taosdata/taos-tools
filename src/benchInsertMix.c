@@ -801,7 +801,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
     // get child table
     SChildTable *childTbl;
     if (g_arguments->bind_vgroup) {
-        childTbl = pThreadInfo->vg->childTblArray[tbIdx];
+        childTbl = info->vg->childTblArray[tbIdx];
     } else {
         childTbl = stb->childTblArray[tbIdx];
     }
