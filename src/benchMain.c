@@ -87,7 +87,6 @@ int main(int argc, char* argv[]) {
         if (dsn != NULL) {
             g_arguments->dsn = dsn;
             g_arguments->websocket = true;
-            g_arguments->nthreads_auto = false;
         } else {
             g_arguments->dsn = false;
         }

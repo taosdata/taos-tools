@@ -242,7 +242,6 @@ void initArgument() {
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
-    g_arguments->nthreads_auto = true;
     g_arguments->table_threads = DEFAULT_NTHREADS;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;

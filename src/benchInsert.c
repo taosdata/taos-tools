@@ -2403,25 +2403,12 @@ void *syncWriteProgressive(void *sarg) {
         return NULL;
     }
 
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto) {
-        if (0 == pThreadInfo->vg->tbCountPerVgId) {
-            return NULL;
-        }
-    } else {
-        infoPrint(
-            "thread[%d] start progressive inserting into table from "
-            "%" PRIu64 " to %" PRIu64 "\n",
-            pThreadInfo->threadID, pThreadInfo->start_table_from,
-            pThreadInfo->end_table_to + 1);
-    }
-#else
     infoPrint(
-            "thread[%d] start progressive inserting into table from "
-            "%" PRIu64 " to %" PRIu64 "\n",
-            pThreadInfo->threadID, pThreadInfo->start_table_from,
-            pThreadInfo->end_table_to + 1);
-#endif
+        "thread[%d] start progressive inserting into table from "
+        "%" PRIu64 " to %" PRIu64 "\n",
+        pThreadInfo->threadID, pThreadInfo->start_table_from,
+        pThreadInfo->end_table_to + 1);
+
     uint64_t  lastPrintTime = toolsGetTimestampMs();
     uint64_t  lastTotalInsertRows = 0;
     int64_t   startTs = toolsGetTimestampUs();

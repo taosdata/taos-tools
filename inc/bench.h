@@ -924,7 +924,6 @@ typedef struct SArguments_S {
     uint32_t            binwidth;
     uint32_t            intColumnCount;
     uint32_t            nthreads;
-    bool                nthreads_auto;
     uint32_t            table_threads;
     uint64_t            prepared_rand;
     uint32_t            reqPerReq;
