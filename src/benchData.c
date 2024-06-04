@@ -1802,42 +1802,46 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
-    memset(pThreadInfo->bindParams, 0,
-           (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
-    memset(pThreadInfo->is_null, 0, batch);
 
-    for (int c = 0; c < columnCount + 1; c++) {
-        TAOS_MULTI_BIND *param =
-            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
-                                sizeof(TAOS_MULTI_BIND) * c);
-        char data_type;
-        if (c == 0) {
-            data_type = TSDB_DATA_TYPE_TIMESTAMP;
-            param->buffer_length = sizeof(int64_t);
-            param->buffer = pThreadInfo->bind_ts_array;
-        } else {
-            Field *col = benchArrayGet(stbInfo->cols, c - 1);
-            data_type = col->type;
-            if (childTbl->useOwnSample) {
-                ChildField *childCol = benchArrayGet(childTbl->childCols, c-1);
-                param->buffer = childCol->stmtData.data;
-                param->is_null = childCol->stmtData.is_null;
+    if (!pThreadInfo->stmtBind) {
+        pThreadInfo->stmtBind = true;
+        memset(pThreadInfo->bindParams, 0,
+            (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
+        memset(pThreadInfo->is_null, 0, batch);
+
+        for (int c = 0; c < columnCount + 1; c++) {
+            TAOS_MULTI_BIND *param =
+                (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
+                                    sizeof(TAOS_MULTI_BIND) * c);
+            char data_type;
+            if (c == 0) {
+                data_type = TSDB_DATA_TYPE_TIMESTAMP;
+                param->buffer_length = sizeof(int64_t);
+                param->buffer = pThreadInfo->bind_ts_array;
             } else {
-                param->buffer = col->stmtData.data;
-                param->is_null = col->stmtData.is_null;
+                Field *col = benchArrayGet(stbInfo->cols, c - 1);
+                data_type = col->type;
+                if (childTbl->useOwnSample) {
+                    ChildField *childCol = benchArrayGet(childTbl->childCols, c-1);
+                    param->buffer = childCol->stmtData.data;
+                    param->is_null = childCol->stmtData.is_null;
+                } else {
+                    param->buffer = col->stmtData.data;
+                    param->is_null = col->stmtData.is_null;
+                }
+                param->buffer_length = col->length;
+                debugPrint("col[%d]: type: %s, len: %d\n", c,
+                        convertDatatypeToString(data_type),
+                        col->length);
             }
-            param->buffer_length = col->length;
-            debugPrint("col[%d]: type: %s, len: %d\n", c,
-                       convertDatatypeToString(data_type),
-                       col->length);
-        }
-        param->buffer_type = data_type;
-        param->length = benchCalloc(batch, sizeof(int32_t), true);
+            param->buffer_type = data_type;
+            param->length = benchCalloc(batch, sizeof(int32_t), true);
 
-        for (int b = 0; b < batch; b++) {
-            param->length[b] = (int32_t)param->buffer_length;
+            for (int b = 0; b < batch; b++) {
+                param->length[b] = (int32_t)param->buffer_length;
+            }
+            param->num = batch;
         }
-        param->num = batch;
     }
 
     // set ts array values
@@ -1866,13 +1870,6 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         return 0;
     }
     *delay2 += toolsGetTimestampUs() - start;
-
-    for (int c = 0; c < stbInfo->cols->size + 1; c++) {
-        TAOS_MULTI_BIND *param =
-            (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
-                                sizeof(TAOS_MULTI_BIND) * c);
-        tmfree(param->length);
-    }
 
     // if msg > 3MB, break
     start = toolsGetTimestampUs();

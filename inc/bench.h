@@ -1033,6 +1033,7 @@ typedef struct SThreadInfo_S {
     // check sql result
     char        *csql;
     int32_t     clen;  // csql current write position
+    bool        stmtBind;
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
