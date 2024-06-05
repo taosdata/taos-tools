@@ -3710,6 +3710,12 @@ int32_t exitInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
 
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
+
+                // free length
+                for (int c = 0; c < stbInfo->cols->size + 1; c++) {
+                    TAOS_MULTI_BIND *param = (TAOS_MULTI_BIND *)(pThreadInfo->bindParams + sizeof(TAOS_MULTI_BIND) * c);
+                    tmfree(param->length);
+                }
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
