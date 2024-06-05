@@ -297,6 +297,10 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
 
     if (file != NULL && fp == NULL) {
         fp = fopen(file, "r");
+        if (fp == NULL) {
+            errorPrint("open csv file failed. file=%s\n", file);
+            return -1;
+        }
         needClose = true;
     }
 
