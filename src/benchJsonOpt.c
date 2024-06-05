@@ -1391,7 +1391,7 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
     if (host && host->type == tools_cJSON_String && host->valuestring != NULL) {
         if(g_arguments->host && strlen(g_arguments->host) > 0) {
-            warnPrint("command line already pass host is %s, json config host had been ignored.\n", g_arguments->host);
+            warnPrint("command line already pass host is %s, json config host(%s) had been ignored.\n", g_arguments->host, host->valuestring);
         } else {
             g_arguments->host = host->valuestring;
         }     
@@ -1400,7 +1400,7 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
     tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
     if (port && port->type == tools_cJSON_Number) {
         if(g_arguments->port != DEFAULT_PORT) {
-            warnPrint("command line already pass port is %d, json config port had been ignored.\n", g_arguments->port);
+            warnPrint("command line already pass port is %d, json config port(%d) had been ignored.\n", g_arguments->port, (uint16_t)port->valueint);
         } else {
             g_arguments->port = (uint16_t)port->valueint;
         }
