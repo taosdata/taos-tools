@@ -675,7 +675,7 @@ static void printVersion(FILE *file) {
 
     fprintf(file,"%s\ntaosdump version: %s\ngit: %s\n", TD_PRODUCT_NAME, taostools_ver, taosdump_commit);
 #ifdef LINUX
-    printf("buildInfo: %s\n ", buildinfo);
+    printf("build: %s\n ", buildinfo);
 #endif
     if (strlen(taosdump_status) > 0) {
         fprintf(file, "status:%s\n", taosdump_status);
