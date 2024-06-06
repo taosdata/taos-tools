@@ -504,6 +504,8 @@ int32_t toolsGetDefaultVGroups() {
 
     int64_t MemKB = 0;
     taosGetTotalMemory(&MemKB);
+
+    infoPrint("check local machine CPU: %d Memory:%d MB \n", cores, (int32_t)(MemKB/1024));
     if (MemKB <= 2*1024*1024) { // 2G
         return 1;
     } else if (MemKB <= 4*1024*1024) { // 4G
