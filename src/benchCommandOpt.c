@@ -28,6 +28,10 @@ extern char      g_configDir[MAX_PATH_LEN];
 #define TAOSBENCHMARK_STATUS "unknown"
 #endif
 
+#ifndef TD_PRODUCT_NAME
+#define TD_PRODUCT_NAME "TDengine"
+#endif
+
 // libtaos.so
 extern char buildinfo[];
 
@@ -48,9 +52,9 @@ void printVersion() {
     char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
 
     // version
-    printf("version: %s\ngitinfo: %s\n", taosBenchmark_ver, taosBenchmark_commit);
+    printf("%s\ntaosBenchmark version: %s\ngit: %s\n", TD_PRODUCT_NAME, taosBenchmark_ver, taosBenchmark_commit);
 #ifdef LINUX
-    printf("buildInfo: %s\n ", buildinfo);
+    printf("build: %s\n ", buildinfo);
 #endif
     if (strlen(taosBenchmark_status) > 0) {
         printf("status: %s\n", taosBenchmark_status);
