@@ -82,6 +82,9 @@
 #define TAOSDUMP_STATUS "unknown"
 #endif
 
+#ifndef TD_PRODUCT_NAME
+#define TD_PRODUCT_NAME "TDengine"
+#endif
 
 // use 256 as normal buffer length
 #define BUFFER_LEN              256
@@ -670,7 +673,7 @@ static void printVersion(FILE *file) {
 
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
 
-    fprintf(file,"version: %s\ngitinfo: %s\n", taostools_ver, taosdump_commit);
+    fprintf(file,"%s\ntaosdump version: %s\ngit: %s\n", TD_PRODUCT_NAME, taostools_ver, taosdump_commit);
 #ifdef LINUX
     printf("buildInfo: %s\n ", buildinfo);
 #endif
