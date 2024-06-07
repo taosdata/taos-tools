@@ -2454,7 +2454,16 @@ void *syncWriteProgressive(void *sarg) {
         int64_t delay3 = 0;
         if (stmt) {
             taos_stmt_close(pThreadInfo->conn->stmt);
-            pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+            if(stbInfo->autoTblCreating) {
+                pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+            } else {
+                TAOS_STMT_OPTIONS op;
+                op.reqId = 0;
+                op.singleStbInsert = true;
+                op.singleTableBindOnce = true;
+                pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
+            }
+
             if (NULL == pThreadInfo->conn->stmt) {
                 errorPrint("taos_stmt_init() failed, reason: %s\n",
                         taos_errstr(NULL));
@@ -3377,7 +3386,18 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 if (NULL == pThreadInfo->conn) {
                     goto END;
                 }
-                pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+
+                taos_stmt_close(pThreadInfo->conn->stmt);
+                if(stbInfo->autoTblCreating) {
+                    pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+                } else {
+                    TAOS_STMT_OPTIONS op;
+                    op.reqId = 0;
+                    op.singleStbInsert = true;
+                    op.singleTableBindOnce = true;
+                    pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
+                }
+
                 if (NULL == pThreadInfo->conn->stmt) {
                     errorPrint("taos_stmt_init() failed, reason: %s\n", taos_errstr(NULL));
                     goto END;                    
