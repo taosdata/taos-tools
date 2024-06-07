@@ -3378,6 +3378,11 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     goto END;
                 }
                 pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+                TAOS_STMT_OPTIONS op;
+                op.reqId = 0;
+                op.singleStbInsert = true;
+                op.singleTableBindOnce = true;
+                pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
                 if (NULL == pThreadInfo->conn->stmt) {
                     errorPrint("taos_stmt_init() failed, reason: %s\n", taos_errstr(NULL));
                     goto END;                    
