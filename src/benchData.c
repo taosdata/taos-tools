@@ -1805,7 +1805,7 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
                         uint32_t batch, int64_t startTime,
-                        SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n, int64_t *delay2) {
+                        SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n, int64_t *delay2, int64_t *delay3) {
     TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
@@ -1878,6 +1878,17 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     }
     *delay2 += toolsGetTimestampUs() - start;
 
+    if(stbInfo->autoTblCreating) {
+        start = toolsGetTimestampUs();
+        if (taos_stmt_add_batch(pThreadInfo->conn->stmt) != 0) {
+            errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
+                    taos_stmt_errstr(pThreadInfo->conn->stmt));
+            return 0;
+        }
+        if(delay3) {
+            *delay3 += toolsGetTimestampUs() - start;
+        }
+    }
     return batch;
 }
 

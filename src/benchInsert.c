@@ -1309,14 +1309,16 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
 
         case STMT_IFACE:
             // add batch
-            start = toolsGetTimestampUs();
-            if (taos_stmt_add_batch(pThreadInfo->conn->stmt) != 0) {
-                errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
-                        taos_stmt_errstr(pThreadInfo->conn->stmt));
-                return -1;
-            }
-            if(delay3) {
-                *delay3 += toolsGetTimestampUs() - start;
+            if(!stbInfo->autoTblCreating) {
+                start = toolsGetTimestampUs();
+                if (taos_stmt_add_batch(pThreadInfo->conn->stmt) != 0) {
+                    errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
+                            taos_stmt_errstr(pThreadInfo->conn->stmt));
+                    return -1;
+                }
+                if(delay3) {
+                    *delay3 += toolsGetTimestampUs() - start;
+                }
             }
             
             // execute 
@@ -1764,7 +1766,7 @@ static void *syncWriteInterlace(void *sarg) {
 
                     int32_t n = 0;
                     generated = bindParamBatch(pThreadInfo, interlaceRows,
-                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2);
+                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
                     
                     childTbl->ts += stbInfo->timestamp_step * n;
                     break;
@@ -1984,7 +1986,7 @@ static int32_t prepareProgressDataStmt(
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
-            *timestamp, childTbl, pkCur, pkCnt, &n, delay2);
+            *timestamp, childTbl, pkCur, pkCnt, &n, delay2, delay3);
     *timestamp += n * stbInfo->timestamp_step;
     return generated;
 }
@@ -3386,7 +3388,6 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 if (NULL == pThreadInfo->conn) {
                     goto END;
                 }
-
                 taos_stmt_close(pThreadInfo->conn->stmt);
                 if(stbInfo->autoTblCreating) {
                     pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
@@ -3397,7 +3398,6 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     op.singleTableBindOnce = true;
                     pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
                 }
-
                 if (NULL == pThreadInfo->conn->stmt) {
                     errorPrint("taos_stmt_init() failed, reason: %s\n", taos_errstr(NULL));
                     goto END;                    
