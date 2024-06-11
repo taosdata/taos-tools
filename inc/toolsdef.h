@@ -223,7 +223,6 @@ int32_t       toolsCloseDir(TdDirPtr *ppDir);
 
 int64_t atomic_add_fetch_64(int64_t volatile* ptr, int64_t val);
 int32_t toolsGetNumberOfCores();
-int32_t toolsGetPhysicalMemory();
 
 int64_t toolsGetTimestamp(int32_t precision);
 void    toolsMsleep(int32_t mseconds);
