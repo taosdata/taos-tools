@@ -493,8 +493,6 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
 
-// export from taos osSysinfo.c
-int32_t taosGetTotalMemory(int64_t *totalKB); 
 
 int32_t toolsGetDefaultVGroups() {
     int32_t cores = toolsGetNumberOfCores();
@@ -503,7 +501,7 @@ int32_t toolsGetDefaultVGroups() {
     }
 
     int64_t MemKB = 0;
-    taosGetTotalMemory(&MemKB);
+    benchGetTotalMemory(&MemKB);
 
     infoPrint("check local machine CPU: %d Memory:%d MB \n", cores, (int32_t)(MemKB/1024));
     if (MemKB <= 2*1024*1024) { // 2G
