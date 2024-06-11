@@ -493,7 +493,6 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
 
-
 int32_t toolsGetDefaultVGroups() {
     int32_t cores = toolsGetNumberOfCores();
     if (cores < 3 ) {
@@ -531,7 +530,7 @@ int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
                             database->dbName,
                             (-1 != g_arguments->inputted_vgroups)?
                             g_arguments->inputted_vgroups:
-                            min(remainVnodes, toolsGetDefaultVGroups()));
+                            min(remainVnodes, toolsGetNumberOfCores()));
     } else {
         n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
                     g_arguments->escape_character
