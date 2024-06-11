@@ -493,6 +493,31 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 }
 #endif  // TD_VER_COMPATIBLE_3_0_0_0
 
+int32_t toolsGetDefaultVGroups() {
+    int32_t cores = toolsGetNumberOfCores();
+    if (cores < 3 ) {
+        return 1;
+    }
+
+    int64_t MemKB = 0;
+    benchGetTotalMemory(&MemKB);
+
+    infoPrint("check local machine CPU: %d Memory:%d MB \n", cores, (int32_t)(MemKB/1024));
+    if (MemKB <= 2*1024*1024) { // 2G
+        return 1;
+    } else if (MemKB <= 4*1024*1024) { // 4G
+        return 2;
+    } else if (MemKB <= 8*1024*1024) { // 8G
+        return 3;
+    } else if (MemKB <= 16*1024*1024) { // 16G
+        return 4;
+    } else if (MemKB <= 32*1024*1024) { // 32G
+        return 5;
+    } else {
+        return cores / 2;
+    }
+}
+
 int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     int dataLen = 0;
     int n;
