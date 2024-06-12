@@ -931,11 +931,21 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_to)) {
             superTable->childTblTo = childTbl_to->valueint;
             if (superTable->childTblTo < superTable->childTblFrom) {
-                errorPrint("child table _to_ is invalid number,"
+                errorPrint("json config invalid. child table _to_ is invalid number,"
                     "%"PRId64" < %"PRId64"\n",
                     superTable->childTblTo, superTable->childTblFrom);
                 return -1;
             }
+        }
+
+        // check childtable_from and childtable_to valid
+        if (superTable->childTblFrom >= superTable->childTblCount) {
+            errorPrint("json config invalid. childtable_from(%"PRId64") is equal or large than childtable_count(%"PRId64")\n", superTable->childTblFrom, superTable->childTblCount);
+            return -1;
+        }  
+        if (superTable->childTblTo > superTable->childTblCount) {
+            errorPrint("json config invalid. childtable_to(%"PRId64") is large than childtable_count(%"PRId64")\n", superTable->childTblTo, superTable->childTblCount);
+            return -1;
         }
 
         tools_cJSON *continueIfFail =
@@ -1381,12 +1391,20 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
     if (host && host->type == tools_cJSON_String && host->valuestring != NULL) {
-        g_arguments->host = host->valuestring;
+        if(g_arguments->host && strlen(g_arguments->host) > 0) {
+            warnPrint("command line already pass host is %s, json config host(%s) had been ignored.\n", g_arguments->host, host->valuestring);
+        } else {
+            g_arguments->host = host->valuestring;
+        }     
     }
 
     tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
     if (port && port->type == tools_cJSON_Number) {
-        g_arguments->port = (uint16_t)port->valueint;
+        if(g_arguments->port != DEFAULT_PORT) {
+            warnPrint("command line already pass port is %d, json config port(%d) had been ignored.\n", g_arguments->port, (uint16_t)port->valueint);
+        } else {
+            g_arguments->port = (uint16_t)port->valueint;
+        }
     }
 
     tools_cJSON *user = tools_cJSON_GetObjectItem(json, "user");

@@ -204,7 +204,7 @@ static struct argp_option bench_options[] = {
     {"answer-yes", 'y', 0, 0, BENCH_YES},
     {"disorder-range", 'R', "NUMBER", 0, BENCH_RANGE},
     {"disorder", 'O', "NUMBER", 0, BENCH_DISORDER},
-    {"replia", 'a', "NUMBER", 0, BENCH_REPLICA},
+    {"replica", 'a', "NUMBER", 0, BENCH_REPLICA},
     {"debug", 'g', 0, 0, BENCH_DEBUG},
     {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
     {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},

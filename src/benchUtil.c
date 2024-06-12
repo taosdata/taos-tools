@@ -1257,3 +1257,22 @@ FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
     taos_free_result(res);
 }
 
+int32_t benchGetTotalMemory(int64_t *totalKB) {
+#ifdef WINDOWS
+  MEMORYSTATUSEX memsStat;
+  memsStat.dwLength = sizeof(memsStat);
+  if (!GlobalMemoryStatusEx(&memsStat)) {
+    return -1;
+  }
+
+  *totalKB = memsStat.ullTotalPhys / 1024;
+  return 0;
+#elif defined(_TD_DARWIN_64)
+  *totalKB = 0;
+  return 0;
+#else
+  int64_t tsPageSizeKB = sysconf(_SC_PAGESIZE) / 1024;
+  *totalKB = (int64_t)(sysconf(_SC_PHYS_PAGES) * tsPageSizeKB);
+  return 0;
+#endif
+}
