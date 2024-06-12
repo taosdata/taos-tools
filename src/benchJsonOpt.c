@@ -11,22 +11,75 @@
  */
 
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <bench.h>
 
 extern char      g_configDir[MAX_PATH_LEN];
 
 char funsName [FUNTYPE_CNT] [32] = {
     "sin(",
-    "cos("
+    "cos(",
+    "count(",
+    "saw(",
+    "square(",
+    "tri(",
 };
 
-uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* random) {
+int32_t parseFunArgs(char* value, uint8_t funType, int64_t* min ,int64_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
+    char* buf = strdup(value);
+    char* p[4] = {NULL};
+    int32_t i = 0; 
+    // find ")" fun end brance
+    char* end = strstr(buf,")");
+    if(end) {
+        *end = 0;
+    }
+    int32_t argsLen = strlen(buf) + 1;
+
+    // find first
+    char* token = strtok(buf, ",");
+    if(token == NULL) {
+        free(buf);
+        return 0;
+    }
+    p[i++] = token; 
+
+    // find others
+    while((token = strtok(NULL, ",")) && i < 4) {
+        p[i++] = token; 
+    }
+
+    if(i != 4) {
+        // must 4 params
+        free(buf);
+        return 0;
+    }
+
+    // parse fun
+    if(funType == FUNTYPE_COUNT) {
+        *min    = atoi(p[0]);
+        *max    = atoi(p[1]);
+        *step   = atoi(p[2]);
+        *offset = atoi(p[3]);
+    } else {
+        *min    = atoi(p[0]);
+        *max    = atoi(p[1]);
+        *period = atoi(p[2]);
+        *offset = atoi(p[3]);
+    }
+
+    free(buf);
+    return argsLen;
+}
+
+uint8_t parseFuns(char* expr, float* multiple, float* addend, float* base, int32_t* random, 
+            int64_t* min ,int64_t* max, int32_t* step ,int32_t* period ,int32_t* offset) {
     // check valid
-    if (funValue == NULL || multiple == NULL || addend == NULL) {
+    if (expr == NULL || multiple == NULL || addend == NULL || base == NULL) {
         return FUNTYPE_NONE;
     }
 
-    size_t len = strlen(funValue); 
+    size_t len = strlen(expr); 
     if(len > 100) {
         return FUNTYPE_NONE;
     }
@@ -34,9 +87,10 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
     //parse format 10*sin(x) + 100 * random(5)
     char value[128];
     size_t n = 0;
+    // remove blank
     for (size_t i = 0; i < len; i++) {
-        if (funValue[i] != ' ') {
-            value[n++] = funValue[i];
+        if (expr[i] != ' ') {
+            value[n++] = expr[i];
         }
     }
     // set end
@@ -44,19 +98,41 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
 
     // multiple
     char* key1 = strstr(value, "*");
-    if(key1 == NULL) return FUNTYPE_NONE;
-    *key1 = 0;
-    * multiple = atof(value);
-    key1 += 1;
+    if(key1) {
+        // excpet tri(-20,40,20,5)+20+50*random(12)
+        bool found = true;
+        char* p1 = strstr(value+1, "+");
+        char* p2 = strstr(value+1, "-");
+        if(p1 && key1 > p1 ) 
+           found = false;
+        if(p2 && key1 > p2 ) 
+           found = false;
+
+        if(found) {
+            *key1 = 0;
+            *multiple = atof(value);
+            key1 += 1;
+        } else {
+            key1 = value;
+        }
+    } else {
+        key1 = value;
+    }
 
     // funType
     uint8_t funType = FUNTYPE_NONE;
     char* key2 = NULL;
-    for(int i=0; i < FUNTYPE_CNT; i++) {
+    for (int i = 0; i < FUNTYPE_CNT - 1; i++) {
         key2 = strstr(key1, funsName[i]);
         if(key2) {
             funType = i + 1;
             key2 += strlen(funsName[i]);
+            int32_t argsLen = parseFunArgs(key2, funType, min, max, step, period, offset);
+            if(len <= 0){
+                return FUNTYPE_NONE;
+            }
+            key2 += argsLen;
+
             break;
         }
     }
@@ -65,18 +141,36 @@ uint8_t parseFuns(char* funValue, float* multiple, int32_t* addend, int32_t* ran
 
     char* key3 = strstr(key2, "+");
     if(key3) {
-        *addend = atoi(key3 + 1);
+        *addend = atof(key3 + 1);
+        key3 += 1;
     } else {
         key3 = strstr(key2, "-");
-        if(key3)
-           *addend = atoi(key3 + 1) * -1;
+        if(key3) {
+           *addend = atof(key3 + 1) * -1;
+           key3 += 1;
+        }
     }
-    key3 += 1;
+    
 
     // random
-    char* key4 = strstr(key3, "*random(");
-    if(key4) {
-        *random = atoi(key4 + 8);
+    if(key3) {
+        char* key4 = strstr(key3, "*random(");
+        if(key4) {
+            *random = atoi(key4 + 8);
+            key3 += 9;
+        }
+    }
+
+    // base
+    if(key3) {
+        char* key5 = strstr(key3, "+");
+        if(key5){
+            *base = atof(key5+1);
+        } else {
+            key5 = strstr(key3, "-");
+            if(key5)
+              *base = atof(key5+1) * -1;
+        }
     }
 
     return funType;
@@ -108,8 +202,17 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         // fun type
         uint8_t funType = FUNTYPE_NONE;
         float   multiple = 0;
-        int32_t addend   = 0;
+        float   addend   = 0;
+        float   base     = 0;
         int32_t random   = 0;
+        int32_t step     = 0;
+        int32_t period   = 0;
+        int32_t offset   = 0;
+        uint8_t gen      = GEN_RANDOM;
+        bool    fillNull = true;
+        char*   encode   = NULL;
+        char*   compress = NULL;
+        char*   level    = NULL;
 
         tools_cJSON *column = tools_cJSON_GetArrayItem(columnsObj, k);
         if (!tools_cJSON_IsObject(column)) {
@@ -149,10 +252,41 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             min = convertDatatypeToDefaultMin(type);
         }
 
+        // gen
+        tools_cJSON *dataGen = tools_cJSON_GetObjectItem(column, "gen");
+        if (tools_cJSON_IsString(dataGen)) {
+            if (strcasecmp(dataGen->valuestring, "order") == 0) {
+                gen = GEN_ORDER;
+            }
+        }
+        // fillNull
+        tools_cJSON *dataNull = tools_cJSON_GetObjectItem(column, "fillNull");
+        if (tools_cJSON_IsString(dataNull)) {
+            if (strcasecmp(dataNull->valuestring, "false") == 0) {
+                fillNull = false;
+            }
+        }
+
+        // encode
+        tools_cJSON *dataEncode = tools_cJSON_GetObjectItem(column, "encode");
+        if (tools_cJSON_IsString(dataEncode)) {
+            encode = dataEncode->valuestring;
+        }
+        // compress
+        tools_cJSON *dataCompress = tools_cJSON_GetObjectItem(column, "compress");
+        if (tools_cJSON_IsString(dataCompress)) {
+            compress = dataCompress->valuestring;
+        }
+        // level
+        tools_cJSON *dataLevel = tools_cJSON_GetObjectItem(column, "level");
+        if (tools_cJSON_IsString(dataLevel)) {
+            level = dataLevel->valuestring;
+        }
+
         // fun
         tools_cJSON *fun = tools_cJSON_GetObjectItem(column, "fun");
         if (tools_cJSON_IsString(fun)) {
-            funType = parseFuns(fun->valuestring, &multiple, &addend, &random);
+            funType = parseFuns(fun->valuestring, &multiple, &addend, &base, &random, &min, &max, &step, &period, &offset);
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(column, "values");
@@ -191,12 +325,18 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->sma = sma;
             col->max = max;
             col->min = min;
+            col->gen = gen;
+            col->fillNull = fillNull;
             col->values = dataValues;
             // fun
             col->funType  = funType;
             col->multiple = multiple;
             col->addend   = addend;
+            col->base     = base;
             col->random   = random;
+            col->step     = step;
+            col->period   = period;
+            col->offset   = offset;
 
             if (customName) {
                 if (n >= 1) {
@@ -209,6 +349,32 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             } else {
                 snprintf(col->name, TSDB_COL_NAME_LEN, "c%d", index);
             }
+
+            // encode
+            if(encode) {
+                if (strlen(encode) < COMP_NAME_LEN) {
+                    strcpy(col->encode, encode);
+                } else {
+                    errorPrint("encode name length over (%d) bytes, ignore. name=%s", COMP_NAME_LEN, encode);
+                }
+            }
+            // compress
+            if(compress) {
+                if (strlen(compress) < COMP_NAME_LEN) {
+                    strcpy(col->compress, compress);
+                } else {
+                    errorPrint("compress name length over (%d) bytes, ignore. name=%s", COMP_NAME_LEN, compress);
+                }
+            }
+            // level
+            if(level) {
+                if (strlen(level) < COMP_NAME_LEN) {
+                    strcpy(col->level, level);
+                } else {
+                    errorPrint("level name length over (%d) bytes, ignore. name=%s", COMP_NAME_LEN, level);
+                }
+            }
+
             index++;
         }
     }
@@ -575,6 +741,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         superTable->insert_interval = g_arguments->insert_interval;
         superTable->max_sql_len = TSDB_MAX_ALLOWED_SQL_LEN;
         superTable->partialColNum = 0;
+        superTable->partialColFrom = 0;
         superTable->comment = NULL;
         superTable->delay = -1;
         superTable->file_factor = -1;
@@ -661,9 +828,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->iface = REST_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                 superTable->iface = STMT_IFACE;
-                if (g_arguments->reqPerReq > INT16_MAX) {
-                    g_arguments->reqPerReq = INT16_MAX;
-                }
+                //if (g_arguments->reqPerReq > INT16_MAX) {
+                //    g_arguments->reqPerReq = INT16_MAX;
+                //}
                 if (g_arguments->reqPerReq > g_arguments->prepared_rand) {
                     g_arguments->prepared_rand = g_arguments->reqPerReq;
                 }
@@ -765,11 +932,21 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_to)) {
             superTable->childTblTo = childTbl_to->valueint;
             if (superTable->childTblTo < superTable->childTblFrom) {
-                errorPrint("child table _to_ is invalid number,"
+                errorPrint("json config invalid. child table _to_ is invalid number,"
                     "%"PRId64" < %"PRId64"\n",
                     superTable->childTblTo, superTable->childTblFrom);
                 return -1;
             }
+        }
+
+        // check childtable_from and childtable_to valid
+        if (superTable->childTblFrom >= superTable->childTblCount) {
+            errorPrint("json config invalid. childtable_from(%"PRId64") is equal or large than childtable_count(%"PRId64")\n", superTable->childTblFrom, superTable->childTblCount);
+            return -1;
+        }  
+        if (superTable->childTblTo > superTable->childTblCount) {
+            errorPrint("json config invalid. childtable_to(%"PRId64") is large than childtable_count(%"PRId64")\n", superTable->childTblTo, superTable->childTblCount);
+            return -1;
         }
 
         tools_cJSON *continueIfFail =
@@ -788,7 +965,29 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             }
         }
 
-        tools_cJSON *ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
+        // start_fillback_time
+        superTable->startFillbackTime = 0;
+        tools_cJSON *ts = tools_cJSON_GetObjectItem(stbInfo, "start_fillback_time");
+        if (tools_cJSON_IsString(ts)) {
+            if(0 == strcasecmp(ts->valuestring, "auto")) {
+                superTable->autoFillback = true;
+                superTable->startFillbackTime = 0;
+            }
+            else if (toolsParseTime(ts->valuestring,
+                                &(superTable->startFillbackTime),
+                                (int32_t)strlen(ts->valuestring),
+                                database->precision, 0)) {
+                errorPrint("failed to parse time %s\n", ts->valuestring);
+                return -1;
+            }
+        } else {
+            if (tools_cJSON_IsNumber(ts)) {
+                superTable->startFillbackTime = ts->valueint;
+            }
+        }
+
+        // start_timestamp
+        ts = tools_cJSON_GetObjectItem(stbInfo, "start_timestamp");
         if (tools_cJSON_IsString(ts)) {
             if (0 == strcasecmp(ts->valuestring, "now")) {
                 superTable->startTimestamp =
@@ -796,6 +995,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->useNow = true;
                 //  fill time with now conflict with check_sql
                 g_arguments->check_sql = false;
+            } else if (0 == strncasecmp(ts->valuestring, "now", 3)) {
+                // like now - 7d expression
+                superTable->calcNow = ts->valuestring;
             } else {
                 if (toolsParseTime(ts->valuestring,
                                    &(superTable->startTimestamp),
@@ -986,6 +1188,12 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->partialColNum = pPartialColNum->valueint;
         }
 
+        tools_cJSON *pPartialColFrom =
+            tools_cJSON_GetObjectItem(stbInfo, "partial_col_from");
+        if (tools_cJSON_IsNumber(pPartialColFrom)) {
+            superTable->partialColFrom = pPartialColFrom->valueint;
+        }
+
         if (g_arguments->taosc_version == 3) {
             tools_cJSON *delay = tools_cJSON_GetObjectItem(stbInfo, "delay");
             if (tools_cJSON_IsNumber(delay)) {
@@ -1027,6 +1235,39 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
 
         if (getColumnAndTagTypeFromInsertJsonFile(stbInfo, superTable)) {
             return -1;
+        }
+
+        // primary key
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "primary_key");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            superTable->primary_key = itemObj->valueint == 1;
+        }
+        // repeat_ts_min
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "repeat_ts_min");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            superTable->repeat_ts_min = (int)itemObj->valueint;
+        }
+        // repeat_ts_max
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "repeat_ts_max");
+        if (tools_cJSON_IsNumber(itemObj)) {
+            superTable->repeat_ts_max = (int)itemObj->valueint;
+        }
+
+        // sqls
+        itemObj = tools_cJSON_GetObjectItem(stbInfo, "sqls");
+        if (tools_cJSON_IsArray(itemObj)) {
+            int cnt = tools_cJSON_GetArraySize(itemObj);
+            if(cnt > 0) {
+                char ** sqls = (char **)benchCalloc(cnt + 1, sizeof(char *), false); // +1 add end
+                superTable->sqls = sqls;
+                for(int j = 0; j < cnt; j++) {
+                    tools_cJSON *sqlObj = tools_cJSON_GetArrayItem(itemObj, j);
+                    if(sqlObj && tools_cJSON_IsString(sqlObj)) {
+                        *sqls = strdup(sqlObj->valuestring);
+                        sqls++;
+                    }
+                }
+            }
         }
     }
     return 0;
@@ -1151,12 +1392,20 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
 
     tools_cJSON *host = tools_cJSON_GetObjectItem(json, "host");
     if (host && host->type == tools_cJSON_String && host->valuestring != NULL) {
-        g_arguments->host = host->valuestring;
+        if(g_arguments->host && strlen(g_arguments->host) > 0) {
+            warnPrint("command line already pass host is %s, json config host(%s) had been ignored.\n", g_arguments->host, host->valuestring);
+        } else {
+            g_arguments->host = host->valuestring;
+        }     
     }
 
     tools_cJSON *port = tools_cJSON_GetObjectItem(json, "port");
     if (port && port->type == tools_cJSON_Number) {
-        g_arguments->port = (uint16_t)port->valueint;
+        if(g_arguments->port != DEFAULT_PORT) {
+            warnPrint("command line already pass port is %d, json config port(%d) had been ignored.\n", g_arguments->port, (uint16_t)port->valueint);
+        } else {
+            g_arguments->port = (uint16_t)port->valueint;
+        }
     }
 
     tools_cJSON *user = tools_cJSON_GetObjectItem(json, "user");
@@ -1196,6 +1445,27 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
         }
     }
 
+    g_arguments->csvPath[0] = 0;
+    tools_cJSON *csv = tools_cJSON_GetObjectItem(json, "csvPath");
+    if (csv && (csv->type == tools_cJSON_String)
+            && (csv->valuestring != NULL)) {
+        tstrncpy(g_arguments->csvPath, csv->valuestring, MAX_FILE_NAME_LEN);
+    }
+
+    size_t len = strlen(g_arguments->csvPath);
+
+    if(len == 0) {
+        // set default with current path
+        strcpy(g_arguments->csvPath, "./output/");
+        mkdir(g_arguments->csvPath, 0775);
+    } else {
+        // append end
+        if (g_arguments->csvPath[len-1] != '/' ) {
+            strcat(g_arguments->csvPath, "/");
+        }
+        mkdir(g_arguments->csvPath, 0775);
+    }
+
     code = 0;
     return code;
 }
@@ -1219,6 +1489,14 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         }
     }
 
+    g_arguments->pre_load_tb_meta = false;
+    tools_cJSON *preLoad = tools_cJSON_GetObjectItem(json, "pre_load_tb_meta");
+    if (tools_cJSON_IsString(preLoad)) {
+        if (0 == strcasecmp(preLoad->valuestring, "yes")) {
+            g_arguments->pre_load_tb_meta = true;
+        }
+    }
+
     tools_cJSON *resultfile = tools_cJSON_GetObjectItem(json, "result_file");
     if (resultfile && resultfile->type == tools_cJSON_String
             && resultfile->valuestring != NULL) {
@@ -1228,6 +1506,13 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     tools_cJSON *threads = tools_cJSON_GetObjectItem(json, "thread_count");
     if (threads && threads->type == tools_cJSON_Number) {
         g_arguments->nthreads = (uint32_t)threads->valueint;
+    }
+
+    tools_cJSON *bindVGroup = tools_cJSON_GetObjectItem(json, "thread_bind_vgroup");
+    if (tools_cJSON_IsString(bindVGroup)) {
+        if (0 == strcasecmp(bindVGroup->valuestring, "yes")) {
+            g_arguments->bind_vgroup = true;
+        }
     }
 
     tools_cJSON *keepTrying = tools_cJSON_GetObjectItem(json, "keep_trying");
@@ -1274,7 +1559,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
             g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
         }
 
-        if (g_arguments->reqPerReq > 32768) {
+        if (g_arguments->reqPerReq > INT32_MAX) {
             infoPrint("warning: num_of_records_per_req item in json config need less than 32768. current = %d. now reset to default.\n", g_arguments->reqPerReq);
             g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
         }
@@ -1993,6 +2278,8 @@ int getInfoFromJsonFile() {
             g_arguments->test_mode = QUERY_TEST;
         } else if (0 == strcasecmp("subscribe", filetype->valuestring)) {
             g_arguments->test_mode = SUBSCRIBE_TEST;
+        } else if (0 == strcasecmp("csvfile", filetype->valuestring)) {
+            g_arguments->test_mode = CSVFILE_TEST;
         } else {
             errorPrint("%s",
                        "failed to read json, filetype not support\n");
@@ -2004,7 +2291,7 @@ int getInfoFromJsonFile() {
 
     // read common item
     code = getMetaFromCommonJsonFile(root);
-    if (INSERT_TEST == g_arguments->test_mode) {
+    if (INSERT_TEST == g_arguments->test_mode || CSVFILE_TEST == g_arguments->test_mode) {
         code = getMetaFromInsertJsonFile(root);
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     } else if (QUERY_TEST == g_arguments->test_mode) {

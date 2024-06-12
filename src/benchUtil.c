@@ -41,7 +41,6 @@ FORCE_INLINE void tmfclose(FILE *fp) {
 FORCE_INLINE void tmfree(void *buf) {
     if (NULL != buf) {
         free(buf);
-        buf = NULL;
     }
 }
 
@@ -267,7 +266,10 @@ int regexMatch(const char *s, const char *reg, int cflags) {
     return 0;
 }
 
-SBenchConn* initBenchConn() {
+
+
+
+SBenchConn* initBenchConnImpl() {
     SBenchConn* conn = benchCalloc(1, sizeof(SBenchConn), true);
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
@@ -306,6 +308,25 @@ SBenchConn* initBenchConn() {
 #ifdef WEBSOCKET
     }
 #endif
+    return conn;
+}
+
+SBenchConn* initBenchConn() {
+
+    SBenchConn* conn = NULL;
+    int32_t keep_trying = 0;
+    while(1) {
+        conn = initBenchConnImpl();
+        if(conn || ++keep_trying > g_arguments->keep_trying  || g_arguments->terminate) {
+            break;
+        }
+
+        infoPrint("sleep %dms and try to connect... %d  \n", g_arguments->trying_interval, keep_trying);
+        if(g_arguments->trying_interval > 0) {
+            toolsMsleep(g_arguments->trying_interval);
+        }        
+    } 
+
     return conn;
 }
 
@@ -774,38 +795,47 @@ free_of_post:
     return code;
 }
 
+// fetch result fo file or nothing
 void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
-    TAOS_ROW    row = NULL;
-    int         num_rows = 0;
-    int         num_fields = taos_field_count(res);
-    TAOS_FIELD *fields = taos_fetch_fields(res);
+    TAOS_ROW    row        = NULL;
+    int         num_fields = 0;
+    int64_t     totalLen   = 0;
+    TAOS_FIELD *fields     = 0;
+    char       *databuf    = NULL;
+    bool        toFile     = strlen(pThreadInfo->filePath) > 0;
 
-    char *databuf = (char *)benchCalloc(1, FETCH_BUFFER_SIZE, true);
-
-    int64_t totalLen = 0;
+    if(toFile) {
+        num_fields = taos_field_count(res);
+        fields     = taos_fetch_fields(res);
+        databuf    = (char *)benchCalloc(1, FETCH_BUFFER_SIZE, true);
+    }
 
     // fetch the records row by row
     while ((row = taos_fetch_row(res))) {
-        if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
-            if (strlen(pThreadInfo->filePath) > 0) {
+        if (toFile) {
+            if (totalLen >= (FETCH_BUFFER_SIZE - HEAD_BUFF_LEN * 2)) {
+                // buff is full
                 appendResultBufToFile(databuf, pThreadInfo->filePath);
+                totalLen = 0;
+                memset(databuf, 0, FETCH_BUFFER_SIZE);
             }
-            totalLen = 0;
-            memset(databuf, 0, FETCH_BUFFER_SIZE);
+
+            // format row
+            char temp[HEAD_BUFF_LEN] = {0};
+            int  len = taos_print_row(temp, row, fields, num_fields);
+            len += snprintf(temp + len, HEAD_BUFF_LEN - len, "\n");
+            debugPrint("query result:%s\n", temp);
+            memcpy(databuf + totalLen, temp, len);
+            totalLen += len;
         }
-        num_rows++;
-        char temp[HEAD_BUFF_LEN] = {0};
-        int  len = taos_print_row(temp, row, fields, num_fields);
-        len += snprintf(temp + len, HEAD_BUFF_LEN - len, "\n");
-        debugPrint("query result:%s\n", temp);
-        memcpy(databuf + totalLen, temp, len);
-        totalLen += len;
+        //if not toFile , only loop call taos_fetch_row
     }
 
-    if (strlen(pThreadInfo->filePath) > 0) {
+    // end
+    if (toFile) {
         appendResultBufToFile(databuf, pThreadInfo->filePath);
+        free(databuf);
     }
-    free(databuf);
 }
 
 char *convertDatatypeToString(int type) {
@@ -974,8 +1004,8 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_JSON;
         } else if (0 == strcasecmp(type, "varchar")) {
             return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strcasecmp(type, "geometry")) {
-            return TSDB_DATA_TYPE_GEOMETRY;
+        } else if (0 == strcasecmp(type, "varbinary")) {
+            return TSDB_DATA_TYPE_VARBINARY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
@@ -1013,8 +1043,8 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_JSON;
         } else if (0 == strncasecmp(type, "varchar", length)) {
             return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strcasecmp(type, "geometry")) {
-            return TSDB_DATA_TYPE_GEOMETRY;
+        } else if (0 == strncasecmp(type, "varbinary", length)) {
+            return TSDB_DATA_TYPE_VARBINARY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
@@ -1229,8 +1259,22 @@ FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
     taos_free_result(res);
 }
 
-FORCE_INLINE void printWarnCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
-    warnPrint("failed to run command %s, code: 0x%08x, reason: %s\n",
-               cmd, code, taos_errstr(res));
-    taos_free_result(res);
+int32_t benchGetTotalMemory(int64_t *totalKB) {
+#ifdef WINDOWS
+  MEMORYSTATUSEX memsStat;
+  memsStat.dwLength = sizeof(memsStat);
+  if (!GlobalMemoryStatusEx(&memsStat)) {
+    return -1;
+  }
+
+  *totalKB = memsStat.ullTotalPhys / 1024;
+  return 0;
+#elif defined(_TD_DARWIN_64)
+  *totalKB = 0;
+  return 0;
+#else
+  int64_t tsPageSizeKB = sysconf(_SC_PAGESIZE) / 1024;
+  *totalKB = (int64_t)(sysconf(_SC_PHYS_PAGES) * tsPageSizeKB);
+  return 0;
+#endif
 }

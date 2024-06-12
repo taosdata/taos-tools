@@ -814,3 +814,99 @@ FORCE_INLINE int64_t toolsGetTimestampNs() {
 }
 
 FORCE_INLINE void toolsMsleep(int32_t mseconds) { usleep(mseconds * 1000); }
+
+struct tm *tLocalTime(const time_t *timep, struct tm *result, char *buf) {
+  struct tm *res = NULL;
+  if (timep == NULL) {
+    return NULL;
+  }
+  if (result == NULL) {
+    res = localtime(timep);
+    if (res == NULL && buf != NULL) {
+      sprintf(buf, "NaN");
+    }
+    return res;
+  }
+#ifdef WINDOWS
+  if (*timep < -2208988800LL) {
+    if (buf != NULL) {
+      sprintf(buf, "NaN");
+    }
+    return NULL;
+  }
+
+  SYSTEMTIME    s;
+  FILETIME      f;
+  LARGE_INTEGER offset;
+  struct tm     tm1;
+  time_t        tt = 0;
+  if (localtime_s(&tm1, &tt) != 0) {
+    if (buf != NULL) {
+      sprintf(buf, "NaN");
+    }
+    return NULL;
+  }
+  offset.QuadPart = ((uint64_t)116445024000000000ULL);
+  offset.QuadPart += *timep * 10000000;
+  f.dwLowDateTime = offset.QuadPart & 0xffffffff;
+  f.dwHighDateTime = (offset.QuadPart >> 32) & 0xffffffff;
+  FileTimeToSystemTime(&f, &s);
+  result->tm_sec = s.wSecond;
+  result->tm_min = s.wMinute;
+  result->tm_hour = s.wHour;
+  result->tm_mday = s.wDay;
+  result->tm_mon = s.wMonth - 1;
+  result->tm_year = s.wYear - 1900;
+  result->tm_wday = s.wDayOfWeek;
+  result->tm_yday = 0;
+  result->tm_isdst = 0;
+#else
+  res = localtime_r(timep, result);
+  if (res == NULL && buf != NULL) {
+    sprintf(buf, "NaN");
+  }
+#endif
+  return result;
+}
+
+char *toolsFormatTimestamp(char *buf, int64_t val, int32_t precision) {
+  time_t  tt;
+  int32_t ms = 0;
+  if (precision == TSDB_TIME_PRECISION_NANO) {
+    tt = (time_t)(val / 1000000000);
+    ms = val % 1000000000;
+  } else if (precision == TSDB_TIME_PRECISION_MICRO) {
+    tt = (time_t)(val / 1000000);
+    ms = val % 1000000;
+  } else {
+    tt = (time_t)(val / 1000);
+    ms = val % 1000;
+  }
+
+  if (tt <= 0 && ms < 0) {
+    tt--;
+    if (precision == TSDB_TIME_PRECISION_NANO) {
+      ms += 1000000000;
+    } else if (precision == TSDB_TIME_PRECISION_MICRO) {
+      ms += 1000000;
+    } else {
+      ms += 1000;
+    }
+  }
+
+  struct tm ptm = {0};
+  if (tLocalTime(&tt, &ptm, buf) == NULL) {
+    return buf;
+  }
+  size_t pos = strftime(buf, 35, "%Y-%m-%d %H:%M:%S", &ptm);
+
+  if (precision == TSDB_TIME_PRECISION_NANO) {
+    sprintf(buf + pos, ".%09d", ms);
+  } else if (precision == TSDB_TIME_PRECISION_MICRO) {
+    sprintf(buf + pos, ".%06d", ms);
+  } else {
+    sprintf(buf + pos, ".%03d", ms);
+  }
+
+  return buf;
+}

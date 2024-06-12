@@ -77,7 +77,7 @@ void benchPrintHelp() {
     printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
     printf("%s%s%s%s\r\n", indent, "-R,", indent, BENCH_RANGE);
     printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
-    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_SUPPLEMENT);
+    printf("%s%s%s%s\r\n", indent, "-s,", indent, BENCH_START_TIMESTAMP);
     printf("%s%s%s%s\r\n", indent, "-t,", indent, BENCH_TABLE);
     printf("%s%s%s%s\r\n", indent, "-T,", indent, BENCH_THREAD);
     printf("%s%s%s%s\r\n", indent, "-u,", indent, BENCH_USER);
@@ -167,7 +167,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
     return 0;
 }
 #else
-const char *              argp_program_version = version;
+//const char *              argp_program_version = version;
 const char *              argp_program_bug_address = CUS_EMAIL;
 
 static struct argp_option bench_options[] = {
@@ -204,7 +204,7 @@ static struct argp_option bench_options[] = {
     {"answer-yes", 'y', 0, 0, BENCH_YES},
     {"disorder-range", 'R', "NUMBER", 0, BENCH_RANGE},
     {"disorder", 'O', "NUMBER", 0, BENCH_DISORDER},
-    {"replia", 'a', "NUMBER", 0, BENCH_REPLICA},
+    {"replica", 'a', "NUMBER", 0, BENCH_REPLICA},
     {"debug", 'g', 0, 0, BENCH_DEBUG},
     {"performance", 'G', 0, 0, BENCH_PERFORMANCE},
     {"prepared_rand", 'F', "NUMBER", 0, BENCH_PREPARE},
@@ -217,7 +217,7 @@ static struct argp_option bench_options[] = {
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     {"vgroups", 'v', "NUMBER", 0, BENCH_VGROUPS},
 #endif
-//      {"version", 'V', 0, 0, BENCH_VERSION},
+    {"version", 'V', 0, 0, BENCH_VERSION},
     {"nodrop", 'Q', 0, 0, BENCH_NODROP},
     {0}
 };
@@ -254,13 +254,11 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
         case 'f':
             g_arguments->demo_mode = false;
             g_arguments->metaFile = arg;
-            g_arguments->nthreads_auto = false;
             break;
 
         case 'h':
             g_arguments->host = arg;
             g_arguments->host_auto = false;
-            g_arguments->nthreads_auto = false;
             break;
 
         case 'P':
@@ -290,7 +288,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 stbInfo->iface = STMT_IFACE;
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
-                g_arguments->nthreads_auto = false;
                 if (false == g_arguments->port_inputted) {
                     g_arguments->port = DEFAULT_REST_PORT;
                 }
@@ -311,19 +308,15 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                     || (0 == strcasecmp(arg, "sml-rest-line"))) {
                 stbInfo->iface = SML_REST_IFACE;
                 stbInfo->lineProtocol = TSDB_SML_LINE_PROTOCOL;
-                g_arguments->nthreads_auto = false;
             } else if (0 == strcasecmp(arg, "sml-rest-telnet")) {
                 stbInfo->iface = SML_REST_IFACE;
                 stbInfo->lineProtocol = TSDB_SML_TELNET_PROTOCOL;
-                g_arguments->nthreads_auto = false;
             } else if (0 == strcasecmp(arg, "sml-rest-json")) {
                 stbInfo->iface = SML_REST_IFACE;
                 stbInfo->lineProtocol = TSDB_SML_JSON_PROTOCOL;
-                g_arguments->nthreads_auto = false;
             } else if (0 == strcasecmp(arg, "sml-rest-taosjson")) {
                 stbInfo->iface = SML_REST_IFACE;
                 stbInfo->lineProtocol = SML_JSON_TAOS_FORMAT;
-                g_arguments->nthreads_auto = false;
             } else {
                 errorPrint(
                            "Invalid -I: %s, will auto set to default (taosc)\n",
@@ -361,8 +354,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                            "Invalid -T: %s, will auto set to default(8)\n",
                            arg);
                 g_arguments->nthreads = DEFAULT_NTHREADS;
-            } else {
-                g_arguments->nthreads_auto = false;
             }
             break;
 
@@ -448,7 +439,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'U':
             g_arguments->supplementInsert = true;
-            g_arguments->nthreads_auto = false;
             break;
 
         case 't':
@@ -580,7 +570,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
         case 'M':
             g_arguments->mistMode = true;
-            g_arguments->prepared_rand = 57;
             break;
 
         case 'x':
@@ -653,7 +642,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 
 #ifdef WEBSOCKET
         case 'W':
-            g_arguments->nthreads_auto = false;
             g_arguments->dsn = arg;
             break;
 
@@ -670,7 +658,6 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
             if (!toolsIsStringNumber(arg)) {
                 errorPrintReqArg2(CUS_PROMPT"Benchmark", "v");
             }
-            g_arguments->nthreads_auto = false;
             g_arguments->inputted_vgroups = atoi(arg);
             break;
 #endif

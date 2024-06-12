@@ -14,8 +14,6 @@
 #include "benchDataMix.h"
 #include <float.h>
 
-#define VAL_NULL "NULL"
-
 #define VBOOL_CNT 3
 
 int32_t inul = 20; // interval null count
@@ -95,68 +93,75 @@ uint32_t genRadomString(char* val, uint32_t len, char* prefix) {
   return size;
 }
 
+
 // data row generate by randowm
-uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix) {
+uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64_t *k, char* nullVal) {
     uint32_t size = 0;
-    char val[512] = VAL_NULL;
-    if( RD(inul) == 0 ) {
-        size = sprintf(pstr + len, ",%s", VAL_NULL);
+    int64_t  nowts= 0;
+    char val[512] = {0};
+    if( fd->fillNull && RD(inul) == 0 ) {
+        size = sprintf(pstr + len, ",%s", nullVal);
         return size;
     }
 
+    const char * format = ",%s";
+
     switch (fd->type) {    
     case TSDB_DATA_TYPE_BOOL:
-        strcpy(val, RD(2) ? "true" : "false");
+        sprintf(val, "%d", tmpBool(fd));
         break;
     // timestamp    
     case TSDB_DATA_TYPE_TIMESTAMP:
-        strcpy(val, "now");
+        nowts = toolsGetTimestampMs();
+        strcpy(val, "\'");
+        toolsFormatTimestamp(val, nowts, TSDB_TIME_PRECISION_MILLI);
+        strcat(val, "\'");
         break;
     // signed    
     case TSDB_DATA_TYPE_TINYINT:
-        SIGNED_RANDOM(int8_t, 0xFF, "%d")
+        sprintf(val, "%d", tmpInt8Impl(fd, *k));
         break;        
     case TSDB_DATA_TYPE_SMALLINT:
-        SIGNED_RANDOM(int16_t, 0xFFFF, "%d")
+        sprintf(val, "%d", tmpInt16Impl(fd, *k));
         break;
     case TSDB_DATA_TYPE_INT:
-        SIGNED_RANDOM(int32_t, 0xFFFFFFFF, "%d")
+        sprintf(val, "%d", tmpInt32Impl(fd, 0, 0, *k));
         break;
     case TSDB_DATA_TYPE_BIGINT:
-        SIGNED_RANDOM(int64_t, 0xFFFFFFFFFFFFFFFF, "%"PRId64)
+        sprintf(val, "%"PRId64, tmpInt64Impl(fd, 0, *k));
         break;
     // unsigned    
     case TSDB_DATA_TYPE_UTINYINT:
-        UNSIGNED_RANDOM(uint8_t, 0xFF,"%u")
+        sprintf(val, "%u", tmpUint8Impl(fd, *k));
         break;
     case TSDB_DATA_TYPE_USMALLINT:
-        UNSIGNED_RANDOM(uint16_t, 0xFFFF, "%u")
+        sprintf(val, "%u", tmpUint16Impl(fd, *k));
         break;
     case TSDB_DATA_TYPE_UINT:
-        UNSIGNED_RANDOM(uint32_t, 0xFFFFFFFF, "%u")
+        sprintf(val, "%u", tmpUint32Impl(fd, 0, 0, *k));
         break;
     case TSDB_DATA_TYPE_UBIGINT:
-        UNSIGNED_RANDOM(uint64_t, 0xFFFFFFFFFFFFFFFF, "%"PRIu64)
+        sprintf(val, "%"PRIu64, tmpUint64Impl(fd, 0, *k));
         break;
     // float double
     case TSDB_DATA_TYPE_FLOAT:
-        FLOAT_RANDOM(float, FLT_MIN, FLT_MAX)
+        sprintf(val, "%f", tmpFloatImpl(fd, 0, 0, *k));
         break;
     case TSDB_DATA_TYPE_DOUBLE:
-        FLOAT_RANDOM(double, DBL_MIN, DBL_MAX)
+        sprintf(val, "%f", tmpDoubleImpl(fd, 0, *k));
         break;
     // binary nchar
-    case TSDB_DATA_TYPE_BINARY:
-        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
-        break;
     case TSDB_DATA_TYPE_NCHAR:
-        genRadomString(val, fd->length > sizeof(val) ? sizeof(val) : fd->length, prefix);
+    case TSDB_DATA_TYPE_BINARY:
+    case TSDB_DATA_TYPE_VARBINARY:
+        format = ",\'%s\'";
+        tmpStr(val, 0, fd, *k);
         break;
     default:
         break;
     }
 
-    size += sprintf(pstr + len, ",%s", val);
+    size += sprintf(pstr + len, format, val);
     return size;
 }
 
@@ -199,6 +204,7 @@ uint32_t dataGenByCalcTs(Field* fd, char* pstr, uint32_t len, int64_t ts) {
         break;
     // binary nchar
     case TSDB_DATA_TYPE_BINARY:
+    case TSDB_DATA_TYPE_VARBINARY:
     case TSDB_DATA_TYPE_NCHAR:
         sprintf(val, "%" PRId64, ts);
         break;

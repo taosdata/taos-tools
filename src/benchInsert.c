@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "wrapDb.h"
 #include <benchData.h>
 #include <benchInsertMix.h>
 
@@ -72,7 +73,6 @@ static int getSuperTableFromServerTaosc(
     res = taos_query(conn->taos, command);
     int32_t code = taos_errno(res);
     if (code != 0) {
-        printWarnCmdCodeStr(command, code, res);
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
         closeBenchConn(conn);
@@ -217,12 +217,27 @@ static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
 }
 #endif  // WEBSOCKET
 
+int getCompressStr(Field* col, char* buf) {
+    int pos = 0;
+    if(strlen(col->encode) > 0) {
+        pos +=sprintf(buf + pos, "encode \'%s\' ", col->encode);
+    }
+    if(strlen(col->compress) > 0) {
+        pos +=sprintf(buf + pos, "compress \'%s\' ", col->compress);
+    }
+    if(strlen(col->level) > 0) {
+        pos +=sprintf(buf + pos, "level \'%s\' ", col->level);
+    }
+
+    return pos;
+}
+
 static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     if (g_arguments->supplementInsert) {
         return 0;
     }
 
-    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15) * stbInfo->cols->size;
+    uint32_t col_buffer_len = (TSDB_COL_NAME_LEN + 15 + COMP_NAME_LEN*3) * stbInfo->cols->size;
     char         *colsBuf = benchCalloc(1, col_buffer_len, false);
     char*         command = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
     int          len = 0;
@@ -246,6 +261,20 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
                     ",%s %s", col->name,
                     convertDatatypeToString(col->type));
         }
+
+        // primary key
+        if(stbInfo->primary_key && colIndex == 0) {
+            len += n;
+            n = snprintf(colsBuf + len, col_buffer_len - len, " %s", PRIMARY_KEY);
+        }
+
+        // compress key
+        char keys[COMP_NAME_LEN*3] = "";
+        if (getCompressStr(col, keys) > 0) {
+            len += n;
+            n = snprintf(colsBuf + len, col_buffer_len - len, " %s", keys);
+        }
+
         if (n < 0 || n >= col_buffer_len - len) {
             errorPrint("%s() LN%d, snprintf overflow on %d\n",
                        __func__, __LINE__, colIndex);
@@ -330,8 +359,8 @@ skip:
     int length = snprintf(
         command, TSDB_MAX_ALLOWED_SQL_LEN,
         g_arguments->escape_character
-            ? "CREATE TABLE `%s`.`%s` (ts TIMESTAMP%s) TAGS %s"
-            : "CREATE TABLE %s.%s (ts TIMESTAMP%s) TAGS %s",
+            ? "CREATE TABLE IF NOT EXISTS `%s`.`%s` (ts TIMESTAMP%s) TAGS %s"
+            : "CREATE TABLE IF NOT EXISTS %s.%s (ts TIMESTAMP%s) TAGS %s",
         database->dbName, stbInfo->stbName, colsBuf, tagsBuf);
     tmfree(colsBuf);
     tmfree(tagsBuf);
@@ -411,7 +440,7 @@ skip:
     return ret;
 }
 
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
+
 int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     int     vgroups = 0;
     char    cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
@@ -474,13 +503,36 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 
     return vgroups;
 }
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
+
+int32_t toolsGetDefaultVGroups() {
+    int32_t cores = toolsGetNumberOfCores();
+    if (cores < 3 ) {
+        return 1;
+    }
+
+    int64_t MemKB = 0;
+    benchGetTotalMemory(&MemKB);
+
+    infoPrint("check local machine CPU: %d Memory:%d MB \n", cores, (int32_t)(MemKB/1024));
+    if (MemKB <= 2*1024*1024) { // 2G
+        return 1;
+    } else if (MemKB <= 4*1024*1024) { // 4G
+        return 2;
+    } else if (MemKB <= 8*1024*1024) { // 8G
+        return 3;
+    } else if (MemKB <= 16*1024*1024) { // 16G
+        return 4;
+    } else if (MemKB <= 32*1024*1024) { // 32G
+        return 5;
+    } else {
+        return cores / 2;
+    }
+}
 
 int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
     int dataLen = 0;
     int n;
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto || (-1 != g_arguments->inputted_vgroups)) {
+    if (-1 != g_arguments->inputted_vgroups) {
         n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
                     g_arguments->escape_character
                         ? "CREATE DATABASE IF NOT EXISTS `%s` VGROUPS %d"
@@ -496,12 +548,7 @@ int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
                         : "CREATE DATABASE IF NOT EXISTS %s",
                             database->dbName);
     }
-#else
-    n = snprintf(command + dataLen, SHORT_1K_SQL_BUFF_LEN - dataLen,
-                    g_arguments->escape_character
-                        ? "CREATE DATABASE IF NOT EXISTS `%s`"
-                        : "CREATE DATABASE IF NOT EXISTS %s", database->dbName);
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
+
     if (n < 0 || n >= SHORT_1K_SQL_BUFF_LEN - dataLen) {
         errorPrint("%s() LN%d snprintf overflow\n",
                            __func__, __LINE__);
@@ -634,27 +681,29 @@ int32_t getRemainVnodes(SBenchConn *conn) {
 
 int createDatabaseTaosc(SDataBase* database) {
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    // conn
     SBenchConn* conn = initBenchConn();
     if (NULL == conn) {
         return -1;
     }
-    if (g_arguments->taosc_version == 3) {
-        for (int i = 0; i < g_arguments->streams->size; i++) {
-            SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
-            if (stream->drop) {
-                snprintf(command, SHORT_1K_SQL_BUFF_LEN,
-                         "DROP STREAM IF EXISTS %s;",
-                        stream->stream_name);
-                if (queryDbExecCall(conn, command)) {
-                    closeBenchConn(conn);
-                    return -1;
-                }
-                infoPrint("%s\n", command);
-                memset(command, 0, SHORT_1K_SQL_BUFF_LEN);
+
+    // drop stream in old database
+    for (int i = 0; i < g_arguments->streams->size; i++) {
+        SSTREAM* stream = benchArrayGet(g_arguments->streams, i);
+        if (stream->drop) {
+            snprintf(command, SHORT_1K_SQL_BUFF_LEN,
+                        "DROP STREAM IF EXISTS %s;",
+                    stream->stream_name);
+            if (queryDbExecCall(conn, command)) {
+                closeBenchConn(conn);
+                return -1;
             }
+            infoPrint("%s\n", command);
+            memset(command, 0, SHORT_1K_SQL_BUFF_LEN);
         }
     }
 
+    // drop old database
     snprintf(command, SHORT_1K_SQL_BUFF_LEN,
             g_arguments->escape_character
                 ? "DROP DATABASE IF EXISTS `%s`;":
@@ -674,9 +723,9 @@ int createDatabaseTaosc(SDataBase* database) {
 #endif
     }
 
+    // get remain vgroups
     int remainVnodes = INT_MAX;
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto) {
+    if (g_arguments->bind_vgroup) {
         remainVnodes = getRemainVnodes(conn);
         if (0 >= remainVnodes) {
             errorPrint("Remain vnodes %d, failed to create database\n",
@@ -684,9 +733,9 @@ int createDatabaseTaosc(SDataBase* database) {
             return -1;
         }
     }
-#endif
-    geneDbCreateCmd(database, command, remainVnodes);
 
+    // generate and execute create database sql
+    geneDbCreateCmd(database, command, remainVnodes);
     int32_t code = queryDbExecCall(conn, command);
     int32_t trying = g_arguments->keep_trying;
     while (code && trying) {
@@ -719,19 +768,17 @@ int createDatabaseTaosc(SDataBase* database) {
     }
     infoPrint("command to create database: <%s>\n", command);
 
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (database->superTbls) {
-        if (g_arguments->nthreads_auto) {
-            int32_t vgroups = getVgroupsOfDb(conn, database);
-            if (vgroups <=0) {
-                closeBenchConn(conn);
-                errorPrint("Database %s's vgroups is %d\n",
-                           database->dbName, vgroups);
-                return -1;
-            }
+
+    // malloc and get vgroup
+    if (g_arguments->bind_vgroup) {
+        int32_t vgroups = getVgroupsOfDb(conn, database);
+        if (vgroups <= 0) {
+            closeBenchConn(conn);
+            errorPrint("Database %s's vgroups is %d\n",
+                        database->dbName, vgroups);
+            return -1;
         }
     }
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
 
     closeBenchConn(conn);
     return 0;
@@ -760,12 +807,12 @@ int createDatabase(SDataBase* database) {
 }
 
 static int generateChildTblName(int len, char *buffer, SDataBase *database,
-                                SSuperTable *stbInfo, uint64_t i,
+                                SSuperTable *stbInfo, uint64_t tableSeq, char* tagData, int i,
                                 char *ttl) {
     if (0 == len) {
         memset(buffer, 0, TSDB_MAX_ALLOWED_SQL_LEN);
         len += snprintf(buffer + len,
-                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE ");
+                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE IF NOT EXISTS ");
     }
 
     len += snprintf(
@@ -773,9 +820,9 @@ static int generateChildTblName(int len, char *buffer, SDataBase *database,
             g_arguments->escape_character
             ? "`%s`.`%s%" PRIu64 "` USING `%s`.`%s` TAGS (%s) %s "
             : "%s.%s%" PRIu64 " USING %s.%s TAGS (%s) %s ",
-            database->dbName, stbInfo->childTblPrefix, i, database->dbName,
+            database->dbName, stbInfo->childTblPrefix, tableSeq, database->dbName,
             stbInfo->stbName,
-            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+            tagData + i * stbInfo->lenOfTags, ttl);
 
     return len;
 }
@@ -810,36 +857,44 @@ static int getIntervalOfTblCreating(threadInfo *pThreadInfo,
     return 0;
 }
 
+// table create thread
 static void *createTable(void *sarg) {
     if (g_arguments->supplementInsert) {
         return NULL;
     }
 
-    threadInfo * pThreadInfo = (threadInfo *)sarg;
-    SDataBase *  database = pThreadInfo->dbInfo;
-    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    threadInfo  *pThreadInfo    = (threadInfo *)sarg;
+    SDataBase   *database       = pThreadInfo->dbInfo;
+    SSuperTable *stbInfo        = pThreadInfo->stbInfo;
+    uint64_t    lastTotalCreate = 0;
+    uint64_t    lastPrintTime   = toolsGetTimestampMs();
+    int32_t     len             = 0;
+    int32_t     batchNum        = 0;
+    char ttl[SMALL_BUFF_LEN]    = "";
+
 #ifdef LINUX
     prctl(PR_SET_NAME, "createTable");
 #endif
-    uint64_t lastPrintTime = toolsGetTimestampMs();
     pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, false);
-    int len = 0;
-    int batchNum = 0;
     infoPrint(
               "thread[%d] start creating table from %" PRIu64 " to %" PRIu64
               "\n",
               pThreadInfo->threadID, pThreadInfo->start_table_from,
               pThreadInfo->end_table_to);
-
-    char ttl[SMALL_BUFF_LEN] = "";
     if (stbInfo->ttl != 0) {
         snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
     }
 
+    // tag read from csv
+    FILE *csvFile = openTagCsv(stbInfo);
+    // malloc
+    char* tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
+    int         w = 0; // record tagData
+
     int smallBatchCount = 0;
-    for (uint64_t i = pThreadInfo->start_table_from + stbInfo->childTblFrom;
-            (i <= (pThreadInfo->end_table_to + stbInfo->childTblFrom)
-             && !g_arguments->terminate); i++) {
+    for (uint64_t i = pThreadInfo->start_table_from;
+                  i <= pThreadInfo->end_table_to && !g_arguments->terminate;
+                  i++) {
         if (g_arguments->terminate) {
             goto create_table_end;
         }
@@ -847,15 +902,15 @@ static void *createTable(void *sarg) {
             if (stbInfo->childTblCount == 1) {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
                          g_arguments->escape_character
-                         ? "CREATE TABLE `%s`.`%s` %s;"
-                         : "CREATE TABLE %s.%s %s;",
+                         ? "CREATE TABLE IF NOT EXISTS `%s`.`%s` %s;"
+                         : "CREATE TABLE IF NOT EXISTS %s.%s %s;",
                          database->dbName, stbInfo->stbName,
                          stbInfo->colsOfCreateChildTable);
             } else {
                 snprintf(pThreadInfo->buffer, TSDB_MAX_ALLOWED_SQL_LEN,
                          g_arguments->escape_character
-                         ? "CREATE TABLE `%s`.`%s` %s;"
-                         : "CREATE TABLE %s.%s %s;",
+                         ? "CREATE TABLE IF NOT EXISTS `%s`.`%s` %s;"
+                         : "CREATE TABLE IF NOT EXISTS %s.%s %s;",
                          database->dbName,
                          stbInfo->childTblArray[i]->name,
                          stbInfo->colsOfCreateChildTable);
@@ -865,8 +920,20 @@ static void *createTable(void *sarg) {
             if (0 == len) {
                 batchNum = 0;
             }
+            // generator
+            if (w == 0) {
+                if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                    goto create_table_end;
+                }
+            }
+
             len = generateChildTblName(len, pThreadInfo->buffer,
-                                       database, stbInfo, i, ttl);
+                                       database, stbInfo, i, tagData, w, ttl);
+            // move next
+            if (++w >= TAG_BATCH_COUNT) {
+                // reset for gen again
+                w = 0;
+            }                           
 
             batchNum++;
             smallBatchCount++;
@@ -926,10 +993,11 @@ static void *createTable(void *sarg) {
         batchNum = 0;
         uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
-            infoPrint(
-                       "thread[%d] already created %" PRId64 " tables\n",
-                       pThreadInfo->threadID, pThreadInfo->tables_created);
-            lastPrintTime = currentPrintTime;
+            float speed = (pThreadInfo->tables_created - lastTotalCreate) * 1000 / (currentPrintTime - lastPrintTime);
+            infoPrint("thread[%d] already created %" PRId64 " tables, peroid speed: %.0f tables/s\n",
+                       pThreadInfo->threadID, pThreadInfo->tables_created, speed);
+            lastPrintTime   = currentPrintTime;
+            lastTotalCreate = pThreadInfo->tables_created;
         }
     }
 
@@ -957,40 +1025,44 @@ static void *createTable(void *sarg) {
                    pThreadInfo->threadID, pThreadInfo->tables_created);
     }
 create_table_end:
+    // free
+    tmfree(tagData);
     tmfree(pThreadInfo->buffer);
     pThreadInfo->buffer = NULL;
+    if(csvFile) {
+        fclose(csvFile);
+    }
     return NULL;
 }
 
-static int startMultiThreadCreateChildTable(
-        SDataBase* database, SSuperTable* stbInfo) {
-    int code = -1;
-    int          threads = g_arguments->table_threads;
-    int64_t      ntables;
+static int startMultiThreadCreateChildTable(SDataBase* database, SSuperTable* stbInfo) {
+    int32_t code    = -1;
+    int32_t threads = g_arguments->table_threads;
+    int64_t ntables;
     if (stbInfo->childTblTo > 0) {
         ntables = stbInfo->childTblTo - stbInfo->childTblFrom;
+    } else if(stbInfo->childTblFrom > 0) {
+        ntables = stbInfo->childTblCount - stbInfo->childTblFrom;
     } else {
         ntables = stbInfo->childTblCount;
     }
     pthread_t   *pids = benchCalloc(1, threads * sizeof(pthread_t), false);
     threadInfo  *infos = benchCalloc(1, threads * sizeof(threadInfo), false);
-    uint64_t     tableFrom = 0;
+    uint64_t     tableFrom = stbInfo->childTblFrom;
     if (threads < 1) {
         threads = 1;
     }
-
-    int64_t a = ntables / threads;
-    if (a < 1) {
-        threads = (int)ntables;
-        a = 1;
-    }
-
     if (ntables == 0) {
-        errorPrint("failed to create child table, childTblCount: %"PRId64"\n",
-                ntables);
+        errorPrint("failed to create child table, childTblCount: %"PRId64"\n", ntables);
         goto over;
     }
-    int64_t b = ntables % threads;
+
+    int64_t div = ntables / threads;
+    if (div < 1) {
+        threads = (int)ntables;
+        div = 1;
+    }
+    int64_t mod = ntables % threads;
 
     int threadCnt = 0;
     for (uint32_t i = 0; (i < threads && !g_arguments->terminate); i++) {
@@ -1011,10 +1083,12 @@ static int startMultiThreadCreateChildTable(
             }
         }
         pThreadInfo->start_table_from = tableFrom;
-        pThreadInfo->ntables = i < b ? a + 1 : a;
-        pThreadInfo->end_table_to = i < b ? tableFrom + a : tableFrom + a - 1;
+        pThreadInfo->ntables          = i < mod ? div + 1 : div;
+        pThreadInfo->end_table_to     = i < mod ? tableFrom + div : tableFrom + div - 1;
         tableFrom = pThreadInfo->end_table_to + 1;
         pThreadInfo->tables_created = 0;
+        debugPrint("div table by thread. i=%d from=%"PRId64" to=%"PRId64" ntable=%"PRId64"\n", i, pThreadInfo->start_table_from,
+                                        pThreadInfo->end_table_to, pThreadInfo->ntables);
         pthread_create(pids + i, NULL, createTable, pThreadInfo);
         threadCnt ++;
     }
@@ -1053,7 +1127,7 @@ static int createChildTables() {
                   "start creating %" PRId64 " table(s) with %d thread(s)\n",
                   g_arguments->totalChildTables, g_arguments->table_threads);
     }
-    double start = (double)toolsGetTimestampMs();
+    int64_t start = (double)toolsGetTimestampMs();
 
     for (int i = 0; (i < g_arguments->databases->size
             && !g_arguments->terminate); i++) {
@@ -1084,14 +1158,20 @@ static int createChildTables() {
         }
     }
 
-    double end = (double)toolsGetTimestampMs();
+    int64_t end = toolsGetTimestampMs();
+    if(end == start) {
+        end += 1;
+    }
     succPrint(
             "Spent %.4f seconds to create %" PRId64
-            " table(s) with %d thread(s), already exist %" PRId64
+            " table(s) with %d thread(s) speed: %.0f tables/s, already exist %" PRId64
             " table(s), actual %" PRId64 " table(s) pre created, %" PRId64
             " table(s) will be auto created\n",
-            (end - start) / 1000.0, g_arguments->totalChildTables,
-            g_arguments->table_threads, g_arguments->existedChildTables,
+            (float)(end - start) / 1000.0,
+            g_arguments->totalChildTables,
+            g_arguments->table_threads,
+            g_arguments->actualChildTables * 1000 / (float)(end - start),
+            g_arguments->existedChildTables,
             g_arguments->actualChildTables,
             g_arguments->autoCreatedChildTables);
     return 0;
@@ -1116,6 +1196,7 @@ static void freeChildTable(SChildTable *childTbl, int colsSize) {
 }
 
 void postFreeResource() {
+    infoPrint("%s\n", "free resource and exit ...");
     if (!g_arguments->terminate) {
         tmfclose(g_arguments->fpOfInsertResult);
     }
@@ -1139,8 +1220,6 @@ void postFreeResource() {
                 stbInfo->colsOfCreateChildTable = NULL;
                 tmfree(stbInfo->sampleDataBuf);
                 stbInfo->sampleDataBuf = NULL;
-                tmfree(stbInfo->tagDataBuf);
-                stbInfo->tagDataBuf = NULL;
                 tmfree(stbInfo->partialColNameBuf);
                 stbInfo->partialColNameBuf = NULL;
                 benchArrayDestroy(stbInfo->batchTblCreatingNumbersArray);
@@ -1165,6 +1244,7 @@ void postFreeResource() {
                                 child++) {
                             SChildTable *childTbl =
                                 stbInfo->childTblArray[child];
+                            tmfree(childTbl->name);
                             if (childTbl) {
                                 freeChildTable(childTbl, stbInfo->cols->size);
                             }
@@ -1175,21 +1255,28 @@ void postFreeResource() {
                 tmfree(stbInfo->childTblArray);
                 stbInfo->childTblArray = NULL;
                 benchArrayDestroy(stbInfo->tsmas);
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-                if ((0 == stbInfo->interlaceRows)
-                        && (g_arguments->nthreads_auto)) {
+
+                // free sqls
+                if(stbInfo->sqls) {
+                    char **sqls = stbInfo->sqls;
+                    while (*sqls) {
+                        free(*sqls);
+                        sqls++;
+                    }
+                    tmfree(stbInfo->sqls);
+                }
+
+                // thread_bind
+                if (database->vgArray) {
                     for (int32_t v = 0; v < database->vgroups; v++) {
                         SVGroup *vg = benchArrayGet(database->vgArray, v);
                         tmfree(vg->childTblArray);
                         vg->childTblArray = NULL;
                     }
+                    benchArrayDestroy(database->vgArray);
+                    database->vgArray = NULL;
                 }
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
             }
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-            if (database->vgArray)
-                benchArrayDestroy(database->vgArray);
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
             benchArrayDestroy(database->superTbls);
         }
     }
@@ -1198,12 +1285,13 @@ void postFreeResource() {
     tools_cJSON_Delete(root);
 }
 
-int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     TAOS_RES *   res = NULL;
     int32_t      code = 0;
     uint16_t     iface = stbInfo->iface;
+    int64_t      start = 0;
 
     int32_t trying = (stbInfo->keep_trying)?
         stbInfo->keep_trying:g_arguments->keep_trying;
@@ -1257,6 +1345,20 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
             break;
 
         case STMT_IFACE:
+            // add batch
+            if(!stbInfo->autoTblCreating) {
+                start = toolsGetTimestampUs();
+                if (taos_stmt_add_batch(pThreadInfo->conn->stmt) != 0) {
+                    errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
+                            taos_stmt_errstr(pThreadInfo->conn->stmt));
+                    return -1;
+                }
+                if(delay3) {
+                    *delay3 += toolsGetTimestampUs() - start;
+                }
+            }
+            
+            // execute 
             code = taos_stmt_execute(pThreadInfo->conn->stmt);
             if (code) {
                 errorPrint(
@@ -1366,6 +1468,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k) {
 
 static int smartContinueIfFail(threadInfo *pThreadInfo,
                                SChildTable *childTbl,
+                               char *tagData,
                                int64_t i,
                                char *ttl) {
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1375,11 +1478,11 @@ static int smartContinueIfFail(threadInfo *pThreadInfo,
     snprintf(
             buffer, TSDB_MAX_ALLOWED_SQL_LEN,
             g_arguments->escape_character ?
-                "CREATE TABLE `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s "
-                : "CREATE TABLE %s.%s USING %s.%s TAGS (%s) %s ",
+                "CREATE TABLE IF NOT EXISTS `%s`.`%s` USING `%s`.`%s` TAGS (%s) %s "
+                : "CREATE TABLE IF NOT EXISTS %s.%s USING %s.%s TAGS (%s) %s ",
             database->dbName, childTbl->name, database->dbName,
             stbInfo->stbName,
-            stbInfo->tagDataBuf + i * stbInfo->lenOfTags, ttl);
+            tagData + i * stbInfo->lenOfTags, ttl);
     debugPrint("creating table: %s\n", buffer);
     int ret;
     if (REST_IFACE == stbInfo->iface) {
@@ -1449,6 +1552,40 @@ static int64_t getDisorderTs(SSuperTable *stbInfo, int *disorderRange) {
     return disorderTs;
 }
 
+void loadChildTableInfo(threadInfo* pThreadInfo) {
+    SSuperTable *stbInfo = pThreadInfo->stbInfo;
+    if(!g_arguments->pre_load_tb_meta) {
+        return ;
+    }
+    if(pThreadInfo->conn == NULL) {
+        return ;
+    }
+
+    char *db    = pThreadInfo->dbInfo->dbName;
+    int64_t cnt = pThreadInfo->end_table_to - pThreadInfo->start_table_from;
+
+    // 100k
+    int   bufLen = 100 * 1024;
+    char *buf    = benchCalloc(1, bufLen, false);
+    int   pos    = 0;
+    infoPrint("start load child tables(%"PRId64") info...\n", cnt);
+    int64_t start = toolsGetTimestampUs();
+    for(int64_t i = pThreadInfo->start_table_from; i < pThreadInfo->end_table_to; i++) {
+        SChildTable *childTbl = stbInfo->childTblArray[i];
+        pos += sprintf(buf + pos, ",%s.%s", db, childTbl->name);
+
+        if(pos >= bufLen - 256 || i + 1 == pThreadInfo->end_table_to) {
+            taos_load_table_info(pThreadInfo->conn, buf);
+            pos = 0;
+        }
+    }
+    int64_t delay = toolsGetTimestampUs() - start;
+    infoPrint("end load child tables info. delay=%.2fs\n", delay/1E6);
+    pThreadInfo->totalDelay += delay;
+
+    tmfree(buf);
+}
+
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -1461,7 +1598,6 @@ static void *syncWriteInterlace(void *sarg) {
 
     int64_t insertRows = stbInfo->insertRows;
     int32_t interlaceRows = stbInfo->interlaceRows;
-    int64_t pos = 0;
     uint32_t batchPerTblTimes = g_arguments->reqPerReq / interlaceRows;
     uint64_t   lastPrintTime = toolsGetTimestampMs();
     uint64_t   lastTotalInsertRows = 0;
@@ -1469,6 +1605,26 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t   endTs;
     uint64_t   tableSeq = pThreadInfo->start_table_from;
     int disorderRange = stbInfo->disorderRange;
+
+    loadChildTableInfo(pThreadInfo);
+    // check if filling back mode
+    bool fillBack = false;
+    if(stbInfo->useNow && stbInfo->startFillbackTime) {
+        fillBack = true;
+        pThreadInfo->start_time = stbInfo->startFillbackTime;
+        infoPrint("start time change to startFillbackTime = %"PRId64" \n", pThreadInfo->start_time);
+    }
+
+    FILE* csvFile = NULL;
+    char* tagData = NULL;
+    int   w       = 0;
+    if (stbInfo->autoTblCreating) {
+        csvFile = openTagCsv(stbInfo);
+        tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
+    }
+    int64_t delay1 = 0;
+    int64_t delay2 = 0;
+    int64_t delay3 = 0;
 
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
@@ -1480,13 +1636,24 @@ static void *syncWriteInterlace(void *sarg) {
             if (g_arguments->terminate) {
                 goto free_of_interlace;
             }
-            int64_t timestamp = pThreadInfo->start_time;
-            SChildTable *childTbl = stbInfo->childTblArray[tableSeq];
-            char *  tableName =
-                stbInfo->childTblArray[tableSeq]->name;
+            int64_t pos       = pThreadInfo->pos;
+            
+            // get childTable
+            SChildTable *childTbl;
+            if (g_arguments->bind_vgroup) {
+                childTbl = pThreadInfo->vg->childTblArray[tableSeq];
+            } else {
+                childTbl = stbInfo->childTblArray[tableSeq];
+            }
+
+            char *  tableName   = childTbl->name;
             char *sampleDataBuf = childTbl->useOwnSample?
                                         childTbl->sampleDataBuf:
                                         stbInfo->sampleDataBuf;
+            // init ts
+            if(childTbl->ts == 0) {
+               childTbl->ts = pThreadInfo->start_time;
+            }
             char ttl[SMALL_BUFF_LEN] = "";
             if (stbInfo->ttl != 0) {
                 snprintf(ttl, SMALL_BUFF_LEN, "TTL %d", stbInfo->ttl);
@@ -1505,6 +1672,15 @@ static void *syncWriteInterlace(void *sarg) {
                     if (i == 0) {
                         ds_add_str(&pThreadInfo->buffer, STR_INSERT_INTO);
                     }
+
+                    // generator
+                    if (stbInfo->autoTblCreating && w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            goto free_of_interlace;
+                        }
+                    }
+
+                    // create child table
                     if (stbInfo->partialColNum == stbInfo->cols->size) {
                         if (stbInfo->autoTblCreating) {
                             ds_add_strs(&pThreadInfo->buffer, 8,
@@ -1512,8 +1688,7 @@ static void *syncWriteInterlace(void *sarg) {
                                     " USING `",
                                     stbInfo->stbName,
                                     "` TAGS (",
-                                    stbInfo->tagDataBuf
-                                        + stbInfo->lenOfTags * tableSeq,
+                                    tagData + stbInfo->lenOfTags * w,
                                     ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 2,
@@ -1528,8 +1703,7 @@ static void *syncWriteInterlace(void *sarg) {
                                         ") USING `",
                                         stbInfo->stbName,
                                         "` TAGS (",
-                                        stbInfo->tagDataBuf
-                                        + stbInfo->lenOfTags * tableSeq,
+                                        tagData + stbInfo->lenOfTags * w,
                                         ") ", ttl, " VALUES ");
                         } else {
                             ds_add_strs(&pThreadInfo->buffer, 4,
@@ -1540,22 +1714,43 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                     }
 
+                    // move next
+                    if (stbInfo->autoTblCreating && ++w >= TAG_BATCH_COUNT) {
+                        // reset for gen again
+                        w = 0;
+                    }  
+
+                    // write child data with interlaceRows
                     for (int64_t j = 0; j < interlaceRows; j++) {
                         int64_t disorderTs = getDisorderTs(stbInfo,
                                 &disorderRange);
+
+                        // change fillBack mode with condition
+                        if(fillBack) {
+                            int64_t tsnow = toolsGetTimestamp(database->precision);
+                            if(childTbl->ts >= tsnow){
+                                fillBack = false;
+                                infoPrint("fillBack mode set end. because timestamp(%"PRId64") >= now(%"PRId64")\n", childTbl->ts, tsnow);
+                            }
+                        }
+
+                        // timestamp         
                         char time_string[BIGINT_BUFF_LEN];
-                        if(stbInfo->useNow && stbInfo->interlaceRows == 1) {
+                        if(stbInfo->useNow && stbInfo->interlaceRows == 1 && !fillBack) {
                             snprintf(time_string, BIGINT_BUFF_LEN, "now");
                         } else {
                             snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
-                                    disorderTs?disorderTs:timestamp);
+                                    disorderTs?disorderTs:childTbl->ts);
                         }
+
+                        // combine rows timestamp | other cols = sampleDataBuf[pos]
                         ds_add_strs(&pThreadInfo->buffer, 5,
                                     "(",
                                     time_string,
                                     ",",
                                     sampleDataBuf + pos * stbInfo->lenOfCols,
                                     ") ");
+                        // check buffer enough
                         if (ds_len(pThreadInfo->buffer)
                                 > stbInfo->max_sql_len) {
                             errorPrint("sql buffer length (%"PRIu64") "
@@ -1565,12 +1760,23 @@ static void *syncWriteInterlace(void *sarg) {
                                     stbInfo->max_sql_len);
                             goto free_of_interlace;
                         }
+
+                        // move next
                         generated++;
                         pos++;
                         if (pos >= g_arguments->prepared_rand) {
                             pos = 0;
                         }
-                        timestamp += stbInfo->timestamp_step;
+                        if(stbInfo->primary_key)
+                            debugPrint("add child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
+
+                        // primary key
+                        if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
+                            childTbl->ts += stbInfo->timestamp_step;
+                            if(stbInfo->primary_key)
+                                debugPrint("changedTs child=%s %"PRId64" pk cur=%d cnt=%d \n", childTbl->name, childTbl->ts, childTbl->pkCur, childTbl->pkCnt);
+                        }
+                        
                     }
                     break;
                 }
@@ -1583,6 +1789,7 @@ static void *syncWriteInterlace(void *sarg) {
                         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                                 tableName);
                     }
+                    int64_t start = toolsGetTimestampUs();
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                              escapedTbName)) {
                         errorPrint(
@@ -1592,9 +1799,13 @@ static void *syncWriteInterlace(void *sarg) {
                         g_fail = true;
                         goto free_of_interlace;
                     }
-                    generated =
-                        bindParamBatch(pThreadInfo, interlaceRows,
-                                       timestamp, childTbl);
+                    delay1 += toolsGetTimestampUs() - start;
+
+                    int32_t n = 0;
+                    generated = bindParamBatch(pThreadInfo, interlaceRows,
+                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
+                    
+                    childTbl->ts += stbInfo->timestamp_step * n;
                     break;
                 }
                 case SML_REST_IFACE:
@@ -1613,7 +1824,7 @@ static void *syncWriteInterlace(void *sarg) {
                             generateSmlJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
                                 database->sml_precision,
-                                    disorderTs?disorderTs:timestamp);
+                                    disorderTs?disorderTs:childTbl->ts);
                         } else if (SML_JSON_TAOS_FORMAT == protocol) {
                             tools_cJSON *tag = tools_cJSON_Duplicate(
                                 tools_cJSON_GetArrayItem(
@@ -1624,7 +1835,7 @@ static void *syncWriteInterlace(void *sarg) {
                             generateSmlTaosJsonCols(
                                 pThreadInfo->json_array, tag, stbInfo,
                                 database->sml_precision,
-                                disorderTs?disorderTs:timestamp);
+                                disorderTs?disorderTs:childTbl->ts);
                         } else if (TSDB_SML_LINE_PROTOCOL == protocol) {
                             snprintf(
                                 pThreadInfo->lines[generated],
@@ -1634,20 +1845,23 @@ static void *syncWriteInterlace(void *sarg) {
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from],
                                     sampleDataBuf + pos * stbInfo->lenOfCols,
-                                disorderTs?disorderTs:timestamp);
+                                disorderTs?disorderTs:childTbl->ts);
                         } else {
                             snprintf(
                                 pThreadInfo->lines[generated],
                                 stbInfo->lenOfCols + stbInfo->lenOfTags,
                                 "%s %" PRId64 " %s %s", stbInfo->stbName,
-                                disorderTs?disorderTs:timestamp,
+                                disorderTs?disorderTs:childTbl->ts,
                                     sampleDataBuf + pos * stbInfo->lenOfCols,
                                 pThreadInfo
                                     ->sml_tags[(int)tableSeq -
                                                pThreadInfo->start_table_from]);
                         }
                         generated++;
-                        timestamp += stbInfo->timestamp_step;
+                        // primary key
+                        if (!stbInfo->primary_key || needChangeTs(stbInfo, &childTbl->pkCur, &childTbl->pkCnt)) {
+                            childTbl->ts += stbInfo->timestamp_step;
+                        }
                     }
                     if (TSDB_SML_JSON_PROTOCOL == protocol
                             || SML_JSON_TAOS_FORMAT == protocol) {
@@ -1658,16 +1872,21 @@ static void *syncWriteInterlace(void *sarg) {
                     break;
                 }
             }
+
+            // move to next table in one batch
             tableSeq++;
             tmp_total_insert_rows += interlaceRows;
             if (tableSeq > pThreadInfo->end_table_to) {
+                // one tables loop timestamp and pos add 
                 tableSeq = pThreadInfo->start_table_from;
-                pThreadInfo->start_time +=
-                    interlaceRows * stbInfo->timestamp_step;
+                // save    
+                pThreadInfo->pos = pos;    
                 if (!stbInfo->non_stop) {
                     insertRows -= interlaceRows;
                 }
-                if (stbInfo->insert_interval > 0) {
+
+                // if fillBack mode , can't sleep
+                if (stbInfo->insert_interval > 0 && !fillBack) {
                     debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
                           __func__, __LINE__, stbInfo->insert_interval);
                     perfPrint("sleep %" PRIu64 " ms\n",
@@ -1679,7 +1898,7 @@ static void *syncWriteInterlace(void *sarg) {
         }
 
         startTs = toolsGetTimestampUs();
-        if (execInsert(pThreadInfo, generated)) {
+        if (execInsert(pThreadInfo, generated, &delay3)) {
             g_fail = true;
             goto free_of_interlace;
         }
@@ -1733,7 +1952,8 @@ static void *syncWriteInterlace(void *sarg) {
                 break;
         }
 
-        int64_t delay = endTs - startTs;
+        int64_t delay4 = endTs - startTs;
+        int64_t delay = delay1 + delay2 + delay3 + delay4;
         if (delay <=0) {
             debugPrint("thread[%d]: startTS: %"PRId64", endTS: %"PRId64"\n",
                        pThreadInfo->threadID, startTs, endTs);
@@ -1747,7 +1967,11 @@ static void *syncWriteInterlace(void *sarg) {
                 tmfree(pdelay);
             }
             pThreadInfo->totalDelay += delay;
+            pThreadInfo->totalDelay1 += delay1;
+            pThreadInfo->totalDelay2 += delay2;
+            pThreadInfo->totalDelay3 += delay3;
         }
+        delay1 = delay2 = delay3 = 0;
 
         int64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -1757,18 +1981,23 @@ static void *syncWriteInterlace(void *sarg) {
                     pThreadInfo->threadID, pThreadInfo->totalInsertRows,
                     (double)(pThreadInfo->totalInsertRows - lastTotalInsertRows) * 1000.0/(currentPrintTime - lastPrintTime));
             lastPrintTime = currentPrintTime;
-	    lastTotalInsertRows = pThreadInfo->totalInsertRows;
+	        lastTotalInsertRows = pThreadInfo->totalInsertRows;
         }
     }
+
 free_of_interlace:
     cleanupAndPrint(pThreadInfo, "interlace");
+    if(csvFile) {
+        fclose(csvFile);
+    }
+    tmfree(tagData);    
     return NULL;
 }
 
 static int32_t prepareProgressDataStmt(
         threadInfo *pThreadInfo,
         SChildTable *childTbl,
-        int64_t *timestamp, uint64_t i, char *ttl) {
+        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1, int64_t *delay2, int64_t *delay3) {
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     char escapedTbName[TSDB_TABLE_NAME_LEN + 2] = "\0";
     if (g_arguments->escape_character) {
@@ -1778,6 +2007,7 @@ static int32_t prepareProgressDataStmt(
         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                  childTbl->name);
     }
+    int64_t start = toolsGetTimestampUs();
     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                              escapedTbName)) {
         errorPrint(
@@ -1786,13 +2016,15 @@ static int32_t prepareProgressDataStmt(
                 taos_stmt_errstr(pThreadInfo->conn->stmt));
         return -1;
     }
+    *delay1 = toolsGetTimestampUs() - start;
+    int32_t n =0;
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
-            *timestamp, childTbl);
-    *timestamp += generated * stbInfo->timestamp_step;
+            *timestamp, childTbl, pkCur, pkCnt, &n, delay2, delay3);
+    *timestamp += n * stbInfo->timestamp_step;
     return generated;
 }
 
@@ -1818,7 +2050,7 @@ static void makeTimestampDisorder(
 static int32_t prepareProgressDataSmlJsonText(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
-    int64_t *timestamp, uint64_t i, char *ttl) {
+    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSmlJsonText
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int32_t generated = 0;
@@ -1879,7 +2111,12 @@ static int32_t prepareProgressDataSmlJsonText(
         if (pos >= g_arguments->prepared_rand) {
             pos = 0;
         }
-        *timestamp += stbInfo->timestamp_step;
+
+        // primay key repeat ts count
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+            *timestamp += stbInfo->timestamp_step;
+        }
+
         if (stbInfo->disorderRatio > 0) {
             makeTimestampDisorder(timestamp, stbInfo);
         }
@@ -1902,7 +2139,7 @@ static int32_t prepareProgressDataSmlJsonText(
 static int32_t prepareProgressDataSmlJson(
     threadInfo *pThreadInfo,
     uint64_t tableSeq,
-    int64_t *timestamp, uint64_t i, char *ttl) {
+    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSmlJson
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
@@ -1932,7 +2169,12 @@ static int32_t prepareProgressDataSmlJson(
         if (pos >= g_arguments->prepared_rand) {
             pos = 0;
         }
-        *timestamp += stbInfo->timestamp_step;
+
+        // primay key repeat ts count
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+            *timestamp += stbInfo->timestamp_step;
+        }
+
         if (stbInfo->disorderRatio > 0) {
             makeTimestampDisorder(timestamp, stbInfo);
         }
@@ -1955,7 +2197,7 @@ static int32_t prepareProgressDataSmlJson(
 
 static int32_t prepareProgressDataSmlLineOrTelnet(
     threadInfo *pThreadInfo, uint64_t tableSeq, char *sampleDataBuf,
-    int64_t *timestamp, uint64_t i, char *ttl, int protocol) {
+    int64_t *timestamp, uint64_t i, char *ttl, int protocol, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSmlLine
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     int32_t generated = 0;
@@ -1987,7 +2229,11 @@ static int32_t prepareProgressDataSmlLineOrTelnet(
         if (pos >= g_arguments->prepared_rand) {
             pos = 0;
         }
-        *timestamp += stbInfo->timestamp_step;
+        // primay key repeat ts count
+        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+            *timestamp += stbInfo->timestamp_step;
+        }
+        
         if (stbInfo->disorderRatio > 0) {
             makeTimestampDisorder(timestamp, stbInfo);
         }
@@ -2003,7 +2249,7 @@ static int32_t prepareProgressDataSml(
     threadInfo *pThreadInfo,
     SChildTable *childTbl,
     uint64_t tableSeq,
-    int64_t *timestamp, uint64_t i, char *ttl) {
+    int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt) {
     // prepareProgressDataSml
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
 
@@ -2022,19 +2268,19 @@ static int32_t prepareProgressDataSml(
                     pThreadInfo,
                     tableSeq,
                     sampleDataBuf,
-                    timestamp, i, ttl, protocol);
+                    timestamp, i, ttl, protocol, pkCur, pkCnt);
             break;
         case TSDB_SML_JSON_PROTOCOL:
             generated = prepareProgressDataSmlJsonText(
                     pThreadInfo,
                     tableSeq - pThreadInfo->start_table_from,
-                timestamp, i, ttl);
+                timestamp, i, ttl, pkCur, pkCnt);
             break;
         case SML_JSON_TAOS_FORMAT:
             generated = prepareProgressDataSmlJson(
                     pThreadInfo,
                     tableSeq,
-                    timestamp, i, ttl);
+                    timestamp, i, ttl, pkCur, pkCnt);
             break;
         default:
             errorPrint("%s() LN%d: unknown protcolor: %d\n",
@@ -2045,12 +2291,47 @@ static int32_t prepareProgressDataSml(
     return generated;
 }
 
+// if return true, timestmap must add timestap_step, else timestamp no need changed
+bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt) {
+    // check need generate cnt
+    if(*pkCnt == 0) {
+        if (stbInfo->repeat_ts_min >= stbInfo->repeat_ts_max) {
+            // fixed count value is max
+            if (stbInfo->repeat_ts_max == 0){
+                return true;
+            }
+
+            *pkCnt = stbInfo->repeat_ts_max;
+        } else {
+            // random range
+            *pkCnt = RD(stbInfo->repeat_ts_max + 1);
+            if(*pkCnt < stbInfo->repeat_ts_min) {
+                *pkCnt = (*pkCnt + stbInfo->repeat_ts_min) % stbInfo->repeat_ts_max;
+            }
+        }
+    }
+
+    // compare with current value
+    *pkCur = *pkCur + 1;
+    if(*pkCur >= *pkCnt) {
+        // reset zero
+        *pkCur = 0;
+        *pkCnt = 0;
+        return true;
+    } else {
+        // add one
+        return false;
+    }
+}
+
 static int32_t prepareProgressDataSql(
-    threadInfo *pThreadInfo,
-    SChildTable *childTbl, uint64_t tableSeq,
-    char *sampleDataBuf,
-    int64_t *timestamp, uint64_t i, char *ttl,
-    int32_t *pos, uint64_t *len) {
+                    threadInfo *pThreadInfo,
+                    SChildTable *childTbl, 
+                    char* tagData,
+                    uint64_t tableSeq,
+                    char *sampleDataBuf,
+                    int64_t *timestamp, uint64_t i, char *ttl,
+                    int32_t *pos, uint64_t *len, int32_t* pkCur, int32_t* pkCnt) {
     // prepareProgressDataSql
     int32_t generated = 0;
     SDataBase *database = pThreadInfo->dbInfo;
@@ -2068,7 +2349,7 @@ static int32_t prepareProgressDataSql(
                          STR_INSERT_INTO, database->dbName,
                          childTbl->name, database->dbName,
                          stbInfo->stbName,
-                         stbInfo->tagDataBuf +
+                         tagData +
                          stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
@@ -2089,7 +2370,7 @@ static int32_t prepareProgressDataSql(
                     childTbl->name,
                     stbInfo->partialColNameBuf,
                     database->dbName, stbInfo->stbName,
-                    stbInfo->tagDataBuf +
+                    tagData +
                     stbInfo->lenOfTags * tableSeq, ttl);
         } else {
             *len = snprintf(pstr, TSDB_MAX_ALLOWED_SQL_LEN,
@@ -2131,7 +2412,11 @@ static int32_t prepareProgressDataSql(
         if (*pos >= g_arguments->prepared_rand) {
             *pos = 0;
         }
-        *timestamp += stbInfo->timestamp_step;
+        // primary key
+        if(!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+            *timestamp += stbInfo->timestamp_step;
+        }
+   
         generated++;
         if (*len > (TSDB_MAX_ALLOWED_SQL_LEN
             - stbInfo->lenOfCols)) {
@@ -2150,55 +2435,48 @@ void *syncWriteProgressive(void *sarg) {
     SDataBase *  database = pThreadInfo->dbInfo;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
 
+    loadChildTableInfo(pThreadInfo);
+
     // special deal flow for TAOSC_IFACE
     if (insertDataMix(pThreadInfo, database, stbInfo)) {
         // request be dealt by this function , so return
         return NULL;
     }
 
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if (g_arguments->nthreads_auto) {
-        if (0 == pThreadInfo->vg->tbCountPerVgId) {
-            return NULL;
-        }
-    } else {
-        infoPrint(
-            "thread[%d] start progressive inserting into table from "
-            "%" PRIu64 " to %" PRIu64 "\n",
-            pThreadInfo->threadID, pThreadInfo->start_table_from,
-            pThreadInfo->end_table_to + 1);
-    }
-#else
     infoPrint(
-            "thread[%d] start progressive inserting into table from "
-            "%" PRIu64 " to %" PRIu64 "\n",
-            pThreadInfo->threadID, pThreadInfo->start_table_from,
-            pThreadInfo->end_table_to + 1);
-#endif
+        "thread[%d] start progressive inserting into table from "
+        "%" PRIu64 " to %" PRIu64 "\n",
+        pThreadInfo->threadID, pThreadInfo->start_table_from,
+        pThreadInfo->end_table_to + 1);
+
     uint64_t  lastPrintTime = toolsGetTimestampMs();
     uint64_t  lastTotalInsertRows = 0;
     int64_t   startTs = toolsGetTimestampUs();
     int64_t   endTs;
 
+    FILE* csvFile = NULL;
+    char* tagData = NULL;
+    bool  stmt    = stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating;
+    bool  smart   = SMART_IF_FAILED == stbInfo->continueIfFail;
+    bool  acreate = (stbInfo->iface == TAOSC_IFACE || stbInfo->iface == REST_IFACE) && stbInfo->autoTblCreating;
+    int   w       = 0;
+    if (stmt || smart || acreate) {
+        csvFile = openTagCsv(stbInfo);
+        tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
+    }
+    
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
             tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
         char *sampleDataBuf;
         SChildTable *childTbl;
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-        if (g_arguments->nthreads_auto) {
+
+        if (g_arguments->bind_vgroup) {
             childTbl = pThreadInfo->vg->childTblArray[tableSeq];
         } else {
-            childTbl = stbInfo->childTblArray[
-                stbInfo->childTblExists?
-                tableSeq:
-                stbInfo->childTblFrom + tableSeq];
+            childTbl = stbInfo->childTblArray[tableSeq];
         }
-#else
-        childTbl = stbInfo->childTblArray[
-                stbInfo->childTblExists?
-                tableSeq:
-                stbInfo->childTblFrom + tableSeq];
-#endif
+        debugPrint("tableSeq=%"PRId64" childTbl->name=%s\n", tableSeq, childTbl->name);
+
         if (childTbl->useOwnSample) {
             sampleDataBuf = childTbl->sampleDataBuf;
         } else {
@@ -2208,20 +2486,54 @@ void *syncWriteProgressive(void *sarg) {
         int64_t  timestamp = pThreadInfo->start_time;
         uint64_t len = 0;
         int32_t pos = 0;
-        if (stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating) {
+        int32_t pkCur = 0; // record generate same timestamp current count
+        int32_t pkCnt = 0; // record generate same timestamp count
+        int64_t delay1 = 0;
+        int64_t delay2 = 0;
+        int64_t delay3 = 0;
+        if (stmt) {
             taos_stmt_close(pThreadInfo->conn->stmt);
-            pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+            if(stbInfo->autoTblCreating) {
+                pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+            } else {
+                TAOS_STMT_OPTIONS op;
+                op.reqId = 0;
+                op.singleStbInsert = true;
+                op.singleTableBindOnce = true;
+                pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
+            }
+
             if (NULL == pThreadInfo->conn->stmt) {
                 errorPrint("taos_stmt_init() failed, reason: %s\n",
                         taos_errstr(NULL));
                 g_fail = true;
                 goto free_of_progressive;
             }
+        }
 
-            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tableSeq)) {
+        if(stmt || smart || acreate) {
+            // generator
+            if (w == 0) {
+                if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                    g_fail = true;
+                    goto free_of_progressive;
+                }
+            }
+        }   
+        
+        if (stmt) {
+            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
+        }
+
+        if(stmt || smart || acreate) {
+            // move next
+            if (++w >= TAG_BATCH_COUNT) {
+                // reset for gen again
+                w = 0;
+            } 
         }
 
         char ttl[SMALL_BUFF_LEN] = "";
@@ -2239,14 +2551,15 @@ void *syncWriteProgressive(void *sarg) {
                     generated = prepareProgressDataSql(
                             pThreadInfo,
                             childTbl,
-                            tableSeq,
+                            tagData,
+                            w,
                             sampleDataBuf,
-                            &timestamp, i, ttl, &pos, &len);
+                            &timestamp, i, ttl, &pos, &len, &pkCur, &pkCnt);
                     break;
                 case STMT_IFACE: {
                     generated = prepareProgressDataStmt(
                             pThreadInfo,
-                            childTbl, &timestamp, i, ttl);
+                            childTbl, &timestamp, i, ttl, &pkCur, &pkCnt, &delay1, &delay2, &delay3);
                     break;
                 }
                 case SML_REST_IFACE:
@@ -2254,7 +2567,7 @@ void *syncWriteProgressive(void *sarg) {
                     generated = prepareProgressDataSml(
                             pThreadInfo,
                             childTbl,
-                            tableSeq, &timestamp, i, ttl);
+                            tableSeq, &timestamp, i, ttl, &pkCur, &pkCnt);
                     break;
                 default:
                     break;
@@ -2268,7 +2581,7 @@ void *syncWriteProgressive(void *sarg) {
             }
             // only measure insert
             startTs = toolsGetTimestampUs();
-            int code = execInsert(pThreadInfo, generated);
+            int code = execInsert(pThreadInfo, generated, &delay3);
             if (code) {
                 if (NO_IF_FAILED == stbInfo->continueIfFail) {
                     warnPrint("The super table parameter "
@@ -2281,20 +2594,35 @@ void *syncWriteProgressive(void *sarg) {
                               "continueIfFail: %d, "
                               "will continue to insert ..\n",
                               stbInfo->continueIfFail);
-                } else if (SMART_IF_FAILED == stbInfo->continueIfFail) {
+                } else if (smart) {
                     warnPrint("The super table parameter "
                               "continueIfFail: %d, will create table "
                               "then insert ..\n",
                               stbInfo->continueIfFail);
+
+                    // generator
+                    if (w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            g_fail = true;
+                            goto free_of_progressive;
+                        }
+                    }
+
                     int ret = smartContinueIfFail(
                             pThreadInfo,
-                            childTbl, i, ttl);
+                            childTbl, tagData, w, ttl);
                     if (0 != ret) {
                         g_fail = true;
                         goto free_of_progressive;
                     }
 
-                    code = execInsert(pThreadInfo, generated);
+                    // move next
+                    if (++w >= TAG_BATCH_COUNT) {
+                        // reset for gen again
+                        w = 0;
+                    }
+
+                    code = execInsert(pThreadInfo, generated, &delay3);
                     if (code) {
                         g_fail = true;
                         goto free_of_progressive;
@@ -2315,6 +2643,18 @@ void *syncWriteProgressive(void *sarg) {
                 perfPrint("sleep %" PRIu64 " ms\n",
                               stbInfo->insert_interval);
                 toolsMsleep((int32_t)stbInfo->insert_interval);
+            }
+
+            // flush
+            if (database->flush) {
+                char sql[260] = "";
+                sprintf(sql, "flush database %s", database->dbName);
+                code = executeSql(pThreadInfo->conn->taos,sql);
+                if (code != 0) {
+                  perfPrint(" %s failed. error code = 0x%x\n", sql, code);
+                } else {
+                   perfPrint(" %s ok.\n", sql);
+                }
             }
 
             pThreadInfo->totalInsertRows += generated;
@@ -2359,7 +2699,8 @@ void *syncWriteProgressive(void *sarg) {
                     break;
             }
 
-            int64_t delay = endTs - startTs;
+            int64_t delay4 = endTs - startTs;
+            int64_t delay = delay1 + delay2 + delay3 + delay4;
             if (delay <= 0) {
                 debugPrint("thread[%d]: startTs: %"PRId64", endTs: %"PRId64"\n",
                         pThreadInfo->threadID, startTs, endTs);
@@ -2373,7 +2714,11 @@ void *syncWriteProgressive(void *sarg) {
                     tmfree(pDelay);
                 }
                 pThreadInfo->totalDelay += delay;
+                pThreadInfo->totalDelay1 += delay1;
+                pThreadInfo->totalDelay2 += delay2;
+                pThreadInfo->totalDelay3 += delay3;
             }
+            delay1 = delay2 = delay3 = 0;
 
             int64_t currentPrintTime = toolsGetTimestampMs();
             if (currentPrintTime - lastPrintTime > 30 * 1000) {
@@ -2392,6 +2737,10 @@ void *syncWriteProgressive(void *sarg) {
     }      // tableSeq
 free_of_progressive:
     cleanupAndPrint(pThreadInfo, "progressive");
+    if(csvFile) {
+        fclose(csvFile);
+    }
+    tmfree(tagData);
     return NULL;
 }
 
@@ -2638,10 +2987,12 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
 
 static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        snprintf(stbInfo->childTblArray[i]->name,
+        char childName[TSDB_TABLE_NAME_LEN]={0};
+        snprintf(childName,
                  TSDB_TABLE_NAME_LEN,
                  "%s%" PRIu64 "",
                  stbInfo->childTblPrefix, i);
+        stbInfo->childTblArray[i]->name = strdup(childName);
         debugPrint("%s(): %s\n", __func__,
                   stbInfo->childTblArray[i]->name);
     }
@@ -2652,10 +3003,12 @@ static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
 static int64_t fillChildTblNameByFromTo(SDataBase *database,
         SSuperTable* stbInfo) {
     for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
-        snprintf(stbInfo->childTblArray[i-stbInfo->childTblFrom]->name,
+        char childName[TSDB_TABLE_NAME_LEN]={0};
+        snprintf(childName,
                 TSDB_TABLE_NAME_LEN,
                 "%s%" PRIu64 "",
                 stbInfo->childTblPrefix, i);
+        stbInfo->childTblArray[i-stbInfo->childTblFrom]->name = strdup(childName);
     }
 
     return (stbInfo->childTblTo-stbInfo->childTblFrom);
@@ -2693,8 +3046,10 @@ static int64_t fillChildTblNameByLimitOffset(SDataBase *database,
     TAOS_ROW row = NULL;
     while ((row = taos_fetch_row(res)) != NULL) {
         int *lengths = taos_fetch_lengths(res);
-        strncpy(stbInfo->childTblArray[count]->name, row[0], lengths[0]);
-        stbInfo->childTblArray[count]->name[lengths[0] + 1] = '\0';
+        char * childName = benchCalloc(1, lengths[0] + 1, true);
+        strncpy(childName, row[0], lengths[0]);
+        childName[lengths[0]] = '\0';
+        stbInfo->childTblArray[count]->name = childName;
         debugPrint("stbInfo->childTblArray[%" PRId64 "]->name: %s\n",
                    count, stbInfo->childTblArray[count]->name);
         count++;
@@ -2743,15 +3098,32 @@ static void preProcessArgument(SSuperTable *stbInfo) {
 
 static int printTotalDelay(SDataBase *database,
                            int64_t totalDelay,
+                           int64_t totalDelay1,
+                           int64_t totalDelay2,
+                           int64_t totalDelay3,
                            BArray *total_delay_list,
                             int threads,
                             int64_t totalInsertRows,
-                            int64_t start, int64_t end) {
-    succPrint("Spent %.6f seconds to insert rows: %" PRIu64
-              " with %d thread(s) into %s %.2f records/second\n",
-              (end - start)/1E6, totalInsertRows, threads,
+                            int64_t spend) {
+    // zero check
+    if (total_delay_list->size == 0 || spend == 0 || threads == 0) {
+        return -1;
+    }
+
+    char subDelay[128] = "";
+    if(totalDelay1 + totalDelay2 + totalDelay3 > 0) {
+        sprintf(subDelay, " stmt delay1=%.2fs delay2=%.2fs delay3=%.2fs",
+                totalDelay1/threads/1E6,
+                totalDelay2/threads/1E6,
+                totalDelay3/threads/1E6);
+    }
+
+    succPrint("Spent %.6f (real %.6f) seconds to insert rows: %" PRIu64
+              " with %d thread(s) into %s %.2f (real %.2f) records/second%s\n",
+              spend/1E6, totalDelay/threads/1E6, totalInsertRows, threads,
               database->dbName,
-              (double)(totalInsertRows / ((end - start)/1E6)));
+              (double)(totalInsertRows / (spend/1E6)),
+              (double)(totalInsertRows / (totalDelay/threads/1E6)), subDelay);
     if (!total_delay_list->size) {
         return -1;
     }
@@ -2803,8 +3175,10 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
 
     if (stbInfo->childTblCount == 1 && stbInfo->tags->size == 0) {
         // Normal table
-        snprintf(stbInfo->childTblArray[0]->name, TSDB_TABLE_NAME_LEN,
+        char childName[TSDB_TABLE_NAME_LEN]={0};
+        snprintf(childName, TSDB_TABLE_NAME_LEN,
                     "%s", stbInfo->stbName);
+        stbInfo->childTblArray[0]->name = strdup(childName);
     } else if ((stbInfo->iface != SML_IFACE
                 && stbInfo->iface != SML_REST_IFACE)
             && stbInfo->childTblExists) {
@@ -2816,16 +3190,84 @@ static int64_t fillChildTblName(SDataBase *database, SSuperTable *stbInfo) {
     return ntables;
 }
 
-static int startMultiThreadInsertData(SDataBase* database,
-        SSuperTable* stbInfo) {
-    if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE)
-            && !stbInfo->use_metric) {
-        errorPrint("%s", "schemaless cannot work without stable\n");
-        return -1;
+// last ts fill to filllBackTime
+static bool fillSTableLastTs(SDataBase *database, SSuperTable *stbInfo) {
+    SBenchConn* conn = initBenchConn();
+    if (NULL == conn) {
+        return false;
+    }
+    char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "select last(ts) from %s.`%s`", database->dbName, stbInfo->stbName);
+
+    infoPrint("fillBackTime: %s\n", cmd);
+    TAOS_RES *res = taos_query(conn->taos, cmd);
+    int32_t   code = taos_errno(res);
+    if (code) {
+        printErrCmdCodeStr(cmd, code, res);
+        closeBenchConn(conn);
+        return false;
     }
 
-    preProcessArgument(stbInfo);
+    TAOS_ROW row = taos_fetch_row(res);
+    if(row == NULL) {
+        taos_free_result(res);
+        closeBenchConn(conn);
+        return false;
+    }
+    
+    char lastTs[128];
+    memset(lastTs, 0, sizeof(lastTs));
 
+    stbInfo->startFillbackTime = *(int64_t*)row[0];
+    toolsFormatTimestamp(lastTs, stbInfo->startFillbackTime, database->precision);
+    infoPrint("fillBackTime: get ok %s.%s last ts=%s \n", database->dbName, stbInfo->stbName, lastTs);
+    
+    taos_free_result(res);
+    closeBenchConn(conn);
+
+    return true;
+}
+
+// calcNow expression fill to timestamp_start
+static bool calcExprFromServer(SDataBase *database, SSuperTable *stbInfo) {
+    SBenchConn* conn = initBenchConn();
+    if (NULL == conn) {
+        return false;
+    }
+    char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "select %s", stbInfo->calcNow);
+
+    infoPrint("calcExprFromServer: %s\n", cmd);
+    TAOS_RES *res = taos_query(conn->taos, cmd);
+    int32_t   code = taos_errno(res);
+    if (code) {
+        printErrCmdCodeStr(cmd, code, res);
+        closeBenchConn(conn);
+        return false;
+    }
+
+    TAOS_ROW row = taos_fetch_row(res);
+    if(row == NULL) {
+        taos_free_result(res);
+        closeBenchConn(conn);
+        return false;
+    }
+    
+    char ts[128];
+    memset(ts, 0, sizeof(ts));
+
+    stbInfo->startTimestamp = *(int64_t*)row[0];
+    toolsFormatTimestamp(ts, stbInfo->startTimestamp, database->precision);
+    infoPrint("calcExprFromServer: get ok.  %s = %s \n", stbInfo->calcNow, ts);
+    
+    taos_free_result(res);
+    closeBenchConn(conn);
+
+    return true;
+}
+
+int64_t obtainTableCount(SDataBase* database, SSuperTable* stbInfo) {
+    // ntable calc
     int64_t ntables;
     if (stbInfo->childTblTo > 0) {
         ntables = stbInfo->childTblTo - stbInfo->childTblFrom;
@@ -2834,202 +3276,200 @@ static int startMultiThreadInsertData(SDataBase* database,
     } else {
         ntables = stbInfo->childTblCount;
     }
-    if (ntables == 0) {
+
+    return ntables;
+}
+
+// assign table to thread with vgroups, return assign thread count
+int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
+    SBenchConn* conn = initBenchConn();
+    if (NULL == conn) {
         return 0;
     }
+    int32_t threads = 0;
 
-    uint64_t tableFrom = 0;
-    int32_t threads = g_arguments->nthreads;
-    int64_t a = 0, b = 0;
-
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-    if ((0 == stbInfo->interlaceRows)
-            && (g_arguments->nthreads_auto)) {
-        SBenchConn* conn = initBenchConn();
-        if (NULL == conn) {
+    // calc table count per vgroup
+    for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+        int vgId;
+        int ret = taos_get_table_vgId(
+                conn->taos, database->dbName,
+                stbInfo->childTblArray[i]->name, &vgId);
+        if (ret < 0) {
+            errorPrint("Failed to get %s db's %s table's vgId\n",
+                        database->dbName,
+                        stbInfo->childTblArray[i]->name);
+            closeBenchConn(conn);
             return -1;
         }
-
-        for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-            int vgId;
-            int ret = taos_get_table_vgId(
-                    conn->taos, database->dbName,
-                    stbInfo->childTblArray[i]->name, &vgId);
-            if (ret < 0) {
-                errorPrint("Failed to get %s db's %s table's vgId\n",
-                           database->dbName,
-                           stbInfo->childTblArray[i]->name);
-                closeBenchConn(conn);
-                return -1;
-            }
-            debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
-                       database->dbName,
-                       stbInfo->childTblArray[i]->name, vgId);
-            for (int32_t v = 0; v < database->vgroups; v++) {
-                SVGroup *vg = benchArrayGet(database->vgArray, v);
-                if (vgId == vg->vgId) {
-                    vg->tbCountPerVgId++;
-                }
-            }
-        }
-
-        threads = 0;
-        for (int v = 0; v < database->vgroups; v++) {
+        debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
+                    database->dbName,
+                    stbInfo->childTblArray[i]->name, vgId);
+        for (int32_t v = 0; v < database->vgroups; v++) {
             SVGroup *vg = benchArrayGet(database->vgArray, v);
-            infoPrint("Total %"PRId64" tables on bb %s's vgroup %d (id: %d)\n",
-                      vg->tbCountPerVgId, database->dbName, v, vg->vgId);
-            if (vg->tbCountPerVgId) {
-                threads++;
-            } else {
-                continue;
+            if (vgId == vg->vgId) {
+                vg->tbCountPerVgId++;
             }
-            vg->childTblArray = benchCalloc(
-                    vg->tbCountPerVgId, sizeof(SChildTable*), true);
-            vg->tbOffset = 0;
-        }
-        for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-            int vgId;
-            int ret = taos_get_table_vgId(
-                    conn->taos, database->dbName,
-                    stbInfo->childTblArray[i]->name, &vgId);
-            if (ret < 0) {
-                errorPrint("Failed to get %s db's %s table's vgId\n",
-                           database->dbName,
-                           stbInfo->childTblArray[i]->name);
-
-                closeBenchConn(conn);
-                return -1;
-            }
-            debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
-                       database->dbName,
-                       stbInfo->childTblArray[i]->name, vgId);
-            for (int32_t v = 0; v < database->vgroups; v++) {
-                SVGroup *vg = benchArrayGet(database->vgArray, v);
-                if (vgId == vg->vgId) {
-                    vg->childTblArray[vg->tbOffset] =
-                           stbInfo->childTblArray[i];
-                    vg->tbOffset++;
-                }
-            }
-        }
-        closeBenchConn(conn);
-    } else {
-        a = ntables / threads;
-        if (a < 1) {
-            threads = (int32_t)ntables;
-            a = 1;
-        }
-        b = 0;
-        if (threads != 0) {
-            b = ntables % threads;
         }
     }
 
-    int32_t vgFrom = 0;
-#else
-    a = ntables / threads;
-    if (a < 1) {
-        threads = (int32_t)ntables;
-        a = 1;
+    // malloc vg->childTblArray memory with table count
+    for (int v = 0; v < database->vgroups; v++) {
+        SVGroup *vg = benchArrayGet(database->vgArray, v);
+        infoPrint("Total %"PRId64" tables on %s's vgroup %d (id: %d)\n",
+                    vg->tbCountPerVgId, database->dbName, v, vg->vgId);
+        if (vg->tbCountPerVgId) {
+            threads++;
+        } else {
+            continue;
+        }
+        vg->childTblArray = benchCalloc(vg->tbCountPerVgId, sizeof(SChildTable*), true);
+        vg->tbOffset      = 0;
     }
-    b = 0;
-    if (threads != 0) {
-        b = ntables % threads;
-    }
-#endif   // TD_VER_COMPATIBLE_3_0_0_0
-    pthread_t   *pids = benchCalloc(1, threads * sizeof(pthread_t), true);
-    threadInfo  *infos = benchCalloc(1, threads * sizeof(threadInfo), true);
+    
+    // set vg->childTblArray data
+    for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
+        int vgId;
+        int ret = taos_get_table_vgId(
+                conn->taos, database->dbName,
+                stbInfo->childTblArray[i]->name, &vgId);
+        if (ret < 0) {
+            errorPrint("Failed to get %s db's %s table's vgId\n",
+                        database->dbName,
+                        stbInfo->childTblArray[i]->name);
 
-    for (int32_t i = 0; i < threads; i++) {
+            closeBenchConn(conn);
+            return 0;
+        }
+        debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
+                    database->dbName,
+                    stbInfo->childTblArray[i]->name, vgId);
+        for (int32_t v = 0; v < database->vgroups; v++) {
+            SVGroup *vg = benchArrayGet(database->vgArray, v);
+            if (vgId == vg->vgId) {
+                vg->childTblArray[vg->tbOffset] = stbInfo->childTblArray[i];
+                vg->tbOffset++;
+            }
+        }
+    }
+    closeBenchConn(conn);
+
+    return threads;
+}
+
+// init insert thread
+int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthreads, threadInfo *infos, int64_t div, int64_t mod) {
+    int32_t  ret     = -1;
+    uint64_t tbNext  = stbInfo->childTblFrom;
+    int32_t  vgNext  = 0;
+    FILE*    csvFile = NULL;
+    char*    tagData = NULL;
+    bool     stmtN   = stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating == false;
+    int      w       = 0;
+
+    if (stmtN) {
+        csvFile = openTagCsv(stbInfo);
+        tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
+    }
+    
+    for (int32_t i = 0; i < nthreads; i++) {
+        // set table
         threadInfo *pThreadInfo = infos + i;
-        pThreadInfo->threadID = i;
-        pThreadInfo->dbInfo = database;
-        pThreadInfo->stbInfo = stbInfo;
+        pThreadInfo->threadID   = i;
+        pThreadInfo->dbInfo     = database;
+        pThreadInfo->stbInfo    = stbInfo;
         pThreadInfo->start_time = stbInfo->startTimestamp;
+        pThreadInfo->pos        = 0;
+        pThreadInfo->samplePos  = 0;
         pThreadInfo->totalInsertRows = 0;
-        pThreadInfo->samplePos = 0;
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
-        if ((0 == stbInfo->interlaceRows)
-                && (g_arguments->nthreads_auto)) {
-            int32_t j;
-            for (j = vgFrom; i < database->vgroups; j++) {
+
+        if (g_arguments->bind_vgroup) {
+            for (int32_t j = vgNext; j < database->vgroups; j++) {
                 SVGroup *vg = benchArrayGet(database->vgArray, j);
                 if (0 == vg->tbCountPerVgId) {
                     continue;
                 }
-                pThreadInfo->vg = vg;
+                pThreadInfo->vg               = vg;
+                pThreadInfo->ntables          = vg->tbCountPerVgId;
                 pThreadInfo->start_table_from = 0;
-                pThreadInfo->ntables = vg->tbCountPerVgId;
-                pThreadInfo->end_table_to = vg->tbCountPerVgId-1;
+                pThreadInfo->end_table_to     = vg->tbCountPerVgId - 1;
+                vgNext                        = j + 1;
                 break;
-            }
-            vgFrom = j + 1;
+            }            
         } else {
-            pThreadInfo->start_table_from = tableFrom;
-            pThreadInfo->ntables = i < b ? a + 1 : a;
-            pThreadInfo->end_table_to = (i < b)?(tableFrom+a):(tableFrom+a-1);
-            tableFrom = pThreadInfo->end_table_to + 1;
+            pThreadInfo->start_table_from = tbNext;
+            pThreadInfo->ntables          = i < mod ? div + 1 : div;
+            pThreadInfo->end_table_to     = i < mod ? tbNext + div : tbNext + div - 1;
+            tbNext                        = pThreadInfo->end_table_to + 1;
         }
-#else
-        pThreadInfo->start_table_from = tableFrom;
-        pThreadInfo->ntables = i < b ? a + 1 : a;
-        pThreadInfo->end_table_to = (i < b)?(tableFrom+a):(tableFrom+a-1);
-        tableFrom = pThreadInfo->end_table_to + 1;
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
+
+        // init conn
         pThreadInfo->delayList = benchArrayInit(1, sizeof(int64_t));
         switch (stbInfo->iface) {
+            // rest
             case REST_IFACE: {
                 if (stbInfo->interlaceRows > 0) {
                     pThreadInfo->buffer = new_ds(0);
                 } else {
-                    pThreadInfo->buffer =
-                        benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
+                    pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
                 }
                 int sockfd = createSockFd();
                 if (sockfd < 0) {
-                    FREE_PIDS_INFOS_RETURN_MINUS_1();
+                    goto END;
                 }
                 pThreadInfo->sockfd = sockfd;
                 break;
             }
+            // stmt
             case STMT_IFACE: {
                 pThreadInfo->conn = initBenchConn();
                 if (NULL == pThreadInfo->conn) {
-                    FREE_PIDS_INFOS_RETURN_MINUS_1();
+                    goto END;
                 }
-                pThreadInfo->conn->stmt =
-                    taos_stmt_init(pThreadInfo->conn->taos);
+                taos_stmt_close(pThreadInfo->conn->stmt);
+                if(stbInfo->autoTblCreating) {
+                    pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
+                } else {
+                    TAOS_STMT_OPTIONS op;
+                    op.reqId = 0;
+                    op.singleStbInsert = true;
+                    op.singleTableBindOnce = true;
+                    pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
+                }
                 if (NULL == pThreadInfo->conn->stmt) {
-                    errorPrint("taos_stmt_init() failed, reason: %s\n",
-                               taos_errstr(NULL));
-                    FREE_RESOURCE();
-                    return -1;
+                    errorPrint("taos_stmt_init() failed, reason: %s\n", taos_errstr(NULL));
+                    goto END;                    
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                    errorPrint("taos select database(%s) failed\n",
-                            database->dbName);
-                    FREE_RESOURCE();
-                    return -1;
+                    errorPrint("taos select database(%s) failed\n", database->dbName);
+                    goto END;
                 }
-                if (!stbInfo->autoTblCreating) {
-                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, 0)) {
-                        FREE_RESOURCE();
-                        return -1;
+                if (stmtN) {
+                    // generator
+                    if (w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            goto END;
+                        }
                     }
+
+                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                        goto END;
+                    }
+
+                    // move next
+                    if (++w >= TAG_BATCH_COUNT) {
+                        // reset for gen again
+                        w = 0;
+                    } 
                 }
 
-                pThreadInfo->bind_ts = benchCalloc(1, sizeof(int64_t), true);
-                pThreadInfo->bind_ts_array =
-                        benchCalloc(1, sizeof(int64_t)*g_arguments->reqPerReq,
-                                    true);
-                pThreadInfo->bindParams = benchCalloc(
-                        1, sizeof(TAOS_MULTI_BIND)*(stbInfo->cols->size + 1),
-                        true);
-                pThreadInfo->is_null = benchCalloc(1, g_arguments->reqPerReq,
-                                                   true);
+                // malloc bind
+                pThreadInfo->bind_ts       = benchCalloc(1, sizeof(int64_t), true);
+                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*g_arguments->reqPerReq, true);
+                pThreadInfo->bindParams    = benchCalloc(1, sizeof(TAOS_MULTI_BIND)*(stbInfo->cols->size + 1), true);
+                pThreadInfo->is_null       = benchCalloc(1, g_arguments->reqPerReq, true);
+                
                 parseBufferToStmtBatch(stbInfo);
-                for (int64_t child = 0;
-                        child < stbInfo->childTblCount; child++) {
+                for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
                     SChildTable *childTbl = stbInfo->childTblArray[child];
                     if (childTbl->useOwnSample) {
                         parseBufferToStmtBatchChildTbl(stbInfo, childTbl);
@@ -3038,44 +3478,34 @@ static int startMultiThreadInsertData(SDataBase* database,
 
                 break;
             }
+            // sml rest
             case SML_REST_IFACE: {
                 int sockfd = createSockFd();
                 if (sockfd < 0) {
-                    free(pids);
-                    free(infos);
-                    return -1;
+                    goto END;
                 }
                 pThreadInfo->sockfd = sockfd;
             }
+            // sml
             case SML_IFACE: {
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     errorPrint("%s() init connection failed\n", __func__);
-                    FREE_RESOURCE();
-                    return -1;
+                    goto END;
                 }
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                    errorPrint("taos select database(%s) failed\n",
-                               database->dbName);
-                    FREE_RESOURCE();
-                    return -1;
+                    errorPrint("taos select database(%s) failed\n", database->dbName);
+                    goto END;
                 }
-                pThreadInfo->max_sql_len =
-                    stbInfo->lenOfCols + stbInfo->lenOfTags;
+                pThreadInfo->max_sql_len = stbInfo->lenOfCols + stbInfo->lenOfTags;
                 if (stbInfo->iface == SML_REST_IFACE) {
-                    pThreadInfo->buffer =
-                            benchCalloc(1, g_arguments->reqPerReq *
-                                      (1 + pThreadInfo->max_sql_len), true);
+                    pThreadInfo->buffer = benchCalloc(1, g_arguments->reqPerReq * (1 + pThreadInfo->max_sql_len), true);
                 }
                 int protocol = stbInfo->lineProtocol;
-                if (TSDB_SML_JSON_PROTOCOL != protocol
-                        && SML_JSON_TAOS_FORMAT != protocol) {
-                    pThreadInfo->sml_tags =
-                        (char **)benchCalloc(pThreadInfo->ntables,
-                                             sizeof(char *), true);
+                if (TSDB_SML_JSON_PROTOCOL != protocol && SML_JSON_TAOS_FORMAT != protocol) {
+                    pThreadInfo->sml_tags = (char **)benchCalloc(pThreadInfo->ntables, sizeof(char *), true);
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
-                        pThreadInfo->sml_tags[t] =
-                                benchCalloc(1, stbInfo->lenOfTags, true);
+                        pThreadInfo->sml_tags[t] = benchCalloc(1, stbInfo->lenOfTags, true);
                     }
 
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
@@ -3089,20 +3519,14 @@ static int startMultiThreadInsertData(SDataBase* database,
                         debugPrint("pThreadInfo->sml_tags[%d]: %s\n", t,
                                    pThreadInfo->sml_tags[t]);
                     }
-                    pThreadInfo->lines =
-                            benchCalloc(g_arguments->reqPerReq,
-                                        sizeof(char *), true);
-
-                    for (int j = 0; (j < g_arguments->reqPerReq
-                            && !g_arguments->terminate); j++) {
-                        pThreadInfo->lines[j] =
-                                benchCalloc(1, pThreadInfo->max_sql_len, true);
+                    pThreadInfo->lines = benchCalloc(g_arguments->reqPerReq, sizeof(char *), true);
+                    for (int j = 0; (j < g_arguments->reqPerReq && !g_arguments->terminate); j++) {
+                        pThreadInfo->lines[j] = benchCalloc(1, pThreadInfo->max_sql_len, true);
                     }
                 } else {
-                    pThreadInfo->json_array = tools_cJSON_CreateArray();
-                    pThreadInfo->sml_json_tags = tools_cJSON_CreateArray();
-                    pThreadInfo->sml_tags_json_array = (char **)benchCalloc(
-                            pThreadInfo->ntables, sizeof(char *), true);
+                    pThreadInfo->json_array          = tools_cJSON_CreateArray();
+                    pThreadInfo->sml_json_tags       = tools_cJSON_CreateArray();
+                    pThreadInfo->sml_tags_json_array = (char **)benchCalloc( pThreadInfo->ntables, sizeof(char *), true);
                     for (int t = 0; t < pThreadInfo->ntables; t++) {
                         if (stbInfo->lineProtocol == TSDB_SML_JSON_PROTOCOL) {
                             generateSmlJsonTags(
@@ -3116,48 +3540,33 @@ static int startMultiThreadInsertData(SDataBase* database,
                                 pThreadInfo->start_table_from, t);
                         }
                     }
-                    pThreadInfo->lines = (char **)benchCalloc(
-                            1, sizeof(char *), true);
-                    if ((0 == stbInfo->interlaceRows)
-                        && (TSDB_SML_JSON_PROTOCOL == protocol)) {
-                        pThreadInfo->line_buf_len =
-                            g_arguments->reqPerReq *
-                            accumulateRowLen(pThreadInfo->stbInfo->tags,
-                                             pThreadInfo->stbInfo->iface);
-                        debugPrint("%s() LN%d, line_buf_len=%d\n",
-                               __func__, __LINE__, pThreadInfo->line_buf_len);
-                        pThreadInfo->lines[0] = benchCalloc(
-                            1, pThreadInfo->line_buf_len, true);
-                        pThreadInfo->sml_json_value_array =
-                            (char **)benchCalloc(
-                                pThreadInfo->ntables, sizeof(char *), true);
+                    pThreadInfo->lines = (char **)benchCalloc(1, sizeof(char *), true);
+                    if (0 == stbInfo->interlaceRows && TSDB_SML_JSON_PROTOCOL == protocol) {
+                        pThreadInfo->line_buf_len = g_arguments->reqPerReq * accumulateRowLen(pThreadInfo->stbInfo->tags, pThreadInfo->stbInfo->iface);
+                        debugPrint("%s() LN%d, line_buf_len=%d\n", __func__, __LINE__, pThreadInfo->line_buf_len);
+                        pThreadInfo->lines[0]             = benchCalloc(1, pThreadInfo->line_buf_len, true);
+                        pThreadInfo->sml_json_value_array = (char **)benchCalloc(pThreadInfo->ntables, sizeof(char *), true);
                         for (int t = 0; t < pThreadInfo->ntables; t++) {
-                            generateSmlJsonValues(
-                                pThreadInfo->sml_json_value_array, stbInfo, t);
+                            generateSmlJsonValues(pThreadInfo->sml_json_value_array, stbInfo, t);
                         }
                     }
                 }
                 break;
             }
+            // taos
             case TAOSC_IFACE: {
                 pThreadInfo->conn = initBenchConn();
                 if (pThreadInfo->conn == NULL) {
                     errorPrint("%s() failed to connect\n", __func__);
-                    FREE_RESOURCE();
-                    return -1;
+                    goto END;
                 }
                 char* command = benchCalloc(1, SHORT_1K_SQL_BUFF_LEN, false);
                 snprintf(command, SHORT_1K_SQL_BUFF_LEN,
-                        g_arguments->escape_character
-                        ? "USE `%s`"
-                        : "USE %s",
+                        g_arguments->escape_character ? "USE `%s`" : "USE %s",
                         database->dbName);
                 if (queryDbExecCall(pThreadInfo->conn, command)) {
-                    errorPrint("taos select database(%s) failed\n",
-                               database->dbName);
-                    FREE_RESOURCE();
-                    tmfree(command);
-                    return -1;
+                    errorPrint("taos select database(%s) failed\n", database->dbName);
+                    goto END;
                 }
                 tmfree(command);
                 command = NULL;
@@ -3165,11 +3574,9 @@ static int startMultiThreadInsertData(SDataBase* database,
                 if (stbInfo->interlaceRows > 0) {
                     pThreadInfo->buffer = new_ds(0);
                 } else {
-                    pThreadInfo->buffer =
-                        benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
+                    pThreadInfo->buffer = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
                     if (g_arguments->check_sql) {
-                        pThreadInfo->csql =
-                            benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
+                        pThreadInfo->csql = benchCalloc(1, TSDB_MAX_ALLOWED_SQL_LEN, true);
                         memset(pThreadInfo->csql, 0, TSDB_MAX_ALLOWED_SQL_LEN);
                     }
                 }
@@ -3181,25 +3588,92 @@ static int startMultiThreadInsertData(SDataBase* database,
         }
     }
 
-    infoPrint("Estimate memory usage: %.2fMB\n",
-              (double)g_memoryUsage / 1048576);
-    prompt(0);
+    // success
+    ret = 0;
 
-    // create threads
-    int threadCnt = 0;
-    for (int i = 0; (i < threads && !g_arguments->terminate); i++) {
-        threadInfo *pThreadInfo = infos + i;
-        if (stbInfo->interlaceRows > 0) {
-            pthread_create(pids + i, NULL,
-                           syncWriteInterlace, pThreadInfo);
-        } else {
-            pthread_create(pids + i, NULL,
-                           syncWriteProgressive, pThreadInfo);
-        }
-        threadCnt ++;
+END:
+    if (csvFile) {
+        fclose(csvFile);
+    }
+    tmfree(tagData);
+    return ret;
+}
+
+#define EMPTY_SLOT -1
+// run with limit thread
+int32_t runInsertLimitThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthreads, int32_t limitThread, threadInfo *infos, pthread_t *pids) {
+    infoPrint("run with bind vgroups limit thread. limit threads=%d nthread=%d\n", limitThread, nthreads);
+    
+    // slots save threadInfo array index
+    int32_t* slot = benchCalloc(limitThread, sizeof(int32_t), false); 
+    int32_t  t    = 0; // thread index
+    for (int32_t i = 0; i < limitThread; i++) {
+        slot[i] = EMPTY_SLOT;
     }
 
-    int64_t start = toolsGetTimestampUs();
+    while (!g_arguments->terminate) {
+        int32_t emptySlot = 0;
+        for (int32_t i = 0; i < limitThread; i++) {
+            int32_t idx = slot[i];
+            // check slot thread end
+            if(idx != EMPTY_SLOT) {
+                if (pthread_tryjoin_np(pids[idx], NULL) == EBUSY ) {
+                    // thread is running
+                    toolsMsleep(2000);
+                } else {
+                    // thread is end , set slot empty 
+                    infoPrint("slot[%d] finished tidx=%d. completed thread count=%d\n", i, slot[i], t);
+                    slot[i] = EMPTY_SLOT;
+                }
+            } 
+
+            if (slot[i] == EMPTY_SLOT && t < nthreads) {
+                // slot is empty , set new thread to running
+                threadInfo *pThreadInfo = infos + t;
+                if (stbInfo->interlaceRows > 0) {
+                    pthread_create(pids + t, NULL, syncWriteInterlace,   pThreadInfo);
+                } else {
+                    pthread_create(pids + t, NULL, syncWriteProgressive, pThreadInfo);
+                }
+                
+                // save current and move next
+                slot[i] = t;
+                t++;
+                infoPrint("slot[%d] start new thread tidx=%d. \n", i, slot[i]);
+            }
+
+            // check slot empty
+            if(slot[i] == EMPTY_SLOT) {
+                emptySlot++;
+            }
+        }
+
+        // check all thread end
+        if(emptySlot == limitThread) {
+            debugPrint("all threads(%d) is run finished.\n", nthreads);
+            break;
+        } else {
+            debugPrint("current thread index=%d all thread=%d\n", t, nthreads);
+        }
+    }
+
+    return 0;
+}
+
+// run
+int32_t runInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthreads, threadInfo *infos, pthread_t *pids) {
+    infoPrint("run insert thread. real nthread=%d\n", nthreads);
+    // create threads
+    int threadCnt = 0;
+    for (int i = 0; i < nthreads && !g_arguments->terminate; i++) {
+        threadInfo *pThreadInfo = infos + i;
+        if (stbInfo->interlaceRows > 0) {
+            pthread_create(pids + i, NULL, syncWriteInterlace,   pThreadInfo);
+        } else {
+            pthread_create(pids + i, NULL, syncWriteProgressive, pThreadInfo);
+        }
+        threadCnt ++;
+    }    
 
     // wait threads
     for (int i = 0; i < threadCnt; i++) {
@@ -3207,16 +3681,24 @@ static int startMultiThreadInsertData(SDataBase* database,
         pthread_join(pids[i], NULL);
     }
 
-    int64_t end = toolsGetTimestampUs()+1;
+    return 0;
+}
+
+
+// exit and free resource
+int32_t exitInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthreads, threadInfo *infos, pthread_t *pids, int64_t spend) {
 
     if (g_arguments->terminate)  toolsMsleep(100);
 
     BArray *  total_delay_list = benchArrayInit(1, sizeof(int64_t));
     int64_t   totalDelay = 0;
+    int64_t   totalDelay1 = 0;
+    int64_t   totalDelay2 = 0;
+    int64_t   totalDelay3 = 0;
     uint64_t  totalInsertRows = 0;
 
     // free threads resource
-    for (int i = 0; i < threads; i++) {
+    for (int i = 0; i < nthreads; i++) {
         threadInfo *pThreadInfo = infos + i;
         // free check sql
         if (pThreadInfo->csql) {
@@ -3224,6 +3706,7 @@ static int startMultiThreadInsertData(SDataBase* database,
             pThreadInfo->csql = NULL;
         }
 
+        // close conn
         int protocol = stbInfo->lineProtocol;
         switch (stbInfo->iface) {
             case REST_IFACE:
@@ -3284,6 +3767,12 @@ static int startMultiThreadInsertData(SDataBase* database,
 
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
+
+                // free length
+                for (int c = 0; c < stbInfo->cols->size + 1; c++) {
+                    TAOS_MULTI_BIND *param = (TAOS_MULTI_BIND *)(pThreadInfo->bindParams + sizeof(TAOS_MULTI_BIND) * c);
+                    tmfree(param->length);
+                }
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
@@ -3304,6 +3793,9 @@ static int startMultiThreadInsertData(SDataBase* database,
         }
         totalInsertRows += pThreadInfo->totalInsertRows;
         totalDelay += pThreadInfo->totalDelay;
+        totalDelay1 += pThreadInfo->totalDelay1;
+        totalDelay2 += pThreadInfo->totalDelay2;
+        totalDelay3 += pThreadInfo->totalDelay3;
         benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData,
                 pThreadInfo->delayList->size);
         tmfree(pThreadInfo->delayList);
@@ -3313,6 +3805,8 @@ static int startMultiThreadInsertData(SDataBase* database,
             closeBenchConn(pThreadInfo->conn);
             pThreadInfo->conn = NULL;
         }
+
+
     }
 
     // calculate result
@@ -3321,17 +3815,99 @@ static int startMultiThreadInsertData(SDataBase* database,
 
     if (g_arguments->terminate)  toolsMsleep(100);
 
-    free(pids);
-    free(infos);
+    tmfree(pids);
+    tmfree(infos);
 
-    int ret = printTotalDelay(database, totalDelay,
-                              total_delay_list, threads,
-                    totalInsertRows, start, end);
+    // print result
+    int ret = printTotalDelay(database, totalDelay, totalDelay1, totalDelay2, totalDelay3,
+                              total_delay_list, nthreads, totalInsertRows, spend);
     benchArrayDestroy(total_delay_list);
-    if (g_fail || ret) {
+    if (g_fail || ret != 0) {
         return -1;
     }
     return 0;
+}
+
+static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo) {
+    if ((stbInfo->iface == SML_IFACE || stbInfo->iface == SML_REST_IFACE)
+            && !stbInfo->use_metric) {
+        errorPrint("%s", "schemaless cannot work without stable\n");
+        return -1;
+    }
+
+    // check argument valid
+    preProcessArgument(stbInfo);
+
+    // ntable
+    int64_t ntables = obtainTableCount(database, stbInfo);
+    if (ntables == 0) {
+        errorPrint("insert table count is zero. %s.%s\n", database->dbName, stbInfo->stbName);
+        return -1;
+    }
+
+    // assign table to thread
+    int32_t  nthreads  = g_arguments->nthreads;
+    int64_t  div       = 0;  // ntable / nthread  division
+    int64_t  mod       = 0;  // ntable % nthread
+    int64_t  spend     = 0;
+
+    if (g_arguments->bind_vgroup) {
+        nthreads = assignTableToThread(database, stbInfo);
+        if(nthreads == 0) {
+            errorPrint("bind vgroup assign theads count is zero. %s.%s\n", database->dbName, stbInfo->stbName);
+            return -1;
+        }
+    } else {
+        if(nthreads == 0) {
+            errorPrint("argument thread_count can not be zero. %s.%s\n", database->dbName, stbInfo->stbName);
+            return -1;
+        }
+        div = ntables / nthreads;
+        if (div < 1) {
+            nthreads = (int32_t)ntables;
+            div = 1;
+        }
+        mod = ntables % nthreads;
+    }
+
+
+    // init each thread information
+    pthread_t   *pids  = benchCalloc(1, nthreads * sizeof(pthread_t),  true);
+    threadInfo  *infos = benchCalloc(1, nthreads * sizeof(threadInfo), true);
+
+    // init
+    int32_t ret = initInsertThread(database, stbInfo, nthreads, infos, div, mod);
+    if( ret != 0) {
+        errorPrint("init insert thread failed. %s.%s\n", database->dbName, stbInfo->stbName);
+        tmfree(pids);
+        tmfree(infos);
+        return ret;
+    }
+
+    infoPrint("Estimate memory usage: %.2fMB\n", (double)g_memoryUsage / 1048576);
+    prompt(0);
+
+   
+    // run
+    int64_t start = toolsGetTimestampUs();
+    if(g_arguments->bind_vgroup && g_arguments->nthreads < nthreads ) {
+        // need many batch execute all threads
+        ret = runInsertLimitThread(database, stbInfo, nthreads, g_arguments->nthreads, infos, pids);
+    } else {
+        // only one batch execute all threads
+        ret = runInsertThread(database, stbInfo, nthreads, infos, pids);
+    }
+
+    int64_t end = toolsGetTimestampUs();
+    if(end == start) {
+        spend = 1;
+    } else {
+        spend = end - start;
+    }
+
+    // exit
+    ret = exitInsertThread(database, stbInfo, nthreads, infos, pids, spend);
+    return ret;
 }
 
 static int getStbInsertedRows(char* dbName, char* stbName, TAOS* taos) {
@@ -3496,6 +4072,7 @@ int insertTestProcess() {
     prompt(0);
 
     encodeAuthBase64();
+    //loop create database 
     for (int i = 0; i < g_arguments->databases->size; i++) {
         if (REST_IFACE == g_arguments->iface) {
             if (0 != convertServAddr(g_arguments->iface,
@@ -3523,8 +4100,25 @@ int insertTestProcess() {
                 return -1;
             }
             succPrint("created database (%s)\n", database->dbName);
+        } else {
+            // database already exist, get vgroups from server
+            if (database->superTbls) {
+                SBenchConn* conn = initBenchConn();
+                if (conn) {
+                    int32_t vgroups = getVgroupsOfDb(conn, database);
+                    if (vgroups <=0) {
+                        closeBenchConn(conn);
+                        errorPrint("Database %s's vgroups is zero.\n", database->dbName);
+                        return -1;
+                    }
+                    closeBenchConn(conn);
+                    succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
+                }
+            }
         }
     }
+
+    // create super table && fill child tables && prepareSampleData
     for (int i = 0; i < g_arguments->databases->size; i++) {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
         if (database->superTbls) {
@@ -3544,6 +4138,16 @@ int insertTestProcess() {
                         }
                     }
                 }
+                // fill last ts from super table
+                if(stbInfo->autoFillback && stbInfo->childTblExists) {
+                    fillSTableLastTs(database, stbInfo);
+                }
+
+                // calc now 
+                if(stbInfo->calcNow) {
+                    calcExprFromServer(database, stbInfo);
+                }
+
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
                     infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
@@ -3551,10 +4155,20 @@ int insertTestProcess() {
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
                 }
+
+                // execute sqls
+                if (stbInfo->sqls) {
+                    char **sqls = stbInfo->sqls;
+                    while (*sqls) {
+                        queryDbExec(database, stbInfo, *sqls);
+                        sqls++;
+                    } 
+                }
             }
         }
     }
 
+    // tsma
     if (g_arguments->taosc_version == 3) {
         for (int i = 0; i < g_arguments->databases->size; i++) {
             SDataBase* database = benchArrayGet(g_arguments->databases, i);

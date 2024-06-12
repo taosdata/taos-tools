@@ -28,6 +28,13 @@ extern char      g_configDir[MAX_PATH_LEN];
 #define TAOSBENCHMARK_STATUS "unknown"
 #endif
 
+#ifndef TD_PRODUCT_NAME
+#define TD_PRODUCT_NAME "TDengine"
+#endif
+
+// libtaos.so
+extern char buildinfo[];
+
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
                            "avg(current)",
@@ -43,13 +50,15 @@ void printVersion() {
     char taosBenchmark_ver[] = TAOSBENCHMARK_TAG;
     char taosBenchmark_commit[] = TAOSBENCHMARK_COMMIT_SHA1;
     char taosBenchmark_status[] = TAOSBENCHMARK_STATUS;
-    if (0 == strlen(taosBenchmark_status)) {
-        printf("version: %s\ngitinfo: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit);
-    } else {
-        printf("version: %s\ngitinfo: %s\nstatus: %s\n",
-                taosBenchmark_ver, taosBenchmark_commit, taosBenchmark_status);
-    }
+
+    // version
+    printf("%s\ntaosBenchmark version: %s\ngit: %s\n", TD_PRODUCT_NAME, taosBenchmark_ver, taosBenchmark_commit);
+#ifdef LINUX
+    printf("build: %s\n ", buildinfo);
+#endif
+    if (strlen(taosBenchmark_status) > 0) {
+        printf("status: %s\n", taosBenchmark_status);
+    } 
 }
 
 void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
@@ -237,7 +246,6 @@ void initArgument() {
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
-    g_arguments->nthreads_auto = true;
     g_arguments->table_threads = DEFAULT_NTHREADS;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;
@@ -304,9 +312,9 @@ void modifyArgument() {
     }
 
     if (superTable->iface == STMT_IFACE) {
-        if (g_arguments->reqPerReq > INT16_MAX) {
-            g_arguments->reqPerReq = INT16_MAX;
-        }
+        //if (g_arguments->reqPerReq > INT16_MAX) {
+        //    g_arguments->reqPerReq = INT16_MAX;
+        //}
         if (g_arguments->prepared_rand > g_arguments->reqPerReq) {
             g_arguments->prepared_rand = g_arguments->reqPerReq;
         }
@@ -363,11 +371,6 @@ void modifyArgument() {
         encodeAuthBase64();
         g_arguments->rest_server_ver_major =
             getServerVersionRest(g_arguments->port);
-    }
-
-    if (g_arguments->demo_mode && TAOSC_IFACE == g_arguments->iface) {
-        g_arguments->mistMode = true;
-        g_arguments->prepared_rand = 360;
     }
 }
 

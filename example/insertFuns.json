@@ -47,9 +47,9 @@
                     "insert_rows": 900000000000000,
                     "interlace_rows": 1,
                     "insert_interval": 1000,
+					"partial_col_num":	2,
+					"partial_col_from":	3,                    
                     "start_timestamp": "now",
-                    "start_fillback_time": "auto",
-                    "timestamp_step": 1000,
                     "sample_format": "csv",
                     "sample_file": "./sample.csv",
                     "use_sample_ts": "no",
@@ -58,11 +58,10 @@
                         { "type": "FLOAT", "name": "current", "fun": "3*sin(x)+10*random(2)"},
                         { "type": "INT",   "name": "voltage", "fun": "40*sin(x)+200*random(10)"},
                         { "type": "FLOAT", "name": "phase",   "fun": "1*sin(x)+1*random(3)"},
-                        { "type": "INT",   "name": "c1",   "fun":    "count(0,100,1,0)"},
-                        { "type": "INT",   "name": "c2",   "fun":    "saw(-100,100,20,0)"},
-                        { "type": "INT",   "name": "c3",   "fun":    "square(0,60,20,10)"},
-                        { "type": "INT",   "name": "c4",   "fun":    "tri(-20,100,30,10)"}
-                    ],
+                        { "type": "INT",   "name": "c1",      "fun": "count(0,100,1,0) + 100"},
+                        { "type": "INT",   "name": "c2",      "fun": "saw(-100,100,20,0) + 1000"},
+                        { "type": "float", "name": "c3",      "fun": "square(0,50,10,3)+20+ 80"},
+                        { "type": "INT",   "name": "c4",      "fun": "tri(-20,40,20,5)+50*random(12)+ 10000"}                    ],
                     "tags": [
                         {
                             "type": "TINYINT",

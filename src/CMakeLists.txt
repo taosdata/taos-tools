@@ -95,16 +95,29 @@ IF(GIT_FOUND)
         OUTPUT_VARIABLE TAOSDUMP_STATUS
         ERROR_QUIET
         )
-    EXECUTE_PROCESS(
-        COMMAND sh "-c" "echo '${TAOSDUMP_FULLTAG}' | awk -F '-' '{print $2}'"
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSDUMP_TAG
-        )
-    EXECUTE_PROCESS(
-        COMMAND sh "-c" "echo '${TAOSBENCHMARK_FULLTAG}' | awk -F '-' '{print $2}'"
-        RESULT_VARIABLE RESULT
-        OUTPUT_VARIABLE TAOSBENCHMARK_TAG
-        )
+
+    # version    
+    IF (DEFINED TD_VER_NUMBER)
+        # use tdengine version
+        SET(TAOSBENCHMARK_TAG ${TD_VER_NUMBER})   
+        SET(TAOSDUMP_TAG ${TD_VER_NUMBER})
+        MESSAGE(STATUS "use TD_VER_NUMBER version: " ${TD_VER_NUMBER})
+    ELSE ()    
+        # use internal version
+        EXECUTE_PROCESS(
+            COMMAND sh "-c" "echo '${TAOSDUMP_FULLTAG}' | awk -F '-' '{print $2}'"
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSDUMP_TAG
+            )
+        MESSAGE(STATUS "taosdump use origin version: " ${TAOSDUMP_TAG})    
+        EXECUTE_PROCESS(
+            COMMAND sh "-c" "echo '${TAOSBENCHMARK_FULLTAG}' | awk -F '-' '{print $2}'"
+            RESULT_VARIABLE RESULT
+            OUTPUT_VARIABLE TAOSBENCHMARK_TAG
+            )
+        MESSAGE(STATUS "taosBenchmark use origin version: " ${TAOSBENCHMARK_TAG})        
+    ENDIF ()
+
     EXECUTE_PROCESS(
         COMMAND sh -c "git --git-dir=${CMAKE_CURRENT_LIST_DIR}/../.git --work-tree=${CMAKE_CURRENT_LIST_DIR}/.. status -z -s ${CMAKE_CURRENT_LIST_DIR}/bench*.c"
         RESULT_VARIABLE RESULT
@@ -114,7 +127,7 @@ IF(GIT_FOUND)
     IF ("${TAOSDUMP_COMMIT_SHA1}" STREQUAL "")
         SET(TAOSDUMP_COMMIT_SHA1 "unknown")
     ELSE ()
-        STRING(SUBSTRING "${TAOSDUMP_COMMIT_SHA1}" 0 7 TAOSDUMP_COMMIT_SHA1)
+        STRING(SUBSTRING "${TAOSDUMP_COMMIT_SHA1}" 0 40 TAOSDUMP_COMMIT_SHA1)
         STRING(STRIP "${TAOSDUMP_COMMIT_SHA1}" TAOSDUMP_COMMIT_SHA1)
     ENDIF ()
     IF ("${TAOSDUMP_TAG}" STREQUAL "")
@@ -126,7 +139,7 @@ IF(GIT_FOUND)
     IF ("${TAOSBENCHMARK_COMMIT_SHA1}" STREQUAL "")
         SET(TAOSBENCHMARK_COMMIT_SHA1 "unknown")
     ELSE ()
-        STRING(SUBSTRING "${TAOSBENCHMARK_COMMIT_SHA1}" 0 7 TAOSBENCHMARK_COMMIT_SHA1)
+        STRING(SUBSTRING "${TAOSBENCHMARK_COMMIT_SHA1}" 0 40 TAOSBENCHMARK_COMMIT_SHA1)
         STRING(STRIP "${TAOSBENCHMARK_COMMIT_SHA1}" TAOSBENCHMARK_COMMIT_SHA1)
     ENDIF ()
     IF ("${TAOSBENCHMARK_TAG}" STREQUAL "")
@@ -222,9 +235,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         ADD_DEPENDENCIES(taosdump deps-jansson)
         ADD_DEPENDENCIES(taosdump deps-snappy)
         IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchDataGeometry.c  benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchCsv.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchDataGeometry.c  benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchCsv.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ENDIF()
     ELSE ()
         INCLUDE_DIRECTORIES(/usr/local/include)
@@ -233,9 +246,9 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
         SET(OS_ID "Darwin")
 
         IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchDataGeometry.c  benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchCsv.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ELSE()
-            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchDataGeometry.c  benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
+            ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchCsv.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
         ENDIF()
     ENDIF ()
 
@@ -426,10 +439,11 @@ ELSE ()
     ADD_DEFINITIONS(-DWINDOWS)
     SET(CMAKE_C_STANDARD 11)
     SET(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /utf-8")
+    SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /utf-8")
     IF (${TD_VER_COMPATIBLE} STRGREATER_EQUAL "3.0.0.0")
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchDataGeometry.c  benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsString.c toolsSys.c toolsString.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchTmq.c benchQuery.c benchCsv.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsString.c toolsSys.c toolsString.c)
     ELSE ()
-        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchDataGeometry.c  benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
+        ADD_EXECUTABLE(taosBenchmark benchMain.c benchSubscribe.c benchQuery.c benchCsv.c benchJsonOpt.c benchInsert.c benchInsertMix.c benchDataMix.c wrapDb.c benchData.c benchCommandOpt.c benchUtil.c benchUtilDs.c benchSys.c toolstime.c toolsSys.c toolsString.c)
     ENDIF ()
 
     ADD_EXECUTABLE(taosdump taosdump.c toolsSys.c toolstime.c toolsDir.c toolsString.c)

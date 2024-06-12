@@ -230,7 +230,7 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_CHINESE   \
     "Nchar and binary are basic unicode chinese characters, optional."
 #define BENCH_NORMAL  "Only create normal table without super table, optional."
-#define BENCH_RANDOM  "Data source is randomly generated, optional."
+#define BENCH_RANDOM  "Each child table generates different random data, this option need much memory. ( all memory = childs count * prepared_rand)"
 #define BENCH_AGGR  "Query aggregation function after insertion, optional."
 #define BENCH_YES "Pass confirmation prompt to continue, optional."
 #define BENCH_RANGE "Range of disordered timestamp, default is 1000."
@@ -470,6 +470,7 @@ enum TEST_MODE {
     INSERT_TEST,     // 0
     QUERY_TEST,      // 1
     SUBSCRIBE_TEST,  // 2
+    CSVFILE_TEST     // 3
 };
 
 enum enumSYNC_MODE { SYNC_MODE, ASYNC_MODE, MODE_BUT };
@@ -561,8 +562,33 @@ typedef struct SChildField {
 #define FUNTYPE_NONE  0
 #define FUNTYPE_SIN   1
 #define FUNTYPE_COS   2
+#define FUNTYPE_COUNT 3
+#define FUNTYPE_SAW   4
+#define FUNTYPE_SQUARE 5
+#define FUNTYPE_TRI    6
 
-#define FUNTYPE_CNT   2
+#define FUNTYPE_CNT   7
+
+#define TAG_BATCH_COUNT 100
+
+#define GEN_RANDOM  0
+#define GEN_ORDER   1
+
+#define COL_GEN (field->gen == GEN_ORDER ? k : taosRandom())
+
+#define tmpInt8(field)    tmpInt8Impl(field, 0)
+#define tmpUint8(field)   tmpUint8Impl(field, 0)
+#define tmpInt16(field)   tmpInt16Impl(field, 0)
+#define tmpUint16(field)  tmpUint16Impl(field, 0)
+
+#define tmpInt32(field)   tmpInt32Impl (field,0,0,0)
+#define tmpUint32(field)  tmpUint32Impl(field,0,0,0)
+#define tmpInt64(field)   tmpInt64Impl (field,0,0)
+#define tmpUint64(field)  tmpUint64Impl(field,0,0)
+#define tmpFloat(field)   tmpFloatImpl (field,0,0,0)
+#define tmpDouble(field)  tmpDoubleImpl(field,0,0)
+
+#define COMP_NAME_LEN 32
 
 typedef struct SField {
     uint8_t  type;
@@ -578,10 +604,23 @@ typedef struct SField {
     // fun
     uint8_t  funType;
     float    multiple;
-    int32_t  addend;
+    float    addend;
+    float    base;
     int32_t  random;
 
+    int32_t    period;
+    int32_t    offset;
+    int32_t    step;
+
     bool     sma;
+    bool     fillNull;
+    uint8_t   gen; // see GEN_ define
+
+    // compress
+    char     encode[COMP_NAME_LEN];
+    char     compress[COMP_NAME_LEN];
+    char     level[COMP_NAME_LEN];
+
 } Field;
 
 typedef struct STSMA {
@@ -608,6 +647,8 @@ typedef struct STSMA {
 #define SUIT_DATAPOS_MUL_FILE  4
 #define SUIT_DATAPOS_MIX       5
 
+#define VAL_NULL "NULL"
+
 enum CONTINUE_IF_FAIL_MODE {
     NO_IF_FAILED,     // 0
     YES_IF_FAILED,    // 1
@@ -615,13 +656,17 @@ enum CONTINUE_IF_FAIL_MODE {
 };
 
 typedef struct SChildTable_S {
-    char      name[TSDB_TABLE_NAME_LEN];
+    char*     name;
     bool      useOwnSample;
     char      *sampleDataBuf;
     uint64_t  insertRows;
     BArray    *childCols;
+    int64_t   ts;  // record child table ts
+    int32_t   pkCur;
+    int32_t   pkCnt;
 } SChildTable;
 
+#define PRIMARY_KEY "PRIMARY KEY"
 typedef struct SSuperTable_S {
     char      *stbName;
     bool      random_data_source;  // rand_gen or sample
@@ -686,10 +731,12 @@ typedef struct SSuperTable_S {
     uint64_t  timestamp_step;
     uint64_t  angle_step;
     int64_t   startTimestamp;
+    int64_t   startFillbackTime;
     int64_t   specifiedColumns;
     char      sampleFile[MAX_FILE_NAME_LEN];
     char      tagsFile[MAX_FILE_NAME_LEN];
     uint32_t  partialColNum;
+    uint32_t  partialColFrom;
     char      *partialColNameBuf;
     BArray    *cols;
     BArray    *tags;
@@ -701,9 +748,10 @@ typedef struct SSuperTable_S {
 
     char      *sampleDataBuf;
     bool      useSampleTs;
-    char      *tagDataBuf;
     bool      tcpTransfer;
     bool      non_stop;
+    bool      autoFillback; // "start_fillback_time" item set "auto"
+    char      *calcNow;      // need calculate now timestamp expression
     char      *comment;
     int       delay;
     int       file_factor;
@@ -713,6 +761,13 @@ typedef struct SSuperTable_S {
     int       ttl;
     int32_t   keep_trying;
     uint32_t  trying_interval;
+    // primary key
+    bool primary_key;
+    int  repeat_ts_min;
+    int  repeat_ts_max;
+
+    // execute sqls after create super table
+    char **sqls;
 } SSuperTable;
 
 typedef struct SDbCfg_S {
@@ -736,14 +791,12 @@ typedef struct SSTREAM_S {
     bool drop;
 } SSTREAM;
 
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
 typedef struct SVGroup_S {
     int32_t       vgId;
     uint64_t      tbCountPerVgId;
     SChildTable   **childTblArray;
     uint64_t      tbOffset;  // internal use
 } SVGroup;
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
         //
 typedef struct SDataBase_S {
     char *      dbName;
@@ -871,7 +924,6 @@ typedef struct SArguments_S {
     uint32_t            binwidth;
     uint32_t            intColumnCount;
     uint32_t            nthreads;
-    bool                nthreads_auto;
     uint32_t            table_threads;
     uint64_t            prepared_rand;
     uint32_t            reqPerReq;
@@ -912,6 +964,10 @@ typedef struct SArguments_S {
     enum CONTINUE_IF_FAIL_MODE continueIfFail;
     bool                mistMode;
     bool                escape_character;
+    bool                pre_load_tb_meta;
+    char                csvPath[MAX_FILE_NAME_LEN];
+
+    bool                bind_vgroup;
 } SArguments;
 
 typedef struct SBenchConn {
@@ -944,6 +1000,9 @@ typedef struct SThreadInfo_S {
     uint64_t    totalInsertRows;
     uint64_t    totalQueried;
     int64_t     totalDelay;
+    int64_t     totalDelay1;
+    int64_t     totalDelay2;
+    int64_t     totalDelay3;
     uint64_t    querySeq;
     TAOS_SUB    *tsub;
     char **     lines;
@@ -957,6 +1016,7 @@ typedef struct SThreadInfo_S {
     char        **sml_tags_json_array;
     char        **sml_json_value_array;
     uint64_t    start_time;
+    uint64_t    pos; // point for sampleDataBuff
     uint64_t    max_sql_len;
     FILE        *fp;
     char        filePath[MAX_PATH_LEN];
@@ -976,6 +1036,7 @@ typedef struct SThreadInfo_S {
     // check sql result
     char        *csql;
     int32_t     clen;  // csql current write position
+    bool        stmtBind;
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -1095,12 +1156,29 @@ void printVersion();
 int32_t benchParseSingleOpt(int32_t key, char* arg);
 
 void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
-void printWarnCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res);
+
+int32_t benchGetTotalMemory(int64_t *totalKB);
 
 #ifndef LINUX
 int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
 
-int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t* delay3);
+// if return true, timestmap must add timestap_step, else timestamp no need changed
+bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt);
+
+// tmp function
+bool tmpBool(Field *field);
+int8_t tmpInt8Impl(Field *field, int64_t k);
+uint8_t tmpUint8Impl(Field *field, int64_t k);
+int16_t tmpInt16Impl(Field *field, int64_t k);
+uint16_t tmpUint16Impl(Field *field, int64_t k);
+int tmpInt32Impl(Field *field, int i, int angle, int32_t k);
+uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k);
+int64_t tmpInt64Impl(Field *field, int32_t angle, int32_t k);
+uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k);
+float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
+double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
+int tmpStr(char *tmp, int iface, Field *field, int64_t k);
 
 #endif   // INC_BENCH_H_

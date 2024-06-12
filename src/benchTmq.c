@@ -199,12 +199,12 @@ static void* tmqConsume(void* arg) {
 	SConsumerInfo* pConsumerInfo = &g_tmqInfo.consumerInfo;
 	
 	// "sequential" or "parallel"
-	if (0 != strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
+	if (pConsumerInfo->createMode && 0 != strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
 
         char* tPtr = pConsumerInfo->groupId;
 	    // "share" or "independent"
 		char groupId[16] = {0};
-	    if (0 != strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
+	    if (pConsumerInfo->groupMode && 0 != strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
 
 			if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
 				// rand string
@@ -312,7 +312,7 @@ int subscribeTestProcess() {
     }
 
     // "share" or "independent"
-    if (0 == strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
+    if (pConsumerInfo->groupMode && 0 == strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
 		char groupId[16] = {0};
 		if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
 			// rand string
@@ -334,7 +334,7 @@ int subscribeTestProcess() {
         pThreadInfo->totalRows = 0;
         pThreadInfo->id = i;
 
-        if (strlen(pConsumerInfo->rowsFile)) {
+        if ( pConsumerInfo->rowsFile && strlen(pConsumerInfo->rowsFile)) {
             memset(tmpBuff, 0, sizeof(tmpBuff));
             snprintf(tmpBuff, 64, "%s_%d", pConsumerInfo->rowsFile, i);
             pThreadInfo->fpOfRowsFile = fopen(tmpBuff, "a");
@@ -346,7 +346,7 @@ int subscribeTestProcess() {
         }
 
         // "sequential" or "parallel"
-		if (0 == strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
+		if (pConsumerInfo->createMode && 0 == strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
             int retVal = buildConsumerAndSubscribe(pThreadInfo, pConsumerInfo->groupId);
             if (0 != retVal) {
                 infoPrint("%s\n", "buildConsumerAndSubscribe() fail!");
