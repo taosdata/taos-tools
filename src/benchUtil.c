@@ -1052,6 +1052,7 @@ int convertStringToDatatype(char *type, int length) {
     }
 }
 
+
 int compare(const void *a, const void *b) {
     return *(int64_t *)a - *(int64_t *)b;
 }
