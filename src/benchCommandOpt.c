@@ -50,7 +50,7 @@ void printVersion() {
     // version
     printf("taosBenchmark version: %s\ngit: %s\n", taosBenchmark_ver, taosBenchmark_commit);
 #ifdef LINUX
-    printf("build: %s\n ", buildinfo);
+    printf("build: %s\n", buildinfo);
 #endif
     if (strlen(taosBenchmark_status) > 0) {
         printf("status: %s\n", taosBenchmark_status);
