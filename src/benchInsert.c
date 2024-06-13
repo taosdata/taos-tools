@@ -246,10 +246,16 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         Field * col = benchArrayGet(stbInfo->cols, colIndex);
         int n;
         if (col->type == TSDB_DATA_TYPE_BINARY ||
-                col->type == TSDB_DATA_TYPE_NCHAR) {
+            col->type == TSDB_DATA_TYPE_NCHAR ||
+            col->type == TSDB_DATA_TYPE_GEOMETRY) {
             n = snprintf(colsBuf + len, col_buffer_len - len,
                     ",%s %s(%d)", col->name,
                     convertDatatypeToString(col->type), col->length);
+            if (col->type == TSDB_DATA_TYPE_GEOMETRY && col->length < 21) {
+                errorPrint("%s() LN%d, geometry filed len must be greater than 21 on %d\n", __func__, __LINE__,
+                           colIndex);
+                return -1;
+            }
         } else {
             n = snprintf(colsBuf + len, col_buffer_len - len,
                     ",%s %s", col->name,
@@ -311,10 +317,16 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
     for (tagIndex = 0; tagIndex < stbInfo->tags->size; tagIndex++) {
         Field *tag = benchArrayGet(stbInfo->tags, tagIndex);
         if (tag->type == TSDB_DATA_TYPE_BINARY ||
-                tag->type == TSDB_DATA_TYPE_NCHAR) {
+            tag->type == TSDB_DATA_TYPE_NCHAR ||
+            tag->type == TSDB_DATA_TYPE_GEOMETRY) {
             n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s %s(%d),", tag->name,
                     convertDatatypeToString(tag->type), tag->length);
+            if (tag->type == TSDB_DATA_TYPE_GEOMETRY && tag->length < 21) {
+                errorPrint("%s() LN%d, geometry filed len must be greater than 21 on %d\n", __func__, __LINE__,
+                           tagIndex);
+                return -1;
+            }
         } else if (tag->type == TSDB_DATA_TYPE_JSON) {
             n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s json", tag->name);
@@ -1944,7 +1956,7 @@ static void *syncWriteInterlace(void *sarg) {
             infoPrint(
                     "thread[%d] has currently inserted rows: %" PRIu64
                     ", peroid insert rate: %.3f rows/s \n",
-                    pThreadInfo->threadID, pThreadInfo->totalInsertRows, 
+                    pThreadInfo->threadID, pThreadInfo->totalInsertRows,
                     (double)(pThreadInfo->totalInsertRows - lastTotalInsertRows) * 1000.0/(currentPrintTime - lastPrintTime));
             lastPrintTime = currentPrintTime;
 	        lastTotalInsertRows = pThreadInfo->totalInsertRows;

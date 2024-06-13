@@ -69,7 +69,7 @@ int32_t funTriAngle(int32_t min, int32_t max, int32_t period, int32_t loop) {
     int32_t range = abs(max - min);
     int32_t change = (loop/period) % 2;
     int32_t step = range / period;
-    int32_t cnt = 0;    
+    int32_t cnt = 0;
     if(change)
        cnt = period - loop % period;
     else
@@ -99,7 +99,7 @@ float funValueFloat(Field *field, int32_t angle, int32_t loop) {
 
     if(field->multiple != 0)
        funVal *= field->multiple;
-    
+
     if ( field->addend !=0 && field->random > 0 ) {
         float rate = taosRandom() % field->random;
         funVal += field->addend * (rate/100);
@@ -131,7 +131,7 @@ int32_t funValueInt32(Field *field, int32_t angle, int32_t loop) {
 
     if(field->multiple != 0)
        funVal *= field->multiple;
-    
+
     if ( field->addend !=0 && field->random > 0 ) {
         float rate = taosRandom() % field->random;
         funVal += field->addend * (rate/100);
@@ -398,6 +398,7 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
         switch (field->type) {
             case TSDB_DATA_TYPE_BINARY:
             case TSDB_DATA_TYPE_NCHAR:
+            case TSDB_DATA_TYPE_GEOMETRY:
                 len += field->length + 3;
                 break;
             case TSDB_DATA_TYPE_INT:
@@ -485,6 +486,28 @@ int tmpStr(char *tmp, int iface, Field *field, int64_t k) {
         } else {
             rand_string(tmp, field->length, g_arguments->chinese);
         }
+    }
+    return 0;
+}
+
+static int tmpGeometry(char *tmp, int iface, Field *field, int i) {
+    if (g_arguments->demo_mode) {
+        // TODO
+    } else if (field->values) {
+        int arraySize = tools_cJSON_GetArraySize(field->values);
+        if (arraySize) {
+            tools_cJSON *buf = tools_cJSON_GetArrayItem(field->values, taosRandom() % arraySize);
+            snprintf(tmp, field->length, "%s", buf->valuestring);
+        } else {
+            errorPrint(
+                "%s() cannot read correct value "
+                "from json file. array size: %d\n",
+                __func__, arraySize);
+            return -1;
+        }
+    } else {
+        int maxType = getGeoMaxType(field->length);
+        rand_geometry(tmp, field->length, maxType);
     }
     return 0;
 }
@@ -801,6 +824,17 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     }
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "'%s',", tmp);
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_GEOMETRY: {
+                    int   bufferSize = geoCalcBufferSize(field->length);
+                    char *tmp = benchCalloc(1, bufferSize, false);
+                    if (0 != tmpGeometry(tmp, stbInfo->iface, field, i)) {
+                        free(tmp);
+                        return -1;
+                    }
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos, "'%s',", tmp);
                     tmfree(tmp);
                     break;
                 }
@@ -1414,7 +1448,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                      int bufLen,
                       int lenOfOneRow, BArray * fields, int64_t loop,
                       bool tag) {
-    int angle = stbInfo->startTimestamp % 360; // 0 ~ 360                    
+    int angle = stbInfo->startTimestamp % 360; // 0 ~ 360
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         int n = 0;
@@ -1666,7 +1700,7 @@ int prepareSampleData(SDataBase* database, SSuperTable* stbInfo) {
                     pos += n;
                 }
             }
-            
+
             // first part set noen
             for (uint32_t i = 0; i < stbInfo->partialColFrom; ++i) {
                 Field * col = benchArrayGet(stbInfo->cols, i);

@@ -304,7 +304,8 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         } else {
             if (type == TSDB_DATA_TYPE_BINARY
                 || type == TSDB_DATA_TYPE_JSON
-                || type == TSDB_DATA_TYPE_NCHAR) {
+                || type == TSDB_DATA_TYPE_NCHAR
+                || type == TSDB_DATA_TYPE_GEOMETRY) {
                 length = g_arguments->binwidth;
             } else {
                 length = convertTypeToLength(type);
@@ -2096,7 +2097,7 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     if (tools_cJSON_IsString(groupMode)) {
         g_tmqInfo.consumerInfo.groupMode = groupMode->valuestring;
     }
-	
+
 
     tools_cJSON *pollDelay = tools_cJSON_GetObjectItem(tmqInfo, "poll_delay");
     if (tools_cJSON_IsNumber(pollDelay)) {
