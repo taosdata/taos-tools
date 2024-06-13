@@ -2177,7 +2177,6 @@ static int64_t getTbCountOfStbNative(const char *dbName, const char *stbName) {
     int32_t code = taos_errno(res);
     if (code != 0) {
         cleanIfQueryFailed(__func__, __LINE__, command, res);
-        free(command);
         taos_close(taos);
         return -1;
     }
@@ -9976,7 +9975,7 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
 // read next table tags to tbDes
 int readNextTableDesNative(void* res, TableDes* tbDes) {
     // tbname, tagName , tagValue
-    TAOS_ROW row;
+    TAOS_ROW row = NULL;
     int index = 0;
     while( index < tbDes->tags && NULL != (row = taos_fetch_row(res))) {
         // tbname changed check
