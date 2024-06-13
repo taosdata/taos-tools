@@ -1180,5 +1180,6 @@ uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k);
 float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
 double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 int tmpStr(char *tmp, int iface, Field *field, int64_t k);
+int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
 
 #endif   // INC_BENCH_H_

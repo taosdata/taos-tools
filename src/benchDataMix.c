@@ -157,6 +157,9 @@ uint32_t dataGenByField(Field* fd, char* pstr, uint32_t len, char* prefix, int64
         format = ",\'%s\'";
         tmpStr(val, 0, fd, *k);
         break;
+    case TSDB_DATA_TYPE_GEOMETRY:
+        tmpGeometry(val, 0, fd, 0);
+        break;
     default:
         break;
     }
