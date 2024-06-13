@@ -323,8 +323,17 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
             continue;
         }
 
-        if (('\r' == line[readLen - 1]) || ('\n' == line[readLen - 1])) {
-            line[--readLen] = 0;
+        int32_t pos = (int32_t)(readLen - 1);
+        if(pos > 0) {
+            if (('\r' == line[pos]) || ('\n' == line[pos])) {
+                line[pos] = 0;
+            }
+        }
+        pos = (int32_t)(readLen - 2);
+        if(pos > 0) {
+            if (('\r' == line[pos]) || ('\n' == line[pos])) {
+                line[pos] = 0;
+            }
         }
 
         if (readLen == 0) {
@@ -339,7 +348,7 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
             continue;
         }
 
-        memcpy(buffer + getRows * length, line, readLen);
+        memcpy(buffer + getRows * length, line, readLen + 1);
         getRows++;
 
         if (getRows == size) {
