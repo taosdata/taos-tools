@@ -518,11 +518,11 @@ int tmpGeometry(char *tmp, int iface, Field *field, int64_t k) {
     }
     
     int32_t pos = snprintf(tmp, field->length, "LINESTRING(");
-    char * format = ",%d %d";
+    char * format = "%d %d,";
     for(int32_t i = 0; i < cnt; i++) {
-        if (i == 0) {
+        if (i == cnt - 1) {
             format = "%d %d";
-        }
+        } 
         pos += snprintf(tmp + pos, field->length - pos, format, tmpUint16(field), tmpUint16(field));
     }
     strcat(tmp, ")");
