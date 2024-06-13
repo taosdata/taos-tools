@@ -984,6 +984,7 @@ static void *createTable(void *sarg) {
 
         pThreadInfo->tables_created += batchNum;
         batchNum = 0;
+        memset(pThreadInfo->buffer, 0, TSDB_MAX_ALLOWED_SQL_LEN);
         uint64_t currentPrintTime = toolsGetTimestampMs();
         if (currentPrintTime - lastPrintTime > PRINT_STAT_INTERVAL) {
             infoPrint(
