@@ -843,7 +843,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_GEOMETRY: {
-                    int   bufferSize = geoCalcBufferSize(field->length);
+                    int   bufferSize = field->length + 1;
                     char *tmp = benchCalloc(1, bufferSize, false);
                     if (0 != tmpGeometry(tmp, stbInfo->iface, field, i)) {
                         free(tmp);
