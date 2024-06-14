@@ -2302,12 +2302,13 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
             tmfree(buf);
             break;
         }
-        case TSDB_DATA_TYPE_GEOMETRY:
+        case TSDB_DATA_TYPE_GEOMETRY: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
             tmpGeometry(buf, stbInfo->iface, col, 0);
             tools_cJSON_AddStringToObject(value, "value", buf);
             tools_cJSON_AddStringToObject(value, "type", "geometry");
             tmfree(buf);
+        }
         default: {
             double dblTmp = (double)col->min;
             if (col->max != col->min) {
