@@ -458,6 +458,8 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         } else {
             if (type == TSDB_DATA_TYPE_BINARY
                 || type == TSDB_DATA_TYPE_JSON
+                || type == TSDB_DATA_TYPE_VARBINARY
+                || type == TSDB_DATA_TYPE_GEOMETRY
                 || type == TSDB_DATA_TYPE_NCHAR) {
                 length = g_arguments->binwidth;
             } else {

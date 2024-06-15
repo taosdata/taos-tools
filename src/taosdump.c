@@ -82,10 +82,6 @@
 #define TAOSDUMP_STATUS "unknown"
 #endif
 
-#ifndef TD_PRODUCT_NAME
-#define TD_PRODUCT_NAME "TDengine"
-#endif
-
 // use 256 as normal buffer length
 #define BUFFER_LEN              256
 
@@ -673,7 +669,7 @@ static void printVersion(FILE *file) {
 
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
 
-    fprintf(file,"%s\ntaosdump version: %s\ngit: %s\n", TD_PRODUCT_NAME, taostools_ver, taosdump_commit);
+    fprintf(file,"ntaosdump version: %s\ngit: %s\n", taostools_ver, taosdump_commit);
 #ifdef LINUX
     printf("build: %s\n ", buildinfo);
 #endif
@@ -2181,7 +2177,6 @@ static int64_t getTbCountOfStbNative(const char *dbName, const char *stbName) {
     int32_t code = taos_errno(res);
     if (code != 0) {
         cleanIfQueryFailed(__func__, __LINE__, command, res);
-        free(command);
         taos_close(taos);
         return -1;
     }
@@ -9980,7 +9975,7 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
 // read next table tags to tbDes
 int readNextTableDesNative(void* res, TableDes* tbDes) {
     // tbname, tagName , tagValue
-    TAOS_ROW row;
+    TAOS_ROW row = NULL;
     int index = 0;
     while( index < tbDes->tags && NULL != (row = taos_fetch_row(res))) {
         // tbname changed check

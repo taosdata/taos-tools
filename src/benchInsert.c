@@ -247,6 +247,7 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         int n;
         if (col->type == TSDB_DATA_TYPE_BINARY ||
             col->type == TSDB_DATA_TYPE_NCHAR ||
+            col->type == TSDB_DATA_TYPE_VARBINARY ||
             col->type == TSDB_DATA_TYPE_GEOMETRY) {
             n = snprintf(colsBuf + len, col_buffer_len - len,
                     ",%s %s(%d)", col->name,
@@ -318,6 +319,7 @@ static int createSuperTable(SDataBase* database, SSuperTable* stbInfo) {
         Field *tag = benchArrayGet(stbInfo->tags, tagIndex);
         if (tag->type == TSDB_DATA_TYPE_BINARY ||
             tag->type == TSDB_DATA_TYPE_NCHAR ||
+            tag->type == TSDB_DATA_TYPE_VARBINARY ||
             tag->type == TSDB_DATA_TYPE_GEOMETRY) {
             n = snprintf(tagsBuf + len, tag_buffer_len - len,
                     "%s %s(%d),", tag->name,
@@ -2834,6 +2836,8 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
                         break;
                     case TSDB_DATA_TYPE_BINARY:
                     case TSDB_DATA_TYPE_NCHAR:
+                    case TSDB_DATA_TYPE_VARBINARY:
+                    case TSDB_DATA_TYPE_GEOMETRY:
                         {
                             size_t tmpLen = strlen(tmpStr);
                             debugPrint("%s() LN%d, index: %d, "
@@ -2926,6 +2930,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
 
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_GEOMETRY:
             tmpP = calloc(1, g_arguments->prepared_rand * length);
             assert(tmpP);
             tmfree(*data);

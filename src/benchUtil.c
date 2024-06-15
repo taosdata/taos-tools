@@ -1006,6 +1006,8 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_BINARY;
         } else if (0 == strcasecmp(type, "varbinary")) {
             return TSDB_DATA_TYPE_VARBINARY;
+        } else if (0 == strcasecmp(type, "geometry")) {
+            return TSDB_DATA_TYPE_GEOMETRY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
@@ -1045,12 +1047,15 @@ int convertStringToDatatype(char *type, int length) {
             return TSDB_DATA_TYPE_BINARY;
         } else if (0 == strncasecmp(type, "varbinary", length)) {
             return TSDB_DATA_TYPE_VARBINARY;
+        } else if (0 == strncasecmp(type, "geometry", length)) {
+            return TSDB_DATA_TYPE_GEOMETRY;
         } else {
             errorPrint("unknown data type: %s\n", type);
             exit(EXIT_FAILURE);
         }
     }
 }
+
 
 int compare(const void *a, const void *b) {
     return *(int64_t *)a - *(int64_t *)b;
