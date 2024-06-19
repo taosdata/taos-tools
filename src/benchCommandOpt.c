@@ -29,9 +29,6 @@ extern char      g_configDir[MAX_PATH_LEN];
 #endif
 
 
-// libtaos.so
-extern char buildinfo[];
-
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
                            "avg(current)",
@@ -50,9 +47,7 @@ void printVersion() {
 
     // version
     printf("taosBenchmark version: %s\ngit: %s\n", taosBenchmark_ver, taosBenchmark_commit);
-#ifdef LINUX
-    printf("build: %s\n", buildinfo);
-#endif
+    printf("build: %s\n", getBuildInfo());
     if (strlen(taosBenchmark_status) > 0) {
         printf("status: %s\n", taosBenchmark_status);
     } 
