@@ -668,9 +668,7 @@ static void printVersion(FILE *file) {
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
 
     fprintf(file,"taosdump version: %s\ngit: %s\n", taostools_ver, taosdump_commit);
-#ifndef WINDOWS
     printf("build: %s\n", getBuildInfo());
-#endif
 
     if (strlen(taosdump_status) > 0) {
         fprintf(file, "status:%s\n", taosdump_status);
