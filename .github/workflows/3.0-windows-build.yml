@@ -120,12 +120,6 @@ jobs:
         with:
           toolchain: stable
 
-      - uses: actions/checkout@v2
-        name: Setup MSVC build environment
-        env:
-        PATH: ${{ runner.tool_cache }}/msvc/2019/hostx64/x64/bin
-        run: echo "Setup MSVC environment"      
-
       - name: Build & Install TDengine
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
