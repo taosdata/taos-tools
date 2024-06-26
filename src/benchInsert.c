@@ -3604,6 +3604,7 @@ END:
     return ret;
 }
 
+#ifdef LINUX
 #define EMPTY_SLOT -1
 // run with limit thread
 int32_t runInsertLimitThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthreads, int32_t limitThread, threadInfo *infos, pthread_t *pids) {
@@ -3664,6 +3665,7 @@ int32_t runInsertLimitThread(SDataBase* database, SSuperTable* stbInfo, int32_t 
 
     return 0;
 }
+#endif
 
 // run
 int32_t runInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthreads, threadInfo *infos, pthread_t *pids) {
@@ -3897,7 +3899,11 @@ static int startMultiThreadInsertData(SDataBase* database, SSuperTable* stbInfo)
     int64_t start = toolsGetTimestampUs();
     if(g_arguments->bind_vgroup && g_arguments->nthreads < nthreads ) {
         // need many batch execute all threads
+#ifdef LINUX        
         ret = runInsertLimitThread(database, stbInfo, nthreads, g_arguments->nthreads, infos, pids);
+#else
+        ret = runInsertThread(database, stbInfo, nthreads, infos, pids);
+#endif        
     } else {
         // only one batch execute all threads
         ret = runInsertThread(database, stbInfo, nthreads, infos, pids);
