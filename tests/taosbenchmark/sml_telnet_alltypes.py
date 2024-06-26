@@ -93,7 +93,7 @@ class TDTestCase:
         if major_ver == "3":
             tdSql.checkData(1, 1, "VARCHAR")
             tdSql.checkData(
-                1, 2, 16
+                1, 2, 8
             )  # 3.0 will use a bit more space for schemaless create table
         else:
             tdSql.checkData(1, 1, "BINARY")
@@ -102,7 +102,7 @@ class TDTestCase:
         tdSql.query("describe db.stb13")
         tdSql.checkData(1, 1, "NCHAR")
         if major_ver == "3":
-            tdSql.checkData(1, 2, 16)
+            tdSql.checkData(1, 2, 8)
         else:
             tdSql.checkData(1, 2, 8)
 

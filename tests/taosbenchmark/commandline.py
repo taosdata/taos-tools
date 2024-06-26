@@ -338,7 +338,7 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         assert os.system("%s" % cmd) != 0
 
-        cmd = "%s -n 1 -t 1 -y -A int,json" % binPath
+        cmd = "%s -n 1 -t 1 -y -A json" % binPath
         tdLog.info("%s" % cmd)
         assert os.system("%s" % cmd) != 0
 

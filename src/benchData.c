@@ -397,6 +397,8 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
         Field *field = benchArrayGet(fields, i);
         switch (field->type) {
             case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_VARBINARY:
+            case TSDB_DATA_TYPE_GEOMETRY:
             case TSDB_DATA_TYPE_NCHAR:
                 len += field->length + 3;
                 break;
@@ -453,19 +455,7 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
 
 
 int tmpStr(char *tmp, int iface, Field *field, int64_t k) {
-    if (g_arguments->demo_mode) {
-        unsigned int tmpRand = taosRandom();
-        if (g_arguments->chinese) {
-            snprintf(tmp, field->length, "%s",
-                     locations_chinese[tmpRand % 10]);
-        } else if (SML_IFACE == iface) {
-            snprintf(tmp, field->length, "%s",
-                     locations_sml[tmpRand % 10]);
-        } else {
-            snprintf(tmp, field->length, "%s",
-                     locations[tmpRand % 10]);
-        }
-    } else if (field->values) {
+    if (field->values) {
         int arraySize = tools_cJSON_GetArraySize(field->values);
         if (arraySize) {
             tools_cJSON *buf = tools_cJSON_GetArrayItem(
@@ -479,13 +469,64 @@ int tmpStr(char *tmp, int iface, Field *field, int64_t k) {
                        __func__, arraySize);
             return -1;
         }
+    } else if (g_arguments->demo_mode) {
+        unsigned int tmpRand = taosRandom();
+        if (g_arguments->chinese) {
+            snprintf(tmp, field->length, "%s",
+                     locations_chinese[tmpRand % 10]);
+        } else if (SML_IFACE == iface) {
+            snprintf(tmp, field->length, "%s",
+                     locations_sml[tmpRand % 10]);
+        } else {
+            snprintf(tmp, field->length, "%s",
+                     locations[tmpRand % 10]);
+        }
     } else {
         if(field->gen == GEN_ORDER) {
             snprintf(tmp, field->length, "%"PRId64, k);
         } else {
-            rand_string(tmp, field->length, g_arguments->chinese);
+            rand_string(tmp, taosRandom() % field->length, g_arguments->chinese);
         }
     }
+    return 0;
+}
+
+int tmpGeometry(char *tmp, int iface, Field *field, int64_t k) {
+    // values
+    if (field->values) {
+        int arraySize = tools_cJSON_GetArraySize(field->values);
+        if (arraySize) {
+            tools_cJSON *buf = tools_cJSON_GetArrayItem(
+                    field->values,
+                    taosRandom() % arraySize);
+            snprintf(tmp, field->length,
+                     "%s", buf->valuestring);
+        } else {
+            errorPrint("%s() cannot read correct value "
+                       "from json file. array size: %d\n",
+                       __func__, arraySize);
+            return -1;
+        }
+        return 0;
+    }
+
+    // gen point count
+    int32_t cnt = field->length / 24;
+    if(cnt == 0) {
+        snprintf(tmp, field->length, "POINT(%d %d)", tmpUint16(field), tmpUint16(field));
+        return 0;
+    }
+    
+    int32_t pos = snprintf(tmp, field->length, "LINESTRING(");
+    char * format = "%d %d,";
+    for(int32_t i = 0; i < cnt; i++) {
+        if (i == cnt - 1) {
+            format = "%d %d";
+        } 
+        pos += snprintf(tmp + pos, field->length - pos, format, tmpUint16(field), tmpUint16(field));
+    }
+    strcat(tmp, ")");
+
     return 0;
 }
 
@@ -793,6 +834,7 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
@@ -801,6 +843,17 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     }
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                         "'%s',", tmp);
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_GEOMETRY: {
+                    int   bufferSize = field->length + 1;
+                    char *tmp = benchCalloc(1, bufferSize, false);
+                    if (0 != tmpGeometry(tmp, stbInfo->iface, field, i)) {
+                        free(tmp);
+                        return -1;
+                    }
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos, "'%s',", tmp);
                     tmfree(tmp);
                     break;
                 }
@@ -972,10 +1025,33 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
                         free(tmp);
+                        return -1;
+                    }
+                    if (childCol) {
+                        snprintf((char *)childCol->stmtData.data
+                                    + k * field->length,
+                                 field->length,
+                                "%s", tmp);
+                    } else {
+                        snprintf((char *)field->stmtData.data
+                                    + k * field->length,
+                                 field->length,
+                                "%s", tmp);
+                    }
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "'%s',", tmp);
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_GEOMETRY: {
+                    char *tmp = benchCalloc(1, field->length + 1, false);
+                    if (0 != tmpGeometry(tmp, stbInfo->iface, field, k)) {
+                        tmfree(tmp);
                         return -1;
                     }
                     if (childCol) {
@@ -1220,13 +1296,14 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
-                        free(tmp);
+                        tmfree(tmp);
                         return -1;
                     }
-                    if (field->type == TSDB_DATA_TYPE_BINARY) {
+                    if (field->type == TSDB_DATA_TYPE_BINARY || field->type == TSDB_DATA_TYPE_VARBINARY) {
                         if (tag) {
                             n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                             "%s=L\"%s\" ",
@@ -1260,6 +1337,31 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                         } else {
                             pos += n;
                         }
+                    }
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_GEOMETRY: {
+                    char *tmp = benchCalloc(1, field->length + 1, false);
+                    if (0 != tmpGeometry(tmp, stbInfo->iface, field, k)) {
+                        tmfree(tmp);
+                        return -1;
+                    }
+                    if (tag) {
+                        n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "%s=L\"%s\" ",
+                                        field->name, tmp);
+                    } else {
+                        n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                        "\"%s\" ", tmp);
+                    }
+                    if (n < 0 || n >= bufLen - pos) {
+                        errorPrint("%s() LN%d snprintf overflow\n",
+                                    __func__, __LINE__);
+                        tmfree(tmp);
+                        return -1;
+                    } else {
+                        pos += n;
                     }
                     tmfree(tmp);
                     break;
@@ -1372,6 +1474,7 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
@@ -1506,6 +1609,7 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_BINARY:
+                case TSDB_DATA_TYPE_VARBINARY:
                 case TSDB_DATA_TYPE_NCHAR: {
                     char *tmp = benchCalloc(1, field->length + 1, false);
                     if (0 != tmpStr(tmp, stbInfo->iface, field, k)) {
@@ -1521,6 +1625,18 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                                         "%s=L\"%s\",",
                                        field->name, tmp);
                     }
+                    tmfree(tmp);
+                    break;
+                }
+                case TSDB_DATA_TYPE_GEOMETRY: {
+                    char *tmp = benchCalloc(1, field->length + 1, false);
+                    if (0 != tmpGeometry(tmp, stbInfo->iface, field, k)) {
+                        tmfree(tmp);
+                        return -1;
+                    }
+                    n = snprintf(sampleDataBuf + pos, bufLen - pos,
+                                    "%s=\"%s\",",
+                                    field->name, tmp);
                     tmfree(tmp);
                     break;
                 }
@@ -1884,14 +2000,17 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     }
     *delay2 += toolsGetTimestampUs() - start;
 
-    // if msg > 3MB, break
-    start = toolsGetTimestampUs();
-    if (taos_stmt_add_batch(stmt)) {
-        errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
-                   taos_stmt_errstr(stmt));
-        return 0;
+    if(stbInfo->autoTblCreating) {
+        start = toolsGetTimestampUs();
+        if (taos_stmt_add_batch(pThreadInfo->conn->stmt) != 0) {
+            errorPrint("taos_stmt_add_batch() failed! reason: %s\n",
+                    taos_stmt_errstr(pThreadInfo->conn->stmt));
+            return 0;
+        }
+        if(delay3) {
+            *delay3 += toolsGetTimestampUs() - start;
+        }
     }
-    *delay3 += toolsGetTimestampUs() - start;
     return batch;
 }
 
@@ -1925,10 +2044,11 @@ void generateSmlJsonTags(tools_cJSON *tagsList,
             }
 
             case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_VARBINARY:
             case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)benchCalloc(tag->length + 1, 1, false);
                 rand_string(buf, tag->length, g_arguments->chinese);
-                if (tag->type == TSDB_DATA_TYPE_BINARY) {
+                if (tag->type == TSDB_DATA_TYPE_BINARY || tag->type == TSDB_DATA_TYPE_VARBINARY) {
                     tools_cJSON_AddStringToObject(tags, tagName, buf);
                 } else {
                     tools_cJSON_AddStringToObject(tags, tagName, buf);
@@ -1991,10 +2111,11 @@ void generateSmlTaosJsonTags(tools_cJSON *tagsList, SSuperTable *stbInfo,
             }
 
             case TSDB_DATA_TYPE_BINARY:
+            case TSDB_DATA_TYPE_VARBINARY:
             case TSDB_DATA_TYPE_NCHAR: {
                 char *buf = (char *)benchCalloc(tag->length + 1, 1, false);
                 rand_string(buf, tag->length, g_arguments->chinese);
-                if (tag->type == TSDB_DATA_TYPE_BINARY) {
+                if (tag->type == TSDB_DATA_TYPE_BINARY || tag->type == TSDB_DATA_TYPE_VARBINARY) {
                     tools_cJSON_AddStringToObject(tagObj, "value", buf);
                     tools_cJSON_AddStringToObject(tagObj, "type", "binary");
                 } else {
@@ -2050,9 +2171,19 @@ void generateSmlJsonValues(
             break;
         }
         case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
             rand_string(buf, col->length, g_arguments->chinese);
+            value_buf = benchCalloc(len_key + col->length + 3, 1, true);
+            snprintf(value_buf, len_key + col->length + 3,
+                     "\"value\":\"%s\",", buf);
+            tmfree(buf);
+            break;
+        }
+        case TSDB_DATA_TYPE_GEOMETRY: {
+            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
+            tmpGeometry(buf, stbInfo->iface, col, 0);
             value_buf = benchCalloc(len_key + col->length + 3, 1, true);
             snprintf(value_buf, len_key + col->length + 3,
                      "\"value\":\"%s\",", buf);
@@ -2092,6 +2223,7 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
             break;
         }
         case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
             rand_string(buf, col->length, g_arguments->chinese);
@@ -2100,6 +2232,13 @@ void generateSmlJsonCols(tools_cJSON *array, tools_cJSON *tag,
             } else {
                 tools_cJSON_AddStringToObject(record, "value", buf);
             }
+            tmfree(buf);
+            break;
+        }
+        case TSDB_DATA_TYPE_GEOMETRY: {
+            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
+            tmpGeometry(buf, stbInfo->iface, col, 0);
+            tools_cJSON_AddStringToObject(record, "value", buf);
             tmfree(buf);
             break;
         }
@@ -2149,10 +2288,11 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
             break;
         }
         case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_NCHAR: {
             char *buf = (char *)benchCalloc(col->length + 1, 1, false);
             rand_string(buf, col->length, g_arguments->chinese);
-            if (col->type == TSDB_DATA_TYPE_BINARY) {
+            if (col->type == TSDB_DATA_TYPE_BINARY || col->type == TSDB_DATA_TYPE_VARBINARY) {
                 tools_cJSON_AddStringToObject(value, "value", buf);
                 tools_cJSON_AddStringToObject(value, "type", "binary");
             } else {
@@ -2161,6 +2301,13 @@ void generateSmlTaosJsonCols(tools_cJSON *array, tools_cJSON *tag,
             }
             tmfree(buf);
             break;
+        }
+        case TSDB_DATA_TYPE_GEOMETRY: {
+            char *buf = (char *)benchCalloc(col->length + 1, 1, false);
+            tmpGeometry(buf, stbInfo->iface, col, 0);
+            tools_cJSON_AddStringToObject(value, "value", buf);
+            tools_cJSON_AddStringToObject(value, "type", "geometry");
+            tmfree(buf);
         }
         default: {
             double dblTmp = (double)col->min;

@@ -470,6 +470,7 @@ enum TEST_MODE {
     INSERT_TEST,     // 0
     QUERY_TEST,      // 1
     SUBSCRIBE_TEST,  // 2
+    CSVFILE_TEST     // 3
 };
 
 enum enumSYNC_MODE { SYNC_MODE, ASYNC_MODE, MODE_BUT };
@@ -646,6 +647,8 @@ typedef struct STSMA {
 #define SUIT_DATAPOS_MUL_FILE  4
 #define SUIT_DATAPOS_MIX       5
 
+#define VAL_NULL "NULL"
+
 enum CONTINUE_IF_FAIL_MODE {
     NO_IF_FAILED,     // 0
     YES_IF_FAILED,    // 1
@@ -788,14 +791,12 @@ typedef struct SSTREAM_S {
     bool drop;
 } SSTREAM;
 
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
 typedef struct SVGroup_S {
     int32_t       vgId;
     uint64_t      tbCountPerVgId;
     SChildTable   **childTblArray;
     uint64_t      tbOffset;  // internal use
 } SVGroup;
-#endif  // TD_VER_COMPATIBLE_3_0_0_0
         //
 typedef struct SDataBase_S {
     char *      dbName;
@@ -923,7 +924,6 @@ typedef struct SArguments_S {
     uint32_t            binwidth;
     uint32_t            intColumnCount;
     uint32_t            nthreads;
-    bool                nthreads_auto;
     uint32_t            table_threads;
     uint64_t            prepared_rand;
     uint32_t            reqPerReq;
@@ -965,6 +965,9 @@ typedef struct SArguments_S {
     bool                mistMode;
     bool                escape_character;
     bool                pre_load_tb_meta;
+    char                csvPath[MAX_FILE_NAME_LEN];
+
+    bool                bind_vgroup;
 } SArguments;
 
 typedef struct SBenchConn {
@@ -1160,7 +1163,7 @@ int32_t benchGetTotalMemory(int64_t *totalKB);
 int32_t benchParseArgsNoArgp(int argc, char* argv[]);
 #endif
 
-int32_t execInsert(threadInfo *pThreadInfo, uint32_t k);
+int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t* delay3);
 // if return true, timestmap must add timestap_step, else timestamp no need changed
 bool needChangeTs(SSuperTable * stbInfo, int32_t *pkCur, int32_t *pkCnt);
 
@@ -1177,5 +1180,6 @@ uint64_t tmpUint64Impl(Field *field, int32_t angle, int64_t k);
 float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
 double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 int tmpStr(char *tmp, int iface, Field *field, int64_t k);
+int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
 
 #endif   // INC_BENCH_H_

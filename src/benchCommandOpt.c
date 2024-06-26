@@ -28,8 +28,6 @@ extern char      g_configDir[MAX_PATH_LEN];
 #define TAOSBENCHMARK_STATUS "unknown"
 #endif
 
-// libtaos.so
-extern char buildinfo[];
 
 char *g_aggreFuncDemo[] = {"*",
                            "count(*)",
@@ -49,9 +47,7 @@ void printVersion() {
 
     // version
     printf("taosBenchmark version: %s\ngit: %s\n", taosBenchmark_ver, taosBenchmark_commit);
-#ifdef LINUX
-    printf("build: %s\n", buildinfo);
-#endif
+    printf("build: %s\n", getBuildInfo());
     if (strlen(taosBenchmark_status) > 0) {
         printf("status: %s\n", taosBenchmark_status);
     } 
@@ -242,7 +238,6 @@ void initArgument() {
     g_arguments->performance_print = 0;
     g_arguments->output_file = DEFAULT_OUTPUT;
     g_arguments->nthreads = DEFAULT_NTHREADS;
-    g_arguments->nthreads_auto = true;
     g_arguments->table_threads = DEFAULT_NTHREADS;
     g_arguments->prepared_rand = DEFAULT_PREPARED_RAND;
     g_arguments->reqPerReq = DEFAULT_REQ_PER_REQ;

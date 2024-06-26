@@ -656,8 +656,6 @@ static uint64_t getUniqueIDFromEpoch() {
     return id;
 }
 
-// libtaos.so
-extern char buildinfo[];
 
 static void printVersion(FILE *file) {
     char taostools_longver[] = TAOSDUMP_TAG;
@@ -670,9 +668,7 @@ static void printVersion(FILE *file) {
     char taosdump_commit[] = TAOSDUMP_COMMIT_SHA1;
 
     fprintf(file,"taosdump version: %s\ngit: %s\n", taostools_ver, taosdump_commit);
-#ifdef LINUX
-    printf("build: %s\n ", buildinfo);
-#endif
+    printf("build: %s\n", getBuildInfo());
     if (strlen(taosdump_status) > 0) {
         fprintf(file, "status:%s\n", taosdump_status);
     }
