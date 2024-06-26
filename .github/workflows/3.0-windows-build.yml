@@ -5,12 +5,10 @@ on:
     - cron: "10 16 * * *"
   push:
     branches:
-      - develop
       - 3.0
       - main
   pull_request:
     branches:
-      - develop
       - 3.0
       - main
 
