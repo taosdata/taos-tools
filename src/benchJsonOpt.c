@@ -11,6 +11,7 @@
  */
 
 #include <stdlib.h>
+#include <sys/stat.h>
 #include <bench.h>
 
 extern char      g_configDir[MAX_PATH_LEN];
@@ -304,7 +305,8 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         } else {
             if (type == TSDB_DATA_TYPE_BINARY
                 || type == TSDB_DATA_TYPE_JSON
-                || type == TSDB_DATA_TYPE_NCHAR) {
+                || type == TSDB_DATA_TYPE_NCHAR
+                || type == TSDB_DATA_TYPE_GEOMETRY) {
                 length = g_arguments->binwidth;
             } else {
                 length = convertTypeToLength(type);
@@ -456,6 +458,8 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         } else {
             if (type == TSDB_DATA_TYPE_BINARY
                 || type == TSDB_DATA_TYPE_JSON
+                || type == TSDB_DATA_TYPE_VARBINARY
+                || type == TSDB_DATA_TYPE_GEOMETRY
                 || type == TSDB_DATA_TYPE_NCHAR) {
                 length = g_arguments->binwidth;
             } else {
@@ -1443,6 +1447,27 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
         }
     }
 
+    g_arguments->csvPath[0] = 0;
+    tools_cJSON *csv = tools_cJSON_GetObjectItem(json, "csvPath");
+    if (csv && (csv->type == tools_cJSON_String)
+            && (csv->valuestring != NULL)) {
+        tstrncpy(g_arguments->csvPath, csv->valuestring, MAX_FILE_NAME_LEN);
+    }
+
+    size_t len = strlen(g_arguments->csvPath);
+
+    if(len == 0) {
+        // set default with current path
+        strcpy(g_arguments->csvPath, "./output/");
+        mkdir(g_arguments->csvPath, 0775);
+    } else {
+        // append end
+        if (g_arguments->csvPath[len-1] != '/' ) {
+            strcat(g_arguments->csvPath, "/");
+        }
+        mkdir(g_arguments->csvPath, 0775);
+    }
+
     code = 0;
     return code;
 }
@@ -1483,6 +1508,13 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     tools_cJSON *threads = tools_cJSON_GetObjectItem(json, "thread_count");
     if (threads && threads->type == tools_cJSON_Number) {
         g_arguments->nthreads = (uint32_t)threads->valueint;
+    }
+
+    tools_cJSON *bindVGroup = tools_cJSON_GetObjectItem(json, "thread_bind_vgroup");
+    if (tools_cJSON_IsString(bindVGroup)) {
+        if (0 == strcasecmp(bindVGroup->valuestring, "yes")) {
+            g_arguments->bind_vgroup = true;
+        }
     }
 
     tools_cJSON *keepTrying = tools_cJSON_GetObjectItem(json, "keep_trying");
@@ -2096,7 +2128,7 @@ static int getMetaFromTmqJsonFile(tools_cJSON *json) {
     if (tools_cJSON_IsString(groupMode)) {
         g_tmqInfo.consumerInfo.groupMode = groupMode->valuestring;
     }
-	
+
 
     tools_cJSON *pollDelay = tools_cJSON_GetObjectItem(tmqInfo, "poll_delay");
     if (tools_cJSON_IsNumber(pollDelay)) {
@@ -2248,6 +2280,8 @@ int getInfoFromJsonFile() {
             g_arguments->test_mode = QUERY_TEST;
         } else if (0 == strcasecmp("subscribe", filetype->valuestring)) {
             g_arguments->test_mode = SUBSCRIBE_TEST;
+        } else if (0 == strcasecmp("csvfile", filetype->valuestring)) {
+            g_arguments->test_mode = CSVFILE_TEST;
         } else {
             errorPrint("%s",
                        "failed to read json, filetype not support\n");
@@ -2259,7 +2293,7 @@ int getInfoFromJsonFile() {
 
     // read common item
     code = getMetaFromCommonJsonFile(root);
-    if (INSERT_TEST == g_arguments->test_mode) {
+    if (INSERT_TEST == g_arguments->test_mode || CSVFILE_TEST == g_arguments->test_mode) {
         code = getMetaFromInsertJsonFile(root);
 #ifdef TD_VER_COMPATIBLE_3_0_0_0
     } else if (QUERY_TEST == g_arguments->test_mode) {
