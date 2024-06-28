@@ -1991,6 +1991,20 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         }
     }
 
+    /*
+      1. The last batch size may be smaller than the previous batch size.
+      2. When inserting another table, the batch size reset again(bigger than lastBatchSize)
+    */        
+    int lastBatchSize = ((TAOS_MULTI_BIND *) pThreadInfo->bindParams)->num;
+    if (batch != lastBatchSize) {
+        for (int c = 0; c < columnCount + 1; c++) {
+            TAOS_MULTI_BIND *param =
+                    (TAOS_MULTI_BIND *) (pThreadInfo->bindParams +
+                    sizeof(TAOS_MULTI_BIND) * c);
+            param->num = batch;
+        }
+    }
+
     int64_t start = toolsGetTimestampUs();
     if (taos_stmt_bind_param_batch(
             stmt, (TAOS_MULTI_BIND *)pThreadInfo->bindParams)) {
