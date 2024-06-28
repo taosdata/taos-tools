@@ -2495,7 +2495,7 @@ void *syncWriteProgressive(void *sarg) {
         int64_t delay3 = 0;
         if (stmt) {
             taos_stmt_close(pThreadInfo->conn->stmt);
-            if(stbInfo->autoTblCreating) {
+            if(stbInfo->autoTblCreating || database->superTbls->size > 1) {
                 pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
             } else {
                 TAOS_STMT_OPTIONS op;
@@ -3431,7 +3431,7 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     goto END;
                 }
                 taos_stmt_close(pThreadInfo->conn->stmt);
-                if(stbInfo->autoTblCreating) {
+                if (stbInfo->autoTblCreating || database->superTbls->size > 1) {
                     pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
                 } else {
                     TAOS_STMT_OPTIONS op;
