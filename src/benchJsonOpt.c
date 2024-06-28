@@ -528,6 +528,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database;
     if (index > 0) {
         database = benchCalloc(1, sizeof(SDataBase), true);
+        database->superTbls = benchArrayInit(1, sizeof(SSuperTable));
         benchArrayPush(g_arguments->databases, database);
     }
     database = benchArrayGet(g_arguments->databases, index);
