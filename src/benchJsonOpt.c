@@ -198,6 +198,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int count = 1;
         int64_t max = RAND_MAX >> 1;
         int64_t min = 0;
+        double  maxInDbl = max;
+        double  minInDbl = min;
+        uint8_t scalingFactor = 1;
         int32_t length = 4;
         // fun type
         uint8_t funType = FUNTYPE_NONE;
@@ -241,15 +244,32 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         tools_cJSON *dataMax = tools_cJSON_GetObjectItem(column, "max");
         if (tools_cJSON_IsNumber(dataMax)) {
             max = dataMax->valueint;
+            maxInDbl = dataMax->valuedouble;
         } else {
             max = convertDatatypeToDefaultMax(type);
+            maxInDbl = max;
         }
 
         tools_cJSON *dataMin = tools_cJSON_GetObjectItem(column, "min");
         if (tools_cJSON_IsNumber(dataMin)) {
             min = dataMin->valueint;
+            minInDbl = dataMin->valuedouble;
         } else {
             min = convertDatatypeToDefaultMin(type);
+            minInDbl = min;
+        }
+
+        tools_cJSON *dataScalingFactor = tools_cJSON_GetObjectItem(column, "scalingFactor");
+        if (tools_cJSON_IsNumber(dataScalingFactor)) {
+            scalingFactor = dataScalingFactor->valueint;
+            if (scalingFactor > 1) {
+                max = maxInDbl * scalingFactor;
+                min = minInDbl * scalingFactor;
+            } else {
+                scalingFactor = 1;
+            }
+        } else {
+            scalingFactor = 1;
         }
 
         // gen
@@ -325,6 +345,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             col->sma = sma;
             col->max = max;
             col->min = min;
+            col->maxInDbl = maxInDbl;
+            col->minInDbl = minInDbl;
+            col->scalingFactor = scalingFactor;
             col->gen = gen;
             col->fillNull = fillNull;
             col->values = dataValues;
@@ -396,6 +419,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int count = 1;
         int64_t max = RAND_MAX >> 1;
         int64_t min = 0;
+        double  maxInDbl = max;
+        double  minInDbl = min;
+        uint8_t scalingFactor = 1;
         int32_t length = 4;
         tools_cJSON *tagObj = tools_cJSON_GetArrayItem(tags, k);
         if (!tools_cJSON_IsObject(tagObj)) {
@@ -439,15 +465,32 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         tools_cJSON *dataMax = tools_cJSON_GetObjectItem(tagObj, "max");
         if (tools_cJSON_IsNumber(dataMax)) {
             max = dataMax->valueint;
+            maxInDbl = dataMax->valuedouble;
         } else {
             max = convertDatatypeToDefaultMax(type);
+            maxInDbl = max;
         }
 
         tools_cJSON *dataMin = tools_cJSON_GetObjectItem(tagObj, "min");
         if (tools_cJSON_IsNumber(dataMin)) {
             min = dataMin->valueint;
+            minInDbl = dataMin->valuedouble;
         } else {
             min = convertDatatypeToDefaultMin(type);
+            minInDbl = min;
+        }
+
+        tools_cJSON *dataScalingFactor = tools_cJSON_GetObjectItem(tagObj, "scalingFactor");
+        if (tools_cJSON_IsNumber(dataScalingFactor)) {
+            scalingFactor = dataScalingFactor->valueint;
+            if (scalingFactor > 1) {
+                max *= scalingFactor;
+                min *= scalingFactor;
+            } else {
+                scalingFactor = 1;
+            }
+        } else {
+            scalingFactor = 1;
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(tagObj, "values");
@@ -478,6 +521,9 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             }
             tag->max = max;
             tag->min = min;
+            tag->maxInDbl = maxInDbl;
+            tag->minInDbl = minInDbl;
+            tag->scalingFactor = scalingFactor;
             tag->values = dataValues;
             if (customName) {
                 if (n >= 1) {
