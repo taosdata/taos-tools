@@ -200,7 +200,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int64_t min = 0;
         double  maxInDbl = max;
         double  minInDbl = min;
-        uint8_t scalingFactor = 1;
+        uint32_t scalingFactor = 1;
         int32_t length = 4;
         // fun type
         uint8_t funType = FUNTYPE_NONE;
@@ -421,7 +421,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         int64_t min = 0;
         double  maxInDbl = max;
         double  minInDbl = min;
-        uint8_t scalingFactor = 1;
+        uint32_t scalingFactor = 1;
         int32_t length = 4;
         tools_cJSON *tagObj = tools_cJSON_GetArrayItem(tags, k);
         if (!tools_cJSON_IsObject(tagObj)) {

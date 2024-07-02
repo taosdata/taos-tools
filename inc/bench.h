@@ -601,7 +601,7 @@ typedef struct SField {
     int64_t  min;
     double   maxInDbl;
     double   minInDbl;
-    uint8_t  scalingFactor;
+    uint32_t scalingFactor;
     tools_cJSON *  values;
 
     // fun
