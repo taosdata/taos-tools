@@ -56,18 +56,34 @@ static int getSuperTableFromServerRest(
 #endif   // 0
 }
 
+static bool searchBArray(BArray *array, const char *field_name, int32_t name_len, uint8_t field_type) {
+    if (array == NULL || field_name == NULL) {
+        return false;
+    }
+    for (int i = 0; i < array->size; i++) {
+        Field *field = benchArrayGet(array, i);
+        if (strncmp(field->name, field_name, name_len) == 0) {
+            if (field->type == field_type) {
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
 static int getSuperTableFromServerTaosc(
-    SDataBase* database, SSuperTable* stbInfo, char *command) {
+        SDataBase *database, SSuperTable *stbInfo, char *command) {
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
         return -1;
     }
 #endif
-    TAOS_RES *   res;
-    TAOS_ROW     row = NULL;
-    SBenchConn* conn = initBenchConn();
+    TAOS_RES *res;
+    TAOS_ROW row = NULL;
+    SBenchConn *conn = initBenchConn();
     if (NULL == conn) {
-        return -1;
+        return TSDB_CODE_FAILED;
     }
 
     res = taos_query(conn->taos, command);
@@ -76,16 +92,20 @@ static int getSuperTableFromServerTaosc(
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
         closeBenchConn(conn);
-        return -1;
+        return TSDB_CODE_NOT_FOUND;
     }
     infoPrint("find stable<%s>, will get meta data from server\n",
               stbInfo->stbName);
-    benchArrayClear(stbInfo->tags);
-    benchArrayClear(stbInfo->cols);
-    int count = 0;
+
+    // Check if the the existing super table matches exactly with the definitions in the JSON file.
+    // If a hash table were used, the time complexity would be only O(n).
+    // But taosBenchmark does not incorporate a hash table, the time complexity of the loop traversal is O(n^2).
+    bool isTitleRow = true;
+    uint32_t tag_count = 0;
+    uint32_t col_count = 0;
     while ((row = taos_fetch_row(res)) != NULL) {
-        if (count == 0) {
-            count++;
+        if (isTitleRow) {
+            isTitleRow = false;
             continue;
         }
         int32_t *lengths = taos_fetch_lengths(res);
@@ -93,41 +113,62 @@ static int getSuperTableFromServerTaosc(
             errorPrint("%s", "failed to execute taos_fetch_length\n");
             taos_free_result(res);
             closeBenchConn(conn);
-            return -1;
+            return TSDB_CODE_FAILED;
         }
-        if (strncasecmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
+        if (strncasecmp((char *) row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
                         strlen("tag")) == 0) {
-            Field* tag = benchCalloc(1, sizeof(Field), true);
-            benchArrayPush(stbInfo->tags, tag);
-            tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
-            tag->type = convertStringToDatatype(
-                    (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+            if (stbInfo->tags == NULL || stbInfo->tags->size == 0 || tag_count >= stbInfo->tags->size) {
+                errorPrint("%s", "existing stable tag mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            uint8_t tagType = convertStringToDatatype(
+                    (char *) row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            tag->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            tag->min = convertDatatypeToDefaultMin(tag->type);
-            tag->max = convertDatatypeToDefaultMax(tag->type);
-            tstrncpy(tag->name,
-                     (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
+            if (!searchBArray(stbInfo->tags, (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+                              lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], tagType)) {
+                errorPrint("%s", "existing stable tag mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            tag_count += 1;
         } else {
-            Field * col = benchCalloc(1, sizeof(Field), true);
-            benchArrayPush(stbInfo->cols, col);
-            col = benchArrayGet(stbInfo->cols, stbInfo->cols->size - 1);
-            col->type = convertStringToDatatype(
-                    (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+            if (stbInfo->cols == NULL || stbInfo->cols->size == 0 || col_count >= stbInfo->cols->size) {
+                errorPrint("%s", "existing stable column mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            uint8_t colType = convertStringToDatatype(
+                    (char *) row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            col->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            col->min = convertDatatypeToDefaultMin(col->type);
-            col->max = convertDatatypeToDefaultMax(col->type);
-            tstrncpy(col->name,
-                     (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
+            if (!searchBArray(stbInfo->cols, (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+                              lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], colType)) {
+                errorPrint("%s", "existing stable column mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            col_count += 1;
         }
-    }
+    }  // end while
     taos_free_result(res);
     closeBenchConn(conn);
-    return 0;
+    if (tag_count != stbInfo->tags->size) {
+        errorPrint("%s", "existing stable tag mismatched with that defined in JSON\n");
+        return TSDB_CODE_FAILED;
+    }
+
+    if (col_count != stbInfo->cols->size) {
+        errorPrint("%s", "existing stable column mismatched with that defined in JSON\n");
+        return TSDB_CODE_FAILED;
+    }
+
+    return TSDB_CODE_SUCCESS;
 }
+
 
 static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
     int ret = 0;
@@ -4143,7 +4184,10 @@ int insertTestProcess() {
                         dropSuperTable(database, stbInfo);
                     }
 #endif
-                    if (getSuperTableFromServer(database, stbInfo) != 0) {
+                    int code = getSuperTableFromServer(database, stbInfo);
+                    if (code == TSDB_CODE_FAILED) {
+                        return -1;
+                    } else if (code == TSDB_CODE_NOT_FOUND) {
                         if (createSuperTable(database, stbInfo)) {
                             return -1;
                         }
