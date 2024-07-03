@@ -269,7 +269,14 @@ static int getColumnAndTagTypeFromInsertJsonFile(
                 scalingFactor = 1;
             }
         } else {
-            scalingFactor = 1;
+            if (0 < (max - min) && (max - min) <= 1) {
+                scalingFactor = 1000;
+                max = maxInDbl * scalingFactor;
+                min = minInDbl * scalingFactor;
+            } else {
+                scalingFactor = 1;
+            }
+
         }
 
         // gen
@@ -490,7 +497,13 @@ static int getColumnAndTagTypeFromInsertJsonFile(
                 scalingFactor = 1;
             }
         } else {
-            scalingFactor = 1;
+            if (0 < (max - min) && (max - min) <= 1) {
+                scalingFactor = 1000;
+                max = maxInDbl * scalingFactor;
+                min = minInDbl * scalingFactor;
+            } else {
+                scalingFactor = 1;
+            }
         }
 
         tools_cJSON *dataValues = tools_cJSON_GetObjectItem(tagObj, "values");
