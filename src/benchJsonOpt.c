@@ -259,6 +259,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             minInDbl = min;
         }
 
+        double valueRange = maxInDbl - minInDbl;
         tools_cJSON *dataScalingFactor = tools_cJSON_GetObjectItem(column, "scalingFactor");
         if (tools_cJSON_IsNumber(dataScalingFactor)) {
             scalingFactor = dataScalingFactor->valueint;
@@ -269,14 +270,13 @@ static int getColumnAndTagTypeFromInsertJsonFile(
                 scalingFactor = 1;
             }
         } else {
-            if (0 < (max - min) && (max - min) <= 1) {
+            if (0 < valueRange && valueRange <= 1) {
                 scalingFactor = 1000;
                 max = maxInDbl * scalingFactor;
                 min = minInDbl * scalingFactor;
             } else {
                 scalingFactor = 1;
             }
-
         }
 
         // gen
@@ -487,17 +487,18 @@ static int getColumnAndTagTypeFromInsertJsonFile(
             minInDbl = min;
         }
 
+        double valueRange = maxInDbl - minInDbl;
         tools_cJSON *dataScalingFactor = tools_cJSON_GetObjectItem(tagObj, "scalingFactor");
         if (tools_cJSON_IsNumber(dataScalingFactor)) {
             scalingFactor = dataScalingFactor->valueint;
             if (scalingFactor > 1) {
-                max *= scalingFactor;
-                min *= scalingFactor;
+                max = maxInDbl * scalingFactor;
+                min = minInDbl * scalingFactor;
             } else {
                 scalingFactor = 1;
             }
         } else {
-            if (0 < (max - min) && (max - min) <= 1) {
+            if (0 < valueRange && valueRange <= 1) {
                 scalingFactor = 1000;
                 max = maxInDbl * scalingFactor;
                 min = minInDbl * scalingFactor;
