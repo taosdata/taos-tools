@@ -34,7 +34,8 @@
 static int getSuperTableFromServerRest(
     SDataBase* database, SSuperTable* stbInfo, char *command) {
 
-    return -1;
+    // TODO(zero): it will create super table based on this error code.
+    return TSDB_CODE_NOT_FOUND;
     // TODO(me): finish full implementation
 #if 0
     int sockfd = createSockFd();
