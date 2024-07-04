@@ -658,6 +658,17 @@ float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k) {
                 + floatTmp / 1000000000) / 360);
         }
     }
+
+    if (field->scalingFactor > 0) {
+        if (field->scalingFactor > 1)
+            floatTmp = floatTmp / field->scalingFactor;
+
+        if (floatTmp > field->maxInDbl)
+            floatTmp = field->maxInDbl;
+        else if (floatTmp < field->minInDbl)
+            floatTmp = field->minInDbl;
+    }
+
     return floatTmp;
 }
 
@@ -674,6 +685,17 @@ double tmpDoubleImpl(Field *field, int32_t angle, int32_t k) {
                 taosRandom() % 1000000 / 1000000.0);
         }
     }
+
+    if (field->scalingFactor > 0) {
+        if (field->scalingFactor > 1)
+            doubleTmp = doubleTmp / field->scalingFactor;
+
+        if (doubleTmp > field->maxInDbl)
+            doubleTmp = field->maxInDbl;
+        else if (doubleTmp < field->minInDbl)
+            doubleTmp = field->minInDbl;
+    }
+
     return doubleTmp;
 }
 

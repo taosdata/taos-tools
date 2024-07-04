@@ -954,9 +954,9 @@ int64_t convertDatatypeToDefaultMax(uint8_t type) {
             ret = 65534;
             break;
         case TSDB_DATA_TYPE_INT:
-        case TSDB_DATA_TYPE_DOUBLE:
         case TSDB_DATA_TYPE_BIGINT:
         case TSDB_DATA_TYPE_FLOAT:
+        case TSDB_DATA_TYPE_DOUBLE:
             ret = RAND_MAX >> 1;
             break;
         case TSDB_DATA_TYPE_UINT:
