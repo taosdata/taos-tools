@@ -63,7 +63,7 @@ static bool searchBArray(BArray *array, const char *field_name, int32_t name_len
     }
     for (int i = 0; i < array->size; i++) {
         Field *field = benchArrayGet(array, i);
-        if (strncmp(field->name, field_name, name_len) == 0) {
+        if (strlen(field->name) == name_len && strncmp(field->name, field_name, name_len) == 0) {
             if (field->type == field_type) {
                 return true;
             }
