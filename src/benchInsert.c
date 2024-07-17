@@ -607,7 +607,7 @@ int geneDbCreateCmd(SDataBase *database, char *command, int remainVnodes) {
             if (cfg->valuestring) {
                 n = snprintf(command + dataLen,
                                         TSDB_MAX_ALLOWED_SQL_LEN - dataLen,
-                            " %s %s", cfg->name, cfg->valuestring);
+                            " %s '%s'", cfg->name, cfg->valuestring);
             } else {
                 n = snprintf(command + dataLen,
                                         TSDB_MAX_ALLOWED_SQL_LEN - dataLen,
