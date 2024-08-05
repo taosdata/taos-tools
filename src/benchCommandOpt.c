@@ -140,26 +140,26 @@ static void initStable() {
     c1->min = 9;
     c1->max = 10;    
     // fun = "3*sin(x)+10*random(2)"
-    c1->funType  = FUNTYPE_SIN;
-    c1->multiple = 3;
-    c1->random   = 2;
-    c1->addend   = 10;
+    //c1->funType  = FUNTYPE_SIN;
+    //c1->multiple = 3;
+    //c1->random   = 2;
+    //c1->addend   = 10;
 
     c2->min = 110;
     c2->max = 119;
     // fun = "40*sin(x)+200*random(10)"
-    c2->funType  = FUNTYPE_SIN;
-    c2->multiple = 40;
-    c2->random   = 10;
-    c2->addend   = 200;
+    //c2->funType  = FUNTYPE_SIN;
+    //c2->multiple = 40;
+    //c2->random   = 10;
+    //c2->addend   = 200;
 
     c3->min = 115;
     c3->max = 125;
     // fun = "1*sin(x)+1*random(3)"
-    c3->funType  = FUNTYPE_SIN;
-    c3->multiple = 1;
-    c3->random   = 3;
-    c3->addend   = 1;
+    //c3->funType  = FUNTYPE_SIN;
+    //c3->multiple = 1;
+    //c3->random   = 3;
+    //c3->addend   = 1;
 
     stbInfo->tags = benchArrayInit(2, sizeof(Field));
     for (int i = 0; i < 2; ++i) {
