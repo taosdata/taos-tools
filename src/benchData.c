@@ -43,6 +43,10 @@ const char* locations_sml[] = {
 #endif
 
 int32_t funCount(int32_t min, int32_t max, int32_t step, int32_t loop) {
+    if(step == 0) {
+        step = 1;
+    }
+
     int32_t range = abs(max - min);
     int32_t maxCnt = range / step;
     int32_t val = min + (loop % maxCnt) * step ;
@@ -51,6 +55,9 @@ int32_t funCount(int32_t min, int32_t max, int32_t step, int32_t loop) {
 }
 
 int32_t funSaw(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    if(period == 0) {
+        period = 1;
+    }
     int32_t range = abs(max - min);
     int32_t step = range / period;
     int32_t val = min + (loop % period) * step ;
@@ -58,6 +65,9 @@ int32_t funSaw(int32_t min, int32_t max, int32_t period, int32_t loop) {
 }
 
 int32_t funSquare(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    if(period == 0) {
+        period = 1;
+    }
     int32_t change = (loop/period) % 2;
     if (change)
        return min;
@@ -66,9 +76,12 @@ int32_t funSquare(int32_t min, int32_t max, int32_t period, int32_t loop) {
 }
 
 int32_t funTriAngle(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    if(period == 0) {
+        period = 1;
+    }
     int32_t range = abs(max - min);
     int32_t change = (loop/period) % 2;
-    int32_t step = range / period;
+    int32_t step = range/period;
     int32_t cnt = 0;    
     if(change)
        cnt = period - loop % period;
