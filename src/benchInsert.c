@@ -169,7 +169,7 @@ static int getSuperTableFromServerTaosc(
 static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        return -1;
+        return 0;
     }
 #endif
     int ret = 0;
@@ -4148,8 +4148,8 @@ int insertTestProcess() {
                     succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
                 }
             }
+#endif
         }
-#endif        
     }
 
     // create super table && fill child tables && prepareSampleData
