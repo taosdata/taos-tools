@@ -75,11 +75,6 @@ static bool searchBArray(BArray *array, const char *field_name, int32_t name_len
 
 static int getSuperTableFromServerTaosc(
         SDataBase *database, SSuperTable *stbInfo, char *command) {
-#ifdef WEBSOCKET
-    if (g_arguments->websocket) {
-        return -1;
-    }
-#endif
     TAOS_RES *res;
     TAOS_ROW row = NULL;
     SBenchConn *conn = initBenchConn();
@@ -172,8 +167,12 @@ static int getSuperTableFromServerTaosc(
 
 
 static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        return 0;
+    }
+#endif
     int ret = 0;
-
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(command, SHORT_1K_SQL_BUFF_LEN,
              "DESCRIBE `%s`.`%s`", database->dbName,
@@ -217,9 +216,8 @@ static int queryDbExec(SDataBase *database,
             ret = queryDbExecCall(conn, command);
             int32_t trying = g_arguments->keep_trying;
             while (ret && trying) {
-                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
-                          "supertable %s\n",
-                          g_arguments->trying_interval, stbInfo->stbName);
+                infoPrint("will sleep %"PRIu32" milliseconds then re-execute command: %s\n",
+                          g_arguments->trying_interval, command);
                 toolsMsleep(g_arguments->trying_interval);
                 ret = queryDbExecCall(conn, command);
                 if (trying != -1) {
@@ -227,8 +225,6 @@ static int queryDbExec(SDataBase *database,
                 }
             }
             if (0 != ret) {
-                errorPrint("create supertable %s failed!\n\n",
-                       stbInfo->stbName);
                 ret = -1;
             }
             closeBenchConn(conn);
@@ -240,15 +236,11 @@ static int queryDbExec(SDataBase *database,
 
 #ifdef WEBSOCKET
 static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
-    if (g_arguments->supplementInsert) {
-        return;
-    }
-
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(command, sizeof(command),
         g_arguments->escape_character
-            ? "DROP TABLE `%s`.`%s`"
-            : "DROP TABLE %s.%s",
+            ? "DROP TABLE IF EXISTS `%s`.`%s`"
+            : "DROP TABLE IF EXISTS %s.%s",
              database->dbName,
              stbInfo->stbName);
 
@@ -488,27 +480,14 @@ skip:
 int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     int     vgroups = 0;
     char    cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
-
     snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
             g_arguments->escape_character
-            ? "USE `%s`"
-            : "USE %s",
+            ? "SHOW `%s`.VGROUPS"
+            : "SHOW %s.VGROUPS",
             database->dbName);
 
-    int32_t   code;
-    TAOS_RES *res = NULL;
-
-    res = taos_query(conn->taos, cmd);
-    code = taos_errno(res);
-    if (code) {
-        printErrCmdCodeStr(cmd, code, res);
-        return -1;
-    }
-    taos_free_result(res);
-
-    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SHOW VGROUPS");
-    res = taos_query(conn->taos, cmd);
-    code = taos_errno(res);
+    TAOS_RES* res = taos_query(conn->taos, cmd);
+    int code = taos_errno(res);
     if (code) {
         printErrCmdCodeStr(cmd, code, res);
         return -1;
@@ -4154,6 +4133,7 @@ int insertTestProcess() {
             }
             succPrint("created database (%s)\n", database->dbName);
         } else {
+#ifndef WEBSOCKET            
             // database already exist, get vgroups from server
             if (database->superTbls) {
                 SBenchConn* conn = initBenchConn();
@@ -4168,6 +4148,7 @@ int insertTestProcess() {
                     succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
                 }
             }
+#endif
         }
     }
 
@@ -4181,18 +4162,20 @@ int insertTestProcess() {
                         && stbInfo->iface != SML_REST_IFACE
                         && !stbInfo->childTblExists) {
 #ifdef WEBSOCKET
-                    if (g_arguments->websocket) {
+                    if (g_arguments->websocket && !g_arguments->supplementInsert) {
                         dropSuperTable(database, stbInfo);
                     }
 #endif
                     int code = getSuperTableFromServer(database, stbInfo);
                     if (code == TSDB_CODE_FAILED) {
                         return -1;
-                    } else if (code == TSDB_CODE_NOT_FOUND) {
-                        if (createSuperTable(database, stbInfo)) {
-                            return -1;
-                        }
                     }
+                    
+                    // with create table if not exists, so if exist, can not report failed
+                    if (createSuperTable(database, stbInfo)) {
+                        return -1;
+                    }
+                    
                 }
                 // fill last ts from super table
                 if(stbInfo->autoFillback && stbInfo->childTblExists) {
