@@ -1825,9 +1825,14 @@ static void *syncWriteInterlace(void *sarg) {
                     delay1 += toolsGetTimestampUs() - start;
 
                     int32_t n = 0;
-                    generated = bindParamBatch(pThreadInfo, interlaceRows,
+                    generated += bindParamBatch(pThreadInfo, interlaceRows, pos,
                                        childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
                     
+                    // move next
+                    pos += interlaceRows;
+                    if (pos + interlaceRows + 1 >= g_arguments->prepared_rand) {
+                        pos = 0;
+                    }
                     childTbl->ts += stbInfo->timestamp_step * n;
                     break;
                 }
@@ -2046,6 +2051,7 @@ static int32_t prepareProgressDataStmt(
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
+                0,
             *timestamp, childTbl, pkCur, pkCnt, &n, delay2, delay3);
     *timestamp += n * stbInfo->timestamp_step;
     return generated;
