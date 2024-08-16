@@ -1969,7 +1969,7 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
 
-    if (!pThreadInfo->stmtBind) {
+    if (!pThreadInfo->stmtBind || stbInfo->interlaceRows > 0 ) {
         pThreadInfo->stmtBind = true;
         memset(pThreadInfo->bindParams, 0,
             (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
