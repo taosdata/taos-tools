@@ -1767,12 +1767,13 @@ static void *syncWriteInterlace(void *sarg) {
                         }
 
                         // combine rows timestamp | other cols = sampleDataBuf[pos]
-                        ds_add_strs(&pThreadInfo->buffer, 5,
-                                    "(",
-                                    time_string,
-                                    ",",
-                                    sampleDataBuf + pos * stbInfo->lenOfCols,
-                                    ") ");
+                        if(stbInfo->useSampleTs) {
+                            ds_add_strs(&pThreadInfo->buffer, 3, "(", 
+                                        sampleDataBuf + pos * stbInfo->lenOfCols, ") ");
+                        } else {
+                            ds_add_strs(&pThreadInfo->buffer, 5, "(", time_string, ",",
+                                        sampleDataBuf + pos * stbInfo->lenOfCols, ") ");
+                        }
                         // check buffer enough
                         if (ds_len(pThreadInfo->buffer)
                                 > stbInfo->max_sql_len) {
@@ -2778,7 +2779,17 @@ free_of_progressive:
     return NULL;
 }
 
-static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
+uint64_t strToTimestamp(char * tsStr) {
+    uint64_t ts = 0;
+    if (toolsParseTime(tsStr, (int64_t*)&ts, strlen(tsStr), TSDB_TIME_PRECISION_MILLI, 0)) {
+        // not timestamp str format, maybe int64 format
+        ts = (int64_t)atol(tsStr);
+    }
+
+    return ts;
+}
+
+static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl, uint64_t *bind_ts_array) {
     int32_t columnCount = stbInfo->cols->size;
 
     char *sampleDataBuf;
@@ -2808,9 +2819,6 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
             }
 
             cursor += index + 1;  // skip ',' too
-            if ((0 == c) && stbInfo->useSampleTs) {
-                continue;
-            }
 
             char *tmpStr = calloc(1, index + 1);
             if (NULL == tmpStr) {
@@ -2818,6 +2826,15 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
                         __func__, __LINE__, index + 1);
                 return -1;
             }
+
+            strncpy(tmpStr, restStr, index);
+            if ((0 == c) && stbInfo->useSampleTs) {
+                // set ts to 
+                bind_ts_array[i] = strToTimestamp(tmpStr); 
+                free(tmpStr);
+                continue;
+            }
+
             Field *col = benchArrayGet(stbInfo->cols,
                     (stbInfo->useSampleTs?c-1:c));
             char dataType = col->type;
@@ -2832,7 +2849,7 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
                 stmtData = &col->stmtData;
             }
 
-            strncpy(tmpStr, restStr, index);
+            
 
             if (0 == strcmp(tmpStr, "NULL")) {
                 *(stmtData->is_null + i) = true;
@@ -2984,7 +3001,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
 }
 
 static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
-                                          SChildTable* childTbl) {
+                                          SChildTable* childTbl, uint64_t *bind_ts_array) {
     int32_t columnCount = stbInfo->cols->size;
 
     for (int c = 0; c < columnCount; c++) {
@@ -3001,10 +3018,10 @@ static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
         initStmtData(dataType, &(childCol->stmtData.data), col->length);
     }
 
-    return initStmtDataValue(stbInfo, childTbl);
+    return initStmtDataValue(stbInfo, childTbl, bind_ts_array);
 }
 
-static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
+static int parseBufferToStmtBatch(SSuperTable* stbInfo, uint64_t *bind_ts_array) {
     int32_t columnCount = stbInfo->cols->size;
 
     for (int c = 0; c < columnCount; c++) {
@@ -3019,7 +3036,7 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
         initStmtData(dataType, &(col->stmtData.data), col->length);
     }
 
-    return initStmtDataValue(stbInfo, NULL);
+    return initStmtDataValue(stbInfo, NULL, bind_ts_array);
 }
 
 static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
@@ -3484,17 +3501,19 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     goto END;
                 }
 
+                int32_t max_cnt = g_arguments->prepared_rand > g_arguments->reqPerReq ? g_arguments->prepared_rand : g_arguments->reqPerReq;
+
                 // malloc bind
                 pThreadInfo->bind_ts       = benchCalloc(1, sizeof(int64_t), true);
-                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*g_arguments->reqPerReq, true);
+                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*max_cnt, true);
                 pThreadInfo->bindParams    = benchCalloc(1, sizeof(TAOS_MULTI_BIND)*(stbInfo->cols->size + 1), true);
                 pThreadInfo->is_null       = benchCalloc(1, g_arguments->reqPerReq, true);
                 
-                parseBufferToStmtBatch(stbInfo);
+                parseBufferToStmtBatch(stbInfo, pThreadInfo->bind_ts_array);
                 for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
                     SChildTable *childTbl = stbInfo->childTblArray[child];
                     if (childTbl->useOwnSample) {
-                        parseBufferToStmtBatchChildTbl(stbInfo, childTbl);
+                        parseBufferToStmtBatchChildTbl(stbInfo, childTbl, pThreadInfo->bind_ts_array);
                     }
                 }
 

@@ -1984,7 +1984,11 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
             if (c == 0) {
                 data_type = TSDB_DATA_TYPE_TIMESTAMP;
                 param->buffer_length = sizeof(int64_t);
-                param->buffer = pThreadInfo->bind_ts_array;
+                if (stbInfo->useSampleTs) {
+                    param->buffer = pThreadInfo->bind_ts_array + pos;
+                } else {
+                    param->buffer = pThreadInfo->bind_ts_array;
+                }
             } else {
                 Field *col = benchArrayGet(stbInfo->cols, c - 1);
                 data_type = col->type;
@@ -2011,21 +2015,23 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         }
     }
 
-    // set ts array values
-    for (uint32_t k = 0; k < batch; k++) {
-        /* columnCount + 1 (ts) */
-        if (stbInfo->disorderRatio) {
-            *(pThreadInfo->bind_ts_array + k) =
-                startTime + getTSRandTail(stbInfo->timestamp_step, *n,
-                                          stbInfo->disorderRatio,
-                                          stbInfo->disorderRange);
-        } else {
-            *(pThreadInfo->bind_ts_array + k) = startTime + stbInfo->timestamp_step * (*n);
-        }
+    if (!stbInfo->useSampleTs) {
+        // set first column ts array values
+        for (uint32_t k = 0; k < batch; k++) {
+            /* columnCount + 1 (ts) */
+            if (stbInfo->disorderRatio) {
+                *(pThreadInfo->bind_ts_array + k) =
+                    startTime + getTSRandTail(stbInfo->timestamp_step, *n,
+                                            stbInfo->disorderRatio,
+                                            stbInfo->disorderRange);
+            } else {
+                *(pThreadInfo->bind_ts_array + k) = startTime + stbInfo->timestamp_step * (*n);
+            }
 
-        // check n need add
-        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
-            *n = *n + 1;
+            // check n need add
+            if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+                *n = *n + 1;
+            }
         }
     }
 
