@@ -1963,13 +1963,14 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 }
 
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
-                        uint32_t batch, int64_t startTime,
+                        uint32_t batch, int64_t startTime, int64_t pos,
                         SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n, int64_t *delay2, int64_t *delay3) {
     TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
 
-    if (!pThreadInfo->stmtBind) {
+    //if (!pThreadInfo->stmtBind || stbInfo->interlaceRows > 0 ) {
+    {
         pThreadInfo->stmtBind = true;
         memset(pThreadInfo->bindParams, 0,
             (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
@@ -1989,11 +1990,11 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
                 data_type = col->type;
                 if (childTbl->useOwnSample) {
                     ChildField *childCol = benchArrayGet(childTbl->childCols, c-1);
-                    param->buffer = childCol->stmtData.data;
-                    param->is_null = childCol->stmtData.is_null;
+                    param->buffer = (char *)childCol->stmtData.data + pos * col->length;
+                    param->is_null = childCol->stmtData.is_null + pos;
                 } else {
-                    param->buffer = col->stmtData.data;
-                    param->is_null = col->stmtData.is_null;
+                    param->buffer = (char *)col->stmtData.data + pos * col->length;
+                    param->is_null = col->stmtData.is_null + pos;
                 }
                 param->buffer_length = col->length;
                 debugPrint("col[%d]: type: %s, len: %d\n", c,

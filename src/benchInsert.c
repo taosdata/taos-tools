@@ -1812,6 +1812,20 @@ static void *syncWriteInterlace(void *sarg) {
                         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                                 tableName);
                     }
+
+                    // generator
+                    if (stbInfo->autoTblCreating && w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            goto free_of_interlace;
+                        }
+                    }
+
+                    
+                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                        g_fail = true;
+                        goto free_of_interlace;
+                    }
+
                     int64_t start = toolsGetTimestampUs();
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                              escapedTbName)) {
@@ -1825,10 +1839,25 @@ static void *syncWriteInterlace(void *sarg) {
                     delay1 += toolsGetTimestampUs() - start;
 
                     int32_t n = 0;
-                    generated = bindParamBatch(pThreadInfo, interlaceRows,
-                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
+                    generated += bindParamBatch(pThreadInfo, interlaceRows,
+                                       childTbl->ts, pos, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
                     
+                    // move next
+                    pos += interlaceRows;
+                    if (pos + interlaceRows + 1 >= g_arguments->prepared_rand) {
+                        pos = 0;
+                    }
                     childTbl->ts += stbInfo->timestamp_step * n;
+
+                    // move next
+                    if (stbInfo->autoTblCreating) {
+                        w += interlaceRows;
+                        if (w >= TAG_BATCH_COUNT) {
+                            // reset for gen again
+                            w = 0;
+                        }
+                    }
+
                     break;
                 }
                 case SML_REST_IFACE:
@@ -2040,13 +2069,14 @@ static int32_t prepareProgressDataStmt(
         return -1;
     }
     *delay1 = toolsGetTimestampUs() - start;
-    int32_t n =0;
+    int32_t n = 0;
+    int64_t pos = i % g_arguments->prepared_rand;
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
-            *timestamp, childTbl, pkCur, pkCnt, &n, delay2, delay3);
+            *timestamp, pos, childTbl, pkCur, pkCnt, &n, delay2, delay3);
     *timestamp += n * stbInfo->timestamp_step;
     return generated;
 }
@@ -2514,25 +2544,6 @@ void *syncWriteProgressive(void *sarg) {
         int64_t delay1 = 0;
         int64_t delay2 = 0;
         int64_t delay3 = 0;
-        if (stmt) {
-            taos_stmt_close(pThreadInfo->conn->stmt);
-            if(stbInfo->autoTblCreating || database->superTbls->size > 1) {
-                pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
-            } else {
-                TAOS_STMT_OPTIONS op;
-                op.reqId = 0;
-                op.singleStbInsert = true;
-                op.singleTableBindOnce = true;
-                pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
-            }
-
-            if (NULL == pThreadInfo->conn->stmt) {
-                errorPrint("taos_stmt_init() failed, reason: %s\n",
-                        taos_errstr(NULL));
-                g_fail = true;
-                goto free_of_progressive;
-            }
-        }
 
         if(stmt || smart || acreate) {
             // generator
@@ -2544,7 +2555,7 @@ void *syncWriteProgressive(void *sarg) {
             }
         }   
         
-        if (stmt) {
+        if (stbInfo->iface == STMT_IFACE) {
             if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
                 g_fail = true;
                 goto free_of_progressive;
@@ -3390,7 +3401,6 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
     FILE*    csvFile = NULL;
     char*    tagData = NULL;
     bool     stmtN   = stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating == false;
-    int      w       = 0;
 
     if (stmtN) {
         csvFile = openTagCsv(stbInfo);
@@ -3451,14 +3461,18 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 if (NULL == pThreadInfo->conn) {
                     goto END;
                 }
-                taos_stmt_close(pThreadInfo->conn->stmt);
+
+                if (pThreadInfo->conn->stmt) {
+                    taos_stmt_close(pThreadInfo->conn->stmt);
+                }
+                
                 if (stbInfo->autoTblCreating || database->superTbls->size > 1) {
                     pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
                 } else {
                     TAOS_STMT_OPTIONS op;
                     op.reqId = 0;
                     op.singleStbInsert = true;
-                    op.singleTableBindOnce = true;
+                    op.singleTableBindOnce = false;
                     pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
                 }
                 if (NULL == pThreadInfo->conn->stmt) {
@@ -3468,24 +3482,6 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
                     errorPrint("taos select database(%s) failed\n", database->dbName);
                     goto END;
-                }
-                if (stmtN) {
-                    // generator
-                    if (w == 0) {
-                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
-                            goto END;
-                        }
-                    }
-
-                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
-                        goto END;
-                    }
-
-                    // move next
-                    if (++w >= TAG_BATCH_COUNT) {
-                        // reset for gen again
-                        w = 0;
-                    } 
                 }
 
                 // malloc bind
