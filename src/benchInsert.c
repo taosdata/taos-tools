@@ -2780,7 +2780,7 @@ free_of_progressive:
 
 uint64_t strToTimestamp(char * tsStr) {
     uint64_t ts = 0;
-    if (toolsParseTime(tsStr, &ts, strlen(tsStr), TSDB_TIME_PRECISION_MILLI, 0)) {
+    if (toolsParseTime(tsStr, (int64_t*)&ts, strlen(tsStr), TSDB_TIME_PRECISION_MILLI, 0)) {
         // not timestamp str format, maybe int64 format
         ts = (int64_t)atol(tsStr);
     }
