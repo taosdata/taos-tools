@@ -1767,12 +1767,13 @@ static void *syncWriteInterlace(void *sarg) {
                         }
 
                         // combine rows timestamp | other cols = sampleDataBuf[pos]
-                        ds_add_strs(&pThreadInfo->buffer, 5,
-                                    "(",
-                                    time_string,
-                                    ",",
-                                    sampleDataBuf + pos * stbInfo->lenOfCols,
-                                    ") ");
+                        if(stbInfo->useSampleTs) {
+                            ds_add_strs(&pThreadInfo->buffer, 3, "(", 
+                                        sampleDataBuf + pos * stbInfo->lenOfCols, ") ");
+                        } else {
+                            ds_add_strs(&pThreadInfo->buffer, 5, "(", time_string, ",",
+                                        sampleDataBuf + pos * stbInfo->lenOfCols, ") ");
+                        }
                         // check buffer enough
                         if (ds_len(pThreadInfo->buffer)
                                 > stbInfo->max_sql_len) {
