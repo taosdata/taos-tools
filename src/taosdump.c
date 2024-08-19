@@ -5529,6 +5529,47 @@ static int32_t dumpInAvroTagDouble(FieldStruct *field, avro_value_t *value,
     return curr_sqlstr_len;
 }
 
+static int32_t appendValues(char *buf, char* val) {
+    int32_t val_len = (int32_t)strlen(val);
+    int32_t n1      = 0; // '
+    int32_t n2      = 0; // ""
+    int32_t i;
+
+    // check 
+    for (i = 0; i < val_len; i++) {
+        if(val[i] == '\'') {
+            n1 ++;
+        } else if(val[i] == '\"') {
+            n2 ++;
+        }
+    }
+
+    if (n1 == 0) {
+        // no single quotation mark
+        return sprintf(buf, "\'%s\',", val);
+    } else if (n2 == 0) {
+        // no double quotation mark
+        return sprintf(buf, "\"%s\",", val);
+    }
+       
+    // n1 > 0 && n2 > 0
+    int pos = 0;
+    buf[0] = '\"';
+    pos ++;
+    for (i = 0; i < val_len; i++) {
+        buf[pos] = val[i];
+        if(val[i] == '\'') {
+            buf[++pos] = '\'';
+        } else if(buf[i] == '\"') {
+            buf[++pos] = '\"';
+        }
+    }
+    buf[pos] = '\"';
+    pos ++;
+    
+    return pos;
+}
+
 static int32_t dumpInAvroTagBinary(FieldStruct *field, avro_value_t *value,
                               char *sqlstr, int32_t curr_sqlstr_len) {
     avro_value_t branch;
@@ -5547,9 +5588,7 @@ static int32_t dumpInAvroTagBinary(FieldStruct *field, avro_value_t *value,
             sqlstr+curr_sqlstr_len, "NULL,");
     } else {
         debugPrint2("%s | ", (char *)buf);
-        curr_sqlstr_len += sprintf(
-            sqlstr+curr_sqlstr_len, "\'%s\',",
-            (char *)buf);
+        curr_sqlstr_len += appendValues(sqlstr + curr_sqlstr_len, buf);
     }
     return curr_sqlstr_len;
 }
@@ -5570,9 +5609,7 @@ static int32_t dumpInAvroTagNChar(FieldStruct *field, avro_value_t *value,
         curr_sqlstr_len += sprintf(sqlstr+curr_sqlstr_len, "NULL,");
     } else {
         debugPrint2("%s | ", (char *)bytesbuf);
-        curr_sqlstr_len += sprintf(
-            sqlstr+curr_sqlstr_len, "\'%s\',",
-            (char *)bytesbuf);
+        curr_sqlstr_len += appendValues(sqlstr + curr_sqlstr_len, (char *)bytesbuf);
     }
     return curr_sqlstr_len;
 }
@@ -6125,6 +6162,18 @@ static int64_t dumpInAvroTbTagsImpl(
                     errorPrint("Failed to get value by name: %s\n",
                             field->name);
                 }
+            }
+
+            // check curr_sqlstr_len invalid size
+            if(curr_sqlstr_len > TSDB_MAX_ALLOWED_SQL_LEN - 128) {
+                errorPrint("%s() LN%d, create child table combine tags sql length (%d) over %d (TSDB_MAX_ALLOWED_SQL_LEN - 128)!\n", 
+                   __func__, __LINE__, curr_sqlstr_len, TSDB_MAX_ALLOWED_SQL_LEN - 128);
+
+                avro_value_decref(&value);
+                avro_value_iface_decref(value_class);
+                freeTbDes(tableDes, true);
+                free(sqlstr);
+                return -1;
             }
         }
         debugPrint2("%s", "\n");
