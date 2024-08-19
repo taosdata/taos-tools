@@ -30,7 +30,7 @@ int generateRandData(SSuperTable *stbInfo, char *sampleDataBuf,
         bool tag, BArray *childCols);
 int prepareStmt(SSuperTable *stbInfo, TAOS_STMT *stmt, char* tagData, uint64_t tableSeq);
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
-        uint32_t batch, int64_t startTime,
+        uint32_t batch, int64_t startTime, int64_t pos,
         SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n, int64_t *delay2, int64_t *delay3);
 int prepareSampleData(SDataBase* database, SSuperTable* stbInfo);
 void generateSmlJsonTags(tools_cJSON *tagsList,
