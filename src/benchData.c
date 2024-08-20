@@ -361,7 +361,8 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
             continue;
         }
 
-        memcpy(buffer + getRows * length, line, readLen + 1);
+        int64_t offset = ((int64_t)getRows) * length;
+        memcpy(buffer + offset, line, readLen + 1);
         getRows++;
 
         if (getRows == size) {
