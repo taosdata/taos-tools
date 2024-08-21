@@ -12,6 +12,7 @@
 
 #include <bench.h>
 #include <math.h>
+
 #include <benchData.h>
 
 const char charset[] =
