@@ -2520,6 +2520,13 @@ void *syncWriteProgressive(void *sarg) {
         csvFile = openTagCsv(stbInfo);
         tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
     }
+
+    if (stbInfo->iface == STMT_IFACE) {
+        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+            g_fail = true;
+            goto free_of_progressive;
+        }
+    }
     
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
             tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
@@ -2558,13 +2565,6 @@ void *syncWriteProgressive(void *sarg) {
             }
         }   
         
-        if (stbInfo->iface == STMT_IFACE) {
-            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
-                g_fail = true;
-                goto free_of_progressive;
-            }
-        }
-
         if(stmt || smart || acreate) {
             // move next
             if (++w >= TAG_BATCH_COUNT) {
