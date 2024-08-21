@@ -1649,6 +1649,14 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t delay2 = 0;
     int64_t delay3 = 0;
 
+    if(stbInfo->iface == STMT_IFACE) {
+        debugPrint("call prepareStmt for stable:%s\n", stbInfo->stbName);
+        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+            g_fail = true;
+            goto free_of_interlace;
+        }
+    }
+
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
         uint32_t generated = 0;
@@ -1820,13 +1828,7 @@ static void *syncWriteInterlace(void *sarg) {
                             goto free_of_interlace;
                         }
                     }
-
                     
-                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
-                        g_fail = true;
-                        goto free_of_interlace;
-                    }
-
                     int64_t start = toolsGetTimestampUs();
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                              escapedTbName)) {
