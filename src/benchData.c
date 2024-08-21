@@ -12,7 +12,6 @@
 
 #include <bench.h>
 #include <math.h>
-
 #include <benchData.h>
 
 const char charset[] =
@@ -44,6 +43,10 @@ const char* locations_sml[] = {
 #endif
 
 int32_t funCount(int32_t min, int32_t max, int32_t step, int32_t loop) {
+    if(step == 0) {
+        step = 1;
+    }
+
     int32_t range = abs(max - min);
     int32_t maxCnt = range / step;
     int32_t val = min + (loop % maxCnt) * step ;
@@ -52,6 +55,9 @@ int32_t funCount(int32_t min, int32_t max, int32_t step, int32_t loop) {
 }
 
 int32_t funSaw(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    if(period == 0) {
+        period = 1;
+    }
     int32_t range = abs(max - min);
     int32_t step = range / period;
     int32_t val = min + (loop % period) * step ;
@@ -59,6 +65,9 @@ int32_t funSaw(int32_t min, int32_t max, int32_t period, int32_t loop) {
 }
 
 int32_t funSquare(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    if(period == 0) {
+        period = 1;
+    }
     int32_t change = (loop/period) % 2;
     if (change)
        return min;
@@ -67,9 +76,12 @@ int32_t funSquare(int32_t min, int32_t max, int32_t period, int32_t loop) {
 }
 
 int32_t funTriAngle(int32_t min, int32_t max, int32_t period, int32_t loop) {
+    if(period == 0) {
+        period = 1;
+    }
     int32_t range = abs(max - min);
     int32_t change = (loop/period) % 2;
-    int32_t step = range / period;
+    int32_t step = range/period;
     int32_t cnt = 0;    
     if(change)
        cnt = period - loop % period;
@@ -349,7 +361,8 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
             continue;
         }
 
-        memcpy(buffer + getRows * length, line, readLen + 1);
+        int64_t offset = ((int64_t)getRows) * length;
+        memcpy(buffer + offset, line, readLen + 1);
         getRows++;
 
         if (getRows == size) {
@@ -659,6 +672,17 @@ float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k) {
                 + floatTmp / 1000000000) / 360);
         }
     }
+
+    if (field->scalingFactor > 0) {
+        if (field->scalingFactor > 1)
+            floatTmp = floatTmp / field->scalingFactor;
+
+        if (floatTmp > field->maxInDbl)
+            floatTmp = field->maxInDbl;
+        else if (floatTmp < field->minInDbl)
+            floatTmp = field->minInDbl;
+    }
+
     return floatTmp;
 }
 
@@ -675,6 +699,17 @@ double tmpDoubleImpl(Field *field, int32_t angle, int32_t k) {
                 taosRandom() % 1000000 / 1000000.0);
         }
     }
+
+    if (field->scalingFactor > 0) {
+        if (field->scalingFactor > 1)
+            doubleTmp = doubleTmp / field->scalingFactor;
+
+        if (doubleTmp > field->maxInDbl)
+            doubleTmp = field->maxInDbl;
+        else if (doubleTmp < field->minInDbl)
+            doubleTmp = field->minInDbl;
+    }
+
     return doubleTmp;
 }
 
@@ -1135,11 +1170,13 @@ static int generateRandDataStmt(
     // generateRandDataStmt()
     for (int i = 0; i < fields->size; ++i) {
         Field *field = benchArrayGet(fields, i);
-        if (field->type == TSDB_DATA_TYPE_BINARY
-                || field->type == TSDB_DATA_TYPE_NCHAR) {
-            field->stmtData.data = benchCalloc(1, loop * (field->length + 1), true);
-        } else {
-            field->stmtData.data = benchCalloc(1, loop * field->length, true);
+        if (field->stmtData.data == NULL) {
+            if (field->type == TSDB_DATA_TYPE_BINARY
+                    || field->type == TSDB_DATA_TYPE_NCHAR) {
+                field->stmtData.data = benchCalloc(1, loop * (field->length + 1), true);
+            } else {
+                field->stmtData.data = benchCalloc(1, loop * field->length, true);
+            }            
         }
     }
 
@@ -1927,13 +1964,14 @@ int64_t getTSRandTail(int64_t timeStampStep, int32_t seq, int disorderRatio,
 }
 
 uint32_t bindParamBatch(threadInfo *pThreadInfo,
-                        uint32_t batch, int64_t startTime,
+                        uint32_t batch, int64_t startTime, int64_t pos,
                         SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n, int64_t *delay2, int64_t *delay3) {
     TAOS_STMT   *stmt = pThreadInfo->conn->stmt;
     SSuperTable *stbInfo = pThreadInfo->stbInfo;
     uint32_t     columnCount = stbInfo->cols->size;
 
-    if (!pThreadInfo->stmtBind) {
+    //if (!pThreadInfo->stmtBind || stbInfo->interlaceRows > 0 ) {
+    {
         pThreadInfo->stmtBind = true;
         memset(pThreadInfo->bindParams, 0,
             (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
@@ -1947,17 +1985,21 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
             if (c == 0) {
                 data_type = TSDB_DATA_TYPE_TIMESTAMP;
                 param->buffer_length = sizeof(int64_t);
-                param->buffer = pThreadInfo->bind_ts_array;
+                if (stbInfo->useSampleTs) {
+                    param->buffer = pThreadInfo->bind_ts_array + pos;
+                } else {
+                    param->buffer = pThreadInfo->bind_ts_array;
+                }
             } else {
                 Field *col = benchArrayGet(stbInfo->cols, c - 1);
                 data_type = col->type;
                 if (childTbl->useOwnSample) {
                     ChildField *childCol = benchArrayGet(childTbl->childCols, c-1);
-                    param->buffer = childCol->stmtData.data;
-                    param->is_null = childCol->stmtData.is_null;
+                    param->buffer = (char *)childCol->stmtData.data + pos * col->length;
+                    param->is_null = childCol->stmtData.is_null + pos;
                 } else {
-                    param->buffer = col->stmtData.data;
-                    param->is_null = col->stmtData.is_null;
+                    param->buffer = (char *)col->stmtData.data + pos * col->length;
+                    param->is_null = col->stmtData.is_null + pos;
                 }
                 param->buffer_length = col->length;
                 debugPrint("col[%d]: type: %s, len: %d\n", c,
@@ -1974,21 +2016,23 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
         }
     }
 
-    // set ts array values
-    for (uint32_t k = 0; k < batch; k++) {
-        /* columnCount + 1 (ts) */
-        if (stbInfo->disorderRatio) {
-            *(pThreadInfo->bind_ts_array + k) =
-                startTime + getTSRandTail(stbInfo->timestamp_step, *n,
-                                          stbInfo->disorderRatio,
-                                          stbInfo->disorderRange);
-        } else {
-            *(pThreadInfo->bind_ts_array + k) = startTime + stbInfo->timestamp_step * (*n);
-        }
+    if (!stbInfo->useSampleTs) {
+        // set first column ts array values
+        for (uint32_t k = 0; k < batch; k++) {
+            /* columnCount + 1 (ts) */
+            if (stbInfo->disorderRatio) {
+                *(pThreadInfo->bind_ts_array + k) =
+                    startTime + getTSRandTail(stbInfo->timestamp_step, *n,
+                                            stbInfo->disorderRatio,
+                                            stbInfo->disorderRange);
+            } else {
+                *(pThreadInfo->bind_ts_array + k) = startTime + stbInfo->timestamp_step * (*n);
+            }
 
-        // check n need add
-        if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
-            *n = *n + 1;
+            // check n need add
+            if (!stbInfo->primary_key || needChangeTs(stbInfo, pkCur, pkCnt)) {
+                *n = *n + 1;
+            }
         }
     }
 

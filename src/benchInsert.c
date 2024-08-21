@@ -34,7 +34,8 @@
 static int getSuperTableFromServerRest(
     SDataBase* database, SSuperTable* stbInfo, char *command) {
 
-    return -1;
+    // TODO(zero): it will create super table based on this error code.
+    return TSDB_CODE_NOT_FOUND;
     // TODO(me): finish full implementation
 #if 0
     int sockfd = createSockFd();
@@ -56,18 +57,29 @@ static int getSuperTableFromServerRest(
 #endif   // 0
 }
 
-static int getSuperTableFromServerTaosc(
-    SDataBase* database, SSuperTable* stbInfo, char *command) {
-#ifdef WEBSOCKET
-    if (g_arguments->websocket) {
-        return -1;
+static bool searchBArray(BArray *array, const char *field_name, int32_t name_len, uint8_t field_type) {
+    if (array == NULL || field_name == NULL) {
+        return false;
     }
-#endif
-    TAOS_RES *   res;
-    TAOS_ROW     row = NULL;
-    SBenchConn* conn = initBenchConn();
+    for (int i = 0; i < array->size; i++) {
+        Field *field = benchArrayGet(array, i);
+        if (strlen(field->name) == name_len && strncmp(field->name, field_name, name_len) == 0) {
+            if (field->type == field_type) {
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+static int getSuperTableFromServerTaosc(
+        SDataBase *database, SSuperTable *stbInfo, char *command) {
+    TAOS_RES *res;
+    TAOS_ROW row = NULL;
+    SBenchConn *conn = initBenchConn();
     if (NULL == conn) {
-        return -1;
+        return TSDB_CODE_FAILED;
     }
 
     res = taos_query(conn->taos, command);
@@ -76,16 +88,20 @@ static int getSuperTableFromServerTaosc(
         infoPrint("stable %s does not exist, will create one\n",
                   stbInfo->stbName);
         closeBenchConn(conn);
-        return -1;
+        return TSDB_CODE_NOT_FOUND;
     }
     infoPrint("find stable<%s>, will get meta data from server\n",
               stbInfo->stbName);
-    benchArrayClear(stbInfo->tags);
-    benchArrayClear(stbInfo->cols);
-    int count = 0;
+
+    // Check if the the existing super table matches exactly with the definitions in the JSON file.
+    // If a hash table were used, the time complexity would be only O(n).
+    // But taosBenchmark does not incorporate a hash table, the time complexity of the loop traversal is O(n^2).
+    bool isTitleRow = true;
+    uint32_t tag_count = 0;
+    uint32_t col_count = 0;
     while ((row = taos_fetch_row(res)) != NULL) {
-        if (count == 0) {
-            count++;
+        if (isTitleRow) {
+            isTitleRow = false;
             continue;
         }
         int32_t *lengths = taos_fetch_lengths(res);
@@ -93,45 +109,70 @@ static int getSuperTableFromServerTaosc(
             errorPrint("%s", "failed to execute taos_fetch_length\n");
             taos_free_result(res);
             closeBenchConn(conn);
-            return -1;
+            return TSDB_CODE_FAILED;
         }
-        if (strncasecmp((char *)row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
+        if (strncasecmp((char *) row[TSDB_DESCRIBE_METRIC_NOTE_INDEX], "tag",
                         strlen("tag")) == 0) {
-            Field* tag = benchCalloc(1, sizeof(Field), true);
-            benchArrayPush(stbInfo->tags, tag);
-            tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
-            tag->type = convertStringToDatatype(
-                    (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+            if (stbInfo->tags == NULL || stbInfo->tags->size == 0 || tag_count >= stbInfo->tags->size) {
+                errorPrint("%s", "existing stable tag mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            uint8_t tagType = convertStringToDatatype(
+                    (char *) row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            tag->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            tag->min = convertDatatypeToDefaultMin(tag->type);
-            tag->max = convertDatatypeToDefaultMax(tag->type);
-            tstrncpy(tag->name,
-                     (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
+            if (!searchBArray(stbInfo->tags, (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+                              lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], tagType)) {
+                errorPrint("%s", "existing stable tag mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            tag_count += 1;
         } else {
-            Field * col = benchCalloc(1, sizeof(Field), true);
-            benchArrayPush(stbInfo->cols, col);
-            col = benchArrayGet(stbInfo->cols, stbInfo->cols->size - 1);
-            col->type = convertStringToDatatype(
-                    (char *)row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
+            if (stbInfo->cols == NULL || stbInfo->cols->size == 0 || col_count >= stbInfo->cols->size) {
+                errorPrint("%s", "existing stable column mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            uint8_t colType = convertStringToDatatype(
+                    (char *) row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            col->length = *((int *)row[TSDB_DESCRIBE_METRIC_LENGTH_INDEX]);
-            col->min = convertDatatypeToDefaultMin(col->type);
-            col->max = convertDatatypeToDefaultMax(col->type);
-            tstrncpy(col->name,
-                     (char *)row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
-                     lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX] + 1);
+            if (!searchBArray(stbInfo->cols, (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+                              lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], colType)) {
+                errorPrint("%s", "existing stable column mismatched with that defined in JSON\n");
+                taos_free_result(res);
+                closeBenchConn(conn);
+                return TSDB_CODE_FAILED;
+            }
+            col_count += 1;
         }
-    }
+    }  // end while
     taos_free_result(res);
     closeBenchConn(conn);
-    return 0;
+    if (tag_count != stbInfo->tags->size) {
+        errorPrint("%s", "existing stable tag mismatched with that defined in JSON\n");
+        return TSDB_CODE_FAILED;
+    }
+
+    if (col_count != stbInfo->cols->size) {
+        errorPrint("%s", "existing stable column mismatched with that defined in JSON\n");
+        return TSDB_CODE_FAILED;
+    }
+
+    return TSDB_CODE_SUCCESS;
 }
 
-static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
-    int ret = 0;
 
+static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
+#ifdef WEBSOCKET
+    if (g_arguments->websocket) {
+        return 0;
+    }
+#endif
+    int ret = 0;
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(command, SHORT_1K_SQL_BUFF_LEN,
              "DESCRIBE `%s`.`%s`", database->dbName,
@@ -175,9 +216,8 @@ static int queryDbExec(SDataBase *database,
             ret = queryDbExecCall(conn, command);
             int32_t trying = g_arguments->keep_trying;
             while (ret && trying) {
-                infoPrint("will sleep %"PRIu32" milliseconds then re-create "
-                          "supertable %s\n",
-                          g_arguments->trying_interval, stbInfo->stbName);
+                infoPrint("will sleep %"PRIu32" milliseconds then re-execute command: %s\n",
+                          g_arguments->trying_interval, command);
                 toolsMsleep(g_arguments->trying_interval);
                 ret = queryDbExecCall(conn, command);
                 if (trying != -1) {
@@ -185,8 +225,6 @@ static int queryDbExec(SDataBase *database,
                 }
             }
             if (0 != ret) {
-                errorPrint("create supertable %s failed!\n\n",
-                       stbInfo->stbName);
                 ret = -1;
             }
             closeBenchConn(conn);
@@ -198,15 +236,11 @@ static int queryDbExec(SDataBase *database,
 
 #ifdef WEBSOCKET
 static void dropSuperTable(SDataBase* database, SSuperTable* stbInfo) {
-    if (g_arguments->supplementInsert) {
-        return;
-    }
-
     char command[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(command, sizeof(command),
         g_arguments->escape_character
-            ? "DROP TABLE `%s`.`%s`"
-            : "DROP TABLE %s.%s",
+            ? "DROP TABLE IF EXISTS `%s`.`%s`"
+            : "DROP TABLE IF EXISTS %s.%s",
              database->dbName,
              stbInfo->stbName);
 
@@ -446,27 +480,14 @@ skip:
 int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
     int     vgroups = 0;
     char    cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
-
     snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
             g_arguments->escape_character
-            ? "USE `%s`"
-            : "USE %s",
+            ? "SHOW `%s`.VGROUPS"
+            : "SHOW %s.VGROUPS",
             database->dbName);
 
-    int32_t   code;
-    TAOS_RES *res = NULL;
-
-    res = taos_query(conn->taos, cmd);
-    code = taos_errno(res);
-    if (code) {
-        printErrCmdCodeStr(cmd, code, res);
-        return -1;
-    }
-    taos_free_result(res);
-
-    snprintf(cmd, SHORT_1K_SQL_BUFF_LEN, "SHOW VGROUPS");
-    res = taos_query(conn->taos, cmd);
-    code = taos_errno(res);
+    TAOS_RES* res = taos_query(conn->taos, cmd);
+    int code = taos_errno(res);
     if (code) {
         printErrCmdCodeStr(cmd, code, res);
         return -1;
@@ -1746,12 +1767,13 @@ static void *syncWriteInterlace(void *sarg) {
                         }
 
                         // combine rows timestamp | other cols = sampleDataBuf[pos]
-                        ds_add_strs(&pThreadInfo->buffer, 5,
-                                    "(",
-                                    time_string,
-                                    ",",
-                                    sampleDataBuf + pos * stbInfo->lenOfCols,
-                                    ") ");
+                        if(stbInfo->useSampleTs) {
+                            ds_add_strs(&pThreadInfo->buffer, 3, "(", 
+                                        sampleDataBuf + pos * stbInfo->lenOfCols, ") ");
+                        } else {
+                            ds_add_strs(&pThreadInfo->buffer, 5, "(", time_string, ",",
+                                        sampleDataBuf + pos * stbInfo->lenOfCols, ") ");
+                        }
                         // check buffer enough
                         if (ds_len(pThreadInfo->buffer)
                                 > stbInfo->max_sql_len) {
@@ -1791,6 +1813,20 @@ static void *syncWriteInterlace(void *sarg) {
                         snprintf(escapedTbName, TSDB_TABLE_NAME_LEN, "%s",
                                 tableName);
                     }
+
+                    // generator
+                    if (stbInfo->autoTblCreating && w == 0) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                            goto free_of_interlace;
+                        }
+                    }
+
+                    
+                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                        g_fail = true;
+                        goto free_of_interlace;
+                    }
+
                     int64_t start = toolsGetTimestampUs();
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                              escapedTbName)) {
@@ -1804,10 +1840,25 @@ static void *syncWriteInterlace(void *sarg) {
                     delay1 += toolsGetTimestampUs() - start;
 
                     int32_t n = 0;
-                    generated = bindParamBatch(pThreadInfo, interlaceRows,
-                                       childTbl->ts, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
+                    generated += bindParamBatch(pThreadInfo, interlaceRows,
+                                       childTbl->ts, pos, childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n, &delay2, &delay3);
                     
+                    // move next
+                    pos += interlaceRows;
+                    if (pos + interlaceRows + 1 >= g_arguments->prepared_rand) {
+                        pos = 0;
+                    }
                     childTbl->ts += stbInfo->timestamp_step * n;
+
+                    // move next
+                    if (stbInfo->autoTblCreating) {
+                        w += interlaceRows;
+                        if (w >= TAG_BATCH_COUNT) {
+                            // reset for gen again
+                            w = 0;
+                        }
+                    }
+
                     break;
                 }
                 case SML_REST_IFACE:
@@ -2019,13 +2070,14 @@ static int32_t prepareProgressDataStmt(
         return -1;
     }
     *delay1 = toolsGetTimestampUs() - start;
-    int32_t n =0;
+    int32_t n = 0;
+    int64_t pos = i % g_arguments->prepared_rand;
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
                 ? (stbInfo->insertRows - i)
                 : g_arguments->reqPerReq,
-            *timestamp, childTbl, pkCur, pkCnt, &n, delay2, delay3);
+            *timestamp, pos, childTbl, pkCur, pkCnt, &n, delay2, delay3);
     *timestamp += n * stbInfo->timestamp_step;
     return generated;
 }
@@ -2493,25 +2545,6 @@ void *syncWriteProgressive(void *sarg) {
         int64_t delay1 = 0;
         int64_t delay2 = 0;
         int64_t delay3 = 0;
-        if (stmt) {
-            taos_stmt_close(pThreadInfo->conn->stmt);
-            if(stbInfo->autoTblCreating || database->superTbls->size > 1) {
-                pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
-            } else {
-                TAOS_STMT_OPTIONS op;
-                op.reqId = 0;
-                op.singleStbInsert = true;
-                op.singleTableBindOnce = true;
-                pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
-            }
-
-            if (NULL == pThreadInfo->conn->stmt) {
-                errorPrint("taos_stmt_init() failed, reason: %s\n",
-                        taos_errstr(NULL));
-                g_fail = true;
-                goto free_of_progressive;
-            }
-        }
 
         if(stmt || smart || acreate) {
             // generator
@@ -2523,7 +2556,7 @@ void *syncWriteProgressive(void *sarg) {
             }
         }   
         
-        if (stmt) {
+        if (stbInfo->iface == STMT_IFACE) {
             if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
                 g_fail = true;
                 goto free_of_progressive;
@@ -2746,7 +2779,17 @@ free_of_progressive:
     return NULL;
 }
 
-static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
+uint64_t strToTimestamp(char * tsStr) {
+    uint64_t ts = 0;
+    if (toolsParseTime(tsStr, (int64_t*)&ts, strlen(tsStr), TSDB_TIME_PRECISION_MILLI, 0)) {
+        // not timestamp str format, maybe int64 format
+        ts = (int64_t)atol(tsStr);
+    }
+
+    return ts;
+}
+
+static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl, uint64_t *bind_ts_array) {
     int32_t columnCount = stbInfo->cols->size;
 
     char *sampleDataBuf;
@@ -2776,9 +2819,6 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
             }
 
             cursor += index + 1;  // skip ',' too
-            if ((0 == c) && stbInfo->useSampleTs) {
-                continue;
-            }
 
             char *tmpStr = calloc(1, index + 1);
             if (NULL == tmpStr) {
@@ -2786,6 +2826,15 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
                         __func__, __LINE__, index + 1);
                 return -1;
             }
+
+            strncpy(tmpStr, restStr, index);
+            if ((0 == c) && stbInfo->useSampleTs) {
+                // set ts to 
+                bind_ts_array[i] = strToTimestamp(tmpStr); 
+                free(tmpStr);
+                continue;
+            }
+
             Field *col = benchArrayGet(stbInfo->cols,
                     (stbInfo->useSampleTs?c-1:c));
             char dataType = col->type;
@@ -2800,7 +2849,7 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl) {
                 stmtData = &col->stmtData;
             }
 
-            strncpy(tmpStr, restStr, index);
+            
 
             if (0 == strcmp(tmpStr, "NULL")) {
                 *(stmtData->is_null + i) = true;
@@ -2952,7 +3001,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
 }
 
 static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
-                                          SChildTable* childTbl) {
+                                          SChildTable* childTbl, uint64_t *bind_ts_array) {
     int32_t columnCount = stbInfo->cols->size;
 
     for (int c = 0; c < columnCount; c++) {
@@ -2969,10 +3018,10 @@ static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
         initStmtData(dataType, &(childCol->stmtData.data), col->length);
     }
 
-    return initStmtDataValue(stbInfo, childTbl);
+    return initStmtDataValue(stbInfo, childTbl, bind_ts_array);
 }
 
-static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
+static int parseBufferToStmtBatch(SSuperTable* stbInfo, uint64_t *bind_ts_array) {
     int32_t columnCount = stbInfo->cols->size;
 
     for (int c = 0; c < columnCount; c++) {
@@ -2987,7 +3036,7 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo) {
         initStmtData(dataType, &(col->stmtData.data), col->length);
     }
 
-    return initStmtDataValue(stbInfo, NULL);
+    return initStmtDataValue(stbInfo, NULL, bind_ts_array);
 }
 
 static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
@@ -3369,7 +3418,6 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
     FILE*    csvFile = NULL;
     char*    tagData = NULL;
     bool     stmtN   = stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating == false;
-    int      w       = 0;
 
     if (stmtN) {
         csvFile = openTagCsv(stbInfo);
@@ -3430,14 +3478,18 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 if (NULL == pThreadInfo->conn) {
                     goto END;
                 }
-                taos_stmt_close(pThreadInfo->conn->stmt);
+
+                if (pThreadInfo->conn->stmt) {
+                    taos_stmt_close(pThreadInfo->conn->stmt);
+                }
+                
                 if (stbInfo->autoTblCreating || database->superTbls->size > 1) {
                     pThreadInfo->conn->stmt = taos_stmt_init(pThreadInfo->conn->taos);
                 } else {
                     TAOS_STMT_OPTIONS op;
                     op.reqId = 0;
                     op.singleStbInsert = true;
-                    op.singleTableBindOnce = true;
+                    op.singleTableBindOnce = false;
                     pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
                 }
                 if (NULL == pThreadInfo->conn->stmt) {
@@ -3448,36 +3500,20 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     errorPrint("taos select database(%s) failed\n", database->dbName);
                     goto END;
                 }
-                if (stmtN) {
-                    // generator
-                    if (w == 0) {
-                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
-                            goto END;
-                        }
-                    }
 
-                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
-                        goto END;
-                    }
-
-                    // move next
-                    if (++w >= TAG_BATCH_COUNT) {
-                        // reset for gen again
-                        w = 0;
-                    } 
-                }
+                int32_t max_cnt = g_arguments->prepared_rand > g_arguments->reqPerReq ? g_arguments->prepared_rand : g_arguments->reqPerReq;
 
                 // malloc bind
                 pThreadInfo->bind_ts       = benchCalloc(1, sizeof(int64_t), true);
-                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*g_arguments->reqPerReq, true);
+                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*max_cnt, true);
                 pThreadInfo->bindParams    = benchCalloc(1, sizeof(TAOS_MULTI_BIND)*(stbInfo->cols->size + 1), true);
                 pThreadInfo->is_null       = benchCalloc(1, g_arguments->reqPerReq, true);
                 
-                parseBufferToStmtBatch(stbInfo);
+                parseBufferToStmtBatch(stbInfo, pThreadInfo->bind_ts_array);
                 for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
                     SChildTable *childTbl = stbInfo->childTblArray[child];
                     if (childTbl->useOwnSample) {
-                        parseBufferToStmtBatchChildTbl(stbInfo, childTbl);
+                        parseBufferToStmtBatchChildTbl(stbInfo, childTbl, pThreadInfo->bind_ts_array);
                     }
                 }
 
@@ -4112,6 +4148,7 @@ int insertTestProcess() {
             }
             succPrint("created database (%s)\n", database->dbName);
         } else {
+#ifndef WEBSOCKET            
             // database already exist, get vgroups from server
             if (database->superTbls) {
                 SBenchConn* conn = initBenchConn();
@@ -4126,6 +4163,7 @@ int insertTestProcess() {
                     succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
                 }
             }
+#endif
         }
     }
 
@@ -4139,15 +4177,20 @@ int insertTestProcess() {
                         && stbInfo->iface != SML_REST_IFACE
                         && !stbInfo->childTblExists) {
 #ifdef WEBSOCKET
-                    if (g_arguments->websocket) {
+                    if (g_arguments->websocket && !g_arguments->supplementInsert) {
                         dropSuperTable(database, stbInfo);
                     }
 #endif
-                    if (getSuperTableFromServer(database, stbInfo) != 0) {
-                        if (createSuperTable(database, stbInfo)) {
-                            return -1;
-                        }
+                    int code = getSuperTableFromServer(database, stbInfo);
+                    if (code == TSDB_CODE_FAILED) {
+                        return -1;
                     }
+                    
+                    // with create table if not exists, so if exist, can not report failed
+                    if (createSuperTable(database, stbInfo)) {
+                        return -1;
+                    }
+                    
                 }
                 // fill last ts from super table
                 if(stbInfo->autoFillback && stbInfo->childTblExists) {
