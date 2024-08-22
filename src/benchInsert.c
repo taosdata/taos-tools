@@ -1267,8 +1267,8 @@ void postFreeResource() {
                                 child++) {
                             SChildTable *childTbl = stbInfo->childTblArray[child];
                             if (childTbl) {
-                                freeChildTable(childTbl, stbInfo->cols->size);
                                 tmfree(childTbl->name);
+                                freeChildTable(childTbl, stbInfo->cols->size);
                             }
                         }
                     }
