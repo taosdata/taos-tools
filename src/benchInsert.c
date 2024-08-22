@@ -1649,7 +1649,9 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t delay2 = 0;
     int64_t delay3 = 0;
 
-    if(stbInfo->iface == STMT_IFACE) {
+    bool oldInitStmt = stbInfo->autoTblCreating || database->superTbls->size > 1;
+    // not auto create table call once
+    if(stbInfo->iface == STMT_IFACE && !oldInitStmt) {
         debugPrint("call prepareStmt for stable:%s\n", stbInfo->stbName);
         if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
             g_fail = true;
@@ -1829,6 +1831,15 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                     }
                     
+                    // old must call prepareStmt for each table
+                    if (oldInitStmt) {
+                        debugPrint("call prepareStmt for stable:%s\n", stbInfo->stbName);
+                        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                            g_fail = true;
+                            goto free_of_interlace;
+                        }
+                    }
+      
                     int64_t start = toolsGetTimestampUs();
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                              escapedTbName)) {
@@ -2521,7 +2532,10 @@ void *syncWriteProgressive(void *sarg) {
         tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
     }
 
-    if (stbInfo->iface == STMT_IFACE) {
+    bool oldInitStmt = stbInfo->autoTblCreating || database->superTbls->size > 1;
+
+    // not auto table create call on stmt
+    if (stbInfo->iface == STMT_IFACE && !oldInitStmt) {
         if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
             g_fail = true;
             goto free_of_progressive;
@@ -2563,7 +2577,15 @@ void *syncWriteProgressive(void *sarg) {
                     goto free_of_progressive;
                 }
             }
-        }   
+        }
+
+        // old init stmt must call for each table
+        if (stbInfo->iface == STMT_IFACE && oldInitStmt) {
+            if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                g_fail = true;
+                goto free_of_progressive;
+            }
+        }
         
         if(stmt || smart || acreate) {
             // move next
