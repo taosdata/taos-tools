@@ -1649,6 +1649,16 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t delay2 = 0;
     int64_t delay3 = 0;
 
+    bool oldInitStmt = stbInfo->autoTblCreating || database->superTbls->size > 1;
+    // not auto create table call once
+    if(stbInfo->iface == STMT_IFACE && !oldInitStmt) {
+        debugPrint("call prepareStmt for stable:%s\n", stbInfo->stbName);
+        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+            g_fail = true;
+            goto free_of_interlace;
+        }
+    }
+
     while (insertRows > 0) {
         int64_t tmp_total_insert_rows = 0;
         uint32_t generated = 0;
@@ -1820,13 +1830,16 @@ static void *syncWriteInterlace(void *sarg) {
                             goto free_of_interlace;
                         }
                     }
-
                     
-                    if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
-                        g_fail = true;
-                        goto free_of_interlace;
+                    // old must call prepareStmt for each table
+                    if (oldInitStmt) {
+                        debugPrint("call prepareStmt for stable:%s\n", stbInfo->stbName);
+                        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                            g_fail = true;
+                            goto free_of_interlace;
+                        }
                     }
-
+      
                     int64_t start = toolsGetTimestampUs();
                     if (taos_stmt_set_tbname(pThreadInfo->conn->stmt,
                                              escapedTbName)) {
@@ -2518,6 +2531,16 @@ void *syncWriteProgressive(void *sarg) {
         csvFile = openTagCsv(stbInfo);
         tagData = benchCalloc(TAG_BATCH_COUNT, stbInfo->lenOfTags, false);
     }
+
+    bool oldInitStmt = stbInfo->autoTblCreating || database->superTbls->size > 1;
+
+    // not auto table create call on stmt
+    if (stbInfo->iface == STMT_IFACE && !oldInitStmt) {
+        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+            g_fail = true;
+            goto free_of_progressive;
+        }
+    }
     
     for (uint64_t tableSeq = pThreadInfo->start_table_from;
             tableSeq <= pThreadInfo->end_table_to; tableSeq++) {
@@ -2554,15 +2577,16 @@ void *syncWriteProgressive(void *sarg) {
                     goto free_of_progressive;
                 }
             }
-        }   
-        
-        if (stbInfo->iface == STMT_IFACE) {
+        }
+
+        // old init stmt must call for each table
+        if (stbInfo->iface == STMT_IFACE && oldInitStmt) {
             if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
                 g_fail = true;
                 goto free_of_progressive;
             }
         }
-
+        
         if(stmt || smart || acreate) {
             // move next
             if (++w >= TAG_BATCH_COUNT) {
@@ -3489,7 +3513,7 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     TAOS_STMT_OPTIONS op;
                     op.reqId = 0;
                     op.singleStbInsert = true;
-                    op.singleTableBindOnce = false;
+                    op.singleTableBindOnce = true;
                     pThreadInfo->conn->stmt = taos_stmt_init_with_options(pThreadInfo->conn->taos, &op);
                 }
                 if (NULL == pThreadInfo->conn->stmt) {
