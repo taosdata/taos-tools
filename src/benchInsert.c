@@ -1265,11 +1265,10 @@ void postFreeResource() {
                     if (stbInfo->childTblArray) {
                         for (int64_t child = 0; child < stbInfo->childTblCount;
                                 child++) {
-                            SChildTable *childTbl =
-                                stbInfo->childTblArray[child];
-                            tmfree(childTbl->name);
+                            SChildTable *childTbl = stbInfo->childTblArray[child];
                             if (childTbl) {
                                 freeChildTable(childTbl, stbInfo->cols->size);
+                                tmfree(childTbl->name);
                             }
                         }
                     }

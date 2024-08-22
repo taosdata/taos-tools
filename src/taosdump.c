@@ -3546,9 +3546,12 @@ static int dumpCreateTableClauseAvro(
 
     avro_value_set_branch(&value, 1, &branch);
     if(g_args.dotReplace) {
-        char tableName[TSDB_TABLE_NAME_LEN+1];
-        replaceCopy(tableName, tableDes->name);
-        avro_value_set_string(&branch, tableName);
+        char tableName[TSDB_TABLE_NAME_LEN+1] = "";
+        if(replaceCopy(tableName, tableDes->name)) {
+            avro_value_set_string(&branch, tableName);
+        } else {
+            avro_value_set_string(&branch, tableDes->name);
+        }
     } else {
         avro_value_set_string(&branch, tableDes->name);
     }
@@ -4785,6 +4788,8 @@ static int processValueToAvro(
     uint16_t u16Temp = 0;
     uint32_t u32Temp = 0;
     uint64_t u64Temp = 0;
+    memset(&firsthalf, 0, sizeof(avro_value_t));
+    memset(&secondhalf, 0, sizeof(avro_value_t));
 
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
@@ -6278,9 +6283,6 @@ static int64_t dumpInAvroNtbImpl(
             } else {
 #endif
                 TAOS_RES *res = taos_query(taos, buf);
-                if(newBuf) {
-                    free(newBuf);
-                }
                 int code = taos_errno(res);
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
@@ -6291,6 +6293,9 @@ static int64_t dumpInAvroNtbImpl(
                     failed++;
                 } else {
                     success++;
+                }
+                if(newBuf) {
+                    free(newBuf);
                 }
                 taos_free_result(res);
 #ifdef WEBSOCKET
@@ -8986,6 +8991,9 @@ static int createMTableAvroHeadImp(
         uint16_t u16Temp = 0;
         uint32_t u32Temp = 0;
         uint64_t u64Temp = 0;
+        memset(&firsthalf, 0, sizeof(avro_value_t));
+        memset(&secondhalf, 0, sizeof(avro_value_t));
+
 
         int type = subTableDes->cols[subTableDes->columns + tag].type;
         switch (type) {
@@ -9437,7 +9445,11 @@ static int64_t fillTbNameArrNative(
     TAOS_RES *res = taos_query(taos, command);
     int32_t code = taos_errno(res);
     if (code) {
-        return cleanIfQueryFailed(__func__, __LINE__, command, res);
+        errorPrint("%s() LN%d, fillTbNameArrNative failed to run command <%s>. "
+                "code: 0x%08x, reason: %s\n",
+            __func__, __LINE__, command, taos_errno(res), taos_errstr(res));
+        taos_free_result(res);
+        return -1;
     }
 
     TAOS_ROW row = NULL;
@@ -9604,6 +9616,8 @@ static int writeTagsToAvro(
         uint16_t u16Temp = 0;
         uint32_t u32Temp = 0;
         uint64_t u64Temp = 0;
+        memset(&firsthalf, 0, sizeof(avro_value_t));
+        memset(&secondhalf, 0, sizeof(avro_value_t));
 
         int type = tbDes->cols[tbDes->columns + tag].type;
         switch (type) {
@@ -11392,8 +11406,9 @@ static void *dumpTablesOfStbThread(void *arg) {
 #ifdef WEBSOCKET
     }
 #endif
-    if (!g_args.avro) {
+    if (fp) {
         fclose(fp);
+        fp = NULL;
     }
 
     return NULL;
