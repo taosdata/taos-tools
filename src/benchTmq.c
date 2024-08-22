@@ -194,6 +194,7 @@ int buildConsumerAndSubscribe(tmqThreadInfo * pThreadInfo, char* groupId) {
     return ret;
 }
 
+char groupId[16] = {0};
 static void* tmqConsume(void* arg) {
     tmqThreadInfo* pThreadInfo = (tmqThreadInfo*)arg;
 	SConsumerInfo* pConsumerInfo = &g_tmqInfo.consumerInfo;
@@ -203,7 +204,6 @@ static void* tmqConsume(void* arg) {
 
         char* tPtr = pConsumerInfo->groupId;
 	    // "share" or "independent"
-		char groupId[16] = {0};
 	    if (pConsumerInfo->groupMode && 0 != strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
 
 			if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
@@ -313,7 +313,6 @@ int subscribeTestProcess() {
 
     // "share" or "independent"
     if (pConsumerInfo->groupMode && 0 == strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
-		char groupId[16] = {0};
 		if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
 			// rand string
 			memset(groupId, 0, sizeof(groupId));
