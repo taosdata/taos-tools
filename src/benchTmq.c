@@ -197,13 +197,13 @@ int buildConsumerAndSubscribe(tmqThreadInfo * pThreadInfo, char* groupId) {
 static void* tmqConsume(void* arg) {
     tmqThreadInfo* pThreadInfo = (tmqThreadInfo*)arg;
 	SConsumerInfo* pConsumerInfo = &g_tmqInfo.consumerInfo;
+    char groupId[16] = {0};
 	
 	// "sequential" or "parallel"
 	if (pConsumerInfo->createMode && 0 != strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
 
         char* tPtr = pConsumerInfo->groupId;
 	    // "share" or "independent"
-		char groupId[16] = {0};
 	    if (pConsumerInfo->groupMode && 0 != strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
 
 			if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
@@ -310,16 +310,17 @@ int subscribeTestProcess() {
             return -1;
         }
     }
+    char groupId[16] = {0};
+    char* tPtr = pConsumerInfo->groupId;
 
     // "share" or "independent"
     if (pConsumerInfo->groupMode && 0 == strncasecmp(pConsumerInfo->groupMode, "share", 5)) {
-		char groupId[16] = {0};
 		if ((NULL == pConsumerInfo->groupId) || (0 == strlen(pConsumerInfo->groupId))) {
 			// rand string
 			memset(groupId, 0, sizeof(groupId));
 			rand_string(groupId, sizeof(groupId) - 1, 0);
 			infoPrint("rand generate group id: %s\n", groupId);
-		    pConsumerInfo->groupId = groupId;
+		    tPtr = groupId;
 		}
     }
 	
@@ -347,7 +348,7 @@ int subscribeTestProcess() {
 
         // "sequential" or "parallel"
 		if (pConsumerInfo->createMode && 0 == strncasecmp(pConsumerInfo->createMode, "sequential", 10)) {			
-            int retVal = buildConsumerAndSubscribe(pThreadInfo, pConsumerInfo->groupId);
+            int retVal = buildConsumerAndSubscribe(pThreadInfo, tPtr);
             if (0 != retVal) {
                 infoPrint("%s\n", "buildConsumerAndSubscribe() fail!");
                 ret = -1;
