@@ -1977,7 +1977,7 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
             (sizeof(TAOS_MULTI_BIND) * (columnCount + 1)));
         memset(pThreadInfo->is_null, 0, batch);
 
-        for (int c = 0; c < columnCount + 1; c++) {
+        for (int c = 0; c <= columnCount; c++) {
             TAOS_MULTI_BIND *param =
                 (TAOS_MULTI_BIND *)(pThreadInfo->bindParams +
                                     sizeof(TAOS_MULTI_BIND) * c);
@@ -2007,7 +2007,7 @@ uint32_t bindParamBatch(threadInfo *pThreadInfo,
                         col->length);
             }
             param->buffer_type = data_type;
-            param->length = benchCalloc(batch, sizeof(int32_t), true);
+            param->length = pThreadInfo->lengths[c];
 
             for (int b = 0; b < batch; b++) {
                 param->length[b] = (int32_t)param->buffer_length;

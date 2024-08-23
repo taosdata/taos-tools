@@ -990,6 +990,7 @@ typedef struct SThreadInfo_S {
     uint64_t    *bind_ts_array;
     char        *bindParams;
     char        *is_null;
+    int32_t     **lengths;
     uint32_t    threadID;
     uint64_t    start_table_from;
     uint64_t    end_table_to;
