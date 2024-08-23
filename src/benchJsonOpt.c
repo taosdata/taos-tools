@@ -1637,7 +1637,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
 
    // check prepared_rand valid
     if(g_arguments->prepared_rand < g_arguments->reqPerReq) {
-        infoPrint("prepared_rand(%"PRId64") < num_of_records_per_req(%"PRId64") , so set prepared_rand = num_of_records_per_req\n", 
+        infoPrint("prepared_rand(%"PRIu64") < num_of_records_per_req(%d), so set prepared_rand = num_of_records_per_req\n", 
                    g_arguments->prepared_rand, g_arguments->reqPerReq);
         g_arguments->prepared_rand = g_arguments->reqPerReq;
     }
