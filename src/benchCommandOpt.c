@@ -306,15 +306,6 @@ void modifyArgument() {
         superTable->partialColNum = g_arguments->partialColNum;
     }
 
-    if (superTable->iface == STMT_IFACE) {
-        //if (g_arguments->reqPerReq > INT16_MAX) {
-        //    g_arguments->reqPerReq = INT16_MAX;
-        //}
-        if (g_arguments->prepared_rand > g_arguments->reqPerReq) {
-            g_arguments->prepared_rand = g_arguments->reqPerReq;
-        }
-    }
-
     for (int i = 0; i < superTable->cols->size; ++i) {
         Field * col = benchArrayGet(superTable->cols, i);
         if (!g_arguments->demo_mode) {

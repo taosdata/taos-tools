@@ -891,12 +891,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->iface = REST_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                 superTable->iface = STMT_IFACE;
-                //if (g_arguments->reqPerReq > INT16_MAX) {
-                //    g_arguments->reqPerReq = INT16_MAX;
-                //}
-                if (g_arguments->reqPerReq > g_arguments->prepared_rand) {
-                    g_arguments->prepared_rand = g_arguments->reqPerReq;
-                }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
                     errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
@@ -1633,13 +1627,6 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
         tools_cJSON_GetObjectItem(json, "prepared_rand");
     if (prepareRand && prepareRand->type == tools_cJSON_Number) {
         g_arguments->prepared_rand = prepareRand->valueint;
-    }
-
-   // check prepared_rand valid
-    if(g_arguments->prepared_rand < g_arguments->reqPerReq) {
-        infoPrint("prepared_rand(%"PRIu64") < num_of_records_per_req(%d), so set prepared_rand = num_of_records_per_req\n", 
-                   g_arguments->prepared_rand, g_arguments->reqPerReq);
-        g_arguments->prepared_rand = g_arguments->reqPerReq;
     }
 
     tools_cJSON *chineseOpt =
