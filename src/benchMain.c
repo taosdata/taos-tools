@@ -49,6 +49,15 @@ void* benchCancelHandler(void* arg) {
 }
 #endif
 
+void checkArgumentValid() {
+     // check prepared_rand valid
+    if(g_arguments->prepared_rand < g_arguments->reqPerReq) {
+        infoPrint("prepared_rand(%"PRIu64") < num_of_records_per_req(%d), so set num_of_records_per_req = prepared_rand\n", 
+                   g_arguments->prepared_rand, g_arguments->reqPerReq);
+        g_arguments->reqPerReq = g_arguments->prepared_rand;
+    }
+}
+
 int main(int argc, char* argv[]) {
     int ret = 0;
 
@@ -111,6 +120,7 @@ int main(int argc, char* argv[]) {
     }
 
     infoPrint("client version: %s\n", taos_get_client_info());
+    checkArgumentValid();
 
     if (g_arguments->test_mode == INSERT_TEST) {
         if (insertTestProcess()) {
