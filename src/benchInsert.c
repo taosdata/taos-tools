@@ -3049,14 +3049,11 @@ static int parseBufferToStmtBatch(SSuperTable* stbInfo, uint64_t *bind_ts_array)
 
     for (int c = 0; c < columnCount; c++) {
         Field *col = benchArrayGet(stbInfo->cols, c);
-        char dataType = col->type;
-
-        char *is_null = benchCalloc(
-                1, sizeof(char) *g_arguments->prepared_rand, false);
+        char *is_null = benchCalloc(1, sizeof(char) * g_arguments->prepared_rand, false);
         tmfree(col->stmtData.is_null);
         col->stmtData.is_null = is_null;
 
-        initStmtData(dataType, &(col->stmtData.data), col->length);
+        initStmtData(col->type, &(col->stmtData.data), col->length);
     }
 
     return initStmtDataValue(stbInfo, NULL, bind_ts_array);
@@ -3524,13 +3521,16 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     goto END;
                 }
 
-                int32_t max_cnt = g_arguments->prepared_rand > g_arguments->reqPerReq ? g_arguments->prepared_rand : g_arguments->reqPerReq;
-
                 // malloc bind
                 pThreadInfo->bind_ts       = benchCalloc(1, sizeof(int64_t), true);
-                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*max_cnt, true);
+                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*g_arguments->reqPerReq, true);
                 pThreadInfo->bindParams    = benchCalloc(1, sizeof(TAOS_MULTI_BIND)*(stbInfo->cols->size + 1), true);
                 pThreadInfo->is_null       = benchCalloc(1, g_arguments->reqPerReq, true);
+                // have ts columns, so size + 1
+                pThreadInfo->lengths       = benchCalloc(stbInfo->cols->size + 1, sizeof(int32_t*), true);
+                for(int32_t c = 0; c <= stbInfo->cols->size; c++) {
+                    pThreadInfo->lengths[c] = benchCalloc(g_arguments->reqPerReq, sizeof(int32_t), true);
+                }
                 
                 parseBufferToStmtBatch(stbInfo, pThreadInfo->bind_ts_array);
                 for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
@@ -3834,15 +3834,19 @@ int32_t exitInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
             case STMT_IFACE:
                 taos_stmt_close(pThreadInfo->conn->stmt);
 
-                // free length
-                for (int c = 0; c < stbInfo->cols->size + 1; c++) {
-                    TAOS_MULTI_BIND *param = (TAOS_MULTI_BIND *)(pThreadInfo->bindParams + sizeof(TAOS_MULTI_BIND) * c);
-                    tmfree(param->length);
-                }
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
                 tmfree(pThreadInfo->bindParams);
                 tmfree(pThreadInfo->is_null);
+
+                // free lengths
+                if(pThreadInfo->lengths) {
+                    for(int c = 0; c <= stbInfo->cols->size; c++) {
+                        tmfree(pThreadInfo->lengths[c]);
+                    }
+                    free(pThreadInfo->lengths);
+                    pThreadInfo->lengths = NULL;
+                }
                 break;
 
             case TAOSC_IFACE:

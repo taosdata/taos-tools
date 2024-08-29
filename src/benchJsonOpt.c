@@ -891,12 +891,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 superTable->iface = REST_IFACE;
             } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
                 superTable->iface = STMT_IFACE;
-                //if (g_arguments->reqPerReq > INT16_MAX) {
-                //    g_arguments->reqPerReq = INT16_MAX;
-                //}
-                if (g_arguments->reqPerReq > g_arguments->prepared_rand) {
-                    g_arguments->prepared_rand = g_arguments->reqPerReq;
-                }
             } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
                     errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
