@@ -198,8 +198,8 @@ static void *specifiedTableQuery(void *sarg) {
                         - (et - st)));  // ms
         }
         if (g_queryInfo.reset_query_cache) {
-            if (queryDbExecCall(pThreadInfo->conn,
-                                "RESET QUERY CACHE")) {
+            // execute sql 
+            if (selectAndGetResult(pThreadInfo, "RESET QUERY CACHE")) {
                 errorPrint("%s() LN%d, reset query cache failed\n",
                            __func__, __LINE__);
                 return NULL;
