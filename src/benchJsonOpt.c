@@ -767,13 +767,13 @@ void parseStringToIntArray(char *str, BArray *arr) {
 // get interface name
 uint16_t getInterface(char *name) {
     uint16_t iface = TAOSC_IFACE;
-    if (0 == name, "rest") {
+    if (0 == strcasecmp(name, "rest")) {
         iface = REST_IFACE;
-    } else if (0 == name, "stmt") {
+    } else if (0 == strcasecmp(name, "stmt")) {
         iface = STMT_IFACE;
-    } else if (0 == name, "sml") {
+    } else if (0 == strcasecmp(name, "sml")) {
         iface = SML_IFACE;
-    } else if (0 == name, "sml-rest") {
+    } else if (0 == strcasecmp(name, "sml-rest")) {
         iface = SML_REST_IFACE;
     }
 
