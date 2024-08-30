@@ -809,7 +809,7 @@ int createDatabaseTaosc(SDataBase* database) {
 
 int createDatabase(SDataBase* database) {
     int ret = 0;
-    if (REST_IFACE == g_arguments->iface) {
+    if (REST_IFACE == g_arguments->iface || SML_REST_IFACE == g_arguments->iface) {
         ret = createDatabaseRest(database);
     } else {
         ret = createDatabaseTaosc(database);
