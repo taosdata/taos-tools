@@ -914,7 +914,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
-            } else if (superTable->iface = SML_REST_IFACE) {
+            } else if (superTable->iface == SML_REST_IFACE) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
                     errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);
