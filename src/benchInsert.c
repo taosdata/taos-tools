@@ -629,6 +629,7 @@ int createDatabaseRest(SDataBase* database) {
         return -1;
     }
 
+    // drop exist database
     snprintf(command, SHORT_1K_SQL_BUFF_LEN,
             g_arguments->escape_character
                 ? "DROP DATABASE IF EXISTS `%s`;"
@@ -645,38 +646,40 @@ int createDatabaseRest(SDataBase* database) {
                         NULL);
     if (code != 0) {
         errorPrint("Failed to drop database %s\n", database->dbName);
-    } else {
-        int remainVnodes = INT_MAX;
-        geneDbCreateCmd(database, command, remainVnodes);
+    }
+
+    // create database
+    int remainVnodes = INT_MAX;
+    geneDbCreateCmd(database, command, remainVnodes);
+    code = postProceSql(command,
+                        database->dbName,
+                        database->precision,
+                        REST_IFACE,
+                        0,
+                        g_arguments->port,
+                        false,
+                        sockfd,
+                        NULL);
+    int32_t trying = g_arguments->keep_trying;
+    while (code && trying) {
+        infoPrint("will sleep %"PRIu32" milliseconds then "
+                "re-create database %s\n",
+                g_arguments->trying_interval, database->dbName);
+        toolsMsleep(g_arguments->trying_interval);
         code = postProceSql(command,
-                            database->dbName,
-                            database->precision,
-                            REST_IFACE,
-                            0,
-                            g_arguments->port,
-                            false,
-                            sockfd,
-                            NULL);
-        int32_t trying = g_arguments->keep_trying;
-        while (code && trying) {
-            infoPrint("will sleep %"PRIu32" milliseconds then "
-                  "re-create database %s\n",
-                  g_arguments->trying_interval, database->dbName);
-            toolsMsleep(g_arguments->trying_interval);
-            code = postProceSql(command,
-                            database->dbName,
-                            database->precision,
-                            REST_IFACE,
-                            0,
-                            g_arguments->port,
-                            false,
-                            sockfd,
-                            NULL);
-            if (trying != -1) {
-                trying--;
-            }
+                        database->dbName,
+                        database->precision,
+                        REST_IFACE,
+                        0,
+                        g_arguments->port,
+                        false,
+                        sockfd,
+                        NULL);
+        if (trying != -1) {
+            trying--;
         }
     }
+
     destroySockFd(sockfd);
     return code;
 }
@@ -3549,6 +3552,7 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     goto END;
                 }
                 pThreadInfo->sockfd = sockfd;
+                break;
             }
             // sml
             case SML_IFACE: {
