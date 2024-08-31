@@ -3552,18 +3552,19 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     goto END;
                 }
                 pThreadInfo->sockfd = sockfd;
-                break;
             }
             // sml
             case SML_IFACE: {
-                pThreadInfo->conn = initBenchConn();
-                if (pThreadInfo->conn == NULL) {
-                    errorPrint("%s() init connection failed\n", __func__);
-                    goto END;
-                }
-                if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                    errorPrint("taos select database(%s) failed\n", database->dbName);
-                    goto END;
+                if (stbInfo->iface == SML_IFACE) {
+                    pThreadInfo->conn = initBenchConn();
+                    if (pThreadInfo->conn == NULL) {
+                        errorPrint("%s() init connection failed\n", __func__);
+                        goto END;
+                    }
+                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                        errorPrint("taos select database(%s) failed\n", database->dbName);
+                        goto END;
+                    }
                 }
                 pThreadInfo->max_sql_len = stbInfo->lenOfCols + stbInfo->lenOfTags;
                 if (stbInfo->iface == SML_REST_IFACE) {
@@ -4146,10 +4147,29 @@ END_STREAM:
     return code;
 }
 
+void changeGlobalIface() {
+    if (g_arguments->databases->size == 1 &&
+        g_arguments->databases->superTbls->size == 1 ) {
+            SDataBase *db = benchArrayGet(g_arguments->databases, 0);
+            if (db) {
+                SSuperTable *stb = benchArrayGet(db->superTbls, 0);
+                if (stb) {
+                    if(g_arguments->iface != stb->iface) {
+                        infoPrint("only 1 db 1 super table, g_arguments->iface(%d) replace with stb->iface(%d) \n", g_arguments->iface, stb->iface);
+                        g_arguments->iface = stb->iface;
+                    }
+                }
+            }
+    }
+}
+
 int insertTestProcess() {
     prompt(0);
 
     encodeAuthBase64();
+    // if only one stable, global iface same with stable->iface
+    changeGlobalIface();
+
     //loop create database 
     for (int i = 0; i < g_arguments->databases->size; i++) {
         if (REST_IFACE == g_arguments->iface) {

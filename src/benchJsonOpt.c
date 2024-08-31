@@ -1477,6 +1477,10 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
             warnPrint("command line already pass port is %d, json config port(%d) had been ignored.\n", g_arguments->port, (uint16_t)port->valueint);
         } else {
             g_arguments->port = (uint16_t)port->valueint;
+            if(g_arguments->port != DEFAULT_PORT) {
+                infoPrint("json file config special port %d .\n", g_arguments->port);
+                g_arguments->port_inputted = true;
+            }
         }
     }
 
