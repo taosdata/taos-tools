@@ -629,6 +629,7 @@ int createDatabaseRest(SDataBase* database) {
         return -1;
     }
 
+    // drop exist database
     snprintf(command, SHORT_1K_SQL_BUFF_LEN,
             g_arguments->escape_character
                 ? "DROP DATABASE IF EXISTS `%s`;"
@@ -645,38 +646,40 @@ int createDatabaseRest(SDataBase* database) {
                         NULL);
     if (code != 0) {
         errorPrint("Failed to drop database %s\n", database->dbName);
-    } else {
-        int remainVnodes = INT_MAX;
-        geneDbCreateCmd(database, command, remainVnodes);
+    }
+
+    // create database
+    int remainVnodes = INT_MAX;
+    geneDbCreateCmd(database, command, remainVnodes);
+    code = postProceSql(command,
+                        database->dbName,
+                        database->precision,
+                        REST_IFACE,
+                        0,
+                        g_arguments->port,
+                        false,
+                        sockfd,
+                        NULL);
+    int32_t trying = g_arguments->keep_trying;
+    while (code && trying) {
+        infoPrint("will sleep %"PRIu32" milliseconds then "
+                "re-create database %s\n",
+                g_arguments->trying_interval, database->dbName);
+        toolsMsleep(g_arguments->trying_interval);
         code = postProceSql(command,
-                            database->dbName,
-                            database->precision,
-                            REST_IFACE,
-                            0,
-                            g_arguments->port,
-                            false,
-                            sockfd,
-                            NULL);
-        int32_t trying = g_arguments->keep_trying;
-        while (code && trying) {
-            infoPrint("will sleep %"PRIu32" milliseconds then "
-                  "re-create database %s\n",
-                  g_arguments->trying_interval, database->dbName);
-            toolsMsleep(g_arguments->trying_interval);
-            code = postProceSql(command,
-                            database->dbName,
-                            database->precision,
-                            REST_IFACE,
-                            0,
-                            g_arguments->port,
-                            false,
-                            sockfd,
-                            NULL);
-            if (trying != -1) {
-                trying--;
-            }
+                        database->dbName,
+                        database->precision,
+                        REST_IFACE,
+                        0,
+                        g_arguments->port,
+                        false,
+                        sockfd,
+                        NULL);
+        if (trying != -1) {
+            trying--;
         }
     }
+
     destroySockFd(sockfd);
     return code;
 }
@@ -809,7 +812,7 @@ int createDatabaseTaosc(SDataBase* database) {
 
 int createDatabase(SDataBase* database) {
     int ret = 0;
-    if (REST_IFACE == g_arguments->iface) {
+    if (REST_IFACE == g_arguments->iface || SML_REST_IFACE == g_arguments->iface) {
         ret = createDatabaseRest(database);
     } else {
         ret = createDatabaseTaosc(database);
@@ -3552,14 +3555,16 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
             }
             // sml
             case SML_IFACE: {
-                pThreadInfo->conn = initBenchConn();
-                if (pThreadInfo->conn == NULL) {
-                    errorPrint("%s() init connection failed\n", __func__);
-                    goto END;
-                }
-                if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
-                    errorPrint("taos select database(%s) failed\n", database->dbName);
-                    goto END;
+                if (stbInfo->iface == SML_IFACE) {
+                    pThreadInfo->conn = initBenchConn();
+                    if (pThreadInfo->conn == NULL) {
+                        errorPrint("%s() init connection failed\n", __func__);
+                        goto END;
+                    }
+                    if (taos_select_db(pThreadInfo->conn->taos, database->dbName)) {
+                        errorPrint("taos select database(%s) failed\n", database->dbName);
+                        goto END;
+                    }
                 }
                 pThreadInfo->max_sql_len = stbInfo->lenOfCols + stbInfo->lenOfTags;
                 if (stbInfo->iface == SML_REST_IFACE) {
@@ -4142,10 +4147,28 @@ END_STREAM:
     return code;
 }
 
+void changeGlobalIface() {
+    if (g_arguments->databases->size == 1) {
+            SDataBase *db = benchArrayGet(g_arguments->databases, 0);
+            if (db && db->superTbls->size == 1) {
+                SSuperTable *stb = benchArrayGet(db->superTbls, 0);
+                if (stb) {
+                    if(g_arguments->iface != stb->iface) {
+                        infoPrint("only 1 db 1 super table, g_arguments->iface(%d) replace with stb->iface(%d) \n", g_arguments->iface, stb->iface);
+                        g_arguments->iface = stb->iface;
+                    }
+                }
+            }
+    }
+}
+
 int insertTestProcess() {
     prompt(0);
 
     encodeAuthBase64();
+    // if only one stable, global iface same with stable->iface
+    changeGlobalIface();
+
     //loop create database 
     for (int i = 0; i < g_arguments->databases->size; i++) {
         if (REST_IFACE == g_arguments->iface) {

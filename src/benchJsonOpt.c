@@ -764,6 +764,22 @@ void parseStringToIntArray(char *str, BArray *arr) {
     }
 }
 
+// get interface name
+uint16_t getInterface(char *name) {
+    uint16_t iface = TAOSC_IFACE;
+    if (0 == strcasecmp(name, "rest")) {
+        iface = REST_IFACE;
+    } else if (0 == strcasecmp(name, "stmt")) {
+        iface = STMT_IFACE;
+    } else if (0 == strcasecmp(name, "sml")) {
+        iface = SML_IFACE;
+    } else if (0 == strcasecmp(name, "sml-rest")) {
+        iface = SML_REST_IFACE;
+    }
+
+    return iface;
+}
+
 static int getStableInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database = benchArrayGet(g_arguments->databases, index);
     tools_cJSON *dbinfo = tools_cJSON_GetArrayItem(dbinfos, index);
@@ -887,24 +903,23 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         tools_cJSON *stbIface =
             tools_cJSON_GetObjectItem(stbInfo, "insert_mode");
         if (tools_cJSON_IsString(stbIface)) {
-            if (0 == strcasecmp(stbIface->valuestring, "rest")) {
-                superTable->iface = REST_IFACE;
-            } else if (0 == strcasecmp(stbIface->valuestring, "stmt")) {
-                superTable->iface = STMT_IFACE;
-            } else if (0 == strcasecmp(stbIface->valuestring, "sml")) {
+            superTable->iface = getInterface(stbIface->valuestring);
+            if (superTable->iface == STMT_IFACE) {
+                if (g_arguments->reqPerReq > g_arguments->prepared_rand) {
+                    g_arguments->prepared_rand = g_arguments->reqPerReq;
+                }
+            } else if (superTable->iface == SML_IFACE) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
                     errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
-                superTable->iface = SML_IFACE;
-            } else if (0 == strcasecmp(stbIface->valuestring, "sml-rest")) {
+            } else if (superTable->iface == SML_REST_IFACE) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
                     errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
-                superTable->iface = SML_REST_IFACE;
                 if (0 != convertServAddr(REST_IFACE,
                                          false,
                                          1)) {
@@ -1462,6 +1477,10 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
             warnPrint("command line already pass port is %d, json config port(%d) had been ignored.\n", g_arguments->port, (uint16_t)port->valueint);
         } else {
             g_arguments->port = (uint16_t)port->valueint;
+            if(g_arguments->port != DEFAULT_PORT) {
+                infoPrint("json file config special port %d .\n", g_arguments->port);
+                g_arguments->port_inputted = true;
+            }
         }
     }
 
@@ -1656,9 +1675,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     tools_cJSON *insert_mode = tools_cJSON_GetObjectItem(json, "insert_mode");
     if (insert_mode && insert_mode->type == tools_cJSON_String
             && insert_mode->valuestring != NULL) {
-        if (0 == strcasecmp(insert_mode->valuestring, "rest")) {
-            g_arguments->iface = REST_IFACE;
-        }
+        g_arguments->iface = getInterface(insert_mode->valuestring);
     }
 
     tools_cJSON *dbinfos = tools_cJSON_GetObjectItem(json, "databases");
