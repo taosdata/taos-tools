@@ -4148,10 +4148,9 @@ END_STREAM:
 }
 
 void changeGlobalIface() {
-    if (g_arguments->databases->size == 1 &&
-        g_arguments->databases->superTbls->size == 1 ) {
+    if (g_arguments->databases->size == 1) {
             SDataBase *db = benchArrayGet(g_arguments->databases, 0);
-            if (db) {
+            if (db && db->superTbls->size == 1) {
                 SSuperTable *stb = benchArrayGet(db->superTbls, 0);
                 if (stb) {
                     if(g_arguments->iface != stb->iface) {
