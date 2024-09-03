@@ -40,6 +40,7 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                 threadID, dbName);
             ret = -2;
         } else {
+            int64_t rows  = 0;
             TAOS_RES *res = taos_query(taos, command);
             int code = taos_errno(res);
             if (res == NULL || code) {
@@ -55,10 +56,11 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                 }
             } else {
                 //if (strlen(pThreadInfo->filePath) > 0) {
-                    fetchResult(res, pThreadInfo);
+                    rows = fetchResult(res, pThreadInfo);
                 //}
             }
             taos_free_result(res);
+            debugPrint("query sql:%s rows:%"PRId64"\n", command, rows);
         }
     }
     return ret;
@@ -428,9 +430,9 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
     // check invaid
     if(nSqlCount == 0 || nConcurrent == 0 ) {
         if(nSqlCount == 0)
-           infoPrint(" query sql count is %" PRIu64 ".  must set query sqls. \n", nSqlCount);
+           warnPrint("specified table query sql count is %" PRIu64 ".\n", nSqlCount);
         if(nConcurrent == 0)
-           infoPrint(" concurrent is %d , specified_table_query->concurrent must not zero. \n", nConcurrent);
+           warnPrint("concurrent is %d , specified_table_query->concurrent is zero. \n", nConcurrent);
         return 0;
     }
 

@@ -102,12 +102,19 @@ void resetAfterAnsiEscape(void) {
 FORCE_INLINE unsigned int taosRandom() { return (unsigned int)rand(); }
 #endif
 
+void swapItem(char** names, int32_t i, int32_t j ) {
+    debugPrint("swap item i=%d (%s) j=%d (%s)\n", i, names[i], j, names[j]);
+    char * p = names[i];
+    names[i] = names[j];
+    names[j] = p;
+}
+
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         char ** childTblNameOfSuperTbl,
         int64_t childTblCountOfSuperTbl) {
     char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
-             "select tbname from %s.`%s` limit %" PRId64 "",
+             "select distinct tbname from %s.`%s` limit %" PRId64 "",
             dbName, stbName, childTblCountOfSuperTbl);
     TAOS_RES *res = taos_query(taos, cmd);
     int32_t   code = taos_errno(res);
@@ -135,6 +142,17 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         count++;
     }
     taos_free_result(res);
+
+    // random swap order
+    if (count < 4) {
+        return 0;
+    }
+
+    int32_t swapCnt = count/2;
+    for(int32_t i = 0; i < swapCnt; i++ ) {
+        int32_t j = swapCnt + RD(swapCnt);
+        swapItem(childTblNameOfSuperTbl, i, j);
+    }
     return 0;
 }
 
@@ -796,13 +814,15 @@ free_of_post:
 }
 
 // fetch result fo file or nothing
-void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
+int64_t fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     TAOS_ROW    row        = NULL;
     int         num_fields = 0;
     int64_t     totalLen   = 0;
     TAOS_FIELD *fields     = 0;
+    int64_t     rows       = 0;
     char       *databuf    = NULL;
     bool        toFile     = strlen(pThreadInfo->filePath) > 0;
+    
 
     if(toFile) {
         num_fields = taos_field_count(res);
@@ -824,10 +844,11 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
             char temp[HEAD_BUFF_LEN] = {0};
             int  len = taos_print_row(temp, row, fields, num_fields);
             len += snprintf(temp + len, HEAD_BUFF_LEN - len, "\n");
-            debugPrint("query result:%s\n", temp);
+            //debugPrint("query result:%s\n", temp);
             memcpy(databuf + totalLen, temp, len);
             totalLen += len;
         }
+        rows ++;
         //if not toFile , only loop call taos_fetch_row
     }
 
@@ -836,6 +857,7 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         appendResultBufToFile(databuf, pThreadInfo->filePath);
         free(databuf);
     }
+    return rows;
 }
 
 char *convertDatatypeToString(int type) {
