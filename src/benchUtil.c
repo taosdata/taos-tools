@@ -103,7 +103,7 @@ FORCE_INLINE unsigned int taosRandom() { return (unsigned int)rand(); }
 #endif
 
 void swapItem(char** names, int32_t i, int32_t j ) {
-    debugPrint("swap item i=%d (%s) j=%d (%s)\n", i, j, names[i], names[j]);
+    debugPrint("swap item i=%d (%s) j=%d (%s)\n", i, names[i], j, names[j]);
     char * p = names[i];
     names[i] = names[j];
     names[j] = p;
@@ -149,7 +149,7 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
     }
 
     for(int32_t i = 0; i < count/2; i++ ) {
-        int32_t j = i + taosRandom(count/2);
+        int32_t j = i + RD(count/2);
         swapItem(childTblNameOfSuperTbl, i, j);
     }
     return 0;
