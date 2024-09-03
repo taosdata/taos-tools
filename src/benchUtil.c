@@ -102,12 +102,19 @@ void resetAfterAnsiEscape(void) {
 FORCE_INLINE unsigned int taosRandom() { return (unsigned int)rand(); }
 #endif
 
+void swapItem(char** names, int32_t i, int32_t j ) {
+    debugPrint("swap item i=%d (%s) j=%d (%s)\n", i, j, names[i], names[j]);
+    char * p = names[i];
+    names[i] = names[j];
+    names[j] = p;
+}
+
 int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         char ** childTblNameOfSuperTbl,
         int64_t childTblCountOfSuperTbl) {
     char cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
-             "select tbname from %s.`%s` limit %" PRId64 "",
+             "select distinct tbname from %s.`%s` limit %" PRId64 "",
             dbName, stbName, childTblCountOfSuperTbl);
     TAOS_RES *res = taos_query(taos, cmd);
     int32_t   code = taos_errno(res);
@@ -135,6 +142,16 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         count++;
     }
     taos_free_result(res);
+
+    // random swap order
+    if (count < 4) {
+        return 0;
+    }
+
+    for(int32_t i = 0; i < count/2; i++ ) {
+        int32_t j = i + taosRandom(count/2);
+        swapItem(childTblNameOfSuperTbl, i, j);
+    }
     return 0;
 }
 
