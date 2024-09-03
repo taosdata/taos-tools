@@ -814,7 +814,7 @@ free_of_post:
 }
 
 // fetch result fo file or nothing
-void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
+int64_t fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     TAOS_ROW    row        = NULL;
     int         num_fields = 0;
     int64_t     totalLen   = 0;
@@ -851,13 +851,13 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
         rows ++;
         //if not toFile , only loop call taos_fetch_row
     }
-    debugPrint("query finished. rows :%"PRId64"\n", rows);
 
     // end
     if (toFile) {
         appendResultBufToFile(databuf, pThreadInfo->filePath);
         free(databuf);
     }
+    return rows;
 }
 
 char *convertDatatypeToString(int type) {

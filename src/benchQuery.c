@@ -40,7 +40,7 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                 threadID, dbName);
             ret = -2;
         } else {
-            debugPrint("query sql:%s\n", command);
+            int64_t rows  = 0;
             TAOS_RES *res = taos_query(taos, command);
             int code = taos_errno(res);
             if (res == NULL || code) {
@@ -56,10 +56,11 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                 }
             } else {
                 //if (strlen(pThreadInfo->filePath) > 0) {
-                    fetchResult(res, pThreadInfo);
+                    rows = fetchResult(res, pThreadInfo);
                 //}
             }
             taos_free_result(res);
+            debugPrint("query sql:%s rows:%"PRId64"\n", command, rows);
         }
     }
     return ret;
