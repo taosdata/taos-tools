@@ -430,9 +430,9 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
     // check invaid
     if(nSqlCount == 0 || nConcurrent == 0 ) {
         if(nSqlCount == 0)
-           warnPrint(" specified table query sql count is %" PRIu64 ".\n", nSqlCount);
+           warnPrint("specified table query sql count is %" PRIu64 ".\n", nSqlCount);
         if(nConcurrent == 0)
-           warnPrint(" concurrent is %d , specified_table_query->concurrent is zero. \n", nConcurrent);
+           warnPrint("concurrent is %d , specified_table_query->concurrent is zero. \n", nConcurrent);
         return 0;
     }
 
