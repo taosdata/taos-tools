@@ -819,8 +819,10 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
     int         num_fields = 0;
     int64_t     totalLen   = 0;
     TAOS_FIELD *fields     = 0;
+    int64_t     rows       = 0;
     char       *databuf    = NULL;
     bool        toFile     = strlen(pThreadInfo->filePath) > 0;
+    
 
     if(toFile) {
         num_fields = taos_field_count(res);
@@ -842,12 +844,14 @@ void fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
             char temp[HEAD_BUFF_LEN] = {0};
             int  len = taos_print_row(temp, row, fields, num_fields);
             len += snprintf(temp + len, HEAD_BUFF_LEN - len, "\n");
-            debugPrint("query result:%s\n", temp);
+            //debugPrint("query result:%s\n", temp);
             memcpy(databuf + totalLen, temp, len);
             totalLen += len;
         }
+        rows ++;
         //if not toFile , only loop call taos_fetch_row
     }
+    debugPrint("query finished. rows :%"PRId64"\n", rows);
 
     // end
     if (toFile) {

@@ -40,6 +40,7 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
                 threadID, dbName);
             ret = -2;
         } else {
+            debugPrint("query sql:%s\n", command);
             TAOS_RES *res = taos_query(taos, command);
             int code = taos_errno(res);
             if (res == NULL || code) {
