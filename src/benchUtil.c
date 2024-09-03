@@ -148,8 +148,9 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
         return 0;
     }
 
-    for(int32_t i = 0; i < count/2; i++ ) {
-        int32_t j = i + RD(count/2);
+    int32_t swapCnt = count/2;
+    for(int32_t i = 0; i < swapCnt; i++ ) {
+        int32_t j = swapCnt + RD(swapCnt);
         swapItem(childTblNameOfSuperTbl, i, j);
     }
     return 0;
