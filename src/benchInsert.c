@@ -1772,7 +1772,8 @@ static void *syncWriteInterlace(void *sarg) {
                         // timestamp         
                         char time_string[BIGINT_BUFF_LEN];
                         if(stbInfo->useNow && stbInfo->interlaceRows == 1 && !fillBack) {
-                            snprintf(time_string, BIGINT_BUFF_LEN, "now");
+                            int64_t now = toolsGetTimestamp(database->precision);
+                            snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"", now);
                         } else {
                             snprintf(time_string, BIGINT_BUFF_LEN, "%"PRId64"",
                                     disorderTs?disorderTs:childTbl->ts);
