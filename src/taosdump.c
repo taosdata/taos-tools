@@ -1389,7 +1389,7 @@ TAOS *taosConnect(const char *dbName) {
 
 #ifdef WEBSOCKET
 WS_TAOS *wsConnect() {
-    WS_TAOS *ws_taos = ws_connect_with_dsn(g_args.dsn);
+    WS_TAOS *ws_taos = ws_connect(g_args.dsn);
     if (NULL == ws_taos) {
         char maskedDsn[256] = "\0";
         memcpy(maskedDsn, g_args.dsn, 20);
@@ -1483,9 +1483,9 @@ static int getTableRecordInfoImplWS(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        code = ws_fetch_block(ws_res, &data, &rows);
+        code = ws_fetch_raw_block(ws_res, &data, &rows);
         if (code) {
-            errorPrint("%s() LN%d, ws_fetch_block() error. reason: %s!\n",
+            errorPrint("%s() LN%d, ws_fetch_raw_block() error. reason: %s!\n",
                     __func__, __LINE__,
                     ws_errstr(ws_res));
             ws_free_result(ws_res);
@@ -1822,9 +1822,9 @@ static int getDbCountWS(WS_RES *ws_res) {
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        code = ws_fetch_block(ws_res, &data, &rows);
+        code = ws_fetch_raw_block(ws_res, &data, &rows);
         if (code) {
-            errorPrint("%s() LN%d, ws_fetch_block() error. reason: %s!\n",
+            errorPrint("%s() LN%d, ws_fetch_raw_block() error. reason: %s!\n",
                     __func__, __LINE__,
                     ws_errstr(ws_res));
             return 0;
@@ -2102,9 +2102,9 @@ static int64_t getNtbCountOfStbWS(char* dbName, const char* stbName) {
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -2607,10 +2607,10 @@ static int getTableTagValueWSV3(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (ws_code) {
-            errorPrint("%s() LN%d, ws_fetch_block() error, "
+            errorPrint("%s() LN%d, ws_fetch_raw_block() error, "
                     "code: 0x%08x, command: %s, reason: %s\n",
                     __func__, __LINE__, ws_code, command, ws_errstr(ws_res));
         }
@@ -2695,10 +2695,10 @@ static int getTableTagValueWSV2(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (ws_code) {
-            errorPrint("%s() LN%d, ws_fetch_block() error, "
+            errorPrint("%s() LN%d, ws_fetch_raw_block() error, "
                     "code: 0x%08x, sqlstr: %s, reason: %s\n",
                     __func__, __LINE__, ws_code, sqlstr, ws_errstr(ws_res));
         }
@@ -2813,9 +2813,9 @@ static int getTableDesWS(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -4562,9 +4562,9 @@ int64_t queryDbForDumpOutCountWS(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -5056,10 +5056,10 @@ static int64_t writeResultToAvroWS(
         while (true) {
             int rows = 0;
             const void *data = NULL;
-            int32_t ws_code = ws_fetch_block(ws_res, &data, &rows);
+            int32_t ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
             if (ws_code) {
-                errorPrint("%s() LN%d, ws_fetch_blocK() error, ws_taos: %p, "
+                errorPrint("%s() LN%d, ws_fetch_raw_block() error, ws_taos: %p, "
                         "code: 0x%08x, reason: %s\n",
                         __func__, __LINE__, ws_taos,
                         ws_errno(ws_res), ws_errstr(ws_res));
@@ -5067,7 +5067,7 @@ static int64_t writeResultToAvroWS(
             }
 
             if (0 == rows) {
-                debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                         "ws_taos: %p, code: 0x%08x, reason:%s\n",
                         __func__, __LINE__,
                         ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -8055,17 +8055,17 @@ static int64_t writeResultDebugWS(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        int32_t ws_code = ws_fetch_block(ws_res, &data, &rows);
+        int32_t ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (ws_code) {
-            errorPrint("%s() LN%d, ws_fetch_blocK() error!"
+            errorPrint("%s() LN%d, ws_fetch_raw_block() error!"
                     " code: 0x%08x, reason: %s\n",
                     __func__, __LINE__,
                     ws_code, ws_errstr(ws_res));
             break;
         }
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     ws_errno(ws_res), ws_errstr(ws_res));
@@ -9375,10 +9375,10 @@ static int64_t fillTbNameArrWS(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -9965,10 +9965,10 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
         // get block
         if(*idx >= *cnt || *cnt == 0) {
             const void *data = NULL;
-            int ws_code = ws_fetch_block(ws_res, &data, cnt);
+            int ws_code = ws_fetch_raw_block(ws_res, &data, cnt);
             if (ws_code !=0 ) {
                 // read to end
-                errorPrint("read next ws_fetch_block failed, err code=%d  idx=%d index=%d\n", ws_code, *idx, index);
+                errorPrint("read next ws_fetch_raw_block failed, err code=%d  idx=%d index=%d\n", ws_code, *idx, index);
                 return -1;
             }
 
@@ -10498,10 +10498,10 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -11713,10 +11713,10 @@ static int64_t dumpStbAndChildTbOfDbWS(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -11820,10 +11820,10 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -12641,10 +12641,10 @@ static int fillDbExtraInfoV3WS(
         while (true) {
             int rows = 0;
             const void *data = NULL;
-            ws_code = ws_fetch_block(ws_res, &data, &rows);
+            ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
             if (0 == rows) {
-                debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+                debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                         "ws_taos: %p, code: 0x%08x, reason:%s\n",
                         __func__, __LINE__,
                         ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
@@ -12714,10 +12714,10 @@ static int fillDbInfoWS(void *taos) {
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        code = ws_fetch_block(ws_res, &data, &rows);
+        code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (0 == rows) {
-            debugPrint("%s() LN%d, No more data from ws_fetch_block(), "
+            debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__,
                     taos, ws_errno(ws_res), ws_errstr(ws_res));
