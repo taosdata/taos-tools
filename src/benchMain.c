@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
     }
 #ifdef WEBSOCKET
     if (g_arguments->debug_print) {
-        ws_enable_log();
+        ws_enable_log("debug");
     }
 
     if (g_arguments->dsn != NULL) {
