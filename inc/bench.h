@@ -1095,7 +1095,7 @@ int     convertStringToDatatype(char *type, int length);
 unsigned int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
-void    fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
+int64_t fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     getServerVersionRest(int16_t rest_port);
