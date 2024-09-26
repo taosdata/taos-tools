@@ -1083,6 +1083,10 @@ int compare(const void *a, const void *b) {
     return *(int64_t *)a - *(int64_t *)b;
 }
 
+//
+// --------------------  BArray operator -------------------
+//
+
 BArray* benchArrayInit(size_t size, size_t elemSize) {
     assert(elemSize > 0);
 
@@ -1158,6 +1162,36 @@ void* benchArrayGet(const BArray* pArray, size_t index) {
     }
     return BARRAY_GET_ELEM(pArray, index);
 }
+
+static bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type) {
+    if (pArray == NULL || field_name == NULL) {
+        return false;
+    }
+    for (int i = 0; i < pArray->size; i++) {
+        Field *field = benchArrayGet(pArray, i);
+        if (strlen(field->name) == name_len && strncmp(field->name, field_name, name_len) == 0) {
+            if (field->type == field_type) {
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+//
+// malloc a new and copy data from array
+// return value must call benchArrayDestroy to free
+//
+BArray * copyBArray(BArray *pArray) {
+    BArray * pNew = benchArrayInit(pArray->size, pArray->elemSize);
+    memcpy(pNew->pData, pArray->pData, pArray->size * pArray->elemSize);
+    return pNew;
+}
+
+//
+//  ---------------- others ------------------------
+//
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem) {
@@ -1304,4 +1338,57 @@ int32_t benchGetTotalMemory(int64_t *totalKB) {
   *totalKB = (int64_t)(sysconf(_SC_PHYS_PAGES) * tsPageSizeKB);
   return 0;
 #endif
+}
+
+// geneate question mark string , using insert into ... values(?,?,?...)
+// return value must call tmfree to free memory
+char* genQMark( int32_t QCnt) {
+    char * buf = benchCalloc(4, QCnt, false);
+    for (int32_t i = 0; i < QCnt; i++) {
+        strcat(buf, ",?");
+    }
+    return buf;
+}
+
+//
+//  STMT2  
+//
+
+// create
+TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt) {
+    // calc total size
+    int32_t tableSize = sizeof(char *) + sizeof(TAOS_STMT2_BIND *) + sizeof(TAOS_STMT2_BIND *) + 
+                        sizeof(TAOS_STMT2_BIND) * tagCnt + sizeof(TAOS_STMT2_BIND) * colCnt;
+    int32_t size = sizeof(TAOS_STMT2_BINDV) + tableSize * count;
+    TAOS_STMT2_BINDV *bindv = benchCalloc(1, size, false);
+
+    unsigned char *p = (unsigned char *)bindv;
+    // tbnames
+    p += sizeof(TAOS_STMT2_BINDV); // skip BINDV
+    bindv->tbnames = p;
+    // tags
+    p += sizeof(char *) * count; // skip tbnames
+    bindv->tags = p;
+    // bind_cols
+    p += sizeof(TAOS_STMT2_BIND *) * count; // skip tags
+    bindv->bind_cols = p;
+    p += sizeof(TAOS_STMT2_BIND *) * count; // skip cols
+
+    int32_t i;
+    // tags body
+    for (i = 0; i < count; i++) {
+        bindv->tags[i] = (TAOS_STMT2_BIND *)p;
+        p += sizeof(TAOS_STMT2_BIND) * tagCnt; // skip tag bodys
+    }
+    // bind_cols body
+    for (i = 0; i < count; i++) {
+        bindv->bind_cols[i] = (TAOS_STMT2_BIND*)p;
+        p += sizeof(TAOS_STMT2_BIND) * colCnt; // skip cols bodys
+    }
+   
+}
+
+// free
+void freeBindV(TAOS_STMT2_BINDV *bindv) {
+    tmfree(bindv)
 }

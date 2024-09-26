@@ -466,6 +466,13 @@ typedef unsigned __int32 uint32_t;
         }                                                                   \
     } while (0)
 
+
+#define IS_VAR_DATA_TYPE(t)                                                                                 \
+  (((t) == TSDB_DATA_TYPE_VARCHAR) || ((t) == TSDB_DATA_TYPE_VARBINARY) || ((t) == TSDB_DATA_TYPE_NCHAR) || \
+   ((t) == TSDB_DATA_TYPE_JSON) || ((t) == TSDB_DATA_TYPE_GEOMETRY))
+
+
+
 enum TEST_MODE {
     INSERT_TEST,     // 0
     QUERY_TEST,      // 1
@@ -479,6 +486,7 @@ enum enum_TAOS_INTERFACE {
     TAOSC_IFACE,
     REST_IFACE,
     STMT_IFACE,
+    STMT2_IFACE,
     SML_IFACE,
     SML_REST_IFACE,
     INTERFACE_BUT
@@ -550,6 +558,7 @@ static const int OFF_CAP     = -1;
 typedef struct SStmtData {
     void    *data;
     char    *is_null;
+    int32_t *lengths;
 } StmtData;
 
 typedef struct SChildField {
@@ -977,6 +986,7 @@ typedef struct SBenchConn {
     TAOS* taos;
     TAOS* ctaos;  // check taos
     TAOS_STMT* stmt;
+    TAOS_STMT2* stmt2;
 #ifdef WEBSOCKET
     WS_TAOS* taos_ws;
     WS_STMT* stmt_ws;
@@ -1041,6 +1051,9 @@ typedef struct SThreadInfo_S {
     char        *csql;
     int32_t     clen;  // csql current write position
     bool        stmtBind;
+
+    // stmt2
+    BArray      *tagsStmt;
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -1120,6 +1133,7 @@ void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems);
+BArray * copyBArray(BArray *pArray);
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
@@ -1185,5 +1199,10 @@ float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
 double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 int tmpStr(char *tmp, int iface, Field *field, int64_t k);
 int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
+
+char* genQMark( int32_t QCnt);
+// stmt2
+TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt);
+void freeBindV(TAOS_STMT2_BINDV *bindv)
 
 #endif   // INC_BENCH_H_
