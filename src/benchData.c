@@ -255,20 +255,13 @@ char* genPrepareSql(SSuperTable *stbInfo, char* tagData, uint64_t tableSeq) {
         n = snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
                         "INSERT INTO ? VALUES(?%s)", colQ);
     }
+    len += n;
 
     // free from genQMark
     if(stbInfo->iface == STMT2_IFACE) {
         tmfree(tagQ);
     }
     tmfree(colQ);
-
-    if (n < 0 || n >= TSDB_MAX_ALLOWED_SQL_LEN - len) {
-        errorPrint("%s() LN%d snprintf overflow\n", __func__, __LINE__);
-        tmfree(prepare);
-        return -1;
-    } else {
-        len += n;
-    }
 
     // check valid
     if (g_arguments->prepared_rand < g_arguments->reqPerReq) {
@@ -2480,17 +2473,19 @@ uint32_t bindVColsProgressive(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
         // des
         TAOS_STMT2_BIND *param = (TAOS_STMT2_BIND *)(pThreadInfo->bindParams + sizeof(TAOS_STMT2_BIND) * c);
         char data_type;
+        int32_t length = 0;
         if (c == 0) {
             data_type = TSDB_DATA_TYPE_TIMESTAMP;
-            param->buffer_length = sizeof(int64_t);
             if (stbInfo->useSampleTs) {
                 param->buffer = pThreadInfo->bind_ts_array + pos;
             } else {
                 param->buffer = pThreadInfo->bind_ts_array;
             }
+            length = sizeof(int64_t);
         } else {
             Field *col = benchArrayGet(stbInfo->cols, c - 1);
             data_type = col->type;
+            length    = col->length;
             if (childTbl->useOwnSample) {
                 ChildField *childCol = benchArrayGet(childTbl->childCols, c-1);
                 param->buffer = (char *)childCol->stmtData.data + pos * col->length;
@@ -2499,7 +2494,6 @@ uint32_t bindVColsProgressive(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
                 param->buffer = (char *)col->stmtData.data + pos * col->length;
                 param->is_null = col->stmtData.is_null + pos;
             }
-            param->buffer_length = col->length;
             debugPrint("col[%d]: type: %s, len: %d\n", c,
                     convertDatatypeToString(data_type),
                     col->length);
@@ -2508,7 +2502,7 @@ uint32_t bindVColsProgressive(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
         param->length = pThreadInfo->lengths[c];
 
         for (int b = 0; b < batch; b++) {
-            param->length[b] = (int32_t)param->buffer_length;
+            param->length[b] = length;
         }
         param->num = batch;
     }
@@ -2535,7 +2529,7 @@ uint32_t bindVColsProgressive(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
     }
 
     // set to bindv (only one table, so always is 0 index table)
-    bindv->bind_cols[tbIndex] = pThreadInfo->bindParams;
+    bindv->bind_cols[tbIndex] = (TAOS_STMT2_BIND *)pThreadInfo->bindParams;
     return batch;
 }
 
@@ -2561,7 +2555,7 @@ uint32_t bindVTags(TAOS_STMT2_BINDV *bindv, int32_t tbIndex, int32_t w, BArray* 
         }
 
         // tag always one line
-        tagsTb[i] = 1;
+        tagsTb[i].num = 1;
     }
     
     return 1;
@@ -2587,7 +2581,7 @@ uint32_t bindVColsInterlace(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
             colsTb[i].buffer_type = TSDB_DATA_TYPE_TIMESTAMP;
             colsTb[i].length      = pThreadInfo->lengths[0];
             for (int32_t j = 0; j < batch; j++) {
-                colsTb[i].length[j] = size_t(int64_t); 
+                colsTb[i].length[j] = sizeof(int64_t); 
             }
             if (stbInfo->useSampleTs) {
                 colsTb[i].buffer = pThreadInfo->bind_ts_array + pos;

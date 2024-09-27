@@ -1134,6 +1134,7 @@ void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
 void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems);
 BArray * copyBArray(BArray *pArray);
+bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type);
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
@@ -1203,6 +1204,6 @@ int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
 char* genQMark( int32_t QCnt);
 // stmt2
 TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt);
-void freeBindV(TAOS_STMT2_BINDV *bindv)
+void freeBindV(TAOS_STMT2_BINDV *bindv);
 
 #endif   // INC_BENCH_H_

@@ -1313,6 +1313,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
     int32_t      code = 0;
     uint16_t     iface = stbInfo->iface;
     int64_t      start = 0;
+    int32_t      affectRows = 0;
 
     int32_t trying = (stbInfo->keep_trying)?
         stbInfo->keep_trying:g_arguments->keep_trying;
@@ -1391,7 +1392,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
 
         case STMT2_IFACE:
             // execute 
-            code = taos_stmt2_execute(pThreadInfo->conn->stmt2);
+            code = taos_stmt2_exec(pThreadInfo->conn->stmt2, &affectRows);
             if (code) {
                 errorPrint( "failed to execute insert statement. reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt));
                 code = -1;
@@ -1678,7 +1679,7 @@ static void *syncWriteInterlace(void *sarg) {
         // only prepare once
         if (prepareStmt2(pThreadInfo->conn->stmt2, stbInfo, NULL, w)) {
             g_fail = true;
-            goto free_of_progressive;
+            goto free_of_interlace;
         }
     }    
 
@@ -1733,7 +1734,7 @@ static void *syncWriteInterlace(void *sarg) {
 
                     // generator
                     if (stbInfo->autoTblCreating && w == 0) {
-                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile, NULL)) {
                             goto free_of_interlace;
                         }
                     }
@@ -1852,7 +1853,7 @@ static void *syncWriteInterlace(void *sarg) {
 
                     // generator
                     if (stbInfo->autoTblCreating && w == 0) {
-                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile, NULL)) {
                             goto free_of_interlace;
                         }
                     }
@@ -2667,7 +2668,7 @@ void *syncWriteProgressive(void *sarg) {
         if(stmt || smart || acreate) {
             // generator
             if (w == 0) {
-                if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile, NULL)) {
                     g_fail = true;
                     goto free_of_progressive;
                 }
@@ -2768,7 +2769,7 @@ void *syncWriteProgressive(void *sarg) {
 
                     // generator
                     if (w == 0) {
-                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile)) {
+                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile, NULL)) {
                             g_fail = true;
                             goto free_of_progressive;
                         }
@@ -2970,10 +2971,6 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl, uint64
                     (stbInfo->useSampleTs?c-1:c));
             char dataType = col->type;
 
-            // set value
-            stmtData->is_null[i] = 0;
-            stmtData->lengths[i] = col->length;
-
             StmtData *stmtData;
             if (childTbl) {
                 ChildField *childCol =
@@ -2984,7 +2981,9 @@ static int initStmtDataValue(SSuperTable *stbInfo, SChildTable *childTbl, uint64
                 stmtData = &col->stmtData;
             }
 
-            
+            // set value
+            stmtData->is_null[i] = 0;
+            stmtData->lengths[i] = col->length;
 
             if (0 == strcmp(tmpStr, "NULL")) {
                 *(stmtData->is_null + i) = true;
@@ -3551,17 +3550,17 @@ TAOS_STMT* initStmt(TAOS* taos, bool single) {
         return taos_stmt_init(taos);
     }
 
-    TAOS_STMT_OPTION op;
-    memset(&op, 0, sizeof(op))
+    TAOS_STMT_OPTIONS op;
+    memset(&op, 0, sizeof(op));
     op.singleStbInsert      = single;
     op.singleTableBindOnce  = single;
-    return taos_stmt_init(taos, &op);
+    return taos_stmt_init_with_options(taos, &op);
 }
 
 // init stmt2
 TAOS_STMT2* initStmt2(TAOS* taos, bool single) {
     TAOS_STMT2_OPTION op2;
-    memset(&op2, 0, sizeof(op2))
+    memset(&op2, 0, sizeof(op2));
     op2.singleStbInsert      = single;
     op2.singleTableBindOnce  = single;
     return taos_stmt2_init(taos, &op2);
@@ -4506,7 +4505,8 @@ static int32_t stmt2BindVProgressive(
     // create bindV
     int32_t count            = 1;
     TAOS_STMT2_BINDV * bindv = createBindV(count, 0, 0);
-    TAOS_STMT2 stmt2         = pThreadInfo->conn->stmt2;
+    TAOS_STMT2 *stmt2        = pThreadInfo->conn->stmt2;
+    SSuperTable *stbInfo     = pThreadInfo->stbInfo;
 
     //
     // bind
@@ -4521,7 +4521,7 @@ static int32_t stmt2BindVProgressive(
     uint32_t batch = (g_arguments->reqPerReq > stbInfo->insertRows - i) ? (stbInfo->insertRows - i) : g_arguments->reqPerReq;
     int32_t n = 0;
     int64_t pos = i % g_arguments->prepared_rand;
-    int32_t generated = bindVColsProgressive(bindv, pThreadInfo, batch, *timestamp, pos, childTbl, pkCur, pkCnt, &n);
+    int32_t generated = bindVColsProgressive(bindv, 0, pThreadInfo, batch, *timestamp, pos, childTbl, pkCur, pkCnt, &n);
     if(generated <= 0) {
         errorPrint( "get cols data bind information failed. table: %s\n", childTbl->name);
         freeBindV(bindv);

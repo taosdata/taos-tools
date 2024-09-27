@@ -1163,7 +1163,7 @@ void* benchArrayGet(const BArray* pArray, size_t index) {
     return BARRAY_GET_ELEM(pArray, index);
 }
 
-static bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type) {
+bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type) {
     if (pArray == NULL || field_name == NULL) {
         return false;
     }
@@ -1365,13 +1365,13 @@ TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt) {
     unsigned char *p = (unsigned char *)bindv;
     // tbnames
     p += sizeof(TAOS_STMT2_BINDV); // skip BINDV
-    bindv->tbnames = p;
+    bindv->tbnames = (char **)p;
     // tags
     p += sizeof(char *) * count; // skip tbnames
-    bindv->tags = p;
+    bindv->tags = (TAOS_STMT2_BIND **)p;
     // bind_cols
     p += sizeof(TAOS_STMT2_BIND *) * count; // skip tags
-    bindv->bind_cols = p;
+    bindv->bind_cols = (TAOS_STMT2_BIND **)p;
     p += sizeof(TAOS_STMT2_BIND *) * count; // skip cols
 
     int32_t i;
@@ -1385,10 +1385,11 @@ TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt) {
         bindv->bind_cols[i] = (TAOS_STMT2_BIND*)p;
         p += sizeof(TAOS_STMT2_BIND) * colCnt; // skip cols bodys
     }
-   
+
+    return bindv;
 }
 
 // free
 void freeBindV(TAOS_STMT2_BINDV *bindv) {
-    tmfree(bindv)
+    tmfree(bindv);
 }
