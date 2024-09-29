@@ -1397,6 +1397,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
                 errorPrint( "failed to call taos_stmt2_exec(). reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt));
                 code = -1;
             }
+            debugPrint( "succ call taos_stmt2_exec() affectRows:%d\n", affectRows);
             break;
 
         case SML_IFACE:
@@ -4529,6 +4530,7 @@ static int32_t stmt2BindVProgressive(
         freeBindV(bindv);
         return -1;
     }
+    *timestamp += n * stbInfo->timestamp_step;
 
     // do bindv
     int64_t start = toolsGetTimestampUs();
@@ -4538,8 +4540,8 @@ static int32_t stmt2BindVProgressive(
         freeBindV(bindv);
         return -1;
     }
-    debugPrint("succ to call taos_stmt2_bind_param() progressive mode. table=%s batch=%d pos=%" PRId64 " generated=%d\n",
-                childTbl->name, batch, pos, generated);
+    debugPrint("succ to call taos_stmt2_bind_param() progressive mode. table=%s batch=%d pos=%" PRId64 " ts=%" PRId64 " generated=%d\n",
+                childTbl->name, batch, pos, *timestamp, generated);
     *delay1 = toolsGetTimestampUs() - start;
     // free
     freeBindV(bindv);
