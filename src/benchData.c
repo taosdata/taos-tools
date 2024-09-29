@@ -294,6 +294,7 @@ int prepareStmt2(TAOS_STMT2 *stmt2, SSuperTable *stbInfo, char* tagData, uint64_
         errorPrint("taos_stmt2_prepare(%s) failed. errstr=%s\n", prepare, taos_stmt2_error(stmt2));
         return -1;
     }
+    debugPrint("succ call taos_stmt2_prepare. sql=%s\n", prepare);
     tmfree(prepare);
     return 0;
 }

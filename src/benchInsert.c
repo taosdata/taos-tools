@@ -1394,7 +1394,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
             // execute 
             code = taos_stmt2_exec(pThreadInfo->conn->stmt2, &affectRows);
             if (code) {
-                errorPrint( "failed to execute insert statement. reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt));
+                errorPrint( "failed to call taos_stmt2_exec(). reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt));
                 code = -1;
             }
             break;
@@ -3893,7 +3893,7 @@ int32_t runInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthre
 
     // wait threads
     for (int i = 0; i < threadCnt; i++) {
-        infoPrint(" pthread_join %d ...\n", i);
+        infoPrint("pthread_join %d ...\n", i);
         pthread_join(pids[i], NULL);
     }
 
@@ -4512,6 +4512,8 @@ static int32_t stmt2BindVProgressive(
     // bind
     //
 
+    // count
+    bindv->count = 1;
     // tbnames
     bindv->tbnames[0] = childTbl->name;
     // tags
@@ -4536,6 +4538,8 @@ static int32_t stmt2BindVProgressive(
         freeBindV(bindv);
         return -1;
     }
+    debugPrint("succ to call taos_stmt2_bind_param() progressive mode. table=%s batch=%d pos=%" PRId64 " generated=%d\n",
+                childTbl->name, batch, pos, generated);
     *delay1 = toolsGetTimestampUs() - start;
     // free
     freeBindV(bindv);
