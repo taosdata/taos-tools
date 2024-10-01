@@ -1393,3 +1393,54 @@ TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt) {
 void freeBindV(TAOS_STMT2_BINDV *bindv) {
     tmfree(bindv);
 }
+
+//
+//   debug show 
+//
+
+void showBind(TAOS_STMT2_BIND* bind) {
+    // loop each column
+    int32_t pos = 0;
+    char* buff  = bind->buffer;
+    for(int32_t n=0; n<bind->num; n++) {
+        switch (bind->buffer_type) {
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            debugPrint("   n=%d value=%" PRId64 "\n", n, *(int64_t *)(buff + pos));
+            pos += sizeof(int64_t);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            debugPrint("   n=%d value=%f\n", n, *(float *)(buff + pos));
+            pos += sizeof(float);
+            break;
+        case TSDB_DATA_TYPE_INT:
+            debugPrint("   n=%d value=%d\n", n, *(int32_t *)(buff + pos));
+            pos += sizeof(int32_t);
+            break;
+        default:
+            break;
+        } 
+    }
+
+}
+
+void showTableBinds(char* label, TAOS_STMT2_BIND* binds, int32_t cnt) {
+    for(int32_t j=0; j<cnt; j++) {
+        debugPrint("  %d %s type=%d\n", j, label, binds[j].buffer_type);
+        showBind(&binds[j]);
+    }
+}
+
+// show bindv
+void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols) {
+    // num and base info
+    debugPrint("\nshow bindv count=%d names=%p tags=%p bind_cols=%p\n", 
+                bindv->count, bindv->tbnames, bindv->tags, bindv->bind_cols);
+    
+    for(int32_t i=0; i< bindv->count; i++) {
+        debugPrint(" i=%d name=%s \n", i, bindv->tbnames[i]);
+        //if(bindv->tags)
+        //    showTableBinds("tag",    bindv->tags[i],      tags->size);
+        if(bindv->bind_cols)    
+            showTableBinds("column", bindv->bind_cols[i], cols->size + 1);
+    }
+}

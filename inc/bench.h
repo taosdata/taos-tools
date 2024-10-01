@@ -1205,5 +1205,6 @@ char* genQMark( int32_t QCnt);
 // stmt2
 TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt);
 void freeBindV(TAOS_STMT2_BINDV *bindv);
+void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
 
 #endif   // INC_BENCH_H_

@@ -942,8 +942,10 @@ static int fillStmt(
     int lenOfOneRow, BArray *fields,
     int64_t loop, bool tag, BArray *childCols) {
     int angle = stbInfo->startTimestamp % 360; // 0 ~ 360
+    debugPrint("fillStml stbname=%s loop=%"PRId64" istag=%d \n", stbInfo->stbName, loop, tag);
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
+        char* line = sampleDataBuf + pos;
         int fieldsSize = fields->size;
         for (int i = 0; i < fieldsSize; ++i) {
             Field * field = benchArrayGet(fields, i);
@@ -1147,6 +1149,8 @@ static int fillStmt(
                 }
             }
         }
+        debugPrint(" k=%" PRId64 " line=%s\n", k, line);
+
 skip_stmt:
         if (pos > 0)
             *(sampleDataBuf + pos - 1) = 0;
@@ -2469,6 +2473,7 @@ uint32_t bindVColsProgressive(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
     // clear
     memset(pThreadInfo->bindParams, 0, sizeof(TAOS_STMT2_BIND) * (columnCount + 1));
     memset(pThreadInfo->is_null, 0, batch);
+    debugPrint("stmt2 bindVColsProgressive child=%s batch=%d pos=%" PRId64 "\n", childTbl->name, batch, pos);
     // loop cols
     for (int c = 0; c <= columnCount; c++) {
         // des

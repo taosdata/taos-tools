@@ -4524,6 +4524,14 @@ static int32_t stmt2BindVProgressive(
     uint32_t batch = (g_arguments->reqPerReq > stbInfo->insertRows - i) ? (stbInfo->insertRows - i) : g_arguments->reqPerReq;
     int32_t n = 0;
     int64_t pos = i % g_arguments->prepared_rand;
+
+    // adjust batch about pos
+    if(g_arguments->prepared_rand - pos < batch ) {
+        warnPrint("prepared_rand(%" PRId64 ") is not a multiple of num_of_records_per(%d), the batch size can be modify. before=%d after=%d\n", 
+                    (int64_t)g_arguments->prepared_rand, (int32_t)g_arguments->reqPerReq, (int32_t)batch, (int32_t)(g_arguments->prepared_rand - pos));
+        batch = g_arguments->prepared_rand - pos;
+    } 
+
     int32_t generated = bindVColsProgressive(bindv, 0, pThreadInfo, batch, *timestamp, pos, childTbl, pkCur, pkCnt, &n);
     if(generated <= 0) {
         errorPrint( "get cols data bind information failed. table: %s\n", childTbl->name);
@@ -4531,6 +4539,10 @@ static int32_t stmt2BindVProgressive(
         return -1;
     }
     *timestamp += n * stbInfo->timestamp_step;
+
+    if (g_arguments->debug_print) {
+        showBindV(bindv, stbInfo->tags, stbInfo->cols);
+    }
 
     // do bindv
     int64_t start = toolsGetTimestampUs();
