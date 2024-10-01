@@ -1185,7 +1185,7 @@ bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint
 //
 BArray * copyBArray(BArray *pArray) {
     BArray * pNew = benchArrayInit(pArray->size, pArray->elemSize);
-    memcpy(pNew->pData, pArray->pData, pArray->size * pArray->elemSize);
+    benchArrayAddBatch(pNew, pArray->pData, pArray->size);
     return pNew;
 }
 
@@ -1345,7 +1345,10 @@ int32_t benchGetTotalMemory(int64_t *totalKB) {
 char* genQMark( int32_t QCnt) {
     char * buf = benchCalloc(4, QCnt, false);
     for (int32_t i = 0; i < QCnt; i++) {
-        strcat(buf, ",?");
+        if (i == 0)
+            strcat(buf, "?");
+        else
+            strcat(buf, ",?");
     }
     return buf;
 }
@@ -1355,38 +1358,53 @@ char* genQMark( int32_t QCnt) {
 //
 
 // create
-TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt) {
+TAOS_STMT2_BINDV* createBindV(int32_t capacity, int32_t tagCnt, int32_t colCnt) {
     // calc total size
     int32_t tableSize = sizeof(char *) + sizeof(TAOS_STMT2_BIND *) + sizeof(TAOS_STMT2_BIND *) + 
                         sizeof(TAOS_STMT2_BIND) * tagCnt + sizeof(TAOS_STMT2_BIND) * colCnt;
-    int32_t size = sizeof(TAOS_STMT2_BINDV) + tableSize * count;
+    int32_t size = sizeof(TAOS_STMT2_BINDV) + tableSize * capacity;
     TAOS_STMT2_BINDV *bindv = benchCalloc(1, size, false);
+    resetBindV(bindv, capacity, tagCnt, colCnt);
 
+    return bindv;
+}
+
+// reset tags and cols poitner
+void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32_t colCnt) {
     unsigned char *p = (unsigned char *)bindv;
     // tbnames
     p += sizeof(TAOS_STMT2_BINDV); // skip BINDV
     bindv->tbnames = (char **)p;
     // tags
-    p += sizeof(char *) * count; // skip tbnames
+    p += sizeof(char *) * capacity; // skip tbnames
     bindv->tags = (TAOS_STMT2_BIND **)p;
     // bind_cols
-    p += sizeof(TAOS_STMT2_BIND *) * count; // skip tags
+    p += sizeof(TAOS_STMT2_BIND *) * capacity; // skip tags
     bindv->bind_cols = (TAOS_STMT2_BIND **)p;
-    p += sizeof(TAOS_STMT2_BIND *) * count; // skip cols
+    p += sizeof(TAOS_STMT2_BIND *) * capacity; // skip cols
 
     int32_t i;
     // tags body
-    for (i = 0; i < count; i++) {
-        bindv->tags[i] = (TAOS_STMT2_BIND *)p;
+    for (i = 0; i < capacity; i++) {
+        bindv->tags[i] = tagCnt == 0 ? NULL : (TAOS_STMT2_BIND *)p;
         p += sizeof(TAOS_STMT2_BIND) * tagCnt; // skip tag bodys
     }
     // bind_cols body
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < capacity; i++) {
         bindv->bind_cols[i] = (TAOS_STMT2_BIND*)p;
         p += sizeof(TAOS_STMT2_BIND) * colCnt; // skip cols bodys
     }
+}
 
-    return bindv;
+// clear bindv
+void clearBindV(TAOS_STMT2_BINDV *bindv) {
+    if (bindv == NULL)
+        return ;
+    for(int32_t i = 0; i < bindv->count; i++) {
+        bindv->tags[i]      = NULL;
+        bindv->bind_cols[i] = NULL;
+    }
+    bindv->count = 0;
 }
 
 // free
@@ -1433,11 +1451,11 @@ void showTableBinds(char* label, TAOS_STMT2_BIND* binds, int32_t cnt) {
 // show bindv
 void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols) {
     // num and base info
-    debugPrint("\nshow bindv count=%d names=%p tags=%p bind_cols=%p\n", 
+    debugPrint("show bindv table count=%d names=%p tags=%p bind_cols=%p\n", 
                 bindv->count, bindv->tbnames, bindv->tags, bindv->bind_cols);
     
     for(int32_t i=0; i< bindv->count; i++) {
-        debugPrint(" i=%d name=%s \n", i, bindv->tbnames[i]);
+        debugPrint(" show bindv table index=%d name=%s \n", i, bindv->tbnames[i]);
         //if(bindv->tags)
         //    showTableBinds("tag",    bindv->tags[i],      tags->size);
         if(bindv->bind_cols)    

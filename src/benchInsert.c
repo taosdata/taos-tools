@@ -1659,12 +1659,14 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t delay2 = 0;
     int64_t delay3 = 0;
     bool    firstInsertTb = true;
+    bool    reset = false;
 
     TAOS_STMT2_BINDV *bindv = NULL;
 
     // create bindv
     if(stbInfo->iface == STMT2_IFACE) {
-        bindv = createBindV(nBatchTable, stbInfo->tags->size, stbInfo->cols->size + 1);
+        int32_t tagCnt = stbInfo->autoTblCreating ? stbInfo->tags->size : 0;
+        bindv = createBindV(nBatchTable,  tagCnt, stbInfo->cols->size + 1);
     }
 
     bool oldInitStmt = stbInfo->autoTblCreating || database->superTbls->size > 1;
@@ -1917,23 +1919,27 @@ static void *syncWriteInterlace(void *sarg) {
                         }
 
                         // first insert table need bring tags
-                        if(firstInsertTb) {
+                        if (firstInsertTb) {
                             bindVTags(bindv, i, w, pThreadInfo->tagsStmt);
                         }
                     }
 
-                    // cols                    
+                    // cols
                     int32_t n = 0;
                     generated += bindVColsInterlace(bindv, i, pThreadInfo, interlaceRows, childTbl->ts, pos, 
                                                     childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n);
       
+                    // debug show
+                    if(g_arguments->debug_print)
+                        showBindV(bindv, stbInfo->tags, stbInfo->cols);
                     // call bind
                     int64_t start = toolsGetTimestampUs();
                     if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
-                        errorPrint("taos_stmt2_bind_param(%s) failed, reason: %s\n", tableName, taos_stmt_errstr(pThreadInfo->conn->stmt2));
+                        errorPrint("taos_stmt2_bind_param(%s) failed, reason: %s\n", childTbl->name, taos_stmt_errstr(pThreadInfo->conn->stmt2));
                         g_fail = true;
                         goto free_of_interlace;
                     }
+                    debugPrint("succ to call taos_stmt2_bind_param() with interlace mode. interlaceRows=%d n=%d\n", interlaceRows, n);
                     delay1 += toolsGetTimestampUs() - start;
                     
                     // move next
@@ -2023,6 +2029,7 @@ static void *syncWriteInterlace(void *sarg) {
             if (tableSeq > pThreadInfo->end_table_to) {
                 // first insert tables loop is end
                 firstInsertTb = false;
+                reset         = true;
                 // one tables loop timestamp and pos add 
                 tableSeq = pThreadInfo->start_table_from;
                 // save    
@@ -2041,14 +2048,13 @@ static void *syncWriteInterlace(void *sarg) {
                 }
 
                 i++;
-                // set bind
+                // rectify bind count
                 if (bindv->count != i) {
                     bindv->count = i;
                 }                
                 break;
             }
         }
-
 
         // execute
         startTs = toolsGetTimestampUs();
@@ -2057,6 +2063,15 @@ static void *syncWriteInterlace(void *sarg) {
             goto free_of_interlace;
         }
         endTs = toolsGetTimestampUs();
+        debugPrint("execInsert tableIndex=%d left insert rows=%"PRId64" generated=%d\n", i, insertRows, generated);
+        
+        
+        // reset bindv
+        bindv->count = 0;
+        if (reset) {
+            //resetBindV(bindv, nBatchTable, 0, stbInfo->cols->size);
+            reset = false;
+        } 
 
         pThreadInfo->totalInsertRows += tmp_total_insert_rows;
 

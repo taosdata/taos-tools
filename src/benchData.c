@@ -249,11 +249,11 @@ char* genPrepareSql(SSuperTable *stbInfo, char* tagData, uint64_t tableSeq) {
         }
         n = snprintf(prepare + len,
                        TSDB_MAX_ALLOWED_SQL_LEN - len,
-                       "INSERT INTO ? USING `%s` TAGS (%s) %s VALUES(?%s)",
+                       "INSERT INTO ? USING `%s` TAGS (%s) %s VALUES(?,%s)",
                        stbInfo->stbName, tagQ, ttl, colQ);
     } else {
         n = snprintf(prepare + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
-                        "INSERT INTO ? VALUES(?%s)", colQ);
+                        "INSERT INTO ? VALUES(?,%s)", colQ);
     }
     len += n;
 
@@ -942,7 +942,7 @@ static int fillStmt(
     int lenOfOneRow, BArray *fields,
     int64_t loop, bool tag, BArray *childCols) {
     int angle = stbInfo->startTimestamp % 360; // 0 ~ 360
-    debugPrint("fillStml stbname=%s loop=%"PRId64" istag=%d \n", stbInfo->stbName, loop, tag);
+    debugPrint("fillStml stbname=%s loop=%"PRId64" istag=%d  fieldsSize=%d\n", stbInfo->stbName, loop, tag, (int32_t)fields->size);
     for (int64_t k = 0; k < loop; ++k) {
         int64_t pos = k * lenOfOneRow;
         char* line = sampleDataBuf + pos;
@@ -1149,7 +1149,7 @@ static int fillStmt(
                 }
             }
         }
-        debugPrint(" k=%" PRId64 " line=%s\n", k, line);
+        debugPrint(" k=%" PRId64 " pos=%" PRId64 " line=%s\n", k, pos, line);
 
 skip_stmt:
         if (pos > 0)
@@ -2574,10 +2574,13 @@ uint32_t bindVColsInterlace(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
                  threadInfo *pThreadInfo,
                  uint32_t batch, int64_t startTime, int64_t pos,
                  SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n) {
-    // info                
+    // count
+    bindv->count += 1;
+    // info
     SSuperTable *stbInfo    = pThreadInfo->stbInfo;
     TAOS_STMT2_BIND *colsTb = bindv->bind_cols[tbIndex];
     BArray* fields          = stbInfo->cols;
+
 
     // loop 
     for (int32_t i = 0; i < fields->size + 1; i++) {

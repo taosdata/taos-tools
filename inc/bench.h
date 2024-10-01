@@ -1204,6 +1204,9 @@ int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
 char* genQMark( int32_t QCnt);
 // stmt2
 TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt);
+// clear bindv table count tables tag and column
+void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32_t colCnt);
+void clearBindV(TAOS_STMT2_BINDV *bindv);
 void freeBindV(TAOS_STMT2_BINDV *bindv);
 void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
 
