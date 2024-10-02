@@ -234,10 +234,12 @@ char* genPrepareSql(SSuperTable *stbInfo, char* tagData, uint64_t tableSeq) {
     int n;
     char *tagQ = NULL;
     char *colQ = genQMark(stbInfo->cols->size);
+    bool  tagQFree = false;
 
     if(tagData == NULL) {
         // if no tagData , replace with QMark
         tagQ = genQMark(stbInfo->tags->size);
+        tagQFree = true;
     } else {
         tagQ = tagData + stbInfo->lenOfTags * tableSeq;
     }
@@ -258,7 +260,7 @@ char* genPrepareSql(SSuperTable *stbInfo, char* tagData, uint64_t tableSeq) {
     len += n;
 
     // free from genQMark
-    if(stbInfo->iface == STMT2_IFACE) {
+    if(tagQFree) {
         tmfree(tagQ);
     }
     tmfree(colQ);
@@ -282,6 +284,7 @@ int prepareStmt(TAOS_STMT *stmt, SSuperTable *stbInfo, char* tagData, uint64_t t
     char *prepare = genPrepareSql(stbInfo, tagData, tableSeq);
     if (taos_stmt_prepare(stmt, prepare, strlen(prepare))) {
         errorPrint("taos_stmt_prepare(%s) failed. errstr=%s\n", prepare, taos_stmt_errstr(stmt));
+        tmfree(prepare);
         return -1;
     }
     tmfree(prepare);
@@ -292,6 +295,7 @@ int prepareStmt2(TAOS_STMT2 *stmt2, SSuperTable *stbInfo, char* tagData, uint64_
     char *prepare = genPrepareSql(stbInfo, tagData, tableSeq);
     if (taos_stmt2_prepare(stmt2, prepare, strlen(prepare))) {
         errorPrint("taos_stmt2_prepare(%s) failed. errstr=%s\n", prepare, taos_stmt2_error(stmt2));
+        tmfree(prepare);
         return -1;
     }
     debugPrint("succ call taos_stmt2_prepare. sql=%s\n", prepare);
