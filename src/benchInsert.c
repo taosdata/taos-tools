@@ -1659,7 +1659,6 @@ static void *syncWriteInterlace(void *sarg) {
     int64_t delay2 = 0;
     int64_t delay3 = 0;
     bool    firstInsertTb = true;
-    bool    reset = false;
 
     TAOS_STMT2_BINDV *bindv = NULL;
 
@@ -1922,6 +1921,11 @@ static void *syncWriteInterlace(void *sarg) {
                         if (firstInsertTb) {
                             bindVTags(bindv, i, w, pThreadInfo->tagsStmt);
                         }
+                    } else {
+                        // if engine fix must bind tag bug , need remove this code
+                        if (firstInsertTb) {
+                            bindVTags(bindv, i, 0, stbInfo->tags);
+                        }
                     }
 
                     // cols
@@ -2029,7 +2033,6 @@ static void *syncWriteInterlace(void *sarg) {
             if (tableSeq > pThreadInfo->end_table_to) {
                 // first insert tables loop is end
                 firstInsertTb = false;
-                reset         = true;
                 // one tables loop timestamp and pos add 
                 tableSeq = pThreadInfo->start_table_from;
                 // save    
@@ -2064,14 +2067,9 @@ static void *syncWriteInterlace(void *sarg) {
         }
         endTs = toolsGetTimestampUs();
         debugPrint("execInsert tableIndex=%d left insert rows=%"PRId64" generated=%d\n", i, insertRows, generated);
-        
-        
-        // reset bindv
+                
+        // reset count
         bindv->count = 0;
-        if (reset) {
-            //resetBindV(bindv, nBatchTable, 0, stbInfo->cols->size);
-            reset = false;
-        } 
 
         pThreadInfo->totalInsertRows += tmp_total_insert_rows;
 
@@ -3668,7 +3666,7 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 } else {
                     // stmt init
                     if (pThreadInfo->conn->stmt)
-                        taos_stmt2_close(pThreadInfo->conn->stmt);
+                        taos_stmt_close(pThreadInfo->conn->stmt);
                     pThreadInfo->conn->stmt = initStmt(pThreadInfo->conn->taos, single);
                     if (NULL == pThreadInfo->conn->stmt) {
                         errorPrint("taos_stmt_init() failed, reason: %s\n", taos_errstr(NULL));
@@ -3695,6 +3693,10 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 }
                 // tags data
                 pThreadInfo->tagsStmt = copyBArray(stbInfo->tags);
+                for(int32_t n = 0; n < pThreadInfo->tagsStmt->size; n ++ ) {
+                    Field *field = benchArrayGet(pThreadInfo->tagsStmt, n);
+                    memset(&field->stmtData, 0, sizeof(StmtData));
+                }
                 
                 parseBufferToStmtBatch(stbInfo, pThreadInfo->bind_ts_array);
                 for (int64_t child = 0; child < stbInfo->childTblCount; child++) {
@@ -3998,8 +4000,17 @@ int32_t exitInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 break;
 
             case STMT_IFACE:
+                // close stmt
+                if(pThreadInfo->conn->stmt) {
+                    taos_stmt_close(pThreadInfo->conn->stmt);
+                    pThreadInfo->conn->stmt = NULL;
+                }
             case STMT2_IFACE:
-                taos_stmt_close(pThreadInfo->conn->stmt);
+                // close stmt2
+                if (pThreadInfo->conn->stmt2) {
+                    taos_stmt2_close(pThreadInfo->conn->stmt2);
+                    pThreadInfo->conn->stmt2 = NULL;
+                }
 
                 tmfree(pThreadInfo->bind_ts);
                 tmfree(pThreadInfo->bind_ts_array);
@@ -4052,7 +4063,7 @@ int32_t exitInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
         totalDelay2 += pThreadInfo->totalDelay2;
         totalDelay3 += pThreadInfo->totalDelay3;
         benchArrayAddBatch(total_delay_list, pThreadInfo->delayList->pData,
-                pThreadInfo->delayList->size);
+                pThreadInfo->delayList->size, true);
         tmfree(pThreadInfo->delayList);
         pThreadInfo->delayList = NULL;
         //  free conn

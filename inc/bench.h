@@ -1132,7 +1132,7 @@ void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems);
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems, bool free);
 BArray * copyBArray(BArray *pArray);
 bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type);
 

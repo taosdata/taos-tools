@@ -1212,6 +1212,9 @@ static int generateRandDataStmt(
             field->stmtData.is_null = benchCalloc(1, loop * field->length, true);
             // lengths
             field->stmtData.lengths = benchCalloc(sizeof(int32_t), loop * field->length, true);
+
+            // log
+            debugPrint("i=%d generateRandDataStmt tag=%d fields=%p %s malloc stmtData.data=%p\n", i, tag, fields, field->name ,field->stmtData.data);
         }
     }
 

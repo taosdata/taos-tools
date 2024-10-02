@@ -1121,7 +1121,7 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
     return 0;
 }
 
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems, bool free) {
     if (pData == NULL) {
         return NULL;
     }
@@ -1132,13 +1132,15 @@ void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
 
     void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
     memcpy(dst, pData, pArray->elemSize * elems);
-    tmfree(pData); // TODO remove this
+    if (free) {
+        tmfree(pData); // TODO remove this
+    }
     pArray->size += elems;
     return dst;
 }
 
 FORCE_INLINE void* benchArrayPush(BArray* pArray, void* pData) {
-    return benchArrayAddBatch(pArray, pData, 1);
+    return benchArrayAddBatch(pArray, pData, 1, true);
 }
 
 void* benchArrayDestroy(BArray* pArray) {
@@ -1185,7 +1187,7 @@ bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint
 //
 BArray * copyBArray(BArray *pArray) {
     BArray * pNew = benchArrayInit(pArray->size, pArray->elemSize);
-    benchArrayAddBatch(pNew, pArray->pData, pArray->size);
+    benchArrayAddBatch(pNew, pArray->pData, pArray->size, false);
     return pNew;
 }
 
