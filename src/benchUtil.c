@@ -1318,8 +1318,7 @@ void destroySockFd(int sockfd) {
 
 FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {    
     char buff[512];
-    char *msg = cmd; 
-    bool free = false;
+    char *msg = cmd;
     if (strlen(cmd) > sizeof(msg)) {
         memcpy(buff, cmd, 500);
         buff[500] = 0;
