@@ -1316,9 +1316,18 @@ void destroySockFd(int sockfd) {
     closeSockFd(sockfd);
 }
 
-FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
-    errorPrint("failed to run command %s, code: 0x%08x, reason: %s\n",
-               cmd, code, taos_errstr(res));
+FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {    
+    char buff[512];
+    char *msg = cmd; 
+    bool free = false;
+    if (strlen(cmd) > sizeof(msg)) {
+        memcpy(buff, cmd, 500);
+        buff[500] = 0;
+        strcat(buf, "...");
+        msg = buff;
+    }
+    errorPrint("failed to run error code: 0x%08x, reason: %s command %s\n",
+               code, taos_errstr(res), msg);
     taos_free_result(res);
 }
 

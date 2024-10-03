@@ -216,7 +216,7 @@ jobs:
           ./build/bin/taosBenchmark --help > /dev/null
           echo "TEST: taosBenchmark -V"
           ./build/bin/taosBenchmark -V
-          echo "TEST: taoBenchmark -w 16375"
+          echo "TEST: taoBenchmark -w 16375 -t 100 -y"
           ./build/bin/taosBenchmark -b binary -A bool -w 16375 > /dev/null || :
           echo "TEST: taoBenchmark -D NotANumber"
           ./build/bin/taosBenchmark -D NotANumber > /dev/null || :
