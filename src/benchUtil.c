@@ -291,7 +291,7 @@ SBenchConn* initBenchConnImpl() {
     SBenchConn* conn = benchCalloc(1, sizeof(SBenchConn), true);
 #ifdef WEBSOCKET
     if (g_arguments->websocket) {
-        conn->taos_ws = ws_connect_with_dsn(g_arguments->dsn);
+        conn->taos_ws = ws_connect(g_arguments->dsn);
         char maskedDsn[256] = "\0";
         memcpy(maskedDsn, g_arguments->dsn, 20);
         memcpy(maskedDsn+20, "...", 3);
