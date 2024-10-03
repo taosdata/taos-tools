@@ -1322,7 +1322,7 @@ FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
     if (strlen(cmd) > sizeof(msg)) {
         memcpy(buff, cmd, 500);
         buff[500] = 0;
-        strcat(buf, "...");
+        strcat(buff, "...");
         msg = buff;
     }
     errorPrint("failed to run error code: 0x%08x, reason: %s command %s\n",
