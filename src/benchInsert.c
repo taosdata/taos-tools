@@ -3650,7 +3650,7 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                     goto END;
                 }
                 bool single = true;
-                if (stbInfo->autoTblCreating || database->superTbls->size > 1) {
+                if (database->superTbls->size > 1) {
                     single = false;
                 }
 
