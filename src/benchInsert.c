@@ -2052,7 +2052,7 @@ static void *syncWriteInterlace(void *sarg) {
 
                 i++;
                 // rectify bind count
-                if (bindv->count != i) {
+                if (bindv && bindv->count != i) {
                     bindv->count = i;
                 }                
                 break;
@@ -2069,7 +2069,9 @@ static void *syncWriteInterlace(void *sarg) {
         debugPrint("execInsert tableIndex=%d left insert rows=%"PRId64" generated=%d\n", i, insertRows, generated);
                 
         // reset count
-        bindv->count = 0;
+        if(bindv) {
+            bindv->count = 0;
+        }            
 
         pThreadInfo->totalInsertRows += tmp_total_insert_rows;
 
