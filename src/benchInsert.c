@@ -1664,7 +1664,8 @@ static void *syncWriteInterlace(void *sarg) {
 
     // create bindv
     if(stbInfo->iface == STMT2_IFACE) {
-        int32_t tagCnt = stbInfo->autoTblCreating ? stbInfo->tags->size : 0;
+        int32_t tagCnt = stbInfo->autoTblCreating ? stbInfo->tags->size : 0; // todo
+        //int32_t tagCnt = stbInfo->tags->size;
         bindv = createBindV(nBatchTable,  tagCnt, stbInfo->cols->size + 1);
     }
 
@@ -1923,9 +1924,9 @@ static void *syncWriteInterlace(void *sarg) {
                         }
                     } else {
                         // if engine fix must bind tag bug , need remove this code
-                        if (firstInsertTb) {
-                            bindVTags(bindv, i, 0, stbInfo->tags);
-                        }
+                        //if (firstInsertTb) {
+                        //    bindVTags(bindv, i, 0, stbInfo->tags);
+                        //}
                     }
 
                     // cols
@@ -3563,6 +3564,7 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
 // init stmt
 TAOS_STMT* initStmt(TAOS* taos, bool single) {
     if (!single) {
+        infoPrint("initStmt call taos_stmt_init single=%d\n", single);
         return taos_stmt_init(taos);
     }
 
@@ -3570,6 +3572,7 @@ TAOS_STMT* initStmt(TAOS* taos, bool single) {
     memset(&op, 0, sizeof(op));
     op.singleStbInsert      = single;
     op.singleTableBindOnce  = single;
+    infoPrint("initStmt call taos_stmt_init_with_options single=%d\n", single);
     return taos_stmt_init_with_options(taos, &op);
 }
 
@@ -3579,6 +3582,7 @@ TAOS_STMT2* initStmt2(TAOS* taos, bool single) {
     memset(&op2, 0, sizeof(op2));
     op2.singleStbInsert      = single;
     op2.singleTableBindOnce  = single;
+    infoPrint("initStmt2 call taos_stmt2_init single=%d\n", single);
     return taos_stmt2_init(taos, &op2);
 }
 
@@ -3589,7 +3593,7 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
     int32_t  vgNext  = 0;
     FILE*    csvFile = NULL;
     char*    tagData = NULL;
-    bool     stmtN   = stbInfo->iface == STMT_IFACE && stbInfo->autoTblCreating == false;
+    bool     stmtN   = (stbInfo->iface == STMT_IFACE || stbInfo->iface == STMT2_IFACE) && stbInfo->autoTblCreating == false;
 
     if (stmtN) {
         csvFile = openTagCsv(stbInfo);
@@ -4555,7 +4559,7 @@ static int32_t stmt2BindVProgressive(
 
     // adjust batch about pos
     if(g_arguments->prepared_rand - pos < batch ) {
-        warnPrint("prepared_rand(%" PRId64 ") is not a multiple of num_of_records_per(%d), the batch size can be modify. before=%d after=%d\n", 
+        debugPrint("prepared_rand(%" PRId64 ") is not a multiple of num_of_records_per(%d), the batch size can be modify. before=%d after=%d\n", 
                     (int64_t)g_arguments->prepared_rand, (int32_t)g_arguments->reqPerReq, (int32_t)batch, (int32_t)(g_arguments->prepared_rand - pos));
         batch = g_arguments->prepared_rand - pos;
     } 

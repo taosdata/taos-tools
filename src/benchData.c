@@ -394,6 +394,7 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
     }
 
     tmfree(line);
+    infoPrint("read data from csv file %s, read rows=%d\n", file, getRows);
     return 0;
 }
 
@@ -2462,6 +2463,7 @@ FILE* openTagCsv(SSuperTable* stbInfo) {
             errorPrint("Failed to open sample file: %s, reason:%s\n", stbInfo->tagsFile, strerror(errno));
             return NULL;
         }
+        infoPrint("open tag csv file :%s \n", stbInfo->tagsFile);
     }
     return csvFile;
 }

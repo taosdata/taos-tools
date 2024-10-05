@@ -54,21 +54,22 @@ class TDTestCase:
             tdLog.info("taosBenchmark found in %s" % paths[0])
             return paths[0]
 
-    def testBenchmarkJson(self, benchmark, json):
+    def testBenchmarkJson(self, benchmark, jsonFile):
         # exe insert 
-        cmd = f"{benchmark} -f {json}"
+        cmd = f"{benchmark} -f {jsonFile}"
         os.system(cmd)
         
         #
         # check insert result
         #
-        with open(json, "r") as file:
+        with open(jsonFile, "r") as file:
             data = json.load(file)
         
-        db  = data["databases"]["dbinfo"]["name"]
-        stb = data["databases"]["super_tables"]["name"]
-        child_count = data["databases"]["super_tables"]["childtable_count"]
-        insert_rows = data["databases"]["super_tables"]["insert_rows"]
+        db  = data["databases"][0]["dbinfo"]["name"]
+        stb = data["databases"][0]["super_tables"][0]["name"]
+        child_count = data["databases"][0]["super_tables"][0]["childtable_count"]
+        insert_rows = data["databases"][0]["super_tables"][0]["insert_rows"]
+        timestamp_step = data["databases"][0]["super_tables"][0]["timestamp_step"]
 
         tdLog.info(f"get json info: db={db} stb={stb} child_count={child_count} insert_rows={insert_rows} \n")
         
@@ -78,7 +79,7 @@ class TDTestCase:
         tdSql.checkRows(child_count * insert_rows)
 
         # timestamp step
-        sql = f"select * from (select diff(ts) as dif from {db}.{stb} partition by tbname) where dif != 1;"
+        sql = f"select * from (select diff(ts) as dif from {db}.{stb} partition by tbname) where dif != {timestamp_step};"
         tdSql.query(sql)
         tdSql.checkRows(0)
         
@@ -88,13 +89,13 @@ class TDTestCase:
 
         # batch - auto-create-table(yes or no)
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_batch_autoctb_yes.json")
-        #self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_batch_autoctb_no.json")
-        
-        #self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_yes.json")
-        #self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_no.json")
-
-        # from csv
-        #self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_csv.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_batch_autoctb_no.json")
+        # interlace - auto-create-table(yes or no)
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_yes.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_no.json")
+        # csv - (batch or interlace)
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_csv_interlace_autoctb_yes.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_csv_batch_autoctb_no.json")
 
 
     def stop(self):

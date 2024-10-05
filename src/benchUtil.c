@@ -1386,8 +1386,12 @@ void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32
     p += sizeof(TAOS_STMT2_BINDV); // skip BINDV
     bindv->tbnames = (char **)p;
     // tags
-    p += sizeof(char *) * capacity; // skip tbnames
-    bindv->tags = (TAOS_STMT2_BIND **)p;
+    if(tagCnt == 0 ) {
+        bindv->tags = NULL;
+    } else {
+        p += sizeof(char *) * capacity; // skip tbnames
+        bindv->tags = (TAOS_STMT2_BIND **)p;
+    }
     // bind_cols
     p += sizeof(TAOS_STMT2_BIND *) * capacity; // skip tags
     bindv->bind_cols = (TAOS_STMT2_BIND **)p;
@@ -1395,9 +1399,11 @@ void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32
 
     int32_t i;
     // tags body
-    for (i = 0; i < capacity; i++) {
-        bindv->tags[i] = tagCnt == 0 ? NULL : (TAOS_STMT2_BIND *)p;
-        p += sizeof(TAOS_STMT2_BIND) * tagCnt; // skip tag bodys
+    if (tagCnt > 0) {
+        for (i = 0; i < capacity; i++) {
+            bindv->tags[i] = (TAOS_STMT2_BIND *)p;
+            p += sizeof(TAOS_STMT2_BIND) * tagCnt; // skip tag bodys
+        }
     }
     // bind_cols body
     for (i = 0; i < capacity; i++) {
@@ -1452,9 +1458,13 @@ void showBind(TAOS_STMT2_BIND* bind) {
 }
 
 void showTableBinds(char* label, TAOS_STMT2_BIND* binds, int32_t cnt) {
-    for(int32_t j=0; j<cnt; j++) {
-        debugPrint("  %d %s type=%d\n", j, label, binds[j].buffer_type);
-        showBind(&binds[j]);
+    for (int32_t j = 0; j < cnt; j++) {
+        if(binds == NULL) {
+            debugPrint("  %d %s is NULL \n", j, label);
+        } else {
+            debugPrint("  %d %s type=%d buffer=%p \n", j, label, binds[j].buffer_type, binds[j].buffer);
+            showBind(&binds[j]);
+        }
     }
 }
 
@@ -1466,8 +1476,8 @@ void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols) {
     
     for(int32_t i=0; i< bindv->count; i++) {
         debugPrint(" show bindv table index=%d name=%s \n", i, bindv->tbnames[i]);
-        //if(bindv->tags)
-        //    showTableBinds("tag",    bindv->tags[i],      tags->size);
+        if(bindv->tags)
+            showTableBinds("tag",    bindv->tags[i],      tags->size);
         if(bindv->bind_cols)    
             showTableBinds("column", bindv->bind_cols[i], cols->size + 1);
     }
