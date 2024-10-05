@@ -4550,7 +4550,7 @@ static int32_t stmt2BindVProgressive(
     // tbnames
     bindv->tbnames[0] = childTbl->name;
     // tags
-    bindv->tags[0] = NULL; // Progrssive mode tag put on prepare sql, no need put here
+    //bindv->tags[0] = NULL; // Progrssive mode tag put on prepare sql, no need put here
    
     // bind_cols
     uint32_t batch = (g_arguments->reqPerReq > stbInfo->insertRows - i) ? (stbInfo->insertRows - i) : g_arguments->reqPerReq;
