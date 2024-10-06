@@ -2930,6 +2930,15 @@ free_of_progressive:
 
 uint64_t strToTimestamp(char * tsStr) {
     uint64_t ts = 0;
+    // remove double quota mark
+    if (tsStr[0] == '\"' || tsStr[0] == '\'') {
+        tsStr += 1;
+        int32_t last = strlen(tsStr) - 1;
+        if (tsStr[last] == '\"' || tsStr[0] == '\'') {
+            tsStr[last] = 0;
+        }
+    }
+
     if (toolsParseTime(tsStr, (int64_t*)&ts, strlen(tsStr), TSDB_TIME_PRECISION_MILLI, 0)) {
         // not timestamp str format, maybe int64 format
         ts = (int64_t)atol(tsStr);
@@ -3689,7 +3698,7 @@ int32_t initInsertThread(SDataBase* database, SSuperTable* stbInfo, int32_t nthr
                 // malloc bind
                 int32_t unit = stbInfo->iface == STMT2_IFACE ? sizeof(TAOS_STMT2_BIND) : sizeof(TAOS_MULTI_BIND);
                 pThreadInfo->bind_ts       = benchCalloc(1, sizeof(int64_t), true);
-                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*g_arguments->reqPerReq, true);
+                pThreadInfo->bind_ts_array = benchCalloc(1, sizeof(int64_t)*g_arguments->prepared_rand, true);
                 pThreadInfo->bindParams    = benchCalloc(1, unit * (stbInfo->cols->size + 1), true);
                 pThreadInfo->is_null       = benchCalloc(1, g_arguments->reqPerReq, true);
                 // have ts columns, so size + 1

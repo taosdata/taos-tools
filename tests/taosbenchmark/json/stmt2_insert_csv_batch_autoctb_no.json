@@ -23,7 +23,7 @@
                     "name": "meters",
                     "child_table_exists": "no",
                     "childtable_count": 10,
-                    "insert_rows": 20,
+                    "insert_rows": 200,
                     "interlace_rows": 0,
                     "childtable_prefix": "d",
                     "insert_mode": "stmt2",
