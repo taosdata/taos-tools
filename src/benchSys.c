@@ -286,6 +286,8 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 stbInfo->iface = TAOSC_IFACE;
             } else if (0 == strcasecmp(arg, "stmt")) {
                 stbInfo->iface = STMT_IFACE;
+            } else if (0 == strcasecmp(arg, "stmt2")) {
+                stbInfo->iface = STMT2_IFACE;
             } else if (0 == strcasecmp(arg, "rest")) {
                 stbInfo->iface = REST_IFACE;
                 if (false == g_arguments->port_inputted) {

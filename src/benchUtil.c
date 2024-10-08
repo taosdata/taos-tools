@@ -1083,6 +1083,10 @@ int compare(const void *a, const void *b) {
     return *(int64_t *)a - *(int64_t *)b;
 }
 
+//
+// --------------------  BArray operator -------------------
+//
+
 BArray* benchArrayInit(size_t size, size_t elemSize) {
     assert(elemSize > 0);
 
@@ -1117,7 +1121,7 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
     return 0;
 }
 
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems, bool free) {
     if (pData == NULL) {
         return NULL;
     }
@@ -1128,13 +1132,15 @@ void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
 
     void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
     memcpy(dst, pData, pArray->elemSize * elems);
-    tmfree(pData); // TODO remove this
+    if (free) {
+        tmfree(pData); // TODO remove this
+    }
     pArray->size += elems;
     return dst;
 }
 
 FORCE_INLINE void* benchArrayPush(BArray* pArray, void* pData) {
-    return benchArrayAddBatch(pArray, pData, 1);
+    return benchArrayAddBatch(pArray, pData, 1, true);
 }
 
 void* benchArrayDestroy(BArray* pArray) {
@@ -1158,6 +1164,36 @@ void* benchArrayGet(const BArray* pArray, size_t index) {
     }
     return BARRAY_GET_ELEM(pArray, index);
 }
+
+bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type) {
+    if (pArray == NULL || field_name == NULL) {
+        return false;
+    }
+    for (int i = 0; i < pArray->size; i++) {
+        Field *field = benchArrayGet(pArray, i);
+        if (strlen(field->name) == name_len && strncmp(field->name, field_name, name_len) == 0) {
+            if (field->type == field_type) {
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+//
+// malloc a new and copy data from array
+// return value must call benchArrayDestroy to free
+//
+BArray * copyBArray(BArray *pArray) {
+    BArray * pNew = benchArrayInit(pArray->size, pArray->elemSize);
+    benchArrayAddBatch(pNew, pArray->pData, pArray->size, false);
+    return pNew;
+}
+
+//
+//  ---------------- others ------------------------
+//
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem) {
@@ -1280,9 +1316,17 @@ void destroySockFd(int sockfd) {
     closeSockFd(sockfd);
 }
 
-FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
-    errorPrint("failed to run command %s, code: 0x%08x, reason: %s\n",
-               cmd, code, taos_errstr(res));
+FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {    
+    char buff[512];
+    char *msg = cmd;
+    if (strlen(cmd) > sizeof(msg)) {
+        memcpy(buff, cmd, 500);
+        buff[500] = 0;
+        strcat(buff, "...");
+        msg = buff;
+    }
+    errorPrint("failed to run error code: 0x%08x, reason: %s command %s\n",
+               code, taos_errstr(res), msg);
     taos_free_result(res);
 }
 
@@ -1304,4 +1348,137 @@ int32_t benchGetTotalMemory(int64_t *totalKB) {
   *totalKB = (int64_t)(sysconf(_SC_PHYS_PAGES) * tsPageSizeKB);
   return 0;
 #endif
+}
+
+// geneate question mark string , using insert into ... values(?,?,?...)
+// return value must call tmfree to free memory
+char* genQMark( int32_t QCnt) {
+    char * buf = benchCalloc(4, QCnt, false);
+    for (int32_t i = 0; i < QCnt; i++) {
+        if (i == 0)
+            strcat(buf, "?");
+        else
+            strcat(buf, ",?");
+    }
+    return buf;
+}
+
+//
+//  STMT2  
+//
+
+// create
+TAOS_STMT2_BINDV* createBindV(int32_t capacity, int32_t tagCnt, int32_t colCnt) {
+    // calc total size
+    int32_t tableSize = sizeof(char *) + sizeof(TAOS_STMT2_BIND *) + sizeof(TAOS_STMT2_BIND *) + 
+                        sizeof(TAOS_STMT2_BIND) * tagCnt + sizeof(TAOS_STMT2_BIND) * colCnt;
+    int32_t size = sizeof(TAOS_STMT2_BINDV) + tableSize * capacity;
+    TAOS_STMT2_BINDV *bindv = benchCalloc(1, size, false);
+    resetBindV(bindv, capacity, tagCnt, colCnt);
+
+    return bindv;
+}
+
+// reset tags and cols poitner
+void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32_t colCnt) {
+    unsigned char *p = (unsigned char *)bindv;
+    // tbnames
+    p += sizeof(TAOS_STMT2_BINDV); // skip BINDV
+    bindv->tbnames = (char **)p;
+    // tags
+    if(tagCnt == 0 ) {
+        bindv->tags = NULL;
+    } else {
+        p += sizeof(char *) * capacity; // skip tbnames
+        bindv->tags = (TAOS_STMT2_BIND **)p;
+    }
+    // bind_cols
+    p += sizeof(TAOS_STMT2_BIND *) * capacity; // skip tags
+    bindv->bind_cols = (TAOS_STMT2_BIND **)p;
+    p += sizeof(TAOS_STMT2_BIND *) * capacity; // skip cols
+
+    int32_t i;
+    // tags body
+    if (tagCnt > 0) {
+        for (i = 0; i < capacity; i++) {
+            bindv->tags[i] = (TAOS_STMT2_BIND *)p;
+            p += sizeof(TAOS_STMT2_BIND) * tagCnt; // skip tag bodys
+        }
+    }
+    // bind_cols body
+    for (i = 0; i < capacity; i++) {
+        bindv->bind_cols[i] = (TAOS_STMT2_BIND*)p;
+        p += sizeof(TAOS_STMT2_BIND) * colCnt; // skip cols bodys
+    }
+}
+
+// clear bindv
+void clearBindV(TAOS_STMT2_BINDV *bindv) {
+    if (bindv == NULL)
+        return ;
+    for(int32_t i = 0; i < bindv->count; i++) {
+        bindv->tags[i]      = NULL;
+        bindv->bind_cols[i] = NULL;
+    }
+    bindv->count = 0;
+}
+
+// free
+void freeBindV(TAOS_STMT2_BINDV *bindv) {
+    tmfree(bindv);
+}
+
+//
+//   debug show 
+//
+
+void showBind(TAOS_STMT2_BIND* bind) {
+    // loop each column
+    int32_t pos = 0;
+    char* buff  = bind->buffer;
+    for(int32_t n=0; n<bind->num; n++) {
+        switch (bind->buffer_type) {
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            debugPrint("   n=%d value=%" PRId64 "\n", n, *(int64_t *)(buff + pos));
+            pos += sizeof(int64_t);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            debugPrint("   n=%d value=%f\n", n, *(float *)(buff + pos));
+            pos += sizeof(float);
+            break;
+        case TSDB_DATA_TYPE_INT:
+            debugPrint("   n=%d value=%d\n", n, *(int32_t *)(buff + pos));
+            pos += sizeof(int32_t);
+            break;
+        default:
+            break;
+        } 
+    }
+
+}
+
+void showTableBinds(char* label, TAOS_STMT2_BIND* binds, int32_t cnt) {
+    for (int32_t j = 0; j < cnt; j++) {
+        if(binds == NULL) {
+            debugPrint("  %d %s is NULL \n", j, label);
+        } else {
+            debugPrint("  %d %s type=%d buffer=%p \n", j, label, binds[j].buffer_type, binds[j].buffer);
+            showBind(&binds[j]);
+        }
+    }
+}
+
+// show bindv
+void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols) {
+    // num and base info
+    debugPrint("show bindv table count=%d names=%p tags=%p bind_cols=%p\n", 
+                bindv->count, bindv->tbnames, bindv->tags, bindv->bind_cols);
+    
+    for(int32_t i=0; i< bindv->count; i++) {
+        debugPrint(" show bindv table index=%d name=%s \n", i, bindv->tbnames[i]);
+        if(bindv->tags)
+            showTableBinds("tag",    bindv->tags[i],      tags->size);
+        if(bindv->bind_cols)    
+            showTableBinds("column", bindv->bind_cols[i], cols->size + 1);
+    }
 }

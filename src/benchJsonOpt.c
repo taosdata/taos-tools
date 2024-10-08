@@ -771,6 +771,8 @@ uint16_t getInterface(char *name) {
         iface = REST_IFACE;
     } else if (0 == strcasecmp(name, "stmt")) {
         iface = STMT_IFACE;
+    } else if (0 == strcasecmp(name, "stmt2")) {
+        iface = STMT2_IFACE;
     } else if (0 == strcasecmp(name, "sml")) {
         iface = SML_IFACE;
     } else if (0 == strcasecmp(name, "sml-rest")) {

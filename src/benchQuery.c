@@ -637,7 +637,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
     for (int i = 0; i < thread; ++i) {
         queryThreadInfo * pThreadInfo = infos + i;
         benchArrayAddBatch(delay_list, pThreadInfo->query_delay_list->pData,
-                pThreadInfo->query_delay_list->size);
+                pThreadInfo->query_delay_list->size, true);
         total_delay += pThreadInfo->total_delay;
         tmfree(pThreadInfo->query_delay_list);
         pThreadInfo->query_delay_list = NULL;
