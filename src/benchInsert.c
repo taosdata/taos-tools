@@ -1673,7 +1673,7 @@ static void *syncWriteInterlace(void *sarg) {
     // not auto create table call once
     if(stbInfo->iface == STMT_IFACE && !oldInitStmt) {
         debugPrint("call prepareStmt for stable:%s\n", stbInfo->stbName);
-        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+        if (prepareStmt(pThreadInfo->conn->stmt, stbInfo, tagData, w)) {
             g_fail = true;
             goto free_of_interlace;
         }
@@ -1864,7 +1864,7 @@ static void *syncWriteInterlace(void *sarg) {
                     // old must call prepareStmt for each table
                     if (oldInitStmt) {
                         debugPrint("call prepareStmt for stable:%s\n", stbInfo->stbName);
-                        if (prepareStmt(stbInfo, pThreadInfo->conn->stmt, tagData, w)) {
+                        if (prepareStmt(pThreadInfo->conn->stmt, stbInfo, tagData, w)) {
                             g_fail = true;
                             goto free_of_interlace;
                         }
