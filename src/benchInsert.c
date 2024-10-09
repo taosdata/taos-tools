@@ -3302,10 +3302,8 @@ static void preProcessArgument(SSuperTable *stbInfo) {
 
     if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE
             && stbInfo->autoTblCreating) {
-        infoPrint("%s",
-                "not support autocreate table with interlace row in stmt "
-                "insertion, will change to progressive mode\n");
-        stbInfo->interlaceRows = 0;
+        errorPrint("%s","stmt not support autocreate table with interlace row , quit programe!\n");
+        exit(-1);
     }
 }
 
