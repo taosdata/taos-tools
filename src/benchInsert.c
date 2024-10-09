@@ -2046,18 +2046,20 @@ static void *syncWriteInterlace(void *sarg) {
             }
         }
 
-        // bind param
-        if(g_arguments->debug_print)
-            showBindV(bindv, stbInfo->tags, stbInfo->cols);
-        // call bind
-        int64_t start = toolsGetTimestampUs();
-        if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
-            errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt_errstr(pThreadInfo->conn->stmt2));
-            g_fail = true;
-            goto free_of_interlace;
+        // stmt2 bind param
+        if(stbInfo->iface == STMT2_IFACE) {
+            if(g_arguments->debug_print)
+                showBindV(bindv, stbInfo->tags, stbInfo->cols);
+            // call bind
+            int64_t start = toolsGetTimestampUs();
+            if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
+                errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt_errstr(pThreadInfo->conn->stmt2));
+                g_fail = true;
+                goto free_of_interlace;
+            }
+            debugPrint("succ to call taos_stmt2_bind_param() with interlace mode. interlaceRows=%d bindv->count=%d \n", interlaceRows, bindv->count);
+            delay1 += toolsGetTimestampUs() - start;
         }
-        debugPrint("succ to call taos_stmt2_bind_param() with interlace mode. interlaceRows=%d bindv->count=%d \n", interlaceRows, bindv->count);
-        delay1 += toolsGetTimestampUs() - start;
 
         // execute
         startTs = toolsGetTimestampUs();
