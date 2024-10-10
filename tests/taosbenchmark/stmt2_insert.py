@@ -92,7 +92,7 @@ class TDTestCase:
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_batch_autoctb_no.json")
         # interlace - auto-create-table(yes or no)
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_yes.json")
-        #self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_no.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_no.json")
         # csv - (batch or interlace)
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_csv_interlace_autoctb_yes.json")
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_csv_batch_autoctb_no.json")

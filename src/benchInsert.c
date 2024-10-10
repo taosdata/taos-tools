@@ -1932,21 +1932,7 @@ static void *syncWriteInterlace(void *sarg) {
                     // cols
                     int32_t n = 0;
                     generated += bindVColsInterlace(bindv, i, pThreadInfo, interlaceRows, childTbl->ts, pos, 
-                                                    childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n);
-      
-                    // debug show
-                    if(g_arguments->debug_print)
-                        showBindV(bindv, stbInfo->tags, stbInfo->cols);
-                    // call bind
-                    int64_t start = toolsGetTimestampUs();
-                    if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
-                        errorPrint("taos_stmt2_bind_param(%s) failed, reason: %s\n", childTbl->name, taos_stmt_errstr(pThreadInfo->conn->stmt2));
-                        g_fail = true;
-                        goto free_of_interlace;
-                    }
-                    debugPrint("succ to call taos_stmt2_bind_param() with interlace mode. interlaceRows=%d n=%d\n", interlaceRows, n);
-                    delay1 += toolsGetTimestampUs() - start;
-                    
+                                                    childTbl, &childTbl->pkCur, &childTbl->pkCnt, &n);                    
                     // move next
                     pos += interlaceRows;
                     if (pos + interlaceRows + 1 >= g_arguments->prepared_rand) {
@@ -2058,6 +2044,21 @@ static void *syncWriteInterlace(void *sarg) {
                 }                
                 break;
             }
+        }
+
+        // stmt2 bind param
+        if(stbInfo->iface == STMT2_IFACE) {
+            if(g_arguments->debug_print)
+                showBindV(bindv, stbInfo->tags, stbInfo->cols);
+            // call bind
+            int64_t start = toolsGetTimestampUs();
+            if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
+                errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt_errstr(pThreadInfo->conn->stmt2));
+                g_fail = true;
+                goto free_of_interlace;
+            }
+            debugPrint("succ to call taos_stmt2_bind_param() with interlace mode. interlaceRows=%d bindv->count=%d \n", interlaceRows, bindv->count);
+            delay1 += toolsGetTimestampUs() - start;
         }
 
         // execute
@@ -3303,10 +3304,8 @@ static void preProcessArgument(SSuperTable *stbInfo) {
 
     if (stbInfo->interlaceRows > 0 && stbInfo->iface == STMT_IFACE
             && stbInfo->autoTblCreating) {
-        infoPrint("%s",
-                "not support autocreate table with interlace row in stmt "
-                "insertion, will change to progressive mode\n");
-        stbInfo->interlaceRows = 0;
+        errorPrint("%s","stmt not support autocreate table with interlace row , quit programe!\n");
+        exit(-1);
     }
 }
 
