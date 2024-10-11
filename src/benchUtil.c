@@ -1171,7 +1171,7 @@ bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint
     }
     for (int i = 0; i < pArray->size; i++) {
         Field *field = benchArrayGet(pArray, i);
-        if (strlen(field->name) == name_len && strncmp(field->name, field_name, name_len) == 0) {
+        if (strlen(field->name) == name_len && strncasecmp(field->name, field_name, name_len) == 0) {
             if (field->type == field_type) {
                 return true;
             }

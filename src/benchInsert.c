@@ -112,9 +112,10 @@ static int getSuperTableFromServerTaosc(
             uint8_t tagType = convertStringToDatatype(
                     (char *) row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            if (!searchBArray(stbInfo->tags, (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+            char *tagName = (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX];
+            if (!searchBArray(stbInfo->tags, tagName,
                               lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], tagType)) {
-                errorPrint("%s", "existing stable tag mismatched with that defined in JSON\n");
+                errorPrint("%s", "existing stable tag:%s not found in JSON tags.\n", tagName);
                 taos_free_result(res);
                 closeBenchConn(conn);
                 return TSDB_CODE_FAILED;
@@ -130,9 +131,10 @@ static int getSuperTableFromServerTaosc(
             uint8_t colType = convertStringToDatatype(
                     (char *) row[TSDB_DESCRIBE_METRIC_TYPE_INDEX],
                     lengths[TSDB_DESCRIBE_METRIC_TYPE_INDEX]);
-            if (!searchBArray(stbInfo->cols, (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX],
+            char * colName = (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX];
+            if (!searchBArray(stbInfo->cols, colName,
                               lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], colType)) {
-                errorPrint("%s", "existing stable column mismatched with that defined in JSON\n");
+                errorPrint("%s", "existing stable col:%s not found in JSON cols.\n", colName);
                 taos_free_result(res);
                 closeBenchConn(conn);
                 return TSDB_CODE_FAILED;
