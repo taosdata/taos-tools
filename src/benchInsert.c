@@ -115,7 +115,7 @@ static int getSuperTableFromServerTaosc(
             char *tagName = (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX];
             if (!searchBArray(stbInfo->tags, tagName,
                               lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], tagType)) {
-                errorPrint("%s", "existing stable tag:%s not found in JSON tags.\n", tagName);
+                errorPrint("existing stable tag:%s not found in JSON tags.\n", tagName);
                 taos_free_result(res);
                 closeBenchConn(conn);
                 return TSDB_CODE_FAILED;
@@ -134,7 +134,7 @@ static int getSuperTableFromServerTaosc(
             char * colName = (char *) row[TSDB_DESCRIBE_METRIC_FIELD_INDEX];
             if (!searchBArray(stbInfo->cols, colName,
                               lengths[TSDB_DESCRIBE_METRIC_FIELD_INDEX], colType)) {
-                errorPrint("%s", "existing stable col:%s not found in JSON cols.\n", colName);
+                errorPrint("existing stable col:%s not found in JSON cols.\n", colName);
                 taos_free_result(res);
                 closeBenchConn(conn);
                 return TSDB_CODE_FAILED;
