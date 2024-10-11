@@ -1379,7 +1379,7 @@ TAOS_STMT2_BINDV* createBindV(int32_t capacity, int32_t tagCnt, int32_t colCnt) 
     return bindv;
 }
 
-// reset tags and cols poitner
+// reset tags and cols pointer
 void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32_t colCnt) {
     unsigned char *p = (unsigned char *)bindv;
     // tbnames
