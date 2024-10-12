@@ -296,3 +296,4 @@ jobs:
           elif [ -f ~/taosbenchmark-ws-success.txt ]; then
             cat ~/taosbenchmark-ws-success.txt
           fi
+
