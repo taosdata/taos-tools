@@ -472,7 +472,7 @@ uint32_t accumulateRowLen(BArray *fields, int iface) {
                 len += TIMESTAMP_BUFF_LEN;
                 break;
             case TSDB_DATA_TYPE_JSON:
-                len += (JSON_BUFF_LEN + field->length) * fields->size;
+                len += field->length * fields->size;
                 return len;
         }
         len += 1;
@@ -736,51 +736,43 @@ double tmpDoubleImpl(Field *field, int32_t angle, int32_t k) {
 static int tmpJson(char *sampleDataBuf,
                    int bufLen, int64_t pos,
                    int fieldsSize, Field *field) {
-    int n;
-    n = snprintf(sampleDataBuf + pos, bufLen - pos, "'{");
+    int n = snprintf(sampleDataBuf + pos, bufLen - pos, "'{");
     if (n < 0 || n >= bufLen - pos) {
         errorPrint("%s() LN%d snprintf overflow\n",
                    __func__, __LINE__);
         return -1;
-    } else {
-        pos += n;
     }
     for (int j = 0; j < fieldsSize; ++j) {
-        n = snprintf(sampleDataBuf + pos, bufLen - pos,
+        // key
+        n += snprintf(sampleDataBuf + pos + n, bufLen - pos - n,
                         "\"k%d\":", j);
         if (n < 0 || n >= bufLen - pos) {
             errorPrint("%s() LN%d snprintf overflow\n",
                        __func__, __LINE__);
             return -1;
-        } else {
-            pos += n;
         }
+        // value
         char *buf = benchCalloc(1, field->length + 1, false);
-        rand_string(buf, field->length,
-                    g_arguments->chinese);
-        n = snprintf(sampleDataBuf + pos, bufLen - pos,
+        rand_string(buf, 12, g_arguments->chinese);
+        n += snprintf(sampleDataBuf + pos + n, bufLen - pos - n,
                         "\"%s\",", buf);
         if (n < 0 || n >= bufLen - pos) {
             errorPrint("%s() LN%d snprintf overflow\n",
                        __func__, __LINE__);
             tmfree(buf);
             return -1;
-        } else {
-            pos += n;
         }
         tmfree(buf);
     }
-    n = snprintf(sampleDataBuf + pos - 1,
-                    bufLen - pos, "}'");
+    n += snprintf(sampleDataBuf + pos + n - 1,
+                    bufLen - pos - n, "}'");
     if (n < 0 || n >= bufLen - pos) {
         errorPrint("%s() LN%d snprintf overflow\n",
                    __func__, __LINE__);
         return -1;
-    } else {
-        pos += n;
     }
 
-    return pos;
+    return n;
 }
 
 static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
@@ -914,8 +906,11 @@ static int generateRandDataSQL(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_JSON: {
-                    pos += tmpJson(sampleDataBuf, bufLen, pos,
-                                   fieldsSize, field);
+                    n = tmpJson(sampleDataBuf, bufLen, pos, fieldsSize, field);
+                    if (n == -1) {
+                        return -1;
+                    }
+                    pos += n;
                     goto skip_sql;
                 }
             }
@@ -1139,8 +1134,11 @@ static int fillStmt(
                     break;
                 }
                 case TSDB_DATA_TYPE_JSON: {
-                    pos += tmpJson(sampleDataBuf, bufLen, pos,
-                                   fieldsSize, field);
+                    n = tmpJson(sampleDataBuf, bufLen, pos, fieldsSize, field);
+                    if (n == -1) {
+                        return -1;
+                    }
+                    pos += n;
                     goto skip_stmt;
                 }
             }
@@ -1186,6 +1184,15 @@ static int generateRandDataStmtForChildTable(
             childField->stmtData.data = benchCalloc(
                     1, loop * field->length, true);
         }
+
+        // is_null
+        childField->stmtData.is_null = benchCalloc(1, loop * field->length, true);
+        // lengths
+        childField->stmtData.lengths = benchCalloc(sizeof(int32_t), loop * field->length, true);
+
+        // log
+        debugPrint("i=%d generateRandDataStmtForChildTable fields=%p %s malloc stmtData.data=%p\n", i, fields, field->name ,field->stmtData.data);
+
     }
     return fillStmt(
         stbInfo,
@@ -1448,8 +1455,11 @@ static int generateRandDataSmlTelnet(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_JSON: {
-                    pos += tmpJson(sampleDataBuf, bufLen, pos,
-                                   fieldsSize, field);
+                    n = tmpJson(sampleDataBuf, bufLen, pos, fieldsSize, field);
+                    if (n == -1) {
+                        return -1;
+                    }
+                    pos += n;
                     goto skip_telnet;
                 }
             }
@@ -1568,8 +1578,11 @@ static int generateRandDataSmlJson(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_JSON: {
-                    pos += tmpJson(sampleDataBuf, bufLen, pos,
-                                   fieldsSize, field);
+                    n = tmpJson(sampleDataBuf, bufLen, pos, fieldsSize, field);
+                    if (n == -1) {
+                        return -1;
+                    }
+                    pos += n;
                     goto skip_json;
                 }
             }

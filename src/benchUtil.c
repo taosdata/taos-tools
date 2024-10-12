@@ -891,7 +891,7 @@ char *convertDatatypeToString(int type) {
         case TSDB_DATA_TYPE_DOUBLE:
             return "double";
         case TSDB_DATA_TYPE_JSON:
-            return "json";
+            return "json";    
         case TSDB_DATA_TYPE_GEOMETRY:
             return "geometry";
         default:
@@ -901,7 +901,7 @@ char *convertDatatypeToString(int type) {
 }
 
 int convertTypeToLength(uint8_t type) {
-    uint8_t ret = 0;
+    int ret = 0;
     switch (type) {
         case TSDB_DATA_TYPE_TIMESTAMP:
         case TSDB_DATA_TYPE_UBIGINT:
@@ -926,6 +926,9 @@ int convertTypeToLength(uint8_t type) {
             break;
         case TSDB_DATA_TYPE_DOUBLE:
             ret = sizeof(double);
+            break;
+        case TSDB_DATA_TYPE_JSON:
+            ret = JSON_FIXED_LENGTH;
             break;
         default:
             break;

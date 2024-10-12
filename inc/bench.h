@@ -138,9 +138,11 @@ typedef unsigned __int32 uint32_t;
 #define BOOL_BUFF_LEN       6
 #define FLOAT_BUFF_LEN      22
 #define DOUBLE_BUFF_LEN     42
-#define JSON_BUFF_LEN       20
 #define TIMESTAMP_BUFF_LEN  21
 #define PRINT_STAT_INTERVAL 30 * 1000
+
+// json tag type fixed length
+#define JSON_FIXED_LENGTH   4095
 
 #define MAX_QUERY_SQL_COUNT 100
 
@@ -191,7 +193,7 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_PORT                \
     "The TCP/IP port number to use for the connection, default is 6030."
 #define BENCH_MODE                \
-    "insert mode, default is taosc, options: taosc|rest|stmt|sml"
+    "insert mode, default is taosc, options: taosc|rest|stmt|stmt2|sml"
 #define BENCH_USER                \
     "The user name to use when connecting to the server, default is root."
 #define BENCH_PASS                \

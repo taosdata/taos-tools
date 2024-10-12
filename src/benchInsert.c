@@ -1203,7 +1203,11 @@ static void freeChildTable(SChildTable *childTbl, int colsSize) {
                     benchArrayGet(childTbl->childCols, col);
                 if (childCol) {
                     tmfree(childCol->stmtData.data);
+                    childCol->stmtData.data = NULL;
                     tmfree(childCol->stmtData.is_null);
+                    childCol->stmtData.is_null = NULL;
+                    tmfree(childCol->stmtData.lengths);
+                    childCol->stmtData.lengths = NULL;
                 }
             }
             benchArrayDestroy(childTbl->childCols);

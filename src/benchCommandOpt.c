@@ -60,7 +60,7 @@ void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
         benchArrayPush(fields, field);
         field = benchArrayGet(fields, 0);
         if (1 == regexMatch(dataType,
-                    "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                    "^(BINARY|NCHAR|GEOMETRY|VARBINARY|VARCHAR)(\\([1-9][0-9]*\\))$",
                     REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
