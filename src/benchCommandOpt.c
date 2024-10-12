@@ -182,7 +182,7 @@ static void initStable() {
     tstrncpy(t2->name, "location", TSDB_COL_NAME_LEN + 1);
 
     t1->min = 1;
-    t1->max = 10;
+    t1->max = 100000;
 
 
     stbInfo->insert_interval = 0;

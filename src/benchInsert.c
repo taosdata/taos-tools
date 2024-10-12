@@ -2384,13 +2384,14 @@ static int32_t prepareProgressDataSmlLineOrTelnet(
     int32_t pos = 0;
     for (int j = 0; (j < g_arguments->reqPerReq)
             && !g_arguments->terminate; j++) {
+        // table index
+        int ti = tableSeq - pThreadInfo->start_table_from;
         if (TSDB_SML_LINE_PROTOCOL == protocol) {
             snprintf(
                     pThreadInfo->lines[j],
                     stbInfo->lenOfCols + stbInfo->lenOfTags,
                     "%s %s %" PRId64 "",
-                    pThreadInfo->sml_tags[tableSeq
-                    - pThreadInfo->start_table_from],
+                    pThreadInfo->sml_tags[ti],
                     sampleDataBuf + pos * stbInfo->lenOfCols,
                     *timestamp);
         } else {
@@ -2401,9 +2402,9 @@ static int32_t prepareProgressDataSmlLineOrTelnet(
                     *timestamp,
                     sampleDataBuf
                     + pos * stbInfo->lenOfCols,
-                    pThreadInfo->sml_tags[tableSeq
-                    -pThreadInfo->start_table_from]);
+                    pThreadInfo->sml_tags[ti]);
         }
+        //infoPrint("sml prepare j=%d stb=%s sml_tags=%s \n", j, stbInfo->stbName, pThreadInfo->sml_tags[ti]);
         pos++;
         if (pos >= g_arguments->prepared_rand) {
             pos = 0;

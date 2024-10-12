@@ -631,6 +631,23 @@ int tmpInt32Impl(Field *field, int i, int angle, int32_t k) {
     return intTmp;
 }
 
+int tmpInt32ImplTag(Field *field, int i, int k) {
+    int intTmp;
+
+    if (field->min < (-1 * (RAND_MAX >> 1))) {
+        field->min = -1 * (RAND_MAX >> 1);
+    }
+    if (field->max > (RAND_MAX >> 1)) {
+        field->max = RAND_MAX >> 1;
+    }
+    intTmp = field->min;
+    if (field->max != field->min) {
+        intTmp += (COL_GEN % (field->max - field->min));
+    }
+    return intTmp;
+}
+
+
 uint32_t tmpUint32Impl(Field *field, int i, int angle, int64_t k) {
     uint32_t intTmp;
     if (field->funType != FUNTYPE_NONE) {
@@ -1664,7 +1681,12 @@ static int generateRandDataSmlLine(SSuperTable *stbInfo, char *sampleDataBuf,
                     break;
                 }
                 case TSDB_DATA_TYPE_INT: {
-                    int32_t intTmp = tmpInt32Impl(field, i, angle, k);
+                    int32_t intTmp;
+                    if (tag) {
+                        intTmp = tmpInt32ImplTag(field, i, k);
+                    } else {
+                        intTmp = tmpInt32Impl(field, i, angle, k);
+                    }                    
                     n = snprintf(sampleDataBuf + pos, bufLen - pos,
                                     "%s=%di32,",
                                     field->name, intTmp);

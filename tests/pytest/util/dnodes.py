@@ -318,7 +318,7 @@ class TDDnode:
 
         if taosadapterBinPath != "":
             taosadapterCmd = (
-                "nohup %s --logLevel=error --opentsdb_telnet.enable=true --monitor.writeToTD=false | tee -a ~/taosa.log & "
+                "nohup %s --logLevel=error --opentsdb_telnet.enable=true | tee -a ~/taosa.log & "
                 % (taosadapterBinPath)
             )
             tdLog.info(taosadapterCmd)
@@ -384,7 +384,7 @@ class TDDnode:
         cmd = "mintty -h never -w hide %s -c %s" % (binPath, self.cfgDir)
 
         if taosadapterBinPath != "":
-            taosadapterCmd = "mintty -h never -w hide %s --monitor.writeToTD=false " % (
+            taosadapterCmd = "mintty -h never -w hide %s " % (
                 taosadapterBinPath
             )
             if os.system(taosadapterCmd) != 0:
@@ -454,7 +454,7 @@ class TDDnode:
             print(cmd)
 
         if taosadapterBinPath != "":
-            taosadapterCmd = "%s --monitor.writeToTD=false > /dev/null 2>&1 & " % (
+            taosadapterCmd = "%s > /dev/null 2>&1 & " % (
                 taosadapterBinPath
             )
             if os.system(taosadapterCmd) != 0:

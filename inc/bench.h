@@ -1202,6 +1202,7 @@ float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
 double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 int tmpStr(char *tmp, int iface, Field *field, int64_t k);
 int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
+int tmpInt32ImplTag(Field *field, int i, int k);
 
 char* genQMark( int32_t QCnt);
 // stmt2
