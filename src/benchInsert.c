@@ -1400,7 +1400,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
             // execute 
             code = taos_stmt2_exec(pThreadInfo->conn->stmt2, &affectRows);
             if (code) {
-                errorPrint( "failed to call taos_stmt2_exec(). reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt));
+                errorPrint( "failed to call taos_stmt2_exec(). reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt2));
                 code = -1;
             }
             debugPrint( "succ call taos_stmt2_exec() affectRows:%d\n", affectRows);
@@ -2059,7 +2059,7 @@ static void *syncWriteInterlace(void *sarg) {
             // call bind
             int64_t start = toolsGetTimestampUs();
             if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
-                errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt_errstr(pThreadInfo->conn->stmt2));
+                errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt2));
                 g_fail = true;
                 goto free_of_interlace;
             }
@@ -4595,7 +4595,7 @@ static int32_t stmt2BindVProgressive(
     int64_t start = toolsGetTimestampUs();
     int32_t ret   = taos_stmt2_bind_param(stmt2, bindv, -1);
     if(ret != 0) {
-        errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt_errstr(stmt2));
+        errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt2_error(stmt2));
         freeBindV(bindv);
         return -1;
     }
