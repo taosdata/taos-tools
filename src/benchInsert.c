@@ -182,7 +182,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
 static int queryDbExec(SDataBase *database,
                        SSuperTable *stbInfo, char *command) {
     int ret = 0;
-    if (REST_IFACE == stbInfo->iface) {
+    if (isRest(stbInfo->iface)) {
         if (0 != convertServAddr(stbInfo->iface, false, 1)) {
             errorPrint("%s", "Failed to convert server address\n");
             return -1;
@@ -4381,7 +4381,7 @@ int insertTestProcess() {
 
     //loop create database 
     for (int i = 0; i < g_arguments->databases->size; i++) {
-        if (REST_IFACE == g_arguments->iface) {
+        if (isRest(g_arguments->iface)) {
             if (0 != convertServAddr(g_arguments->iface,
                                      false,
                                      1)) {
@@ -4391,9 +4391,9 @@ int insertTestProcess() {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
 
         if (database->drop && !(g_arguments->supplementInsert)) {
-            if (database->superTbls) {
+            if (database->superTbls && database->superTbls->size > 0) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-                if (stbInfo && (REST_IFACE == stbInfo->iface)) {
+                if (stbInfo && isRest(stbInfo->iface)) {
                     if (0 != convertServAddr(stbInfo->iface,
                                              stbInfo->tcpTransfer,
                                              stbInfo->lineProtocol)) {
@@ -4410,18 +4410,16 @@ int insertTestProcess() {
         } else {
 #ifndef WEBSOCKET            
             // database already exist, get vgroups from server
-            if (database->superTbls) {
-                SBenchConn* conn = initBenchConn();
-                if (conn) {
-                    int32_t vgroups = getVgroupsOfDb(conn, database);
-                    if (vgroups <=0) {
-                        closeBenchConn(conn);
-                        errorPrint("Database %s's vgroups is zero.\n", database->dbName);
-                        return -1;
-                    }
+            SBenchConn* conn = initBenchConn();
+            if (conn) {
+                int32_t vgroups = getVgroupsOfDb(conn, database);
+                if (vgroups <=0) {
                     closeBenchConn(conn);
-                    succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
+                    errorPrint("Database %s's vgroups is zero.\n", database->dbName);
+                    return -1;
                 }
+                closeBenchConn(conn);
+                succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
             }
 #endif
         }

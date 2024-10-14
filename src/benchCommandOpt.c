@@ -227,7 +227,7 @@ void initArgument() {
     }
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = true;
-    g_arguments->host = NULL;
+    g_arguments->host = DEFAULT_HOST;
     g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
     g_arguments->port_inputted = false;
@@ -293,7 +293,7 @@ void modifyArgument() {
 #else
             taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 #endif
-            g_arguments->host = NULL;
+            g_arguments->host = DEFAULT_HOST;
             g_arguments->port = 0;
         }
 #ifdef WEBSOCKET
@@ -347,7 +347,7 @@ void modifyArgument() {
         superTable->trying_interval = g_arguments->trying_interval;
     }
 
-    if (REST_IFACE == g_arguments->iface) {
+    if (isRest(g_arguments->iface)) {
         if (0 != convertServAddr(g_arguments->iface,
                                  false,
                                  1)) {

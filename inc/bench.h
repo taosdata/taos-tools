@@ -140,6 +140,7 @@ typedef unsigned __int32 uint32_t;
 #define DOUBLE_BUFF_LEN     42
 #define TIMESTAMP_BUFF_LEN  21
 #define PRINT_STAT_INTERVAL 30 * 1000
+#define DEFAULT_HOST        "localhost"
 
 // json tag type fixed length
 #define JSON_FIXED_LENGTH   4095
@@ -163,8 +164,8 @@ typedef unsigned __int32 uint32_t;
 #define DEFAULT_BINWIDTH       64
 #define DEFAULT_REPLICA        1
 #define DEFAULT_CFGNAME_LEN    10
-#define DEFAULT_PREPARED_RAND  10000
-#define DEFAULT_REQ_PER_REQ    30000
+#define DEFAULT_PREPARED_RAND  20000
+#define DEFAULT_REQ_PER_REQ    10000
 #define DEFAULT_INSERT_ROWS    10000
 #define DEFAULT_DISORDER_RANGE 1000
 #define DEFAULT_CREATE_BATCH   10
@@ -1213,4 +1214,6 @@ void clearBindV(TAOS_STMT2_BINDV *bindv);
 void freeBindV(TAOS_STMT2_BINDV *bindv);
 void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
 
+// IFace is rest return True
+bool isRest(int32_t iface);
 #endif   // INC_BENCH_H_

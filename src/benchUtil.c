@@ -44,6 +44,10 @@ FORCE_INLINE void tmfree(void *buf) {
     }
 }
 
+FORCE_INLINE bool isRest(int32_t iface) { 
+    return REST_IFACE == iface || SML_REST_IFACE == iface;
+}
+
 void ERROR_EXIT(const char *msg) {
     errorPrint("%s", msg);
     exit(EXIT_FAILURE);
@@ -159,7 +163,8 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 int convertHostToServAddr(char *host, uint16_t port,
         struct sockaddr_in *serv_addr) {
     if (!host) {
-        host = "localhost";
+        errorPrint("%s", "convertHostToServAddr host is null.");
+        return -1;
     }
     debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host,
             port);
@@ -1161,7 +1166,7 @@ void benchArrayClear(BArray* pArray) {
 
 void* benchArrayGet(const BArray* pArray, size_t index) {
     if (index >= pArray->size) {
-        errorPrint("index(%zu) greater than BArray size(%zu)\n",
+        errorPrint("benchArrayGet index(%zu) greater than BArray size(%zu)\n",
                    index, pArray->size);
         exit(EXIT_FAILURE);
     }
@@ -1217,26 +1222,28 @@ void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
 #endif
 
 int convertServAddr(int iface, bool tcp, int protocol) {
-    if (iface == REST_IFACE || iface == SML_REST_IFACE) {
-        if (tcp
-                && iface == SML_REST_IFACE
-                && protocol == TSDB_SML_TELNET_PROTOCOL) {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->telnet_tcp_port,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        } else {
-            if (convertHostToServAddr(g_arguments->host,
-                        (g_arguments->port_inputted)?
-                                      g_arguments->port:
-                                      DEFAULT_REST_PORT,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
+    if (tcp
+            && iface == SML_REST_IFACE
+            && protocol == TSDB_SML_TELNET_PROTOCOL) {
+        // telnet_tcp_port        
+        if (convertHostToServAddr(g_arguments->host,
+                    g_arguments->telnet_tcp_port,
+                    &(g_arguments->serv_addr))) {
+            errorPrint("%s\n", "convert host to server address");
+            return -1;
         }
+        infoPrint("convertServAddr host=%s telnet_tcp_port:%d to serv_addr=%p iface=%d \n", 
+                g_arguments->host, g_arguments->telnet_tcp_port, &g_arguments->serv_addr, iface);
+    } else {
+        int port = g_arguments->port_inputted ? g_arguments->port:DEFAULT_REST_PORT;
+        if (convertHostToServAddr(g_arguments->host,
+                                    port,
+                    &(g_arguments->serv_addr))) {
+            errorPrint("%s\n", "convert host to server address");
+            return -1;
+        }
+        infoPrint("convertServAddr host=%s port:%d to serv_addr=%p iface=%d \n", 
+                g_arguments->host, port, &g_arguments->serv_addr, iface);
     }
     return 0;
 }
@@ -1266,6 +1273,7 @@ int createSockFd() {
     int retConn = connect(
             sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
             sizeof(struct sockaddr));
+    infoPrint("createSockFd call connect serv_addr=%p retConn=%d\n", &g_arguments->serv_addr, retConn);
     if (retConn < 0) {
         errorPrint("%s\n", "failed to connect");
 #ifdef WINDOWS
