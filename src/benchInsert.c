@@ -3224,13 +3224,13 @@ static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
 
 static int64_t fillChildTblNameByFromTo(SDataBase *database,
         SSuperTable* stbInfo) {
-    for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
+    for (int64_t i = stbInfo->childTblFrom; i <= stbInfo->childTblTo; i++) {
         char childName[TSDB_TABLE_NAME_LEN]={0};
         snprintf(childName,
                 TSDB_TABLE_NAME_LEN,
                 "%s%" PRIu64 "",
                 stbInfo->childTblPrefix, i);
-        stbInfo->childTblArray[i-stbInfo->childTblFrom]->name = strdup(childName);
+        stbInfo->childTblArray[i]->name = strdup(childName);
     }
 
     return (stbInfo->childTblTo-stbInfo->childTblFrom);
