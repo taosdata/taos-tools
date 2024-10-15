@@ -82,7 +82,7 @@ jobs:
           cd TDengine
           mkdir debug
 
-      - uses: shivamkumarjha/setup-msvc@v1
+      - uses: microsoft/setup-msvc@v1
 
       - name: cmake first TDengine
         if: |
@@ -120,7 +120,7 @@ jobs:
         with:
           toolchain: stable
 
-      - uses: shivamkumarjha/setup-msvc@v1
+      - uses: microsoft/setup-msvc@v1
 
       - name: Build & Install TDengine
         if:
