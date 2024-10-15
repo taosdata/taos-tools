@@ -84,15 +84,16 @@ jobs:
 
       - uses: ilammy/msvc-dev-cmd@v1
 
-      #- name: cmake first TDengine
-      #  if: |
-      #    (steps.changed-files-specific.outputs.any_changed == 'true'
-      #    && github.event_name == 'pull_request')
-      #    || github.event_name == 'push'
-      #    || github.event_name == 'schedule'
-      #  run: |
-      #    cl.exe
-      #    cd TDengine/debug
+      - name: cmake first TDengine
+        if: |
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
+        run: |
+          cl.exe
+          cd TDengine/debug
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
       #    cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 2
 
       - name: Checkout TDengine's taos-tools to PR number
