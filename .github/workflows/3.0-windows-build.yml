@@ -91,6 +91,7 @@ jobs:
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cl.exe
           cd TDengine/debug
           cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8
@@ -129,6 +130,7 @@ jobs:
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cl.exe
           cd TDengine/debug
           #cmake .. -G "NMake Makefiles"     -DBUILD_TOOLS=true && nmake && nmake install
