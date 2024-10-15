@@ -93,8 +93,7 @@ jobs:
         run: |
           cl.exe
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
-      #    cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 2
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8
 
       - name: Checkout TDengine's taos-tools to PR number
         if: |
@@ -132,7 +131,7 @@ jobs:
         run: |
           cl.exe
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 2 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install
           #cmake .. -G "NMake Makefiles" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && nmake && nmake install
 
           #      - name: taosdump codec Test
