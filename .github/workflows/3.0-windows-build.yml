@@ -131,8 +131,8 @@ jobs:
         run: |
           cl.exe
           cd TDengine/debug
-          #cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install
-          jom /j 8 && jom install
+          jom clean && cmake clean
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install          
           #cmake .. -G "NMake Makefiles" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && nmake && nmake install
 
           #      - name: taosdump codec Test
