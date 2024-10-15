@@ -82,7 +82,7 @@ jobs:
           cd TDengine
           mkdir debug
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      #- uses: ilammy/msvc-dev-cmd@v1
 
       - name: cmake first TDengine
         if: |
@@ -120,7 +120,7 @@ jobs:
         with:
           toolchain: stable
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      #- uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build & Install TDengine
         if:
