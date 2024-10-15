@@ -82,7 +82,7 @@ jobs:
           cd TDengine
           mkdir debug
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: shivamkumarjha/setup-msvc@v1
 
       - name: cmake first TDengine
         if: |
@@ -120,13 +120,9 @@ jobs:
         with:
           toolchain: stable
 
-      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: shivamkumarjha/setup-msvc@v1
 
       - name: Build & Install TDengine
-        uses: shivamkumarjha/setup-msvc@v1
-        with:
-          msvcVersion: 2019
-          architecture: x64
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
