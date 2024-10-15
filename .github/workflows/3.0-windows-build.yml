@@ -82,7 +82,7 @@ jobs:
           cd TDengine
           mkdir debug
 
-      #- uses: ilammy/msvc-dev-cmd@v1
+      - uses: ilammy/msvc-dev-cmd@v1
 
       - name: cmake first TDengine
         if: |
@@ -91,123 +91,10 @@ jobs:
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
-          set PATH=%PATH%;%cd%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           cl.exe
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8
-
-      - name: Checkout TDengine's taos-tools to PR number
-        if: |
-          github.event_name == 'pull_request' &&
-          steps.changed-files-specific.outputs.any_changed == 'true'
-        run: |
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true
           cd TDengine/tools/taos-tools
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
-
-      - name: Set up Go
-        if: steps.changed-files-specific.outputs.any_changed == 'true'
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.17
-
-      - name: Set up Rust
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-          || github.event_name == 'schedule'
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-
-      #- uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Build & Install TDengine
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-          || github.event_name == 'schedule'
-        run: |
-          set PATH=%PATH%;%cd%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          cl.exe
-          cd TDengine/debug
-          #cmake .. -G "NMake Makefiles"     -DBUILD_TOOLS=true && nmake && nmake install
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install
-          #cmake .. -G "NMake Makefiles" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && nmake && nmake install
-
-          #      - name: taosdump codec Test
-          #        if:
-          #(steps.changed-files-specific.outputs.any_changed == 'true'
-          #&& github.event_name == 'pull_request')
-          #|| github.event_name == 'push'
-          #|| github.event_name == 'schedule'
-          #        run: |
-
-          #cd TDengine/debug
-
-          #./build/bin/taosadapter > /dev/null &
-          #./build/bin/taosd > /dev/null &
-          #sleep 10
-
-          #echo "TEST: simple and log database"
-          #./build/bin/taosBenchmark -t 1 -n 1 -y
-          #./build/bin/taosdump -D test -a
-          #rm -rf *.sql *.avro* taosdump.*
-
-          #      - name: Func Test
-          #        run: |
-          #          cd TDengine/tests/pytest
-          #          pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
-          #          sudo pkill -9 taosadapter || :
-          #          sudo pkill -9 taosd || :
-          #
-          #          python3 ./test.py -f tools/taosdumpTest.py
-          #          python3 ./test.py -f tools/taosdumpTest2.py
-          #          python3 ./test.py -f tools/taosdumpTest3.py
-          #          python3 ./test.py -f tools/taosdumpTestNanoSupport.py
-          #
-          #      - name: System Test
-          #        run: |
-          #          cd TDengine/tests/system-test
-          #          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
-          #          then
-          #            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt; done
-          #          fi
-          #
-          #          #          if [ -d 5-taos-tools/taosbenchmark ];
-          #          #then
-          #          #  if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-          #          #  then
-          #          #    for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
-          #          #  fi
-          #          #fi
-          #
-          #      - name: Develop Test
-          #        run: |
-          #          cd TDengine/tests/develop-test
-          #
-          #          if find 5-taos-tools/taosdump -name "*.py"|grep -q .;
-          #          then
-          #            for i in `find 5-taos-tools/taosdump -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosdump-failed.txt ;done
-          #          fi
-          #
-          #          if [ -d 5-taos-tools/taosbenchmark ];
-          #          then
-          #            if find 5-taos-tools/taosbenchmark -name "*.py"|grep -q .;
-          #            then
-          #              for i in `find 5-taos-tools/taosbenchmark -name "*.py"`; do python3 ./test.py -f $i > /dev/null 2>&1 && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" | tee -a taosbenchmark-failed.txt; done
-          #            fi
-          #          fi
-          #
-          #          if [ -f taosdump-failed.txt ]; then
-          #            cat taosdump-failed.txt;
-          #            exit 1;
-          #          fi
-          #          if [ -f taosbenchmark-failed.txt ]; then
-          #            cat taosbenchmark-failed.txt;
-          #            exit 1;
-          #          fi
+          jom /j 8
