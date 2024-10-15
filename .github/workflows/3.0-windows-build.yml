@@ -123,6 +123,10 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build & Install TDengine
+        uses: shivamkumarjha/setup-msvc@v1
+        with:
+          msvcVersion: 2019
+          architecture: x64
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
