@@ -4601,7 +4601,6 @@ static int32_t stmt2BindVProgressive(
                 childTbl->name, batch, pos, *timestamp, generated);
     *delay1 = toolsGetTimestampUs() - start;
     // free
-    freeBindV(bindv);
-    
+    freeBindV(bindv);    
     return generated;
 }
