@@ -81,6 +81,8 @@ jobs:
           choco install jom gawk grep -y
           cd TDengine
           mkdir debug
+          rd  debug /s/q
+          mkdir debug
 
       - uses: ilammy/msvc-dev-cmd@v1
 
@@ -130,7 +132,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           cl.exe
-          rmdir /s /q TDengine/debug
+          rd  TDengine/debug /s/q
           mkdir TDengine/debug
           cd TDengine/debug          
           cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install          
