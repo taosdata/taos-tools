@@ -182,7 +182,7 @@ static int getSuperTableFromServer(SDataBase* database, SSuperTable* stbInfo) {
 static int queryDbExec(SDataBase *database,
                        SSuperTable *stbInfo, char *command) {
     int ret = 0;
-    if (REST_IFACE == stbInfo->iface) {
+    if (isRest(stbInfo->iface)) {
         if (0 != convertServAddr(stbInfo->iface, false, 1)) {
             errorPrint("%s", "Failed to convert server address\n");
             return -1;
@@ -1203,7 +1203,11 @@ static void freeChildTable(SChildTable *childTbl, int colsSize) {
                     benchArrayGet(childTbl->childCols, col);
                 if (childCol) {
                     tmfree(childCol->stmtData.data);
+                    childCol->stmtData.data = NULL;
                     tmfree(childCol->stmtData.is_null);
+                    childCol->stmtData.is_null = NULL;
+                    tmfree(childCol->stmtData.lengths);
+                    childCol->stmtData.lengths = NULL;
                 }
             }
             benchArrayDestroy(childTbl->childCols);
@@ -1396,7 +1400,7 @@ int32_t execInsert(threadInfo *pThreadInfo, uint32_t k, int64_t *delay3) {
             // execute 
             code = taos_stmt2_exec(pThreadInfo->conn->stmt2, &affectRows);
             if (code) {
-                errorPrint( "failed to call taos_stmt2_exec(). reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt));
+                errorPrint( "failed to call taos_stmt2_exec(). reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt2));
                 code = -1;
             }
             debugPrint( "succ call taos_stmt2_exec() affectRows:%d\n", affectRows);
@@ -2055,7 +2059,7 @@ static void *syncWriteInterlace(void *sarg) {
             // call bind
             int64_t start = toolsGetTimestampUs();
             if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
-                errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt_errstr(pThreadInfo->conn->stmt2));
+                errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt2));
                 g_fail = true;
                 goto free_of_interlace;
             }
@@ -2380,13 +2384,14 @@ static int32_t prepareProgressDataSmlLineOrTelnet(
     int32_t pos = 0;
     for (int j = 0; (j < g_arguments->reqPerReq)
             && !g_arguments->terminate; j++) {
+        // table index
+        int ti = tableSeq - pThreadInfo->start_table_from;
         if (TSDB_SML_LINE_PROTOCOL == protocol) {
             snprintf(
                     pThreadInfo->lines[j],
                     stbInfo->lenOfCols + stbInfo->lenOfTags,
                     "%s %s %" PRId64 "",
-                    pThreadInfo->sml_tags[tableSeq
-                    - pThreadInfo->start_table_from],
+                    pThreadInfo->sml_tags[ti],
                     sampleDataBuf + pos * stbInfo->lenOfCols,
                     *timestamp);
         } else {
@@ -2397,9 +2402,9 @@ static int32_t prepareProgressDataSmlLineOrTelnet(
                     *timestamp,
                     sampleDataBuf
                     + pos * stbInfo->lenOfCols,
-                    pThreadInfo->sml_tags[tableSeq
-                    -pThreadInfo->start_table_from]);
+                    pThreadInfo->sml_tags[ti]);
         }
+        //infoPrint("sml prepare j=%d stb=%s sml_tags=%s \n", j, stbInfo->stbName, pThreadInfo->sml_tags[ti]);
         pos++;
         if (pos >= g_arguments->prepared_rand) {
             pos = 0;
@@ -3172,11 +3177,11 @@ static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
         ChildField *childCol = benchArrayGet(childTbl->childCols, c);
         char dataType = col->type;
 
-        char *is_null = benchCalloc(
-                1, sizeof(char) *g_arguments->prepared_rand, false);
-
+        // malloc memory
         tmfree(childCol->stmtData.is_null);
-        childCol->stmtData.is_null = is_null;
+        tmfree(childCol->stmtData.lengths);
+        childCol->stmtData.is_null = benchCalloc(1, sizeof(char)    * g_arguments->prepared_rand, true);
+        childCol->stmtData.lengths = benchCalloc(1, sizeof(int32_t) * g_arguments->prepared_rand, true);
 
         initStmtData(dataType, &(childCol->stmtData.data), col->length);
     }
@@ -3219,13 +3224,13 @@ static int64_t fillChildTblNameByCount(SSuperTable *stbInfo) {
 
 static int64_t fillChildTblNameByFromTo(SDataBase *database,
         SSuperTable* stbInfo) {
-    for (int64_t i = stbInfo->childTblFrom; i < stbInfo->childTblTo; i++) {
+    for (int64_t i = stbInfo->childTblFrom; i <= stbInfo->childTblTo; i++) {
         char childName[TSDB_TABLE_NAME_LEN]={0};
         snprintf(childName,
                 TSDB_TABLE_NAME_LEN,
                 "%s%" PRIu64 "",
                 stbInfo->childTblPrefix, i);
-        stbInfo->childTblArray[i-stbInfo->childTblFrom]->name = strdup(childName);
+        stbInfo->childTblArray[i]->name = strdup(childName);
     }
 
     return (stbInfo->childTblTo-stbInfo->childTblFrom);
@@ -4376,7 +4381,7 @@ int insertTestProcess() {
 
     //loop create database 
     for (int i = 0; i < g_arguments->databases->size; i++) {
-        if (REST_IFACE == g_arguments->iface) {
+        if (isRest(g_arguments->iface)) {
             if (0 != convertServAddr(g_arguments->iface,
                                      false,
                                      1)) {
@@ -4386,9 +4391,9 @@ int insertTestProcess() {
         SDataBase * database = benchArrayGet(g_arguments->databases, i);
 
         if (database->drop && !(g_arguments->supplementInsert)) {
-            if (database->superTbls) {
+            if (database->superTbls && database->superTbls->size > 0) {
                 SSuperTable * stbInfo = benchArrayGet(database->superTbls, 0);
-                if (stbInfo && (REST_IFACE == stbInfo->iface)) {
+                if (stbInfo && isRest(stbInfo->iface)) {
                     if (0 != convertServAddr(stbInfo->iface,
                                              stbInfo->tcpTransfer,
                                              stbInfo->lineProtocol)) {
@@ -4405,18 +4410,16 @@ int insertTestProcess() {
         } else {
 #ifndef WEBSOCKET            
             // database already exist, get vgroups from server
-            if (database->superTbls) {
-                SBenchConn* conn = initBenchConn();
-                if (conn) {
-                    int32_t vgroups = getVgroupsOfDb(conn, database);
-                    if (vgroups <=0) {
-                        closeBenchConn(conn);
-                        errorPrint("Database %s's vgroups is zero.\n", database->dbName);
-                        return -1;
-                    }
+            SBenchConn* conn = initBenchConn();
+            if (conn) {
+                int32_t vgroups = getVgroupsOfDb(conn, database);
+                if (vgroups <=0) {
                     closeBenchConn(conn);
-                    succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
+                    errorPrint("Database %s's vgroups is zero.\n", database->dbName);
+                    return -1;
                 }
+                closeBenchConn(conn);
+                succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
             }
 #endif
         }
@@ -4590,7 +4593,7 @@ static int32_t stmt2BindVProgressive(
     int64_t start = toolsGetTimestampUs();
     int32_t ret   = taos_stmt2_bind_param(stmt2, bindv, -1);
     if(ret != 0) {
-        errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt_errstr(stmt2));
+        errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt2_error(stmt2));
         freeBindV(bindv);
         return -1;
     }
@@ -4598,7 +4601,6 @@ static int32_t stmt2BindVProgressive(
                 childTbl->name, batch, pos, *timestamp, generated);
     *delay1 = toolsGetTimestampUs() - start;
     // free
-    freeBindV(bindv);
-    
+    freeBindV(bindv);    
     return generated;
 }

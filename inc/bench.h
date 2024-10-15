@@ -138,9 +138,12 @@ typedef unsigned __int32 uint32_t;
 #define BOOL_BUFF_LEN       6
 #define FLOAT_BUFF_LEN      22
 #define DOUBLE_BUFF_LEN     42
-#define JSON_BUFF_LEN       20
 #define TIMESTAMP_BUFF_LEN  21
 #define PRINT_STAT_INTERVAL 30 * 1000
+#define DEFAULT_HOST        "localhost"
+
+// json tag type fixed length
+#define JSON_FIXED_LENGTH   4095
 
 #define MAX_QUERY_SQL_COUNT 100
 
@@ -161,8 +164,8 @@ typedef unsigned __int32 uint32_t;
 #define DEFAULT_BINWIDTH       64
 #define DEFAULT_REPLICA        1
 #define DEFAULT_CFGNAME_LEN    10
-#define DEFAULT_PREPARED_RAND  10000
-#define DEFAULT_REQ_PER_REQ    30000
+#define DEFAULT_PREPARED_RAND  20000
+#define DEFAULT_REQ_PER_REQ    10000
 #define DEFAULT_INSERT_ROWS    10000
 #define DEFAULT_DISORDER_RANGE 1000
 #define DEFAULT_CREATE_BATCH   10
@@ -191,7 +194,7 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_PORT                \
     "The TCP/IP port number to use for the connection, default is 6030."
 #define BENCH_MODE                \
-    "insert mode, default is taosc, options: taosc|rest|stmt|sml"
+    "insert mode, default is taosc, options: taosc|rest|stmt|stmt2|sml"
 #define BENCH_USER                \
     "The user name to use when connecting to the server, default is root."
 #define BENCH_PASS                \
@@ -1200,6 +1203,7 @@ float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
 double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 int tmpStr(char *tmp, int iface, Field *field, int64_t k);
 int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
+int tmpInt32ImplTag(Field *field, int i, int k);
 
 char* genQMark( int32_t QCnt);
 // stmt2
@@ -1210,4 +1214,6 @@ void clearBindV(TAOS_STMT2_BINDV *bindv);
 void freeBindV(TAOS_STMT2_BINDV *bindv);
 void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
 
+// IFace is rest return True
+bool isRest(int32_t iface);
 #endif   // INC_BENCH_H_

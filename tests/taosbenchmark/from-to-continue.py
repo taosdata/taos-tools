@@ -56,7 +56,7 @@ class TDTestCase:
 
     def run(self):
         binPath = self.getPath()
-        cmd = "%s -t 4 -n 1 -y" % binPath
+        cmd = "%s -t 6 -n 1 -y" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
 
@@ -64,23 +64,23 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 6)
+        tdSql.checkData(0, 0, 6 + 3)
 
         binPath = self.getPath()
-        cmd = "%s -t 3 -n 1 -y" % binPath
+        cmd = "%s -t 5 -n 1 -y" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
-        tdSql.execute("create table d4 using meters tags (4, 'd4')")
+        tdSql.execute("create table d5 using meters tags (4, 'd5')")
 
         cmd = "%s -f ./taosbenchmark/json/insert-from-to-continue-yes.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 5)
+        tdSql.checkData(0, 0, 5 + 3)
 
         binPath = self.getPath()
-        cmd = "%s -t 3 -n 1 -y" % binPath
+        cmd = "%s -t 4 -n 1 -y" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("use test")
@@ -90,7 +90,7 @@ class TDTestCase:
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.query("select count(*) from test.meters")
-        tdSql.checkData(0, 0, 6)
+        tdSql.checkData(0, 0, 4 + 1)
 
     def stop(self):
         tdSql.close()

@@ -44,6 +44,10 @@ FORCE_INLINE void tmfree(void *buf) {
     }
 }
 
+FORCE_INLINE bool isRest(int32_t iface) { 
+    return REST_IFACE == iface || SML_REST_IFACE == iface;
+}
+
 void ERROR_EXIT(const char *msg) {
     errorPrint("%s", msg);
     exit(EXIT_FAILURE);
@@ -159,7 +163,8 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 int convertHostToServAddr(char *host, uint16_t port,
         struct sockaddr_in *serv_addr) {
     if (!host) {
-        host = "localhost";
+        errorPrint("%s", "convertHostToServAddr host is null.");
+        return -1;
     }
     debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host,
             port);
@@ -891,7 +896,7 @@ char *convertDatatypeToString(int type) {
         case TSDB_DATA_TYPE_DOUBLE:
             return "double";
         case TSDB_DATA_TYPE_JSON:
-            return "json";
+            return "json";    
         case TSDB_DATA_TYPE_GEOMETRY:
             return "geometry";
         default:
@@ -901,7 +906,7 @@ char *convertDatatypeToString(int type) {
 }
 
 int convertTypeToLength(uint8_t type) {
-    uint8_t ret = 0;
+    int ret = 0;
     switch (type) {
         case TSDB_DATA_TYPE_TIMESTAMP:
         case TSDB_DATA_TYPE_UBIGINT:
@@ -926,6 +931,9 @@ int convertTypeToLength(uint8_t type) {
             break;
         case TSDB_DATA_TYPE_DOUBLE:
             ret = sizeof(double);
+            break;
+        case TSDB_DATA_TYPE_JSON:
+            ret = JSON_FIXED_LENGTH;
             break;
         default:
             break;
@@ -992,89 +1000,56 @@ int64_t convertDatatypeToDefaultMax(uint8_t type) {
     return ret;
 }
 
-int convertStringToDatatype(char *type, int length) {
+// compare str with length
+int32_t strCompareN(char *str1, char *str2, int length) {
     if (length == 0) {
-        if (0 == strcasecmp(type, "binary")) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strcasecmp(type, "nchar")) {
-            return TSDB_DATA_TYPE_NCHAR;
-        } else if (0 == strcasecmp(type, "timestamp")) {
-            return TSDB_DATA_TYPE_TIMESTAMP;
-        } else if (0 == strcasecmp(type, "bool")) {
-            return TSDB_DATA_TYPE_BOOL;
-        } else if (0 == strcasecmp(type, "tinyint")) {
-            return TSDB_DATA_TYPE_TINYINT;
-        } else if (0 == strcasecmp(type, "utinyint")) {
-            return TSDB_DATA_TYPE_UTINYINT;
-        } else if (0 == strcasecmp(type, "smallint")) {
-            return TSDB_DATA_TYPE_SMALLINT;
-        } else if (0 == strcasecmp(type, "usmallint")) {
-            return TSDB_DATA_TYPE_USMALLINT;
-        } else if (0 == strcasecmp(type, "int")) {
-            return TSDB_DATA_TYPE_INT;
-        } else if (0 == strcasecmp(type, "uint")) {
-            return TSDB_DATA_TYPE_UINT;
-        } else if (0 == strcasecmp(type, "bigint")) {
-            return TSDB_DATA_TYPE_BIGINT;
-        } else if (0 == strcasecmp(type, "ubigint")) {
-            return TSDB_DATA_TYPE_UBIGINT;
-        } else if (0 == strcasecmp(type, "float")) {
-            return TSDB_DATA_TYPE_FLOAT;
-        } else if (0 == strcasecmp(type, "double")) {
-            return TSDB_DATA_TYPE_DOUBLE;
-        } else if (0 == strcasecmp(type, "json")) {
-            return TSDB_DATA_TYPE_JSON;
-        } else if (0 == strcasecmp(type, "varchar")) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strcasecmp(type, "varbinary")) {
-            return TSDB_DATA_TYPE_VARBINARY;
-        } else if (0 == strcasecmp(type, "geometry")) {
-            return TSDB_DATA_TYPE_GEOMETRY;
-        } else {
-            errorPrint("unknown data type: %s\n", type);
-            exit(EXIT_FAILURE);
-        }
+        return strcasecmp(str1, str2);
     } else {
-        if (0 == strncasecmp(type, "binary", length)) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strncasecmp(type, "nchar", length)) {
-            return TSDB_DATA_TYPE_NCHAR;
-        } else if (0 == strncasecmp(type, "timestamp", length)) {
-            return TSDB_DATA_TYPE_TIMESTAMP;
-        } else if (0 == strncasecmp(type, "bool", length)) {
-            return TSDB_DATA_TYPE_BOOL;
-        } else if (0 == strncasecmp(type, "tinyint", length)) {
-            return TSDB_DATA_TYPE_TINYINT;
-        } else if (0 == strncasecmp(type, "tinyint unsigned", length)) {
-            return TSDB_DATA_TYPE_UTINYINT;
-        } else if (0 == strncasecmp(type, "smallint", length)) {
-            return TSDB_DATA_TYPE_SMALLINT;
-        } else if (0 == strncasecmp(type, "smallint unsigned", length)) {
-            return TSDB_DATA_TYPE_USMALLINT;
-        } else if (0 == strncasecmp(type, "int", length)) {
-            return TSDB_DATA_TYPE_INT;
-        } else if (0 == strncasecmp(type, "int unsigned", length)) {
-            return TSDB_DATA_TYPE_UINT;
-        } else if (0 == strncasecmp(type, "bigint", length)) {
-            return TSDB_DATA_TYPE_BIGINT;
-        } else if (0 == strncasecmp(type, "bigint unsigned", length)) {
-            return TSDB_DATA_TYPE_UBIGINT;
-        } else if (0 == strncasecmp(type, "float", length)) {
-            return TSDB_DATA_TYPE_FLOAT;
-        } else if (0 == strncasecmp(type, "double", length)) {
-            return TSDB_DATA_TYPE_DOUBLE;
-        } else if (0 == strncasecmp(type, "json", length)) {
-            return TSDB_DATA_TYPE_JSON;
-        } else if (0 == strncasecmp(type, "varchar", length)) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strncasecmp(type, "varbinary", length)) {
-            return TSDB_DATA_TYPE_VARBINARY;
-        } else if (0 == strncasecmp(type, "geometry", length)) {
-            return TSDB_DATA_TYPE_GEOMETRY;
-        } else {
-            errorPrint("unknown data type: %s\n", type);
-            exit(EXIT_FAILURE);
-        }
+        return strncasecmp(str1, str2, length);
+    }
+}
+
+int convertStringToDatatype(char *type, int length) {
+    // compare with length
+    if (0 == strCompareN(type, "binary", length)) {
+        return TSDB_DATA_TYPE_BINARY;
+    } else if (0 == strCompareN(type, "nchar", length)) {
+        return TSDB_DATA_TYPE_NCHAR;
+    } else if (0 == strCompareN(type, "timestamp", length)) {
+        return TSDB_DATA_TYPE_TIMESTAMP;
+    } else if (0 == strCompareN(type, "bool", length)) {
+        return TSDB_DATA_TYPE_BOOL;
+    } else if (0 == strCompareN(type, "tinyint", length)) {
+        return TSDB_DATA_TYPE_TINYINT;
+    } else if (0 == strCompareN(type, "utinyint", length)) {
+        return TSDB_DATA_TYPE_UTINYINT;
+    } else if (0 == strCompareN(type, "smallint", length)) {
+        return TSDB_DATA_TYPE_SMALLINT;
+    } else if (0 == strCompareN(type, "usmallint", length)) {
+        return TSDB_DATA_TYPE_USMALLINT;
+    } else if (0 == strCompareN(type, "int", length)) {
+        return TSDB_DATA_TYPE_INT;
+    } else if (0 == strCompareN(type, "uint", length)) {
+        return TSDB_DATA_TYPE_UINT;
+    } else if (0 == strCompareN(type, "bigint", length)) {
+        return TSDB_DATA_TYPE_BIGINT;
+    } else if (0 == strCompareN(type, "ubigint", length)) {
+        return TSDB_DATA_TYPE_UBIGINT;
+    } else if (0 == strCompareN(type, "float", length)) {
+        return TSDB_DATA_TYPE_FLOAT;
+    } else if (0 == strCompareN(type, "double", length)) {
+        return TSDB_DATA_TYPE_DOUBLE;
+    } else if (0 == strCompareN(type, "json", length)) {
+        return TSDB_DATA_TYPE_JSON;
+    } else if (0 == strCompareN(type, "varchar", length)) {
+        return TSDB_DATA_TYPE_BINARY;
+    } else if (0 == strCompareN(type, "varbinary", length)) {
+        return TSDB_DATA_TYPE_VARBINARY;
+    } else if (0 == strCompareN(type, "geometry", length)) {
+        return TSDB_DATA_TYPE_GEOMETRY;
+    } else {
+        errorPrint("unknown data type: %s\n", type);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -1158,7 +1133,7 @@ void benchArrayClear(BArray* pArray) {
 
 void* benchArrayGet(const BArray* pArray, size_t index) {
     if (index >= pArray->size) {
-        errorPrint("index(%zu) greater than BArray size(%zu)\n",
+        errorPrint("benchArrayGet index(%zu) greater than BArray size(%zu)\n",
                    index, pArray->size);
         exit(EXIT_FAILURE);
     }
@@ -1214,26 +1189,28 @@ void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
 #endif
 
 int convertServAddr(int iface, bool tcp, int protocol) {
-    if (iface == REST_IFACE || iface == SML_REST_IFACE) {
-        if (tcp
-                && iface == SML_REST_IFACE
-                && protocol == TSDB_SML_TELNET_PROTOCOL) {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->telnet_tcp_port,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        } else {
-            if (convertHostToServAddr(g_arguments->host,
-                        (g_arguments->port_inputted)?
-                                      g_arguments->port:
-                                      DEFAULT_REST_PORT,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
+    if (tcp
+            && iface == SML_REST_IFACE
+            && protocol == TSDB_SML_TELNET_PROTOCOL) {
+        // telnet_tcp_port        
+        if (convertHostToServAddr(g_arguments->host,
+                    g_arguments->telnet_tcp_port,
+                    &(g_arguments->serv_addr))) {
+            errorPrint("%s\n", "convert host to server address");
+            return -1;
         }
+        infoPrint("convertServAddr host=%s telnet_tcp_port:%d to serv_addr=%p iface=%d \n", 
+                g_arguments->host, g_arguments->telnet_tcp_port, &g_arguments->serv_addr, iface);
+    } else {
+        int port = g_arguments->port_inputted ? g_arguments->port:DEFAULT_REST_PORT;
+        if (convertHostToServAddr(g_arguments->host,
+                                    port,
+                    &(g_arguments->serv_addr))) {
+            errorPrint("%s\n", "convert host to server address");
+            return -1;
+        }
+        infoPrint("convertServAddr host=%s port:%d to serv_addr=%p iface=%d \n", 
+                g_arguments->host, port, &g_arguments->serv_addr, iface);
     }
     return 0;
 }
@@ -1263,6 +1240,7 @@ int createSockFd() {
     int retConn = connect(
             sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
             sizeof(struct sockaddr));
+    infoPrint("createSockFd call connect serv_addr=%p retConn=%d\n", &g_arguments->serv_addr, retConn);
     if (retConn < 0) {
         errorPrint("%s\n", "failed to connect");
 #ifdef WINDOWS
