@@ -120,6 +120,10 @@ jobs:
         with:
           toolchain: stable
 
+      - name : Delete TDengine/debug folder
+        run: |
+          Get-ChildItem -Path "TDengine/debug" -Recurse -Force | Remove-Item -Force -Recurse
+
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build & Install TDengine
