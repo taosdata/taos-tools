@@ -71,11 +71,6 @@ jobs:
           path: 'TDengine'
           ref: ${{ github.event.pull_request.base.ref }}
       
-      - name : Delete docs folder
-        run: |
-          Get-ChildItem -Path "TDengine/docs" -Recurse -Force | Remove-Item -Force -Recurse
-
-
       - name: create debug directory
         if: |
           (steps.changed-files-specific.outputs.any_changed == 'true'
@@ -124,6 +119,11 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
+      - name : Delete TDengine/debug folder
+        run: |
+          Get-ChildItem -Path "TDengine/debug" -Recurse -Force | Remove-Item -Force -Recurse
+
 
       - uses: ilammy/msvc-dev-cmd@v1
 
