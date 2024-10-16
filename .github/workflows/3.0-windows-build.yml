@@ -70,6 +70,11 @@ jobs:
           repository: 'taosdata/TDengine'
           path: 'TDengine'
           ref: ${{ github.event.pull_request.base.ref }}
+      
+      - name : Delete docs folder
+        run: |
+          Get-ChildItem -Path "TDengine/docs" -Recurse -Force | Remove-Item -Force -Recurse
+
 
       - name: create debug directory
         if: |
@@ -80,8 +85,7 @@ jobs:
         run: |
           choco install jom gawk grep -y
           cd TDengine
-          mkdir debug
-          del /s /q docs          
+          mkdir debug 
 
       - uses: ilammy/msvc-dev-cmd@v1
 
@@ -121,6 +125,11 @@ jobs:
         with:
           toolchain: stable
 
+      - name : Delete TDengine/debug folder
+        run: |
+          Get-ChildItem -Path "TDengine/debug" -Recurse -Force | Remove-Item -Force -Recurse
+
+
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build & Install TDengine
@@ -131,9 +140,9 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           cl.exe
-          rm /s /q TDengine/debug/
-          cd TDengine/debug          
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install          
+          mkdir TDengine/debug
+          cd    TDengine/debug          
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install
           #cmake .. -G "NMake Makefiles" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && nmake && nmake install
 
           #      - name: taosdump codec Test
