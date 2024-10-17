@@ -31,9 +31,9 @@ enum LOG_LOCK {
 // init log
 bool initLog();
 // lock
-void lockLog(LOG_LOCK idx);
+void lockLog(int8_t idx);
 // unlock
-void unlockLog(LOG_LOCK idx);
+void unlockLog(int8_t idx);
 // exit log
 void exitLog();
 

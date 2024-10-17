@@ -114,7 +114,7 @@ bool initLog() {
             printf("taosThreadMutexInit i=%d failed.\n", i);
         }
     }
-    return true
+    return true;
 }
 
 // exit log
@@ -125,10 +125,10 @@ void exitLog() {
 }
 
 // lock
-void lockLog(LOG_LOCK idx) {
+void lockLog(int8_t idx) {
     taosThreadMutexLock(mutexs[idx]);
 }
 // unlock
-void unLockLog(LOG_LOCK idx) {
+void unLockLog(int8_t idx) {
     taosThreadMutexUnLock(mutexs[idx]);
 }
