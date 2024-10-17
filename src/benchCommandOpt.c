@@ -227,7 +227,7 @@ void initArgument() {
     }
     g_arguments->test_mode = INSERT_TEST;
     g_arguments->demo_mode = true;
-    g_arguments->host = DEFAULT_HOST;
+    g_arguments->host = NULL;
     g_arguments->host_auto = true;
     g_arguments->port = DEFAULT_PORT;
     g_arguments->port_inputted = false;
@@ -345,18 +345,6 @@ void modifyArgument() {
     if (g_arguments->keep_trying) {
         superTable->keep_trying = g_arguments->keep_trying;
         superTable->trying_interval = g_arguments->trying_interval;
-    }
-
-    if (isRest(g_arguments->iface)) {
-        if (0 != convertServAddr(g_arguments->iface,
-                                 false,
-                                 1)) {
-            errorPrint("%s", "Failed to convert server address\n");
-            return;
-        }
-        encodeAuthBase64();
-        g_arguments->rest_server_ver_major =
-            getServerVersionRest(g_arguments->port);
     }
 }
 
