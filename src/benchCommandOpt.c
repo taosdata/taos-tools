@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "benchLog.h"
 #include <toolsdef.h>
 
 extern char      g_configDir[MAX_PATH_LEN];

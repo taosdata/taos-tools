@@ -11,6 +11,7 @@
  */
 #include <stdlib.h>
 #include <bench.h>
+#include "benchLog.h"
 
 #ifdef LINUX
 #include <argp.h>

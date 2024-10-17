@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <bench.h>
+#include "benchLog.h"
 
 extern char      g_configDir[MAX_PATH_LEN];
 

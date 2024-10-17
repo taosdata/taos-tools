@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "benchLog.h"
 
 char resEncodingChunk[] = "Encoding: chunked";
 char succMessage[] = "succ";
