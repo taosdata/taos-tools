@@ -30,25 +30,25 @@ void printfTmqConfigIntoFile() {
       return;
   }
 
-  infoPrintToFile(g_arguments->fpOfInsertResult, "%s\n", "============================================");
+  infoPrintToFile( "%s\n", "============================================");
 
   SConsumerInfo*  pConsumerInfo = &g_tmqInfo.consumerInfo;
-  infoPrintToFile(g_arguments->fpOfInsertResult, "concurrent: %d\n", pConsumerInfo->concurrent);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "pollDelay: %d\n", pConsumerInfo->pollDelay);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "groupId: %s\n", pConsumerInfo->groupId);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "clientId: %s\n", pConsumerInfo->clientId);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "autoOffsetReset: %s\n", pConsumerInfo->autoOffsetReset);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "enableAutoCommit: %s\n", pConsumerInfo->enableAutoCommit);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "autoCommitIntervalMs: %d\n", pConsumerInfo->autoCommitIntervalMs);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "enableHeartbeatBackground: %s\n", pConsumerInfo->enableHeartbeatBackground);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "snapshotEnable: %s\n", pConsumerInfo->snapshotEnable);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "msgWithTableName: %s\n", pConsumerInfo->msgWithTableName);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "rowsFile: %s\n", pConsumerInfo->rowsFile);
-  infoPrintToFile(g_arguments->fpOfInsertResult, "expectRows: %d\n", pConsumerInfo->expectRows);
+  infoPrintToFile( "concurrent: %d\n", pConsumerInfo->concurrent);
+  infoPrintToFile( "pollDelay: %d\n", pConsumerInfo->pollDelay);
+  infoPrintToFile( "groupId: %s\n", pConsumerInfo->groupId);
+  infoPrintToFile( "clientId: %s\n", pConsumerInfo->clientId);
+  infoPrintToFile( "autoOffsetReset: %s\n", pConsumerInfo->autoOffsetReset);
+  infoPrintToFile( "enableAutoCommit: %s\n", pConsumerInfo->enableAutoCommit);
+  infoPrintToFile( "autoCommitIntervalMs: %d\n", pConsumerInfo->autoCommitIntervalMs);
+  infoPrintToFile( "enableHeartbeatBackground: %s\n", pConsumerInfo->enableHeartbeatBackground);
+  infoPrintToFile( "snapshotEnable: %s\n", pConsumerInfo->snapshotEnable);
+  infoPrintToFile( "msgWithTableName: %s\n", pConsumerInfo->msgWithTableName);
+  infoPrintToFile( "rowsFile: %s\n", pConsumerInfo->rowsFile);
+  infoPrintToFile( "expectRows: %d\n", pConsumerInfo->expectRows);
   
   for (int i = 0; i < pConsumerInfo->topicCount; ++i) {
-      infoPrintToFile(g_arguments->fpOfInsertResult, "topicName[%d]: %s\n", i, pConsumerInfo->topicName[i]);
-      infoPrintToFile(g_arguments->fpOfInsertResult, "topicSql[%d]: %s\n", i, pConsumerInfo->topicSql[i]);
+      infoPrintToFile( "topicName[%d]: %s\n", i, pConsumerInfo->topicName[i]);
+      infoPrintToFile( "topicSql[%d]: %s\n", i, pConsumerInfo->topicSql[i]);
   }  
 }
 
@@ -294,7 +294,7 @@ static void* tmqConsume(void* arg) {
     pThreadInfo->tmq = NULL;
 
     infoPrint("consumerId: %d, consume msgs: %" PRId64 ", consume rows: %" PRId64 "\n", pThreadInfo->id, totalMsgs, totalRows);
-    infoPrintToFile(g_arguments->fpOfInsertResult,
+    infoPrintToFile(
             "consumerId: %d, consume msgs: %" PRId64 ", consume rows: %" PRId64 "\n", pThreadInfo->id, totalMsgs, totalRows);
 
     return NULL;
@@ -379,7 +379,7 @@ int subscribeTestProcess() {
 
     infoPrint("Consumed total msgs: %" PRId64 ", total rows: %" PRId64 "\n",
               totalMsgs, totalRows);
-    infoPrintToFile(g_arguments->fpOfInsertResult,
+    infoPrintToFile(
                     "Consumed total msgs: %" PRId64 ","
                     "total rows: %" PRId64 "\n", totalMsgs, totalRows);
 

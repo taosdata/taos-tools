@@ -1141,7 +1141,7 @@ static int createChildTables() {
     infoPrint("start creating %" PRId64 " table(s) with %d thread(s)\n",
               g_arguments->totalChildTables, g_arguments->table_threads);
     if (g_arguments->fpOfInsertResult) {
-        infoPrintToFile(g_arguments->fpOfInsertResult,
+        infoPrintToFile(
                   "start creating %" PRId64 " table(s) with %d thread(s)\n",
                   g_arguments->totalChildTables, g_arguments->table_threads);
     }

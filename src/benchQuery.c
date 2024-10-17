@@ -554,8 +554,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                              sql->delay_list[(uint64_t)(totalQueryTimes * 0.95)] / 1E6,
                              /*  p99 */
                              sql->delay_list[(uint64_t)(totalQueryTimes * 0.99)] / 1E6, sql->command);
-        infoPrintNoTimestampToFile(g_arguments->fpOfInsertResult,
-                                   "complete query with %d threads and %" PRIu64
+        infoPrintNoTimestampToFile("complete query with %d threads and %" PRIu64
                                    " query delay "
                                    "avg: \t%.6fs "
                                    "min: \t%.6fs "
@@ -864,7 +863,7 @@ int queryTestProcess() {
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
             tInS, totalQueried, (double)totalQueried / tInS);
-    infoPrintToFile(g_arguments->fpOfInsertResult,
+    infoPrintToFile(
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
             tInS, totalQueried, (double)totalQueried / tInS);
