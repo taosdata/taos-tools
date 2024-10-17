@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "benchLog.h"
 
 extern int g_majorVersionOfClient;
 

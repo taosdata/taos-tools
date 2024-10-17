@@ -10,7 +10,9 @@
  * FITNESS FOR A PARTICULAR PURPOSE.
  */
 
+#include "bench.h"
 #include "benchLog.h"
+
 
 //
 // -----------  log -----------
@@ -126,9 +128,9 @@ void exitLog() {
 
 // lock
 void lockLog(int8_t idx) {
-    taosThreadMutexLock(mutexs[idx]);
+    taosThreadMutexLock(&mutexs[idx]);
 }
 // unlock
 void unLockLog(int8_t idx) {
-    taosThreadMutexUnLock(mutexs[idx]);
+    taosThreadMutexUnLock(&mutexs[idx]);
 }

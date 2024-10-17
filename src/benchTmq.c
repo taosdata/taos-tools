@@ -11,6 +11,7 @@
  */
 #include <time.h>
 #include <bench.h>
+#include "benchLog.h"
 #include <benchData.h>
 
 typedef struct {

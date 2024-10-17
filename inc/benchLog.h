@@ -15,7 +15,6 @@
 
 #ifndef INC_BENCHLOG_H_
 #define INC_BENCHLOG_H_
-#include <bench.h>
 
 //
 // suport thread safe log module
