@@ -118,6 +118,15 @@ class TDTestCase:
         tdSql.query("select count(*) from test.meters")
         tdSql.checkData(0, 0, 20)
 
+        # add stmt2
+        cmd = "%s -F 700 -n 1000 -t 4 -y -M -I stmt2" % binPath
+        tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+        tdSql.query("show test.tables")
+        tdSql.checkRows(4)
+        tdSql.query("select count(*) from test.meters")
+        tdSql.checkData(0, 0, 4000)
+
         cmd = "%s -n 3 -t 3 -B 2 -i 1 -G -y -T 1 2>&1 | grep sleep | wc -l" % binPath
         sleepTimes = subprocess.check_output(cmd, shell=True).decode("utf-8")
         tdLog.info("%s" % cmd)
@@ -327,7 +336,7 @@ class TDTestCase:
         # tdSql.query("describe test.meters")
         # tdSql.checkData(1, 1, "BINARY")
 
-        cmd = "%s -n 1 -t 1 -y -A json\(7\)" % binPath
+        cmd = "%s -n 1 -t 1 -y -A json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         tdSql.execute("reset query cache")
@@ -335,12 +344,10 @@ class TDTestCase:
         tdSql.checkData(4, 1, "JSON")
 
         cmd = "%s -n 1 -t 1 -y -b int,x" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
-
-        cmd = "%s -n 1 -t 1 -y -A json" % binPath
-        tdLog.info("%s" % cmd)
-        assert os.system("%s" % cmd) != 0
+        ret = os.system("%s" % cmd)
+        if ret == 0:
+            tdLog.exit(f"expect failed, but successful cmd= {cmd} ")
+        tdLog.info(f"test except ok, cmd={cmd} ret={ret}")
 
     def stop(self):
         tdSql.close()

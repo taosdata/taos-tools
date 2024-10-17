@@ -44,6 +44,10 @@ FORCE_INLINE void tmfree(void *buf) {
     }
 }
 
+FORCE_INLINE bool isRest(int32_t iface) { 
+    return REST_IFACE == iface || SML_REST_IFACE == iface;
+}
+
 void ERROR_EXIT(const char *msg) {
     errorPrint("%s", msg);
     exit(EXIT_FAILURE);
@@ -159,7 +163,8 @@ int getAllChildNameOfSuperTable(TAOS *taos, char *dbName, char *stbName,
 int convertHostToServAddr(char *host, uint16_t port,
         struct sockaddr_in *serv_addr) {
     if (!host) {
-        host = "localhost";
+        errorPrint("%s", "convertHostToServAddr host is null.");
+        return -1;
     }
     debugPrint("convertHostToServAddr(host: %s, port: %d)\n", host,
             port);
@@ -891,7 +896,7 @@ char *convertDatatypeToString(int type) {
         case TSDB_DATA_TYPE_DOUBLE:
             return "double";
         case TSDB_DATA_TYPE_JSON:
-            return "json";
+            return "json";    
         case TSDB_DATA_TYPE_GEOMETRY:
             return "geometry";
         default:
@@ -901,7 +906,7 @@ char *convertDatatypeToString(int type) {
 }
 
 int convertTypeToLength(uint8_t type) {
-    uint8_t ret = 0;
+    int ret = 0;
     switch (type) {
         case TSDB_DATA_TYPE_TIMESTAMP:
         case TSDB_DATA_TYPE_UBIGINT:
@@ -926,6 +931,9 @@ int convertTypeToLength(uint8_t type) {
             break;
         case TSDB_DATA_TYPE_DOUBLE:
             ret = sizeof(double);
+            break;
+        case TSDB_DATA_TYPE_JSON:
+            ret = JSON_FIXED_LENGTH;
             break;
         default:
             break;
@@ -992,89 +1000,56 @@ int64_t convertDatatypeToDefaultMax(uint8_t type) {
     return ret;
 }
 
-int convertStringToDatatype(char *type, int length) {
+// compare str with length
+int32_t strCompareN(char *str1, char *str2, int length) {
     if (length == 0) {
-        if (0 == strcasecmp(type, "binary")) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strcasecmp(type, "nchar")) {
-            return TSDB_DATA_TYPE_NCHAR;
-        } else if (0 == strcasecmp(type, "timestamp")) {
-            return TSDB_DATA_TYPE_TIMESTAMP;
-        } else if (0 == strcasecmp(type, "bool")) {
-            return TSDB_DATA_TYPE_BOOL;
-        } else if (0 == strcasecmp(type, "tinyint")) {
-            return TSDB_DATA_TYPE_TINYINT;
-        } else if (0 == strcasecmp(type, "utinyint")) {
-            return TSDB_DATA_TYPE_UTINYINT;
-        } else if (0 == strcasecmp(type, "smallint")) {
-            return TSDB_DATA_TYPE_SMALLINT;
-        } else if (0 == strcasecmp(type, "usmallint")) {
-            return TSDB_DATA_TYPE_USMALLINT;
-        } else if (0 == strcasecmp(type, "int")) {
-            return TSDB_DATA_TYPE_INT;
-        } else if (0 == strcasecmp(type, "uint")) {
-            return TSDB_DATA_TYPE_UINT;
-        } else if (0 == strcasecmp(type, "bigint")) {
-            return TSDB_DATA_TYPE_BIGINT;
-        } else if (0 == strcasecmp(type, "ubigint")) {
-            return TSDB_DATA_TYPE_UBIGINT;
-        } else if (0 == strcasecmp(type, "float")) {
-            return TSDB_DATA_TYPE_FLOAT;
-        } else if (0 == strcasecmp(type, "double")) {
-            return TSDB_DATA_TYPE_DOUBLE;
-        } else if (0 == strcasecmp(type, "json")) {
-            return TSDB_DATA_TYPE_JSON;
-        } else if (0 == strcasecmp(type, "varchar")) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strcasecmp(type, "varbinary")) {
-            return TSDB_DATA_TYPE_VARBINARY;
-        } else if (0 == strcasecmp(type, "geometry")) {
-            return TSDB_DATA_TYPE_GEOMETRY;
-        } else {
-            errorPrint("unknown data type: %s\n", type);
-            exit(EXIT_FAILURE);
-        }
+        return strcasecmp(str1, str2);
     } else {
-        if (0 == strncasecmp(type, "binary", length)) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strncasecmp(type, "nchar", length)) {
-            return TSDB_DATA_TYPE_NCHAR;
-        } else if (0 == strncasecmp(type, "timestamp", length)) {
-            return TSDB_DATA_TYPE_TIMESTAMP;
-        } else if (0 == strncasecmp(type, "bool", length)) {
-            return TSDB_DATA_TYPE_BOOL;
-        } else if (0 == strncasecmp(type, "tinyint", length)) {
-            return TSDB_DATA_TYPE_TINYINT;
-        } else if (0 == strncasecmp(type, "tinyint unsigned", length)) {
-            return TSDB_DATA_TYPE_UTINYINT;
-        } else if (0 == strncasecmp(type, "smallint", length)) {
-            return TSDB_DATA_TYPE_SMALLINT;
-        } else if (0 == strncasecmp(type, "smallint unsigned", length)) {
-            return TSDB_DATA_TYPE_USMALLINT;
-        } else if (0 == strncasecmp(type, "int", length)) {
-            return TSDB_DATA_TYPE_INT;
-        } else if (0 == strncasecmp(type, "int unsigned", length)) {
-            return TSDB_DATA_TYPE_UINT;
-        } else if (0 == strncasecmp(type, "bigint", length)) {
-            return TSDB_DATA_TYPE_BIGINT;
-        } else if (0 == strncasecmp(type, "bigint unsigned", length)) {
-            return TSDB_DATA_TYPE_UBIGINT;
-        } else if (0 == strncasecmp(type, "float", length)) {
-            return TSDB_DATA_TYPE_FLOAT;
-        } else if (0 == strncasecmp(type, "double", length)) {
-            return TSDB_DATA_TYPE_DOUBLE;
-        } else if (0 == strncasecmp(type, "json", length)) {
-            return TSDB_DATA_TYPE_JSON;
-        } else if (0 == strncasecmp(type, "varchar", length)) {
-            return TSDB_DATA_TYPE_BINARY;
-        } else if (0 == strncasecmp(type, "varbinary", length)) {
-            return TSDB_DATA_TYPE_VARBINARY;
-        } else if (0 == strncasecmp(type, "geometry", length)) {
-            return TSDB_DATA_TYPE_GEOMETRY;
-        } else {
-            errorPrint("unknown data type: %s\n", type);
-            exit(EXIT_FAILURE);
-        }
+        return strncasecmp(str1, str2, length);
+    }
+}
+
+int convertStringToDatatype(char *type, int length) {
+    // compare with length
+    if (0 == strCompareN(type, "binary", length)) {
+        return TSDB_DATA_TYPE_BINARY;
+    } else if (0 == strCompareN(type, "nchar", length)) {
+        return TSDB_DATA_TYPE_NCHAR;
+    } else if (0 == strCompareN(type, "timestamp", length)) {
+        return TSDB_DATA_TYPE_TIMESTAMP;
+    } else if (0 == strCompareN(type, "bool", length)) {
+        return TSDB_DATA_TYPE_BOOL;
+    } else if (0 == strCompareN(type, "tinyint", length)) {
+        return TSDB_DATA_TYPE_TINYINT;
+    } else if (0 == strCompareN(type, "utinyint", length)) {
+        return TSDB_DATA_TYPE_UTINYINT;
+    } else if (0 == strCompareN(type, "smallint", length)) {
+        return TSDB_DATA_TYPE_SMALLINT;
+    } else if (0 == strCompareN(type, "usmallint", length)) {
+        return TSDB_DATA_TYPE_USMALLINT;
+    } else if (0 == strCompareN(type, "int", length)) {
+        return TSDB_DATA_TYPE_INT;
+    } else if (0 == strCompareN(type, "uint", length)) {
+        return TSDB_DATA_TYPE_UINT;
+    } else if (0 == strCompareN(type, "bigint", length)) {
+        return TSDB_DATA_TYPE_BIGINT;
+    } else if (0 == strCompareN(type, "ubigint", length)) {
+        return TSDB_DATA_TYPE_UBIGINT;
+    } else if (0 == strCompareN(type, "float", length)) {
+        return TSDB_DATA_TYPE_FLOAT;
+    } else if (0 == strCompareN(type, "double", length)) {
+        return TSDB_DATA_TYPE_DOUBLE;
+    } else if (0 == strCompareN(type, "json", length)) {
+        return TSDB_DATA_TYPE_JSON;
+    } else if (0 == strCompareN(type, "varchar", length)) {
+        return TSDB_DATA_TYPE_BINARY;
+    } else if (0 == strCompareN(type, "varbinary", length)) {
+        return TSDB_DATA_TYPE_VARBINARY;
+    } else if (0 == strCompareN(type, "geometry", length)) {
+        return TSDB_DATA_TYPE_GEOMETRY;
+    } else {
+        errorPrint("unknown data type: %s\n", type);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -1082,6 +1057,10 @@ int convertStringToDatatype(char *type, int length) {
 int compare(const void *a, const void *b) {
     return *(int64_t *)a - *(int64_t *)b;
 }
+
+//
+// --------------------  BArray operator -------------------
+//
 
 BArray* benchArrayInit(size_t size, size_t elemSize) {
     assert(elemSize > 0);
@@ -1117,7 +1096,7 @@ static int32_t benchArrayEnsureCap(BArray* pArray, size_t newCap) {
     return 0;
 }
 
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems, bool free) {
     if (pData == NULL) {
         return NULL;
     }
@@ -1128,13 +1107,15 @@ void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems) {
 
     void* dst = BARRAY_GET_ELEM(pArray, pArray->size);
     memcpy(dst, pData, pArray->elemSize * elems);
-    tmfree(pData); // TODO remove this
+    if (free) {
+        tmfree(pData); // TODO remove this
+    }
     pArray->size += elems;
     return dst;
 }
 
 FORCE_INLINE void* benchArrayPush(BArray* pArray, void* pData) {
-    return benchArrayAddBatch(pArray, pData, 1);
+    return benchArrayAddBatch(pArray, pData, 1, true);
 }
 
 void* benchArrayDestroy(BArray* pArray) {
@@ -1152,12 +1133,42 @@ void benchArrayClear(BArray* pArray) {
 
 void* benchArrayGet(const BArray* pArray, size_t index) {
     if (index >= pArray->size) {
-        errorPrint("index(%zu) greater than BArray size(%zu)\n",
+        errorPrint("benchArrayGet index(%zu) greater than BArray size(%zu)\n",
                    index, pArray->size);
         exit(EXIT_FAILURE);
     }
     return BARRAY_GET_ELEM(pArray, index);
 }
+
+bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type) {
+    if (pArray == NULL || field_name == NULL) {
+        return false;
+    }
+    for (int i = 0; i < pArray->size; i++) {
+        Field *field = benchArrayGet(pArray, i);
+        if (strlen(field->name) == name_len && strncasecmp(field->name, field_name, name_len) == 0) {
+            if (field->type == field_type) {
+                return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
+//
+// malloc a new and copy data from array
+// return value must call benchArrayDestroy to free
+//
+BArray * copyBArray(BArray *pArray) {
+    BArray * pNew = benchArrayInit(pArray->size, pArray->elemSize);
+    benchArrayAddBatch(pNew, pArray->pData, pArray->size, false);
+    return pNew;
+}
+
+//
+//  ---------------- others ------------------------
+//
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem) {
@@ -1178,26 +1189,28 @@ void benchSetSignal(int32_t signum, ToolsSignalHandler sigfp) {
 #endif
 
 int convertServAddr(int iface, bool tcp, int protocol) {
-    if (iface == REST_IFACE || iface == SML_REST_IFACE) {
-        if (tcp
-                && iface == SML_REST_IFACE
-                && protocol == TSDB_SML_TELNET_PROTOCOL) {
-            if (convertHostToServAddr(g_arguments->host,
-                        g_arguments->telnet_tcp_port,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
-        } else {
-            if (convertHostToServAddr(g_arguments->host,
-                        (g_arguments->port_inputted)?
-                                      g_arguments->port:
-                                      DEFAULT_REST_PORT,
-                        &(g_arguments->serv_addr))) {
-                errorPrint("%s\n", "convert host to server address");
-                return -1;
-            }
+    if (tcp
+            && iface == SML_REST_IFACE
+            && protocol == TSDB_SML_TELNET_PROTOCOL) {
+        // telnet_tcp_port        
+        if (convertHostToServAddr(g_arguments->host,
+                    g_arguments->telnet_tcp_port,
+                    &(g_arguments->serv_addr))) {
+            errorPrint("%s\n", "convert host to server address");
+            return -1;
         }
+        infoPrint("convertServAddr host=%s telnet_tcp_port:%d to serv_addr=%p iface=%d \n", 
+                g_arguments->host, g_arguments->telnet_tcp_port, &g_arguments->serv_addr, iface);
+    } else {
+        int port = g_arguments->port_inputted ? g_arguments->port:DEFAULT_REST_PORT;
+        if (convertHostToServAddr(g_arguments->host,
+                                    port,
+                    &(g_arguments->serv_addr))) {
+            errorPrint("%s\n", "convert host to server address");
+            return -1;
+        }
+        infoPrint("convertServAddr host=%s port:%d to serv_addr=%p iface=%d \n", 
+                g_arguments->host, port, &g_arguments->serv_addr, iface);
     }
     return 0;
 }
@@ -1227,6 +1240,7 @@ int createSockFd() {
     int retConn = connect(
             sockfd, (struct sockaddr *)&(g_arguments->serv_addr),
             sizeof(struct sockaddr));
+    infoPrint("createSockFd call connect serv_addr=%p retConn=%d\n", &g_arguments->serv_addr, retConn);
     if (retConn < 0) {
         errorPrint("%s\n", "failed to connect");
 #ifdef WINDOWS
@@ -1280,9 +1294,17 @@ void destroySockFd(int sockfd) {
     closeSockFd(sockfd);
 }
 
-FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {
-    errorPrint("failed to run command %s, code: 0x%08x, reason: %s\n",
-               cmd, code, taos_errstr(res));
+FORCE_INLINE void printErrCmdCodeStr(char *cmd, int32_t code, TAOS_RES *res) {    
+    char buff[512];
+    char *msg = cmd;
+    if (strlen(cmd) > sizeof(msg)) {
+        memcpy(buff, cmd, 500);
+        buff[500] = 0;
+        strcat(buff, "...");
+        msg = buff;
+    }
+    errorPrint("failed to run error code: 0x%08x, reason: %s command %s\n",
+               code, taos_errstr(res), msg);
     taos_free_result(res);
 }
 
@@ -1304,4 +1326,137 @@ int32_t benchGetTotalMemory(int64_t *totalKB) {
   *totalKB = (int64_t)(sysconf(_SC_PHYS_PAGES) * tsPageSizeKB);
   return 0;
 #endif
+}
+
+// geneate question mark string , using insert into ... values(?,?,?...)
+// return value must call tmfree to free memory
+char* genQMark( int32_t QCnt) {
+    char * buf = benchCalloc(4, QCnt, false);
+    for (int32_t i = 0; i < QCnt; i++) {
+        if (i == 0)
+            strcat(buf, "?");
+        else
+            strcat(buf, ",?");
+    }
+    return buf;
+}
+
+//
+//  STMT2  
+//
+
+// create
+TAOS_STMT2_BINDV* createBindV(int32_t capacity, int32_t tagCnt, int32_t colCnt) {
+    // calc total size
+    int32_t tableSize = sizeof(char *) + sizeof(TAOS_STMT2_BIND *) + sizeof(TAOS_STMT2_BIND *) + 
+                        sizeof(TAOS_STMT2_BIND) * tagCnt + sizeof(TAOS_STMT2_BIND) * colCnt;
+    int32_t size = sizeof(TAOS_STMT2_BINDV) + tableSize * capacity;
+    TAOS_STMT2_BINDV *bindv = benchCalloc(1, size, false);
+    resetBindV(bindv, capacity, tagCnt, colCnt);
+
+    return bindv;
+}
+
+// reset tags and cols poitner
+void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32_t colCnt) {
+    unsigned char *p = (unsigned char *)bindv;
+    // tbnames
+    p += sizeof(TAOS_STMT2_BINDV); // skip BINDV
+    bindv->tbnames = (char **)p;
+    // tags
+    if(tagCnt == 0 ) {
+        bindv->tags = NULL;
+    } else {
+        p += sizeof(char *) * capacity; // skip tbnames
+        bindv->tags = (TAOS_STMT2_BIND **)p;
+    }
+    // bind_cols
+    p += sizeof(TAOS_STMT2_BIND *) * capacity; // skip tags
+    bindv->bind_cols = (TAOS_STMT2_BIND **)p;
+    p += sizeof(TAOS_STMT2_BIND *) * capacity; // skip cols
+
+    int32_t i;
+    // tags body
+    if (tagCnt > 0) {
+        for (i = 0; i < capacity; i++) {
+            bindv->tags[i] = (TAOS_STMT2_BIND *)p;
+            p += sizeof(TAOS_STMT2_BIND) * tagCnt; // skip tag bodys
+        }
+    }
+    // bind_cols body
+    for (i = 0; i < capacity; i++) {
+        bindv->bind_cols[i] = (TAOS_STMT2_BIND*)p;
+        p += sizeof(TAOS_STMT2_BIND) * colCnt; // skip cols bodys
+    }
+}
+
+// clear bindv
+void clearBindV(TAOS_STMT2_BINDV *bindv) {
+    if (bindv == NULL)
+        return ;
+    for(int32_t i = 0; i < bindv->count; i++) {
+        bindv->tags[i]      = NULL;
+        bindv->bind_cols[i] = NULL;
+    }
+    bindv->count = 0;
+}
+
+// free
+void freeBindV(TAOS_STMT2_BINDV *bindv) {
+    tmfree(bindv);
+}
+
+//
+//   debug show 
+//
+
+void showBind(TAOS_STMT2_BIND* bind) {
+    // loop each column
+    int32_t pos = 0;
+    char* buff  = bind->buffer;
+    for(int32_t n=0; n<bind->num; n++) {
+        switch (bind->buffer_type) {
+        case TSDB_DATA_TYPE_TIMESTAMP:
+            debugPrint("   n=%d value=%" PRId64 "\n", n, *(int64_t *)(buff + pos));
+            pos += sizeof(int64_t);
+            break;
+        case TSDB_DATA_TYPE_FLOAT:
+            debugPrint("   n=%d value=%f\n", n, *(float *)(buff + pos));
+            pos += sizeof(float);
+            break;
+        case TSDB_DATA_TYPE_INT:
+            debugPrint("   n=%d value=%d\n", n, *(int32_t *)(buff + pos));
+            pos += sizeof(int32_t);
+            break;
+        default:
+            break;
+        } 
+    }
+
+}
+
+void showTableBinds(char* label, TAOS_STMT2_BIND* binds, int32_t cnt) {
+    for (int32_t j = 0; j < cnt; j++) {
+        if(binds == NULL) {
+            debugPrint("  %d %s is NULL \n", j, label);
+        } else {
+            debugPrint("  %d %s type=%d buffer=%p \n", j, label, binds[j].buffer_type, binds[j].buffer);
+            showBind(&binds[j]);
+        }
+    }
+}
+
+// show bindv
+void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols) {
+    // num and base info
+    debugPrint("show bindv table count=%d names=%p tags=%p bind_cols=%p\n", 
+                bindv->count, bindv->tbnames, bindv->tags, bindv->bind_cols);
+    
+    for(int32_t i=0; i< bindv->count; i++) {
+        debugPrint(" show bindv table index=%d name=%s \n", i, bindv->tbnames[i]);
+        if(bindv->tags)
+            showTableBinds("tag",    bindv->tags[i],      tags->size);
+        if(bindv->bind_cols)    
+            showTableBinds("column", bindv->bind_cols[i], cols->size + 1);
+    }
 }

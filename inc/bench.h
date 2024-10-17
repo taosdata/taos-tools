@@ -138,9 +138,12 @@ typedef unsigned __int32 uint32_t;
 #define BOOL_BUFF_LEN       6
 #define FLOAT_BUFF_LEN      22
 #define DOUBLE_BUFF_LEN     42
-#define JSON_BUFF_LEN       20
 #define TIMESTAMP_BUFF_LEN  21
 #define PRINT_STAT_INTERVAL 30 * 1000
+#define DEFAULT_HOST        "localhost"
+
+// json tag type fixed length
+#define JSON_FIXED_LENGTH   4095
 
 #define MAX_QUERY_SQL_COUNT 100
 
@@ -161,8 +164,8 @@ typedef unsigned __int32 uint32_t;
 #define DEFAULT_BINWIDTH       64
 #define DEFAULT_REPLICA        1
 #define DEFAULT_CFGNAME_LEN    10
-#define DEFAULT_PREPARED_RAND  10000
-#define DEFAULT_REQ_PER_REQ    30000
+#define DEFAULT_PREPARED_RAND  20000
+#define DEFAULT_REQ_PER_REQ    10000
 #define DEFAULT_INSERT_ROWS    10000
 #define DEFAULT_DISORDER_RANGE 1000
 #define DEFAULT_CREATE_BATCH   10
@@ -191,7 +194,7 @@ typedef unsigned __int32 uint32_t;
 #define BENCH_PORT                \
     "The TCP/IP port number to use for the connection, default is 6030."
 #define BENCH_MODE                \
-    "insert mode, default is taosc, options: taosc|rest|stmt|sml"
+    "insert mode, default is taosc, options: taosc|rest|stmt|stmt2|sml"
 #define BENCH_USER                \
     "The user name to use when connecting to the server, default is root."
 #define BENCH_PASS                \
@@ -466,6 +469,13 @@ typedef unsigned __int32 uint32_t;
         }                                                                   \
     } while (0)
 
+
+#define IS_VAR_DATA_TYPE(t)                                                                                 \
+  (((t) == TSDB_DATA_TYPE_VARCHAR) || ((t) == TSDB_DATA_TYPE_VARBINARY) || ((t) == TSDB_DATA_TYPE_NCHAR) || \
+   ((t) == TSDB_DATA_TYPE_JSON) || ((t) == TSDB_DATA_TYPE_GEOMETRY))
+
+
+
 enum TEST_MODE {
     INSERT_TEST,     // 0
     QUERY_TEST,      // 1
@@ -479,6 +489,7 @@ enum enum_TAOS_INTERFACE {
     TAOSC_IFACE,
     REST_IFACE,
     STMT_IFACE,
+    STMT2_IFACE,
     SML_IFACE,
     SML_REST_IFACE,
     INTERFACE_BUT
@@ -550,6 +561,7 @@ static const int OFF_CAP     = -1;
 typedef struct SStmtData {
     void    *data;
     char    *is_null;
+    int32_t *lengths;
 } StmtData;
 
 typedef struct SChildField {
@@ -977,6 +989,7 @@ typedef struct SBenchConn {
     TAOS* taos;
     TAOS* ctaos;  // check taos
     TAOS_STMT* stmt;
+    TAOS_STMT2* stmt2;
 #ifdef WEBSOCKET
     WS_TAOS* taos_ws;
     WS_STMT* stmt_ws;
@@ -1041,6 +1054,9 @@ typedef struct SThreadInfo_S {
     char        *csql;
     int32_t     clen;  // csql current write position
     bool        stmtBind;
+
+    // stmt2
+    BArray      *tagsStmt;
 } threadInfo;
 
 typedef struct SQueryThreadInfo_S {
@@ -1119,7 +1135,9 @@ void* benchArrayPush(BArray* pArray, void* pData);
 void* benchArrayDestroy(BArray* pArray);
 void benchArrayClear(BArray* pArray);
 void* benchArrayGet(const BArray* pArray, size_t index);
-void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems);
+void* benchArrayAddBatch(BArray* pArray, void* pData, int32_t elems, bool free);
+BArray * copyBArray(BArray *pArray);
+bool searchBArray(BArray *pArray, const char *field_name, int32_t name_len, uint8_t field_type);
 
 #ifdef LINUX
 int32_t bsem_wait(sem_t* sem);
@@ -1185,5 +1203,17 @@ float tmpFloatImpl(Field *field, int i, int32_t angle, int32_t k);
 double tmpDoubleImpl(Field *field, int32_t angle, int32_t k);
 int tmpStr(char *tmp, int iface, Field *field, int64_t k);
 int tmpGeometry(char *tmp, int iface, Field *field, int64_t k);
+int tmpInt32ImplTag(Field *field, int i, int k);
 
+char* genQMark( int32_t QCnt);
+// stmt2
+TAOS_STMT2_BINDV* createBindV(int32_t count, int32_t tagCnt, int32_t colCnt);
+// clear bindv table count tables tag and column
+void resetBindV(TAOS_STMT2_BINDV *bindv, int32_t capacity, int32_t tagCnt, int32_t colCnt);
+void clearBindV(TAOS_STMT2_BINDV *bindv);
+void freeBindV(TAOS_STMT2_BINDV *bindv);
+void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
+
+// IFace is rest return True
+bool isRest(int32_t iface);
 #endif   // INC_BENCH_H_

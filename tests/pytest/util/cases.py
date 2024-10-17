@@ -17,6 +17,7 @@ import time
 import datetime
 import inspect
 import importlib
+import traceback
 from util.log import *
 
 
@@ -75,7 +76,9 @@ class TDCases:
                     case.run()
                 except Exception as e:
                     tdLog.notice(repr(e))
+                    traceback.print_exc()
                     tdLog.exit("%s failed" % (fileName))
+
                 case.stop()
                 runNum += 1
                 continue

@@ -453,7 +453,15 @@ static int getColumnAndTagTypeFromInsertJsonFile(
         }
         type = convertStringToDatatype(dataType->valuestring, 0);
 
-        if ((tagSize == 1) && (type == TSDB_DATA_TYPE_JSON)) {
+        if(type == TSDB_DATA_TYPE_JSON) {
+            if (tagSize > 1) {
+                // if tag type is json, must one tag column
+                errorPrint("tag datatype is json, only one column tag is allowed, currently tags columns count is %d. quit programe.\n", tagSize);
+                code = -1;
+                goto PARSE_OVER;
+            }
+
+            // create on stbInfo->tags
             Field * tag = benchCalloc(1, sizeof(Field), true);
             benchArrayPush(stbInfo->tags, tag);
             tag = benchArrayGet(stbInfo->tags, stbInfo->tags->size - 1);
@@ -464,8 +472,7 @@ static int getColumnAndTagTypeFromInsertJsonFile(
                 snprintf(tag->name, TSDB_COL_NAME_LEN, "jtag");
             }
             tag->type = type;
-            tag->length = length;
-            stbInfo->tags->size = count;
+            tag->length = JSON_FIXED_LENGTH; // json datatype is fixed length: 4096
             return 0;
         }
 
@@ -771,6 +778,8 @@ uint16_t getInterface(char *name) {
         iface = REST_IFACE;
     } else if (0 == strcasecmp(name, "stmt")) {
         iface = STMT_IFACE;
+    } else if (0 == strcasecmp(name, "stmt2")) {
+        iface = STMT2_IFACE;
     } else if (0 == strcasecmp(name, "sml")) {
         iface = SML_IFACE;
     } else if (0 == strcasecmp(name, "sml-rest")) {
@@ -914,7 +923,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                                g_arguments->reqPerReq, SML_MAX_BATCH);
                     return -1;
                 }
-            } else if (superTable->iface == SML_REST_IFACE) {
+            } else if (isRest(superTable->iface)) {
                 if (g_arguments->reqPerReq > SML_MAX_BATCH) {
                     errorPrint("reqPerReq (%u) larger than maximum (%d)\n",
                                g_arguments->reqPerReq, SML_MAX_BATCH);

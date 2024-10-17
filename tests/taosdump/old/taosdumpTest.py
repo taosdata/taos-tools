@@ -124,14 +124,13 @@ class TDTestCase:
                 print(type(dbresult[i][6]))
                 print(type(dbresult[i][7]))
                 print((dbresult[i][6]))
-                assert dbresult[i][6] == "15840m"
-                print((dbresult[i][7]))
-                assert dbresult[i][7] == "5254560m,5254560m,5254560m"
+                assert dbresult[i][6] == "11d"
+                assert dbresult[i][7] == "3649d,3649d,3649d"
             if dbresult[i][0] == "newdb1":
                 print((dbresult[i][6]))
-                assert dbresult[i][6] == "17280m"
+                assert dbresult[i][6] == "12d"
                 print((dbresult[i][7]))
-                assert dbresult[i][7] == "5241600m,5241600m,5241600m"
+                assert dbresult[i][7] == "3640d,3640d,3640d"
 
         tdSql.query("show stables")
         tdSql.checkRows(1)

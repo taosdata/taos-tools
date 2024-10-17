@@ -825,7 +825,7 @@ bool insertDataMix(threadInfo* info, SDataBase* db, SSuperTable* stb) {
       if(acreate) {
           // generator
           if (w == 0) {
-              if(!generateTagData(stb, tagData, TAG_BATCH_COUNT, csvFile)) {
+              if(!generateTagData(stb, tagData, TAG_BATCH_COUNT, csvFile, NULL)) {
                  FAILED_BREAK()                
               }
           }

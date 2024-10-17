@@ -60,7 +60,7 @@ void parseFieldDatatype(char *dataType, BArray *fields, bool isTag) {
         benchArrayPush(fields, field);
         field = benchArrayGet(fields, 0);
         if (1 == regexMatch(dataType,
-                    "^(BINARY|NCHAR|JSON)(\\([1-9][0-9]*\\))$",
+                    "^(BINARY|NCHAR|GEOMETRY|VARBINARY|VARCHAR)(\\([1-9][0-9]*\\))$",
                     REG_ICASE | REG_EXTENDED)) {
             char type[DATATYPE_BUFF_LEN];
             char length[BIGINT_BUFF_LEN];
@@ -182,7 +182,7 @@ static void initStable() {
     tstrncpy(t2->name, "location", TSDB_COL_NAME_LEN + 1);
 
     t1->min = 1;
-    t1->max = 10;
+    t1->max = 100000;
 
 
     stbInfo->insert_interval = 0;
@@ -293,7 +293,7 @@ void modifyArgument() {
 #else
             taos_options(TSDB_OPTION_CONFIGDIR, g_configDir);
 #endif
-            g_arguments->host = NULL;
+            g_arguments->host = DEFAULT_HOST;
             g_arguments->port = 0;
         }
 #ifdef WEBSOCKET
@@ -345,18 +345,6 @@ void modifyArgument() {
     if (g_arguments->keep_trying) {
         superTable->keep_trying = g_arguments->keep_trying;
         superTable->trying_interval = g_arguments->trying_interval;
-    }
-
-    if (REST_IFACE == g_arguments->iface) {
-        if (0 != convertServAddr(g_arguments->iface,
-                                 false,
-                                 1)) {
-            errorPrint("%s", "Failed to convert server address\n");
-            return;
-        }
-        encodeAuthBase64();
-        g_arguments->rest_server_ver_major =
-            getServerVersionRest(g_arguments->port);
     }
 }
 

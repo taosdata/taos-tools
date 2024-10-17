@@ -11,6 +11,7 @@
 
 # -*- coding: utf-8 -*-
 import os
+import time
 
 from util.log import *
 from util.cases import *
@@ -90,6 +91,9 @@ class TDTestCase:
 
         cmd = "%s -I sml -t 10 -n 10000  -y" % binPath
         tdLog.info("%s" % cmd)
+        os.system("%s" % cmd)
+
+        tdSql.query("select count(*) from test.meters")
         tdSql.checkData(0, 0, 10*10000)
 
     def stop(self):
