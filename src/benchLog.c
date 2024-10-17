@@ -131,6 +131,6 @@ void lockLog(int8_t idx) {
     taosThreadMutexLock(&mutexs[idx]);
 }
 // unlock
-void unLockLog(int8_t idx) {
-    taosThreadMutexUnLock(&mutexs[idx]);
+void unlockLog(int8_t idx) {
+    taosThreadMutexUnlock(&mutexs[idx]);
 }

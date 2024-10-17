@@ -67,7 +67,7 @@ void exitLog();
             toolsGetTimeOfDay(&timeSecs);                                   \
             curTime = timeSecs.tv_sec;                                      \
             ptm = toolsLocalTime(&curTime, &Tm);                            \
-            lockLog(LOG_STDOUT);                                            \            
+            lockLog(LOG_STDOUT);                                            \
             fnprintf(stdout, len, "[%02d/%02d %02d:%02d:%02d.%06d] ",       \
                     ptm->tm_mon + 1,                                        \
                     ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
