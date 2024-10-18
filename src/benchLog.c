@@ -77,21 +77,6 @@ int32_t taosThreadMutexLock(TdThreadMutex *mutex) {
 #endif
 }
 
-/*
-int32_t taosThreadMutexTryLock(TdThreadMutex *mutex) {
-#ifdef WINDOWS
-  if (TryEnterCriticalSection(mutex)) return 0;
-  return EBUSY;
-#else
-  int32_t code = pthread_mutex_trylock(mutex);
-  if (code && code != EBUSY) {
-    code = TAOS_SYSTEM_ERROR(code);
-  }
-  return code;
-#endif
-}
-*/
-
 int32_t taosThreadMutexUnlock(TdThreadMutex *mutex) {
 #ifdef WINDOWS
   LeaveCriticalSection(mutex);
