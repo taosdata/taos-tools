@@ -22,9 +22,9 @@
 // --------  OS IMPL
 #ifdef WINDOWS
 typedef CRITICAL_SECTION     TdThreadMutex;      // windows api
+typedef HANDLE               TdThreadMutexAttr;  // windows api
 #else
 typedef pthread_mutex_t      TdThreadMutex;
-typedef pthread_mutexattr_t  TdThreadMutexAttr;
 typedef pthread_mutexattr_t  TdThreadMutexAttr;
 #endif
 
