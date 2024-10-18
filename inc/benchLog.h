@@ -25,7 +25,7 @@ enum LOG_LOCK {
     LOG_STDERR,  // 1
     LOG_RESULT,  // 2 g_arguments->fpOfInsertResult file lock
     LOG_COUNT    // 3
-} LOG_LOCK;
+};
 
 // init log
 bool initLog();
