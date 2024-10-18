@@ -11,6 +11,7 @@
  */
 
 #include "bench.h"
+#include "benchLog.h"
 #include "benchDataMix.h"
 #include <float.h>
 
