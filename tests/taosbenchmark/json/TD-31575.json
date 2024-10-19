@@ -19,7 +19,7 @@
                 "replica":1,
                 "wal_retention_period":0,
                 "wal_retention_size":0,
-                "vgroups":32,
+                "vgroups":4,
                 "cachemodel": "'none'",
                 "cachesize":1,
                 "wal_level":1,
