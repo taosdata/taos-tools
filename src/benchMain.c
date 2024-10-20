@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "benchLog.h"
 #include <benchCsv.h>
 #include <toolsdef.h>
 
@@ -78,6 +79,8 @@ void checkArgumentValid() {
 int main(int argc, char* argv[]) {
     int ret = 0;
 
+    // log
+    initLog();
     initArgument();
     srand(time(NULL)%1000000);
 
@@ -99,6 +102,7 @@ int main(int argc, char* argv[]) {
 
 #endif
     if (benchParseArgs(argc, argv)) {
+        exitLog();
         return -1;
     }
 #ifdef WEBSOCKET
@@ -171,5 +175,6 @@ int main(int argc, char* argv[]) {
     pthread_join(spid, NULL);
 #endif
 
+    exitLog();
     return ret;
 }

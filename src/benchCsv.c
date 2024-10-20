@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "benchLog.h"
 #include <benchDataMix.h>
 #include <benchCsv.h>
 
@@ -295,5 +296,6 @@ int32_t genRowByField(char* buf, BArray* fields, int16_t fieldCnt, char* binanry
 
     pos1 += dataGenByField(fd, buf, pos1, prefix, k, "");
   }
+  
   return pos1;
 }
