@@ -63,7 +63,7 @@ class TDTestCase:
         major_ver = client_ver.split(".")[0]
 
         binPath = self.getPath()
-        cmd = "%s -f ./taosbenchmark/json/sml_telnet_tcp.json" % binPath
+        cmd = "%s -g -f ./taosbenchmark/json/sml_telnet_tcp.json" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
         time.sleep(5)
