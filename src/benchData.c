@@ -979,7 +979,6 @@ static int fillStmt(
                 childCol->stmtData.lengths[k] = field->length;
             } else {
                 field->stmtData.is_null[k] = 0;
-                infoPrint("i=%d k=%" PRId64 " field->stmtData.lengths=%p field=%p \n", i, k, field->stmtData.lengths, field);
                 field->stmtData.lengths[k] = field->length;
             }
 
