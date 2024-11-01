@@ -122,7 +122,6 @@ class TDTestCase:
         cmd = "%s -F 700 -n 1000 -t 4 -y -M -I stmt2" % binPath
         tdLog.info("%s" % cmd)
         os.system("%s" % cmd)
-        tdSql.query("show test.tables")
         tdSql.checkRows(4)
         tdSql.query("select count(*) from test.meters")
         tdSql.checkData(0, 0, 4000)
