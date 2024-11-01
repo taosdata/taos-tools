@@ -11320,11 +11320,6 @@ static void dumpTablesOfStbNative(
     for (int64_t i = pThreadInfo->from;
             i < pThreadInfo->from + pThreadInfo->count; i++) {
         char* tbName = pThreadInfo->tbNameArr[i];
-        if (tbName == NULL) {
-            warnPrint("%s() LN%d, error. tbname is NULL. stable=%s index=%" PRId64 " stbName\n",
-                      __func__, __LINE__, pThreadInfo->stbName, i);
-            continue;
-        }
         debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
                 __func__, __LINE__,
                 pThreadInfo->threadIndex, i, tbName);
