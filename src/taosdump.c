@@ -11325,9 +11325,9 @@ static void dumpTablesOfStbNative(
                       __func__, __LINE__, pThreadInfo->stbName, i);
             continue;
         }
-        debugPrint("%s() LN%d, [%d] sub table %" PRId64 ": name: %s\n",
-                   __func__, __LINE__,
-                   pThreadInfo->threadIndex, i, tbName);
+        debugPrint("%s() LN%d, [%d] sub table %"PRId64": name: %s\n",
+                __func__, __LINE__,
+                pThreadInfo->threadIndex, i, tbName);
 
         int64_t count;
         if (g_args.avro) {
