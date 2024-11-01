@@ -131,7 +131,7 @@ jobs:
           cd TDengine
           mkdir debug ||:
           cd debug
-          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null
+          cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_DEPENDENCY_TESTS=false > /dev/null
           make -j2 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
