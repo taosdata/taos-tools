@@ -2496,7 +2496,7 @@ FILE* openTagCsv(SSuperTable* stbInfo) {
     if (stbInfo->tagsFile[0] != 0) {
         csvFile = fopen(stbInfo->tagsFile, "r");
         if (csvFile == NULL) {
-            errorPrint("Failed to open sample file: %s, reason:%s\n", stbInfo->tagsFile, strerror(errno));
+            errorPrint("Failed to open tag sample file: %s, reason:%s\n", stbInfo->tagsFile, strerror(errno));
             return NULL;
         }
         infoPrint("open tag csv file :%s \n", stbInfo->tagsFile);
