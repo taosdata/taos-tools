@@ -289,7 +289,7 @@ IF (${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin
     ENDIF ()
 
     IF (${TOOLS_BUILD_TYPE} MATCHES "Debug")
-        IF (${TOOLS_SANITIZE} MATCHES "true")
+        IF (${TOOLS_SANITIZE} MATCHES "true" OR ${BUILD_SANITIZER})
             MESSAGE("${Yellow} Enable memory sanitize by TOOLS_SANITIZE ${ColourReset}")
             IF (${OS_ID} MATCHES "Darwin")
                 SET(TOOLS_SANITIZE_FLAG "-fsanitize=address -fsanitize=undefined -fno-sanitize-recover=all -fsanitize=float-divide-by-zero -fsanitize=float-cast-overflow -fno-sanitize=null -fno-sanitize=alignment")
