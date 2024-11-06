@@ -494,6 +494,8 @@ static struct argp_option options[] = {
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
     {"rename", 'W', "RENAME-LIST", 0, "Rename database name with new name during importing data. RENAME-LIST: \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
+    {"retry-count", 'k', 0, 0, "Set the number of retry attempts for connection or query failures", 11},
+    {"retry-sleep-ms", 'z', 0, 0, "retry interval sleep time, unit ms", 11},
     {0}
 };
 
@@ -1141,7 +1143,14 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'W':
             setRenameDbs(arg);
             break;
-
+        case 'k':
+            g_args.retryCount = atoi((const char *)arg);
+            printf(" set argument retry count=%d\n", g_args.retryCount);
+            break;
+        case 'z':
+            g_args.retrySleepMs = atoi((const char *)arg);
+            printf(" set argument retry interval sleep = %d ms\n", g_args.retrySleepMs);
+            break;
         default:
             return ARGP_ERR_UNKNOWN;
     }
