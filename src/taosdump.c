@@ -567,6 +567,9 @@ typedef struct arguments {
     // put rename db string
     char      * renameBuf;
     SRenameDB * renameHead;
+    // retry for call engine api
+    int32_t     retryCount;
+    int32_t     retrySleepMs;      
 } SArguments;
 
 static resultStatistics g_resultStatistics = {0};
@@ -633,7 +636,9 @@ struct arguments g_args = {
 #endif  // WEBSOCKET
 
     NULL,       // renameBuf
-    NULL        // renameHead
+    NULL,       // renameHead
+    3,          // retryCount
+    1000        // retrySleepMs
 };
 
 
@@ -1161,46 +1166,6 @@ static void freeTbDes(TableDes *tableDes, bool self) {
     }
 }
 
-#ifdef WEBSOCKET
-static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
-    int ret = 0;
-    WS_RES *ws_res = NULL;
-    int32_t   code = 0;
-
-    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    code = ws_errno(ws_res);
-
-    if (code) {
-        errorPrint("Failed to run <%s>, ws_taos: %p, "
-                   "code: 0x%08x, reason: %s\n",
-                command, ws_taos, code, ws_errstr(ws_res));
-        ret = -1;;
-    }
-
-    ws_free_result(ws_res);
-    ws_res = NULL;
-    return ret;
-}
-#endif
-
-static int queryDbImplNative(TAOS *taos, char *command) {
-    int ret = 0;
-    TAOS_RES *res = NULL;
-    int32_t   code = -1;
-
-    res = taos_query(taos, command);
-    code = taos_errno(res);
-
-    if (code != 0) {
-        errorPrint("Failed to run <%s>, reason: %s\n",
-                command, taos_errstr(res));
-        ret = -1;
-    }
-
-    taos_free_result(res);
-    return ret;
-}
-
 static void parse_args(
         int argc, char *argv[], SArguments *arguments) {
     for (int i = 1; i < argc; i++) {
@@ -1376,29 +1341,117 @@ static void freeDbInfos() {
     tfree(g_dbInfos);
 }
 
+//
+//   encapsulate the api of calling engine
+//
+
+// connect
 TAOS *taosConnect(const char *dbName) {
-    TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password,
-            dbName, g_args.port);
-    if (NULL == taos) {
-        errorPrint("Failed to connect to server %s, "
-                   "code: 0x%08x, reason: %s!\n",
-                g_args.host, taos_errno(NULL), taos_errstr(NULL));
+    int32_t i = 0;
+    while (1) {
+        TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password, dbName, g_args.port);
+        if (taos) {
+            // successful
+            return taos;
+        }
+
+        // fail
+        errorPrint("Failed to connect to server %s, code: 0x%08x, reason: %s! \n", g_args.host, taos_errno(NULL),
+                   taos_errstr(NULL));
+
+        if (++i > g_args.retryCount) {
+            break;
+        }
+
+        // retry agian
+        infoPrint("Retry to connect for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
+        sleep(g_args.retrySleepMs);
     }
-    return taos;
+    return NULL;
+}
+
+// query
+TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
+    int32_t   i = 0;
+    TAOS_RES *res = NULL;
+    while (1) {
+        res = taosQuery(taos, sql);
+        *code = taos_errno(res);
+        if (*code == 0) {
+            // successful
+            return res;
+        }
+
+        // fail
+        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(NULL), sql);
+
+        if (++i > g_args.retryCount) {
+            break;
+        }
+
+        // retry agian
+        infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", g_args.host, g_args.port, i,
+                  g_args.retrySleepMs);
+        sleep(g_args.retrySleepMs);
+    }
+    return res;
 }
 
 #ifdef WEBSOCKET
+// ws connect
 WS_TAOS *wsConnect() {
-    WS_TAOS *ws_taos = ws_connect(g_args.dsn);
-    if (NULL == ws_taos) {
+    int32_t i = 0;
+    while (1) {
+        WS_TAOS *ws_taos = ws_connect(g_args.dsn);
+        if (ws_taos) {
+            // successful
+            return ws_taos;
+        }
+
+        // fail
         char maskedDsn[256] = "\0";
         memcpy(maskedDsn, g_args.dsn, 20);
-        memcpy(maskedDsn+20, "...", 3);
-        memcpy(maskedDsn+23, g_args.dsn + strlen(g_args.dsn) - 10, 10);
-        errorPrint("Failed to connect to server %s, code: 0x%08x, reason: %s!\n",
-            maskedDsn, ws_errno(ws_taos), ws_errstr(ws_taos));
+        memcpy(maskedDsn + 20, "...", 3);
+        memcpy(maskedDsn + 23, g_args.dsn + strlen(g_args.dsn) - 10, 10);
+        errorPrint("Failed to ws_connect to server %s, code: 0x%08x, reason: %s!\n", maskedDsn, ws_errno(ws_taos),
+                   ws_errstr(ws_taos));
+
+        if (++i > g_args.retryCount) {
+            break;
+        }
+
+        // retry agian
+        infoPrint("Retry to ws_connect for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
+        sleep(g_args.retrySleepMs);
     }
-    return ws_taos;
+    return NULL;
+}
+
+// ws query
+WS_RES *wsQuery(WS_TAOS *taos, const char *sql, int32_t *code) {
+    int32_t i = 0;
+    WS_RES *ws_res = NULL;
+    while (1) {
+        ws_res = ws_query_timeout(ws_taos, sql, g_args.ws_timeout);
+        *code = ws_errno(ws_res);
+        if (*code == 0) {
+            // successful
+            return ws_res;
+        }
+
+        // fail
+        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(NULL), sql);
+
+        if (++i > g_args.retryCount) {
+            break;
+        }
+
+        // retry agian
+        infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", g_args.host, g_args.port, i,
+                  g_args.retrySleepMs);
+        sleep(g_args.retrySleepMs);
+    }
+    return ws_res;
 }
 
 static int cleanIfQueryFailedWS(const char *funcname, int lineno,
@@ -1416,7 +1469,7 @@ static int getTableRecordInfoImplWS(
         bool tryStable) {
     WS_TAOS *ws_taos = NULL;
     WS_RES  *ws_res;
-    int32_t code;
+    int32_t ws_code = -1;
 
     if (NULL == (ws_taos = wsConnect())) {
         return -1;
@@ -1434,9 +1487,8 @@ static int getTableRecordInfoImplWS(
             ? "USE `%s`"
             : "USE %s",
             dbName);
-    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    code = ws_errno(ws_res);
-    if (code != 0) {
+    ws_res = wsQuery(ws_taos, command, &ws_code);
+    if (ws_code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
                 dbName, ws_errstr(ws_res));
         ws_free_result(ws_res);
@@ -1469,10 +1521,9 @@ static int getTableRecordInfoImplWS(
         }
     }
 
-    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    code = ws_errno(ws_res);
+    ws_res = wsQuery(ws_taos, command, &ws_code);
 
-    if (code != 0) {
+    if (ws_code != 0) {
         cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
         ws_close(ws_taos);
         return -1;
@@ -1636,8 +1687,8 @@ static int getTableRecordInfoImplNative(
             ? "USE `%s`"
             : "USE %s",
             dbName);
-    res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    res = taosQuery(taos, command, &code);    
     if (code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
                 dbName, taos_errstr(res));
@@ -1671,9 +1722,7 @@ static int getTableRecordInfoImplNative(
         }
     }
 
-    res = taos_query(taos, command);
-    code = taos_errno(res);
-
+    res = taosQuery(taos, command, &code);
     if (code != 0) {
         cleanIfQueryFailed(__func__, __LINE__, command, res);
         taos_close(taos);
@@ -1929,7 +1978,7 @@ static int getDumpDbCount() {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW DATABASES");
     }
 
-    int32_t code;
+    int32_t code = -1;
 
 #ifdef WEBSOCKET
     WS_TAOS  *ws_taos = NULL;
@@ -1941,9 +1990,9 @@ static int getDumpDbCount() {
             return 0;
         }
 
-        ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-        code = ws_errno(ws_res);
-        if (0 != code) {
+        int32_t ws_code = -1;
+        ws_res = wsQuery(ws_taos, command, &ws_code);
+        if (0 != ws_code) {
             cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
             return 0;
         }
@@ -1957,9 +2006,7 @@ static int getDumpDbCount() {
             free(command);
             return 0;
         }
-        res = taos_query(taos, command);
-        code = taos_errno(res);
-
+        res = taosQuery(taos, command, &code);
         if (0 != code) {
             cleanIfQueryFailed(__func__, __LINE__, command, res);
             return 0;
@@ -2092,8 +2139,8 @@ static int64_t getNtbCountOfStbWS(char* dbName, const char* stbName) {
     debugPrint("get stable child count %s", command);
 
 
-    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -2169,8 +2216,8 @@ static int64_t getTbCountOfStbNative(const char *dbName, const char *stbName) {
     debugPrint("get stable child count %s", command);
 
     int64_t count = 0;
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES *res = taosQuery(taos, command, &code);
     if (code != 0) {
         cleanIfQueryFailed(__func__, __LINE__, command, res);
         taos_close(taos);
@@ -2598,8 +2645,8 @@ static int getTableTagValueWSV3(
             "WHERE db_name = '%s' AND table_name = '%s'",
             dbName, table);
 
-    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -2686,8 +2733,8 @@ static int getTableTagValueWSV2(
             : " FROM %s.%s%s%s LIMIT 1",
             dbName, g_escapeChar, table, g_escapeChar);
 
-    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -2800,8 +2847,8 @@ static int getTableDesWS(
             : "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
-    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     } else {
@@ -2926,8 +2973,8 @@ static int getTableTagValueNativeV3(
             "WHERE db_name = '%s' AND table_name = '%s'",
             dbName, table);
 
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES *res = taosQuery(taos, command, &code);
     if (code) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
     }
@@ -2988,8 +3035,8 @@ static int getTableTagValueNativeV2(
             : " FROM %s.%s%s%s LIMIT 1",
             dbName, g_escapeChar, table, g_escapeChar);
 
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES *res = taosQuery(taos, command, &code);
     if (code) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
     }
@@ -3086,8 +3133,8 @@ static int getTableDesNative(
             : "DESCRIBE %s.%s%s%s",
             dbName, g_escapeChar, table, g_escapeChar);
 
-    res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    res = taosQuery(taos, command, &code);
     if (code != 0) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
     } else {
@@ -4553,8 +4600,8 @@ int64_t queryDbForDumpOutCountWS(
         const char *tbName,
         const int precision) {
     int64_t count = -1;
-    WS_RES* ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES* ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code != 0) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -4610,8 +4657,8 @@ int64_t queryDbForDumpOutCountNative(
         const int precision) {
     int64_t count = -1;
 
-    TAOS_RES* res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES* res = taosQuery(taos, command, &code);
     if (code != 0) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
     }
@@ -4682,8 +4729,8 @@ int64_t queryDbForDumpOutCount(
 static TAOS_RES *queryDbForDumpOutOffsetWS(
         WS_TAOS *ws_taos,
         char *command) {
-    WS_RES* ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES* ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
         return NULL;
@@ -4694,8 +4741,8 @@ static TAOS_RES *queryDbForDumpOutOffsetWS(
 #endif  // WEBSOCKET
 
 static TAOS_RES *queryDbForDumpOutOffsetNative(TAOS *taos, char *command) {
-    TAOS_RES* res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES* res = taosQuery(taos, command, &code);
     if (code != 0) {
         cleanIfQueryFailed(__func__, __LINE__, command, res);
         return NULL;
@@ -6187,8 +6234,8 @@ static int64_t dumpInAvroTbTagsImpl(
         freeTbNameIfLooseMode(stbName);
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            WS_RES *ws_res = ws_query_timeout(taos, sqlstr, g_args.ws_timeout);
-            int32_t ws_code = ws_errno(ws_res);
+            int32_t ws_code = -1;
+            WS_RES *ws_res = wsQuery(taos, sqlstr, &ws_code);
             if (ws_code != 0) {
                 warnPrint("%s() LN%d ws_query() failed! reason: %s\n",
                         __func__, __LINE__, ws_errstr(ws_res));
@@ -6200,10 +6247,10 @@ static int64_t dumpInAvroTbTagsImpl(
             ws_res = NULL;
         } else {
 #endif
-            TAOS_RES *res = taos_query(taos, sqlstr);
-            int32_t code = taos_errno(res);
+            int32_t code = -1;
+            TAOS_RES *res = taosQuery(taos, sqlstr, &code);
             if (code != 0) {
-                warnPrint("%s() LN%d taos_query() failed! sqlstr: %s, reason: %s\n",
+                warnPrint("%s() LN%d taosQuery() failed! sqlstr: %s, reason: %s\n",
                         __func__, __LINE__, sqlstr, taos_errstr(res));
                 failed++;
             } else {
@@ -6266,8 +6313,8 @@ static int64_t dumpInAvroNtbImpl(
 
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
-                WS_RES *ws_res = ws_query_timeout(taos, buf, g_args.ws_timeout);
-                int ws_code = ws_errno(ws_res);
+                int32_t ws_code = -1;
+                WS_RES *ws_res = wsQuery(taos, buf, &ws_code);
                 if (0 != ws_code) {
                     errorPrint("%s() LN%d,"
                             " Failed to execute ws_query(%s)."
@@ -6282,11 +6329,11 @@ static int64_t dumpInAvroNtbImpl(
                 ws_res = NULL;
             } else {
 #endif
-                TAOS_RES *res = taos_query(taos, buf);
-                int code = taos_errno(res);
+                int32_t code = -1;
+                TAOS_RES *res = taosQuery(taos, buf, &code);
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
-                            " Failed to execute taos_query(%s)."
+                            " Failed to execute taosQuery(%s)."
                             " taos: %p, code: 0x%08x, reason: %s\n",
                             __func__, __LINE__, buf,
                             taos, code, taos_errstr(res));
@@ -8254,8 +8301,8 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos,
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
 
-    WS_RES* ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES* ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code != 0) {
         cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
         return NULL;
@@ -8287,8 +8334,8 @@ TAOS_RES *queryDbForDumpOutNative(TAOS *taos,
             dbName, g_escapeChar, tbName, g_escapeChar,
             start_time, end_time);
 
-    TAOS_RES* res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES* res = taosQuery(taos, command, &code);
     if (code != 0) {
         cleanIfQueryFailed(__func__, __LINE__, command, res);
         return NULL;
@@ -9362,8 +9409,8 @@ static int64_t fillTbNameArrWS(
         char **tbNameArr,
         const char *stable,
         const int64_t preCount) {
-    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;        
+    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -9442,8 +9489,8 @@ static int64_t fillTbNameArrNative(
         char **tbNameArr,
         const char *stable,
         const int64_t preCount) {
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES *res = taosQuery(taos, command, &code);
     if (code) {
         errorPrint("%s() LN%d, fillTbNameArrNative failed to run command <%s>. "
                 "code: 0x%08x, reason: %s\n",
@@ -9915,20 +9962,20 @@ static int writeTagsToAvro(
 void* openQuery(void* taos , const char * sql) {
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        WS_RES  *ws_res = ws_query_timeout(taos, sql, g_args.ws_timeout);
-        int32_t code = ws_errno(ws_res);
-        if (code != 0) {
-            errorPrint("exe sql:%s failed. error code =%d\n", sql, code);
+        int32_t ws_code = -1;
+        WS_RES  *ws_res = wsQuery(taos, sql, &ws_code);
+        if (ws_code != 0) {
+            errorPrint("exe sql:%s failed. error code =%d\n", sql, ws_code);
             return NULL;
         }
         return ws_res;
     } else {
 #endif
-        TAOS_RES* res = taos_query(taos, sql);
-        int err = taos_errno(res);
-        if (err != 0) {
+        int32_t code = -1;
+        TAOS_RES* res = taosQuery(taos, sql, &code);
+        if (code != 0) {
             taos_free_result(res);
-            errorPrint("open query: %s execute failed. errcode=%d\n", sql, err);
+            errorPrint("open query: %s execute failed. errcode=%d\n", sql, code);
             return NULL;
         }
         return res;
@@ -10466,11 +10513,9 @@ static void dumpExtraInfoVarWS(void *taos, FILE *fp) {
     }
     strcpy(command, "SHOW VARIABLES");
 
-    int32_t ws_code;
+    int32_t ws_code = -1;
+    WS_RES *ws_res = wsQuery(taos, command, &ws_code);
 
-    WS_RES *ws_res = ws_query_timeout(taos, command, g_args.ws_timeout);
-
-    ws_code = ws_errno(ws_res);
     if (0 != ws_code) {
         warnPrint("%s() LN%d, failed to run command %s, "
                 "code: 0x%08x, reason: %s. Will use default settings\n",
@@ -10554,8 +10599,8 @@ static void dumpExtraInfoVar(void *taos, FILE *fp) {
     }
     strcpy(command, "SHOW VARIABLES");
 
-    int32_t code;
-    TAOS_RES* res = taos_query(taos, command);
+    int32_t code = -1;
+    TAOS_RES* res = taosQuery(taos, command, &code);
 
     code = taos_errno(res);
     if (code != 0) {
@@ -10811,6 +10856,44 @@ bool convertDbClauseForV3(char **cmd) {
     free(dup_str);
     return true;
 }
+
+static int queryDbImplNative(TAOS *taos, char *command) {
+    int ret = 0;
+    TAOS_RES *res = NULL;
+    int32_t   code = -1;
+
+    res = taosQuery(taos, command, &code);
+
+    if (code != 0) {
+        errorPrint("Failed to run <%s>, reason: %s\n",
+                command, taos_errstr(res));
+        ret = -1;
+    }
+
+    taos_free_result(res);
+    return ret;
+}
+
+#ifdef WEBSOCKET
+static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
+    int ret = 0;
+    WS_RES *ws_res = NULL;
+    int32_t ws_code = -1;
+
+    ws_res = wsQuery(ws_taos, command, &ws_code);
+
+    if (code) {
+        errorPrint("Failed to run <%s>, ws_taos: %p, "
+                   "code: 0x%08x, reason: %s\n",
+                command, ws_taos, code, ws_errstr(ws_res));
+        ret = -1;;
+    }
+
+    ws_free_result(ws_res);
+    ws_res = NULL;
+    return ret;
+}
+#endif
 
 // dumpIn support multi threads functions
 static int64_t dumpInOneDebugFile(
@@ -11682,10 +11765,9 @@ static int64_t dumpStbAndChildTbOfDbWS(
             : "USE %s",
             dbInfo->name);
     WS_RES *ws_res;
-    int32_t ws_code;
+    int32_t ws_code = -1;
 
-    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    ws_code = ws_errno(ws_res);
+    ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
                 dbInfo->name, ws_errstr(ws_res));
@@ -11703,8 +11785,7 @@ static int64_t dumpStbAndChildTbOfDbWS(
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW STABLES");
     }
 
-    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    ws_code = ws_errno(ws_res);
+    ws_res = wsQuery(ws_taos, command, &ws_code);
 
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
@@ -11774,7 +11855,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
     }
 
     WS_RES *ws_res;
-    int32_t ws_code;
+    int32_t ws_code = -1;
 
     if (3 == g_majorVersionOfClient) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
@@ -11787,8 +11868,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
                 ? "USE `%s`"
                 : "USE %s",
                 dbInfo->name);
-        ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-        ws_code = ws_errno(ws_res);
+        ws_res = wsQuery(ws_taos, command, &ws_code);
         if (ws_code) {
             errorPrint("invalid database %s, code: 0x%08x, reason: %s\n",
                     dbInfo->name, ws_code, ws_errstr(ws_res));
@@ -11803,8 +11883,7 @@ static int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW TABLES");
     }
 
-    ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    ws_code = ws_errno(ws_res);
+    ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         errorPrint("Failed to show %s\'s tables, code: 0x%08x, reason: %s!\n",
                 dbInfo->name, ws_code, ws_errstr(ws_res));
@@ -11909,7 +11988,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
     }
 
     TAOS_RES *res;
-    int32_t code;
+    int32_t code = -1;
 
     if (3 == g_majorVersionOfClient) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN,
@@ -11922,8 +12001,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
                 ? "USE `%s`"
                 : "USE %s",
                 dbInfo->name);
-        res = taos_query(taos, command);
-        code = taos_errno(res);
+        res = taosQuery(taos, command, &code);
         if (code != 0) {
             errorPrint("invalid database %s, reason: %s\n",
                     dbInfo->name, taos_errstr(res));
@@ -11936,8 +12014,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW TABLES");
     }
 
-    res = taos_query(taos, command);
-    code = taos_errno(res);
+    res = taosQuery(taos, command, &code);
     if (code != 0) {
         errorPrint("Failed to show %s\'s tables, reason: %s\n",
                 dbInfo->name, taos_errstr(res));
@@ -12006,10 +12083,9 @@ static int64_t dumpStbAndChildTbOfDbNative(
             : "USE %s",
             dbInfo->name);
     TAOS_RES *res;
-    int32_t code;
+    int32_t code = -1;
 
-    res = taos_query(taos, command);
-    code = taos_errno(res);
+    res = taosQuery(taos, command, &code);
     if (code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
                 dbInfo->name, taos_errstr(res));
@@ -12029,8 +12105,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW STABLES");
     }
 
-    res = taos_query(taos, command);
-    code = taos_errno(res);
+    res = taosQuery(taos, command, &code);
 
     if (code != 0) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
@@ -12633,8 +12708,8 @@ static int fillDbExtraInfoV3WS(
 
     infoPrint("Getting table(s) count of db (%s) ...\n", dbName);
 
-    WS_RES *ws_res = ws_query_timeout(ws_taos, command, g_args.ws_timeout);
-    int32_t ws_code = ws_errno(ws_res);
+    int32_t ws_code = -1;
+    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     } else {
@@ -12695,9 +12770,9 @@ static int fillDbInfoWS(void *taos) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW DATABASES");
     }
 
-    WS_RES *ws_res = ws_query_timeout(taos, command, g_args.ws_timeout);
-    int32_t code = ws_errno(ws_res);
-    if (code != 0) {
+    int32_t ws_code = -1;
+    WS_RES *ws_res = wsQuery(taos, command, &ws_code);
+    if (ws_code != 0) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
 
@@ -12837,8 +12912,8 @@ static int fillDbExtraInfoV3Native(
 
     infoPrint("Getting table(s) count of db (%s) ...\n", dbName);
 
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES *res = taosQuery(taos, command, &code);
     if (code != 0) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
     } else {
@@ -12876,8 +12951,8 @@ static int fillDbInfoNative(void *taos) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW DATABASES");
     }
 
-    TAOS_RES *res = taos_query(taos, command);
-    int32_t code = taos_errno(res);
+    int32_t code = -1;
+    TAOS_RES *res = taosQuery(taos, command, &code);
     if (code != 0) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
     } else {
