@@ -1375,7 +1375,7 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
     int32_t   i = 0;
     TAOS_RES *res = NULL;
     while (1) {
-        res = taosQuery(taos, sql);
+        res = taos_query(taos, sql);
         *code = taos_errno(res);
         if (*code == 0) {
             // successful
@@ -1390,8 +1390,7 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
         }
 
         // retry agian
-        infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", g_args.host, g_args.port, i,
-                  g_args.retrySleepMs);
+        infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
         sleep(g_args.retrySleepMs);
     }
     return res;
@@ -1447,8 +1446,7 @@ WS_RES *wsQuery(WS_TAOS *taos, const char *sql, int32_t *code) {
         }
 
         // retry agian
-        infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", g_args.host, g_args.port, i,
-                  g_args.retrySleepMs);
+        infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
         sleep(g_args.retrySleepMs);
     }
     return ws_res;
