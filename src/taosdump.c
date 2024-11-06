@@ -494,8 +494,8 @@ static struct argp_option options[] = {
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
     {"rename", 'W', "RENAME-LIST", 0, "Rename database name with new name during importing data. RENAME-LIST: \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
-    {"retry-count", 'k', 0, 0, "Set the number of retry attempts for connection or query failures", 11},
-    {"retry-sleep-ms", 'z', 0, 0, "retry interval sleep time, unit ms", 11},
+    {"retry-count", 'k', "retry-count-value", 0, "Set the number of retry attempts for connection or query failures", 11},
+    {"retry-sleep-ms", 'z', "retry-sleep-value", 0, "retry interval sleep time, unit ms", 11},
     {0}
 };
 
@@ -1436,7 +1436,7 @@ WS_TAOS *wsConnect() {
 }
 
 // ws query
-WS_RES *wsQuery(WS_TAOS *taos, const char *sql, int32_t *code) {
+WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
     int32_t i = 0;
     WS_RES *ws_res = NULL;
     while (1) {
@@ -1541,7 +1541,7 @@ static int getTableRecordInfoImplWS(
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        code = ws_fetch_raw_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
         if (code) {
             errorPrint("%s() LN%d, ws_fetch_raw_block() error. reason: %s!\n",
                     __func__, __LINE__,
@@ -10889,10 +10889,10 @@ static int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
 
     ws_res = wsQuery(ws_taos, command, &ws_code);
 
-    if (code) {
+    if (ws_code) {
         errorPrint("Failed to run <%s>, ws_taos: %p, "
                    "code: 0x%08x, reason: %s\n",
-                command, ws_taos, code, ws_errstr(ws_res));
+                command, ws_taos, ws_code, ws_errstr(ws_res));
         ret = -1;;
     }
 
@@ -12796,7 +12796,7 @@ static int fillDbInfoWS(void *taos) {
     while (true) {
         int rows = 0;
         const void *data = NULL;
-        code = ws_fetch_raw_block(ws_res, &data, &rows);
+        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
 
         if (0 == rows) {
             debugPrint("%s() LN%d, No more data from ws_fetch_raw_block(), "
