@@ -1542,7 +1542,7 @@ static int getTableRecordInfoImplWS(
         int rows = 0;
         const void *data = NULL;
         ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
-        if (code) {
+        if (ws_code) {
             errorPrint("%s() LN%d, ws_fetch_raw_block() error. reason: %s!\n",
                     __func__, __LINE__,
                     ws_errstr(ws_res));
