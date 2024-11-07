@@ -87,6 +87,13 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
         // fail
         errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(res), sql);
 
+        // can retry
+        if(!canRetry(*code, RETRY_TYPE_QUERY)) {
+            infoPrint("%s", "error code not in retry range , give up retry.\n");
+            return NULL;
+        }
+
+        // check retry count
         if (++i > g_args.retryCount) {
             break;
         }
@@ -95,6 +102,7 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
         infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
         toolsMsleep(g_args.retrySleepMs);
     }
+
     return NULL;
 }
 
@@ -153,6 +161,12 @@ WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
 
         // fail
         errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(ws_res), sql);
+
+        // can retry
+        if(!canRetry(*code, RETRY_TYPE_QUERY)) {
+            infoPrint("%s", "error code not in retry range , give up retry.\n");
+            return NULL;
+        }        
 
         if (++i > g_args.retryCount) {
             break;
