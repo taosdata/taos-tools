@@ -1374,7 +1374,7 @@ TAOS *taosConnect(const char *dbName) {
 
         // retry agian
         infoPrint("Retry to connect for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
-        sleep(g_args.retrySleepMs);
+        toolsMsleep(g_args.retrySleepMs);
     }
     return NULL;
 }
