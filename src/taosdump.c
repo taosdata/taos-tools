@@ -1398,7 +1398,7 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
         }
 
         // fail
-        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(*code), sql);
+        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(res), sql);
 
         if (++i > g_args.retryCount) {
             break;
@@ -1408,7 +1408,7 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
         infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
         toolsMsleep(g_args.retrySleepMs);
     }
-    return res;
+    return NULL;
 }
 
 #ifdef WEBSOCKET
@@ -1460,7 +1460,7 @@ WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
         }
 
         // fail
-        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(NULL), sql);
+        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(ws_res), sql);
 
         if (++i > g_args.retryCount) {
             break;
@@ -1470,7 +1470,7 @@ WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
         infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
         toolsMsleep(g_args.retrySleepMs);
     }
-    return ws_res;
+    return NULL;
 }
 
 static int cleanIfQueryFailedWS(const char *funcname, int lineno,
