@@ -1361,6 +1361,9 @@ TAOS *taosConnect(const char *dbName) {
         TAOS *taos = taos_connect(g_args.host, g_args.user, g_args.password, dbName, g_args.port);
         if (taos) {
             // successful
+            if (i > 0) {
+                okPrint("Retry %d to connect %s:%d successfully!\n", i, g_args.host, g_args.port);
+            }
             return taos;
         }
 
@@ -1387,6 +1390,9 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
         res = taos_query(taos, sql);
         *code = taos_errno(res);
         if (*code == 0) {
+            if (i > 0) {
+                okPrint("Retry %d to execute taosQuery %s successfully!\n", i, sql);
+            }
             // successful
             return res;
         }
@@ -1400,7 +1406,7 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
 
         // retry agian
         infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
-        sleep(g_args.retrySleepMs);
+        toolsMsleep(g_args.retrySleepMs);
     }
     return res;
 }
