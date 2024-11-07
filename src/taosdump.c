@@ -1390,15 +1390,15 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code) {
         res = taos_query(taos, sql);
         *code = taos_errno(res);
         if (*code == 0) {
+            // successful
             if (i > 0) {
                 okPrint("Retry %d to execute taosQuery %s successfully!\n", i, sql);
             }
-            // successful
             return res;
         }
 
         // fail
-        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(NULL), sql);
+        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(*code), sql);
 
         if (++i > g_args.retryCount) {
             break;
@@ -1419,6 +1419,9 @@ WS_TAOS *wsConnect() {
         WS_TAOS *ws_taos = ws_connect(g_args.dsn);
         if (ws_taos) {
             // successful
+            if (i > 0) {
+                okPrint("Retry %d to connect %s:%d successfully!\n", i, g_args.host, g_args.port);
+            }
             return ws_taos;
         }
 
@@ -1427,8 +1430,8 @@ WS_TAOS *wsConnect() {
         memcpy(maskedDsn, g_args.dsn, 20);
         memcpy(maskedDsn + 20, "...", 3);
         memcpy(maskedDsn + 23, g_args.dsn + strlen(g_args.dsn) - 10, 10);
-        errorPrint("Failed to ws_connect to server %s, code: 0x%08x, reason: %s!\n", maskedDsn, ws_errno(ws_taos),
-                   ws_errstr(ws_taos));
+        errorPrint("Failed to ws_connect to server %s, code: 0x%08x, reason: %s!\n", maskedDsn, ws_errno(NULL),
+                   ws_errstr(NULL));
 
         if (++i > g_args.retryCount) {
             break;
@@ -1436,7 +1439,7 @@ WS_TAOS *wsConnect() {
 
         // retry agian
         infoPrint("Retry to ws_connect for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
-        sleep(g_args.retrySleepMs);
+        toolsMsleep(g_args.retrySleepMs);
     }
     return NULL;
 }
@@ -1449,6 +1452,9 @@ WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
         ws_res = ws_query_timeout(ws_taos, sql, g_args.ws_timeout);
         *code = ws_errno(ws_res);
         if (*code == 0) {
+            if (i > 0) {
+                okPrint("Retry %d to execute taosQuery %s successfully!\n", i, sql);
+            }
             // successful
             return ws_res;
         }
@@ -1462,7 +1468,7 @@ WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
 
         // retry agian
         infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
-        sleep(g_args.retrySleepMs);
+        toolsMsleep(g_args.retrySleepMs);
     }
     return ws_res;
 }
