@@ -15,11 +15,11 @@
 
 // websocket can retry code range
 // range1 [0x0001~0x00FF]
-#define WEBSOCKET_CODE_BEGIN1      0x0001
-#define WEBSOCKET_CODE_END1        0x00FF
+#define WEBSOCKET_CODE_BEGIN1      0x80000001
+#define WEBSOCKET_CODE_END1        0x800000FF
 // range2 [0x0001~0x00FF]
-#define WEBSOCKET_CODE_BEGIN2      0xE000
-#define WEBSOCKET_CODE_END2        0xE0FF
+#define WEBSOCKET_CODE_BEGIN2      0x8000E000
+#define WEBSOCKET_CODE_END2        0x8000E0FF
 
 //
 // ---------------  native ------------------
