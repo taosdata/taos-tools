@@ -441,7 +441,7 @@ void constructTableDesFromStb(const TableDes *stbTableDes,
         TableDes **ppTableDes);  
 int typeStrToType(const char *type_str);      
 int64_t queryDbForDumpOutCount(
-        void *taos,
+        void **taos_v,
         const char *dbName,
         const char *tbName,
         const int precision);
@@ -453,7 +453,7 @@ avro_value_iface_t* prepareAvroWface(
         avro_file_writer_t *writer);
 
 void *queryDbForDumpOutOffset(
-        void *taos,
+        void **taos,
         const char *dbName,
         const char *tbName,
         const int precision,
@@ -487,7 +487,7 @@ int convertTbDesToJsonWrap(
         char **jsonSchema);
 int64_t dumpNormalTable(
         const int64_t index,
-        void *taos,
+        void  **taos,
         const SDbInfo *dbInfo,
         const bool belongStb,
         const char *stable,
@@ -498,10 +498,10 @@ int64_t dumpNormalTable(
         FILE *fp
         );
 int64_t dumpStbAndChildTb(
-        void *taos_v, SDbInfo *dbInfo, const char *stable, FILE *fpDbs);
+        void **taos_v, SDbInfo *dbInfo, const char *stable, FILE *fpDbs);
 int64_t dumpANormalTableNotBelong(
         int64_t index,
-        TAOS *taos, SDbInfo *dbInfo, char *ntbName);
+        void **taos_v, SDbInfo *dbInfo, char *ntbName);
 
 
 

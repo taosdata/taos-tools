@@ -145,11 +145,11 @@ WS_TAOS *wsConnect() {
 }
 
 // ws query
-WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
+WS_RES *wsQuery(WS_TAOS **taos_v, const char *sql, int32_t *code) {
     int32_t i = 0;
     WS_RES *ws_res = NULL;
     while (1) {
-        ws_res = ws_query_timeout(ws_taos, sql, g_args.ws_timeout);
+        ws_res = ws_query_timeout(*taos_v, sql, g_args.ws_timeout);
         *code = ws_errno(ws_res);
         if (*code == 0) {
             if (i > 0) {
@@ -165,7 +165,7 @@ WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
         // can retry
         if(!canRetry(*code, RETRY_TYPE_QUERY)) {
             infoPrint("%s", "error code not in retry range , give up retry.\n");
-            return NULL;
+            return ws_res;
         }        
 
         if (++i > g_args.retryCount) {
@@ -176,7 +176,31 @@ WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code) {
         infoPrint("Retry to execute taosQuery for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
         toolsMsleep(g_args.retrySleepMs);
     }
-    return NULL;
+
+    // need reconnect 
+    infoPrint("query switch new connect to try , sql=%s \n", sql);
+    WS_TAOS * new_conn = wsConnect();
+    if(new_conn == NULL) {
+        // return old
+        return ws_res;
+    }
+
+    // use new conn to query
+    ws_res = ws_query_timeout(new_conn, sql, g_args.ws_timeout);
+    *code = ws_errno(ws_res);
+    if (*code == 0) {
+        // set new connect to old
+        ws_close(*taos_v);
+        *taos_v = new_conn;
+        okPrint("execute taosQuery with new connection successfully! sql=%s\n", sql);
+        // successful
+        return ws_res;
+    }
+
+    // fail
+    errorPrint("execute taosQuery with new connection failed, code: 0x%08x, reason: %s \n", *code, taos_errstr(ws_res));
+    ws_close(new_conn);
+    return ws_res;
 }
 
 #endif

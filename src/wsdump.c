@@ -41,7 +41,7 @@ int getTableRecordInfoImplWS(char *dbName, char *table, TableRecordInfo *pTableR
     }
 
     snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, g_args.db_escape_char ? "USE `%s`" : "USE %s", dbName);
-    ws_res = wsQuery(ws_taos, command, &ws_code);
+    ws_res = wsQuery(&ws_taos, command, &ws_code);
     if (ws_code != 0) {
         errorPrint("Invalid database %s, reason: %s\n", dbName, ws_errstr(ws_res));
         ws_free_result(ws_res);
@@ -72,7 +72,7 @@ int getTableRecordInfoImplWS(char *dbName, char *table, TableRecordInfo *pTableR
         }
     }
 
-    ws_res = wsQuery(ws_taos, command, &ws_code);
+    ws_res = wsQuery(&ws_taos, command, &ws_code);
 
     if (ws_code != 0) {
         cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
@@ -265,7 +265,7 @@ int64_t getNtbCountOfStbWS(char *dbName, const char *stbName) {
     debugPrint("get stable child count %s", command);
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(&ws_taos, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -306,7 +306,7 @@ int64_t getNtbCountOfStbWS(char *dbName, const char *stbName) {
     return count;
 }
 
-int getTableTagValueWSV3(WS_TAOS *ws_taos, const char *dbName, const char *table, TableDes **ppTableDes) {
+int getTableTagValueWSV3(WS_TAOS **taos_v, const char *dbName, const char *table, TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
     char     *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command) {
@@ -320,7 +320,7 @@ int getTableTagValueWSV3(WS_TAOS *ws_taos, const char *dbName, const char *table
              dbName, table);
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -341,7 +341,7 @@ int getTableTagValueWSV3(WS_TAOS *ws_taos, const char *dbName, const char *table
                 "%s() LN%d, No more data from fetch to run "
                 "command <%s>, "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, command, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, command, taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -373,7 +373,7 @@ int getTableTagValueWSV3(WS_TAOS *ws_taos, const char *dbName, const char *table
     return (tableDes->columns + tableDes->tags);
 }
 
-int getTableTagValueWSV2(WS_TAOS *ws_taos, const char *dbName, const char *table, TableDes **ppTableDes) {
+int getTableTagValueWSV2(WS_TAOS **taos_v, const char *dbName, const char *table, TableDes **ppTableDes) {
     TableDes *tableDes = *ppTableDes;
     char     *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command) {
@@ -391,7 +391,7 @@ int getTableTagValueWSV2(WS_TAOS *ws_taos, const char *dbName, const char *table
                       g_escapeChar, table, g_escapeChar);
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -412,7 +412,7 @@ int getTableTagValueWSV2(WS_TAOS *ws_taos, const char *dbName, const char *table
                 "%s() LN%d, No more data from fetch to run "
                 "command <%s>, "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, sqlstr, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, sqlstr, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -443,19 +443,19 @@ int getTableTagValueWSV2(WS_TAOS *ws_taos, const char *dbName, const char *table
     return (tableDes->columns + tableDes->tags);
 }
 
-int getTableTagValueWS(WS_TAOS *ws_taos, const char *dbName, const char *table, TableDes **ppTableDes) {
+int getTableTagValueWS(void  **taos_v, const char *dbName, const char *table, TableDes **ppTableDes) {
     int ret = -1;
     if (3 == g_majorVersionOfClient) {
         // if child-table have tag, V3 using select tag_value
         // from information_schema.ins_tag where table to get tagValue
-        ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
+        ret = getTableTagValueWSV2(taos_v, dbName, table, ppTableDes);
         if (ret < 0) {
-            ret = getTableTagValueWSV3(ws_taos, dbName, table, ppTableDes);
+            ret = getTableTagValueWSV3(taos_v, dbName, table, ppTableDes);
         }
     } else if (2 == g_majorVersionOfClient) {
         // if child-table have tag,
         // using  select tagName from table to get tagValue
-        ret = getTableTagValueWSV2(ws_taos, dbName, table, ppTableDes);
+        ret = getTableTagValueWSV2(taos_v, dbName, table, ppTableDes);
     } else {
         errorPrint("%s() LN%d, major version %d is not supported\n", __func__, __LINE__, g_majorVersionOfClient);
     }
@@ -463,13 +463,13 @@ int getTableTagValueWS(WS_TAOS *ws_taos, const char *dbName, const char *table, 
     return ret;
 }
 
-int getTableDesFromStbWS(WS_TAOS *ws_taos, const char *dbName, const TableDes *stbTableDes, const char *table,
+int getTableDesFromStbWS(WS_TAOS **taos_v, const char *dbName, const TableDes *stbTableDes, const char *table,
                                 TableDes **ppTableDes) {
     constructTableDesFromStb(stbTableDes, table, ppTableDes);
-    return getTableTagValueWS(ws_taos, dbName, table, ppTableDes);
+    return getTableTagValueWS(taos_v, dbName, table, ppTableDes);
 }
 
-int getTableDesWS(WS_TAOS *ws_taos, const char *dbName, const char *table, TableDes *tableDes, const bool colOnly) {
+int getTableDesWS(WS_TAOS **taos_v, const char *dbName, const char *table, TableDes *tableDes, const bool colOnly) {
     int   colCount = 0;
     char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command) {
@@ -481,11 +481,11 @@ int getTableDesWS(WS_TAOS *ws_taos, const char *dbName, const char *table, Table
              dbName, g_escapeChar, table, g_escapeChar);
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     } else {
-        debugPrint("%s() LN%d, run command <%s> success, ws_taos: %p\n", __func__, __LINE__, command, ws_taos);
+        debugPrint("%s() LN%d, run command <%s> success, ws_taos: %p\n", __func__, __LINE__, command, *taos_v);
     }
 
     tstrncpy(tableDes->name, table, TSDB_TABLE_NAME_LEN);
@@ -497,7 +497,7 @@ int getTableDesWS(WS_TAOS *ws_taos, const char *dbName, const char *table, Table
             debugPrint(
                 "%s() LN%d, No more data from ws_fetch_raw_block(), "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -567,14 +567,14 @@ int getTableDesWS(WS_TAOS *ws_taos, const char *dbName, const char *table, Table
         return colCount;
     }
 
-    return getTableTagValueWS(ws_taos, dbName, table, &tableDes);
+    return getTableTagValueWS(taos_v, dbName, table, &tableDes);
 }
 
-int64_t queryDbForDumpOutCountWS(char *command, WS_TAOS *ws_taos, const char *dbName, const char *tbName,
+int64_t queryDbForDumpOutCountWS(char *command, WS_TAOS **taos_v, const char *dbName, const char *tbName,
                                  const int precision) {
     int64_t count = -1;
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code != 0) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -587,7 +587,7 @@ int64_t queryDbForDumpOutCountWS(char *command, WS_TAOS *ws_taos, const char *db
             debugPrint(
                 "%s() LN%d, No more data from ws_fetch_raw_block(), "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -605,7 +605,7 @@ int64_t queryDbForDumpOutCountWS(char *command, WS_TAOS *ws_taos, const char *db
                     errorPrint(
                         "failed run %s to fetch row, ws_taos: %p, "
                         "code: 0x%08x, reason: %s\n",
-                        command, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                        command, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
                 }
             } else {
                 count = *(int64_t *)value0;
@@ -620,9 +620,9 @@ int64_t queryDbForDumpOutCountWS(char *command, WS_TAOS *ws_taos, const char *db
     return count;
 }
 
-TAOS_RES *queryDbForDumpOutOffsetWS(WS_TAOS *ws_taos, char *command) {
+TAOS_RES *queryDbForDumpOutOffsetWS(WS_TAOS **taos_v, char *command) {
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
         return NULL;
@@ -632,8 +632,8 @@ TAOS_RES *queryDbForDumpOutOffsetWS(WS_TAOS *ws_taos, char *command) {
 }
 
 int64_t writeResultToAvroWS(const char *avroFilename, const char *dbName, const char *tbName, char *jsonSchema,
-                            WS_TAOS *ws_taos, int precision, int64_t start_time, int64_t end_time) {
-    int64_t queryCount = queryDbForDumpOutCount(ws_taos, dbName, tbName, precision);
+                            WS_TAOS **taos_v, int precision, int64_t start_time, int64_t end_time) {
+    int64_t queryCount = queryDbForDumpOutCount(taos_v, dbName, tbName, precision);
     if (queryCount <= 0) {
         return 0;
     }
@@ -665,7 +665,7 @@ int64_t writeResultToAvroWS(const char *avroFilename, const char *dbName, const 
         }
 
         WS_RES *ws_res =
-            queryDbForDumpOutOffset(ws_taos, dbName, tbName, precision, start_time, end_time, limit, offset);
+            queryDbForDumpOutOffset(taos_v, dbName, tbName, precision, start_time, end_time, limit, offset);
         if (NULL == ws_res) {
             break;
         }
@@ -692,7 +692,7 @@ int64_t writeResultToAvroWS(const char *avroFilename, const char *dbName, const 
                 errorPrint(
                     "%s() LN%d, ws_fetch_raw_block() error, ws_taos: %p, "
                     "code: 0x%08x, reason: %s\n",
-                    __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                    __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
                 break;
             }
 
@@ -700,7 +700,7 @@ int64_t writeResultToAvroWS(const char *avroFilename, const char *dbName, const 
                 debugPrint(
                     "%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                    __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                    __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
                 break;
             }
 
@@ -889,7 +889,7 @@ int64_t writeResultDebugWS(WS_RES *ws_res, FILE *fp, const char *dbName, const c
     return totalRows;
 }
 
-WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos, const char *dbName, const char *tbName, const int precision,
+WS_RES *queryDbForDumpOutWS(WS_TAOS **taos_v, const char *dbName, const char *tbName, const int precision,
                             const int64_t start_time, const int64_t end_time) {
     char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command) {
@@ -907,7 +907,7 @@ WS_RES *queryDbForDumpOutWS(WS_TAOS *ws_taos, const char *dbName, const char *tb
              dbName, g_escapeChar, tbName, g_escapeChar, start_time, end_time);
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code != 0) {
         cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
         return NULL;
@@ -942,9 +942,9 @@ int64_t dumpTableDataAvroWS(char *dataFilename, int64_t index, const char *tbNam
     return totalRows;
 }
 
-int64_t fillTbNameArrWS(WS_TAOS *ws_taos, char *command, char **tbNameArr, const char *stable, const int64_t preCount) {
+int64_t fillTbNameArrWS(WS_TAOS **taos_v, char *command, char **tbNameArr, const char *stable, const int64_t preCount) {
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -962,7 +962,7 @@ int64_t fillTbNameArrWS(WS_TAOS *ws_taos, char *command, char **tbNameArr, const
             debugPrint(
                 "%s() LN%d, No more data from ws_fetch_raw_block(), "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -992,7 +992,7 @@ int64_t fillTbNameArrWS(WS_TAOS *ws_taos, char *command, char **tbNameArr, const
             currentPercent = (ntbCount * 100 / preCount);
 
             if (currentPercent > percentComplete) {
-                infoPrint("connection %p fetched %d%% of %s' tbname\n", ws_taos, currentPercent, stable);
+                infoPrint("connection %p fetched %d%% of %s' tbname\n", *taos_v, currentPercent, stable);
                 percentComplete = currentPercent;
             }
         }
@@ -1079,7 +1079,7 @@ int readNextTableDesWS(void *ws_res, TableDes *tbDes, int *idx, int *cnt) {
     return index;
 }
 
-void dumpExtraInfoVarWS(void *taos, FILE *fp) {
+void dumpExtraInfoVarWS(void **taos_v, FILE *fp) {
     char  buffer[BUFFER_LEN];
     char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command) {
@@ -1089,7 +1089,7 @@ void dumpExtraInfoVarWS(void *taos, FILE *fp) {
     strcpy(command, "SHOW VARIABLES");
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
 
     if (0 != ws_code) {
         warnPrint(
@@ -1124,7 +1124,7 @@ void dumpExtraInfoVarWS(void *taos, FILE *fp) {
             debugPrint(
                 "%s() LN%d, No more data from ws_fetch_raw_block(), "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -1161,18 +1161,18 @@ void dumpExtraInfoVarWS(void *taos, FILE *fp) {
     free(command);
 }
 
-int queryDbImplWS(WS_TAOS *ws_taos, char *command) {
+int queryDbImplWS(WS_TAOS **taos_v, char *command) {
     int     ret = 0;
     WS_RES *ws_res = NULL;
     int32_t ws_code = -1;
 
-    ws_res = wsQuery(ws_taos, command, &ws_code);
+    ws_res = wsQuery(taos_v, command, &ws_code);
 
     if (ws_code) {
         errorPrint(
             "Failed to run <%s>, ws_taos: %p, "
             "code: 0x%08x, reason: %s\n",
-            command, ws_taos, ws_code, ws_errstr(ws_res));
+            command, *taos_v, ws_code, ws_errstr(ws_res));
         ret = -1;
         ;
     }
@@ -1190,10 +1190,10 @@ void dumpNormalTablesOfStbWS(threadInfo *pThreadInfo, FILE *fp, char *dumpFilena
 
         int64_t count;
         if (g_args.avro) {
-            count = dumpNormalTable(i, pThreadInfo->taos, pThreadInfo->dbInfo, true, pThreadInfo->stbName,
+            count = dumpNormalTable(i, &pThreadInfo->taos, pThreadInfo->dbInfo, true, pThreadInfo->stbName,
                                     pThreadInfo->stbDes, tbName, pThreadInfo->precision, dumpFilename, NULL);
         } else {
-            count = dumpNormalTable(i, pThreadInfo->taos, pThreadInfo->dbInfo, true, pThreadInfo->stbName,
+            count = dumpNormalTable(i, &pThreadInfo->taos, pThreadInfo->dbInfo, true, pThreadInfo->stbName,
                                     pThreadInfo->stbDes, tbName, pThreadInfo->precision, NULL, fp);
         }
 
@@ -1211,7 +1211,7 @@ void dumpNormalTablesOfStbWS(threadInfo *pThreadInfo, FILE *fp, char *dumpFilena
     return;
 }
 
-int64_t dumpStbAndChildTbOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) {
+int64_t dumpStbAndChildTbOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) {
     int64_t ret = 0;
 
     char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
@@ -1224,7 +1224,7 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) 
     WS_RES *ws_res;
     int32_t ws_code = -1;
 
-    ws_res = wsQuery(ws_taos, command, &ws_code);
+    ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code != 0) {
         errorPrint("Invalid database %s, reason: %s\n", dbInfo->name, ws_errstr(ws_res));
         ws_free_result(ws_res);
@@ -1241,7 +1241,7 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) 
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW STABLES");
     }
 
-    ws_res = wsQuery(ws_taos, command, &ws_code);
+    ws_res = wsQuery(taos_v, command, &ws_code);
 
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
@@ -1256,7 +1256,7 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) 
             debugPrint(
                 "%s() LN%d, No more data from ws_fetch_raw_block(), "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -1274,7 +1274,7 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) 
             memcpy(buffer, value0, len);
             debugPrint("%s() LN%d, stable: %s\n", __func__, __LINE__, buffer);
 
-            ret = dumpStbAndChildTb(ws_taos, dbInfo, buffer, fpDbs);
+            ret = dumpStbAndChildTb(taos_v, dbInfo, buffer, fpDbs);
             if (ret < 0) {
                 errorPrint("%s() LN%d, stable: %s dump out failed\n", __func__, __LINE__, buffer);
                 break;
@@ -1287,7 +1287,7 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo, FILE *fpDbs) 
     return ret;
 }
 
-int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
+int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
     int64_t ret = 0;
     if (0 == dbInfo->ntables) {
         errorPrint("%s() LN%d, database: %s has 0 tables\n", __func__, __LINE__, dbInfo->name);
@@ -1310,13 +1310,13 @@ int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
                  dbInfo->name);
     } else {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, g_args.db_escape_char ? "USE `%s`" : "USE %s", dbInfo->name);
-        ws_res = wsQuery(ws_taos, command, &ws_code);
+        ws_res = wsQuery(taos_v, command, &ws_code);
         if (ws_code) {
             errorPrint("invalid database %s, code: 0x%08x, reason: %s\n", dbInfo->name, ws_code, ws_errstr(ws_res));
             ws_free_result(ws_res);
             ws_res = NULL;
-            ws_close(ws_taos);
-            ws_taos = NULL;
+            ws_close(taos_v);
+            taos_v = NULL;
             free(command);
             return 0;
         }
@@ -1324,14 +1324,14 @@ int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW TABLES");
     }
 
-    ws_res = wsQuery(ws_taos, command, &ws_code);
+    ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         errorPrint("Failed to show %s\'s tables, code: 0x%08x, reason: %s!\n", dbInfo->name, ws_code,
                    ws_errstr(ws_res));
         ws_free_result(ws_res);
         ws_res = NULL;
-        ws_close(ws_taos);
-        ws_taos = NULL;
+        ws_close(taos_v);
+        taos_v = NULL;
         free(command);
         return 0;
     }
@@ -1346,7 +1346,7 @@ int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
             debugPrint(
                 "%s() LN%d, No more data from ws_fetch_raw_block(), "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -1382,7 +1382,7 @@ int64_t dumpNTablesOfDbWS(WS_TAOS *ws_taos, SDbInfo *dbInfo) {
                            ", table name: %s, "
                            "length: %d\n",
                            __func__, __LINE__, count, buffer, len0);
-                ret = dumpANormalTableNotBelong(count, ws_taos, dbInfo, buffer);
+                ret = dumpANormalTableNotBelong(count, taos_v, dbInfo, buffer);
                 if (0 == ret) {
                     infoPrint("Dumping normal table: %s\n", buffer);
                 } else {
@@ -1531,7 +1531,7 @@ bool fillDBInfoWithFieldsWS(const int index, const char *name, const int row, co
     return true;
 }
 
-int fillDbExtraInfoV3WS(void *ws_taos, const char *dbName, const int dbIndex) {
+int fillDbExtraInfoV3WS(void **taos_v, const char *dbName, const int dbIndex) {
     int   ret = 0;
     char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command) {
@@ -1546,7 +1546,7 @@ int fillDbExtraInfoV3WS(void *ws_taos, const char *dbName, const int dbIndex) {
     infoPrint("Getting table(s) count of db (%s) ...\n", dbName);
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(ws_taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     } else {
@@ -1559,7 +1559,7 @@ int fillDbExtraInfoV3WS(void *ws_taos, const char *dbName, const int dbIndex) {
                 debugPrint(
                     "%s() LN%d, No more data from ws_fetch_raw_block(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                    __func__, __LINE__, ws_taos, ws_errno(ws_res), ws_errstr(ws_res));
+                    __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
                 break;
             }
 
@@ -1586,7 +1586,7 @@ int fillDbExtraInfoV3WS(void *ws_taos, const char *dbName, const int dbIndex) {
     return ret;
 }
 
-int fillDbInfoWS(void *taos) {
+int fillDbInfoWS(void **taos_v) {
     int ret = 0;
     int dbIndex = 0;
 
@@ -1603,7 +1603,7 @@ int fillDbInfoWS(void *taos) {
     }
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(taos, command, &ws_code);
+    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code != 0) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -1627,7 +1627,7 @@ int fillDbInfoWS(void *taos) {
             debugPrint(
                 "%s() LN%d, No more data from ws_fetch_raw_block(), "
                 "ws_taos: %p, code: 0x%08x, reason:%s\n",
-                __func__, __LINE__, taos, ws_errno(ws_res), ws_errstr(ws_res));
+                __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
             break;
         }
 
@@ -1687,7 +1687,7 @@ int fillDbInfoWS(void *taos) {
             }
 
             if (3 == g_majorVersionOfClient) {
-                fillDbExtraInfoV3WS(taos, g_dbInfos[dbIndex]->name, dbIndex);
+                fillDbExtraInfoV3WS(taos_v, g_dbInfos[dbIndex]->name, dbIndex);
             }
 
             dbIndex++;
@@ -1772,7 +1772,7 @@ int64_t dumpTableDataWS(const int64_t index, FILE *fp, const char *tbName, const
         return -1;
     }
 
-    WS_RES *ws_res = queryDbForDumpOutWS(ws_taos, dbName, tbName, precision, start_time, end_time);
+    WS_RES *ws_res = queryDbForDumpOutWS(&ws_taos, dbName, tbName, precision, start_time, end_time);
 
     int64_t totalRows = -1;
     if (ws_res) {

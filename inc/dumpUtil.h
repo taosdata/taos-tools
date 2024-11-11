@@ -28,7 +28,7 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code);
 // ws connect
 WS_TAOS *wsConnect();
 // ws query
-WS_RES *wsQuery(WS_TAOS *ws_taos, const char *sql, int32_t *code);
+WS_RES *wsQuery(WS_TAOS **ws_taos, const char *sql, int32_t *code);
 
 #endif
 

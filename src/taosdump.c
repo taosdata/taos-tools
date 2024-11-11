@@ -55,7 +55,7 @@ static int  convertStringToReadable(char *str, int size,
         char *buf, int bufsize);
 static int  convertNCharToReadable(char *str, int size,
         char *buf, int bufsize);
-static int dumpExtraInfo(void *taos, FILE *fp);
+static int dumpExtraInfo(void **taos_v, FILE *fp);
 
 
 char *g_avro_codec[] = {
@@ -1226,9 +1226,10 @@ static int getDumpDbCount() {
         }
 
         int32_t ws_code = -1;
-        ws_res = wsQuery(ws_taos, command, &ws_code);
+        ws_res = wsQuery(&ws_taos, command, &ws_code);
         if (0 != ws_code) {
             cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
+            ws_close(ws_taos);
             return 0;
         }
 
@@ -1244,6 +1245,7 @@ static int getDumpDbCount() {
         res = taosQuery(taos, command, &code);
         if (0 != code) {
             cleanIfQueryFailed(__func__, __LINE__, command, res);
+            taos_close(taos);
             return 0;
         }
 
@@ -2484,7 +2486,7 @@ static int dumpCreateTableClause(
 }
 
 static int dumpStableClasuse(
-        void *taos,
+        void **taos_v,
         SDbInfo *dbInfo,
         const char *stbName,
         TableDes **pStbTableDes,
@@ -2494,11 +2496,11 @@ static int dumpStableClasuse(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         colCount = getTableDesWS(
-                taos, dbInfo->name,
+                taos_v, dbInfo->name,
                 stbName, tableDes, true);
     } else {
 #endif
-        colCount = getTableDesNative(taos, dbInfo->name,
+        colCount = getTableDesNative(*taos_v, dbInfo->name,
                 stbName, tableDes, true);
 #ifdef WEBSOCKET
     }
@@ -2516,11 +2518,11 @@ static int dumpStableClasuse(
 }
 
 static void dumpCreateDbClause(
-        void *taos,
+        void **taos_v,
         SDbInfo *dbInfo, bool isDumpProperty, FILE *fp) {
     char sqlstr[TSDB_DEFAULT_PKT_SIZE] = {0};
 
-    dumpExtraInfo(taos, fp);
+    dumpExtraInfo(taos_v, fp);
 
     char *pstr = sqlstr;
     pstr += sprintf(pstr,
@@ -3459,7 +3461,7 @@ int64_t queryDbForDumpOutCountNative(
 }
 
 int64_t queryDbForDumpOutCount(
-        void *taos,
+        void  **taos_v,
         const char *dbName,
         const char *tbName,
         const int precision) {
@@ -3485,11 +3487,11 @@ int64_t queryDbForDumpOutCount(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         count = queryDbForDumpOutCountWS(
-                command, taos, dbName, tbName, precision);
+                command, taos_v, dbName, tbName, precision);
     } else {
 #endif
         count = queryDbForDumpOutCountNative(
-                command, taos, dbName, tbName, precision);
+                command, *taos_v, dbName, tbName, precision);
 #ifdef WEBSOCKET
     }
 #endif
@@ -3510,7 +3512,7 @@ static TAOS_RES *queryDbForDumpOutOffsetNative(TAOS *taos, char *command) {
 }
 
 void *queryDbForDumpOutOffset(
-        void *taos,
+        void **taos_v,
         const char *dbName,
         const char *tbName,
         const int precision,
@@ -3549,10 +3551,10 @@ void *queryDbForDumpOutOffset(
     void *res = NULL;
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        res = queryDbForDumpOutOffsetWS(taos, command);
+        res = queryDbForDumpOutOffsetWS(taos_v, command);
     } else {
 #endif
-        res = queryDbForDumpOutOffsetNative(taos, command);
+        res = queryDbForDumpOutOffsetNative(*taos_v, command);
 #ifdef WEBSOCKET
     }
 #endif
@@ -3798,12 +3800,12 @@ static int64_t writeResultToAvroNative(
         const char *dbName,
         const char *tbName,
         char *jsonSchema,
-        void *taos,
+        void **taos_v,
         int precision,
         int64_t start_time,
         int64_t end_time) {
     int64_t queryCount = queryDbForDumpOutCount(
-            taos, dbName, tbName, precision);
+            taos_v, dbName, tbName, precision);
     if (queryCount <=0) {
         return 0;
     }
@@ -3846,7 +3848,7 @@ static int64_t writeResultToAvroNative(
         }
 
         void *res = queryDbForDumpOutOffset(
-                taos, dbName, tbName, precision,
+                taos_v, dbName, tbName, precision,
                 start_time, end_time, limit, offset);
         if (NULL == res) {
             break;
@@ -4610,7 +4612,7 @@ static int32_t dumpInAvroBool(avro_value_t *value,
 }
 
 static int64_t dumpInAvroTbTagsImpl(
-        void *taos,
+        void **taos_v,
         const char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
@@ -4678,11 +4680,11 @@ static int64_t dumpInAvroTbTagsImpl(
                         || (0 != strcmp(tableDes->name, stbName))) {
 #ifdef WEBSOCKET
                     if (g_args.cloud || g_args.restful) {
-                        getTableDesWS(taos, namespace,
+                        getTableDesWS(taos_v, namespace,
                                 stbName, tableDes, false);
                     } else {
 #endif
-                        getTableDesNative(taos, namespace,
+                        getTableDesNative(*taos_v, namespace,
                                 stbName, tableDes, false);
 #ifdef WEBSOCKET
                     }
@@ -4811,7 +4813,7 @@ static int64_t dumpInAvroTbTagsImpl(
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             int32_t ws_code = -1;
-            WS_RES *ws_res = wsQuery(taos, sqlstr, &ws_code);
+            WS_RES *ws_res = wsQuery(taos_v, sqlstr, &ws_code);
             if (ws_code != 0) {
                 warnPrint("%s() LN%d ws_query() failed! reason: %s\n",
                         __func__, __LINE__, ws_errstr(ws_res));
@@ -4824,7 +4826,7 @@ static int64_t dumpInAvroTbTagsImpl(
         } else {
 #endif
             int32_t code = -1;
-            TAOS_RES *res = taosQuery(taos, sqlstr, &code);
+            TAOS_RES *res = taosQuery(*taos_v, sqlstr, &code);
             if (code != 0) {
                 warnPrint("%s() LN%d taosQuery() failed! sqlstr: %s, reason: %s\n",
                         __func__, __LINE__, sqlstr, taos_errstr(res));
@@ -4850,7 +4852,7 @@ static int64_t dumpInAvroTbTagsImpl(
 }
 
 static int64_t dumpInAvroNtbImpl(
-        TAOS *taos,
+        void **taos_v,
         const char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
@@ -4890,13 +4892,13 @@ static int64_t dumpInAvroNtbImpl(
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
                 int32_t ws_code = -1;
-                WS_RES *ws_res = wsQuery(taos, buf, &ws_code);
+                WS_RES *ws_res = wsQuery(taos_v, buf, &ws_code);
                 if (0 != ws_code) {
                     errorPrint("%s() LN%d,"
                             " Failed to execute ws_query(%s)."
                             " ws_taos: %p, code: 0x%08x, reason: %s\n",
                             __func__, __LINE__, buf,
-                            taos, ws_code, ws_errstr(ws_res));
+                            *taos_v, ws_code, ws_errstr(ws_res));
                     failed++;
                 } else {
                     success++;
@@ -4906,13 +4908,13 @@ static int64_t dumpInAvroNtbImpl(
             } else {
 #endif
                 int32_t code = -1;
-                TAOS_RES *res = taosQuery(taos, buf, &code);
+                TAOS_RES *res = taosQuery(*taos_v, buf, &code);
                 if (0 != code) {
                     errorPrint("%s() LN%d,"
                             " Failed to execute taosQuery(%s)."
                             " taos: %p, code: 0x%08x, reason: %s\n",
                             __func__, __LINE__, buf,
-                            taos, code, taos_errstr(res));
+                            *taos_v, code, taos_errstr(res));
                     failed++;
                 } else {
                     success++;
@@ -5543,7 +5545,7 @@ static void countFailureAndFree(char *bindArray,
 }
 
 static int64_t dumpInAvroDataImpl(
-        void *taos,
+        void **taos_v,
         char *namespace,
         avro_schema_t schema,
         avro_file_reader_t reader,
@@ -5553,21 +5555,21 @@ static int64_t dumpInAvroDataImpl(
 #ifdef WEBSOCKET
     WS_STMT *ws_stmt = NULL;
     if (g_args.cloud || g_args.restful) {
-        ws_stmt = ws_stmt_init(taos);
+        ws_stmt = ws_stmt_init(*taos_v);
         int32_t ws_code = ws_errno(ws_stmt);
         if (ws_code) {
             errorPrint("%s() LN%d, stmt init failed! ws_taos: %p,"
                     " code: 0x%08x, reason: %s\n",
-                    __func__, __LINE__, taos, ws_code, ws_errstr(ws_stmt));
+                    __func__, __LINE__, *taos_v, ws_code, ws_errstr(ws_stmt));
             return -1;
         }
     } else {
 #endif
-        stmt = taos_stmt_init(taos);
+        stmt = taos_stmt_init(*taos_v);
         if (NULL == stmt) {
             errorPrint("%s() LN%d, stmt init failed! taos: %p, code: 0x%08x, "
                     "reason: %s\n",
-                    __func__, __LINE__, taos,
+                    __func__, __LINE__, *taos_v,
                     taos_errno(NULL), taos_errstr(NULL));
             return -1;
         }
@@ -5626,7 +5628,7 @@ static int64_t dumpInAvroDataImpl(
             errorPrint("%s() LN%d, failed to execute ws_stmt_prepare()."
                     " ws_taos: %p, code: 0x%08x, reason: %s\n",
                     __func__, __LINE__,
-                    taos, code, ws_errstr(ws_stmt));
+                    *taos_v, code, ws_errstr(ws_stmt));
 
             free(stmtBuffer);
             free(tableDes);
@@ -5740,7 +5742,7 @@ static int64_t dumpInAvroDataImpl(
                     errorPrint("%s() LN%d, failed to execute ws_stmt_set_tbname(%s)."
                             " ws_taos: %p, code: 0x%08x, reason: %s\n",
                             __func__, __LINE__,
-                            escapedTbName, taos, code, ws_errstr(ws_stmt));
+                            escapedTbName, *taos_v, code, ws_errstr(ws_stmt));
                     free(escapedTbName);
                     freeTbNameIfLooseMode(tbName);
                     continue;
@@ -5772,11 +5774,11 @@ static int64_t dumpInAvroDataImpl(
                     || (0 != strcmp(tableDes->name, tbName))) {
     #ifdef WEBSOCKET
                 if (g_args.cloud || g_args.restful) {
-                    getTableDesWS(taos, namespace,
+                    getTableDesWS(taos_v, namespace,
                             tbName, tableDes, true);
                 } else {
     #endif
-                    getTableDesNative(taos, namespace,
+                    getTableDesNative(*taos_v, namespace,
                             tbName, tableDes, true);
     #ifdef WEBSOCKET
                 }
@@ -6013,7 +6015,7 @@ static int64_t dumpInAvroDataImpl(
                             (const WS_MULTI_BIND *)bindArray, onlyCol))) {
                 errorPrint("%s() LN%d ws_stmt_bind_param_batch() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
-                        __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
+                        __func__, __LINE__, *taos_v, code, ws_errstr(ws_stmt));
                 countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
@@ -6021,7 +6023,7 @@ static int64_t dumpInAvroDataImpl(
             if (0 != (code = ws_stmt_add_batch(ws_stmt))) {
                 errorPrint("%s() LN%d stmt_bind_param() failed!"
                         " ws_taos: %p, code: 0x%08x, reason: %s\n",
-                        __func__, __LINE__, taos, code, ws_errstr(ws_stmt));
+                        __func__, __LINE__, *taos_v, code, ws_errstr(ws_stmt));
                 countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
@@ -6030,7 +6032,7 @@ static int64_t dumpInAvroDataImpl(
                 errorPrint("%s() LN%d ws_stmt_execute() failed!"
                             " ws_taos: %p, code: 0x%08x, reason: %s, "
                             "timestamp: %"PRId64"\n",
-                            __func__, __LINE__, taos, code,
+                            __func__, __LINE__, *taos_v, code,
                             ws_errstr(ws_stmt), ts_debug);
                 countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
@@ -6192,13 +6194,13 @@ static RecordSchema *getSchemaAndReaderFromFile(
     return recordSchema;
 }
 
-static void closeTaosConnWrapper(void *taos_v) {
+static void closeTaosConnWrapper(void *taos) {
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        ws_close(taos_v);
+        ws_close(taos);
     } else {
 #endif
-        taos_close(taos_v);
+        taos_close(taos);
 #ifdef WEBSOCKET
     }
 #endif
@@ -6236,20 +6238,20 @@ static int64_t dumpInOneAvroFile(
             __func__, __LINE__, namespace);
 
     TAOS *taos = NULL;
-    void *taos_v = NULL;
+    void **taos_v = NULL;
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
         if (NULL == (ws_taos = wsConnect())) {
             return -1;
         }
-        taos_v = ws_taos;
+        taos_v = &ws_taos;
     } else {
 #endif
         if (NULL == (taos = taosConnect(namespace))) {
             return -1;
         }
-        taos_v = taos;
+        taos_v = &taos;
 #ifdef WEBSOCKET
     }
 #endif
@@ -6290,7 +6292,7 @@ static int64_t dumpInOneAvroFile(
             retExec = -1;
     }
 
-    closeTaosConnWrapper(taos_v);
+    closeTaosConnWrapper(*taos_v);
 
     freeRecordSchema(recordSchema);
     avro_schema_decref(schema);
@@ -6785,7 +6787,7 @@ static int64_t dumpTableDataAvroNative(
     }
 
     int64_t totalRows = writeResultToAvroNative(
-            dataFilename, dbName, tbName, jsonSchema, taos, precision,
+            dataFilename, dbName, tbName, jsonSchema, &taos, precision,
             start_time, end_time);
 
     taos_close(taos);
@@ -7035,7 +7037,7 @@ static int64_t dumpTableData(
 
 int64_t dumpNormalTable(
         const int64_t index,
-        void *taos,
+        void  **taos_v,
         const SDbInfo *dbInfo,
         const bool belongStb,
         const char *stable,
@@ -7065,11 +7067,11 @@ int64_t dumpNormalTable(
             }
 #ifdef WEBSOCKET
             if (g_args.cloud || g_args.restful) {
-                numColsAndTags = getTableDesWS(taos,
+                numColsAndTags = getTableDesWS(taos_v,
                         dbInfo->name, tbName, tableDes, !belongStb);
             } else {
 #endif
-                numColsAndTags = getTableDesNative(taos,
+                numColsAndTags = getTableDesNative(*taos_v,
                         dbInfo->name, tbName, tableDes, !belongStb);
 #ifdef WEBSOCKET
             }
@@ -7097,11 +7099,11 @@ int64_t dumpNormalTable(
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
             numColsAndTags = getTableDesWS(
-                    taos,
+                    taos_v,
                     dbInfo->name, tbName, tableDes, !belongStb);
         } else {
 #endif
-            numColsAndTags = getTableDesNative(taos,
+            numColsAndTags = getTableDesNative(*taos_v,
                     dbInfo->name, tbName, tableDes, !belongStb);
 #ifdef WEBSOCKET
         }
@@ -7156,7 +7158,7 @@ int64_t dumpNormalTable(
 #ifdef WEBSOCKET
                 if (g_args.cloud || g_args.restful) {
                     numColsAndTags = getTableDesFromStbWS(
-                            (WS_TAOS*)taos,
+                            taos_v,
                             dbInfo->name,
                             stbDes,
                             tbName, &tableDes);
@@ -7164,7 +7166,7 @@ int64_t dumpNormalTable(
                 } else {
 #endif
                     numColsAndTags = getTableDesFromStbNative(
-                            taos, dbInfo->name,
+                            *taos_v, dbInfo->name,
                             stbDes, tbName, &tableDes);
 #ifdef WEBSOCKET
                 }
@@ -7202,7 +7204,7 @@ int64_t dumpNormalTable(
 
 int64_t dumpANormalTableNotBelong(
         int64_t index,
-        TAOS *taos, SDbInfo *dbInfo, char *ntbName) {
+        void **taos_v, SDbInfo *dbInfo, char *ntbName) {
     int64_t count = 0;
 
     char dumpFilename[MAX_PATH_LEN] = {0};
@@ -7220,7 +7222,7 @@ int64_t dumpANormalTableNotBelong(
         }
         count = dumpNormalTable(
                 index,
-                taos,
+                taos_v,
                 dbInfo,
                 false,
                 NULL,
@@ -7250,7 +7252,7 @@ int64_t dumpANormalTableNotBelong(
         }
         count = dumpNormalTable(
                 index,
-                taos,
+                taos_v,
                 dbInfo,
                 false,
                 NULL,
@@ -7270,7 +7272,7 @@ int64_t dumpANormalTableNotBelong(
 }
 
 static int createMTableAvroHeadImp(
-        void *taos,
+        void  **taos_v,
         const char *dbName,
         const char *stable,
         const TableDes *stbTableDes,
@@ -7332,14 +7334,14 @@ static int createMTableAvroHeadImp(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         colCount = getTableDesFromStbWS(
-                (WS_TAOS*)taos,
+                (WS_TAOS*)taos_v,
                 dbName,
                 stbTableDes,
                 tbName,
                 &subTableDes);
     } else {
 #endif  // WEBSOCKET
-        colCount = getTableDesFromStbNative(taos, dbName,
+        colCount = getTableDesFromStbNative(*taos_v, dbName,
                 stbTableDes,
                 tbName,
                 &subTableDes);
@@ -7678,7 +7680,7 @@ static int createMTableAvroHeadImp(
 }
 
 static int createMTableAvroHeadSpecified(
-        void *taos,
+        void **taos_v,
         char *dumpFilename,
         const char *dbName,
         const char *stable,
@@ -7696,10 +7698,10 @@ static int createMTableAvroHeadSpecified(
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        getTableDesWS(taos, dbName, stable, stbTableDes, false);
+        getTableDesWS(taos_v, dbName, stable, stbTableDes, false);
     } else {
 #endif
-        getTableDesNative(taos, dbName, stable, stbTableDes, false);
+        getTableDesNative(*taos_v, dbName, stable, stbTableDes, false);
 #ifdef WEBSOCKET
     }
 #endif
@@ -7727,7 +7729,7 @@ static int createMTableAvroHeadSpecified(
 
     if (specifiedTb) {
         createMTableAvroHeadImp(
-                taos, dbName, stable,
+                taos_v, dbName, stable,
                 stbTableDes,
                 specifiedTb, db, wface);
     }
@@ -7806,7 +7808,7 @@ static int64_t fillTbNameArrNative(
 }
 
 static int64_t fillTbNameArr(
-        void *taos, char **tbNameArr,
+        void **taos_v, char **tbNameArr,
         const SDbInfo *dbInfo,
         const char *stable,
         int64_t preCount) {
@@ -7839,11 +7841,11 @@ static int64_t fillTbNameArr(
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         ntbCount = fillTbNameArrWS(
-                taos, command2, tbNameArr, stable, preCount);
+                taos_v, command2, tbNameArr, stable, preCount);
     } else {
 #endif
         ntbCount = fillTbNameArrNative(
-                taos, command2, tbNameArr, stable, preCount);
+                *taos_v, command2, tbNameArr, stable, preCount);
 #ifdef WEBSOCKET
     }
 #endif
@@ -8219,11 +8221,11 @@ static int writeTagsToAvro(
 }
 
 // open query with native or websocket
-void* openQuery(void* taos , const char * sql) {
+void* openQuery(void** taos_v, const char * sql) {
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
         int32_t ws_code = -1;
-        WS_RES  *ws_res = wsQuery(taos, sql, &ws_code);
+        WS_RES  *ws_res = wsQuery(taos_v, sql, &ws_code);
         if (ws_code != 0) {
             errorPrint("exe sql:%s failed. error code =%d\n", sql, ws_code);
             return NULL;
@@ -8232,7 +8234,7 @@ void* openQuery(void* taos , const char * sql) {
     } else {
 #endif
         int32_t code = -1;
-        TAOS_RES* res = taosQuery(taos, sql, &code);
+        TAOS_RES* res = taosQuery(*taos_v, sql, &code);
         if (code != 0) {
             taos_free_result(res);
             errorPrint("open query: %s execute failed. errcode=%d\n", sql, code);
@@ -8306,7 +8308,7 @@ int readNextTableDesNative(void* res, TableDes* tbDes) {
 
 #define SQL_LEN 512
 static int dumpStableMeta(
-        void *taos,
+        void **taos_v,
         const SDbInfo *dbInfo,
         TableDes *stbDes,
         char **tbNameArr,
@@ -8346,7 +8348,7 @@ static int dumpStableMeta(
             dumpFilename,
             jsonTagsSchema, &schema, &recordSchema, &avroWriter);
     infoPrint("connection: %p is dumping out schema of sub-table(s) of %s \n",
-            taos, stable);
+            *taos_v, stable);
     // free json        
     tfree(jsonTagsSchema);
 
@@ -8357,7 +8359,7 @@ static int dumpStableMeta(
              "where db_name='%s' and stable_name='%s';",
              dbInfo->name, stable);
 
-    void* tagsRes = openQuery(taos, sql);
+    void* tagsRes = openQuery(taos_v, sql);
     if (tagsRes == NULL ) {
         return -1;
     }
@@ -8413,7 +8415,7 @@ static int dumpStableMeta(
 
         // sucess print 
         tb++;
-        infoPrint("connection %p is dumping out schema: %"PRId64" from %s.%s\n", taos, tb, stable, tbDes->name);
+        infoPrint("connection %p is dumping out schema: %"PRId64" from %s.%s\n", *taos_v, tb, stable, tbDes->name);
     }
     okPrint("total %"PRId64" table(s) of stable: %s schema dumped.\n", tb, stable);
 
@@ -8430,7 +8432,7 @@ static int dumpStableMeta(
 
 static int64_t dumpANormalTableBelongStb(
         int64_t index,
-        TAOS *taos,
+        TAOS **taos_v,
         SDbInfo *dbInfo, char *stbName,
         const TableDes *stbTableDes,
         char *ntbName) {
@@ -8448,7 +8450,7 @@ static int64_t dumpANormalTableBelongStb(
                 __func__, __LINE__, dumpFilename);
 
         int ret = createMTableAvroHeadSpecified(
-                taos,
+                taos_v,
                 dumpFilename,
                 dbInfo->name,
                 stbName,
@@ -8482,7 +8484,7 @@ static int64_t dumpANormalTableBelongStb(
     }
     count = dumpNormalTable(
             index,
-            taos,
+            taos_v,
             dbInfo,
             true,
             stbName,
@@ -8840,10 +8842,10 @@ static int dumpExtraInfoHead(void *taos, FILE *fp) {
     return 0;
 }
 
-static int dumpExtraInfo(void *taos, FILE *fp) {
+static int dumpExtraInfo(void **taos_v, FILE *fp) {
     int ret = 0;
 
-    ret = dumpExtraInfoHead(taos, fp);
+    ret = dumpExtraInfoHead(*taos_v, fp);
 
     if (ret != 0) {
         return ret;
@@ -8851,10 +8853,10 @@ static int dumpExtraInfo(void *taos, FILE *fp) {
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        dumpExtraInfoVarWS(taos, fp);
+        dumpExtraInfoVarWS(taos_v, fp);
     } else {
 #endif
-        dumpExtraInfoVar(taos, fp);
+        dumpExtraInfoVar(*taos_v, fp);
 #ifdef WEBSOCKET
     }
 #endif
@@ -8973,7 +8975,7 @@ static int queryDbImplNative(TAOS *taos, char *command) {
 
 // dumpIn support multi threads functions
 static int64_t dumpInOneDebugFile(
-        void* taos, FILE* fp,
+        void** taos_v, FILE* fp,
         char* fcharset,
         char* fileName) {
     int       read_len = 0;
@@ -9052,10 +9054,10 @@ static int64_t dumpInOneDebugFile(
         debugPrint("%s() LN%d, cmd: %s\n", __func__, __LINE__, cmd);
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            ret = queryDbImplWS(taos, newSql?newSql:cmd);
+            ret = queryDbImplWS(taos_v, newSql?newSql:cmd);
         } else {
 #endif
-        ret = queryDbImplNative(taos, newSql?newSql:cmd);
+        ret = queryDbImplNative(*taos_v, newSql?newSql:cmd);
         if(newSql) {
             free(newSql);
         }
@@ -9114,7 +9116,7 @@ static void* dumpInDebugWorkThreadFp(void *arg) {
         }
 
         int64_t rows = dumpInOneDebugFile(
-                pThreadInfo->taos, fp, g_dumpInCharset,
+                &pThreadInfo->taos, fp, g_dumpInCharset,
                 sqlFile);
 
         if (rows > 0) {
@@ -9227,7 +9229,15 @@ static int dumpInDebugWorkThreads(const char *dbPath) {
     }
 
     for (int32_t t = 0; t < threads; ++t) {
-        taos_close(infos[t].taos);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            ws_close(infos[t].taos);
+        } else {
+#endif        
+            taos_close(infos[t].taos);
+#ifdef WEBSOCKET
+        }
+#endif  // WEBSOCKET
     }
 
     for (int32_t t = 0; t < threads; ++t) {
@@ -9244,21 +9254,21 @@ static int dumpInDebugWorkThreads(const char *dbPath) {
 }
 
 static int dumpInDbs(const char *dbPath) {
-    void *taos_v;
+    void **taos_v;
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
         if (NULL == (ws_taos = wsConnect())) {
             return -1;
         }
-        taos_v = ws_taos;
+        taos_v = &ws_taos;
     } else {
 #endif
         TAOS *taos;
         if (NULL == (taos = taosConnect(NULL))) {
             return -1;
         }
-        taos_v = taos;
+        taos_v = &taos;
 #ifdef WEBSOCKET
     }
 #endif
@@ -9289,7 +9299,7 @@ static int dumpInDbs(const char *dbPath) {
         errorPrint("%s", "The data file dumped by "CUS_PROMPT"dump < 2.4 on Windows "
                    "might be corrupted. "
                    "Please use version 2.4 or up to dump again\n");
-        closeTaosConnWrapper(taos_v);
+        closeTaosConnWrapper(*taos_v);
         return -1;
     }
 #endif
@@ -9301,7 +9311,7 @@ static int dumpInDbs(const char *dbPath) {
                    "\tPlease use a correct version "CUS_PROMPT"dump "
                    "to restore them.\n\n",
                 g_dumpInDataMajorVer, taosToolsMajorVer);
-        closeTaosConnWrapper(taos_v);
+        closeTaosConnWrapper(*taos_v);
         return -1;
     }
 
@@ -9333,7 +9343,7 @@ static int dumpInDbs(const char *dbPath) {
     }
 
     fclose(fp);
-    closeTaosConnWrapper(taos_v);
+    closeTaosConnWrapper(*taos_v);
 
     return (rows < 0)?rows:0;
 }
@@ -9432,7 +9442,7 @@ static void dumpTablesOfStbNative(
         if (g_args.avro) {
             count = dumpNormalTable(
                     i,
-                    pThreadInfo->taos,
+                    &pThreadInfo->taos,
                     pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
@@ -9444,7 +9454,7 @@ static void dumpTablesOfStbNative(
         } else {
             count = dumpNormalTable(
                     i,
-                    pThreadInfo->taos,
+                    &pThreadInfo->taos,
                     pThreadInfo->dbInfo,
                     true,
                     pThreadInfo->stbName,
@@ -9600,7 +9610,15 @@ int dumpSTableData(SDbInfo* dbInfo, TableDes* stbDes, char** tbNameArr, int64_t 
             stbDes->name, tbCount);
     for (int32_t i = 0; i < threads; i++) {
         pThreadInfo = infos + i;
-        taos_close(pThreadInfo->taos);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            ws_close(pThreadInfo->taos);
+        } else {
+#endif  // WEBSOCKET
+            taos_close(pThreadInfo->taos);
+#ifdef WEBSOCKET
+        }
+#endif
     }
 
     free(pids);
@@ -9620,7 +9638,7 @@ void freeTbNameArr(char ** tbNameArr, int64_t tbCount) {
 
 // dump stable meta and data by threads
 static int64_t dumpStable(
-        void *taos_v,
+        void **taos_v,
         SDbInfo *dbInfo,
         const char *stbName) {
     // show progress
@@ -9648,7 +9666,7 @@ static int64_t dumpStable(
             stbName, stbDes, true);
     } else {
 #endif
-        colCount = getTableDesNative(taos_v, dbInfo->name,
+        colCount = getTableDesNative(*taos_v, dbInfo->name,
             stbName, stbDes, true);
 #ifdef WEBSOCKET
     }
@@ -9732,7 +9750,7 @@ static int64_t dumpStable(
 }
 
 int64_t dumpStbAndChildTb(
-        void *taos_v, SDbInfo *dbInfo, const char *stable, FILE *fpDbs) {
+        void **taos_v, SDbInfo *dbInfo, const char *stable, FILE *fpDbs) {
     int64_t ret = 0;
 
     uint64_t sizeOfTableDes =
@@ -9769,7 +9787,7 @@ int64_t dumpStbAndChildTb(
     return ret;
 }
 
-static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
+static int64_t dumpNTablesOfDbNative(TAOS **taos_v, SDbInfo *dbInfo) {
     int64_t ret = 0;
 
     if (0 == dbInfo->ntables) {
@@ -9798,7 +9816,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
                 ? "USE `%s`"
                 : "USE %s",
                 dbInfo->name);
-        res = taosQuery(taos, command, &code);
+        res = taosQuery(*taos_v, command, &code);
         if (code != 0) {
             errorPrint("invalid database %s, reason: %s\n",
                     dbInfo->name, taos_errstr(res));
@@ -9811,7 +9829,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW TABLES");
     }
 
-    res = taosQuery(taos, command, &code);
+    res = taosQuery(*taos_v, command, &code);
     if (code != 0) {
         errorPrint("Failed to show %s\'s tables, reason: %s\n",
                 dbInfo->name, taos_errstr(res));
@@ -9846,7 +9864,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
                 lengths[0]);
         ret = dumpANormalTableNotBelong(
                 count,
-                taos, dbInfo, ntable);
+                taos_v, dbInfo, ntable);
         if (0 == ret) {
             okPrint("%s() LN%d, dump normal table: %s\n",
                     __func__, __LINE__, ntable);
@@ -9865,7 +9883,7 @@ static int64_t dumpNTablesOfDbNative(TAOS *taos, SDbInfo *dbInfo) {
 }
 
 static int64_t dumpStbAndChildTbOfDbNative(
-        TAOS *taos, SDbInfo *dbInfo, FILE *fpDbs) {
+        TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) {
     int64_t ret = 0;
 
     char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
@@ -9882,7 +9900,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
     TAOS_RES *res;
     int32_t code = -1;
 
-    res = taosQuery(taos, command, &code);
+    res = taosQuery(*taos_v, command, &code);
     if (code != 0) {
         errorPrint("Invalid database %s, reason: %s\n",
                 dbInfo->name, taos_errstr(res));
@@ -9902,7 +9920,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
         snprintf(command, TSDB_MAX_ALLOWED_SQL_LEN, "SHOW STABLES");
     }
 
-    res = taosQuery(taos, command, &code);
+    res = taosQuery(*taos_v, command, &code);
 
     if (code != 0) {
         return cleanIfQueryFailed(__func__, __LINE__, command, res);
@@ -9918,7 +9936,7 @@ static int64_t dumpStbAndChildTbOfDbNative(
                 __func__, __LINE__, stable);
 
         ret = dumpStbAndChildTb(
-                taos,
+                taos_v,
                 dbInfo,
                 stable,
                 fpDbs);
@@ -9980,7 +9998,7 @@ static FILE *createDbsSqlPerDb(SDbInfo *dbInfo) {
     return fpDbs;
 }
 
-static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp) {
+static int64_t dumpWholeDatabase(void **taos_v, SDbInfo *dbInfo, FILE *fp) {
     int64_t ret;
     infoPrint("Start to dump out database: %s\n", dbInfo->name);
 
@@ -10005,15 +10023,15 @@ static int64_t dumpWholeDatabase(void *taos_v, SDbInfo *dbInfo, FILE *fp) {
 
 #ifdef WEBSOCKET
     if (g_args.cloud || g_args.restful) {
-        ret = dumpStbAndChildTbOfDbWS((WS_TAOS *)taos_v, dbInfo, fpDbs);
+        ret = dumpStbAndChildTbOfDbWS(taos_v, dbInfo, fpDbs);
         if (ret >= 0) {
-            ret = dumpNTablesOfDbWS((WS_TAOS *) taos_v, dbInfo);
+            ret = dumpNTablesOfDbWS(taos_v, dbInfo);
         }
     } else {
 #endif
-        ret = dumpStbAndChildTbOfDbNative((TAOS *)taos_v, dbInfo, fpDbs);
+        ret = dumpStbAndChildTbOfDbNative(taos_v, dbInfo, fpDbs);
         if (ret >= 0) {
-            ret = dumpNTablesOfDbNative((TAOS *)taos_v, dbInfo);
+            ret = dumpNTablesOfDbNative(taos_v, dbInfo);
         }
 #ifdef WEBSOCKET
     }
@@ -10501,7 +10519,7 @@ static int dumpOut() {
     }
 
     /* Connect to server and dump extra info*/
-    void *taos_v = NULL;
+    void **taos_v = NULL;
 #ifdef WEBSOCKET
     WS_TAOS  *ws_taos    = NULL;
 
@@ -10511,14 +10529,14 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
-        taos_v = ws_taos;
-        ret = dumpExtraInfo(ws_taos, fp);
+        taos_v = &ws_taos;
+        ret = dumpExtraInfo(taos_v, fp);
 
         if (ret < 0) {
             goto _exit_failure;
         }
 
-        dbCount = fillDbInfoWS(ws_taos);
+        dbCount = fillDbInfoWS(taos_v);
     } else {
 #endif
         if (NULL == (taos = taosConnect(NULL))) {
@@ -10526,8 +10544,8 @@ static int dumpOut() {
             goto _exit_failure;
         }
 
-        taos_v = taos;
-        ret = dumpExtraInfo(taos, fp);
+        taos_v = &taos;
+        ret = dumpExtraInfo(taos_v, fp);
 
         if (ret < 0) {
             goto _exit_failure;
@@ -10578,16 +10596,6 @@ static int dumpOut() {
         }
 
         int superTblCnt = 0;
-#ifdef WEBSOCKET
-        if (g_args.cloud || g_args.restful) {
-            taos_v = ws_taos;
-        } else {
-#endif
-            taos_v = taos;
-#ifdef WEBSOCKET
-        }
-#endif
-
         for (int64_t i = 1; g_args.arg_list[i]; i++) {
             if (0 == strlen(g_args.arg_list[i])) {
                 continue;
@@ -10671,7 +10679,10 @@ static int dumpOut() {
     ret = 0;
 
 _exit_failure:
-    closeTaosConnWrapper(taos_v);
+    if(taos_v && *taos_v) {
+        closeTaosConnWrapper(*taos_v);
+    }
+    
 _exit_failure_2:
     freeDbInfos();
     if (fpDbs) {
@@ -11402,8 +11413,6 @@ int main(int argc, char *argv[]) {
         free(node);
         node = next;
     }
-
-
 
     return ret;
 }
