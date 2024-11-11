@@ -9254,7 +9254,8 @@ static int dumpInDebugWorkThreads(const char *dbPath) {
 }
 
 static int dumpInDbs(const char *dbPath) {
-    void **taos_v;
+    void **taos_v = NULL;
+    TAOS *taos = NULL;
 #ifdef WEBSOCKET
     WS_TAOS *ws_taos = NULL;
     if (g_args.cloud || g_args.restful) {
@@ -9263,8 +9264,7 @@ static int dumpInDbs(const char *dbPath) {
         }
         taos_v = &ws_taos;
     } else {
-#endif
-        TAOS *taos;
+#endif        
         if (NULL == (taos = taosConnect(NULL))) {
             return -1;
         }
@@ -9343,7 +9343,9 @@ static int dumpInDbs(const char *dbPath) {
     }
 
     fclose(fp);
-    closeTaosConnWrapper(*taos_v);
+    if (taos_v && *taos_v) {
+        closeTaosConnWrapper(*taos_v);
+    }    
 
     return (rows < 0)?rows:0;
 }
