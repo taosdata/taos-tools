@@ -33,6 +33,18 @@ bool canRetry(int32_t code, int8_t type) {
         return true;
     }
 
+#ifdef WEBSOCKET
+    // range1
+    if (code >= WEBSOCKET_CODE_BEGIN1 && code <= WEBSOCKET_CODE_END1) {
+        return true;
+    }
+    // range2
+    if (code >= WEBSOCKET_CODE_BEGIN2 && code <= WEBSOCKET_CODE_END2) {
+        return true;
+    }
+
+#endif
+
     return false;
 }
 
