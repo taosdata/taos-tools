@@ -19,13 +19,6 @@
 #include "dumpUtil.h"
 
 
-//
-//   encapsulate the api of calling engine
-//
-#define RETRY_TYPE_CONNECT 0
-#define RETRY_TYPE_QUERY   1
-#define RETRY_TYPE_FETCH   2
-
 // return true to do retry , false no retry , code is error code 
 bool canRetry(int32_t code, int8_t type) {
     // rpc error
@@ -34,12 +27,13 @@ bool canRetry(int32_t code, int8_t type) {
     }
 
 #ifdef WEBSOCKET
+    int32_t wsCode = code & 0xFFFF;
     // range1
-    if (code >= WEBSOCKET_CODE_BEGIN1 && code <= WEBSOCKET_CODE_END1) {
+    if (wsCode >= WEBSOCKET_CODE_BEGIN1 && wsCode <= WEBSOCKET_CODE_END1) {
         return true;
     }
     // range2
-    if (code >= WEBSOCKET_CODE_BEGIN2 && code <= WEBSOCKET_CODE_END2) {
+    if (wsCode >= WEBSOCKET_CODE_BEGIN2 && wsCode <= WEBSOCKET_CODE_END2) {
         return true;
     }
 
@@ -213,6 +207,37 @@ WS_RES *wsQuery(WS_TAOS **taos_v, const char *sql, int32_t *code) {
     errorPrint("execute taosQuery with new connection failed, code: 0x%08x, reason: %s \n", *code, taos_errstr(ws_res));
     ws_close(new_conn);
     return ws_res;
+}
+
+// fetch
+int32_t wsFetchBlock(WS_RES *rs, const void **pData, int32_t *numOfRows) {
+    int32_t i = 0;
+    int32_t ws_code = TSDB_CODE_FAILED;
+    while (1) {
+        ws_code = ws_fetch_raw_block(rs, pData, numOfRows);
+        if (ws_code == TSDB_CODE_SUCCESS) {
+            // successful
+            if (i > 0) {
+                okPrint("Retry %d to fetch block successfully!\n", i);
+            }
+            return ws_code;
+        }
+
+        if(!canRetry(ws_code, RETRY_TYPE_FETCH)) {
+            infoPrint("give up retry fetch because error code need not retry. err code=%d\n", ws_code);
+            break;
+        }
+
+        if (++i > g_args.retryCount) {
+            break;
+        }
+
+        // retry agian
+        infoPrint("Retry to ws fetch raw block for %d after sleep %dms ...\n", i, g_args.retrySleepMs);
+        toolsMsleep(g_args.retrySleepMs);
+    }
+
+    return ws_code;
 }
 
 #endif

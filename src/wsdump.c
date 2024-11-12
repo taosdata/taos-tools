@@ -391,7 +391,11 @@ int getTableTagValueWSV2(WS_TAOS **taos_v, const char *dbName, const char *table
                       g_escapeChar, table, g_escapeChar);
 
     int32_t ws_code = -1;
-    WS_RES *ws_res = wsQuery(taos_v, command, &ws_code);
+    int32_t retryCount = 0;
+    WS_RES  *ws_res = NULL;
+
+ RETRY_QUERY:   
+    ws_res = wsQuery(taos_v, command, &ws_code);
     if (ws_code) {
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
@@ -399,13 +403,23 @@ int getTableTagValueWSV2(WS_TAOS **taos_v, const char *dbName, const char *table
     while (true) {
         int         rows = 0;
         const void *data = NULL;
-        ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
+        ws_code = wsFetchBlock(ws_res, &data, &rows);
 
         if (ws_code) {
+            // output error
             errorPrint(
                 "%s() LN%d, ws_fetch_raw_block() error, "
                 "code: 0x%08x, sqlstr: %s, reason: %s\n",
                 __func__, __LINE__, ws_code, sqlstr, ws_errstr(ws_res));
+
+            // check can retry
+            if(canRetry(ws_code, RETRY_TYPE_FETCH) && ++retryCount <= g_args.retryCount) {
+                infoPrint("wsFetchBlock failed, goto wsQuery to retry %d\n", retryCount);
+                goto RETRY_QUERY;
+            }
+
+            // error break while
+            break;
         }
         if (0 == rows) {
             debugPrint(

@@ -15,11 +15,22 @@
 
 // websocket can retry code range
 // range1 [0x0001~0x00FF]
-#define WEBSOCKET_CODE_BEGIN1      0x80000001
-#define WEBSOCKET_CODE_END1        0x800000FF
+#define WEBSOCKET_CODE_BEGIN1      0x0001
+#define WEBSOCKET_CODE_END1        0x00FF
 // range2 [0x0001~0x00FF]
-#define WEBSOCKET_CODE_BEGIN2      0x8000E000
-#define WEBSOCKET_CODE_END2        0x8000E0FF
+#define WEBSOCKET_CODE_BEGIN2      0xE000
+#define WEBSOCKET_CODE_END2        0xE0FF
+
+//
+//   encapsulate the api of calling engine
+//
+#define RETRY_TYPE_CONNECT 0
+#define RETRY_TYPE_QUERY   1
+#define RETRY_TYPE_FETCH   2
+
+// return true to do retry , false no retry , code is error code 
+bool canRetry(int32_t code, int8_t type);
+
 
 //
 // ---------------  native ------------------
@@ -40,6 +51,8 @@ TAOS_RES *taosQuery(TAOS *taos, const char *sql, int32_t *code);
 WS_TAOS *wsConnect();
 // ws query
 WS_RES *wsQuery(WS_TAOS **ws_taos, const char *sql, int32_t *code);
+// ws fetch
+int32_t wsFetchBlock(WS_RES *rs, const void **pData, int32_t *numOfRows);
 
 #endif
 
