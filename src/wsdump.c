@@ -408,13 +408,14 @@ int getTableTagValueWSV2(WS_TAOS **taos_v, const char *dbName, const char *table
         if (ws_code) {
             // output error
             errorPrint(
-                "%s() LN%d, ws_fetch_raw_block() error, "
+                "%s() LN%d, getTableTagValueWSV2-> wsFetchBlock() error, "
                 "code: 0x%08x, sqlstr: %s, reason: %s\n",
                 __func__, __LINE__, ws_code, sqlstr, ws_errstr(ws_res));
 
             // check can retry
             if(canRetry(ws_code, RETRY_TYPE_FETCH) && ++retryCount <= g_args.retryCount) {
                 infoPrint("wsFetchBlock failed, goto wsQuery to retry %d\n", retryCount);
+                toolsMsleep(g_args.retrySleepMs);
                 goto RETRY_QUERY;
             }
 
@@ -678,15 +679,19 @@ int64_t writeResultToAvroWS(const char *avroFilename, const char *dbName, const 
             limit = queryCount;
         }
 
-        WS_RES *ws_res =
-            queryDbForDumpOutOffset(taos_v, dbName, tbName, precision, start_time, end_time, limit, offset);
+        WS_RES  *ws_res = NULL;
+        int numFields = 0;
+        void *ws_fields = NULL;
+        int32_t countInBatch = 0;
+        int32_t retryCount = 0;
+
+RETRY_QUERY:
+        ws_res = queryDbForDumpOutOffset(taos_v, dbName, tbName, precision, start_time, end_time, limit, offset);
         if (NULL == ws_res) {
             break;
         }
 
-        int numFields = ws_field_count(ws_res);
-
-        void *ws_fields = NULL;
+        numFields = ws_field_count(ws_res);
         if (3 == g_majorVersionOfClient) {
             const struct WS_FIELD *ws_fields_v3 = ws_fetch_fields(ws_res);
             ws_fields = (void *)ws_fields_v3;
@@ -695,24 +700,32 @@ int64_t writeResultToAvroWS(const char *avroFilename, const char *dbName, const 
             ws_fields = (void *)ws_fields_v2;
         }
 
-        int32_t countInBatch = 0;
-
         while (true) {
             int         rows = 0;
             const void *data = NULL;
-            int32_t     ws_code = ws_fetch_raw_block(ws_res, &data, &rows);
+            int32_t     ws_code = wsFetchBlock(ws_res, &data, &rows);
 
             if (ws_code) {
                 errorPrint(
-                    "%s() LN%d, ws_fetch_raw_block() error, ws_taos: %p, "
+                    "%s() LN%d, writeResultToAvroWS->wsFetchBlock() error, ws_taos: %p, "
                     "code: 0x%08x, reason: %s\n",
                     __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
+
+                // check can retry
+                if(canRetry(ws_code, RETRY_TYPE_FETCH) && ++retryCount <= g_args.retryCount) {
+                    infoPrint("wsFetchBlock failed, goto wsQuery to retry %d limit=%"PRId64" offset=%"PRId64" queryCount=%"PRId64" \n",
+                             retryCount, limit, offset, queryCount);
+                    toolsMsleep(g_args.retrySleepMs);
+                    goto RETRY_QUERY;
+                }
+
+                // break 
                 break;
             }
 
             if (0 == rows) {
                 debugPrint(
-                    "%s() LN%d, No more data from ws_fetch_raw_block(), "
+                    "%s() LN%d, No more data from wsFetchBlock(), "
                     "ws_taos: %p, code: 0x%08x, reason:%s\n",
                     __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
                 break;
@@ -1228,6 +1241,9 @@ void dumpNormalTablesOfStbWS(threadInfo *pThreadInfo, FILE *fp, char *dumpFilena
 int64_t dumpStbAndChildTbOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) {
     int64_t ret = 0;
 
+    //
+    // obtain need dump all stable name
+    //
     char *command = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
     if (NULL == command) {
         errorPrint("%s() LN%d, memory allocation failed\n", __func__, __LINE__);
@@ -1261,6 +1277,10 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) 
         return cleanIfQueryFailedWS(__func__, __LINE__, command, ws_res);
     }
 
+    // link
+    SNode* head = NULL;
+    SNode* end  = NULL;
+
     while (true) {
         int         rows = 0;
         const void *data = NULL;
@@ -1276,7 +1296,6 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) 
 
         uint8_t  type;
         uint32_t len;
-        char     buffer[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row++) {
             const void *value0 = ws_get_value_in_block(ws_res, row, TSDB_SHOW_DB_NAME_INDEX, &type, &len);
@@ -1284,20 +1303,47 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) 
                 errorPrint("row: %d, ws_get_value_in_block() error!\n", row);
                 continue;
             }
-            memset(buffer, 0, VALUE_BUF_LEN);
-            memcpy(buffer, value0, len);
-            debugPrint("%s() LN%d, stable: %s\n", __func__, __LINE__, buffer);
-
-            ret = dumpStbAndChildTb(taos_v, dbInfo, buffer, fpDbs);
-            if (ret < 0) {
-                errorPrint("%s() LN%d, stable: %s dump out failed\n", __func__, __LINE__, buffer);
-                break;
+            
+            // put to linked list
+            if (head == NULL) {
+                head = end = mallocNode(value0, len);
+            } else {
+                end->next = mallocNode(value0, len);
+                end = end->next;
             }
+            // check
+            if(end == NULL || end->next == NULL) {
+                errorPrint("row: %d, mallocNode error!\n", row);
+                continue;
+            }
+            debugPrint("%s() LN%d, stable: %s\n", __func__, __LINE__, end->name);
         }
     }
 
     free(command);
 
+    // check except
+    if (head == NULL) {
+        errorPrint("%s() LN%d, stable count is zero.\n", __func__, __LINE__ );
+        return -1;
+    }
+
+    //
+    // dump stable data
+    //
+    SNode * next = head;
+    while (next) {
+        ret = dumpStbAndChildTb(taos_v, dbInfo, next->name, fpDbs);
+        if (ret < 0) {
+            errorPrint("%s() LN%d, stable: %s dump out failed\n", __func__, __LINE__, next->name);
+            break;
+        }
+        // move next
+        next = next->next;
+    }
+
+    // free nodes
+    freeNodes(head);
     return ret;
 }
 
@@ -1350,6 +1396,10 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
         return 0;
     }
 
+    // link
+    SNode* head = NULL;
+    SNode* end  = NULL;
+
     int64_t count = 0;
     while (true) {
         int         rows = 0;
@@ -1366,7 +1416,6 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
 
         uint8_t  type;
         uint32_t len0, len1;
-        char     buffer[VALUE_BUF_LEN] = {0};
 
         for (int row = 0; row < rows; row++) {
             const void *value1 = NULL;
@@ -1390,18 +1439,23 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
                     continue;
                 }
 
-                memset(buffer, 0, VALUE_BUF_LEN);
-                memcpy(buffer, value0, len0);
+                // put to linked list
+                if (head == NULL) {
+                    head = end = mallocNode(value0, len0);
+                } else {
+                    end->next = mallocNode(value0, len0);
+                    end = end->next;
+                }
+                // check
+                if(end == NULL || end->next == NULL) {
+                    errorPrint("row: %d, mallocNode1 error!\n", row);
+                    continue;
+                }
+
                 debugPrint("%s() LN%d count: %" PRId64
                            ", table name: %s, "
                            "length: %d\n",
-                           __func__, __LINE__, count, buffer, len0);
-                ret = dumpANormalTableNotBelong(count, taos_v, dbInfo, buffer);
-                if (0 == ret) {
-                    infoPrint("Dumping normal table: %s\n", buffer);
-                } else {
-                    errorPrint("%s() LN%d, dump normal table: %s\n", __func__, __LINE__, buffer);
-                }
+                           __func__, __LINE__, count, end->name, len0);
             }
             count++;
         }
@@ -1409,6 +1463,32 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
 
     ws_free_result(ws_res);
     free(command);
+
+    // check except
+    if (head == NULL) {
+        errorPrint("%s() LN%d, stable count is zero.\n", __func__, __LINE__ );
+        return -1;
+    }
+
+    //
+    // dump stable data
+    //
+    SNode * next = head;
+    while (next) {
+        ret = dumpANormalTableNotBelong(count, taos_v, dbInfo, next->name);
+        if (0 == ret) {
+            infoPrint("Dumping normal table: %s\n", buffer);
+        } else {
+            errorPrint("%s() LN%d, dump normal table: %s\n", __func__, __LINE__, buffer);
+            break;
+        }
+
+        // move next
+        next = next->next;
+    }
+
+    // free nodes
+    freeNodes(head);
 
     return ret;
 }

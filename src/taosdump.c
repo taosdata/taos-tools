@@ -162,8 +162,8 @@ static struct argp_option options[] = {
     {"debug",   'g', 0, 0,  "Print debug info.", 15},
     {"dot-replace", 'Q', 0, 0,  "Repalce dot character with underline character in the table name.", 10},
     {"rename", 'W', "RENAME-LIST", 0, "Rename database name with new name during importing data. RENAME-LIST: \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
-    {"retry-count", 'k', "retry-count-value", 0, "Set the number of retry attempts for connection or query failures", 11},
-    {"retry-sleep-ms", 'z', "retry-sleep-value", 0, "retry interval sleep time, unit ms", 11},
+    {"retry-count", 'k', "VALUE", 0, "Set the number of retry attempts for connection or query failures", 11},
+    {"retry-sleep-ms", 'z', "VALUE", 0, "retry interval sleep time, unit ms", 11},
     {0}
 };
 

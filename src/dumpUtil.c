@@ -19,6 +19,46 @@
 #include "dumpUtil.h"
 
 
+// malloc new node
+SNode *mallocNode(char *name, int32_t len) {
+    // check valid
+    if(len >= TSDB_TABLE_NAME_LEN) {
+        errorPrint("mallocNode len=%d is over TSDB_TABLE_NAME_LEN=%d \n", len, TSDB_TABLE_NAME_LEN);
+        return NULL;
+    }
+
+    // malloc
+    SNode *node = (SNode *)malloc(sizeof(SNode));
+    if (node == NULL) {
+        errorPrint("mallocNode memory malloc failed. malloc size=%d\n", sizeof(SNode));
+        return NULL;
+    }
+
+    // set
+    node->next = NULL;
+    memcpy(node->name, name, len);
+    node->name[len] = 0;
+
+    // return
+    return node;
+}
+
+// free nodes
+void freeNodes(SNode* head) {
+    // check
+    if (head == NULL) {
+        return ;
+    }
+
+    // free
+    SNode *next = head;
+    while(next) {
+        SNode *old = next;
+        next = next->next; 
+        free(old);
+    }
+}
+
 // return true to do retry , false no retry , code is error code 
 bool canRetry(int32_t code, int8_t type) {
     // rpc error

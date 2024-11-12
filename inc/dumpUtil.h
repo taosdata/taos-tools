@@ -28,8 +28,31 @@
 #define RETRY_TYPE_QUERY   1
 #define RETRY_TYPE_FETCH   2
 
+//come from TDengine util/tdef.h
+#define TSDB_TABLE_NAME_LEN           193                                // it is a null-terminated string
+
+//
+// ------------- struct define ----------
+//
+
+// single link 
+typedef struct SNode {
+    char name[TSDB_TABLE_NAME_LEN];
+    SNode *next;
+}SNode;
+
+
 // return true to do retry , false no retry , code is error code 
 bool canRetry(int32_t code, int8_t type);
+
+// single linked list
+
+// malloc new node
+SNode *mallocNode(char* name, int32_t len);
+
+// free nodes
+void freeNodes(SNode* head);
+
 
 
 //
