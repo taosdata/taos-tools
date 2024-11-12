@@ -206,7 +206,7 @@ WS_RES *wsQuery(WS_TAOS **taos_v, const char *sql, int32_t *code) {
         }
 
         // fail
-        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, taos_errstr(ws_res), sql);
+        errorPrint("Failed to execute taosQuery, code: 0x%08x, reason: %s, sql=%s \n", *code, ws_errstr(ws_res), sql);
 
         // can retry
         if(!canRetry(*code, RETRY_TYPE_QUERY)) {
@@ -244,7 +244,7 @@ WS_RES *wsQuery(WS_TAOS **taos_v, const char *sql, int32_t *code) {
     }
 
     // fail
-    errorPrint("execute taosQuery with new connection failed, code: 0x%08x, reason: %s \n", *code, taos_errstr(ws_res));
+    errorPrint("execute taosQuery with new connection failed, code: 0x%08x, reason: %s \n", *code, ws_errstr(ws_res));
     ws_close(new_conn);
     return ws_res;
 }
