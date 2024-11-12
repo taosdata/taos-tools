@@ -20,7 +20,7 @@
 
 
 // malloc new node
-SNode *mallocNode(char *name, int32_t len) {
+SNode *mallocNode(const char *name, int32_t len) {
     // check valid
     if(len >= TSDB_TABLE_NAME_LEN) {
         errorPrint("mallocNode len=%d is over TSDB_TABLE_NAME_LEN=%d \n", len, TSDB_TABLE_NAME_LEN);
@@ -30,7 +30,7 @@ SNode *mallocNode(char *name, int32_t len) {
     // malloc
     SNode *node = (SNode *)malloc(sizeof(SNode));
     if (node == NULL) {
-        errorPrint("mallocNode memory malloc failed. malloc size=%d\n", sizeof(SNode));
+        errorPrint("mallocNode memory malloc failed. malloc size=%ld\n", sizeof(SNode));
         return NULL;
     }
 

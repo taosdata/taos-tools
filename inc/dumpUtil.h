@@ -38,7 +38,7 @@
 // single link 
 typedef struct SNode {
     char name[TSDB_TABLE_NAME_LEN];
-    SNode *next;
+    struct SNode *next;
 }SNode;
 
 
@@ -48,7 +48,7 @@ bool canRetry(int32_t code, int8_t type);
 // single linked list
 
 // malloc new node
-SNode *mallocNode(char* name, int32_t len);
+SNode *mallocNode(const char* name, int32_t len);
 
 // free nodes
 void freeNodes(SNode* head);

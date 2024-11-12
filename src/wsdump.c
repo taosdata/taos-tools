@@ -1427,6 +1427,7 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
 
             if (len1) {
                 if (g_args.debug_print || g_args.verbose_print) {
+                    char buffer[VALUE_BUF_LEN];
                     memset(buffer, 0, VALUE_BUF_LEN);
                     memcpy(buffer, value1, len1);
                     debugPrint("%s() LN%d, get table belong %s\n", __func__, __LINE__, buffer);
@@ -1477,9 +1478,9 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
     while (next) {
         ret = dumpANormalTableNotBelong(count, taos_v, dbInfo, next->name);
         if (0 == ret) {
-            infoPrint("Dumping normal table: %s\n", buffer);
+            infoPrint("Dumping normal table: %s\n", next->name);
         } else {
-            errorPrint("%s() LN%d, dump normal table: %s\n", __func__, __LINE__, buffer);
+            errorPrint("%s() LN%d, dump normal table: %s\n", __func__, __LINE__, next->name);
             break;
         }
 
