@@ -960,7 +960,7 @@ int64_t dumpTableDataAvroWS(char *dataFilename, int64_t index, const char *tbNam
     }
 
     int64_t totalRows =
-        writeResultToAvroWS(dataFilename, dbName, tbName, jsonSchema, ws_taos, precision, start_time, end_time);
+        writeResultToAvroWS(dataFilename, dbName, tbName, jsonSchema, &ws_taos, precision, start_time, end_time);
 
     ws_close(ws_taos);
     ws_taos = NULL;

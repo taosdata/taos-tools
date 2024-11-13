@@ -145,7 +145,7 @@ static struct argp_option options[] = {
             "of the row and type of table schema.", 10},
     {"thread-num",  'T', "THREAD_NUM",  0,
 // DEFAULT_THREAD_NUM
-        "Number of thread for dump in file. Default is 8.", 10},
+        "Number of threads for dump in/out data. Default is 8.", 10},
     {"loose-mode",  'L', 0,  0,
         "Use loose mode if the table name and column name use letter and "
             "number only. Default is NOT.", 10},
