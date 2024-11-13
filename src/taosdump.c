@@ -6027,17 +6027,23 @@ static int64_t dumpInAvroDataImpl(
                 countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                 continue;
             }
-            int32_t affected_rows;
-            if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
-                errorPrint("%s() LN%d ws_stmt_execute() failed!"
-                            " ws_taos: %p, code: 0x%08x, reason: %s, "
-                            "timestamp: %"PRId64"\n",
-                            __func__, __LINE__, *taos_v, code,
-                            ws_errstr(ws_stmt), ts_debug);
-                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
-                continue;
-            } else {
-                success++;
+
+            if ( 0 == (count % g_args.data_batch) ) {
+                // batch to exec
+                int32_t affected_rows;
+                if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
+                    errorPrint("%s() LN%d ws_stmt_execute() failed!"
+                                " ws_taos: %p, code: 0x%08x, reason: %s, "
+                                "timestamp: %"PRId64" count=%"PRId64"\n",
+                                __func__, __LINE__, *taos_v, code,
+                                ws_errstr(ws_stmt), ts_debug, count);
+                    countFailureAndFree(bindArray, onlyCol, &failed, tbName);
+                    continue;
+                } else {
+                    success++;
+                    debugPrint("ok call ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
+                                count, success, failed);
+                }
             }
         } else {
 #endif
@@ -6058,19 +6064,23 @@ static int64_t dumpInAvroDataImpl(
             }
 
             // batch execute
-            if ( 0 == (count % g_args.data_batch) && 0 != (code = taos_stmt_execute(stmt))) {
-                if (code == TSDB_CODE_TDB_TIMESTAMP_OUT_OF_RANGE) {
-                    countTSOutOfRange++;
+            if ( 0 == (count % g_args.data_batch) ) {
+                if( 0 != (code = taos_stmt_execute(stmt)) ){
+                    if (code == TSDB_CODE_TDB_TIMESTAMP_OUT_OF_RANGE) {
+                        countTSOutOfRange++;
+                    } else {
+                        errorPrint("%s() LN%d taos_stmt_execute() failed! "
+                            "code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
+                            __func__, __LINE__,
+                            code, taos_stmt_errstr(stmt), ts_debug);
+                    }
+                    countFailureAndFree(bindArray, onlyCol, &failed, tbName);
+                    continue;
                 } else {
-                    errorPrint("%s() LN%d taos_stmt_execute() failed! "
-                           "code: 0x%08x, reason: %s, timestamp: %"PRId64"\n",
-                        __func__, __LINE__,
-                        code, taos_stmt_errstr(stmt), ts_debug);
+                    success++;
+                    debugPrint("ok call ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
+                                count, success, failed);
                 }
-                countFailureAndFree(bindArray, onlyCol, &failed, tbName);
-                continue;
-            } else {
-                success++;
             }
 #ifdef WEBSOCKET
         }
@@ -6078,12 +6088,38 @@ static int64_t dumpInAvroDataImpl(
         freeBindArray(bindArray, onlyCol);
     }
 
-    // last batch execute 
-    if(0 != (count % g_args.data_batch)){
-        if (0 != (code = taos_stmt_execute(stmt))) {
-            errorPrint("error last =%s\n", taos_stmt_errstr(stmt));
+    // last batch execute
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        if ( 0 != (count % g_args.data_batch) ) {
+            int32_t affected_rows;
+            if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
+                errorPrint(
+                    "%s() LN%d ws_stmt_execute() failed!"
+                    " ws_taos: %p, code: 0x%08x, reason: %s \n",
+                    __func__, __LINE__, *taos_v, code, ws_errstr(ws_stmt));
+                failed++;
+            } else {
+                success++;
+                debugPrint("ok call last ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
+                            count, success, failed);
+            }
         }
+    } else {
+#endif
+        if (0 != (count % g_args.data_batch)) {
+            if (0 != (code = taos_stmt_execute(stmt))) {
+                errorPrint("error last execute taos_stmt_execute. errstr=%s\n", taos_stmt_errstr(stmt));
+                failed++;
+            } else {
+                success++;
+                debugPrint("ok call last ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
+                            count, success, failed);
+            }
+        }
+#ifdef WEBSOCKET
     }
+#endif
 
     free(tbName);
     avro_value_decref(&value);

@@ -1328,8 +1328,8 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) 
 
     // check except
     if (head == NULL) {
-        errorPrint("%s() LN%d, stable count is zero.\n", __func__, __LINE__ );
-        return -1;
+        infoPrint("%s() LN%d, stable count is zero.\n", __func__, __LINE__ );
+        return 0;
     }
 
     //
@@ -1474,8 +1474,8 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
 
     // check except
     if (head == NULL) {
-        errorPrint("%s() LN%d, stable count is zero.\n", __func__, __LINE__ );
-        return -1;
+        infoPrint("%s() LN%d, normal table count is zero.\n", __func__, __LINE__ );
+        return 0;
     }
 
     //
