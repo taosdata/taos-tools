@@ -6040,7 +6040,7 @@ static int64_t dumpInAvroDataImpl(
                     countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                     continue;
                 } else {
-                    success++;
+                    success += g_args.data_batch;
                     debugPrint("ok call ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
                                 count, success, failed);
                 }
@@ -6077,8 +6077,8 @@ static int64_t dumpInAvroDataImpl(
                     countFailureAndFree(bindArray, onlyCol, &failed, tbName);
                     continue;
                 } else {
-                    success++;
-                    debugPrint("ok call ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
+                    success += g_args.data_batch;
+                    debugPrint("ok call taos_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
                                 count, success, failed);
                 }
             }
@@ -6100,7 +6100,7 @@ static int64_t dumpInAvroDataImpl(
                     __func__, __LINE__, *taos_v, code, ws_errstr(ws_stmt));
                 failed++;
             } else {
-                success++;
+                success += count % g_args.data_batch;
                 debugPrint("ok call last ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
                             count, success, failed);
             }
@@ -6112,7 +6112,7 @@ static int64_t dumpInAvroDataImpl(
                 errorPrint("error last execute taos_stmt_execute. errstr=%s\n", taos_stmt_errstr(stmt));
                 failed++;
             } else {
-                success++;
+                success += count % g_args.data_batch;
                 debugPrint("ok call last ws_stmt_execute count=%"PRId64" success=%"PRId64" failed=%"PRId64"\n",
                             count, success, failed);
             }
