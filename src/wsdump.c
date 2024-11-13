@@ -1446,13 +1446,13 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
 
                 // put to linked list
                 if (head == NULL) {
-                    head = end = mallocNode(value0, len);
+                    head = end = mallocNode(value0, len0);
                     if (head == NULL) {
                         errorPrint("row: %d, mallocNode head error!\n", row);
                         continue;
                     }
                 } else {
-                    end->next = mallocNode(value0, len);
+                    end->next = mallocNode(value0, len0);
                     if (end->next == NULL) {
                         errorPrint("row: %d, mallocNode next error!\n", row);
                         continue;
