@@ -1307,15 +1307,19 @@ int64_t dumpStbAndChildTbOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo, FILE *fpDbs) 
             // put to linked list
             if (head == NULL) {
                 head = end = mallocNode(value0, len);
+                if(head == NULL) {
+                    errorPrint("row: %d, mallocNode head error!\n", row);
+                    continue;
+                }
             } else {
                 end->next = mallocNode(value0, len);
+                if(end->next == NULL) {
+                    errorPrint("row: %d, mallocNode next error!\n", row);
+                    continue;
+                }
                 end = end->next;
             }
             // check
-            if(end == NULL || end->next == NULL) {
-                errorPrint("row: %d, mallocNode error!\n", row);
-                continue;
-            }
             debugPrint("%s() LN%d, stable: %s\n", __func__, __LINE__, end->name);
         }
     }
@@ -1442,15 +1446,18 @@ int64_t dumpNTablesOfDbWS(WS_TAOS **taos_v, SDbInfo *dbInfo) {
 
                 // put to linked list
                 if (head == NULL) {
-                    head = end = mallocNode(value0, len0);
+                    head = end = mallocNode(value0, len);
+                    if (head == NULL) {
+                        errorPrint("row: %d, mallocNode head error!\n", row);
+                        continue;
+                    }
                 } else {
-                    end->next = mallocNode(value0, len0);
+                    end->next = mallocNode(value0, len);
+                    if (end->next == NULL) {
+                        errorPrint("row: %d, mallocNode next error!\n", row);
+                        continue;
+                    }
                     end = end->next;
-                }
-                // check
-                if(end == NULL || end->next == NULL) {
-                    errorPrint("row: %d, mallocNode1 error!\n", row);
-                    continue;
                 }
 
                 debugPrint("%s() LN%d count: %" PRId64
