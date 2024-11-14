@@ -10745,9 +10745,14 @@ static int dumpEntry() {
     int ret = 0;
 
 #ifdef WEBSOCKET
-    if (g_args.verbose_print) {
-        ws_enable_log("info");
+    if ( g_args.debug_print) {
+        ws_enable_log("trace");
+        print("ws_enable_log(\"trace\");\n");
+    } else {
+        ws_enable_log("error");
+        print("ws_enable_log(\"error\");\n");
     }
+
     if (NULL == g_args.dsn) {
         g_args.dsn = getenv("TDENGINE_CLOUD_DSN");
         if (NULL == g_args.dsn) {
