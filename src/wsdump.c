@@ -415,6 +415,8 @@ int getTableTagValueWSV2(WS_TAOS **taos_v, const char *dbName, const char *table
             // check can retry
             if(canRetry(ws_code, RETRY_TYPE_FETCH) && ++retryCount <= g_args.retryCount) {
                 infoPrint("wsFetchBlock failed, goto wsQuery to retry %d\n", retryCount);
+                ws_free_result(ws_res);
+                ws_res = NULL;
                 toolsMsleep(g_args.retrySleepMs);
                 goto RETRY_QUERY;
             }
@@ -686,6 +688,7 @@ int64_t writeResultToAvroWS(const char *avroFilename, const char *dbName, const 
         int32_t retryCount = 0;
 
 RETRY_QUERY:
+        countInBatch = 0;
         ws_res = queryDbForDumpOutOffset(taos_v, dbName, tbName, precision, start_time, end_time, limit, offset);
         if (NULL == ws_res) {
             break;
@@ -715,6 +718,9 @@ RETRY_QUERY:
                 if(canRetry(ws_code, RETRY_TYPE_FETCH) && ++retryCount <= g_args.retryCount) {
                     infoPrint("wsFetchBlock failed, goto wsQuery to retry %d limit=%"PRId64" offset=%"PRId64" queryCount=%"PRId64" \n",
                              retryCount, limit, offset, queryCount);
+                    // need close old res
+                    ws_free_result(ws_res);
+                    ws_res = NULL;
                     toolsMsleep(g_args.retrySleepMs);
                     goto RETRY_QUERY;
                 }
@@ -1054,7 +1060,7 @@ int readNextTableDesWS(void *ws_res, TableDes *tbDes, int *idx, int *cnt) {
             }
 
             if (*cnt == 0) {
-                infoPrint("read schema over. tag columns %d.\n", tbDes->tags);
+                infoPrint("read schema end. tag columns %d.\n", tbDes->tags);
                 break;
             }
             *idx = 0;
