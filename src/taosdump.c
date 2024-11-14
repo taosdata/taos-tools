@@ -10747,10 +10747,10 @@ static int dumpEntry() {
 #ifdef WEBSOCKET
     if ( g_args.debug_print) {
         ws_enable_log("trace");
-        print("ws_enable_log(\"trace\");\n");
+        printf("ws_enable_log(\"trace\");\n");
     } else {
         ws_enable_log("error");
-        print("ws_enable_log(\"error\");\n");
+        printf("ws_enable_log(\"error\");\n");
     }
 
     if (NULL == g_args.dsn) {
