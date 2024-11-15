@@ -2198,6 +2198,10 @@ static int32_t prepareProgressDataStmt(
     *delay1 = toolsGetTimestampUs() - start;
     int32_t n = 0;
     int64_t pos = i % g_arguments->prepared_rand;
+    if (g_arguments->prepared_rand - pos < g_arguments->reqPerReq) {
+        // remain prepare data less than batch, reset pos to zero
+        pos = 0;
+    }
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
