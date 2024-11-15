@@ -92,6 +92,7 @@ class TDTestCase:
     def bugsTD(self, benchmark):
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-31490.json", checkStep = False)
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-31575.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32846.json")
 
     def run(self):
         benchmark = self.getPath()
