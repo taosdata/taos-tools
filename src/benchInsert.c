@@ -544,7 +544,7 @@ int32_t getVgroupsWS(SBenchConn *conn, SDataBase *database) {
     // fetch
     WS_ROW row;
     database->vgArray = benchArrayInit(8, sizeof(SVGroup));
-    while (row = ws_fetch_row(res) && !g_arguments->terminate) {
+    while ( (row = ws_fetch_row(res)) && !g_arguments->terminate) {
         SVGroup *vg = benchCalloc(1, sizeof(SVGroup), true);
         vg->vgId = *(int32_t *)row[0];
         benchArrayPush(database->vgArray, vg);
@@ -557,6 +557,41 @@ int32_t getVgroupsWS(SBenchConn *conn, SDataBase *database) {
     // return count
     return vgroups;
 }
+
+
+int32_t getTableVgidWS(SBenchConn *conn, char *db, char *tb, int32_t *vgId) {
+    char sql[128] = "\0";
+    snprintf(sql, sizeof(sql),
+                 "select vgroup_id from information_schema.ins_tables where db_name='%s' and table_name='%s';",
+                 db, tb);
+    // query
+    WS_RES *res = ws_query_timeout(conn->taos_ws, sql, g_arguments->timeout);
+    int32_t code = ws_errno(res);
+    if (code != 0) {
+        // failed
+        errorPrint("Failed ws_query_timeout <%s>, code: 0x%08x, reason: %s\n",
+                   sql, code, ws_errstr(res));
+        ws_free_result(res);           
+        return code;
+    }
+
+    // fetch
+    WS_ROW row;
+    while ( (row = ws_fetch_row(res)) && !g_arguments->terminate) {
+        *vgId = *(int32_t *)row[0];
+        debugPrint(" getTableVgidWS table:%s vgid=%d\n", tb, *vgId);
+        break;
+    }
+    ws_free_result(res);
+
+    if(*vgId == 0) {
+        return -1;
+    } else {
+        return 0;
+    }   
+}
+
+
 #endif
 
 int32_t toolsGetDefaultVGroups() {
@@ -3563,12 +3598,24 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
 
     // calc table count per vgroup
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        int vgId;
-        int ret = taos_get_table_vgId(
+        int32_t vgId;
+        int32_t ret;
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            ret = getTableVgidWS(
+                    conn, database->dbName,
+                    stbInfo->childTblArray[i]->name, &vgId);
+
+        } else {
+#endif
+            ret = taos_get_table_vgId(
                 conn->taos, database->dbName,
                 stbInfo->childTblArray[i]->name, &vgId);
+#ifdef WEBSOCKET
+        }
+#endif
         if (ret < 0) {
-            errorPrint("Failed to get %s db's %s table's vgId\n",
+            errorPrint("assignTableToThread Failed to get vgId for db:%s  table:%s\n",
                         database->dbName,
                         stbInfo->childTblArray[i]->name);
             closeBenchConn(conn);
@@ -3601,10 +3648,22 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
     
     // set vg->childTblArray data
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        int vgId;
-        int ret = taos_get_table_vgId(
+        int32_t vgId;
+        int32_t ret;
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            ret = getTableVgidWS(
+                    conn, database->dbName,
+                    stbInfo->childTblArray[i]->name, &vgId);
+
+        } else {
+#endif
+            ret = taos_get_table_vgId(
                 conn->taos, database->dbName,
                 stbInfo->childTblArray[i]->name, &vgId);
+#ifdef WEBSOCKET
+        }
+#endif
         if (ret < 0) {
             errorPrint("Failed to get %s db's %s table's vgId\n",
                         database->dbName,
