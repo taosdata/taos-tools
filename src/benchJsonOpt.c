@@ -1564,6 +1564,7 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
     if (tools_cJSON_IsString(dsn)) {
         g_arguments->dsn = dsn->valuestring;
         g_arguments->websocket = true;
+        infoPrint("set websocket true from json->dsn=%s\n", g_arguments->dsn);
     }
 #endif
 
