@@ -914,14 +914,14 @@ static int generateChildTblName(int len, char *buffer, SDataBase *database,
     if (0 == len) {
         memset(buffer, 0, TSDB_MAX_ALLOWED_SQL_LEN);
         len += snprintf(buffer + len,
-                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE IF NOT EXISTS ");
+                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE");
     }
 
     len += snprintf(
             buffer + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
             g_arguments->escape_character
-            ? "`%s`.`%s%" PRIu64 "` USING `%s`.`%s` TAGS (%s) %s "
-            : "%s.%s%" PRIu64 " USING %s.%s TAGS (%s) %s ",
+            ? " IF NOT EXISTS `%s`.`%s%" PRIu64 "` USING `%s`.`%s` TAGS (%s) %s "
+            : " IF NOT EXISTS %s.%s%" PRIu64 " USING %s.%s TAGS (%s) %s ",
             database->dbName, stbInfo->childTblPrefix, tableSeq, database->dbName,
             stbInfo->stbName,
             tagData + i * stbInfo->lenOfTags, ttl);
