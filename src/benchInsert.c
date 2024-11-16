@@ -818,6 +818,7 @@ int createDatabaseTaosc(SDataBase* database) {
 
     // get remain vgroups
     int remainVnodes = INT_MAX;
+#ifndef WEBSOCKET    
     if (g_arguments->bind_vgroup) {
         remainVnodes = getRemainVnodes(conn);
         if (0 >= remainVnodes) {
@@ -826,6 +827,7 @@ int createDatabaseTaosc(SDataBase* database) {
             return -1;
         }
     }
+#endif
 
     // generate and execute create database sql
     geneDbCreateCmd(database, command, remainVnodes);
