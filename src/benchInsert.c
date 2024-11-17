@@ -3600,7 +3600,7 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
 
     // calc table count per vgroup
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        int32_t vgId;
+        int32_t vgId = 0;
         int32_t ret;
 #ifdef WEBSOCKET
         if (g_arguments->websocket) {

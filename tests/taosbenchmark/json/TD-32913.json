@@ -18,7 +18,7 @@
 	"continue_if_fail":	"no",
 	"databases":	[{
 			"dbinfo":	{
-				"name":	"test",
+				"name":	"td32913db",
 				"drop":	"no",
 				"vgroups":	4,
 				"precision":	"ms"
@@ -26,7 +26,7 @@
 			"super_tables":	[{
 					"name":	"ntsp_realtime_hf",
 					"child_table_exists":	"no",
-					"childtable_count":	257,
+					"childtable_count":	17,
 					"childtable_prefix":	"d",
 					"auto_create_table":	"no",
 					"batch_create_tbl_num":	500,
