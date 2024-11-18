@@ -67,7 +67,7 @@ bool canRetry(int32_t code, int8_t type) {
     }
 
     // single code
-    int32_t codes[] = {0x8000ffff};
+    int32_t codes[] = {0x0000ffff};
     for(int32_t i = 0; i< sizeof(codes)/sizeof(int32_t); i++) {
         if (code == codes[i]) {
             return true;
