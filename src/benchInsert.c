@@ -558,7 +558,7 @@ int32_t getVgroupsWS(SBenchConn *conn, SDataBase *database) {
     return vgroups;
 }
 
-
+/*
 int32_t getTableVgidWS(SBenchConn *conn, char *db, char *tb, int32_t *vgId) {
     char sql[128] = "\0";
     snprintf(sql, sizeof(sql),
@@ -590,7 +590,7 @@ int32_t getTableVgidWS(SBenchConn *conn, char *db, char *tb, int32_t *vgId) {
         return 0;
     }   
 }
-
+*/
 
 #endif
 
@@ -3600,38 +3600,9 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
 
     // calc table count per vgroup
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        int32_t vgId = 0;
-        int32_t ret;
-#ifdef WEBSOCKET
-        if (g_arguments->websocket) {
-            ret = getTableVgidWS(
-                    conn, database->dbName,
-                    stbInfo->childTblArray[i]->name, &vgId);
-
-        } else {
-#endif
-            ret = taos_get_table_vgId(
-                conn->taos, database->dbName,
-                stbInfo->childTblArray[i]->name, &vgId);
-#ifdef WEBSOCKET
-        }
-#endif
-        if (ret < 0) {
-            errorPrint("assignTableToThread Failed to get vgId for db:%s  table:%s\n",
-                        database->dbName,
-                        stbInfo->childTblArray[i]->name);
-            closeBenchConn(conn);
-            return -1;
-        }
-        debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
-                    database->dbName,
-                    stbInfo->childTblArray[i]->name, vgId);
-        for (int32_t v = 0; v < database->vgroups; v++) {
-            SVGroup *vg = benchArrayGet(database->vgArray, v);
-            if (vgId == vg->vgId) {
-                vg->tbCountPerVgId++;
-            }
-        }
+        int32_t vgIdx = calcGroupIndex(database->dbName, stbInfo->childTblArray[i]->name, database->vgroups);
+        SVGroup *vg = benchArrayGet(database->vgArray, vgIdx);
+        vg->tbCountPerVgId ++;
     }
 
     // malloc vg->childTblArray memory with table count
@@ -3650,43 +3621,15 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
     
     // set vg->childTblArray data
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        int32_t vgId;
-        int32_t ret;
-#ifdef WEBSOCKET
-        if (g_arguments->websocket) {
-            ret = getTableVgidWS(
-                    conn, database->dbName,
-                    stbInfo->childTblArray[i]->name, &vgId);
-
-        } else {
-#endif
-            ret = taos_get_table_vgId(
-                conn->taos, database->dbName,
-                stbInfo->childTblArray[i]->name, &vgId);
-#ifdef WEBSOCKET
-        }
-#endif
-        if (ret < 0) {
-            errorPrint("Failed to get %s db's %s table's vgId\n",
-                        database->dbName,
-                        stbInfo->childTblArray[i]->name);
-
-            closeBenchConn(conn);
-            return 0;
-        }
-        debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
+        int32_t vgIdx = calcGroupIndex(database->dbName, stbInfo->childTblArray[i]->name, database->vgroups);
+        SVGroup *vg = benchArrayGet(database->vgArray, vgIdx);
+        debugPrint("calc table hash to vgroup %s.%s vgIdx=%d\n",
                     database->dbName,
-                    stbInfo->childTblArray[i]->name, vgId);
-        for (int32_t v = 0; v < database->vgroups; v++) {
-            SVGroup *vg = benchArrayGet(database->vgArray, v);
-            if (vgId == vg->vgId) {
-                vg->childTblArray[vg->tbOffset] = stbInfo->childTblArray[i];
-                vg->tbOffset++;
-            }
-        }
+                    stbInfo->childTblArray[i]->name, vgIdx);
+        vg->childTblArray[vg->tbOffset] = stbInfo->childTblArray[i];
+        vg->tbOffset++;
     }
     closeBenchConn(conn);
-
     return threads;
 }
 

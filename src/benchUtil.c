@@ -1461,3 +1461,20 @@ void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols) {
             showTableBinds("column", bindv->bind_cols[i], cols->size + 1);
     }
 }
+
+// engine util/src/thashutil.c
+uint32_t MurmurHash3_32(const char *key, uint32_t len);
+// get group index about dbname.tbname
+int32_t calcGroupIndex(char* dbName, char* tbName, int32_t groupCnt) {
+    char key[1024];
+    snprintf(key, sizeof(key), "1.%s.%s", dbName, tbName);
+    uint32_t hash = MurmurHash3_32(key, strlen(key));
+    uint32_t step = UINT32_MAX / groupCnt;
+    for (int32_t i = 0; i < groupCnt; i++) {
+        if (hash < (i + 1) * step)
+        {
+            return i;
+        }
+    }
+    return groupCnt - 1;
+}
