@@ -95,6 +95,9 @@ class TDTestCase:
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32846.json")
         tdSql.execute("create database td32913db vgroups 4")
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-1.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-2.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-3.json")
 
     def run(self):
         benchmark = self.getPath()
