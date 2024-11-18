@@ -1007,4 +1007,7 @@ void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
 
 // IFace is rest return True
 bool isRest(int32_t iface);
+
+// get group index about dbname.tbname
+int32_t calcGroupIndex(char* dbName, char* tbName, int32_t groupCnt);
 #endif   // INC_BENCH_H_
