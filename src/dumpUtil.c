@@ -66,6 +66,14 @@ bool canRetry(int32_t code, int8_t type) {
         return true;
     }
 
+    // single code
+    int32_t codes[] = {0x8000ffff};
+    for(int32_t i = 0; i< sizeof(codes)/sizeof(int32_t); i++) {
+        if (code == codes[i]) {
+            return true;
+        }
+    }
+
 #ifdef WEBSOCKET
     int32_t wsCode = code & 0xFFFF;
     // range1
