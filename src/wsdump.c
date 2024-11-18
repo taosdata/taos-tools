@@ -712,7 +712,7 @@ RETRY_QUERY:
                 errorPrint(
                     "%s() LN%d, writeResultToAvroWS->wsFetchBlock() error, ws_taos: %p, "
                     "code: 0x%08x, reason: %s\n",
-                    __func__, __LINE__, *taos_v, ws_errno(ws_res), ws_errstr(ws_res));
+                    __func__, __LINE__, *taos_v, ws_code, ws_errstr(ws_res));
 
                 // check can retry
                 if(canRetry(ws_code, RETRY_TYPE_FETCH) && ++retryCount <= g_args.retryCount) {
