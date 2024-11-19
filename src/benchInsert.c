@@ -4526,10 +4526,15 @@ int insertTestProcess() {
 
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
-                    infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
+                    infoPrint(" warning fill childs table count is zero, db:%s stb: %s \n", database->dbName, stbInfo->stbName);
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
+                }
+
+                // early malloc buffer for auto create table
+                if((stbInfo->iface == STMT_IFACE || stbInfo->iface == STMT2_IFACE) && stbInfo->autoTblCreating) {
+                    prepareTagsStmt(stbInfo);
                 }
 
                 // execute sqls

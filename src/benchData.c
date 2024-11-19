@@ -2686,3 +2686,29 @@ uint32_t bindVColsInterlace(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
     
     return batch;
 }
+
+// early malloc tags for stmt
+void prepareTagsStmt(SSuperTable* stbInfo) {
+    BArray *fields = stbInfo->tags;
+    int32_t loop   = TAG_BATCH_COUNT;
+    for (int i = 0; i < fields->size; ++i) {
+        Field *field = benchArrayGet(fields, i);
+        if (field->stmtData.data == NULL) {
+            // data
+            if (field->type == TSDB_DATA_TYPE_BINARY
+                    || field->type == TSDB_DATA_TYPE_NCHAR) {
+                field->stmtData.data = benchCalloc(1, loop * (field->length + 1), true);
+            } else {
+                field->stmtData.data = benchCalloc(1, loop * field->length, true);
+            }
+
+            // is_null
+            field->stmtData.is_null = benchCalloc(1, loop * field->length, true);
+            // lengths
+            field->stmtData.lengths = benchCalloc(sizeof(int32_t), loop * field->length, true);
+
+            // log
+            debugPrint("i=%d prepareTags fields=%p %s malloc stmtData.data=%p\n", i, fields, field->name ,field->stmtData.data);
+        }
+    }
+}
