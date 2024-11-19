@@ -395,7 +395,7 @@ typedef struct SChildField {
 
 #define ARG_OPT_NODROP 0x0000000000000001
 #define ARG_OPT_THREAD 0x0000000000000002
-extern int64_t g_argFlag;
+extern uint64_t g_argFlag;
 
 typedef struct SField {
     uint8_t  type;
