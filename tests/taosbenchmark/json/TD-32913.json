@@ -19,8 +19,8 @@
 	"databases":	[{
 			"dbinfo":	{
 				"name":	"td32913db",
-				"drop":	"no",
-				"vgroups":	4,
+				"drop":	"yes",
+				"vgroups":	2,
 				"precision":	"ms"
 			},
 			"super_tables":	[{
