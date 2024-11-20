@@ -153,11 +153,13 @@ jobs:
         run: |
           pwd
           find ./ -name libtaosws.dylib
+          find ./ -name libtaos.dylib
           mkdir debug
           mkdir debug/build
           mkdir debug/build/lib/
 
           cp ./TDengine/debug/build/lib/libtaosws.dylib debug/build/lib/
+          cp ./TDengine/debug/build/lib/libtaos.dylib debug/build/lib/
 
           # check source
           if [[ ! -f /usr/local/lib/libtaosws.dylib ]]
