@@ -154,11 +154,10 @@ jobs:
           pwd
           find ./ -name libtaosws.dylib
           mkdir debug
-          cd debug
-          mkdir build
-          mkdir build/lib/
+          mkdir debug/build
+          mkdir debug/build/lib/
 
-          cp ./TDengine/tools/taosws-rs/target/release/libtaosws.dylib build/lib/
+          cp ./TDengine/debug/build/lib/libtaosws.dylib debug/build/lib/
 
           # check source
           if [[ ! -f /usr/local/lib/libtaosws.dylib ]]
@@ -176,6 +175,7 @@ jobs:
             echo "build/lib/libtaosws.dylib is found ."
           fi
 
+          cd debug
           cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           #if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           if [[ ! -f /usr/local/bin/taosBenchmark ]]
