@@ -151,13 +151,14 @@ jobs:
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
-          find ./ -name libtaosws.dylib
+          pwd
+          find / -name libtaosws.dylib
           mkdir debug
           cd debug
           mkdir build
           mkdir build/lib/
 
-          cp tools/taosws-rs/target/release/libtaosws.dylib build/lib/
+          cp ./TDengine/tools/taosws-rs/target/release/libtaosws.dylib build/lib/
 
           # check source
           if [[ ! -f /usr/local/lib/libtaosws.dylib ]]
