@@ -152,7 +152,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           pwd
-          find / -name libtaosws.dylib
+          find ./ -name libtaosws.dylib
           mkdir debug
           cd debug
           mkdir build
