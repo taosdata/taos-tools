@@ -54,9 +54,9 @@ class TDTestCase:
             tdLog.info("taosBenchmark found in %s" % paths[0])
             return paths[0]
 
-    def testBenchmarkJson(self, benchmark, jsonFile, checkStep=False):
+    def testBenchmarkJson(self, benchmark, jsonFile, options="", checkStep=False):
         # exe insert 
-        cmd = f"{benchmark} -f {jsonFile}"
+        cmd = f"{benchmark} {options} -f {jsonFile}"
         os.system(cmd)
         
         #
@@ -93,10 +93,18 @@ class TDTestCase:
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-31490.json", checkStep = False)
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-31575.json")
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32846.json")
-        tdSql.execute("create database td32913db vgroups 4")
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913.json")
+        
+        # no drop
+        db      = "td32913db"
+        vgroups = 4
+        tdSql.execute(f"create database {db} vgroups {vgroups}")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913.json", options="-Q")
+        tdSql.query(f"select `vgroups` from information_schema.ins_databases where name='{db}';")
+        tdSql.checkData(0, 0, vgroups)
+
+        # other
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-1.json")
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-2.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-2.json", options="-T 6")
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-3.json")
 
     def run(self):

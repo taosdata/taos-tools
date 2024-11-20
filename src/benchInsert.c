@@ -3270,8 +3270,8 @@ static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
         // malloc memory
         tmfree(childCol->stmtData.is_null);
         tmfree(childCol->stmtData.lengths);
-        childCol->stmtData.is_null = benchCalloc(1, sizeof(char)    * g_arguments->prepared_rand, true);
-        childCol->stmtData.lengths = benchCalloc(1, sizeof(int32_t) * g_arguments->prepared_rand, true);
+        childCol->stmtData.is_null = benchCalloc(sizeof(char),     g_arguments->prepared_rand, true);
+        childCol->stmtData.lengths = benchCalloc(sizeof(int32_t),  g_arguments->prepared_rand, true);
 
         initStmtData(dataType, &(childCol->stmtData.data), col->length);
     }
@@ -4526,10 +4526,15 @@ int insertTestProcess() {
 
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
-                    infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
+                    infoPrint(" warning fill childs table count is zero, db:%s stb: %s \n", database->dbName, stbInfo->stbName);
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
+                }
+
+                // early malloc buffer for auto create table
+                if((stbInfo->iface == STMT_IFACE || stbInfo->iface == STMT2_IFACE) && stbInfo->autoTblCreating) {
+                    prepareTagsStmt(stbInfo);
                 }
 
                 // execute sqls

@@ -80,4 +80,5 @@ uint32_t bindVColsProgressive(TAOS_STMT2_BINDV *bindv, int32_t tbIndex,
                  uint32_t batch, int64_t startTime, int64_t pos,
                  SChildTable *childTbl, int32_t *pkCur, int32_t *pkCnt, int32_t *n);
 
+void prepareTagsStmt(SSuperTable* stbInfo);
 #endif  // INC_BENCHDATA_H_

@@ -603,7 +603,12 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     if (database->cfgs == NULL) {
         database->cfgs = benchArrayInit(1, sizeof(SDbCfg));
     }
-    database->drop = true;
+
+    // check command line input no
+    if(!(g_argFlag & ARG_OPT_NODROP)) {
+        database->drop = true;
+    }
+  
     database->flush = false;
     database->precision = TSDB_TIME_PRECISION_MILLI;
     database->sml_precision = TSDB_SML_TIMESTAMP_MILLI_SECONDS;
@@ -1592,7 +1597,10 @@ static int getMetaFromInsertJsonFile(tools_cJSON *json) {
 
     tools_cJSON *threads = tools_cJSON_GetObjectItem(json, "thread_count");
     if (threads && threads->type == tools_cJSON_Number) {
-        g_arguments->nthreads = (uint32_t)threads->valueint;
+        if(!(g_argFlag & ARG_OPT_THREAD)) {
+            // only command line no -T use json value
+            g_arguments->nthreads = (uint32_t)threads->valueint;
+        }
     }
 
     tools_cJSON *bindVGroup = tools_cJSON_GetObjectItem(json, "thread_bind_vgroup");

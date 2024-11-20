@@ -26,6 +26,8 @@ tools_cJSON*   root;
 static char     g_client_info[CLIENT_INFO_LEN] = {0};
 
 int             g_majorVersionOfClient = 0;
+// set flag if command passed, see ARG_OPT_ ???
+uint64_t        g_argFlag = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
