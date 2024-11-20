@@ -129,6 +129,7 @@ jobs:
             exit 1
           fi
 
+
       - name: Install packages for build taos-tools
         if:
           github.event_name == 'pull_request'
@@ -154,18 +155,22 @@ jobs:
           cd debug
           mkdir build
           mkdir build/lib/
-          cp TDengine/debug/build/lib/libtaosws.dylib build/lib/
+          cp /usr/local/lib/libtaosws.dylib build/lib/
 
           # check source
-          if [[ ! -f TDengine/debug/build/lib/libtaosws.dylib ]]
+          if [[ ! -f /usr/local/lib/libtaosws.dylib ]]
           then
-            echo "TDengine/debug/build/lib/libtaosws.dylib not found ."
+            echo "/usr/local/lib/libtaosws.dylib not found ."
+          else
+            echo "/usr/local/lib/libtaosws.dylib is found ."  
           fi
           
           # check des
           if [[ ! -f build/lib/libtaosws.dylib ]]
           then
             echo "build/lib/libtaosws.dylib not found ."
+          else
+            echo "build/lib/libtaosws.dylib is found ."
           fi
 
           cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DTOOLS_SANITIZE=true -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
