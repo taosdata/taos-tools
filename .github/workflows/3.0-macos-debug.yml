@@ -5,12 +5,10 @@ on:
     - cron: "10 16 * * *"
   push:
     branches:
-      - develop
       - 3.0
       - main
   pull_request:
     branches:
-      - develop
       - 3.0
       - main
 
@@ -38,7 +36,7 @@ jobs:
 
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
 
       - name: List all changed files
         run: |
@@ -48,7 +46,7 @@ jobs:
 
       - name: Get specific changed files
         id: changed-files-specific
-        uses: tj-actions/changed-files@v23.2
+        uses: tj-actions/changed-files@v34
         with:
           files: |
             src/*
