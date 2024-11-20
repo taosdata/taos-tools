@@ -121,6 +121,11 @@ jobs:
           toolchain: stable
 
       - name : Delete TDengine/debug folder
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           Get-ChildItem -Path "TDengine/debug" -Recurse -Force | Remove-Item -Force -Recurse
 
