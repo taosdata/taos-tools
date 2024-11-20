@@ -55,8 +55,7 @@ jobs:
 
       - name: Checkout TDengine
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         uses: actions/checkout@v2
@@ -77,8 +76,7 @@ jobs:
 
       - name: Set up homebrew
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
@@ -88,8 +86,7 @@ jobs:
 
       - name: Set up Go
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         uses: actions/setup-go@v3
@@ -98,8 +95,7 @@ jobs:
 
       - name: Set up Rust
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         uses: actions-rs/toolchain@v1.0.6
@@ -108,8 +104,7 @@ jobs:
 
       - uses: actions/cache@v3
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         id: cache-rust
@@ -123,8 +118,7 @@ jobs:
 
       - name: Build & Install TDengine
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
@@ -137,8 +131,7 @@ jobs:
 
       - name: Install packages for build taos-tools
         if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
@@ -146,16 +139,14 @@ jobs:
 
       - name: Checkout taos-tools to PR number
         if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
       - name: Build taos-tools
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
@@ -168,4 +159,3 @@ jobs:
             echo "taos-tools build failure"
             exit 1
           fi
-
