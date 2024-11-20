@@ -1204,9 +1204,9 @@ static int generateRandDataStmtForChildTable(
         }
 
         // is_null
-        childField->stmtData.is_null = benchCalloc(1, loop * field->length, true);
+        childField->stmtData.is_null = benchCalloc(sizeof(char), loop, true);
         // lengths
-        childField->stmtData.lengths = benchCalloc(sizeof(int32_t), loop * field->length, true);
+        childField->stmtData.lengths = benchCalloc(sizeof(int32_t), loop, true);
 
         // log
         debugPrint("i=%d generateRandDataStmtForChildTable fields=%p %s malloc stmtData.data=%p\n", i, fields, field->name ,field->stmtData.data);
@@ -1239,9 +1239,9 @@ static int generateRandDataStmt(
             }
 
             // is_null
-            field->stmtData.is_null = benchCalloc(1, loop * field->length, true);
+            field->stmtData.is_null = benchCalloc(sizeof(char), loop, true);
             // lengths
-            field->stmtData.lengths = benchCalloc(sizeof(int32_t), loop * field->length, true);
+            field->stmtData.lengths = benchCalloc(sizeof(int32_t), loop, true);
 
             // log
             debugPrint("i=%d generateRandDataStmt tag=%d fields=%p %s malloc stmtData.data=%p\n", i, tag, fields, field->name ,field->stmtData.data);
@@ -2703,9 +2703,9 @@ void prepareTagsStmt(SSuperTable* stbInfo) {
             }
 
             // is_null
-            field->stmtData.is_null = benchCalloc(1, loop * field->length, true);
+            field->stmtData.is_null = benchCalloc(sizeof(char), loop, true);
             // lengths
-            field->stmtData.lengths = benchCalloc(sizeof(int32_t), loop * field->length, true);
+            field->stmtData.lengths = benchCalloc(sizeof(int32_t), loop, true);
 
             // log
             debugPrint("i=%d prepareTags fields=%p %s malloc stmtData.data=%p\n", i, fields, field->name ,field->stmtData.data);
