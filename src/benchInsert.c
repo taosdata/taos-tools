@@ -3271,7 +3271,7 @@ static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
         tmfree(childCol->stmtData.is_null);
         tmfree(childCol->stmtData.lengths);
         childCol->stmtData.is_null = benchCalloc(sizeof(char),     g_arguments->prepared_rand, true);
-        childCol->stmtData.lengths = benchCalloc(sizeof(int32_t), *g_arguments->prepared_rand, true);
+        childCol->stmtData.lengths = benchCalloc(sizeof(int32_t),  g_arguments->prepared_rand, true);
 
         initStmtData(dataType, &(childCol->stmtData.data), col->length);
     }
