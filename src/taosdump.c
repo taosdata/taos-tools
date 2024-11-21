@@ -3182,13 +3182,18 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
 
     // prefix check
     const char* pre = "CREATE STABLE ";
+    const char* pre1 = "CREATE TABLE ";
     int32_t npre = strlen(pre);
     if (strncasecmp(data, pre, npre) != 0) {
-        char buf[64];
-        memset(buf, 0, sizeof(buf));
-        memcpy(buf, data, len > 63 ? 63 : len);
-        errorPrint("Query create table sql prefix unexpect. pre=%s sql=%s\n", pre, buf);
-        closeQuery(res);
+        if (strncasecmp(data, pre1, strlen(pre1)) != 0) {
+            char buf[64];
+            memset(buf, 0, sizeof(buf));
+            memcpy(buf, data, len > 63 ? 63 : len);
+            errorPrint("Query create table sql prefix unexpect. pre=%s sql=%s\n", pre, buf);
+            closeQuery(res);
+        } else {
+            npre = strlen(pre1);
+        }
         return NULL;
     }
     // table name check
@@ -3212,7 +3217,7 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
     int32_t clen = len + TSDB_DB_NAME_LEN + 128;
     char *csql = (char *)calloc(1, clen);
     int32_t nskip = npre + 1 + strlen(tbName) + 1;
-    int32_t pos = snprintf(csql, clen, "CREATE STABLE IF NOT EXISTS `%s`.`%s`", dbName, tb);
+    int32_t pos = snprintf(csql, clen, "CREATE TABLE IF NOT EXISTS `%s`.`%s`", dbName, tb);
     memcpy(csql + pos, data + nskip, len - nskip);
     debugPrint("export create table sql:%s\n", csql);
     
