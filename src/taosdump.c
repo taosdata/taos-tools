@@ -3187,7 +3187,7 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
     // prefix check
     const char* pre = "CREATE STABLE ";
     int32_t npre = strlen(pre);
-    if (strncasecmp(pre, data, npre) != 0) {
+    if (strncasecmp(data, pre, npre) != 0) {
         char buf[64];
         memset(buf, 0, sizeof(buf));
         memcpy(buf, data, len > 63 ? 63 : len);
@@ -3196,7 +3196,7 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
         return NULL;
     }
     // table name check
-    if (strncasecmp(pre + npre + 1, tbName, strlen(tbName)) != 0) {
+    if (strncasecmp(data + npre + 1, tbName, strlen(tbName)) != 0) {
         char buf[64];
         memset(buf, 0, sizeof(buf));
         memcpy(buf, data, len > 63 ? 63 : len);
@@ -10068,7 +10068,7 @@ int32_t readRowWS(void *res, int32_t idx, int32_t col, uint32_t *len, char **dat
       errorPrint("readRow ws_get_value_in_block failed, cnt=%d idx=%d col=%d \n", cnt, idx, col);
       return -1;
     }
-    *data = val;
+    *data = (char *)val;
     break;
   }
 
