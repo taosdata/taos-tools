@@ -10036,7 +10036,7 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
 }
 
 // read specail line, col
-int32_t readRowWS(void *res, int32_t idx, int32_t col, uint_fast16_t *len, char **data) {
+int32_t readRowWS(void *res, int32_t idx, int32_t col, uint32_t *len, char **data) {
   int32_t  i = 0;
   while (i <= idx) {
     // fetch block
