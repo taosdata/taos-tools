@@ -939,11 +939,12 @@ char * replaceNewName(char* cmd, int len) {
 // retrn value need call free() to free memory
 char * afterRenameSql(char *cmd) {
     // match pattern
-    const char* CREATE_DB = "CREATE DATABASE IF NOT EXISTS ";
-    const char* CREATE_TB = "CREATE TABLE IF NOT EXISTS ";
+    const char* CREATE_DB  = "CREATE DATABASE IF NOT EXISTS ";
+    const char* CREATE_STB = "CREATE STABLE IF NOT EXISTS ";
+    const char* CREATE_TB  = "CREATE TABLE IF NOT EXISTS ";
 
-    const char* pres[] = {CREATE_DB, CREATE_TB};
-    for (int i = 0; i < sizeof(pres); i++ ) {
+    const char* pres[] = {CREATE_DB, CREATE_STB};
+    for (int i = 0; i < sizeof(pres)/sizeof(char*); i++ ) {
         int len = strlen(pres[i]);
         if (strncmp(cmd, pres[i], len) == 0) {
             // found
@@ -3151,7 +3152,7 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
     // combine sql
     char sql[TSDB_DB_NAME_LEN + TSDB_TABLE_NAME_LEN + 128] = "";
     snprintf(sql, sizeof(sql), "show create table `%s`.`%s`", dbName, tbName);
-    infoPrint("show sql:%s\n", sql);
+    debugPrint("show sql:%s\n", sql);
     
     // query
     void* res = openQuery(taos, sql);
@@ -3214,9 +3215,9 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
 
     // combine csql
     int32_t nskip = npre + 1 + strlen(tbName) + 1;
-    int32_t pos = snprintf(csql, clen, "%s`%s`.`%s`", pre, dbName, tb);
+    int32_t pos = snprintf(csql, clen, "CREATE STABLE IF NOT EXISTS `%s`.`%s`", dbName, tb);
     memcpy(csql + pos, data + nskip, len - nskip);
-    infoPrint("export create table sql:%s\n", csql);
+    debugPrint("export create table sql:%s\n", csql);
     
     // close
     closeQuery(res);
