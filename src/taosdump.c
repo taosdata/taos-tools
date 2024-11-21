@@ -142,7 +142,11 @@ static int  convertStringToReadable(char *str, int size,
 static int  convertNCharToReadable(char *str, int size,
         char *buf, int bufsize);
 static int dumpExtraInfo(void *taos, FILE *fp);
-int32_t readRow(void *res, int32_t idx, int32_t col, int32_t *len, char **data);
+
+
+void* openQuery(void* taos , const char * sql);
+void closeQuery(void* res);
+int32_t readRow(void *res, int32_t idx, int32_t col, uint32_t *len, char **data);
 
 typedef struct {
     int16_t bytes;
@@ -3142,7 +3146,7 @@ static int getTableDesNative(
 }
 
 // query from server
-char *queryCreateTableSql(void* taos, char *dbName, char *tbName) {
+char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
     // combine sql
     char sql[TSDB_DB_NAME_LEN + TSDB_TABLE_NAME_LEN + 128] = "";
     snprintf(sql, sizeof(sql), "show create table `%s`.`%s`", dbName, tbName);
@@ -3155,7 +3159,7 @@ char *queryCreateTableSql(void* taos, char *dbName, char *tbName) {
     }
 
     // read
-    int32_t len = 0;
+    uint32_t len = 0;
     char* data = 0;
     int32_t ret = readRow(res, 0, 1, &len, &data);
     if (ret != 0) {
@@ -3191,7 +3195,7 @@ char *queryCreateTableSql(void* taos, char *dbName, char *tbName) {
     // tb is output to file table name
     char *tb = tbName;
     char tableName[TSDB_TABLE_NAME_LEN+1];
-    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
+    if(g_args.dotReplace && replaceCopy(tableName, tbName)) {
         tb = tableName;
     }
 
@@ -3206,80 +3210,6 @@ char *queryCreateTableSql(void* taos, char *dbName, char *tbName) {
 
     // return
     return csql;
-}
-
-static int convertTableDesToSql(
-        const char *dbName,
-        TableDes *tableDes, char **buffer) {
-    int counter = 0;
-    int count_temp = 0;
-
-    char* pstr = *buffer;
-
-    // outName is output to file table name
-    char * outName = tableDes->name;
-    char tableName[TSDB_TABLE_NAME_LEN+1];
-    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
-        outName = tableName;
-    }
-
-    pstr += sprintf(pstr,
-            g_args.db_escape_char
-            ? "CREATE TABLE IF NOT EXISTS `%s`.%s%s%s"
-            : "CREATE TABLE IF NOT EXISTS %s.%s%s%s",
-            dbName, g_escapeChar, outName, g_escapeChar);
-
-    for (; counter < tableDes->columns; counter++) {
-        if (tableDes->cols[counter].note[0] != '\0') break;
-
-        if (counter == 0) {
-            pstr += sprintf(pstr, "(%s%s%s %s",
-                    g_escapeChar,
-                    tableDes->cols[counter].field,
-                    g_escapeChar,
-                    typeToStr(tableDes->cols[counter].type));
-        } else {
-            pstr += sprintf(pstr, ",%s%s%s %s",
-                    g_escapeChar,
-                    tableDes->cols[counter].field,
-                    g_escapeChar,
-                    typeToStr(tableDes->cols[counter].type));
-        }
-
-        if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
-                || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
-            // Note no JSON allowed in column
-            pstr += sprintf(pstr, "(%d)", tableDes->cols[counter].length);
-        }
-    }
-
-    count_temp = counter;
-
-    for (; counter < (tableDes->columns + tableDes->tags); counter++) {
-        if (counter == count_temp) {
-            pstr += sprintf(pstr, ") TAGS(%s%s%s %s",
-                    g_escapeChar,
-                    tableDes->cols[counter].field,
-                    g_escapeChar,
-                    typeToStr(tableDes->cols[counter].type));
-        } else {
-            pstr += sprintf(pstr, ",%s%s%s %s",
-                    g_escapeChar,
-                    tableDes->cols[counter].field,
-                    g_escapeChar,
-                    typeToStr(tableDes->cols[counter].type));
-        }
-
-        if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
-                || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
-            // JSON tag don't need to specify length
-            pstr += sprintf(pstr, "(%d)", tableDes->cols[counter].length);
-        }
-    }
-
-    pstr += sprintf(pstr, ");");
-
-    return 0;
 }
 
 static void print_json(json_t *root) { print_json_aux(root, 0); }
@@ -3654,9 +3584,6 @@ static int dumpCreateTableClause(
         int numOfCols,
         FILE *fp,
         const char* dbName) {
-
-    //convertTableDesToSql(taos, dbName, tableDes, &sqlstr);
-
     // get create sql
     char *sql = queryCreateTableSql(taos, dbName, tableDes->name);
     if(sql == NULL) {
@@ -10096,7 +10023,7 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
 }
 
 // read specail line, col
-int32_t readRow(void *res, int32_t idx, int32_t col, int32_t *len, char **data) {
+int32_t readRow(void *res, int32_t idx, int32_t col, uint_fast16_t *len, char **data) {
   int32_t  i = 0;
   while (i <= idx) {
     // fetch block
@@ -10122,7 +10049,7 @@ int32_t readRow(void *res, int32_t idx, int32_t col, int32_t *len, char **data) 
     }
 
     // set
-    int32_t     type = 0;
+    uint8_t     type = 0;
     const void *val = ws_get_value_in_block(res, idx, col, &type, len);
     if (val == NULL) {
       errorPrint("readRow ws_get_value_in_block failed, cnt=%d idx=%d col=%d \n", cnt, idx, col);
@@ -10180,7 +10107,7 @@ int readNextTableDesNative(void* res, TableDes* tbDes) {
     return index;
 }
 
-int32_t readRow(void *res, int32_t idx, int32_t col, int32_t *len, char **data) {
+int32_t readRow(void *res, int32_t idx, int32_t col, uint32_t *len, char **data) {
   TAOS_ROW row = NULL;
   int32_t  i = 0;
   while (NULL != (row = taos_fetch_row(res))) {
