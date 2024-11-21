@@ -3174,16 +3174,11 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
 #ifdef WEBSOCKET
     }
 #endif
-
     
     if (ret != 0) {
         closeQuery(res);
         return NULL;
     }
-
-    // create sql -> csql
-    int32_t clen = len + TSDB_DB_NAME_LEN + 128;
-    char *csql = (char *)calloc(1, clen);
 
     // prefix check
     const char* pre = "CREATE STABLE ";
@@ -3213,7 +3208,9 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
         tb = tableName;
     }
 
-    // combine csql
+    // create sql -> csql
+    int32_t clen = len + TSDB_DB_NAME_LEN + 128;
+    char *csql = (char *)calloc(1, clen);
     int32_t nskip = npre + 1 + strlen(tbName) + 1;
     int32_t pos = snprintf(csql, clen, "CREATE STABLE IF NOT EXISTS `%s`.`%s`", dbName, tb);
     memcpy(csql + pos, data + nskip, len - nskip);
