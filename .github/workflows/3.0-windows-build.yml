@@ -121,6 +121,11 @@ jobs:
           toolchain: stable
 
       - name : Delete TDengine/debug folder
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
         run: |
           Get-ChildItem -Path "TDengine/debug" -Recurse -Force | Remove-Item -Force -Recurse
 
@@ -135,7 +140,7 @@ jobs:
         run: |
           cl.exe
           cd TDengine/debug
-          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true && jom /j 8 && jom install
+          cmake .. -G "NMake Makefiles JOM" -DBUILD_TOOLS=true -DBUILD_DEPENDENCY_TESTS=false && jom /j 8 && jom install
           #cmake .. -G "NMake Makefiles" -DBUILD_HTTP=false -DBUILD_TOOLS=true -DWEBSOCKET=true && nmake && nmake install
 
           #      - name: taosdump codec Test

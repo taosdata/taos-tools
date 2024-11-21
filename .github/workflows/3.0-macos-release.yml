@@ -65,8 +65,7 @@ jobs:
 
       - name: Checkout TDengine
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         uses: actions/checkout@v2
@@ -77,8 +76,7 @@ jobs:
 
       - name: Change time zone
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
@@ -87,8 +85,7 @@ jobs:
 
       - name: Set up homebrew
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
@@ -98,8 +95,7 @@ jobs:
 
       - name: Set up Go
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         uses: actions/setup-go@v3
@@ -108,8 +104,7 @@ jobs:
 
       - name: Set up Rust
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         uses: actions-rs/toolchain@v1.0.6
@@ -118,8 +113,7 @@ jobs:
 
       - uses: actions/cache@v3
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         id: cache-rust
@@ -133,12 +127,11 @@ jobs:
 
       - name: Build & Install TDengine
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
-          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true > /dev/null && make -j2 > /dev/null && sudo make install > /dev/null
+          cd TDengine && mkdir debug && cd debug && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_DEPENDENCY_TESTS=false > /dev/null && make -j12 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/bin/taosd ]] || [[ ! -f /usr/local/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -147,8 +140,7 @@ jobs:
 
       - name: Install packages for build taos-tools
         if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
@@ -156,20 +148,25 @@ jobs:
 
       - name: Checkout taos-tools to PR number
         if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
         run: |
           git fetch origin +refs/pull/${{env.PR_NUMBER}}/merge
           git checkout -qf FETCH_HEAD
 
       - name: Build taos-tools
         if: |
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
+          github.event_name == 'pull_request'
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
-          mkdir debug ||:
+          pwd
+          find ./ -name libtaosws.dylib
+          find ./ -name libtaos.dylib
+          mkdir debug
+          mkdir debug/build
+          mkdir debug/build/lib/
+          cp ./TDengine/debug/build/lib/libtaosws.dylib debug/build/lib/
+          cp ./TDengine/debug/build/lib/libtaos.dylib debug/build/lib/                    
           cd debug
           cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true > /dev/null && make -j8 > /dev/null && sudo make install > /dev/null
           #if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]

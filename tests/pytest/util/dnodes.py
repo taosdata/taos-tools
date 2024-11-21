@@ -318,7 +318,7 @@ class TDDnode:
 
         if taosadapterBinPath != "":
             taosadapterCmd = (
-                "nohup %s --logLevel=error --opentsdb_telnet.enable=true | tee -a ~/taosa.log & "
+                "nohup %s --logLevel=error --opentsdb_telnet.enable=true > ~/taosa.log 2>&1 &"
                 % (taosadapterBinPath)
             )
             tdLog.info(taosadapterCmd)

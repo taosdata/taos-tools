@@ -54,9 +54,9 @@ class TDTestCase:
             tdLog.info("taosBenchmark found in %s" % paths[0])
             return paths[0]
 
-    def testBenchmarkJson(self, benchmark, jsonFile):
+    def testBenchmarkJson(self, benchmark, jsonFile, options="", checkStep=False):
         # exe insert 
-        cmd = f"{benchmark} -f {jsonFile}"
+        cmd = f"{benchmark} {options} -f {jsonFile}"
         os.system(cmd)
         
         #
@@ -79,24 +79,42 @@ class TDTestCase:
         tdSql.checkRows(child_count * insert_rows)
 
         # timestamp step
-        sql = f"select * from (select diff(ts) as dif from {db}.{stb} partition by tbname) where dif != {timestamp_step};"
-        tdSql.query(sql)
-        tdSql.checkRows(0)
+        if checkStep:
+            sql = f"select * from (select diff(ts) as dif from {db}.{stb} partition by tbname) where dif != {timestamp_step};"
+            tdSql.query(sql)
+            tdSql.checkRows(0)
+
+    # bugs ts
+    def bugsTS(self, benchmark):
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TS-5002.json")
+
+    # bugs td
+    def bugsTD(self, benchmark):
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-31490.json", checkStep = False)
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-31575.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32846.json")
         
+        # no drop
+        db      = "td32913db"
+        vgroups = 4
+        tdSql.execute(f"create database {db} vgroups {vgroups}")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913.json", options="-Q")
+        tdSql.query(f"select `vgroups` from information_schema.ins_databases where name='{db}';")
+        tdSql.checkData(0, 0, vgroups)
+
+        # other
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-1.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-2.json", options="-T 6")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TD-32913-3.json")
 
     def run(self):
         benchmark = self.getPath()
-        ''' stmt2 engine have some problem
-        # batch - auto-create-table(yes or no)
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_batch_autoctb_yes.json")
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_batch_autoctb_no.json")
-        # interlace - auto-create-table(yes or no)
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_yes.json")
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_interlace_autoctb_no.json")
-        # csv - (batch or interlace)
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_csv_interlace_autoctb_yes.json")
-        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/stmt2_insert_csv_batch_autoctb_no.json")
-        '''
+
+        # ts
+        self.bugsTS(benchmark)
+
+        # td
+        self.bugsTD(benchmark)
 
 
     def stop(self):

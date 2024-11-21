@@ -261,215 +261,6 @@ typedef unsigned __int32 uint32_t;
 #endif
 
 
-#define debugPrint(fmt, ...)                                                \
-    do {                                                                    \
-        if (g_arguments->debug_print) {                                     \
-            struct tm      Tm, *ptm;                                        \
-            struct timeval timeSecs;                                        \
-            time_t         curTime;                                         \
-            toolsGetTimeOfDay(&timeSecs);                                   \
-            curTime = timeSecs.tv_sec;                                      \
-            ptm = toolsLocalTime(&curTime, &Tm);                            \
-            fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ",             \
-                    ptm->tm_mon + 1,                                        \
-                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
-                    (int32_t)timeSecs.tv_usec);                             \
-            fprintf(stdout, "DEBG: ");                                      \
-            fprintf(stdout, "%s(%d) ", __FILE__, __LINE__);                 \
-            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
-        }                                                                   \
-    } while (0)
-
-#define debugPrintWithLen(fmt, len, ...)                                    \
-    do {                                                                    \
-        if (g_arguments->debug_print) {                                     \
-            struct tm      Tm, *ptm;                                        \
-            struct timeval timeSecs;                                        \
-            time_t         curTime;                                         \
-            toolsGetTimeOfDay(&timeSecs);                                   \
-            curTime = timeSecs.tv_sec;                                      \
-            ptm = toolsLocalTime(&curTime, &Tm);                            \
-            fnprintf(stdout, len, "[%02d/%02d %02d:%02d:%02d.%06d] ",       \
-                    ptm->tm_mon + 1,                                        \
-                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
-                    (int32_t)timeSecs.tv_usec);                             \
-            fprintf(stdout, "DEBG: ");                                      \
-            fprintf(stdout, "%s(%d) ", __FILE__, __LINE__);                 \
-            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
-        }                                                                   \
-    } while (0)
-
-#define debugPrintJsonNoTime(json)                                          \
-    do {                                                                    \
-        if (g_arguments->debug_print) {                                     \
-            char *out = tools_cJSON_PrintUnformatted(json);                 \
-            fprintf(stdout, "JSON: %s\n", out);                             \
-            free(out);                                                      \
-        }                                                                   \
-    } while (0)
-
-#define debugPrintNoTimestamp(fmt, ...)                                     \
-    do {                                                                    \
-        if (g_arguments->debug_print) {                                     \
-            fprintf(stdout, "" fmt, __VA_ARGS__);                           \
-        }                                                                   \
-    } while (0)
-
-#define infoPrintNoTimestamp(fmt, ...)                                      \
-    do {                                                                    \
-        fprintf(stdout, "" fmt, __VA_ARGS__);                               \
-    } while (0)
-
-#define infoPrintNoTimestampToFile(fp, fmt, ...)                            \
-    do {                                                                    \
-        fprintf(fp, "" fmt, __VA_ARGS__);                                   \
-    } while (0)
-
-#define infoPrint(fmt, ...)                                                 \
-    do {                                                                    \
-        struct tm      Tm, *ptm;                                            \
-        struct timeval timeSecs;                                            \
-        time_t         curTime;                                             \
-        toolsGetTimeOfDay(&timeSecs);                                       \
-        curTime = timeSecs.tv_sec;                                          \
-        ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stdout, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
-                ptm->tm_mon + 1,                                            \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                (int32_t)timeSecs.tv_usec);                                 \
-        fprintf(stdout, "INFO: " fmt, __VA_ARGS__);                         \
-    } while (0)
-
-#define infoPrintToFile(fp, fmt, ...)                                    \
-    do {                                                                 \
-        struct tm      Tm, *ptm;                                         \
-        struct timeval timeSecs;                                         \
-        time_t         curTime;                                          \
-        toolsGetTimeOfDay(&timeSecs);                                    \
-        curTime = timeSecs.tv_sec;                                       \
-        ptm = toolsLocalTime(&curTime, &Tm);                             \
-        fprintf(fp, "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1, \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,    \
-                (int32_t)timeSecs.tv_usec);                              \
-        fprintf(fp, "INFO: " fmt, __VA_ARGS__);                          \
-    } while (0)
-
-#define perfPrint(fmt, ...)                                                 \
-    do {                                                                    \
-        if (g_arguments->performance_print) {                               \
-            struct tm      Tm, *ptm;                                        \
-            struct timeval timeSecs;                                        \
-            time_t         curTime;                                         \
-            toolsGetTimeOfDay(&timeSecs);                                   \
-            curTime = timeSecs.tv_sec;                                      \
-            ptm = toolsLocalTime(&curTime, &Tm);                            \
-            fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",             \
-                    ptm->tm_mon + 1,                                        \
-                    ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,   \
-                    (int32_t)timeSecs.tv_usec);                             \
-            fprintf(stderr, "PERF: " fmt, __VA_ARGS__);                     \
-            if (g_arguments->fpOfInsertResult && !g_arguments->terminate) { \
-                fprintf(g_arguments->fpOfInsertResult,                      \
-                        "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
-                        ptm->tm_mon + 1,                                    \
-                        ptm->tm_mday, ptm->tm_hour, ptm->tm_min,            \
-                        ptm->tm_sec,                                        \
-                        (int32_t)timeSecs.tv_usec);                         \
-                fprintf(g_arguments->fpOfInsertResult, "PERF: ");           \
-                fprintf(g_arguments->fpOfInsertResult,                      \
-                        "" fmt, __VA_ARGS__);                               \
-            }                                                               \
-        }                                                                   \
-    } while (0)
-
-#define errorPrint(fmt, ...)                                                \
-    do {                                                                    \
-        struct tm      Tm, *ptm;                                            \
-        struct timeval timeSecs;                                            \
-        time_t         curTime;                                             \
-        toolsGetTimeOfDay(&timeSecs);                                       \
-        curTime = timeSecs.tv_sec;                                          \
-        ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
-                ptm->tm_mon + 1,                                            \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                (int32_t)timeSecs.tv_usec);                                 \
-        fprintf(stderr, "\033[31m");                                        \
-        fprintf(stderr, "ERROR: ");                                         \
-        if (g_arguments->debug_print) {                                     \
-            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                 \
-        }                                                                   \
-        fprintf(stderr, "" fmt, __VA_ARGS__);                               \
-        fprintf(stderr, "\033[0m");                                         \
-        if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
-            fprintf(g_arguments->fpOfInsertResult,                          \
-                    "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                (int32_t)timeSecs.tv_usec);                                 \
-            fprintf(g_arguments->fpOfInsertResult, "ERROR: ");              \
-            fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
-        }                                                                   \
-    } while (0)
-
-#define warnPrint(fmt, ...)                                                 \
-    do {                                                                    \
-        struct tm      Tm, *ptm;                                            \
-        struct timeval timeSecs;                                            \
-        time_t         curTime;                                             \
-        toolsGetTimeOfDay(&timeSecs);                                       \
-        curTime = timeSecs.tv_sec;                                          \
-        ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
-                ptm->tm_mon + 1,                                            \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                (int32_t)timeSecs.tv_usec);                                 \
-        fprintf(stderr, "\033[33m");                                        \
-        fprintf(stderr, "WARN: ");                                          \
-        if (g_arguments->debug_print) {                                     \
-            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                 \
-        }                                                                   \
-        fprintf(stderr, "" fmt, __VA_ARGS__);                               \
-        fprintf(stderr, "\033[0m");                                         \
-        if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
-            fprintf(g_arguments->fpOfInsertResult,                          \
-                    "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                (int32_t)timeSecs.tv_usec);                                 \
-            fprintf(g_arguments->fpOfInsertResult, "WARN: ");               \
-            fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
-        }                                                                   \
-    } while (0)
-
-#define succPrint(fmt, ...)                                                 \
-    do {                                                                    \
-        struct tm      Tm, *ptm;                                            \
-        struct timeval timeSecs;                                            \
-        time_t         curTime;                                             \
-        toolsGetTimeOfDay(&timeSecs);                                       \
-        curTime = timeSecs.tv_sec;                                          \
-        ptm = toolsLocalTime(&curTime, &Tm);                                \
-        fprintf(stderr, "[%02d/%02d %02d:%02d:%02d.%06d] ",                 \
-                ptm->tm_mon + 1,                                            \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                (int32_t)timeSecs.tv_usec);                                 \
-        fprintf(stderr, "\033[32m");                                        \
-        fprintf(stderr, "SUCC: ");                                          \
-        if (g_arguments->debug_print) {                                     \
-            fprintf(stderr, "%s(%d) ", __FILE__, __LINE__);                 \
-        }                                                                   \
-        fprintf(stderr, "" fmt, __VA_ARGS__);                               \
-        fprintf(stderr, "\033[0m");                                         \
-        if (g_arguments->fpOfInsertResult && !g_arguments->terminate) {     \
-            fprintf(g_arguments->fpOfInsertResult,                          \
-                    "[%02d/%02d %02d:%02d:%02d.%06d] ", ptm->tm_mon + 1,    \
-                ptm->tm_mday, ptm->tm_hour, ptm->tm_min, ptm->tm_sec,       \
-                (int32_t)timeSecs.tv_usec);                                 \
-            fprintf(g_arguments->fpOfInsertResult, "SUCC: ");               \
-            fprintf(g_arguments->fpOfInsertResult, "" fmt, __VA_ARGS__);    \
-        }                                                                   \
-    } while (0)
-
-
 #define IS_VAR_DATA_TYPE(t)                                                                                 \
   (((t) == TSDB_DATA_TYPE_VARCHAR) || ((t) == TSDB_DATA_TYPE_VARBINARY) || ((t) == TSDB_DATA_TYPE_NCHAR) || \
    ((t) == TSDB_DATA_TYPE_JSON) || ((t) == TSDB_DATA_TYPE_GEOMETRY))
@@ -601,6 +392,10 @@ typedef struct SChildField {
 #define tmpDouble(field)  tmpDoubleImpl(field,0,0)
 
 #define COMP_NAME_LEN 32
+
+#define ARG_OPT_NODROP 0x0000000000000001
+#define ARG_OPT_THREAD 0x0000000000000002
+extern uint64_t g_argFlag;
 
 typedef struct SField {
     uint8_t  type;
@@ -1216,4 +1011,7 @@ void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
 
 // IFace is rest return True
 bool isRest(int32_t iface);
+
+// get group index about dbname.tbname
+int32_t calcGroupIndex(char* dbName, char* tbName, int32_t groupCnt);
 #endif   // INC_BENCH_H_

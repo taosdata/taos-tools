@@ -11,6 +11,7 @@
  */
 
 #include <bench.h>
+#include "benchLog.h"
 #include "wrapDb.h"
 #include <benchData.h>
 #include <benchInsertMix.h>
@@ -469,7 +470,7 @@ skip:
 }
 
 
-int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
+int32_t getVgroupsNative(SBenchConn *conn, SDataBase *database) {
     int     vgroups = 0;
     char    cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
     snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
@@ -518,6 +519,80 @@ int32_t getVgroupsOfDb(SBenchConn *conn, SDataBase *database) {
 
     return vgroups;
 }
+
+#ifdef WEBSOCKET
+int32_t getVgroupsWS(SBenchConn *conn, SDataBase *database) {
+    int vgroups = 0;
+    char sql[128] = "\0";
+    snprintf(sql, sizeof(sql),
+             g_arguments->escape_character
+                 ? "SHOW `%s`.VGROUPS"
+                 : "SHOW %s.VGROUPS",
+             database->dbName);
+
+    // query
+    WS_RES *res = ws_query_timeout(conn->taos_ws, sql, g_arguments->timeout);
+    int32_t code = ws_errno(res);
+    if (code != 0) {
+        // failed
+        errorPrint("Failed ws_query_timeout <%s>, code: 0x%08x, reason: %s\n",
+                   sql, code, ws_errstr(res));
+        ws_free_result(res);           
+        return 0;
+    }
+
+    // fetch
+    WS_ROW row;
+    database->vgArray = benchArrayInit(8, sizeof(SVGroup));
+    while ( (row = ws_fetch_row(res)) && !g_arguments->terminate) {
+        SVGroup *vg = benchCalloc(1, sizeof(SVGroup), true);
+        vg->vgId = *(int32_t *)row[0];
+        benchArrayPush(database->vgArray, vg);
+        vgroups++;
+        debugPrint(" ws fetch vgroups vgid=%d cnt=%d \n", vg->vgId, vgroups);
+    }
+    ws_free_result(res);
+    database->vgroups = vgroups;
+
+    // return count
+    return vgroups;
+}
+
+/*
+int32_t getTableVgidWS(SBenchConn *conn, char *db, char *tb, int32_t *vgId) {
+    char sql[128] = "\0";
+    snprintf(sql, sizeof(sql),
+                 "select vgroup_id from information_schema.ins_tables where db_name='%s' and table_name='%s';",
+                 db, tb);
+    // query
+    WS_RES *res = ws_query_timeout(conn->taos_ws, sql, g_arguments->timeout);
+    int32_t code = ws_errno(res);
+    if (code != 0) {
+        // failed
+        errorPrint("Failed ws_query_timeout <%s>, code: 0x%08x, reason: %s\n",
+                   sql, code, ws_errstr(res));
+        ws_free_result(res);           
+        return code;
+    }
+
+    // fetch
+    WS_ROW row;
+    while ( (row = ws_fetch_row(res)) && !g_arguments->terminate) {
+        *vgId = *(int32_t *)row[0];
+        debugPrint(" getTableVgidWS table:%s vgid=%d\n", tb, *vgId);
+        break;
+    }
+    ws_free_result(res);
+
+    if(*vgId == 0) {
+        return -1;
+    } else {
+        return 0;
+    }   
+}
+*/
+
+#endif
 
 int32_t toolsGetDefaultVGroups() {
     int32_t cores = toolsGetNumberOfCores();
@@ -743,6 +818,7 @@ int createDatabaseTaosc(SDataBase* database) {
 
     // get remain vgroups
     int remainVnodes = INT_MAX;
+#ifndef WEBSOCKET    
     if (g_arguments->bind_vgroup) {
         remainVnodes = getRemainVnodes(conn);
         if (0 >= remainVnodes) {
@@ -751,6 +827,7 @@ int createDatabaseTaosc(SDataBase* database) {
             return -1;
         }
     }
+#endif
 
     // generate and execute create database sql
     geneDbCreateCmd(database, command, remainVnodes);
@@ -789,7 +866,16 @@ int createDatabaseTaosc(SDataBase* database) {
 
     // malloc and get vgroup
     if (g_arguments->bind_vgroup) {
-        int32_t vgroups = getVgroupsOfDb(conn, database);
+        int32_t vgroups;
+#ifdef WEBSOCKET
+        if (g_arguments->websocket) {
+            vgroups = getVgroupsWS(conn, database);
+        } else {
+#endif
+            vgroups = getVgroupsNative(conn, database);
+#ifdef WEBSOCKET
+        }
+#endif
         if (vgroups <= 0) {
             closeBenchConn(conn);
             errorPrint("Database %s's vgroups is %d\n",
@@ -830,14 +916,14 @@ static int generateChildTblName(int len, char *buffer, SDataBase *database,
     if (0 == len) {
         memset(buffer, 0, TSDB_MAX_ALLOWED_SQL_LEN);
         len += snprintf(buffer + len,
-                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE IF NOT EXISTS ");
+                        TSDB_MAX_ALLOWED_SQL_LEN - len, "CREATE TABLE");
     }
 
     len += snprintf(
             buffer + len, TSDB_MAX_ALLOWED_SQL_LEN - len,
             g_arguments->escape_character
-            ? "`%s`.`%s%" PRIu64 "` USING `%s`.`%s` TAGS (%s) %s "
-            : "%s.%s%" PRIu64 " USING %s.%s TAGS (%s) %s ",
+            ? " IF NOT EXISTS `%s`.`%s%" PRIu64 "` USING `%s`.`%s` TAGS (%s) %s "
+            : " IF NOT EXISTS %s.%s%" PRIu64 " USING %s.%s TAGS (%s) %s ",
             database->dbName, stbInfo->childTblPrefix, tableSeq, database->dbName,
             stbInfo->stbName,
             tagData + i * stbInfo->lenOfTags, ttl);
@@ -1141,7 +1227,7 @@ static int createChildTables() {
     infoPrint("start creating %" PRId64 " table(s) with %d thread(s)\n",
               g_arguments->totalChildTables, g_arguments->table_threads);
     if (g_arguments->fpOfInsertResult) {
-        infoPrintToFile(g_arguments->fpOfInsertResult,
+        infoPrintToFile(
                   "start creating %" PRId64 " table(s) with %d thread(s)\n",
                   g_arguments->totalChildTables, g_arguments->table_threads);
     }
@@ -2197,6 +2283,10 @@ static int32_t prepareProgressDataStmt(
     *delay1 = toolsGetTimestampUs() - start;
     int32_t n = 0;
     int64_t pos = i % g_arguments->prepared_rand;
+    if (g_arguments->prepared_rand - pos < g_arguments->reqPerReq) {
+        // remain prepare data less than batch, reset pos to zero
+        pos = 0;
+    }
     int32_t generated = bindParamBatch(
             pThreadInfo,
             (g_arguments->reqPerReq > (stbInfo->insertRows - i))
@@ -3180,8 +3270,8 @@ static int parseBufferToStmtBatchChildTbl(SSuperTable *stbInfo,
         // malloc memory
         tmfree(childCol->stmtData.is_null);
         tmfree(childCol->stmtData.lengths);
-        childCol->stmtData.is_null = benchCalloc(1, sizeof(char)    * g_arguments->prepared_rand, true);
-        childCol->stmtData.lengths = benchCalloc(1, sizeof(int32_t) * g_arguments->prepared_rand, true);
+        childCol->stmtData.is_null = benchCalloc(sizeof(char),     g_arguments->prepared_rand, true);
+        childCol->stmtData.lengths = benchCalloc(sizeof(int32_t),  g_arguments->prepared_rand, true);
 
         initStmtData(dataType, &(childCol->stmtData.data), col->length);
     }
@@ -3510,26 +3600,9 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
 
     // calc table count per vgroup
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        int vgId;
-        int ret = taos_get_table_vgId(
-                conn->taos, database->dbName,
-                stbInfo->childTblArray[i]->name, &vgId);
-        if (ret < 0) {
-            errorPrint("Failed to get %s db's %s table's vgId\n",
-                        database->dbName,
-                        stbInfo->childTblArray[i]->name);
-            closeBenchConn(conn);
-            return -1;
-        }
-        debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
-                    database->dbName,
-                    stbInfo->childTblArray[i]->name, vgId);
-        for (int32_t v = 0; v < database->vgroups; v++) {
-            SVGroup *vg = benchArrayGet(database->vgArray, v);
-            if (vgId == vg->vgId) {
-                vg->tbCountPerVgId++;
-            }
-        }
+        int32_t vgIdx = calcGroupIndex(database->dbName, stbInfo->childTblArray[i]->name, database->vgroups);
+        SVGroup *vg = benchArrayGet(database->vgArray, vgIdx);
+        vg->tbCountPerVgId ++;
     }
 
     // malloc vg->childTblArray memory with table count
@@ -3548,31 +3621,15 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
     
     // set vg->childTblArray data
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
-        int vgId;
-        int ret = taos_get_table_vgId(
-                conn->taos, database->dbName,
-                stbInfo->childTblArray[i]->name, &vgId);
-        if (ret < 0) {
-            errorPrint("Failed to get %s db's %s table's vgId\n",
-                        database->dbName,
-                        stbInfo->childTblArray[i]->name);
-
-            closeBenchConn(conn);
-            return 0;
-        }
-        debugPrint("Db %s\'s table\'s %s vgId is: %d\n",
+        int32_t vgIdx = calcGroupIndex(database->dbName, stbInfo->childTblArray[i]->name, database->vgroups);
+        SVGroup *vg = benchArrayGet(database->vgArray, vgIdx);
+        debugPrint("calc table hash to vgroup %s.%s vgIdx=%d\n",
                     database->dbName,
-                    stbInfo->childTblArray[i]->name, vgId);
-        for (int32_t v = 0; v < database->vgroups; v++) {
-            SVGroup *vg = benchArrayGet(database->vgArray, v);
-            if (vgId == vg->vgId) {
-                vg->childTblArray[vg->tbOffset] = stbInfo->childTblArray[i];
-                vg->tbOffset++;
-            }
-        }
+                    stbInfo->childTblArray[i]->name, vgIdx);
+        vg->childTblArray[vg->tbOffset] = stbInfo->childTblArray[i];
+        vg->tbOffset++;
     }
     closeBenchConn(conn);
-
     return threads;
 }
 
@@ -4408,20 +4465,27 @@ int insertTestProcess() {
             }
             succPrint("created database (%s)\n", database->dbName);
         } else {
-#ifndef WEBSOCKET            
             // database already exist, get vgroups from server
             SBenchConn* conn = initBenchConn();
             if (conn) {
-                int32_t vgroups = getVgroupsOfDb(conn, database);
+                int32_t vgroups;
+#ifdef WEBSOCKET
+                if (g_arguments->websocket) {
+                    vgroups = getVgroupsWS(conn, database);
+                } else {
+#endif
+                    vgroups = getVgroupsNative(conn, database);
+#ifdef WEBSOCKET
+                }
+#endif
                 if (vgroups <=0) {
                     closeBenchConn(conn);
-                    errorPrint("Database %s's vgroups is zero.\n", database->dbName);
+                    errorPrint("Database %s's vgroups is zero , db exist case.\n", database->dbName);
                     return -1;
                 }
                 closeBenchConn(conn);
                 succPrint("Database (%s) get vgroups num is %d from server.\n", database->dbName, vgroups);
             }
-#endif
         }
     }
 
@@ -4462,10 +4526,15 @@ int insertTestProcess() {
 
                 // check fill child table count valid
                 if(fillChildTblName(database, stbInfo) <= 0) {
-                    infoPrint(" warning fill childs table count is zero, please check parameters in json is correct. database:%s stb: %s \n", database->dbName, stbInfo->stbName);
+                    infoPrint(" warning fill childs table count is zero, db:%s stb: %s \n", database->dbName, stbInfo->stbName);
                 }
                 if (0 != prepareSampleData(database, stbInfo)) {
                     return -1;
+                }
+
+                // early malloc buffer for auto create table
+                if((stbInfo->iface == STMT_IFACE || stbInfo->iface == STMT2_IFACE) && stbInfo->autoTblCreating) {
+                    prepareTagsStmt(stbInfo);
                 }
 
                 // execute sqls

@@ -11,6 +11,7 @@
  */
 #include <stdlib.h>
 #include <bench.h>
+#include "benchLog.h"
 
 #ifdef LINUX
 #include <argp.h>
@@ -74,6 +75,7 @@ void benchPrintHelp() {
     printf("%s%s%s%s\r\n", indent, "-O,", indent, BENCH_DISORDER);
     printf("%s%s%s%s\r\n", indent, "-p,", indent, BENCH_PASS);
     printf("%s%s%s%s\r\n", indent, "-P,", indent, BENCH_PORT);
+    printf("%s%s%s%s\r\n", indent, "-Q,", indent, BENCH_NODROP);
     printf("%s%s%s%s\r\n", indent, "-r,", indent, BENCH_BATCH);
     printf("%s%s%s%s\r\n", indent, "-R,", indent, BENCH_RANGE);
     printf("%s%s%s%s\r\n", indent, "-S,", indent, BENCH_STEP);
@@ -138,9 +140,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
 #ifdef WEBSOCKET
             || key[1] == 'D' || key[1] == 'W'
 #endif
-#ifdef TD_VER_COMPATIBLE_3_0_0_0
             || key[1] == 'v'
-#endif
         ) {
             if (i + 1 >= argc) {
                 errorPrint("option %s requires an argument\r\n", key);
@@ -157,7 +157,7 @@ int32_t benchParseArgsNoArgp(int argc, char* argv[]) {
                 || key[1] == 'N' || key[1] == 'M'
                 || key[1] == 'x' || key[1] == 'y'
                 || key[1] == 'g' || key[1] == 'G'
-                || key[1] == 'V') {
+                || key[1] == 'V' || key[1] == 'Q') {
             benchParseSingleOpt(key[1], NULL);
         } else {
             errorPrint("Invalid option %s\r\n", key);
@@ -356,7 +356,10 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                            "Invalid -T: %s, will auto set to default(8)\n",
                            arg);
                 g_arguments->nthreads = DEFAULT_NTHREADS;
+            } else {
+                g_argFlag |= ARG_OPT_THREAD;
             }
+            
             break;
 
         case 'i':
@@ -665,6 +668,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
 #endif
         case 'Q':
             database->drop = false;
+            g_argFlag |= ARG_OPT_NODROP;
             break;
         case 'V':
             printVersion();
