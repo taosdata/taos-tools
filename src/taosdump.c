@@ -147,6 +147,7 @@ static int dumpExtraInfo(void *taos, FILE *fp);
 void* openQuery(void* taos , const char * sql);
 void closeQuery(void* res);
 int32_t readRow(void *res, int32_t idx, int32_t col, uint32_t *len, char **data);
+int32_t readRowWS(void *res, int32_t idx, int32_t col, uint32_t *len, char **data);
 
 typedef struct {
     int16_t bytes;
@@ -3161,7 +3162,19 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
     // read
     uint32_t len = 0;
     char* data = 0;
-    int32_t ret = readRow(res, 0, 1, &len, &data);
+    int32_t ret;
+
+#ifdef WEBSOCKET
+    if (g_args.cloud || g_args.restful) {
+        ret = readRowWS(res, 0, 1, &len, &data);
+    } else {
+#endif
+        ret = readRow(res, 0, 1, &len, &data);
+#ifdef WEBSOCKET
+    }
+#endif
+
+    
     if (ret != 0) {
         closeQuery(res);
         return NULL;
@@ -3519,7 +3532,7 @@ static int dumpCreateTableClauseAvro(
         return -1;
     }    
 
-    debugPrint("%s() LN%d, write string: %s\n", __func__, __LINE__, sqlstr);
+    debugPrint("%s() LN%d, write string: %s\n", __func__, __LINE__, sql);
 
     avro_schema_t schema;
     RecordSchema *recordSchema;
@@ -10023,7 +10036,7 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
 }
 
 // read specail line, col
-int32_t readRow(void *res, int32_t idx, int32_t col, uint_fast16_t *len, char **data) {
+int32_t readRowWS(void *res, int32_t idx, int32_t col, uint_fast16_t *len, char **data) {
   int32_t  i = 0;
   while (i <= idx) {
     // fetch block
