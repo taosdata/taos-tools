@@ -142,6 +142,7 @@ static int  convertStringToReadable(char *str, int size,
 static int  convertNCharToReadable(char *str, int size,
         char *buf, int bufsize);
 static int dumpExtraInfo(void *taos, FILE *fp);
+int32_t readRow(void *res, int32_t idx, int32_t col, int32_t *len, char **data);
 
 typedef struct {
     int16_t bytes;
@@ -3140,6 +3141,73 @@ static int getTableDesNative(
     return getTableTagValueNative(taos, dbName, table, &tableDes);
 }
 
+// query from server
+char *queryCreateTableSql(void* taos, char *dbName, char *tbName) {
+    // combine sql
+    char sql[TSDB_DB_NAME_LEN + TSDB_TABLE_NAME_LEN + 128] = "";
+    snprintf(sql, sizeof(sql), "show create table `%s`.`%s`", dbName, tbName);
+    infoPrint("show sql:%s\n", sql);
+    
+    // query
+    void* res = openQuery(taos, sql);
+    if (res == NULL) {
+        return NULL;
+    }
+
+    // read
+    int32_t len = 0;
+    char* data = 0;
+    int32_t ret = readRow(res, 0, 1, &len, &data);
+    if (ret != 0) {
+        closeQuery(res);
+        return NULL;
+    }
+
+    // create sql -> csql
+    int32_t clen = len + TSDB_DB_NAME_LEN + 128;
+    char *csql = (char *)calloc(1, clen);
+
+    // prefix check
+    const char* pre = "CREATE STABLE ";
+    int32_t npre = strlen(pre);
+    if (strncasecmp(pre, data, npre) != 0) {
+        char buf[64];
+        memset(buf, 0, sizeof(buf));
+        memcpy(buf, data, len > 63 ? 63 : len);
+        errorPrint("Query create table sql prefix unexpect. pre=%s sql=%s\n", pre, buf);
+        closeQuery(res);
+        return NULL;
+    }
+    // table name check
+    if (strncasecmp(pre + npre + 1, tbName, strlen(tbName)) != 0) {
+        char buf[64];
+        memset(buf, 0, sizeof(buf));
+        memcpy(buf, data, len > 63 ? 63 : len);
+        errorPrint("Query create table sql tbName unexpect. tbName=%s sql=%s\n", tbName, buf);
+        closeQuery(res);
+        return NULL;
+    }
+
+    // tb is output to file table name
+    char *tb = tbName;
+    char tableName[TSDB_TABLE_NAME_LEN+1];
+    if(g_args.dotReplace && replaceCopy(tableName, tableDes->name)) {
+        tb = tableName;
+    }
+
+    // combine csql
+    int32_t nskip = npre + 1 + strlen(tbName) + 1;
+    int32_t pos = snprintf(csql, clen, "%s`%s`.`%s`", pre, dbName, tb);
+    memcpy(csql + pos, data + nskip, len - nskip);
+    infoPrint("export create table sql:%s\n", csql);
+    
+    // close
+    closeQuery(res);
+
+    // return
+    return csql;
+}
+
 static int convertTableDesToSql(
         const char *dbName,
         TableDes *tableDes, char **buffer) {
@@ -3476,6 +3544,7 @@ static avro_value_iface_t* prepareAvroWface(
 }
 
 static int dumpCreateTableClauseAvro(
+        void *taos,
         const char *dumpFilename,
         TableDes *tableDes,
         int numOfCols,
@@ -3514,15 +3583,11 @@ static int dumpCreateTableClauseAvro(
             "{\"name\":\"sql\",\"type\":[\"null\",\"string\"]}]}",
             dbName, "_ntb");
 
-    char *sqlstr = calloc(1, TSDB_DEFAULT_PKT_SIZE*2);
-    if (NULL == sqlstr) {
-        errorPrint("%s() LN%d, memory allocation failed!\n",
-                __func__, __LINE__);
-        free(jsonSchema);
+    // get create sql
+    char *sql = queryCreateTableSql(taos, dbName, tableDes->name);
+    if(sql == NULL) {
         return -1;
-    }
-
-    convertTableDesToSql(dbName, tableDes, &sqlstr);
+    }    
 
     debugPrint("%s() LN%d, write string: %s\n", __func__, __LINE__, sqlstr);
 
@@ -3563,7 +3628,7 @@ static int dumpCreateTableClauseAvro(
     }
 
     avro_value_set_branch(&value, 1, &branch);
-    avro_value_set_string(&branch, sqlstr);
+    avro_value_set_string(&branch, sql);
 
     if (0 != avro_file_writer_append_value(db, &record)) {
         errorPrint("%s() LN%d, Unable to write record to file. Message: %s\n",
@@ -3578,31 +3643,32 @@ static int dumpCreateTableClauseAvro(
     avro_schema_decref(schema);
 
     free(jsonSchema);
-    free(sqlstr);
+    free(sql);
 
     return 0;
 }
 
 static int dumpCreateTableClause(
+        void * taos,
         TableDes *tableDes,
         int numOfCols,
         FILE *fp,
         const char* dbName) {
-    char *sqlstr = calloc(1, TSDB_DEFAULT_PKT_SIZE*2);
-    if (NULL == sqlstr) {
-        errorPrint("%s() LN%d, memory allocation failed!\n",
-                __func__, __LINE__);
+
+    //convertTableDesToSql(taos, dbName, tableDes, &sqlstr);
+
+    // get create sql
+    char *sql = queryCreateTableSql(taos, dbName, tableDes->name);
+    if(sql == NULL) {
         return -1;
     }
 
-    convertTableDesToSql(dbName, tableDes, &sqlstr);
+    // write to file
+    debugPrint("%s() LN%d, export create table sql: %s\n", __func__, __LINE__, sql);
+    int len = fprintf(fp, "%s\n\n", sql);
+    free(sql);
 
-    debugPrint("%s() LN%d, write string: %s\n", __func__, __LINE__, sqlstr);
-    int ret = fprintf(fp, "%s\n\n", sqlstr);
-
-    free(sqlstr);
-
-    return ret;
+    return len > 0 ? 0 : -1;
 }
 
 static int dumpStableClasuse(
@@ -3632,7 +3698,7 @@ static int dumpStableClasuse(
         exit(-1);
     }
 
-    dumpCreateTableClause(tableDes, colCount, fp, dbInfo->name);
+    dumpCreateTableClause(taos, tableDes, colCount, fp, dbInfo->name);
 
     return 0;
 }
@@ -8744,10 +8810,10 @@ static int64_t dumpNormalTable(
                     return -1;
                 }
             }
-            dumpCreateTableClauseAvro(
+            dumpCreateTableClauseAvro(taos,
                     dumpFilename, tableDes, numColsAndTags, dbInfo->name);
         } else {
-            dumpCreateTableClause(tableDes, numColsAndTags, fp, dbInfo->name);
+            dumpCreateTableClause(taos, tableDes, numColsAndTags, fp, dbInfo->name);
         }
     }
 
@@ -10028,6 +10094,47 @@ int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
 
     return index;
 }
+
+// read specail line, col
+int32_t readRow(void *res, int32_t idx, int32_t col, int32_t *len, char **data) {
+  int32_t  i = 0;
+  while (i <= idx) {
+    // fetch block
+    const void *block = NULL;
+    int32_t     cnt = 0;
+    int         ws_code = ws_fetch_raw_block(res, &block, &cnt);
+    if (ws_code != 0) {
+      errorPrint("readRow->ws_fetch_raw_block failed, err code=%d i=%d\n", ws_code, i);
+      return -1;
+    }
+
+    // cnt check
+    if (cnt == 0) {
+      infoPrint("ws_fetch_raw_block read cnt zero. i=%d.\n", i);
+      return -1;
+    }
+
+    // check idx
+    if (i + cnt <= idx) {
+      // move next block
+      i += cnt;
+      continue;
+    }
+
+    // set
+    int32_t     type = 0;
+    const void *val = ws_get_value_in_block(res, idx, col, &type, len);
+    if (val == NULL) {
+      errorPrint("readRow ws_get_value_in_block failed, cnt=%d idx=%d col=%d \n", cnt, idx, col);
+      return -1;
+    }
+    *data = val;
+    break;
+  }
+
+  return 0;
+}
+
 #endif
 
 
@@ -10071,6 +10178,28 @@ int readNextTableDesNative(void* res, TableDes* tbDes) {
     }
 
     return index;
+}
+
+int32_t readRow(void *res, int32_t idx, int32_t col, int32_t *len, char **data) {
+  TAOS_ROW row = NULL;
+  int32_t  i = 0;
+  while (NULL != (row = taos_fetch_row(res))) {
+    // check
+    if (i < idx) {
+      continue;
+    }
+
+    // set
+    int32_t *lens = taos_fetch_lengths(res);
+    *data = row[col];
+    *len = lens[col];
+    break;
+
+    // move next
+    i++;
+  }
+
+  return 0;
 }
 
 #define SQL_LEN 512
@@ -13958,8 +14087,6 @@ int main(int argc, char *argv[]) {
         free(node);
         node = next;
     }
-
-
 
     return ret;
 }
