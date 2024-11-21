@@ -120,7 +120,7 @@ jobs:
           sudo apt install libgflags2.2 libgflags-dev -y > /dev/null
           cd TDengine && mkdir debug && cd debug \
             && cmake .. -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_DEPENDENCY_TESTS=false > /dev/null \
-            && make -j8 > /dev/null && sudo make install > /dev/null \
+            && make -j10 > /dev/null && sudo make install > /dev/null \
             && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
