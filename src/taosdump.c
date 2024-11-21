@@ -943,7 +943,7 @@ char * afterRenameSql(char *cmd) {
     const char* CREATE_STB = "CREATE STABLE IF NOT EXISTS ";
     const char* CREATE_TB  = "CREATE TABLE IF NOT EXISTS ";
 
-    const char* pres[] = {CREATE_DB, CREATE_STB};
+    const char* pres[] = {CREATE_DB, CREATE_STB, CREATE_TB};
     for (int i = 0; i < sizeof(pres)/sizeof(char*); i++ ) {
         int len = strlen(pres[i]);
         if (strncmp(cmd, pres[i], len) == 0) {
