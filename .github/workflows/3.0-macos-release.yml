@@ -5,12 +5,10 @@ on:
     - cron: "10 16 * * *"
   push:
     branches:
-      - develop
       - 3.0
       - main
   pull_request:
     branches:
-      - develop
       - 3.0
       - main
 
@@ -90,7 +88,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           brew update
-          brew install argp-standalone pkg-config
+          brew install -f argp-standalone pkg-config
           brew info argp-standalone
 
       - name: Set up Go
