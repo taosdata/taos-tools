@@ -3610,10 +3610,14 @@ static int dumpCreateTableClause(
 
     // write to file
     debugPrint("%s() LN%d, export create table sql: %s\n", __func__, __LINE__, sql);
-    int len = fprintf(fp, "%s\n\n", sql);
+    int len = fprintf(fp, "%s\n", sql);
+    if (len != strlen(sql) + 1) {
+        errorPrint(" write create sql failed. expect=%ld real=%d\n sql=%s\n", strlen(sql), len, sql);
+        free(sql);
+        return -1;
+    }
     free(sql);
-
-    return len > 0 ? 0 : -1;
+    return 0;
 }
 
 static int dumpStableClasuse(
