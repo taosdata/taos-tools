@@ -122,9 +122,21 @@ class TDTestCase:
         self.exec(cmd)
         self.checkCorrectWithJson(jsonFile)
 
-    def insertData(self, benchmark, json):
-        # insert
+    def insertData(self, benchmark, json, db):
+        # insert super table
         self.testBenchmarkJson(benchmark, json)
+        
+        # normal table
+        sqls = [
+            f"create table {db}.ntb(st timestamp, c1 int, c2 binary(32))",
+            f"insert into {db}.ntb values(now, 1, 'abc1')",
+            f"insert into {db}.ntb values(now, 2, 'abc2')",
+            f"insert into {db}.ntb values(now, 3, 'abc3')",
+            f"insert into {db}.ntb values(now, 4, 'abc4')",
+            f"insert into {db}.ntb values(now, 5, 'abc5')",
+        ]
+        for sql in sqls:
+            tdSql.execute(sql)
 
     def dumpOut(self, taosdump, db , outdir):
         # dump out
@@ -134,13 +146,13 @@ class TDTestCase:
         # dump in
         self.exec(f'{taosdump} -W "{db}={newdb}" -i {indir}')
 
-    def checkSame(self, db, newdb, aggfun):
+    def checkSame(self, db, newdb, stb, aggfun):
         # sum pk db
-        sql = f"select {aggfun} from {db}.meters"
+        sql = f"select {aggfun} from {db}.{stb}"
         tdSql.query(sql)
         sum1 = tdSql.getData(0,0)
         # sum pk newdb
-        sql = f"select {aggfun} from {newdb}.meters"
+        sql = f"select {aggfun} from {newdb}.{stb}"
         tdSql.query(sql)
         sum2 = tdSql.getData(0,0)
 
@@ -155,9 +167,13 @@ class TDTestCase:
         self.checkCorrectWithJson(json, newdb)
         
         #  compare sum(pk)
-        self.checkSame(db, newdb, "sum(pk)")
-        self.checkSame(db, newdb, "sum(usi)")
-        self.checkSame(db, newdb, "sum(ic)")
+        stb = "meters"
+        self.checkSame(db, newdb, stb, "sum(pk)")
+        self.checkSame(db, newdb, stb, "sum(usi)")
+        self.checkSame(db, newdb, stb, "sum(ic)")
+
+        # check normal table
+        self.checkSame(db, newdb, "ntb", "sum(c1)")
 
     def run(self):
         # database
@@ -169,7 +185,7 @@ class TDTestCase:
         json = "./taosdump/ws3/json/primaryKey.json"
 
         # insert data with taosBenchmark
-        self.insertData(benchmark, json)
+        self.insertData(benchmark, json, db)
 
         # dump out 
         self.dumpOut(taosdump, db, tmpdir)
