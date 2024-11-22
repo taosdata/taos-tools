@@ -3533,6 +3533,7 @@ static int dumpCreateTableClauseAvro(
     // get create sql
     char *sql = queryCreateTableSql(taos, dbName, tableDes->name);
     if(sql == NULL) {
+        free(jsonSchema);
         return -1;
     }    
 
@@ -3642,9 +3643,7 @@ static int dumpStableClasuse(
         exit(-1);
     }
 
-    dumpCreateTableClause(taos, tableDes, colCount, fp, dbInfo->name);
-
-    return 0;
+    return dumpCreateTableClause(taos, tableDes, colCount, fp, dbInfo->name);
 }
 
 static void dumpCreateDbClause(
@@ -8754,10 +8753,24 @@ static int64_t dumpNormalTable(
                     return -1;
                 }
             }
-            dumpCreateTableClauseAvro(taos,
+            int32_t ret = dumpCreateTableClauseAvro(taos,
                     dumpFilename, tableDes, numColsAndTags, dbInfo->name);
+            if (ret != 0) {
+                if (tableDes) {
+                    freeTbDes(tableDes, true);
+                }
+                errorPrint("%s() LN%d, call dumpCreateTableClauseAvro failed!\n",  __func__, __LINE__);
+                return ret;
+            }
         } else {
-            dumpCreateTableClause(taos, tableDes, numColsAndTags, fp, dbInfo->name);
+            int32_t ret = dumpCreateTableClause(taos, tableDes, numColsAndTags, fp, dbInfo->name);
+            if (ret != 0) {
+                if (tableDes) {
+                    freeTbDes(tableDes, true);
+                }
+                errorPrint("%s() LN%d, call dumpCreateTableClause failed!\n",  __func__, __LINE__);
+                return ret;
+            }
         }
     }
 
