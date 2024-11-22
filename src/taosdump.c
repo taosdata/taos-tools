@@ -7466,10 +7466,10 @@ static int64_t dumpInAvroDataImpl(
         freeBindArray(bindArray, onlyCol);
     }
 
-    // last batch execute 
-    if(0 != (count % g_args.data_batch)){
+    // last batch execute
+    if (0 != (count % g_args.data_batch)) {
         if (0 != (code = taos_stmt_execute(stmt))) {
-            errorPrint("error last =%s\n", taos_stmt_errstr(stmt));
+            errorPrint("error last=%s count=%" PRId64 " batch=%d\n", taos_stmt_errstr(stmt), count, g_args.data_batch);
         }
     }
 
