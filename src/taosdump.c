@@ -3191,10 +3191,11 @@ char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
             memcpy(buf, data, len > 63 ? 63 : len);
             errorPrint("Query create table sql prefix unexpect. pre=%s sql=%s\n", pre, buf);
             closeQuery(res);
+            return NULL;
         } else {
+            // foud create table
             npre = strlen(pre1);
         }
-        return NULL;
     }
     // table name check
     if (strncasecmp(data + npre + 1, tbName, strlen(tbName)) != 0) {
