@@ -91,7 +91,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           brew update
-          brew install -f argp-standalone pkg-config
+          brew install --overwrite argp-standalone pkg-config
           brew info argp-standalone
 
       - name: Set up Go

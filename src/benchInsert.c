@@ -3237,6 +3237,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
 
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_GEOMETRY:
             tmpP = calloc(1, g_arguments->prepared_rand * length);
             assert(tmpP);
@@ -3252,7 +3253,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
             break;
 
         default:
-            errorPrint("Unknown data type: %s\n",
+            errorPrint("Unknown data type1: %s\n",
                        convertDatatypeToString(dataType));
             exit(EXIT_FAILURE);
     }

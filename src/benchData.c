@@ -547,7 +547,7 @@ int tmpGeometry(char *tmp, int iface, Field *field, int64_t k) {
 
     // gen point count
     int32_t cnt = field->length / 24;
-    if(cnt == 0) {
+    if(cnt < 2) {
         snprintf(tmp, field->length, "POINT(%d %d)", tmpUint16(field), tmpUint16(field));
         return 0;
     }
