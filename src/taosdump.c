@@ -7372,8 +7372,8 @@ static int64_t dumpInAvroDataImpl(
                         break;
                     case TSDB_DATA_TYPE_JSON:
                     case TSDB_DATA_TYPE_NCHAR:
-                        if (field->type == TSDB_DATA_TYPE_NCHAR ||
-                            field->type == TSDB_DATA_TYPE_JSON ) {
+                        // RecordSchema bytes only covert to nchar type
+                        if (field->type == TSDB_DATA_TYPE_NCHAR) {
                             dumpInAvroDataNChar(field, &field_value, bind, &is_null);    
                         } else {
                             warnPrint("field[%d] type is not nchar/json! field->type=%d\n", i, field->type);
@@ -7382,8 +7382,8 @@ static int64_t dumpInAvroDataImpl(
                         break;
                     case TSDB_DATA_TYPE_VARBINARY:
                     case TSDB_DATA_TYPE_GEOMETRY:
-                        if (field->type == TSDB_DATA_TYPE_VARBINARY ||
-                            field->type == TSDB_DATA_TYPE_GEOMETRY ) {
+                        // RecordSchema bytes only covert to nchar type
+                        if (field->type == TSDB_DATA_TYPE_NCHAR) {
                             dumpInAvroDataBytes(field, &field_value, bind, &is_null);
                         } else {
                             warnPrint("field[%d] type is not varbinary/geometry! field->type=%d\n", i, field->type);
