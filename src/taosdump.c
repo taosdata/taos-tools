@@ -6650,7 +6650,7 @@ static void dumpInAvroDataNChar(FieldStruct *field,
                               avro_value_t *value,
                               TAOS_MULTI_BIND *bind,
                               char *is_null) {
-    size_t bytessize;
+    size_t bytessize = 0;
     void *bytesbuf = NULL;
 
     avro_value_t nchar_branch;
@@ -6658,12 +6658,33 @@ static void dumpInAvroDataNChar(FieldStruct *field,
 
     avro_value_get_bytes(&nchar_branch,
         (const void **)&bytesbuf, &bytessize);
-    if (NULL == bytesbuf) {
+    if (NULL == bytesbuf || bytessize == 0) {
         debugPrint2("%s | ", "NULL");
         bind->is_null = is_null;
     } else {
         debugPrint2("%s | ", (char*)bytesbuf);
-        bind->buffer_length = strlen((char*)bytesbuf);
+        bind->buffer_length = bytessize;
+    }
+    bind->buffer = bytesbuf;
+}
+
+static void dumpInAvroDataBytes(FieldStruct *field,
+                              avro_value_t *value,
+                              TAOS_MULTI_BIND *bind,
+                              char *is_null) {
+    size_t bytessize = 0;
+    void *bytesbuf = NULL;
+
+    avro_value_t branch;
+    avro_value_get_current_branch(value, &branch);
+
+    avro_value_get_bytes(&branch, (const void **)&bytesbuf, &bytessize);
+    if (NULL == bytesbuf || bytessize == 0) {
+        debugPrint2("%s | ", "NULL");
+        bind->is_null = is_null;
+    } else {
+        debugPrint2("bytes len =%ld | ", bytessize);
+        bind->buffer_length = bytessize;
     }
     bind->buffer = bytesbuf;
 }
@@ -6679,12 +6700,12 @@ static void dumpInAvroDataBinary(FieldStruct *field,
     size_t size;
     avro_value_get_string(&branch, (const char **)&buf, &size);
 
-    if (NULL == buf) {
+    if (NULL == buf || size == 0) {
         debugPrint2("%s | ", "NULL");
         bind->is_null = is_null;
     } else {
         debugPrint2("%s | ", (char *)buf);
-        bind->buffer_length = strlen(buf);
+        bind->buffer_length = size;
     }
     bind->buffer = buf;
 }
@@ -7351,14 +7372,22 @@ static int64_t dumpInAvroDataImpl(
                         break;
                     case TSDB_DATA_TYPE_JSON:
                     case TSDB_DATA_TYPE_NCHAR:
-                    case TSDB_DATA_TYPE_VARBINARY:
-                    case TSDB_DATA_TYPE_GEOMETRY:
-                        if (field->type != TSDB_DATA_TYPE_NCHAR) {
-                            warnPrint("field[%d] type is not nchar/json!\n", i);
+                        if (field->type != TSDB_DATA_TYPE_NCHAR &&
+                            field->type != TSDB_DATA_TYPE_JSON ) {
+                            warnPrint("field[%d] type is not nchar/json! field->type=%d\n", i, field->type);
                             bind->is_null = &is_null;
                         } else {
-                            dumpInAvroDataNChar(field, &field_value,
-                                    bind, &is_null);
+                            dumpInAvroDataNChar(field, &field_value, bind, &is_null);
+                        }
+                        break;
+                    case TSDB_DATA_TYPE_VARBINARY:
+                    case TSDB_DATA_TYPE_GEOMETRY:
+                        if (field->type != TSDB_DATA_TYPE_VARBINARY &&
+                            field->type != TSDB_DATA_TYPE_GEOMETRY ) {
+                            warnPrint("field[%d] type is not varbinary/geometry! field->type=%d\n", i, field->type);
+                            bind->is_null = &is_null;
+                        } else {
+                            dumpInAvroDataBytes(field, &field_value, bind, &is_null);
                         }
                         break;
                     case TSDB_DATA_TYPE_BOOL:
