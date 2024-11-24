@@ -6705,7 +6705,7 @@ static void dumpInAvroDataBinary(FieldStruct *field,
         bind->is_null = is_null;
     } else {
         debugPrint2("%s | ", (char *)buf);
-        bind->buffer_length = size;
+        bind->buffer_length = strlen(buf);
     }
     bind->buffer = buf;
 }

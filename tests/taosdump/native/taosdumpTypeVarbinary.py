@@ -125,16 +125,15 @@ class TDTestCase:
     def insertData(self, benchmark, json, db):
         # insert super table
         self.testBenchmarkJson(benchmark, json)
-
         
         # normal table
         sqls = [
-            f"create table {db}.ntb(st timestamp, c1 int, c2 geometry(128))",
-            f"insert into {db}.ntb values(now, 1, 'POINT(2 5)')",
-            f"insert into {db}.ntb values(now, 2, 'LINESTRING(2 5, 4 7)')",
-            f"insert into {db}.ntb values(now, 3, 'LINESTRING(2 6, 4 8, 9 3)')",
-            f"insert into {db}.ntb values(now, 4, 'LINESTRING(2 5, 4 9)')",
-            f"insert into {db}.ntb values(now, 5, 'LINESTRING(2 9, 3 14,6 19)')"
+            f"create table {db}.ntb(st timestamp, c1 int, c2 varbinary(32))",
+            f"insert into {db}.ntb values(now, 1, 'abc1')",
+            f"insert into {db}.ntb values(now, 2, '\\x616263')",
+            f"insert into {db}.ntb values(now, 3, 'abc3')",
+            f"insert into {db}.ntb values(now, 4, 'abc4')",
+            f"insert into {db}.ntb values(now, 5, 'abc5')",
         ]
         for sql in sqls:
             tdSql.execute(sql)
@@ -162,13 +161,13 @@ class TDTestCase:
         else:
             tdLog.exit(f"{aggfun} source db:{sum1} import db:{sum2} not equal.")
 
-    def checkProjSame(self, db, newdb, stb , row, col, where = "where tbname='d0'"):
+    def checkProjSame(self, db, newdb, stb , row, col):
         # sum pk db
-        sql = f"select * from {db}.{stb} {where} limit {row+1}"
+        sql = f"select * from {db}.{stb} where tbname='d0' limit {row+1}"
         tdSql.query(sql)
         val1 = tdSql.getData(row, col)
         # sum pk newdb
-        sql = f"select * from {newdb}.{stb} {where} limit {row+1}"
+        sql = f"select * from {newdb}.{stb} where tbname='d0' limit {row+1}"
         tdSql.query(sql)
         val2 = tdSql.getData(row, col)
 
@@ -190,31 +189,30 @@ class TDTestCase:
         self.checkProjSame(db, newdb, stb, 0, 4)
         self.checkProjSame(db, newdb, stb, 0, 6) # tag
 
-        self.checkProjSame(db, newdb, stb, 8, 3)
-        self.checkProjSame(db, newdb, stb, 8, 4)
-        self.checkProjSame(db, newdb, stb, 8, 6) # tag
+        self.checkProjSame(db, newdb, stb, 5, 3)
+        self.checkProjSame(db, newdb, stb, 5, 4)
+        self.checkProjSame(db, newdb, stb, 5, 6) # tag
         
-
         # check normal table
         self.checkAggSame(db, newdb, "ntb", "sum(c1)")
         # 0 line
-        self.checkProjSame(db, newdb, "ntb", 0, 0, "")
-        self.checkProjSame(db, newdb, "ntb", 0, 1, "")
-        self.checkProjSame(db, newdb, "ntb", 0, 2, "")
+        self.checkProjSame(db, newdb, "ntb", 0, 0)
+        self.checkProjSame(db, newdb, "ntb", 0, 1)
+        self.checkProjSame(db, newdb, "ntb", 0, 2)
         # 3 line
-        self.checkProjSame(db, newdb, "ntb", 3, 0, "")
-        self.checkProjSame(db, newdb, "ntb", 3, 1, "")
-        self.checkProjSame(db, newdb, "ntb", 3, 2, "")
+        self.checkProjSame(db, newdb, "ntb", 3, 0)
+        self.checkProjSame(db, newdb, "ntb", 3, 1)
+        self.checkProjSame(db, newdb, "ntb", 3, 2)
 
 
     def run(self):
         # database
-        db = "geodb"
-        newdb = "ngeodb"
+        db = "varbin"
+        newdb = "nvarbin"
         
         # find
         taosdump, benchmark, tmpdir = self.findPrograme()
-        json = "./taosdump/ws3/json/geometry.json"
+        json = "./taosdump/native/json/varbinary.json"
 
         # insert data with taosBenchmark
         self.insertData(benchmark, json, db)
