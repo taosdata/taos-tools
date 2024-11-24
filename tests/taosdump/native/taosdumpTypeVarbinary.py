@@ -13,6 +13,7 @@
 
 import os
 import json
+import copy
 from util.log import *
 from util.cases import *
 from util.sql import *
