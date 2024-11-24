@@ -7372,22 +7372,22 @@ static int64_t dumpInAvroDataImpl(
                         break;
                     case TSDB_DATA_TYPE_JSON:
                     case TSDB_DATA_TYPE_NCHAR:
-                        if (field->type != TSDB_DATA_TYPE_NCHAR &&
-                            field->type != TSDB_DATA_TYPE_JSON ) {
-                            warnPrint("field[%d] type is not nchar/json! field->type=%d\n", i, field->type);
-                            bind->is_null = &is_null;
+                        if (field->type == TSDB_DATA_TYPE_NCHAR ||
+                            field->type == TSDB_DATA_TYPE_JSON ) {
+                            dumpInAvroDataNChar(field, &field_value, bind, &is_null);    
                         } else {
-                            dumpInAvroDataNChar(field, &field_value, bind, &is_null);
+                            warnPrint("field[%d] type is not nchar/json! field->type=%d\n", i, field->type);
+                            bind->is_null = &is_null;                            
                         }
                         break;
                     case TSDB_DATA_TYPE_VARBINARY:
                     case TSDB_DATA_TYPE_GEOMETRY:
-                        if (field->type != TSDB_DATA_TYPE_VARBINARY &&
-                            field->type != TSDB_DATA_TYPE_GEOMETRY ) {
+                        if (field->type == TSDB_DATA_TYPE_VARBINARY ||
+                            field->type == TSDB_DATA_TYPE_GEOMETRY ) {
+                            dumpInAvroDataBytes(field, &field_value, bind, &is_null);
+                        } else {
                             warnPrint("field[%d] type is not varbinary/geometry! field->type=%d\n", i, field->type);
                             bind->is_null = &is_null;
-                        } else {
-                            dumpInAvroDataBytes(field, &field_value, bind, &is_null);
                         }
                         break;
                     case TSDB_DATA_TYPE_BOOL:
