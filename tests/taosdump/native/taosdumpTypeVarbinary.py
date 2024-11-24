@@ -130,7 +130,8 @@ class TDTestCase:
         # normal table
         sqls = [
             f"create table {db}.ntb(st timestamp, c1 int, c2 varbinary(32))",
-            f"insert into {db}.ntb values(now, 1, 'abc1')",
+            f"insert into {db}.ntb values(now, 0, 'abc1')",
+            f"insert into {db}.ntb values(now, 1,  NULL)",
             f"insert into {db}.ntb values(now, 2, '\\x616263')",
             f"insert into {db}.ntb values(now, 3, 'abc3')",
             f"insert into {db}.ntb values(now, 4, 'abc4')",
@@ -194,17 +195,21 @@ class TDTestCase:
         self.checkProjSame(db, newdb, stb, 8, 4)
         self.checkProjSame(db, newdb, stb, 8, 6) # tag
         
-
         # check normal table
-        self.checkAggSame(db, newdb, "ntb", "sum(c1)")
+        tb = "ntb"
+        self.checkAggSame(db, newdb, tb, "sum(c1)")
         # 0 line
-        self.checkProjSame(db, newdb, "ntb", 0, 0, "")
-        self.checkProjSame(db, newdb, "ntb", 0, 1, "")
-        self.checkProjSame(db, newdb, "ntb", 0, 2, "")
+        self.checkProjSame(db, newdb, tb, 0, 0, "")
+        self.checkProjSame(db, newdb, tb, 0, 1, "")
+        self.checkProjSame(db, newdb, tb, 0, 2, "")
+        # 1 line
+        self.checkProjSame(db, newdb, tb, 1, 0, "")
+        self.checkProjSame(db, newdb, tb, 1, 1, "")
+        self.checkProjSame(db, newdb, tb, 1, 2, "")
         # 3 line
-        self.checkProjSame(db, newdb, "ntb", 3, 0, "")
-        self.checkProjSame(db, newdb, "ntb", 3, 1, "")
-        self.checkProjSame(db, newdb, "ntb", 3, 2, "")
+        self.checkProjSame(db, newdb, tb, 3, 0, "")
+        self.checkProjSame(db, newdb, tb, 3, 1, "")
+        self.checkProjSame(db, newdb, tb, 3, 2, "")
 
 
     def run(self):

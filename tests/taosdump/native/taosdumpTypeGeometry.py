@@ -131,6 +131,7 @@ class TDTestCase:
         # normal table
         sqls = [
             f"create table {db}.ntb(st timestamp, c1 int, c2 geometry(128))",
+            f"insert into {db}.ntb values(now, 0,  NULL)",
             f"insert into {db}.ntb values(now, 1, 'POINT(2 5)')",
             f"insert into {db}.ntb values(now, 2, 'LINESTRING(2 5, 4 7)')",
             f"insert into {db}.ntb values(now, 3, 'LINESTRING(2 6, 4 8, 9 3)')",
