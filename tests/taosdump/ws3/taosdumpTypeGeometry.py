@@ -162,13 +162,13 @@ class TDTestCase:
         else:
             tdLog.exit(f"{aggfun} source db:{sum1} import db:{sum2} not equal.")
 
-    def checkProjSame(self, db, newdb, stb , row, col):
+    def checkProjSame(self, db, newdb, stb , row, col, where = "where tbname='d0'"):
         # sum pk db
-        sql = f"select * from {db}.{stb} where tbname='d0' limit {row+1}"
+        sql = f"select * from {db}.{stb} {where} limit {row+1}"
         tdSql.query(sql)
         val1 = tdSql.getData(row, col)
         # sum pk newdb
-        sql = f"select * from {newdb}.{stb} where tbname='d0' limit {row+1}"
+        sql = f"select * from {newdb}.{stb} {where} limit {row+1}"
         tdSql.query(sql)
         val2 = tdSql.getData(row, col)
 
@@ -198,13 +198,13 @@ class TDTestCase:
         # check normal table
         self.checkAggSame(db, newdb, "ntb", "sum(c1)")
         # 0 line
-        self.checkProjSame(db, newdb, "ntb", 0, 0)
-        self.checkProjSame(db, newdb, "ntb", 0, 1)
-        self.checkProjSame(db, newdb, "ntb", 0, 2)
+        self.checkProjSame(db, newdb, "ntb", 0, 0, "")
+        self.checkProjSame(db, newdb, "ntb", 0, 1, "")
+        self.checkProjSame(db, newdb, "ntb", 0, 2, "")
         # 3 line
-        self.checkProjSame(db, newdb, "ntb", 3, 0)
-        self.checkProjSame(db, newdb, "ntb", 3, 1)
-        self.checkProjSame(db, newdb, "ntb", 3, 2)
+        self.checkProjSame(db, newdb, "ntb", 3, 0, "")
+        self.checkProjSame(db, newdb, "ntb", 3, 1, "")
+        self.checkProjSame(db, newdb, "ntb", 3, 2, "")
 
 
     def run(self):
