@@ -714,6 +714,10 @@ static char *typeToStr(int type) {
             return "bigint unsigned";
         case TSDB_DATA_TYPE_JSON:
             return "JSON";
+        case TSDB_DATA_TYPE_VARBINARY:
+            return "varbinary";
+        case TSDB_DATA_TYPE_GEOMETRY:
+            return "geometry";
         default:
             break;
     }
@@ -757,6 +761,10 @@ static int typeStrToType(const char *type_str) {
         return TSDB_DATA_TYPE_UBIGINT;
     } else if (0 == strcasecmp(type_str, "JSON")) {
         return TSDB_DATA_TYPE_JSON;
+    } else if (0 == strcasecmp(type_str, "varbinary")) {
+        return TSDB_DATA_TYPE_VARBINARY;
+    } else if (0 == strcasecmp(type_str, "geometry")) {
+        return TSDB_DATA_TYPE_GEOMETRY;
     } else {
         errorPrint("%s() LN%d Unknown type: %s\n",
                 __func__, __LINE__, type_str);
@@ -2026,8 +2034,10 @@ static int dumpCreateMTableClause(
 
     for (; counter < numColsAndTags; counter++) {
         if (counter != count_temp) {
-            if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
-                    || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
+            if ((TSDB_DATA_TYPE_BINARY    == tableDes->cols[counter].type) ||
+                (TSDB_DATA_TYPE_VARBINARY == tableDes->cols[counter].type) ||
+                (TSDB_DATA_TYPE_GEOMETRY  == tableDes->cols[counter].type) ||
+                (TSDB_DATA_TYPE_NCHAR     == tableDes->cols[counter].type)) {
                 if (tableDes->cols[counter].var_value) {
                     pstr += sprintf(pstr, ",\'%s\'",
                             tableDes->cols[counter].var_value);
@@ -2039,8 +2049,10 @@ static int dumpCreateMTableClause(
                 pstr += sprintf(pstr, ",%s", tableDes->cols[counter].value);
             }
         } else {
-            if ((TSDB_DATA_TYPE_BINARY == tableDes->cols[counter].type)
-                    || (TSDB_DATA_TYPE_NCHAR == tableDes->cols[counter].type)) {
+            if ((TSDB_DATA_TYPE_BINARY    == tableDes->cols[counter].type) ||
+                (TSDB_DATA_TYPE_VARBINARY == tableDes->cols[counter].type) ||
+                (TSDB_DATA_TYPE_GEOMETRY  == tableDes->cols[counter].type) ||
+                (TSDB_DATA_TYPE_NCHAR     == tableDes->cols[counter].type)) {
                 if (tableDes->cols[counter].var_value) {
                     pstr += sprintf(pstr, "\'%s\'",
                                     tableDes->cols[counter].var_value);
@@ -2301,6 +2313,8 @@ static int processFieldsValueV3(
 
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
+        case TSDB_DATA_TYPE_VARBINARY:
+        case TSDB_DATA_TYPE_GEOMETRY:
             {
                 if (g_args.avro) {
                     if (len < (COL_VALUEBUF_LEN - 1)) {
@@ -2513,6 +2527,8 @@ static int processFieldsValueV2(
 
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
+        case TSDB_DATA_TYPE_VARBINARY:
+        case TSDB_DATA_TYPE_GEOMETRY:
             {
                 if (g_args.avro) {
                     if (len < (COL_VALUEBUF_LEN - 1)) {
@@ -3990,6 +4006,8 @@ static int convertTbDesToJsonImplMore(
 
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
+        case TSDB_DATA_TYPE_VARBINARY:
+        case TSDB_DATA_TYPE_GEOMETRY:
             ret = sprintf(pstr,
                     "{\"name\":\"%s%d\",\"type\":[\"null\",\"%s\"]",
                     colOrTag, i-adjust, "bytes");
@@ -4975,6 +4993,8 @@ static int processValueToAvro(
 
         case TSDB_DATA_TYPE_NCHAR:
         case TSDB_DATA_TYPE_JSON:
+        case TSDB_DATA_TYPE_VARBINARY:
+        case TSDB_DATA_TYPE_GEOMETRY:
             if (NULL == value) {
                 avro_value_set_branch(&avro_value, 0, &branch);
                 avro_value_set_null(&branch);
@@ -5330,8 +5350,10 @@ static void freeBindArray(char *bindArray, int elements) {
         bind = (TAOS_MULTI_BIND *)((char *)bindArray
                 + (sizeof(TAOS_MULTI_BIND) * j));
         if ((TSDB_DATA_TYPE_BINARY != bind->buffer_type)
-                && (TSDB_DATA_TYPE_NCHAR != bind->buffer_type)
-                && (TSDB_DATA_TYPE_JSON != bind->buffer_type)) {
+                && (TSDB_DATA_TYPE_VARBINARY != bind->buffer_type)
+                && (TSDB_DATA_TYPE_GEOMETRY  != bind->buffer_type)
+                && (TSDB_DATA_TYPE_NCHAR     != bind->buffer_type)
+                && (TSDB_DATA_TYPE_JSON      != bind->buffer_type)) {
             tfree(bind->buffer);
         }
     }
@@ -6142,6 +6164,8 @@ static int64_t dumpInAvroTbTagsImpl(
                             break;
                         case TSDB_DATA_TYPE_NCHAR:
                         case TSDB_DATA_TYPE_JSON:
+                        case TSDB_DATA_TYPE_VARBINARY:
+                        case TSDB_DATA_TYPE_GEOMETRY:
                             curr_sqlstr_len = dumpInAvroTagNChar(
                                          field, &field_value, sqlstr,
                                            curr_sqlstr_len);
@@ -6626,7 +6650,7 @@ static void dumpInAvroDataNChar(FieldStruct *field,
                               avro_value_t *value,
                               TAOS_MULTI_BIND *bind,
                               char *is_null) {
-    size_t bytessize;
+    size_t bytessize = 0;
     void *bytesbuf = NULL;
 
     avro_value_t nchar_branch;
@@ -6634,12 +6658,33 @@ static void dumpInAvroDataNChar(FieldStruct *field,
 
     avro_value_get_bytes(&nchar_branch,
         (const void **)&bytesbuf, &bytessize);
-    if (NULL == bytesbuf) {
+    if (NULL == bytesbuf || bytessize == 0) {
         debugPrint2("%s | ", "NULL");
         bind->is_null = is_null;
     } else {
         debugPrint2("%s | ", (char*)bytesbuf);
-        bind->buffer_length = strlen((char*)bytesbuf);
+        bind->buffer_length = bytessize;
+    }
+    bind->buffer = bytesbuf;
+}
+
+static void dumpInAvroDataBytes(FieldStruct *field,
+                              avro_value_t *value,
+                              TAOS_MULTI_BIND *bind,
+                              char *is_null) {
+    size_t bytessize = 0;
+    void *bytesbuf = NULL;
+
+    avro_value_t branch;
+    avro_value_get_current_branch(value, &branch);
+
+    avro_value_get_bytes(&branch, (const void **)&bytesbuf, &bytessize);
+    if (NULL == bytesbuf || bytessize == 0) {
+        debugPrint2("%s | ", "NULL");
+        bind->is_null = is_null;
+    } else {
+        debugPrint2("bytes len =%ld | ", bytessize);
+        bind->buffer_length = bytessize;
     }
     bind->buffer = bytesbuf;
 }
@@ -6655,7 +6700,7 @@ static void dumpInAvroDataBinary(FieldStruct *field,
     size_t size;
     avro_value_get_string(&branch, (const char **)&buf, &size);
 
-    if (NULL == buf) {
+    if (NULL == buf || size == 0) {
         debugPrint2("%s | ", "NULL");
         bind->is_null = is_null;
     } else {
@@ -7327,12 +7372,22 @@ static int64_t dumpInAvroDataImpl(
                         break;
                     case TSDB_DATA_TYPE_JSON:
                     case TSDB_DATA_TYPE_NCHAR:
-                        if (field->type != TSDB_DATA_TYPE_NCHAR) {
-                            warnPrint("field[%d] type is not nchar/json!\n", i);
-                            bind->is_null = &is_null;
+                        // RecordSchema bytes only covert to nchar type
+                        if (field->type == TSDB_DATA_TYPE_NCHAR) {
+                            dumpInAvroDataNChar(field, &field_value, bind, &is_null);    
                         } else {
-                            dumpInAvroDataNChar(field, &field_value,
-                                    bind, &is_null);
+                            warnPrint("field[%d] type is not nchar/json! field->type=%d\n", i, field->type);
+                            bind->is_null = &is_null;                            
+                        }
+                        break;
+                    case TSDB_DATA_TYPE_VARBINARY:
+                    case TSDB_DATA_TYPE_GEOMETRY:
+                        // RecordSchema bytes only covert to nchar type
+                        if (field->type == TSDB_DATA_TYPE_NCHAR) {
+                            dumpInAvroDataBytes(field, &field_value, bind, &is_null);
+                        } else {
+                            warnPrint("field[%d] type is not varbinary/geometry! field->type=%d\n", i, field->type);
+                            bind->is_null = &is_null;
                         }
                         break;
                     case TSDB_DATA_TYPE_BOOL:
@@ -7468,9 +7523,19 @@ static int64_t dumpInAvroDataImpl(
 
     // last batch execute
     if (0 != (count % g_args.data_batch)) {
-        if (0 != (code = taos_stmt_execute(stmt))) {
-            errorPrint("error last=%s count=%" PRId64 " batch=%d\n", taos_stmt_errstr(stmt), count, g_args.data_batch);
+#ifdef WEBSOCKET
+        if (g_args.cloud || g_args.restful) {
+            // nothing to do
+        } else {
+#endif
+            if (0 != (code = taos_stmt_execute(stmt))) {
+                errorPrint("error last=%s count=%" PRId64 " batch=%d\n", taos_stmt_errstr(stmt), count, g_args.data_batch);
+            } else {
+                success ++;
+            }
+#ifdef WEBSOCKET
         }
+#endif
     }
 
     free(tbName);
@@ -7994,6 +8059,8 @@ static int processResultValue(
                     GET_DOUBLE_VAL(value));
 
         case TSDB_DATA_TYPE_BINARY:
+        case TSDB_DATA_TYPE_VARBINARY:
+        case TSDB_DATA_TYPE_GEOMETRY:
             {
                 char *bbuf = calloc(1, TSDB_MAX_ALLOWED_SQL_LEN);
                 if (NULL == bbuf) {
@@ -9161,6 +9228,8 @@ static int createMTableAvroHeadImp(
 
             case TSDB_DATA_TYPE_NCHAR:
             case TSDB_DATA_TYPE_JSON:
+            case TSDB_DATA_TYPE_VARBINARY:
+            case TSDB_DATA_TYPE_GEOMETRY:
                 if (0 == strncmp(
                             subTableDes->cols[subTableDes->columns+tag].note,
                             "NUL", 3)) {
@@ -9785,6 +9854,8 @@ static int writeTagsToAvro(
 
             case TSDB_DATA_TYPE_NCHAR:
             case TSDB_DATA_TYPE_JSON:
+            case TSDB_DATA_TYPE_VARBINARY:
+            case TSDB_DATA_TYPE_GEOMETRY:
                 if (0 == strncmp(
                             tbDes->cols[tbDes->columns+tag].note,
                             "NUL", 3)) {
