@@ -2037,14 +2037,14 @@ static int getTableDesNative(
 }
 
 // query from server
-char *queryCreateTableSql(void* taos, const char *dbName, char *tbName) {
+char *queryCreateTableSql(void** taos_v, const char *dbName, char *tbName) {
     // combine sql
     char sql[TSDB_DB_NAME_LEN + TSDB_TABLE_NAME_LEN + 128] = "";
     snprintf(sql, sizeof(sql), "show create table `%s`.`%s`", dbName, tbName);
     debugPrint("show sql:%s\n", sql);
     
     // query
-    void* res = openQuery(taos, sql);
+    void* res = openQuery(taos_v, sql);
     if (res == NULL) {
         return NULL;
     }
@@ -2380,7 +2380,7 @@ avro_value_iface_t* prepareAvroWface(
 }
 
 static int dumpCreateTableClauseAvro(
-        void *taos,
+        void **taos_v,
         const char *dumpFilename,
         TableDes *tableDes,
         int numOfCols,
@@ -2420,7 +2420,7 @@ static int dumpCreateTableClauseAvro(
             dbName, "_ntb");
 
     // get create sql
-    char *sql = queryCreateTableSql(taos, dbName, tableDes->name);
+    char *sql = queryCreateTableSql(taos_v, dbName, tableDes->name);
     if(sql == NULL) {
         free(jsonSchema);
         return -1;
@@ -2486,13 +2486,13 @@ static int dumpCreateTableClauseAvro(
 }
 
 static int dumpCreateTableClause(
-        void * taos,
+        void ** taos_v,
         TableDes *tableDes,
         int numOfCols,
         FILE *fp,
         const char* dbName) {
     // get create sql
-    char *sql = queryCreateTableSql(taos, dbName, tableDes->name);
+    char *sql = queryCreateTableSql(taos_v, dbName, tableDes->name);
     if(sql == NULL) {
         return -1;
     }
@@ -2536,7 +2536,7 @@ static int dumpStableClasuse(
         exit(-1);
     }
 
-    return dumpCreateTableClause(taos, tableDes, colCount, fp, dbInfo->name);
+    return dumpCreateTableClause(taos_v, tableDes, colCount, fp, dbInfo->name);
 }
 
 static void dumpCreateDbClause(
@@ -7233,7 +7233,7 @@ int64_t dumpNormalTable(
                     return -1;
                 }
             }
-            int32_t ret = dumpCreateTableClauseAvro(taos,
+            int32_t ret = dumpCreateTableClauseAvro(taos_v,
                     dumpFilename, tableDes, numColsAndTags, dbInfo->name);
             if (ret != 0) {
                 if (tableDes) {
@@ -7243,7 +7243,7 @@ int64_t dumpNormalTable(
                 return ret;
             }
         } else {
-            int32_t ret = dumpCreateTableClause(taos, tableDes, numColsAndTags, fp, dbInfo->name);
+            int32_t ret = dumpCreateTableClause(taos_v, tableDes, numColsAndTags, fp, dbInfo->name);
             if (ret != 0) {
                 if (tableDes) {
                     freeTbDes(tableDes, true);

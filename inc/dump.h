@@ -503,6 +503,10 @@ int64_t dumpANormalTableNotBelong(
         int64_t index,
         void **taos_v, SDbInfo *dbInfo, char *ntbName);
 
+// query
+void* openQuery(void* taos , const char * sql);
+void closeQuery(void* res);
+int32_t readRow(void *res, int32_t idx, int32_t col, uint32_t *len, char **data);
 
 
 extern struct arguments g_args;
@@ -516,9 +520,4 @@ extern char      g_dbName[TSDB_DB_NAME_LEN];
 extern char      g_stbName[TSDB_TABLE_NAME_LEN];
 extern int64_t g_totalDumpOutRows;
 extern SDbInfo **g_dbInfos;
-
-void* openQuery(void* taos , const char * sql);
-void closeQuery(void* res);
-int32_t readRow(void *res, int32_t idx, int32_t col, uint32_t *len, char **data);
-
 #endif  // INC_DUMP_H_
