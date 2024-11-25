@@ -504,7 +504,7 @@ int64_t dumpANormalTableNotBelong(
         void **taos_v, SDbInfo *dbInfo, char *ntbName);
 
 // query
-void* openQuery(void* taos , const char * sql);
+void* openQuery(void** taos_v , const char * sql);
 void closeQuery(void* res);
 int32_t readRow(void *res, int32_t idx, int32_t col, uint32_t *len, char **data);
 
