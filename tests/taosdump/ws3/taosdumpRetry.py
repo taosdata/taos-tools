@@ -160,11 +160,11 @@ class TDTestCase:
 
     def dumpOut(self, taosdump, db , outdir):
         # dump out
-        self.exec(f"{taosdump} -D {db} -o {outdir}")
+        self.exec(f"{taosdump} -T 2 -D {db} -o {outdir}")
 
     def dumpIn(self, taosdump, db, newdb, indir):
         # dump in
-        self.exec(f'{taosdump} -W "{db}={newdb}" -i {indir}')
+        self.exec(f'{taosdump} -T 10 -W "{db}={newdb}" -i {indir}')
 
     def checkAggSame(self, db, newdb, stb, aggfun):
         # sum pk db
