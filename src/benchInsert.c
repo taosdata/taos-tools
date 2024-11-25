@@ -3253,7 +3253,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
             break;
 
         default:
-            errorPrint("Unknown data type1: %s\n",
+            errorPrint("Unknown data type on initStmtData: %s\n",
                        convertDatatypeToString(dataType));
             exit(EXIT_FAILURE);
     }
