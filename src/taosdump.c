@@ -7525,12 +7525,7 @@ static int64_t dumpInAvroDataImpl(
     if (0 != (count % g_args.data_batch)) {
 #ifdef WEBSOCKET
         if (g_args.cloud || g_args.restful) {
-            int32_t affected_rows;
-            if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
-                errorPrint("ws error last=%s count=%" PRId64 " batch=%d\n", ws_errstr(stmt), count, g_args.data_batch);
-            } else {
-                success++;
-            }        
+            // nothing to do
         } else {
 #endif
             if (0 != (code = taos_stmt_execute(stmt))) {
