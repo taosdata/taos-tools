@@ -235,7 +235,7 @@ class TDTestCase:
         
         # find
         taosdump, benchmark, taosadapter, tmpdir = self.findPrograme()
-        json = "./taosdump/ws/json/retry.json"
+        json = "./taosdump/ws3/json/retry.json"
 
         # insert data with taosBenchmark
         self.insertData(benchmark, json, db)
