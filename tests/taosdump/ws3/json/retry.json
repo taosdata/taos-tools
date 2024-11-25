@@ -5,17 +5,17 @@
     "port": 6030,
     "user": "root",
     "password": "taosdata",
-    "num_of_records_per_req": 500,
+    "num_of_records_per_req": 5000,
     "create_table_thread_count": 1,
-    "thread_count": 2,
-    "prepared_rand": 1000,
+    "thread_count": 8,
+    "prepared_rand": 10000,
     "confirm_parameter_prompt": "no",
     "databases": [
         {
             "dbinfo": {
-                "name": "retry",
+                "name": "redb",
                 "drop": "yes",
-                "vgroups": 2,
+                "vgroups": 8,
                 "replica": 1,
                 "precision": "ms"
             },

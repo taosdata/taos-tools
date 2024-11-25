@@ -27,15 +27,15 @@ from util.dnodes import *
 #  kill taosadapter task 
 #
 def killTask(stopEvent, taosadapter, presleep, sleep, count):
-    tdLog.info("kill task pre sleep {presleep}s\n")
+    tdLog.info(f"kill task pre sleep {presleep}s\n")
     time.sleep(presleep)
     stopcmd  = "kill -9 $(pidof taosadapter)"
     startcmd = f"nohup {taosadapter} --logLevel=error --opentsdb_telnet.enable=true > ~/taosa.log 2>&1 &"
     for i in range(count):
-        tdLog.info(" i={i} cmd:{stopcmd} sleep {sleep}s\n")
+        tdLog.info(f" i={i} cmd:{stopcmd} sleep {sleep}s\n")
         os.system(stopcmd)
         time.sleep(sleep)
-        tdLog.info(" start cmd:{startcmd}\n")
+        tdLog.info(f" start cmd:{startcmd}\n")
         os.system(startcmd)
         if stopEvent.is_set():
             tdLog.info(" recv stop event and exit killTask ...\n")
@@ -230,8 +230,8 @@ class TDTestCase:
 
     def run(self):
         # database
-        db = "retry"
-        newdb = "nretry"
+        db = "redb"
+        newdb = "nredb"
         
         # find
         taosdump, benchmark, taosadapter, tmpdir = self.findPrograme()
@@ -241,7 +241,7 @@ class TDTestCase:
         self.insertData(benchmark, json, db)
 
         # start kill thread
-        self.startKillThread(taosadapter, 3, 5, 3)
+        self.startKillThread(taosadapter, 2, 5, 3)
 
         # dump out 
         self.dumpOut(taosdump, db, tmpdir)
