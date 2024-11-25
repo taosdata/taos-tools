@@ -1043,24 +1043,24 @@ int64_t fillTbNameArrWS(WS_TAOS **taos_v, char *command, char **tbNameArr, const
     return ntbCount;
 }
 
-int readNextTableDesWS(void *ws_res, TableDes *tbDes, int *idx, int *cnt) {
+int readNextTableDesWS(void* ws_res, TableDes* tbDes, int *idx, int *cnt) {
     // tbname, tagName , tagValue
-    int      index = 0;
-    uint8_t  type = 0;
-    uint32_t len = 0;
-    while (index < tbDes->tags) {
+    int index = 0;
+    uint8_t type  = 0;
+    uint32_t len   = 0;
+    while( index < tbDes->tags) {
         // get block
-        if (*idx >= *cnt || *cnt == 0) {
+        if(*idx >= *cnt || *cnt == 0) {
             const void *data = NULL;
-            int         ws_code = ws_fetch_raw_block(ws_res, &data, cnt);
-            if (ws_code != 0) {
+            int ws_code = ws_fetch_raw_block(ws_res, &data, cnt);
+            if (ws_code !=0 ) {
                 // read to end
                 errorPrint("read next ws_fetch_raw_block failed, err code=%d  idx=%d index=%d\n", ws_code, *idx, index);
                 return -1;
             }
 
-            if (*cnt == 0) {
-                infoPrint("read schema end. tag columns %d.\n", tbDes->tags);
+            if(*cnt == 0) {
+                infoPrint("read schema over. tag columns %d.\n", tbDes->tags);
                 break;
             }
             *idx = 0;
@@ -1068,18 +1068,19 @@ int readNextTableDesWS(void *ws_res, TableDes *tbDes, int *idx, int *cnt) {
 
         // read first column tbname
         const void *val = ws_get_value_in_block(ws_res, *idx, 0, &type, &len);
-        if (val == NULL) {
+        if(val == NULL) {
             errorPrint("read tbname failed, idx=%d cnt=%d \n", *idx, *cnt);
             return -1;
         }
 
         // tbname changed check
-        if (tbDes->name[0] == 0) {
+        if(tbDes->name[0] == 0) {
             // first set tbName
             strncpy(tbDes->name, val, len);
         } else {
-            // compare tbname change
-            if (!(strncmp(tbDes->name, val, len) == 0 && tbDes->name[len] == 0)) {
+            // compare tbname change   
+            if(!(strncmp(tbDes->name, val, len) == 0 
+               && tbDes->name[len] == 0)) {
                 // tbname cnanged, break
                 break;
             }
@@ -1090,26 +1091,67 @@ int readNextTableDesWS(void *ws_res, TableDes *tbDes, int *idx, int *cnt) {
         // copy tagvalue
         if (NULL == val) {
             strcpy(tbDes->cols[index].value, "NULL");
-            strcpy(tbDes->cols[index].note, "NUL");
+            strcpy(tbDes->cols[index].note , "NUL");
         } else if (0 != processFieldsValueV3(index, tbDes, val, len)) {
-            errorPrint("%s() LN%d, call processFieldsValueV3 tag_value: %p\n", __func__, __LINE__, val);
+            errorPrint("%s() LN%d, call processFieldsValueV3 tag_value: %p\n",
+                    __func__, __LINE__, val);
             return -1;
         }
-
+        
         // move next row
         *idx = *idx + 1;
-
         // counter ++
         index++;
     }
 
     // check tags count corrent
-    if (*cnt && index != tbDes->tags) {
-        errorPrint("child table %s read tags(%d) not equal stable tags (%d).\n", tbDes->name, index, tbDes->tags);
+    if(*cnt && index != tbDes->tags) {
+        errorPrint("child table %s read tags(%d) not equal stable tags (%d).\n", 
+                    tbDes->name, index, tbDes->tags);
         return -1;
     }
 
     return index;
+}
+
+// read specail line, col
+int32_t readRowWS(void *res, int32_t idx, int32_t col, uint32_t *len, char **data) {
+  int32_t  i = 0;
+  while (i <= idx) {
+    // fetch block
+    const void *block = NULL;
+    int32_t     cnt = 0;
+    int         ws_code = ws_fetch_raw_block(res, &block, &cnt);
+    if (ws_code != 0) {
+      errorPrint("readRow->ws_fetch_raw_block failed, err code=%d i=%d\n", ws_code, i);
+      return -1;
+    }
+
+    // cnt check
+    if (cnt == 0) {
+      infoPrint("ws_fetch_raw_block read cnt zero. i=%d.\n", i);
+      return -1;
+    }
+
+    // check idx
+    if (i + cnt <= idx) {
+      // move next block
+      i += cnt;
+      continue;
+    }
+
+    // set
+    uint8_t     type = 0;
+    const void *val = ws_get_value_in_block(res, idx, col, &type, len);
+    if (val == NULL) {
+      errorPrint("readRow ws_get_value_in_block failed, cnt=%d idx=%d col=%d \n", cnt, idx, col);
+      return -1;
+    }
+    *data = (char *)val;
+    break;
+  }
+
+  return 0;
 }
 
 void dumpExtraInfoVarWS(void **taos_v, FILE *fp) {

@@ -393,6 +393,10 @@ typedef struct SChildField {
 
 #define COMP_NAME_LEN 32
 
+#define ARG_OPT_NODROP 0x0000000000000001
+#define ARG_OPT_THREAD 0x0000000000000002
+extern uint64_t g_argFlag;
+
 typedef struct SField {
     uint8_t  type;
     char     name[TSDB_COL_NAME_LEN + 1];
@@ -1007,4 +1011,7 @@ void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols);
 
 // IFace is rest return True
 bool isRest(int32_t iface);
+
+// get group index about dbname.tbname
+int32_t calcGroupIndex(char* dbName, char* tbName, int32_t groupCnt);
 #endif   // INC_BENCH_H_

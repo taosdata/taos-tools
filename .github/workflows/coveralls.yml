@@ -136,8 +136,8 @@ jobs:
           mkdir debug
           cd debug
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DBUILD_TOOLS=true -DTOOLS_COVER=true -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DBUILD_DEPENDENCY_TESTS=false > /dev/null 2>&1
-          make > /dev/null 2>&1
-          sudo make install > /dev/null
+          make -j12 > /dev/null 2>&1
+          sudo make -j12 install > /dev/null
           if [[ ! -f /usr/local/bin/taosdump ]] && [[ ! -f /usr/local/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"

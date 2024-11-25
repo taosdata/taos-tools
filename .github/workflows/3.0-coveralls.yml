@@ -132,7 +132,7 @@ jobs:
           mkdir debug ||:
           cd debug
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_DEPENDENCY_TESTS=false > /dev/null
-          make -j2 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          make -j12 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -177,7 +177,7 @@ jobs:
           mkdir debug ||:
           cd debug
           cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true -DTOOLS_COVER=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null
+          make -j12 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"

@@ -26,6 +26,8 @@ tools_cJSON*   root;
 static char     g_client_info[CLIENT_INFO_LEN] = {0};
 
 int             g_majorVersionOfClient = 0;
+// set flag if command passed, see ARG_OPT_ ???
+uint64_t        g_argFlag = 0;
 
 #ifdef LINUX
 void benchQueryInterruptHandler(int32_t signum, void* sigingo, void* context) {
@@ -112,11 +114,13 @@ int main(int argc, char* argv[]) {
 
     if (g_arguments->dsn != NULL) {
         g_arguments->websocket = true;
+        infoPrint("set websocket true from dsn not empty. dsn=%s\n", g_arguments->dsn);
     } else {
         char * dsn = getenv("TDENGINE_CLOUD_DSN");
-        if (dsn != NULL) {
+        if (dsn != NULL && strlen(dsn) > 3) {
             g_arguments->dsn = dsn;
             g_arguments->websocket = true;
+            infoPrint("set websocket true from getenv TDENGINE_CLOUD_DSN=%s\n", g_arguments->dsn);
         } else {
             g_arguments->dsn = false;
         }

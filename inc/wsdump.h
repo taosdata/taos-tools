@@ -36,7 +36,7 @@ bool    jointCloudDsn();
 bool    splitCloudDsn();
 int64_t dumpTableDataWS(const int64_t index, FILE *fp, const char *tbName, const char *dbName, const int precision,
                         TableDes *tableDes, const int64_t start_time, const int64_t end_time);
-
+int32_t readRowWS(void *res, int32_t idx, int32_t col, uint32_t *len, char **data);
 #endif
 
 #endif  // INC_WSDUMP_H_
