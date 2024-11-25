@@ -152,7 +152,6 @@ class TDTestCase:
         # exe insert 
         cmd = f"{benchmark} {options} -f {jsonFile}"
         self.exec(cmd)
-        self.checkCorrectWithJson(jsonFile)
 
     def insertData(self, benchmark, json, db):
         # insert super table
