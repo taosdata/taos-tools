@@ -7532,7 +7532,6 @@ static int64_t dumpInAvroDataImpl(
                             "timestamp: %"PRId64"\n",
                             __func__, __LINE__, taos, code,
                             ws_errstr(ws_stmt), ts_debug);
-                continue;
             } else {
                 success++;
             }        
