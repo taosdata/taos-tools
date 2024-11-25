@@ -7527,11 +7527,7 @@ static int64_t dumpInAvroDataImpl(
         if (g_args.cloud || g_args.restful) {
             int32_t affected_rows;
             if (0 != (code = ws_stmt_execute(ws_stmt, &affected_rows))) {
-                errorPrint("%s() LN%d last ws_stmt_execute() failed!"
-                            " ws_taos: %p, code: 0x%08x, reason: %s, "
-                            "timestamp: %"PRId64"\n",
-                            __func__, __LINE__, taos, code,
-                            ws_errstr(ws_stmt), ts_debug);
+                errorPrint("ws error last=%s count=%" PRId64 " batch=%d\n", ws_errstr(stmt), count, g_args.data_batch);
             } else {
                 success++;
             }        
