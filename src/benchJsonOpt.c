@@ -606,8 +606,8 @@ void setDBCfgString(SDbCfg* cfg , char * value) {
     char * nval  = calloc(nlen, sizeof(char));
     nval[0]      = '\'';
     memcpy(nval + 1, value, len);
-    nval[nlen - 1] = '\'';
-    nval[nlen]   = 0;
+    nval[nlen - 2] = '\'';
+    nval[nlen - 1] = 0;
     cfg->valuestring = nval;
     cfg->free = true;
     return ;
