@@ -18,6 +18,15 @@ from util.sql import *
 from util.dnodes import *
 
 
+# reomve single and double quotation
+def removeQuotation(origin):
+    value = ""
+    for c in origin:
+        if c != '\'' and c != '"':
+            value += c
+
+    return value
+
 class TDTestCase:
     def caseDescription(self):
         """
@@ -70,6 +79,8 @@ class TDTestCase:
         child_count = data["databases"][0]["super_tables"][0]["childtable_count"]
         insert_rows = data["databases"][0]["super_tables"][0]["insert_rows"]
         timestamp_step = data["databases"][0]["super_tables"][0]["timestamp_step"]
+        cachemode = data["databases"][0]["dbinfo"]["cachemodel"]
+        vgroups   = data["databases"][0]["dbinfo"]["vgroups"]
 
         tdLog.info(f"get json info: db={db} stb={stb} child_count={child_count} insert_rows={insert_rows} \n")
         
@@ -84,9 +95,21 @@ class TDTestCase:
             tdSql.query(sql)
             tdSql.checkRows(0)
 
+        # check cachemodal
+        value = removeQuotation(cachemode)
+        tdLog.info(f" deal both origin={cachemode} after={value}")
+        sql = f"select `vgroups`,`cachemodel` from information_schema.ins_databases where name='{db}';"
+        tdSql.query(sql)
+        tdSql.checkData(0, 0, vgroups)
+        tdSql.checkData(0, 1, value)
+
     # bugs ts
     def bugsTS(self, benchmark):
         self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TS-5002.json")
+        # TS-5234
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TS-5234-1.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TS-5234-2.json")
+        self.testBenchmarkJson(benchmark, "./taosbenchmark/json/TS-5234-3.json")
 
     # bugs td
     def bugsTD(self, benchmark):
