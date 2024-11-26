@@ -195,7 +195,7 @@ enum _describe_table_index {
     TSDB_MAX_DESCRIBE_METRIC
 };
 
-#define COL_NOTE_LEN        4
+#define COL_NOTE_LEN        32
 #define COL_TYPEBUF_LEN     16
 #define COL_VALUEBUF_LEN    32
 
