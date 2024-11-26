@@ -595,17 +595,21 @@ int32_t getDurationVal(tools_cJSON *jsonObj) {
 void setDBCfgString(SDbCfg* cfg , char * value) {
     int32_t len = strlen(value);
 
-    // check is special
-    bool special = false;
-    if(0 == strcasecmp(cfg->name, "duration")) {
-        special = true;
-    } else if (value[0] == '\'' || value[0] == '\"') {
+    // need add quotation
+    bool add = false;
+    if (0 == strcasecmp(cfg->name, "cachemodel") ||
+        0 == strcasecmp(cfg->name, "dnodes"    ) ||
+        0 == strcasecmp(cfg->name, "precision" ) ) {
+            add = true;
+    }    
+
+    if (value[0] == '\'' || value[0] == '\"') {
         // already have quotation
-        special = true;
+        add = false;
     }
 
-    if (special) {
-        // special set origin pointer
+    if (!add) {
+        // unnecesary add
         cfg->valuestring = value;
         cfg->free = false;
         return ;

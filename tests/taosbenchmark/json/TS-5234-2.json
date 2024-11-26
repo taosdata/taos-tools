@@ -23,7 +23,7 @@
                 "cachesize":1,
                 "wal_level":1,
                 "buffer":256,
-                "duration": 3600,
+                "duration": 3,
                 "stt_trigger":1
             },
             "super_tables":[
