@@ -1314,9 +1314,9 @@ void postFreeResource() {
         if (database->cfgs) {
             for (int c = 0; c < database->cfgs->size; c++) {
                 SDbCfg *cfg = benchArrayGet(database->cfgs, c);
-                if ((NULL == root) && (0 == strcmp(cfg->name, "replica"))) {
-                    tmfree(cfg->name);
-                    cfg->name = NULL;
+                if (cfg->valuestring && cfg->free) {
+                    tmfree(cfg->valuestring);
+                    cfg->valuestring = NULL;
                 }
             }
             benchArrayDestroy(database->cfgs);

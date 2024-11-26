@@ -592,6 +592,27 @@ int32_t getDurationVal(tools_cJSON *jsonObj) {
     return durMinute;
 }
 
+void setDBCfgString(SDbCfg* cfg , char * value) {
+    int32_t len = strlen(value);
+    if (value[0] == '\'' || value[0] == '\"' ) {
+        // already add quota
+        cfg->valuestring = value;
+        cfg->free = false;
+        return ;
+    }
+
+    // new
+    int32_t nlen = len + 2 + 1;
+    char * nval  = calloc(nlen, sizeof(char));
+    nval[0]      = '\'';
+    memcpy(nval + 1, value, len);
+    nval[nlen - 1] = '\'';
+    nval[nlen]   = 0;
+    cfg->valuestring = nval;
+    cfg->free = true;
+    return ;
+}
+
 static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database;
     if (index > 0) {
@@ -656,7 +677,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
             }
 
             if (tools_cJSON_IsString(cfg_object)) {
-                cfg->valuestring = cfg_object->valuestring;
+                setDBCfgString(cfg, cfg_object->valuestring);
             } else if (tools_cJSON_IsNumber(cfg_object)) {
                 cfg->valueint = (int)cfg_object->valueint;
                 cfg->valuestring = NULL;

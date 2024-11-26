@@ -631,8 +631,7 @@ int32_t benchParseSingleOpt(int32_t key, char* arg) {
                 replica = DEFAULT_REPLICA;
             }
             SDbCfg* cfg = benchCalloc(1, sizeof(SDbCfg), true);
-            cfg->name = benchCalloc(1, DEFAULT_CFGNAME_LEN, true);
-            snprintf(cfg->name, DEFAULT_CFGNAME_LEN, "replica");
+            cfg->name = "replica";
             cfg->valuestring = NULL;
             cfg->valueint = replica;
             benchArrayPush(database->cfgs, cfg);
