@@ -79,8 +79,18 @@ class TDTestCase:
         child_count = data["databases"][0]["super_tables"][0]["childtable_count"]
         insert_rows = data["databases"][0]["super_tables"][0]["insert_rows"]
         timestamp_step = data["databases"][0]["super_tables"][0]["timestamp_step"]
-        cachemode = data["databases"][0]["dbinfo"]["cachemodel"]
-        vgroups   = data["databases"][0]["dbinfo"]["vgroups"]
+        
+        # cachemodel
+        try:
+            cachemode = data["databases"][0]["dbinfo"]["cachemodel"]
+        except:
+            cachemode = None
+
+        # vgropus
+        try:
+            vgroups   = data["databases"][0]["dbinfo"]["vgroups"]
+        except:
+            vgroups = None
 
         tdLog.info(f"get json info: db={db} stb={stb} child_count={child_count} insert_rows={insert_rows} \n")
         
@@ -95,13 +105,17 @@ class TDTestCase:
             tdSql.query(sql)
             tdSql.checkRows(0)
 
-        # check cachemodal
-        value = removeQuotation(cachemode)
-        tdLog.info(f" deal both origin={cachemode} after={value}")
+        # check database optins 
         sql = f"select `vgroups`,`cachemodel` from information_schema.ins_databases where name='{db}';"
         tdSql.query(sql)
-        tdSql.checkData(0, 0, vgroups)
-        tdSql.checkData(0, 1, value)
+        if cachemode != None:
+            value = removeQuotation(cachemode)
+            tdLog.info(f" deal both origin={cachemode} after={value}")
+            tdSql.checkData(0, 1, value)
+
+        if vgroups != None:
+            tdSql.checkData(0, 0, vgroups)
+
 
     # bugs ts
     def bugsTS(self, benchmark):
