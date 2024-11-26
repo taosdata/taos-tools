@@ -14,10 +14,34 @@
 import os
 import json
 import copy
+import time
+from threading import Thread
+from threading import Event
+
 from util.log import *
 from util.cases import *
 from util.sql import *
 from util.dnodes import *
+
+#
+#  kill taosadapter task 
+#
+def killTask(stopEvent, taosadapter, presleep, sleep, count):
+    tdLog.info(f"kill task pre sleep {presleep}s\n")
+    time.sleep(presleep)
+    stopcmd  = "kill -9 $(pidof taosadapter)"
+    startcmd = f"nohup {taosadapter} --logLevel=error --opentsdb_telnet.enable=true > ~/taosa.log 2>&1 &"
+    for i in range(count):
+        tdLog.info(f" i={i} cmd:{stopcmd} sleep {sleep}s\n")
+        os.system(stopcmd)
+        time.sleep(sleep)
+        tdLog.info(f" start cmd:{startcmd}\n")
+        os.system(startcmd)
+        if stopEvent.is_set():
+            tdLog.info(" recv stop event and exit killTask ...\n")
+            break
+
+    tdLog.info("kill task exited.\n")
 
 
 class TDTestCase:
@@ -76,15 +100,22 @@ class TDTestCase:
         else:
             tdLog.info("benchmark found in %s" % benchmark)
 
+        # taosadapter
+        taosadapter = self.getPath("taosadapter")
+        if taosadapter == "":
+            tdLog.exit("taosadapter not found!")
+        else:
+            tdLog.info("taosadapter found in %s" % taosadapter)
+
         # tmp dir
         tmpdir = "./tmp"
         if not os.path.exists(tmpdir):
             os.makedirs(tmpdir)
         else:
-            print("directory exists")
+            print(f"{tmpdir} directory exists, clear data.")
             os.system("rm -rf %s/*" % tmpdir)
 
-        return taosdump, benchmark,tmpdir
+        return taosdump, benchmark, taosadapter, tmpdir
 
     def checkCorrectWithJson(self, jsonFile, newdb = None, checkInterval=False):
         #
@@ -121,33 +152,19 @@ class TDTestCase:
         # exe insert 
         cmd = f"{benchmark} {options} -f {jsonFile}"
         self.exec(cmd)
-        self.checkCorrectWithJson(jsonFile)
 
     def insertData(self, benchmark, json, db):
         # insert super table
         self.testBenchmarkJson(benchmark, json)
-
         
-        # normal table
-        sqls = [
-            f"create table {db}.ntb(st timestamp, c1 int, c2 geometry(128))",
-            f"insert into {db}.ntb values(now, 0,  NULL)",
-            f"insert into {db}.ntb values(now, 1, 'POINT(2 5)')",
-            f"insert into {db}.ntb values(now, 2, 'LINESTRING(2 5, 4 7)')",
-            f"insert into {db}.ntb values(now, 3, 'LINESTRING(2 6, 4 8, 9 3)')",
-            f"insert into {db}.ntb values(now, 4, 'LINESTRING(2 5, 4 9)')",
-            f"insert into {db}.ntb values(now, 5, 'LINESTRING(2 9, 3 14,6 19)')"
-        ]
-        for sql in sqls:
-            tdSql.execute(sql)
 
     def dumpOut(self, taosdump, db , outdir):
         # dump out
-        self.exec(f"{taosdump} -D {db} -o {outdir}")
+        self.exec(f"{taosdump} -T 2 -k 2 -z 800 -D {db} -o {outdir}")
 
     def dumpIn(self, taosdump, db, newdb, indir):
         # dump in
-        self.exec(f'{taosdump} -W "{db}={newdb}" -i {indir}')
+        self.exec(f'{taosdump} -T 10 -W "{db}={newdb}" -i {indir}')
 
     def checkAggSame(self, db, newdb, stb, aggfun):
         # sum pk db
@@ -195,38 +212,41 @@ class TDTestCase:
         self.checkProjSame(db, newdb, stb, 8, 3)
         self.checkProjSame(db, newdb, stb, 8, 4)
         self.checkProjSame(db, newdb, stb, 8, 6) # tag
-        
 
-        # check normal table
-        self.checkAggSame(db, newdb, "ntb", "sum(c1)")
-        # 0 line
-        self.checkProjSame(db, newdb, "ntb", 0, 0, "")
-        self.checkProjSame(db, newdb, "ntb", 0, 1, "")
-        self.checkProjSame(db, newdb, "ntb", 0, 2, "")
-        # 3 line
-        self.checkProjSame(db, newdb, "ntb", 3, 0, "")
-        self.checkProjSame(db, newdb, "ntb", 3, 1, "")
-        self.checkProjSame(db, newdb, "ntb", 3, 2, "")
+    # start kill
+    def startKillThread(self, taosadapter, presleep, sleep, count):
+        tdLog.info("call startKillThread ...\n")
+        self.stopEvent = Event()
+        self.thread = Thread(target=killTask, args=(self.stopEvent, taosadapter, presleep, sleep, count))
+        self.thread.start()
 
+    # stop kill
+    def stopKillThread(self):
+        tdLog.info("call stopKillThread begin...\n")
+        self.stopEvent.set()
+        self.thread.join()
+        tdLog.info("call stopKillThread end\n")
 
     def run(self):
-
-        # TD-33002 BLOCK this case , if fixed this bug, please open this case 
-        return 
-
         # database
-        db = "geodb"
-        newdb = "ngeodb"
+        db = "redb"
+        newdb = "nredb"
         
         # find
-        taosdump, benchmark, tmpdir = self.findPrograme()
-        json = "./taosdump/native/json/geometry.json"
+        taosdump, benchmark, taosadapter, tmpdir = self.findPrograme()
+        json = "./taosdump/ws3/json/retry.json"
 
         # insert data with taosBenchmark
         self.insertData(benchmark, json, db)
 
+        # start kill thread
+        self.startKillThread(taosadapter, 2, 5, 3)
+
         # dump out 
         self.dumpOut(taosdump, db, tmpdir)
+
+        # stop kill
+        self.stopKillThread()
 
         # dump in
         self.dumpIn(taosdump, db, newdb, tmpdir)
