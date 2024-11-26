@@ -4949,9 +4949,6 @@ static int64_t dumpInAvroNtbImpl(
                 } else {
                     success++;
                 }
-                if(newBuf) {
-                    free(newBuf);
-                }
                 taos_free_result(res);
 #ifdef WEBSOCKET
             }
