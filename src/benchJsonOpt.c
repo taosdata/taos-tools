@@ -597,7 +597,7 @@ void setDBCfgString(SDbCfg* cfg , char * value) {
 
     // check is special
     bool special = false;
-    if(0 == strcasecmp(cfg->string, "duration")) {
+    if(0 == strcasecmp(cfg->name, "duration")) {
         special = true;
     } else if (value[0] == '\'' || value[0] == '\"') {
         // already have quotation
