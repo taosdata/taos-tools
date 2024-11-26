@@ -594,8 +594,18 @@ int32_t getDurationVal(tools_cJSON *jsonObj) {
 
 void setDBCfgString(SDbCfg* cfg , char * value) {
     int32_t len = strlen(value);
-    if (value[0] == '\'' || value[0] == '\"' ) {
-        // already add quota
+
+    // check is special
+    bool special = false;
+    if(0 == strcasecmp(cfg->string, "duration")) {
+        special = true;
+    } else if (value[0] == '\'' || value[0] == '\"') {
+        // already have quotation
+        special = true;
+    }
+
+    if (special) {
+        // special set origin pointer
         cfg->valuestring = value;
         cfg->free = false;
         return ;
