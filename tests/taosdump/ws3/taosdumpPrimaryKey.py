@@ -118,7 +118,7 @@ class TDTestCase:
 
     def testBenchmarkJson(self, benchmark, jsonFile, options="", checkInterval=False):
         # exe insert 
-        cmd = f"{benchmark} {options} -f {jsonFile}"
+        cmd = f"{benchmark} {options} -g -f {jsonFile}"
         self.exec(cmd)
         self.checkCorrectWithJson(jsonFile)
 
@@ -140,11 +140,11 @@ class TDTestCase:
 
     def dumpOut(self, taosdump, db , outdir):
         # dump out
-        self.exec(f"{taosdump} -D {db} -o {outdir}")
+        self.exec(f"{taosdump} -g -D {db} -o {outdir}")
 
     def dumpIn(self, taosdump, db, newdb, indir):
         # dump in
-        self.exec(f'{taosdump} -W "{db}={newdb}" -i {indir}')
+        self.exec(f'{taosdump} -g -W "{db}={newdb}" -i {indir}')
 
     def checkSame(self, db, newdb, stb, aggfun):
         # sum pk db
