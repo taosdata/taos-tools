@@ -87,8 +87,8 @@ class TDTestCase:
                             tdLog.exit(f"interlaceRows invalid. tbName={name} real={batch} expect={interlaceRows} i={count} csvFile={csvFile}")
                         batch = 1
                         name  = row[0]             
-            # count ++
-            count += 1
+                # count ++
+                count += 1
         
         # check all rows
         if count != allRows:
