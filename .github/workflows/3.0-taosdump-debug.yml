@@ -157,7 +157,7 @@ jobs:
         run: |
           pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
 
-      - name: taosdump old Test
+      - name: Taosdump Old Case | taosdump/old/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -186,7 +186,7 @@ jobs:
                         | tee -a ~/taosdump-failed.txt
 
 
-      - name: taosdump Develop Test
+      - name: Taosdump Native Case | taosdump/native/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
