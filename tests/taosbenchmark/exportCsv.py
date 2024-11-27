@@ -89,10 +89,15 @@ class TDTestCase:
                         name  = row[0]             
                 # count ++
                 count += 1
-        
+        # batch
+        if batch != interlaceRows:
+            tdLog.exit(f"interlaceRows invalid. tbName={name} real={batch} expect={interlaceRows} i={count} csvFile={csvFile}")
+
         # check all rows
         if count != allRows:
             tdLog.exit(f"allRows invalid. real={count} expect={allRows} csvFile={csvFile}")
+
+        tdLog.info(f"Check generate csv file successfully. csvFile={csvFile} count={count} interlaceRows={batch}")
     
     # check result
     def checResult(self, jsonFile):
@@ -132,7 +137,6 @@ class TDTestCase:
         # do check
         json = "taosbenchmark/json/exportCsv.json"
         self.checkExportCsv(benchmark, json)
-
 
     def stop(self):
         tdSql.close()
