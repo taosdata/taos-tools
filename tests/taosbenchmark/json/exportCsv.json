@@ -12,6 +12,7 @@
                     "name": "batchTable",
                     "childtable_count": 5,
                     "insert_rows": 100,
+                    "interlace_rows": 0,
                     "childtable_prefix": "d",
                     "timestamp_step": 10,
                     "start_timestamp":1600000000000,

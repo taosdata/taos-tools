@@ -130,7 +130,7 @@ class TDTestCase:
         benchmark = self.getPath()
 
         # do check
-        json = "benchmark/json/exportCsv.json"
+        json = "taosbenchmark/json/exportCsv.json"
         self.checkExportCsv(benchmark, json)
 
 
