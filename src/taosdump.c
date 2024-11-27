@@ -4949,14 +4949,17 @@ static int64_t dumpInAvroNtbImpl(
                 } else {
                     success++;
                 }
-                if(newBuf) {
-                    free(newBuf);
-                }
                 taos_free_result(res);
 #ifdef WEBSOCKET
             }
 #endif
+            // free
+            if (newBuf) {
+                free(newBuf);
+                newBuf = NULL;
+            }
         }
+
     }
 
     avro_value_decref(&value);
@@ -9196,14 +9199,16 @@ static int64_t dumpInOneDebugFile(
             ret = queryDbImplWS(taos_v, newSql?newSql:cmd);
         } else {
 #endif
-        ret = queryDbImplNative(*taos_v, newSql?newSql:cmd);
-        if(newSql) {
-            free(newSql);
-        }
-
+            ret = queryDbImplNative(*taos_v, newSql?newSql:cmd);
 #ifdef WEBSOCKET
         }
 #endif
+        // free
+        if (newSql) {
+            free(newSql);
+            newSql = NULL;
+        }
+
         if (ret) {
             errorPrint("%s() LN%d, SQL: lineno:%"PRId64", file:%s\n",
                     __func__, __LINE__, lineNo, fileName);
