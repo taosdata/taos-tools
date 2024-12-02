@@ -34,7 +34,6 @@
                     "auto_create_table":"no",
                     "batch_create_tbl_num":5,
                     "data_source":"rand",
-                    "insert_mode":"taosc",
                     "childtable_count": 4,
                     "insert_rows":1000,
                     "timestamp_step":1000,
