@@ -980,8 +980,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                 g_arguments->rest_server_ver_major =
                     getServerVersionRest(g_arguments->port + TSDB_PORT_HTTP);
             }
-        }
-
 #ifdef WEBSOCKET
         if (g_arguments->websocket) {
             infoPrint("Since WebSocket interface is enabled, "
@@ -990,6 +988,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             superTable->iface = TAOSC_IFACE;
         }
 #endif
+        }
+
 
         tools_cJSON *stbLineProtocol =
             tools_cJSON_GetObjectItem(stbInfo, "line_protocol");
