@@ -4464,7 +4464,7 @@ int insertTestProcess() {
                 return -1;
             }
             succPrint("created database (%s)\n", database->dbName);
-        } else {
+        } else if(g_arguments->bind_vgroup) {
             // database already exist, get vgroups from server
             SBenchConn* conn = initBenchConn();
             if (conn) {
