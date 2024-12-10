@@ -373,14 +373,6 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
             continue;
         }
 
-        if (readLen > length) {
-            infoPrint(
-                "sample row len[%d] overflow define schema len[%d], so discard "
-                "this row\n",
-                (int32_t)readLen, length);
-            continue;
-        }
-
         int64_t offset = ((int64_t)getRows) * length;
         memcpy(buffer + offset, line, readLen + 1);
         getRows++;
