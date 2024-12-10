@@ -163,7 +163,7 @@ class TDTaosdemoCfg:
 
         self.tb_query_sql = []
         self.tb_query_sql_template = {
-            "sql": "select last_row(*) from stb_0 ",
+            "sql": "select last_row(*) from db.stb_0 ",
             "result": "temp/query_res0.txt",
         }
 
