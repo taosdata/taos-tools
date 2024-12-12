@@ -66,6 +66,14 @@ static void *mixedQuery(void *sarg) {
 #ifdef LINUX
     prctl(PR_SET_NAME, "mixedQuery");
 #endif
+    // use db
+    if (g_queryInfo.dbName) {
+        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+            errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadId, g_queryInfo.dbName);
+            return NULL;
+        }
+    }
+
     int64_t lastPrintTs = toolsGetTimestampMs();
     int64_t st;
     int64_t et;
@@ -157,6 +165,14 @@ static void *specifiedTableQuery(void *sarg) {
     uint64_t maxDelay = 0;
     uint64_t totalDelay = 0;
     int32_t  index = 0;
+
+    // use db
+    if (g_queryInfo.dbName) {
+        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+            errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadId, g_queryInfo.dbName);
+            return NULL;
+        }
+    }
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
     pThreadInfo->query_delay_list = benchCalloc(queryTimes,
