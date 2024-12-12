@@ -169,7 +169,7 @@ static void *specifiedTableQuery(void *sarg) {
     // use db
     if (g_queryInfo.dbName) {
         if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
-            errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadId, g_queryInfo.dbName);
+            errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadID, g_queryInfo.dbName);
             return NULL;
         }
     }
