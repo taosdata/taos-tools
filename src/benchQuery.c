@@ -68,9 +68,11 @@ static void *mixedQuery(void *sarg) {
 #endif
     // use db
     if (g_queryInfo.dbName) {
-        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
-            errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadId, g_queryInfo.dbName);
-            return NULL;
+        if (pThreadInfo->conn &&
+            pThreadInfo->conn->taos &&
+            taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+                errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadId, g_queryInfo.dbName);
+                return NULL;
         }
     }
 
@@ -168,9 +170,11 @@ static void *specifiedTableQuery(void *sarg) {
 
     // use db
     if (g_queryInfo.dbName) {
-        if (taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
-            errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadID, g_queryInfo.dbName);
-            return NULL;
+        if (pThreadInfo->conn &&
+            pThreadInfo->conn->taos &&
+            taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+                errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadID, g_queryInfo.dbName);
+                return NULL;
         }
     }
 
