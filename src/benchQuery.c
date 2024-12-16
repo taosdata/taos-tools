@@ -36,33 +36,27 @@ int selectAndGetResult(threadInfo *pThreadInfo, char *command) {
         }
     } else {
         TAOS *taos = pThreadInfo->conn->taos;
-        if (taos_select_db(taos, g_queryInfo.dbName)) {
-            errorPrint("thread[%u]: failed to select database(%s)\n",
-                threadID, dbName);
-            ret = -2;
-        } else {
-            int64_t rows  = 0;
-            TAOS_RES *res = taos_query(taos, command);
-            int code = taos_errno(res);
-            if (res == NULL || code) {
-                if (YES_IF_FAILED == g_arguments->continueIfFail) {
-                    warnPrint("failed to execute sql:%s, "
-                              "code: 0x%08x, reason:%s\n",
-                               command, code, taos_errstr(res));
-                } else {
-                    errorPrint("failed to execute sql:%s, "
-                               "code: 0x%08x, reason:%s\n",
-                               command, code, taos_errstr(res));
-                    ret = -1;
-                }
+        int64_t rows  = 0;
+        TAOS_RES *res = taos_query(taos, command);
+        int code = taos_errno(res);
+        if (res == NULL || code) {
+            if (YES_IF_FAILED == g_arguments->continueIfFail) {
+                warnPrint("failed to execute sql:%s, "
+                            "code: 0x%08x, reason:%s\n",
+                            command, code, taos_errstr(res));
             } else {
-                //if (strlen(pThreadInfo->filePath) > 0) {
-                    rows = fetchResult(res, pThreadInfo);
-                //}
+                errorPrint("failed to execute sql:%s, "
+                            "code: 0x%08x, reason:%s\n",
+                            command, code, taos_errstr(res));
+                ret = -1;
             }
-            taos_free_result(res);
-            debugPrint("query sql:%s rows:%"PRId64"\n", command, rows);
+        } else {
+            //if (strlen(pThreadInfo->filePath) > 0) {
+                rows = fetchResult(res, pThreadInfo);
+            //}
         }
+        taos_free_result(res);
+        debugPrint("query sql:%s rows:%"PRId64"\n", command, rows);
     }
     return ret;
 }
@@ -72,6 +66,16 @@ static void *mixedQuery(void *sarg) {
 #ifdef LINUX
     prctl(PR_SET_NAME, "mixedQuery");
 #endif
+    // use db
+    if (g_queryInfo.dbName) {
+        if (pThreadInfo->conn &&
+            pThreadInfo->conn->taos &&
+            taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+                errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadId, g_queryInfo.dbName);
+                return NULL;
+        }
+    }
+
     int64_t lastPrintTs = toolsGetTimestampMs();
     int64_t st;
     int64_t et;
@@ -102,16 +106,6 @@ static void *mixedQuery(void *sarg) {
                     continue;
                 }
             } else {
-                if (g_queryInfo.dbName != NULL) {
-                    if (taos_select_db(pThreadInfo->conn->taos,
-                                       g_queryInfo.dbName)) {
-                        errorPrint("thread[%d]: failed to "
-                                   "select database(%s)\n",
-                                   pThreadInfo->threadId,
-                                   g_queryInfo.dbName);
-                        return NULL;
-                    }
-                }
                 TAOS_RES *res = taos_query(pThreadInfo->conn->taos,
                                            sql->command);
                 if (res == NULL || taos_errno(res) != 0) {
@@ -173,6 +167,16 @@ static void *specifiedTableQuery(void *sarg) {
     uint64_t maxDelay = 0;
     uint64_t totalDelay = 0;
     int32_t  index = 0;
+
+    // use db
+    if (g_queryInfo.dbName) {
+        if (pThreadInfo->conn &&
+            pThreadInfo->conn->taos &&
+            taos_select_db(pThreadInfo->conn->taos, g_queryInfo.dbName)) {
+                errorPrint("thread[%d]: failed to select database(%s)\n", pThreadInfo->threadID, g_queryInfo.dbName);
+                return NULL;
+        }
+    }
 
     uint64_t  queryTimes = g_queryInfo.specifiedQueryInfo.queryTimes;
     pThreadInfo->query_delay_list = benchCalloc(queryTimes,
