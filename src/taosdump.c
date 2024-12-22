@@ -16,6 +16,8 @@
 #ifdef WEBSOCKET
 #include "wsdump.h"
 #endif
+#include "quickIn.h"
+#include "quickOut.h"
 
 static char    **g_tsDumpInDebugFiles     = NULL;
 static char      g_dumpInCharset[64] = {0};
@@ -163,6 +165,7 @@ static struct argp_option options[] = {
     {"rename", 'W', "RENAME-LIST", 0, "Rename database name with new name during importing data. RENAME-LIST: \"db1=newDB1|db2=newDB2\" means rename db1 to newDB1 and rename db2 to newDB2", 10},
     {"retry-count", 'k', "VALUE", 0, "Set the number of retry attempts for connection or query failures", 11},
     {"retry-sleep-ms", 'z', "VALUE", 0, "retry interval sleep time, unit ms", 11},
+    {"quick-mode", 'Q', 0, 0,  "quick dump out/in data with block", 2},
     {0}
 };
 
@@ -233,7 +236,8 @@ struct arguments g_args = {
     NULL,       // renameBuf
     NULL,       // renameHead
     3,          // retryCount
-    1000        // retrySleepMs
+    1000,      // retrySleepMs
+    false      // quick mode, default is false
 };
 
 
@@ -752,6 +756,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         case 'z':
             g_args.retrySleepMs = atoi((const char *)arg);
             printf(" set argument retry interval sleep = %d ms\n", g_args.retrySleepMs);
+            break;
+        case 'Q':
+            g_args.quickMode = true;
             break;
         default:
             return ARGP_ERR_UNKNOWN;
@@ -10623,6 +10630,18 @@ static int fillDbInfoNative(void *taos) {
     return dbIndex;
 }
 
+// dump in covert global options to optionQ 
+int32_t covertIn(optionQ *opt) {
+    // TODO
+    return TSDB_CODE_SUCCESS;
+}
+
+// dump out covert global options to optionQ 
+int32_t covertOut(optionQ *opt) {
+    // TODO
+    return TSDB_CODE_SUCCESS;
+}
+
 static int dumpOut() {
     int ret = 0;
     TAOS     *taos       = NULL;
@@ -10913,6 +10932,28 @@ static int dumpEntry() {
                 "%d-%02d-%02d %02d:%02d:%02d\n",
                 tm.tm_year + 1900, tm.tm_mon + 1,
                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+        
+        // check quick mode
+        if (checkQuickMode(g_args.inpath)) {
+            // opt
+            optionQ opt;
+            int32_t ret = covertIn(&opt);
+            if (ret == TSDB_CODE_SUCCESS) {
+                okPrint("%s\n","coverIn ok.");
+            } else {
+                errorPrint("coverIn failed. errCode=%d\n", ret);
+            }
+
+            // dump in
+            ret = dumpInQuick(opt);
+            if (ret == TSDB_CODE_SUCCESS) {
+                okPrint("%s\n", "dumpInQuick ok.");
+            } else {
+                errorPrint("dumpInQuick failed. errCode=%d\n", ret);
+            }
+
+        }
+
         int dumpInRet = dumpIn();
         if (dumpInRet) {
             errorPrint("%s\n", "dumpIn() failed!");
@@ -10942,8 +10983,20 @@ static int dumpEntry() {
                 tm.tm_year + 1900, tm.tm_mon + 1,
                 tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
 
-        if (dumpOut() < 0) {
-            ret = -1;
+        if(g_args.quickMode) {
+            // quick mode dump out
+            optionQ opt;
+            int32_t ret = dumpOutQuick(opt);
+            if (ret == TSDB_CODE_SUCCESS) {
+                okPrint("%"PRId64" %s dumped in!\n", g_totalDumpInRecSuccess, unit);
+            } else {
+                errorPrint("failed to dumped in! error code=0x%08x\n", ret);
+            }
+        } else {
+            // default dump out
+            if (dumpOut() < 0) {
+                ret = -1;
+            }
         }
 
         fprintf(g_fpOfResult, "\n============================== "

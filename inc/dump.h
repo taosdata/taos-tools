@@ -420,7 +420,9 @@ typedef struct arguments {
     SRenameDB * renameHead;
     // retry for call engine api
     int32_t     retryCount;
-    int32_t     retrySleepMs;      
+    int32_t     retrySleepMs; 
+    // quick mode
+    bool quickMode;     
 } SArguments;
 
 bool isSystemDatabase(char *dbName);
