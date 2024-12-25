@@ -1314,9 +1314,9 @@ void postFreeResource() {
         if (database->cfgs) {
             for (int c = 0; c < database->cfgs->size; c++) {
                 SDbCfg *cfg = benchArrayGet(database->cfgs, c);
-                if ((NULL == root) && (0 == strcmp(cfg->name, "replica"))) {
-                    tmfree(cfg->name);
-                    cfg->name = NULL;
+                if (cfg->valuestring && cfg->free) {
+                    tmfree(cfg->valuestring);
+                    cfg->valuestring = NULL;
                 }
             }
             benchArrayDestroy(database->cfgs);
@@ -3237,6 +3237,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
 
         case TSDB_DATA_TYPE_BINARY:
         case TSDB_DATA_TYPE_NCHAR:
+        case TSDB_DATA_TYPE_VARBINARY:
         case TSDB_DATA_TYPE_GEOMETRY:
             tmpP = calloc(1, g_arguments->prepared_rand * length);
             assert(tmpP);
@@ -3252,7 +3253,7 @@ static void initStmtData(char dataType, void **data, uint32_t length) {
             break;
 
         default:
-            errorPrint("Unknown data type: %s\n",
+            errorPrint("Unknown data type on initStmtData: %s\n",
                        convertDatatypeToString(dataType));
             exit(EXIT_FAILURE);
     }

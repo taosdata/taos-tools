@@ -898,6 +898,8 @@ char *convertDatatypeToString(int type) {
             return "double";
         case TSDB_DATA_TYPE_JSON:
             return "json";    
+        case TSDB_DATA_TYPE_VARBINARY:
+            return "varbinary";
         case TSDB_DATA_TYPE_GEOMETRY:
             return "geometry";
         default:
@@ -946,6 +948,7 @@ int64_t convertDatatypeToDefaultMin(uint8_t type) {
     int64_t ret = 0;
     switch (type) {
         case TSDB_DATA_TYPE_BOOL:
+        case TSDB_DATA_TYPE_GEOMETRY:
             ret = 0;
             break;
         case TSDB_DATA_TYPE_TINYINT:
@@ -979,6 +982,7 @@ int64_t convertDatatypeToDefaultMax(uint8_t type) {
             ret = 254;
             break;
         case TSDB_DATA_TYPE_SMALLINT:
+        case TSDB_DATA_TYPE_GEOMETRY:
             ret = 32767;
             break;
         case TSDB_DATA_TYPE_USMALLINT:

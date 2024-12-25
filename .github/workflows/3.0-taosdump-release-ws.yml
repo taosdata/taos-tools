@@ -215,6 +215,10 @@ jobs:
                             done
           fi
 
+          export TDENGINE_CLOUD_DSN="http://127.0.0.1:6041"
+          python3 ./test.py -f taosdump/native/taosdumpTypeGeometry.py 
+          python3 ./test.py -f taosdump/native/taosdumpTypeVarbinary.py
+
       - name: taosdump Cmd line Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'

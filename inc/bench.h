@@ -584,6 +584,7 @@ typedef struct SDbCfg_S {
     char*   name;
     char*   valuestring;
     int     valueint;
+    bool    free; // need free
 } SDbCfg;
 
 typedef struct SSTREAM_S {

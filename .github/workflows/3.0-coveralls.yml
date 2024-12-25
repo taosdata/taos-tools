@@ -2,12 +2,10 @@ name: Coveralls (3.0)
 on:
   push:
     branches:
-      - develop
       - 3.0
       - main
   pull_request:
     branches:
-      - develop
       - 3.0
       - main
 
@@ -24,7 +22,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           path: 'taos-tools'
-          ref: 'develop'
+          ref: '3.0'
 
       - name: Step that prints name of pull request's base branch
         run: |
@@ -132,7 +130,7 @@ jobs:
           mkdir debug ||:
           cd debug
           cmake .. -DBUILD_JDBC=false -DBUILD_HTTP=false -DWEBSOCKET=true -DBUILD_DEPENDENCY_TESTS=false > /dev/null
-          make -j2 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
+          make -j12 > /dev/null && sudo make install > /dev/null && cd .. && rm -rf debug
           if [[ ! -f /usr/local/taos/bin/taosd ]] || [[ ! -f /usr/local/taos/bin/taosadapter ]]
           then
             echo "TDengine build failure"
@@ -177,7 +175,7 @@ jobs:
           mkdir debug ||:
           cd debug
           cmake .. -DTOOLS_BUILD_TYPE=${{env.TOOLS_BUILD_TYPE}} -DWEBSOCKET=true -DTOOLS_COVER=true > /dev/null
-          make -j8 > /dev/null && sudo make install > /dev/null
+          make -j12 > /dev/null && sudo make install > /dev/null
           if [[ ! -f /usr/local/taos/bin/taosdump ]] || [[ ! -f /usr/local/taos/bin/taosBenchmark ]]
           then
             echo "taos-tools build failure"
@@ -196,7 +194,7 @@ jobs:
           cd tests/taosdump
           ./exp.sh
 
-      - name: taosBenchmark Command Line Basic Test
+      - name: TaosBenchmark Command Line Basic Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -231,7 +229,7 @@ jobs:
           sleep 5
           pkill -INT taosBenchmark
 
-      - name: taosdump Command Line Basic Test
+      - name: Taosdump Command Line Basic Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -276,7 +274,7 @@ jobs:
           rm -rf *.sql *.avro* taosdump.*
 
           # test codec
-      - name: taosdump codec Test
+      - name: Taosdump codec Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -344,7 +342,7 @@ jobs:
           ./build/bin/taosdump -i . -d unknown -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump time Test
+      - name: Taosdump time Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -368,7 +366,7 @@ jobs:
           ./build/bin/taosdump -D test -S '2017-07-14 10:40:00.000' -E '2017-07-14 10:40:00.004' -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump normal table Test
+      - name: Taosdump normal table Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -399,7 +397,7 @@ jobs:
           taos -s "select count(tbname) from test.meters" | grep "1 row" || exit $?
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump escape char Test
+      - name: Taosdump escape char Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -444,7 +442,7 @@ jobs:
           ./build/bin/taosdump -i . -gg > /dev/null
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump old format data Test
+      - name: Taosdump old format data Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -467,7 +465,7 @@ jobs:
           taos -s "select count(*) from test.meters" | grep 21 && echo "count 21 okay" || exit $?
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump WebSocket codec Test
+      - name: Taosdump WebSocket codec Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -513,7 +511,7 @@ jobs:
           ./build/bin/taosdump -R -i . -d unknown -gg > /dev/null ||:
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump WebSocket normal table Test
+      - name: Taosdump WebSocket normal table Test
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -546,7 +544,7 @@ jobs:
           taos -s "select count(tbname) from test.meters" | grep "1 row" || exit 1
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump WebSocket escape char Test
+      - name: Taosdump WebSocket Case
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -593,7 +591,7 @@ jobs:
           ./build/bin/taosdump -R -i . -gg > /dev/null ||:
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: taosdump old format data Test
+      - name: Taosdump Old Format Data Case
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -615,7 +613,7 @@ jobs:
           ./build/bin/taosdump -i dump -gg
           rm -rf *.sql *.avro* taosdump.*
 
-      - name: Old Test cases
+      - name: Taosdump Old Case | taosdump/old/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -634,7 +632,7 @@ jobs:
           #python3 test.py -f query/nestedQuery/nestedQuery.py > /dev/null
           #python3 test.py -f tools/taosdemoAllTest/TD-5213/insertSigcolumnsNum4096.py > /dev/null
 
-      - name: taosdump native Develop Test
+      - name: Taosdump Native Case | taosdump/native/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -652,7 +650,7 @@ jobs:
             for i in `find taosdump/native -name "*.py"|sort`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-      - name: taosdump WebSocket Develop Test
+      - name: Taosdump WebSocket Case | taosdump/ws3/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -676,7 +674,7 @@ jobs:
             for i in `find taosdump/ws3 -name "*.py"|sort`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m develop-test/$i success! \033[0m"|| echo -e "\033[31m develop-test/$i failed! \033[0m" | tee -a ~/taosdump-failed.txt ;done
           fi
 
-      - name: taosdump System Test cases
+      - name: Taosdump System Case | taosdump/system-test/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -694,26 +692,51 @@ jobs:
             for i in `find taosdump/system-test -name "*.py"|sort`; do python3 ./test.py -f $i > /dev/null && echo -e "\033[32m $i success! \033[0m"|| echo -e "\033[31m $i failed! \033[0m" ;done
           fi
 
-      - name: taosBenchmark native Test cases
+
+
+      - name: Test Standard Case | taosbenchmark/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
           || github.event_name == 'push'
           || github.event_name == 'schedule'
         run: |
-          sudo pkill -9 taosadapter || :
-          sudo pkill -9 taosd || :
-          sleep 5
-
           cd tests
-          echo "TEST: taosBenchmark develop test cases"
 
           if find taosbenchmark -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark -name "*.py"|grep -Ev "v2|websocket|taosdemo|kill-slow-query"|sort`; do printf $i && python3 ./test.py -f $i > /dev/null && echo -e " \033[32m $i success! \033[0m"|| echo -e " \033[31m $i failed! \033[0m"; done
+            for i in `find taosbenchmark -name "*.py"|grep -Ev "v2|websocket|kill-slow-query|cloud"|sort`; \
+              do printf $i && python3 ./test.py -f $i > /dev/null                     \
+                && echo -e " \033[32m taosbenchmark-release-test/$i success! \033[0m" \
+                          | tee -a ~/taosbenchmark-release-success.txt                \
+                || echo -e " \033[31m taosbenchmark-release-test/$i failed! \033[0m"  \
+                          | tee -a ~/taosbenchmark-release-failed.txt;                \
+                          done
           fi
 
-      - name: taosBenchmakr WebSocket Test cases
+      - name: Test Cloud Case | taosbenchmark/v3/cloud*.py
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
+        env:
+          TDENGINE_CLOUD_DSN: ${{ secrets.TDENGINE_CLOUD_DSN }}
+        run: |
+          cd tests
+
+          if find taosbenchmark/v3 -name "cloud*.py"|grep -q .;
+          then
+            for i in `find taosbenchmark/v3 -name "cloud*.py"`; \
+              do printf $i && python3 ./test.py -f $i \
+                && echo -e " \033[32m benchmark-cloud-test:$i success! \033[0m" \
+                          | tee -a ~/taosbenchmark-cloud-success.txt            \
+                || echo -e " \033[31m benchmark-cloud-test:$i failed! \033[0m"  \
+                          | tee -a ~/taosbenchmark-cloud-failed.txt;            \
+                          done
+          fi
+
+      - name: Test WebSocket Case | taosbenchmark/v3/websocket*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'
           && github.event_name == 'pull_request')
@@ -722,28 +745,17 @@ jobs:
         run: |
           cd tests
 
-          if find taosbenchmark/ws -name "*.py"|grep -q .;
+          if find taosbenchmark/v3 -name "*.py"|grep -q .;
           then
-            for i in `find taosbenchmark/ws -name "*.py"`;        \
-              do printf $i && python3 ./test.py -f $i > /dev/null \
-                && echo -e " \033[32m $i success! \033[0m"        \
-                || echo -e " \033[31m $i failed! \033[0m" ;       \
-                            done
+            for i in `find taosbenchmark/v3 -name "websocket*.py"`; \
+              do printf $i && python3 ./test.py -f $i > /dev/null   \
+                && echo -e " \033[32m benchmark-ws-test:$i success! \033[0m"  \
+                          | tee -a ~/taosbenchmark-ws-success.txt             \
+                || echo -e " \033[31m benchmark-ws-test:$i failed! \033[0m"   \
+                          | tee -a ~/taosbenchmark-ws-failed.txt;             \
+                          done
           fi
 
-      - name: taosdemo query Test
-        if:
-          (steps.changed-files-specific.outputs.any_changed == 'true'
-          && github.event_name == 'pull_request')
-          || github.event_name == 'push'
-          || github.event_name == 'schedule'
-        run: |
-          cd tests
-
-          if find taosbenchmark -name "taosdemo*.py"|grep -q .;
-          then
-            for i in `find taosbenchmark -name "taosdemo*.py"`; do printf $i && python3 ./test.py -f $i && echo -e " \033[32m $i success! \033[0m"|| echo -e " \033[31m $i failed! \033[0m" ;done
-          fi
 
       - name: Generate report
         if:
