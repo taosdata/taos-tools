@@ -10986,7 +10986,14 @@ static int dumpEntry() {
         if(g_args.quickMode) {
             // quick mode dump out
             optionQ opt;
-            int32_t ret = dumpOutQuick(opt);
+            int32_t ret = covertOut(&opt);
+            if (ret == TSDB_CODE_SUCCESS) {
+                okPrint("%s\n","coverOut ok.");
+            } else {
+                errorPrint("coverOut failed. errCode=%d\n", ret);
+            }            
+            
+            ret = dumpOutQuick(opt);
             if (ret == TSDB_CODE_SUCCESS) {
                 okPrint("%"PRId64" %s dumped in!\n", g_totalDumpInRecSuccess, unit);
             } else {
