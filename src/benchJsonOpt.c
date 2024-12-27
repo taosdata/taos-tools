@@ -1038,6 +1038,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_offset)) {
             superTable->childTblOffset = childTbl_offset->valueint;
         }
+
+        // check limit offset 
+        if( superTable->childTblOffset + superTable->childTblLimit > superTable->childTblCount ) {
+            errorPrint("json config invalid. childtable_offset(%"PRId64") + childtable_limit(%"PRId64") > childtable_count(%"PRId64")",
+                  superTable->childTblOffset, superTable->childTblLimit, superTable->childTblCount);
+            return -1;          
+        }
+
         tools_cJSON *childTbl_from =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_from");
         if (tools_cJSON_IsNumber(childTbl_from)) {

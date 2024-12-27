@@ -3602,6 +3602,9 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
     // calc table count per vgroup
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
         int32_t vgIdx = calcGroupIndex(database->dbName, stbInfo->childTblArray[i]->name, database->vgroups);
+        if (vgIdx == -1) {
+            continue;
+        }
         SVGroup *vg = benchArrayGet(database->vgArray, vgIdx);
         vg->tbCountPerVgId ++;
     }
@@ -3609,7 +3612,7 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
     // malloc vg->childTblArray memory with table count
     for (int v = 0; v < database->vgroups; v++) {
         SVGroup *vg = benchArrayGet(database->vgArray, v);
-        infoPrint("Total %"PRId64" tables on %s's vgroup %d (id: %d)\n",
+        infoPrint("Local hash calc %"PRId64" tables on %s's vgroup %d (id: %d)\n",
                     vg->tbCountPerVgId, database->dbName, v, vg->vgId);
         if (vg->tbCountPerVgId) {
             threads++;
