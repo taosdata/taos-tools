@@ -3626,6 +3626,9 @@ int32_t assignTableToThread(SDataBase* database, SSuperTable* stbInfo) {
     // set vg->childTblArray data
     for (int64_t i = 0; i < stbInfo->childTblCount; i++) {
         int32_t vgIdx = calcGroupIndex(database->dbName, stbInfo->childTblArray[i]->name, database->vgroups);
+        if (vgIdx == -1) {
+            continue;
+        }
         SVGroup *vg = benchArrayGet(database->vgArray, vgIdx);
         debugPrint("calc table hash to vgroup %s.%s vgIdx=%d\n",
                     database->dbName,
