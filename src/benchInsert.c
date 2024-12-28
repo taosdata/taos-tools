@@ -20,7 +20,8 @@ static int32_t stmt2BindAndSubmit(
         threadInfo *pThreadInfo,
         SChildTable *childTbl,
         int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1,
-        int64_t *delay3, int64_t* startTs, int64_t* endTs);
+        int64_t *delay3, int64_t* startTs, int64_t* endTs, int32_t w);
+TAOS_STMT2* initStmt2(TAOS* taos, bool single);        
 
 #define FREE_PIDS_INFOS_RETURN_MINUS_1()            \
     do {                                            \
@@ -1792,15 +1793,16 @@ int32_t submitStmt2Impl(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64
 
     // execute
     *startTs = toolsGetTimestampUs();
-    code = execInsert(pThreadInfo, generated, delay3);
+    code = execInsert(pThreadInfo, *generated, delay3);
     *endTs = toolsGetTimestampUs();
     return code;
 }
 
 int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *delay1, int64_t *delay3,
-                    int64_t* startTs, int64_t* endTs, uint32_t* generated) {
+                    int64_t* startTs, int64_t* endTs, uint32_t* generated, int32_t w) {
     // calc loop
     int32_t loop = 1;
+    SSuperTable* stbInfo = pThreadInfo->stbInfo;
     if(stbInfo->continueIfFail == YES_IF_FAILED) {          
         if(stbInfo->keep_trying > 1) {
             loop = stbInfo->keep_trying;
@@ -1812,7 +1814,7 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
     // submit stmt2
     int i = 0;
     while (1) {
-        int32_t code = submitStmt2Impl(pThreadInfo, bindv, &delay1, &delay3, &startTs, &endTs, &generated);
+        int32_t code = submitStmt2Impl(pThreadInfo, bindv, delay1, delay3, startTs, endTs, generated);
         if ( code == 0) {
             // success
             break;
@@ -1826,7 +1828,7 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
 
             // reinit
             infoPrint("stmt2 start retry submit i=%d ...\n", i++);
-            code = reinitStmt2(stbInfo, pThreadInfo);
+            code = reinitStmt2(pThreadInfo, w);
             if (code != 0) {
                 // failed for ever
                 return -1;
@@ -2272,7 +2274,7 @@ static void *syncWriteInterlace(void *sarg) {
             if(g_arguments->debug_print)
                 showBindV(bindv, stbInfo->tags, stbInfo->cols);
             // bind & exec stmt2
-            if (submitStmt2(pThreadInfo, bindv, &delay1, &delay3, &startTs, &endTs, &generated) != 0) {
+            if (submitStmt2(pThreadInfo, bindv, &delay1, &delay3, &startTs, &endTs, &generated, w) != 0) {
                 g_fail = true;
                 goto free_of_interlace;
             }
@@ -2968,7 +2970,7 @@ void *syncWriteProgressive(void *sarg) {
                     generated = stmt2BindAndSubmit(
                             pThreadInfo,
                             childTbl, &timestamp, i, ttl, &pkCur, &pkCnt, &delay1,
-                            &delay3, &startTs, &endTs);
+                            &delay3, &startTs, &endTs, w);
                     break;
                 }
                 case SML_REST_IFACE:
@@ -3062,7 +3064,7 @@ void *syncWriteProgressive(void *sarg) {
             if (database->flush) {
                 char sql[260] = "";
                 sprintf(sql, "flush database %s", database->dbName);
-                code = executeSql(pThreadInfo->conn->taos,sql);
+                int32_t code = executeSql(pThreadInfo->conn->taos,sql);
                 if (code != 0) {
                   perfPrint(" %s failed. error code = 0x%x\n", sql, code);
                 } else {
@@ -4754,7 +4756,7 @@ static int32_t stmt2BindAndSubmit(
         threadInfo *pThreadInfo,
         SChildTable *childTbl,
         int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1,
-        int64_t *delay3, int64_t* startTs, int64_t* endTs) {
+        int64_t *delay3, int64_t* startTs, int64_t* endTs, int32_t w) {
     
     // create bindV
     int32_t count            = 1;
@@ -4785,8 +4787,13 @@ static int32_t stmt2BindAndSubmit(
         batch = g_arguments->prepared_rand - pos;
     } 
 
-    int32_t generated = bindVColsProgressive(bindv, 0, pThreadInfo, batch, *timestamp, pos, childTbl, pkCur, pkCnt, &n);
-    if(generated <= 0) {
+    if (batch == 0) {
+        infoPrint("batch size is zero. pos = %"PRId64"\n", pos);
+        return 0;
+    }
+
+    uint32_t generated = bindVColsProgressive(bindv, 0, pThreadInfo, batch, *timestamp, pos, childTbl, pkCur, pkCnt, &n);
+    if(generated == 0) {
         errorPrint( "get cols data bind information failed. table: %s\n", childTbl->name);
         freeBindV(bindv);
         return -1;
@@ -4798,9 +4805,9 @@ static int32_t stmt2BindAndSubmit(
     }
 
     // bind and submit
-    int32_t code = submitStmt2(pThreadInfo, bindv, delay1, delay3, startTs, endTs, &generated);
+    int32_t code = submitStmt2(pThreadInfo, bindv, delay1, delay3, startTs, endTs, &generated, w);
     // free
-    freeBindV(bindv);    
+    freeBindV(bindv);
 
     if(code == 0) {
         errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt2_error(stmt2));
