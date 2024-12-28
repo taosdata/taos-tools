@@ -16,11 +16,11 @@
 #include <benchData.h>
 #include <benchInsertMix.h>
 
-static int32_t stmt2BindVProgressive(
+static int32_t stmt2BindAndSubmit(
         threadInfo *pThreadInfo,
         SChildTable *childTbl,
-        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1);
-
+        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1,
+        int64_t *delay3, int64_t* startTs, int64_t* endTs);
 
 #define FREE_PIDS_INFOS_RETURN_MINUS_1()            \
     do {                                            \
@@ -1778,7 +1778,7 @@ int32_t reinitStmt2(threadInfo * pThreadInfo, int32_t w) {
     return code;
 }
 
-int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int32_t interlaceRows, int64_t *delay1, int64_t *delay3,
+int32_t submitStmt2Impl(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *delay1, int64_t *delay3,
                     int64_t* startTs, int64_t* endTs, uint32_t* generated) {
     // call bind
     int64_t start = toolsGetTimestampUs();
@@ -1787,7 +1787,7 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int32_t i
         errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt2));
         return code;
     }
-    debugPrint("interlace taos_stmt2_bind_param() ok. interlaceRows=%d bindv->count=%d \n", interlaceRows, bindv->count);
+    debugPrint("interlace taos_stmt2_bind_param() ok.  bindv->count=%d \n", bindv->count);
     *delay1 += toolsGetTimestampUs() - start;
 
     // execute
@@ -1795,6 +1795,47 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int32_t i
     code = execInsert(pThreadInfo, generated, delay3);
     *endTs = toolsGetTimestampUs();
     return code;
+}
+
+int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *delay1, int64_t *delay3,
+                    int64_t* startTs, int64_t* endTs, uint32_t* generated) {
+    // calc loop
+    int32_t loop = 1;
+    if(stbInfo->continueIfFail == YES_IF_FAILED) {          
+        if(stbInfo->keep_trying > 1) {
+            loop = stbInfo->keep_trying;
+        } else {
+            loop = 3; // default
+        }
+    }
+
+    // submit stmt2
+    int i = 0;
+    while (1) {
+        int32_t code = submitStmt2Impl(pThreadInfo, bindv, &delay1, &delay3, &startTs, &endTs, &generated);
+        if ( code == 0) {
+            // success
+            break;
+        } else {
+            // failed
+            if (loop == 0) {
+                // failed for ever
+                return -1;
+            }
+            loop --;
+
+            // reinit
+            infoPrint("stmt2 start retry submit i=%d ...\n", i++);
+            code = reinitStmt2(stbInfo, pThreadInfo);
+            if (code != 0) {
+                // failed for ever
+                return -1;
+            }
+        }
+    }
+    
+    // success
+    return 0;
 }
 
 static void *syncWriteInterlace(void *sarg) {
@@ -2225,49 +2266,18 @@ static void *syncWriteInterlace(void *sarg) {
             }
         }
 
-        // stmt2 bind param
+        // exec
         if(stbInfo->iface == STMT2_IFACE) {
+            // exec stmt2
             if(g_arguments->debug_print)
                 showBindV(bindv, stbInfo->tags, stbInfo->cols);
-            
-            // calc loop
-            int32_t loop = 1;
-            if(stbInfo->continueIfFail == YES_IF_FAILED) {          
-                if(stbInfo->keep_trying > 1) {
-                    loop = stbInfo->keep_trying;
-                } else {
-                    loop = 3; // default
-                }
-            }
-
-            // submit stmt2
-            int i = 0;
-            while (1) {
-                int32_t code = submitStmt2(pThreadInfo, bindv, interlaceRows, &delay1, &delay3, &startTs, &endTs, &generated);
-                if ( code == 0) {
-                    // success
-                    break;
-                } else {
-                    // failed
-                    if (loop == 0) {
-                        // failed for ever
-                        g_fail = true;
-                        goto free_of_interlace;
-                    }
-                    loop --;
-
-                    // reinit
-                    infoPrint("stmt2 start retry submit i=%d ...\n", i++);
-                    code = reinitStmt2(stbInfo, pThreadInfo);
-                    if (code != 0) {
-                        // failed for ever
-                        g_fail = true;
-                        goto free_of_interlace;
-                    }
-                }
+            // bind & exec stmt2
+            if (submitStmt2(pThreadInfo, bindv, &delay1, &delay3, &startTs, &endTs, &generated) != 0) {
+                g_fail = true;
+                goto free_of_interlace;
             }
         } else {
-            // execute
+            // exec other
             startTs = toolsGetTimestampUs();
             if (execInsert(pThreadInfo, generated, &delay3)) {
                 g_fail = true;
@@ -2955,9 +2965,10 @@ void *syncWriteProgressive(void *sarg) {
                     break;
                 }
                 case STMT2_IFACE: {
-                    generated = stmt2BindVProgressive(
+                    generated = stmt2BindAndSubmit(
                             pThreadInfo,
-                            childTbl, &timestamp, i, ttl, &pkCur, &pkCnt, &delay1);
+                            childTbl, &timestamp, i, ttl, &pkCur, &pkCnt, &delay1,
+                            &delay3, &startTs, &endTs);
                     break;
                 }
                 case SML_REST_IFACE:
@@ -2977,63 +2988,67 @@ void *syncWriteProgressive(void *sarg) {
             if (!stbInfo->non_stop) {
                 i += generated;
             }
-            // only measure insert
-            startTs = toolsGetTimestampUs();
-            int code = execInsert(pThreadInfo, generated, &delay3);
-            if (code) {
-                if (NO_IF_FAILED == stbInfo->continueIfFail) {
-                    warnPrint("The super table parameter "
-                              "continueIfFail: %d, STOP insertion!\n",
-                              stbInfo->continueIfFail);
-                    g_fail = true;
-                    goto free_of_progressive;
-                } else if (YES_IF_FAILED == stbInfo->continueIfFail) {
-                    infoPrint("The super table parameter "
-                              "continueIfFail: %d, "
-                              "will continue to insert ..\n",
-                              stbInfo->continueIfFail);
-                } else if (smart) {
-                    warnPrint("The super table parameter "
-                              "continueIfFail: %d, will create table "
-                              "then insert ..\n",
-                              stbInfo->continueIfFail);
 
-                    // generator
-                    if (w == 0) {
-                        if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile, NULL)) {
+            // stmt2 execInsert already execute on stmt2BindAndSubmit
+            if (stbInfo->iface != STMT2_IFACE) {
+                // no stmt2 exec
+                startTs = toolsGetTimestampUs();
+                int code = execInsert(pThreadInfo, generated, &delay3);
+                if (code) {
+                    if (NO_IF_FAILED == stbInfo->continueIfFail) {
+                        warnPrint("The super table parameter "
+                                "continueIfFail: %d, STOP insertion!\n",
+                                stbInfo->continueIfFail);
+                        g_fail = true;
+                        goto free_of_progressive;
+                    } else if (YES_IF_FAILED == stbInfo->continueIfFail) {
+                        infoPrint("The super table parameter "
+                                "continueIfFail: %d, "
+                                "will continue to insert ..\n",
+                                stbInfo->continueIfFail);
+                    } else if (smart) {
+                        warnPrint("The super table parameter "
+                                "continueIfFail: %d, will create table "
+                                "then insert ..\n",
+                                stbInfo->continueIfFail);
+
+                        // generator
+                        if (w == 0) {
+                            if(!generateTagData(stbInfo, tagData, TAG_BATCH_COUNT, csvFile, NULL)) {
+                                g_fail = true;
+                                goto free_of_progressive;
+                            }
+                        }
+
+                        code = smartContinueIfFail(
+                                pThreadInfo,
+                                childTbl, tagData, w, ttl);
+                        if (0 != code) {
                             g_fail = true;
                             goto free_of_progressive;
                         }
-                    }
 
-                    int ret = smartContinueIfFail(
-                            pThreadInfo,
-                            childTbl, tagData, w, ttl);
-                    if (0 != ret) {
+                        // move next
+                        if (++w >= TAG_BATCH_COUNT) {
+                            // reset for gen again
+                            w = 0;
+                        }
+
+                        code = execInsert(pThreadInfo, generated, &delay3);
+                        if (code) {
+                            g_fail = true;
+                            goto free_of_progressive;
+                        }
+                    } else {
+                        warnPrint("Unknown super table parameter "
+                                "continueIfFail: %d\n",
+                                stbInfo->continueIfFail);
                         g_fail = true;
                         goto free_of_progressive;
                     }
-
-                    // move next
-                    if (++w >= TAG_BATCH_COUNT) {
-                        // reset for gen again
-                        w = 0;
-                    }
-
-                    code = execInsert(pThreadInfo, generated, &delay3);
-                    if (code) {
-                        g_fail = true;
-                        goto free_of_progressive;
-                    }
-                } else {
-                    warnPrint("Unknown super table parameter "
-                              "continueIfFail: %d\n",
-                              stbInfo->continueIfFail);
-                    g_fail = true;
-                    goto free_of_progressive;
                 }
+                endTs = toolsGetTimestampUs() + 1;
             }
-            endTs = toolsGetTimestampUs()+1;
 
             if (stbInfo->insert_interval > 0) {
                 debugPrint("%s() LN%d, insert_interval: %"PRIu64"\n",
@@ -4735,10 +4750,11 @@ int insertTestProcess() {
 //     ------- STMT 2 -----------
 //
 
-static int32_t stmt2BindVProgressive(
+static int32_t stmt2BindAndSubmit(
         threadInfo *pThreadInfo,
         SChildTable *childTbl,
-        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1) {
+        int64_t *timestamp, uint64_t i, char *ttl, int32_t *pkCur, int32_t *pkCnt, int64_t *delay1,
+        int64_t *delay3, int64_t* startTs, int64_t* endTs) {
     
     // create bindV
     int32_t count            = 1;
@@ -4781,18 +4797,17 @@ static int32_t stmt2BindVProgressive(
         showBindV(bindv, stbInfo->tags, stbInfo->cols);
     }
 
-    // do bindv
-    int64_t start = toolsGetTimestampUs();
-    int32_t ret   = taos_stmt2_bind_param(stmt2, bindv, -1);
-    if(ret != 0) {
-        errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt2_error(stmt2));
-        freeBindV(bindv);
-        return -1;
-    }
-    debugPrint("succ to call taos_stmt2_bind_param() progressive mode. table=%s batch=%d pos=%" PRId64 " ts=%" PRId64 " generated=%d\n",
-                childTbl->name, batch, pos, *timestamp, generated);
-    *delay1 = toolsGetTimestampUs() - start;
+    // bind and submit
+    int32_t code = submitStmt2(pThreadInfo, bindv, delay1, delay3, startTs, endTs, &generated);
     // free
     freeBindV(bindv);    
-    return generated;
+
+    if(code == 0) {
+        errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt2_error(stmt2));
+        return -1;
+    } else {
+        debugPrint("succ to call taos_stmt2_bind_param() progressive mode. table=%s batch=%d pos=%" PRId64 " ts=%" PRId64 " generated=%d\n",
+                childTbl->name, batch, pos, *timestamp, generated);
+        return generated;
+    }
 }
