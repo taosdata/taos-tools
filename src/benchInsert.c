@@ -1710,6 +1710,93 @@ void loadChildTableInfo(threadInfo* pThreadInfo) {
     tmfree(buf);
 }
 
+// create conn again
+int32_t reCreateConn(threadInfo * pThreadInfo) {
+    // single
+    bool single = true;
+    if (pThreadInfo->dbInfo->superTbls->size > 1) {
+        single = false;
+    }
+
+    //
+    // retry stmt2 init 
+    //
+
+    // stmt2 close
+    if (pThreadInfo->conn->stmt2) {
+        taos_stmt2_close(pThreadInfo->conn->stmt2);
+        pThreadInfo->conn->stmt2 = NULL;
+    }
+    // retry stmt3 init , maybe success
+    pThreadInfo->conn->stmt2 = initStmt2(pThreadInfo->conn->taos, single);
+    if (pThreadInfo->conn->stmt2) {
+        succPrint("%s", "reCreateConn first taos_stmt2_init() success.\n");
+        return 0;
+    }
+
+    //
+    // close old
+    //
+    closeBenchConn(pThreadInfo->conn);
+    pThreadInfo->conn = NULL;
+
+    //
+    // create new
+    //
+
+    // conn
+    pThreadInfo->conn = initBenchConn();
+    if (pThreadInfo->conn == NULL) {
+        errorPrint("%s", "reCreateConn initBenchConn failed.");
+        return -1;
+    }
+    // stmt2
+    pThreadInfo->conn->stmt2 = initStmt2(pThreadInfo->conn->taos, single);
+    if (NULL == pThreadInfo->conn->stmt2) {
+        errorPrint("reCreateConn taos_stmt2_init() failed, reason: %s\n", taos_errstr(NULL));
+        return -1;
+    } else {
+        succPrint("%s", "reCreateConn second taos_stmt2_init() success.\n");
+        return 0;
+    }
+}
+
+// reinit
+int32_t reinitStmt2(threadInfo * pThreadInfo, int32_t w) {
+    // re-create connection
+    int32_t code = reCreateConn(pThreadInfo);
+    if (code != 0) {
+        return code;
+    }
+
+    // prepare
+    code = prepareStmt2(pThreadInfo->conn->stmt2, pThreadInfo->stbInfo, NULL, w);
+    if (code != 0) {
+        return code;
+    }
+
+    return code;
+}
+
+int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int32_t interlaceRows, int64_t *delay1, int64_t *delay3,
+                    int64_t* startTs, int64_t* endTs, uint32_t* generated) {
+    // call bind
+    int64_t start = toolsGetTimestampUs();
+    int32_t code = taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1);
+    if (code != 0) {
+        errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt2));
+        return code;
+    }
+    debugPrint("interlace taos_stmt2_bind_param() ok. interlaceRows=%d bindv->count=%d \n", interlaceRows, bindv->count);
+    *delay1 += toolsGetTimestampUs() - start;
+
+    // execute
+    *startTs = toolsGetTimestampUs();
+    code = execInsert(pThreadInfo, generated, delay3);
+    *endTs = toolsGetTimestampUs();
+    return code;
+}
+
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
     SDataBase *  database = pThreadInfo->dbInfo;
@@ -2142,24 +2229,53 @@ static void *syncWriteInterlace(void *sarg) {
         if(stbInfo->iface == STMT2_IFACE) {
             if(g_arguments->debug_print)
                 showBindV(bindv, stbInfo->tags, stbInfo->cols);
-            // call bind
-            int64_t start = toolsGetTimestampUs();
-            if (taos_stmt2_bind_param(pThreadInfo->conn->stmt2, bindv, -1)) {
-                errorPrint("taos_stmt2_bind_param failed, reason: %s\n", taos_stmt2_error(pThreadInfo->conn->stmt2));
+            
+            // calc loop
+            int32_t loop = 1;
+            if(stbInfo->continueIfFail == YES_IF_FAILED) {          
+                if(stbInfo->keep_trying > 1) {
+                    loop = stbInfo->keep_trying;
+                } else {
+                    loop = 3; // default
+                }
+            }
+
+            // submit stmt2
+            int i = 0;
+            while (1) {
+                int32_t code = submitStmt2(pThreadInfo, bindv, interlaceRows, &delay1, &delay3, &startTs, &endTs, &generated);
+                if ( code == 0) {
+                    // success
+                    break;
+                } else {
+                    // failed
+                    if (loop == 0) {
+                        // failed for ever
+                        g_fail = true;
+                        goto free_of_interlace;
+                    }
+                    loop --;
+
+                    // reinit
+                    infoPrint("stmt2 start retry submit i=%d ...\n", i++);
+                    code = reinitStmt2(stbInfo, pThreadInfo);
+                    if (code != 0) {
+                        // failed for ever
+                        g_fail = true;
+                        goto free_of_interlace;
+                    }
+                }
+            }
+        } else {
+            // execute
+            startTs = toolsGetTimestampUs();
+            if (execInsert(pThreadInfo, generated, &delay3)) {
                 g_fail = true;
                 goto free_of_interlace;
             }
-            debugPrint("succ to call taos_stmt2_bind_param() with interlace mode. interlaceRows=%d bindv->count=%d \n", interlaceRows, bindv->count);
-            delay1 += toolsGetTimestampUs() - start;
+            endTs = toolsGetTimestampUs();
         }
 
-        // execute
-        startTs = toolsGetTimestampUs();
-        if (execInsert(pThreadInfo, generated, &delay3)) {
-            g_fail = true;
-            goto free_of_interlace;
-        }
-        endTs = toolsGetTimestampUs();
         debugPrint("execInsert tableIndex=%d left insert rows=%"PRId64" generated=%d\n", i, insertRows, generated);
                 
         // reset count
