@@ -1026,11 +1026,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                     superTable->childTblLimit = superTable->childTblCount;
                 }
             } else {
-                warnPrint("child table limit %"PRId64" is invalid, "
-                          "set to %"PRId64"\n",
-                          childTbl_limit->valueint,
-                          superTable->childTblCount);
-                superTable->childTblLimit = superTable->childTblCount;
+                warnPrint("child table limit %"PRId64" is invalid, set to zero. \n",childTbl_limit->valueint);
+                superTable->childTblLimit = 0;
             }
         }
         tools_cJSON *childTbl_offset =

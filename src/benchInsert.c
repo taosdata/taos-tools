@@ -1728,10 +1728,16 @@ int32_t reCreateConn(threadInfo * pThreadInfo) {
         taos_stmt2_close(pThreadInfo->conn->stmt2);
         pThreadInfo->conn->stmt2 = NULL;
     }
+
     // retry stmt3 init , maybe success
     pThreadInfo->conn->stmt2 = initStmt2(pThreadInfo->conn->taos, single);
     if (pThreadInfo->conn->stmt2) {
-        succPrint("%s", "reCreateConn first taos_stmt2_init() success.\n");
+        succPrint("%s", "reCreateConn first taos_stmt2_init() success and return.\n");
+        // select db 
+        if (taos_select_db(pThreadInfo->conn->taos, pThreadInfo->dbInfo->dbName)) {
+            errorPrint("taos select database(%s) failed\n", pThreadInfo->dbInfo->dbName);
+            return -1;
+        }
         return 0;
     }
 
@@ -1758,8 +1764,15 @@ int32_t reCreateConn(threadInfo * pThreadInfo) {
         return -1;
     } else {
         succPrint("%s", "reCreateConn second taos_stmt2_init() success.\n");
-        return 0;
     }
+
+    // select db 
+    if (taos_select_db(pThreadInfo->conn->taos, pThreadInfo->dbInfo->dbName)) {
+        errorPrint("taos select database(%s) failed\n", pThreadInfo->dbInfo->dbName);
+        return -1;
+    }
+
+    return 0;
 }
 
 // reinit
@@ -1826,8 +1839,10 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
             }
             loop --;
 
+            // wait a memont for trying
+            toolsMsleep(stbInfo->trying_interval);
             // reinit
-            infoPrint("stmt2 start retry submit i=%d ...\n", i++);
+            infoPrint("stmt2 start retry submit i=%d  after sleep %d ms...\n", i++, stbInfo->trying_interval);
             code = reinitStmt2(pThreadInfo, w);
             if (code != 0) {
                 // failed for ever
@@ -3794,8 +3809,13 @@ TAOS_STMT2* initStmt2(TAOS* taos, bool single) {
     memset(&op2, 0, sizeof(op2));
     op2.singleStbInsert      = single;
     op2.singleTableBindOnce  = single;
-    infoPrint("initStmt2 call taos_stmt2_init single=%d\n", single);
-    return taos_stmt2_init(taos, &op2);
+    
+    TAOS_STMT2* stmt2 = taos_stmt2_init(taos, &op2);
+    if (stmt2) 
+        succPrint("succ  taos_stmt2_init single=%d\n", single);
+    else
+        errorPrint("failed taos_stmt2_init single=%d\n", single);
+    return stmt2;
 }
 
 // init insert thread
