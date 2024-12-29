@@ -1768,7 +1768,7 @@ int32_t reCreateConn(threadInfo * pThreadInfo) {
 
     // select db 
     if (taos_select_db(pThreadInfo->conn->taos, pThreadInfo->dbInfo->dbName)) {
-        errorPrint("taos select database(%s) failed\n", pThreadInfo->dbInfo->dbName);
+        errorPrint("second taos select database(%s) failed\n", pThreadInfo->dbInfo->dbName);
         return -1;
     }
 
@@ -1835,6 +1835,7 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
             // failed
             if (loop == 0) {
                 // failed for ever
+                errorPrint("finally faild execute submitStmt2() after retry %d \n", i);
                 return -1;
             }
             loop --;
@@ -1846,7 +1847,7 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
             code = reinitStmt2(pThreadInfo, w);
             if (code != 0) {
                 // failed for ever
-                return -1;
+                errorPrint("faild reinitStmt2 and retry again for next i=%d \n", i);
             }
         }
     }
