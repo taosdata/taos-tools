@@ -1470,6 +1470,10 @@ void showBindV(TAOS_STMT2_BINDV *bindv, BArray *tags, BArray *cols) {
 uint32_t MurmurHash3_32(const char *key, uint32_t len);
 // get group index about dbname.tbname
 int32_t calcGroupIndex(char* dbName, char* tbName, int32_t groupCnt) {
+    // check valid
+    if (dbName == NULL || tbName == NULL) {
+        return -1;
+    }
     char key[1024];
     snprintf(key, sizeof(key), "1.%s.%s", dbName, tbName);
     uint32_t hash = MurmurHash3_32(key, strlen(key));
