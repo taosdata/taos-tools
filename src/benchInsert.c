@@ -1733,11 +1733,6 @@ int32_t reCreateConn(threadInfo * pThreadInfo) {
     pThreadInfo->conn->stmt2 = initStmt2(pThreadInfo->conn->taos, single);
     if (pThreadInfo->conn->stmt2) {
         succPrint("%s", "reCreateConn first taos_stmt2_init() success and return.\n");
-        // select db 
-        if (taos_select_db(pThreadInfo->conn->taos, pThreadInfo->dbInfo->dbName)) {
-            errorPrint("taos select database(%s) failed\n", pThreadInfo->dbInfo->dbName);
-            return -1;
-        }
         return 0;
     }
 
@@ -1775,7 +1770,7 @@ int32_t reCreateConn(threadInfo * pThreadInfo) {
 }
 
 // reinit
-int32_t reinitStmt2(threadInfo * pThreadInfo, int32_t w) {
+int32_t reConnectStmt2(threadInfo * pThreadInfo, int32_t w) {
     // re-create connection
     int32_t code = reCreateConn(pThreadInfo);
     if (code != 0) {
@@ -1825,10 +1820,10 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
 
     // submit stmt2
     int32_t i = 0;
-    bool reinit = true;
+    bool connected = true;
     while (1) {
         int32_t code = -1;
-        if(reinit) {
+        if(connected) {
             // reinit success to do submit
             code = submitStmt2Impl(pThreadInfo, bindv, delay1, delay3, startTs, endTs, generated);
         }
@@ -1850,14 +1845,14 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
             toolsMsleep(stbInfo->trying_interval);
             // reinit
             infoPrint("stmt2 start retry submit i=%d  after sleep %d ms...\n", i++, stbInfo->trying_interval);
-            code = reinitStmt2(pThreadInfo, w);
+            code = reConnectStmt2(pThreadInfo, w);
             if (code != 0) {
                 // faild and try again
-                errorPrint("faild reinitStmt2 and retry again for next i=%d \n", i);
-                reinit = false;
+                errorPrint("faild reConnectStmt2 and retry again for next i=%d \n", i);
+                connected = false;
             } else {
                 // succ 
-                reinit = true;
+                connected = true;
             }
         }
     }
