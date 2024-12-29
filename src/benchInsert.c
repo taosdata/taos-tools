@@ -4809,11 +4809,11 @@ static int32_t stmt2BindAndSubmit(
     // free
     freeBindV(bindv);
 
-    if(code == 0) {
-        errorPrint( "taos_stmt2_bind_param failed, table: %s . engine error: %s\n", childTbl->name, taos_stmt2_error(stmt2));
-        return -1;
+    if(code != 0) {
+        errorPrint( "failed submitStmt2() progressive mode, table: %s . engine error: %s\n", childTbl->name, taos_stmt2_error(stmt2));
+        return code;
     } else {
-        debugPrint("succ to call taos_stmt2_bind_param() progressive mode. table=%s batch=%d pos=%" PRId64 " ts=%" PRId64 " generated=%d\n",
+        debugPrint("succ submitStmt2 progressive mode. table=%s batch=%d pos=%" PRId64 " ts=%" PRId64 " generated=%d\n",
                 childTbl->name, batch, pos, *timestamp, generated);
         return generated;
     }
