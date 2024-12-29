@@ -1729,7 +1729,7 @@ int32_t reCreateConn(threadInfo * pThreadInfo) {
         pThreadInfo->conn->stmt2 = NULL;
     }
 
-    // retry stmt3 init , maybe success
+    // retry stmt2 init , maybe success
     pThreadInfo->conn->stmt2 = initStmt2(pThreadInfo->conn->taos, single);
     if (pThreadInfo->conn->stmt2) {
         succPrint("%s", "reCreateConn first taos_stmt2_init() success and return.\n");
@@ -1762,10 +1762,9 @@ int32_t reCreateConn(threadInfo * pThreadInfo) {
     if (NULL == pThreadInfo->conn->stmt2) {
         errorPrint("reCreateConn taos_stmt2_init() failed, reason: %s\n", taos_errstr(NULL));
         return -1;
-    } else {
-        succPrint("%s", "reCreateConn second taos_stmt2_init() success.\n");
-    }
-
+    } 
+        
+    succPrint("%s", "reCreateConn second taos_stmt2_init() success.\n");
     // select db 
     if (taos_select_db(pThreadInfo->conn->taos, pThreadInfo->dbInfo->dbName)) {
         errorPrint("second taos select database(%s) failed\n", pThreadInfo->dbInfo->dbName);
@@ -1825,16 +1824,23 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
     }
 
     // submit stmt2
-    int i = 0;
+    int32_t i = 0;
+    bool reinit = true;
     while (1) {
-        int32_t code = submitStmt2Impl(pThreadInfo, bindv, delay1, delay3, startTs, endTs, generated);
+        int32_t code = -1;
+        if(reinit) {
+            // reinit success to do submit
+            code = submitStmt2Impl(pThreadInfo, bindv, delay1, delay3, startTs, endTs, generated);
+        }
+
+        // check code
         if ( code == 0) {
             // success
             break;
         } else {
-            // failed
+            // failed to try
             if (loop == 0) {
-                // failed for ever
+                // failed finally
                 errorPrint("finally faild execute submitStmt2() after retry %d \n", i);
                 return -1;
             }
@@ -1846,8 +1852,12 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
             infoPrint("stmt2 start retry submit i=%d  after sleep %d ms...\n", i++, stbInfo->trying_interval);
             code = reinitStmt2(pThreadInfo, w);
             if (code != 0) {
-                // failed for ever
+                // faild and try again
                 errorPrint("faild reinitStmt2 and retry again for next i=%d \n", i);
+                reinit = false;
+            } else {
+                // succ 
+                reinit = true;
             }
         }
     }
