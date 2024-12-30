@@ -1026,11 +1026,8 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                     superTable->childTblLimit = superTable->childTblCount;
                 }
             } else {
-                warnPrint("child table limit %"PRId64" is invalid, "
-                          "set to %"PRId64"\n",
-                          childTbl_limit->valueint,
-                          superTable->childTblCount);
-                superTable->childTblLimit = superTable->childTblCount;
+                warnPrint("child table limit %"PRId64" is invalid, set to zero. \n",childTbl_limit->valueint);
+                superTable->childTblLimit = 0;
             }
         }
         tools_cJSON *childTbl_offset =
@@ -1038,6 +1035,14 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_offset)) {
             superTable->childTblOffset = childTbl_offset->valueint;
         }
+
+        // check limit offset 
+        if( superTable->childTblOffset + superTable->childTblLimit > superTable->childTblCount ) {
+            errorPrint("json config invalid. childtable_offset(%"PRId64") + childtable_limit(%"PRId64") > childtable_count(%"PRId64")",
+                  superTable->childTblOffset, superTable->childTblLimit, superTable->childTblCount);
+            return -1;          
+        }
+
         tools_cJSON *childTbl_from =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_from");
         if (tools_cJSON_IsNumber(childTbl_from)) {
