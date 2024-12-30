@@ -260,7 +260,7 @@ void initArgument() {
     g_arguments->startTimestamp = DEFAULT_START_TIME;
     g_arguments->partialColNum = 0;
 
-    g_arguments->keep_trying = 0;
+    g_arguments->keep_trying = 3;
     g_arguments->trying_interval = 0;
     g_arguments->iface = TAOSC_IFACE;
     g_arguments->rest_server_ver_major = -1;
