@@ -592,41 +592,6 @@ int32_t getDurationVal(tools_cJSON *jsonObj) {
     return durMinute;
 }
 
-void setDBCfgString(SDbCfg* cfg , char * value) {
-    int32_t len = strlen(value);
-
-    // need add quotation
-    bool add = false;
-    if (0 == strcasecmp(cfg->name, "cachemodel") ||
-        0 == strcasecmp(cfg->name, "dnodes"    ) ||
-        0 == strcasecmp(cfg->name, "precision" ) ) {
-            add = true;
-    }    
-
-    if (value[0] == '\'' || value[0] == '\"') {
-        // already have quotation
-        add = false;
-    }
-
-    if (!add) {
-        // unnecesary add
-        cfg->valuestring = value;
-        cfg->free = false;
-        return ;
-    }
-
-    // new
-    int32_t nlen = len + 2 + 1;
-    char * nval  = calloc(nlen, sizeof(char));
-    nval[0]      = '\'';
-    memcpy(nval + 1, value, len);
-    nval[nlen - 2] = '\'';
-    nval[nlen - 1] = 0;
-    cfg->valuestring = nval;
-    cfg->free = true;
-    return ;
-}
-
 static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
     SDataBase *database;
     if (index > 0) {
@@ -691,7 +656,7 @@ static int getDatabaseInfo(tools_cJSON *dbinfos, int index) {
             }
 
             if (tools_cJSON_IsString(cfg_object)) {
-                setDBCfgString(cfg, cfg_object->valuestring);
+                cfg->valuestring = cfg_object->valuestring;
             } else if (tools_cJSON_IsNumber(cfg_object)) {
                 cfg->valueint = (int)cfg_object->valueint;
                 cfg->valuestring = NULL;
@@ -1026,8 +991,11 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                     superTable->childTblLimit = superTable->childTblCount;
                 }
             } else {
-                warnPrint("child table limit %"PRId64" is invalid, set to zero. \n",childTbl_limit->valueint);
-                superTable->childTblLimit = 0;
+                warnPrint("child table limit %"PRId64" is invalid, "
+                          "set to %"PRId64"\n",
+                          childTbl_limit->valueint,
+                          superTable->childTblCount);
+                superTable->childTblLimit = superTable->childTblCount;
             }
         }
         tools_cJSON *childTbl_offset =
@@ -1035,14 +1003,6 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
         if (tools_cJSON_IsNumber(childTbl_offset)) {
             superTable->childTblOffset = childTbl_offset->valueint;
         }
-
-        // check limit offset 
-        if( superTable->childTblOffset + superTable->childTblLimit > superTable->childTblCount ) {
-            errorPrint("json config invalid. childtable_offset(%"PRId64") + childtable_limit(%"PRId64") > childtable_count(%"PRId64")",
-                  superTable->childTblOffset, superTable->childTblLimit, superTable->childTblCount);
-            return -1;          
-        }
-
         tools_cJSON *childTbl_from =
             tools_cJSON_GetObjectItem(stbInfo, "childtable_from");
         if (tools_cJSON_IsNumber(childTbl_from)) {

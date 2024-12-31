@@ -158,12 +158,12 @@ int main(int argc, char* argv[]) {
             ret = -1;
         }
     } else if (g_arguments->test_mode == QUERY_TEST) {
-        if (queryTestProcess()) {
+        if (queryTestProcess(g_arguments)) {
             errorPrint("%s", "query test process failed\n");
             ret = -1;
         }
     } else if (g_arguments->test_mode == SUBSCRIBE_TEST) {
-        if (subscribeTestProcess()) {
+        if (subscribeTestProcess(g_arguments)) {
             errorPrint("%s", "sub test process failed\n");
             ret = -1;
         }

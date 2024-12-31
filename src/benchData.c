@@ -373,6 +373,14 @@ static int generateSampleFromCsv(char *buffer, char* file, FILE* fp, int32_t len
             continue;
         }
 
+        if (readLen > length) {
+            infoPrint(
+                "sample row len[%d] overflow define schema len[%d], so discard "
+                "this row\n",
+                (int32_t)readLen, length);
+            continue;
+        }
+
         int64_t offset = ((int64_t)getRows) * length;
         memcpy(buffer + offset, line, readLen + 1);
         getRows++;
@@ -539,7 +547,7 @@ int tmpGeometry(char *tmp, int iface, Field *field, int64_t k) {
 
     // gen point count
     int32_t cnt = field->length / 24;
-    if(cnt < 2) {
+    if(cnt == 0) {
         snprintf(tmp, field->length, "POINT(%d %d)", tmpUint16(field), tmpUint16(field));
         return 0;
     }

@@ -238,10 +238,9 @@ int interlaceWriteCsv(SDataBase* db, SSuperTable* stb, FILE* fs, char* buf, int 
 
 END:
     // free
-    for (int64_t m = 0 ; m < stb->childTblCount; m ++) {
-        tmfree(tagDatas[m]);
+    for(int64_t m = 0 ; m < stb->childTblCount; m ++) {        
+            tmfree(tagDatas[m]);
     }
-    tmfree(tagDatas);
     tmfree(colData);
     return ret;
 }
