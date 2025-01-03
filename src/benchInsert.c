@@ -1711,6 +1711,7 @@ void loadChildTableInfo(threadInfo* pThreadInfo) {
     tmfree(buf);
 }
 
+/*
 // create conn again
 int32_t reCreateConn(threadInfo * pThreadInfo) {
     // single
@@ -1785,6 +1786,7 @@ int32_t reConnectStmt2(threadInfo * pThreadInfo, int32_t w) {
 
     return code;
 }
+*/
 
 int32_t submitStmt2Impl(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *delay1, int64_t *delay3,
                     int64_t* startTs, int64_t* endTs, uint32_t* generated) {
