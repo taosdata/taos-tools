@@ -1711,6 +1711,7 @@ void loadChildTableInfo(threadInfo* pThreadInfo) {
     tmfree(buf);
 }
 
+/*
 // create conn again
 int32_t reCreateConn(threadInfo * pThreadInfo) {
     // single
@@ -1785,6 +1786,7 @@ int32_t reConnectStmt2(threadInfo * pThreadInfo, int32_t w) {
 
     return code;
 }
+*/
 
 int32_t submitStmt2Impl(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *delay1, int64_t *delay3,
                     int64_t* startTs, int64_t* endTs, uint32_t* generated) {
@@ -1805,6 +1807,13 @@ int32_t submitStmt2Impl(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64
     return code;
 }
 
+// no retry function submitStmt2
+int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *delay1, int64_t *delay3,
+                    int64_t* startTs, int64_t* endTs, uint32_t* generated, int32_t w) {
+    return submitStmt2Impl(pThreadInfo, bindv, delay1, delay3, startTs, endTs, generated);
+}
+
+/*
 int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *delay1, int64_t *delay3,
                     int64_t* startTs, int64_t* endTs, uint32_t* generated, int32_t w) {
     // calc loop
@@ -1860,6 +1869,7 @@ int32_t submitStmt2(threadInfo * pThreadInfo, TAOS_STMT2_BINDV *bindv, int64_t *
     // success
     return 0;
 }
+*/
 
 static void *syncWriteInterlace(void *sarg) {
     threadInfo * pThreadInfo = (threadInfo *)sarg;
