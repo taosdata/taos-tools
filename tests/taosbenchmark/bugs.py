@@ -69,11 +69,14 @@ class TDTestCase:
         os.system(f"rm -f {result}")
         cmd = f"{benchmark} {options} -f {jsonFile} >> {result}"
         os.system(cmd)
+        tdLog.info(cmd)
         with open(result) as file:
             content = file.read()
             for key in keys:
                 if content.find(key) == -1:
                     tdLog.exit(f"not found key: {key} in content={content}")
+                else:
+                    tdLog.info(f"found key:{key} successful.")            
 
 
     def testBenchmarkJson(self, benchmark, jsonFile, options="", checkStep=False):
