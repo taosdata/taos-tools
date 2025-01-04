@@ -581,7 +581,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
     }
 
     g_queryInfo.specifiedQueryInfo.totalQueried =
-        g_queryInfo.specifiedQueryInfo.queryTimes * nConcurrent;
+        nSqlCount * g_queryInfo.specifiedQueryInfo.queryTimes * nConcurrent;
     tmfree((char *)pids);
     tmfree((char *)infos);
 
@@ -686,6 +686,9 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
     }
     benchArrayDestroy(delay_list);
     code = 0;
+    g_queryInfo.specifiedQueryInfo.totalQueried = 
+        g_queryInfo.specifiedQueryInfo.sqls->size * g_queryInfo.specifiedQueryInfo.queryTimes * thread;
+
 OVER:
     tmfree(pids);
     tmfree(infos);
@@ -856,12 +859,20 @@ int queryTestProcess() {
     uint64_t endTs = toolsGetTimestampMs();
     int64_t t = endTs - startTs;
     double  tInS = (double)t / 1000.0;
-    if (g_queryInfo.specifiedQueryInfo.totalQueried)
+
+    // specifiedQuery
+    if (g_queryInfo.specifiedQueryInfo.totalQueried) {
         infoPrint("Total specified queries: %" PRIu64 "\n",
               g_queryInfo.specifiedQueryInfo.totalQueried);
-    if (g_queryInfo.superQueryInfo.totalQueried)
-    infoPrint("Total super queries: %" PRIu64 "\n",
-              g_queryInfo.superQueryInfo.totalQueried);
+    }
+    
+    // superQuery
+    if (g_queryInfo.superQueryInfo.totalQueried) {
+        infoPrint("Total super queries: %" PRIu64 "\n",
+                g_queryInfo.superQueryInfo.totalQueried);
+    }
+
+    // total QPS
     uint64_t totalQueried = g_queryInfo.specifiedQueryInfo.totalQueried
         + g_queryInfo.superQueryInfo.totalQueried;
     infoPrint(
