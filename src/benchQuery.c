@@ -661,7 +661,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
     if (delay_list->size) {
         infoPrint(
                 "spend %.6fs using "
-                "%d threads complete query %d times,cd  "
+                "%d threads complete query %d times,  "
                 "min delay: %.6fs, "
                 "avg delay: %.6fs, "
                 "p90: %.6fs, "
