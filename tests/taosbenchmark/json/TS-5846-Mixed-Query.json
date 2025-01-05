@@ -12,7 +12,7 @@
     "query_mode": "taosc",
     "specified_table_query": {
       "threads": 2,
-      "mixed_query": "no",
+      "mixed_query": "yes",
       "sqls": [
         {
           "sql": "select count(*) from test.meters"
