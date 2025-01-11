@@ -687,7 +687,7 @@ static int multi_thread_specified_mixed_query(uint16_t iface, char* dbName) {
     benchArrayDestroy(delay_list);
     code = 0;
     g_queryInfo.specifiedQueryInfo.totalQueried = 
-        g_queryInfo.specifiedQueryInfo.sqls->size * g_queryInfo.specifiedQueryInfo.queryTimes * thread;
+        g_queryInfo.specifiedQueryInfo.sqls->size * g_queryInfo.specifiedQueryInfo.queryTimes;
 
 OVER:
     tmfree(pids);
