@@ -558,7 +558,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                              "SQL command: %s"
                              "\n",
                              nConcurrent, query_times,
-                             i, spend/1E6, totalQueryTimes / (spend/1E6),
+                             i + 1, spend/1E6, totalQueryTimes / (spend/1E6),
                              avg_delay / 1E6,  /* avg */
                              sql->delay_list[0] / 1E6,                   /* min */
                              sql->delay_list[totalQueryTimes - 1] / 1E6, /*  max */
@@ -580,7 +580,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                                    "SQL command: %s"
                                    "\n",
                                    nConcurrent, query_times,
-                                   i, spend/1E6, totalQueryTimes / (spend/1E6),
+                                   i + 1, spend/1E6, totalQueryTimes / (spend/1E6),
                                    avg_delay / 1E6,  /* avg */
                                    sql->delay_list[0] / 1E6,                   /* min */
                                    sql->delay_list[totalQueryTimes - 1] / 1E6, /*  max */
