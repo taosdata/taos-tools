@@ -489,6 +489,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
             g_arguments->terminate = true;
         }
 
+        int64_t start = toolsGetTimestampUs();
         // wait threads execute finished one by one
         for (int j = 0; j < threadCnt ; j++) {
            pthread_join(pids[j], NULL);
@@ -511,6 +512,11 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                 tmfree(pThreadInfo->query_delay_list);
                 pThreadInfo->query_delay_list = NULL;
            }
+        }
+        int64_t spend = toolsGetTimestampUs() - start;
+        if(spend == 0) {
+            // avoid xx/spend expr throw error
+            spend = 1;
         }
 
         // cancel or need exit check
@@ -540,17 +546,20 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
         }
         avg_delay /= nConcurrent;
         qsort(sql->delay_list, g_queryInfo.specifiedQueryInfo.queryTimes, sizeof(uint64_t), compare);
-        infoPrintNoTimestamp("complete query with %d threads and %" PRIu64
-                             " query delay "
-                             "avg: \t%.6fs "
-                             "min: \t%.6fs "
-                             "max: \t%.6fs "
-                             "p90: \t%.6fs "
-                             "p95: \t%.6fs "
-                             "p99: \t%.6fs "
+        infoPrintNoTimestamp("complete query with %d threads and %" PRIu64 " "
+                             "sql %"PRIu64" spend %.6fs QPS: %.3f "
+                             "query delay "
+                             "avg: %.6fs "
+                             "min: %.6fs "
+                             "max: %.6fs "
+                             "p90: %.6fs "
+                             "p95: %.6fs "
+                             "p99: %.6fs "
                              "SQL command: %s"
                              "\n",
-                             nConcurrent, query_times, avg_delay / 1E6,  /* avg */
+                             nConcurrent, query_times,
+                             i, spend/1E6, totalQueryTimes / (spend/1E6),
+                             avg_delay / 1E6,  /* avg */
                              sql->delay_list[0] / 1E6,                   /* min */
                              sql->delay_list[totalQueryTimes - 1] / 1E6, /*  max */
                              /*  p90 */
@@ -560,16 +569,19 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                              /*  p99 */
                              sql->delay_list[(uint64_t)(totalQueryTimes * 0.99)] / 1E6, sql->command);
         infoPrintNoTimestampToFile("complete query with %d threads and %" PRIu64
+                                   "sql %"PRIu64" spend %.6fs QPS: %.3f "
                                    " query delay "
-                                   "avg: \t%.6fs "
-                                   "min: \t%.6fs "
-                                   "max: \t%.6fs "
-                                   "p90: \t%.6fs "
-                                   "p95: \t%.6fs "
-                                   "p99: \t%.6fs "
+                                   "avg: %.6fs "
+                                   "min: %.6fs "
+                                   "max: %.6fs "
+                                   "p90: %.6fs "
+                                   "p95: %.6fs "
+                                   "p99: %.6fs "
                                    "SQL command: %s"
                                    "\n",
-                                   nConcurrent, query_times, avg_delay / 1E6,  /* avg */
+                                   nConcurrent, query_times,
+                                   i, spend/1E6, totalQueryTimes / (spend/1E6),
+                                   avg_delay / 1E6,  /* avg */
                                    sql->delay_list[0] / 1E6,                   /* min */
                                    sql->delay_list[totalQueryTimes - 1] / 1E6, /*  max */
                                    /*  p90 */
