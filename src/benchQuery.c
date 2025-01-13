@@ -547,7 +547,7 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
         avg_delay /= nConcurrent;
         qsort(sql->delay_list, g_queryInfo.specifiedQueryInfo.queryTimes, sizeof(uint64_t), compare);
         int32_t bufLen = strlen(sql->command) + 512;
-        char * buf = benchCalloc(bufLen);
+        char * buf = benchCalloc(bufLen, sizeof(char), false);
         snprintf(buf , bufLen, "complete query with %d threads and %" PRIu64 " "
                              "sql %"PRIu64" spend %.6fs QPS: %.3f "
                              "query delay "
