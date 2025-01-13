@@ -546,7 +546,9 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
         }
         avg_delay /= nConcurrent;
         qsort(sql->delay_list, g_queryInfo.specifiedQueryInfo.queryTimes, sizeof(uint64_t), compare);
-        infoPrintNoTimestamp("complete query with %d threads and %" PRIu64 " "
+        int32_t bufLen = strlen(sql->command) + 512;
+        char * buf = benchCalloc(bufLen);
+        snprintf(buf , bufLen, "complete query with %d threads and %" PRIu64 " "
                              "sql %"PRIu64" spend %.6fs QPS: %.3f "
                              "query delay "
                              "avg: %.6fs "
@@ -567,29 +569,10 @@ static int multi_thread_specified_table_query(uint16_t iface, char* dbName) {
                              /*  p95 */
                              sql->delay_list[(uint64_t)(totalQueryTimes * 0.95)] / 1E6,
                              /*  p99 */
-                             sql->delay_list[(uint64_t)(totalQueryTimes * 0.99)] / 1E6, sql->command);
-        infoPrintNoTimestampToFile("complete query with %d threads and %" PRIu64
-                                   "sql %"PRIu64" spend %.6fs QPS: %.3f "
-                                   " query delay "
-                                   "avg: %.6fs "
-                                   "min: %.6fs "
-                                   "max: %.6fs "
-                                   "p90: %.6fs "
-                                   "p95: %.6fs "
-                                   "p99: %.6fs "
-                                   "SQL command: %s"
-                                   "\n",
-                                   nConcurrent, query_times,
-                                   i + 1, spend/1E6, totalQueryTimes / (spend/1E6),
-                                   avg_delay / 1E6,  /* avg */
-                                   sql->delay_list[0] / 1E6,                   /* min */
-                                   sql->delay_list[totalQueryTimes - 1] / 1E6, /*  max */
-                                   /*  p90 */
-                                   sql->delay_list[(uint64_t)(totalQueryTimes * 0.90)] / 1E6,
-                                   /*  p95 */
-                                   sql->delay_list[(uint64_t)(totalQueryTimes * 0.95)] / 1E6,
-                                   /*  p99 */
-                                   sql->delay_list[(uint64_t)(totalQueryTimes * 0.99)] / 1E6, sql->command);
+                             sql->delay_list[(uint64_t)(totalQueryTimes * 0.99)] / 1E6, sql->command);        
+        infoPrintNoTimestamp("%s", buf);
+        infoPrintNoTimestampToFile("%s", buf);
+        tmfree(buf);                                   
     }
 
     g_queryInfo.specifiedQueryInfo.totalQueried =
