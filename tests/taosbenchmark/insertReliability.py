@@ -127,7 +127,7 @@ class TDTestCase:
     
     def checkAfterRestart(self, command):  
         # taosc
-        output, error = self.runSeconds(command, 5)
+        output, error = self.runSeconds(command, 10)
         
         #
         #  check succRows <= dbRows
