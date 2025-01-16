@@ -119,7 +119,7 @@ class TDTestCase:
         return True, value    
 
     def getDbRows(self, times):
-        sql = "select count(*) from test.meters"
+        sql = f"select count(*) from {self.db}.meters"
         tdSql.waitedQuery(sql, 1, times)
         dbRows = tdSql.getData(0, 0)
         return dbRows
@@ -167,16 +167,17 @@ class TDTestCase:
     
     def writeSuccCheck(self):
         benchmark = self.getPath()
+        self.db = "relia"
 
         #
         # rest
         #
 
         # batch
-        command = f"{benchmark} -t 100 -n 10000000 -I rest -r 100 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I rest -r 100 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -t 100 -n 10000000 -I rest -r 100 -B 1 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I rest -r 100 -B 1 -y"
         self.checkAfterRestart(command)
 
         #
@@ -184,10 +185,10 @@ class TDTestCase:
         #
 
         # batch
-        command = f"{benchmark} -t 100 -n 10000000 -I taosc -r 100 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I taosc -r 100 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -t 100 -n 10000000 -I taosc -r 100 -B 1 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I taosc -r 100 -B 1 -y"
         self.checkAfterRestart(command)
 
         #
@@ -195,10 +196,10 @@ class TDTestCase:
         #
 
         # batch
-        command = f"{benchmark} -t 100 -n 10000000 -I stmt2 -r 100 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I stmt2 -r 100 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -t 100 -n 10000000 -I stmt2 -r 100 -B 1 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I stmt2 -r 100 -B 1 -y"
         self.checkAfterRestart(command)
 
         #
@@ -206,10 +207,10 @@ class TDTestCase:
         #
 
         # batch
-        command = f"{benchmark} -t 100 -n 10000000  -r 100 --cloud_dsn=http://localhost:6041 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000  -r 100 --cloud_dsn=http://localhost:6041 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -t 100 -n 10000000  -r 100 -B 1 --cloud_dsn=http://localhost:6041 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 10000000  -r 100 -B 1 --cloud_dsn=http://localhost:6041 -y"
         self.checkAfterRestart(command)
         
 
