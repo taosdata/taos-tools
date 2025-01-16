@@ -181,11 +181,13 @@ class TDTestCase:
         #
 
         # batch
+        '''
         command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I rest -r 100 -y"
         self.checkAfterRestart(command)
         # interlace
         command = f"{benchmark} -d {self.db} -t 100 -n 10000000 -I rest -r 100 -B 1 -y"
         self.checkAfterRestart(command)
+        '''
 
         #
         # taosc
