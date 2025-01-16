@@ -79,6 +79,13 @@ class TDTestCase:
         process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         time.sleep(seconds)
 
+        # check have dbRows
+        for i in range(60):
+            rows = self.getDbRows(4)
+            if rows > 0:
+                tdLog.info(f" runSecond loop = i wait db have record ok, record={rows}, break wait ...")
+                break
+
         index = 1
         tdLog.info(f"stop taosd index={index} ...")
         tdDnodes.stop(index)
@@ -111,6 +118,12 @@ class TDTestCase:
 
         return True, value    
 
+    def getDbRows(self, times):
+        sql = "select count(*) from test.meters"
+        tdSql.waitedQuery(sql, 1, times)
+        dbRows = tdSql.getData(0, 0)
+        return dbRows
+
     
     def checkAfterRestart(self, command):  
         # taosc
@@ -131,9 +144,7 @@ class TDTestCase:
             tdLog.exit(f"key:{key} value:{value} is zero, content={error}")
         
         # compare with database rows
-        sql = "select count(*) from test.meters"
-        tdSql.waitedQuery(sql, 1, 100)
-        dbRows = tdSql.getData(0, 0)
+        dbRows = self.getDbRows(100)
         if  dbRows < succRows:
             tdLog.exit(f"db rows less than insert success rows. {dbRows} < {succRows}")
 
