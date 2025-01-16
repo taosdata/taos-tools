@@ -81,7 +81,14 @@ class TDTestCase:
 
         # check have dbRows
         for i in range(60):
-            rows = self.getDbRows(4)
+            # maybe db can not create , so need try
+            try:
+                rows = self.getDbRows(4)
+            except:
+                time.sleep(1)
+                continue
+
+            # check break condition
             if rows > 0:
                 tdLog.info(f" runSecond loop = {i} wait db have record ok, records={rows}, break wait ...")
                 break
