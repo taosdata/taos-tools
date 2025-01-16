@@ -83,7 +83,7 @@ class TDTestCase:
         for i in range(60):
             rows = self.getDbRows(4)
             if rows > 0:
-                tdLog.info(f" runSecond loop = i wait db have record ok, record={rows}, break wait ...")
+                tdLog.info(f" runSecond loop = {i} wait db have record ok, records={rows}, break wait ...")
                 break
 
         index = 1
