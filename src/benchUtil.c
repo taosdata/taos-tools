@@ -547,10 +547,10 @@ int postProceSqlImpl(char *sqlstr, char* dbName, int precision, int iface,
         }
         int64_t index = strlen(responseBuf) - 1;
         while (responseBuf[index] == '\n' || responseBuf[index] == '\r') {
-            index--;
-            if (index <= 0) {
+            if (index == 0) {
                 break;
             }
+            index--;
         }
         debugPrint("index: %" PRId64 "\n", index);
         if (chunked && responseBuf[index] == '0') {
