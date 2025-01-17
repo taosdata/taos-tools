@@ -459,6 +459,7 @@ class TDDnode:
             )
             if os.system(taosadapterCmd) != 0:
                 tdLog.exit(taosadapterCmd)
+            tdLog.debug(f"taosadapter run: {taosadapterCmd}")
 
         if os.system(cmd) != 0:
             tdLog.exit(cmd)

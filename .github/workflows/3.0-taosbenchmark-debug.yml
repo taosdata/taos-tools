@@ -171,6 +171,17 @@ jobs:
         run: |
           pip3 install decorator numpy fabric2 psutil pandas faker toml taospy > /dev/null
 
+
+      - name: Test Common Cases | cases/*.py
+        if:
+          (steps.changed-files-specific.outputs.any_changed == 'true'
+          && github.event_name == 'pull_request')
+          || github.event_name == 'push'
+          || github.event_name == 'schedule'
+        run: |
+          cd tests
+          python3 test.py -f taosbenchmark/insertReliability.py
+
       - name: Test Standard Case | taosbenchmark/*.py
         if:
           (steps.changed-files-specific.outputs.any_changed == 'true'

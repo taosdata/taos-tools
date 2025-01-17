@@ -94,8 +94,8 @@ class TDTestCase:
                 break
 
         index = 1
-        tdLog.info(f"not stop taosd index={index} ...")
-        #tdDnodes.stop(index)
+        tdLog.info(f"stop taosd index={index} ...")
+        tdDnodes.stop(index)
 
         tdLog.info(f"wait taosbenchmark end ...")
         process.wait(timeout)
@@ -181,10 +181,10 @@ class TDTestCase:
         #
 
         # batch
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000 -I rest -r 100 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000 -I rest -r 100 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000 -I rest -r 100 -B 1 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000 -I rest -r 100 -B 1 -y"
         self.checkAfterRestart(command)
 
         #
@@ -192,10 +192,10 @@ class TDTestCase:
         #
 
         # batch
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000 -I taosc -r 100 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000 -I taosc -r 100 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000 -I taosc -r 100 -B 1 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000 -I taosc -r 100 -B 1 -y"
         self.checkAfterRestart(command)
 
         #
@@ -203,10 +203,10 @@ class TDTestCase:
         #
 
         # batch
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000 -I stmt2 -r 100 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000 -I stmt2 -r 100 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000 -I stmt2 -r 100 -B 1 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000 -I stmt2 -r 100 -B 1 -y"
         self.checkAfterRestart(command)
 
         #
@@ -214,10 +214,10 @@ class TDTestCase:
         #
 
         # batch
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000  -r 100 --cloud_dsn=http://localhost:6041 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000  -r 100 --cloud_dsn=http://localhost:6041 -y"
         self.checkAfterRestart(command)
         # interlace
-        command = f"{benchmark} -d {self.db} -t 10 -n 1000  -r 100 -B 1 --cloud_dsn=http://localhost:6041 -y"
+        command = f"{benchmark} -d {self.db} -t 100 -n 1000000  -r 100 -B 1 --cloud_dsn=http://localhost:6041 -y"
         self.checkAfterRestart(command)
         
 
