@@ -180,7 +180,7 @@ jobs:
           || github.event_name == 'schedule'
         run: |
           cd tests
-          python3 test.py -f taosbenchmark/insertReliability.py
+          python3 test.py -f cases/insertReliability.py
 
       - name: Test Standard Case | taosbenchmark/*.py
         if:
