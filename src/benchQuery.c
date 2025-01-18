@@ -49,7 +49,7 @@ int selectAndGetResult(qThreadInfo *pThreadInfo, char *command, bool other) {
         } else {
             // succ query
             if (!other)
-                rows = fetchResult(res, pThreadInfo);
+                rows = fetchResult(res, pThreadInfo->filePath);
         }
 
         // free result

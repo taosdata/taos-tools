@@ -858,7 +858,7 @@ typedef struct SThreadInfo_S {
 typedef struct SQueryThreadInfo_S {
     int start_sql;
     int end_sql;
-    int threadId;
+    int threadID;
     BArray*  query_delay_list;
     int   sockfd;
     SBenchConn* conn;
@@ -867,6 +867,7 @@ typedef struct SQueryThreadInfo_S {
     // error rate
     uint64_t nSucc;
     uint64_t nFail;
+    char     filePath[MAX_PATH_LEN];
 } qThreadInfo;
 
 typedef struct STSmaThreadInfo_S {
@@ -911,7 +912,7 @@ int     convertStringToDatatype(char *type, int length);
 unsigned int     taosRandom();
 void    tmfree(void *buf);
 void    tmfclose(FILE *fp);
-int64_t fetchResult(TAOS_RES *res, threadInfo *pThreadInfo);
+int64_t fetchResult(TAOS_RES *res, char *filePath);
 void    prompt(bool NonStopMode);
 void    ERROR_EXIT(const char *msg);
 int     getServerVersionRest(int16_t rest_port);

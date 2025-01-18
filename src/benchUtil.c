@@ -825,14 +825,14 @@ free_of_post:
 }
 
 // fetch result fo file or nothing
-int64_t fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
+int64_t fetchResult(TAOS_RES *res, char * filePath) {
     TAOS_ROW    row        = NULL;
     int         num_fields = 0;
     int64_t     totalLen   = 0;
     TAOS_FIELD *fields     = 0;
     int64_t     rows       = 0;
     char       *databuf    = NULL;
-    bool        toFile     = strlen(pThreadInfo->filePath) > 0;
+    bool        toFile     = strlen(filePath) > 0;
     
 
     if(toFile) {
@@ -865,7 +865,7 @@ int64_t fetchResult(TAOS_RES *res, threadInfo *pThreadInfo) {
 
     // end
     if (toFile) {
-        appendResultBufToFile(databuf, pThreadInfo->filePath);
+        appendResultBufToFile(databuf, filePath);
         free(databuf);
     }
     return rows;
