@@ -1076,6 +1076,7 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
             return -1;
         }
 
+        // read from super table
         tools_cJSON *continueIfFail =
             tools_cJSON_GetObjectItem(stbInfo, "continue_if_fail");  // yes, no,
         if (tools_cJSON_IsString(continueIfFail)) {
@@ -1090,6 +1091,9 @@ static int getStableInfo(tools_cJSON *dbinfos, int index) {
                            continueIfFail->valuestring);
                 return -1;
             }
+        } else {
+            // default value is common specialed
+            superTable->continueIfFail = g_arguments->continueIfFail;
         }
 
         // start_fillback_time
@@ -1560,6 +1564,7 @@ static int getMetaFromCommonJsonFile(tools_cJSON *json) {
         }
     }
 
+    // read from common
     tools_cJSON *continueIfFail =
         tools_cJSON_GetObjectItem(json, "continue_if_fail");  // yes, no,
     if (tools_cJSON_IsString(continueIfFail)) {

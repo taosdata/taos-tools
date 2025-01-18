@@ -755,105 +755,88 @@ void *queryKiller(void *arg) {
     return NULL;
 }
 
-int queryTestProcess() {
-    prompt(0);
-
-    if (REST_IFACE == g_queryInfo.iface) {
-        encodeAuthBase64();
-    }
-
+// 
+int killSlowQuery() {
     pthread_t pidKiller = {0};
-    if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
-        pthread_create(&pidKiller, NULL, queryKiller, NULL);
-        pthread_join(pidKiller, NULL);
-        toolsMsleep(1000);
-    }
-
-    if (g_queryInfo.iface == REST_IFACE) {
-        if (convertHostToServAddr(g_arguments->host,
-                    g_arguments->port + TSDB_PORT_HTTP,
-                    &(g_arguments->serv_addr)) != 0) {
-            errorPrint("%s", "convert host to server address\n");
-            return -1;
-        }
-    }
-
-    if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
-            (g_queryInfo.superQueryInfo.threadCnt > 0)) {
-        SBenchConn* conn = initBenchConn();
-        if (conn == NULL) {
-            return -1;
-        }
-        char  cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
-        if (3 == g_majorVersionOfClient) {
-            snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
-                    "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
-                    g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
-        } else {
-            snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
-                     "SELECT COUNT(TBNAME) FROM %s.%s",
-                    g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
-        }
-        TAOS_RES *res = taos_query(conn->taos, cmd);
-        int32_t   code = taos_errno(res);
-        if (code) {
-            printErrCmdCodeStr(cmd, code, res);
-            closeBenchConn(conn);
-            return -1;
-        }
-        TAOS_ROW    row = NULL;
-        int         num_fields = taos_num_fields(res);
-        TAOS_FIELD *fields = taos_fetch_fields(res);
-        while ((row = taos_fetch_row(res)) != NULL) {
-            if (0 == strlen((char *)(row[0]))) {
-                errorPrint("stable %s have no child table\n",
-                        g_queryInfo.superQueryInfo.stbName);
-                taos_free_result(res);
-                closeBenchConn(conn);
-                return -1;
-            }
-            char temp[256] = {0};
-            taos_print_row(temp, row, fields, num_fields);
-            g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
-        }
-        infoPrint("%s's childTblCount: %" PRId64 "\n",
-                g_queryInfo.superQueryInfo.stbName,
-                g_queryInfo.superQueryInfo.childTblCount);
-        taos_free_result(res);
-        g_queryInfo.superQueryInfo.childTblName =
-            benchCalloc(g_queryInfo.superQueryInfo.childTblCount,
-                    sizeof(char *), false);
-        if (getAllChildNameOfSuperTable(
-                    conn->taos, g_queryInfo.dbName,
-                    g_queryInfo.superQueryInfo.stbName,
-                    g_queryInfo.superQueryInfo.childTblName,
-                    g_queryInfo.superQueryInfo.childTblCount)) {
-            tmfree(g_queryInfo.superQueryInfo.childTblName);
-            closeBenchConn(conn);
-            return -1;
-        }
-        closeBenchConn(conn);
-    }
-    uint64_t startTs = toolsGetTimestampMs();
-    if (g_queryInfo.specifiedQueryInfo.mixed_query) {
-        if (multi_thread_specified_mixed_query(g_queryInfo.iface,
-                    g_queryInfo.dbName)) {
-            return -1;
-        }
-    } else {
-        if (multi_thread_specified_table_query(g_queryInfo.iface,
-                    g_queryInfo.dbName)) {
-            return -1;
-        }
-    }
-    if (multi_thread_super_table_query(g_queryInfo.iface,
-                g_queryInfo.dbName)) {
+    int32_t ret = pthread_create(&pidKiller, NULL, queryKiller, NULL);
+    if (ret != 0) {
+        errorPrint("pthread_create failed create queryKiller thread. error code =%d \n", ret);
         return -1;
     }
-    // workaround to use separate taos connection;
-    uint64_t endTs = toolsGetTimestampMs();
-    int64_t t = endTs - startTs;
-    double  tInS = (double)t / 1000.0;
+    pthread_join(pidKiller, NULL);
+    toolsMsleep(1000);
+    return 0;
+}
+
+// fetch super table child name from server
+int fetchChildTableName(char *dbName, char *stbName) {
+    SBenchConn* conn = initBenchConn();
+    if (conn == NULL) {
+        return -1;
+    }
+
+    // get child count
+    char  cmd[SHORT_1K_SQL_BUFF_LEN] = "\0";
+    if (3 == g_majorVersionOfClient) {
+        snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
+                "SELECT COUNT(*) FROM( SELECT DISTINCT(TBNAME) FROM %s.%s)",
+                dbName, stbName);
+    } else {
+        snprintf(cmd, SHORT_1K_SQL_BUFF_LEN,
+                    "SELECT COUNT(TBNAME) FROM %s.%s",
+                dbName, superQueryInfo.stbName);
+    }
+    TAOS_RES *res = taos_query(conn->taos, cmd);
+    int32_t   code = taos_errno(res);
+    if (code) {
+        printErrCmdCodeStr(cmd, code, res);
+        closeBenchConn(conn);
+        return -1;
+    }
+
+    TAOS_ROW    row = NULL;
+    int         num_fields = taos_num_fields(res);
+    TAOS_FIELD *fields = taos_fetch_fields(res);
+    while ((row = taos_fetch_row(res)) != NULL) {
+        if (0 == strlen((char *)(row[0]))) {
+            errorPrint("stable %s have no child table\n", stbName);
+            taos_free_result(res);
+            closeBenchConn(conn);
+            return -1;
+        }
+        char temp[256] = {0};
+        taos_print_row(temp, row, fields, num_fields);
+
+        // set child table count
+        g_queryInfo.superQueryInfo.childTblCount = (int64_t)atol(temp);
+    }
+    infoPrint("%s's childTblCount: %" PRId64 "\n", stbName, g_queryInfo.superQueryInfo.childTblCount);
+    taos_free_result(res);
+
+    // malloc memory with child table count
+    g_queryInfo.superQueryInfo.childTblName =
+        benchCalloc(g_queryInfo.superQueryInfo.childTblCount,
+                sizeof(char *), false);
+    // fetch child table name
+    if (getAllChildNameOfSuperTable(
+                conn->taos, dbName, stbName,
+                g_queryInfo.superQueryInfo.childTblName,
+                g_queryInfo.superQueryInfo.childTblCount)) {
+        // faild            
+        tmfree(g_queryInfo.superQueryInfo.childTblName);
+        closeBenchConn(conn);
+        return -1;
+    }
+    closeBenchConn(conn);
+
+    // succ
+    return 0;
+}
+
+// total query for end 
+void totalQuery(int64_t spends) {
+
+    double  tInS = (double)spends / 1000;
 
     // specifiedQuery
     if (g_queryInfo.specifiedQueryInfo.totalQueried) {
@@ -878,5 +861,67 @@ int queryTestProcess() {
             "Spend %.4f second completed total queries: %" PRIu64
             ", the QPS of all threads: %10.3f\n\n",
             tInS, totalQueried, (double)totalQueried / tInS);
+
+}
+
+int queryTestProcess() {
+    prompt(0);
+
+    if (REST_IFACE == g_queryInfo.iface) {
+        encodeAuthBase64();
+    }
+
+    // kill sql for executing seconds over "kill_slow_query_threshold"
+    if (g_queryInfo.iface == TAOSC_IFACE && g_queryInfo.killQueryThreshold) {
+        int32_t ret = killSlowQuery();
+        if (ret != 0) {
+            return ret;
+        }
+    }
+
+    // covert addr
+    if (g_queryInfo.iface == REST_IFACE) {
+        if (convertHostToServAddr(g_arguments->host,
+                    g_arguments->port + TSDB_PORT_HTTP,
+                    &(g_arguments->serv_addr)) != 0) {
+            errorPrint("%s", "convert host to server address\n");
+            return -1;
+        }
+    }
+
+    // fetch child name if super table
+    if ((g_queryInfo.superQueryInfo.sqlCount > 0) &&
+            (g_queryInfo.superQueryInfo.threadCnt > 0)) {
+        int32_t ret = fetchChildTableName(g_queryInfo.dbName, g_queryInfo.superQueryInfo.stbName);
+    }
+
+    // 
+    // start running
+    //
+
+    // specified table
+    uint64_t startTs = toolsGetTimestampMs();
+    if (g_queryInfo.specifiedQueryInfo.mixed_query) {
+        // mixed
+        if (multi_thread_specified_mixed_query(g_queryInfo.iface,
+                    g_queryInfo.dbName)) {
+            return -1;
+        }
+    } else {
+        // no mixied
+        if (multi_thread_specified_table_query(g_queryInfo.iface,
+                    g_queryInfo.dbName)) {
+            return -1;
+        }
+    }
+
+    // super table
+    if (multi_thread_super_table_query(g_queryInfo.iface,
+                g_queryInfo.dbName)) {
+        return -1;
+    }
+
+    // total 
+    totalQuery(toolsGetTimestampMs() - startTs); 
     return 0;
 }
