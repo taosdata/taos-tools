@@ -776,9 +776,9 @@ jobs:
           gcov -abcfu ${topdir}/taos-tools/src/benchTmq.c -o src/CMakeFiles/taosBenchmark.dir/benchTmq.c.gcno
           gcov -abcfu ${topdir}/taos-tools/src/benchUtil.c -o src/CMakeFiles/taosBenchmark.dir/benchUtil.c.gcno
           mkdir ${topdir}/coverage || :
-          lcov -c -d . -o ${topdir}/coverage/lcov-with-deps.info
-          lcov -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info
-          lcov -r ${topdir}/coverage/lcov-with-deps.info "*/src/tools*" -o ${topdir}/coverage/lcov.info
+          lcov --ignore-errors 'negative,unexecuted_blocks' -c -d . -o ${topdir}/coverage/lcov-with-deps.info
+          lcov --ignore-errors 'negative,unexecuted_blocks' -r ${topdir}/coverage/lcov-with-deps.info "*/deps/*" -o ${topdir}/coverage/lcov.info
+          lcov --ignore-errors 'negative,unexecuted_blocks' -r ${topdir}/coverage/lcov-with-deps.info "*/src/tools*" -o ${topdir}/coverage/lcov.info
 
       - name: Publish to coveralls.io
         if:
